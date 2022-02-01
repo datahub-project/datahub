@@ -21,12 +21,16 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.6", "3.9"]
+        python-version: ["3.6", "3.9.9"]
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python-version }}
+      - uses: vemonet/setup-spark@v1 # spark is required for pyspark+pydeequ data lake profiling
+        with:
+          spark-version: '3.0.3'
+          hadoop-version: '3.2'
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Run metadata-ingestion tests
@@ -44,13 +48,17 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.6", "3.9"]
+        python-version: ["3.6", "3.9.9"]
       fail-fast: false
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python-version }}
+      - uses: vemonet/setup-spark@v1 # spark is required for pyspark+pydeequ data lake profiling
+        with:
+          spark-version: '3.0.3'
+          hadoop-version: '3.2'
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh && python -m pip install --upgrade pip && pip install tox tox-gh-actions
       - name: Codegen

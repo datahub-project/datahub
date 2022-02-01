@@ -24,7 +24,8 @@ from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from more_itertools import partition
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.source_common import DatasetSourceConfigBase
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -382,11 +383,10 @@ class QueryEvent:
         return query_event
 
 
-class BigQueryUsageConfig(BaseUsageConfig):
+class BigQueryUsageConfig(DatasetSourceConfigBase, BaseUsageConfig):
     projects: Optional[List[str]] = None
     project_id: Optional[str] = None  # deprecated in favor of `projects`
     extra_client_options: dict = {}
-    env: str = builder.DEFAULT_ENV
     table_pattern: Optional[AllowDenyPattern] = None
 
     log_page_size: Optional[pydantic.PositiveInt] = 1000
@@ -400,6 +400,16 @@ class BigQueryUsageConfig(BaseUsageConfig):
         )
         values["projects"] = [v]
         return None
+
+    @pydantic.validator("platform")
+    def platform_is_always_bigquery(cls, v):
+        return "bigquery"
+
+    @pydantic.validator("platform_instance")
+    def bigquery_platform_instance_is_meaningless(cls, v):
+        raise ConfigurationError(
+            "BigQuery project-ids are globally unique. You don't need to provide a platform_instance"
+        )
 
     def get_allow_pattern_string(self) -> str:
         return "|".join(self.table_pattern.allow) if self.table_pattern else ""
@@ -576,7 +586,10 @@ class BigQueryUsageSource(Source):
                 for table in event.referencedTables:
                     try:
                         affected_datasets.append(
-                            _table_ref_to_urn(table.remove_extras(), self.config.env)
+                            _table_ref_to_urn(
+                                table.remove_extras(),
+                                self.config.env,
+                            )
                         )
                     except Exception as e:
                         self.report.report_warning(
@@ -594,7 +607,10 @@ class BigQueryUsageSource(Source):
                 entityType="dataset",
                 aspectName="operation",
                 changeType=ChangeTypeClass.UPSERT,
-                entityUrn=_table_ref_to_urn(destination_table, self.config.env),
+                entityUrn=_table_ref_to_urn(
+                    destination_table,
+                    env=self.config.env,
+                ),
                 aspect=operation_aspect,
             )
             return MetadataWorkUnit(

@@ -60,6 +60,11 @@ type Query {
     glossaryTerm(urn: String!): GlossaryTerm
 
     """
+    Fetch a Domain by primary key (urn)
+    """
+    domain(urn: String!): Domain
+
+    """
     List all DataHub Access Policies
     """
     listPolicies(input: ListPoliciesInput!): ListPoliciesResult
@@ -103,6 +108,11 @@ type Query {
     Fetches the number of entities ingested by type
     """
     getEntityCounts(input: EntityCountInput): EntityCountResults
+
+    """
+    List all DataHub Domains
+    """
+    listDomains(input: ListDomainsInput!): ListDomainsResult
 }
 
 """
@@ -246,9 +256,25 @@ type Mutation {
     removeGroupMembers(input: RemoveGroupMembersInput!): Boolean
 
     """
-    Create a new group. Returns the urn of the newly created group. Requires Manage Users & Groups Platform Privilege
+    Create a new group. Returns the urn of the newly created group. Requires the Manage Users & Groups Platform Privilege
     """
     createGroup(input: CreateGroupInput!): String
+
+    """
+    Create a new Domain. Returns the urn of the newly created Domain. Requires the Manage Domains privilege. If a domain with the provided ID already exists,
+    it will be overwritten.
+    """
+    createDomain(input: CreateDomainInput!): String
+
+    """
+    Sets the Domain for a Dataset, Chart, Dashboard, Data Flow (Pipeline), or Data Job (Task). Returns true if the Domain was successfully added, or already exists. Requires the Edit Domains privilege for the Entity.
+    """
+    setDomain(entityUrn: String!, domainUrn: String!): Boolean
+
+    """
+    Sets the Domain for a Dataset, Chart, Dashboard, Data Flow (Pipeline), or Data Job (Task). Returns true if the Domain was successfully removed, or was already removed. Requires the Edit Domains privilege for an asset.
+    """
+    unsetDomain(entityUrn: String!): Boolean
 }
 
 """
@@ -275,6 +301,11 @@ interface Entity {
 A top level Metadata Entity Type
 """
 enum EntityType {
+    """
+    A Domain containing Metadata Entities
+    """
+    DOMAIN
+
     """
     The Dataset Entity
     """
@@ -574,6 +605,11 @@ type Dataset implements EntityWithRelationships & Entity {
     glossaryTerms: GlossaryTerms
 
     """
+    The Domain associated with the Dataset
+    """
+    domain: Domain
+
+    """
     Statistics about how this Dataset is used
     """
     usageStats(resource: String!, range: TimeRange): UsageQueryResult
@@ -784,6 +820,12 @@ type GlossaryTerm implements Entity {
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Schema metadata of the dataset
+    """
+    schemaMetadata(version: Long): SchemaMetadata
+
 }
 
 """
@@ -1013,9 +1055,33 @@ enum FabricType {
     DEV
 
     """
-    Designates early integration or staging fabrics
+    Designates testing fabrics
+    """
+    TEST
+
+    """
+    Designates quality assurance fabrics
+    """
+    QA
+
+    """
+    Designates user acceptance testing fabrics
+    """
+    UAT
+
+    """
+    Designates early integration fabrics
     """
     EI
+    """
+    Designates staging fabrics
+    """
+    STG
+
+    """
+    Designates non-production fabrics
+    """
+    NON_PROD
 
     """
     Designates production fabrics
@@ -2669,6 +2735,11 @@ type Dashboard implements EntityWithRelationships & Entity {
     glossaryTerms: GlossaryTerms
 
     """
+    The Domain associated with the Dashboard
+    """
+    domain: Domain
+
+    """
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
@@ -2690,6 +2761,11 @@ type Dashboard implements EntityWithRelationships & Entity {
     The structured tags associated with the dashboard
     """
     globalTags: GlobalTags @deprecated
+
+    """
+    Standardized platform urn where the dashboard is defined
+    """
+    platform: DataPlatform!
 }
 
 """
@@ -2867,6 +2943,11 @@ type Chart implements EntityWithRelationships & Entity {
     glossaryTerms: GlossaryTerms
 
     """
+    The Domain associated with the Chart
+    """
+    domain: Domain
+
+    """
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
@@ -2888,6 +2969,11 @@ type Chart implements EntityWithRelationships & Entity {
     The structured tags associated with the chart
     """
     globalTags: GlobalTags @deprecated
+
+    """
+    Standardized platform urn where the chart is defined
+    """
+    platform: DataPlatform!
 }
 
 """
@@ -3169,6 +3255,11 @@ type DataFlow implements Entity {
     glossaryTerms: GlossaryTerms
 
     """
+    The Domain associated with the DataFlow
+    """
+    domain: Domain
+
+    """
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
@@ -3190,6 +3281,11 @@ type DataFlow implements Entity {
     Data Jobs
     """
     dataJobs: DataFlowDataJobsRelationships @deprecated
+
+    """
+    Standardized platform urn where the datflow is defined
+    """
+    platform: DataPlatform!
 }
 
 """
@@ -3313,6 +3409,11 @@ type DataJob implements EntityWithRelationships & Entity {
     The structured glossary terms associated with the dashboard
     """
     glossaryTerms: GlossaryTerms
+
+    """
+    The Domain associated with the Data Job
+    """
+    domain: Domain
 
     """
     Edges extending from this entity
@@ -5152,4 +5253,149 @@ type SubTypes {
     The sub-types that this entity implements. e.g. Datasets that are views will implement the "view" subtype
    """
    typeNames: [String!]
+}
+
+"""
+A domain, or a logical grouping of Metadata Entities
+"""
+type Domain implements Entity {
+    """
+    The primary key of the domain
+    """
+    urn: String!
+
+    """
+    A standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    Id of the domain
+    """
+    id: String!
+
+    """
+    Properties about a domain
+    """
+    properties: DomainProperties
+
+    """
+    Ownership metadata of the dataset
+    """
+    ownership: Ownership
+
+    """
+    References to internal resources related to the dataset
+    """
+    institutionalMemory: InstitutionalMemory
+
+    """
+    Children entities inside of the Domain
+    """
+    entities(input: DomainEntitiesInput): SearchResults
+
+    """
+    Edges extending from this entity
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+}
+
+"""
+Properties about a domain
+"""
+type DomainProperties {
+  """
+  Display name of the domain
+  """
+  name: String!
+
+  """
+  Description of the Domain
+  """
+  description: String
+}
+
+"""
+Input required to fetch the entities inside of a Domain.
+"""
+input DomainEntitiesInput {
+  """
+  Optional query filter for particular entities inside the domain
+  """
+  query: String
+
+  """
+  The offset of the result set
+  """
+  start: Int
+
+  """
+  The number of entities to include in result set
+  """
+  count: Int
+
+  """
+  Optional Facet filters to apply to the result set
+  """
+  filters: [FacetFilterInput!]
+}
+
+"""
+Input required to create a new Domain.
+"""
+input CreateDomainInput {
+  """
+  Optional! A custom id to use as the primary key identifier for the domain. If not provided, a random UUID will be generated as the id.
+  """
+  id: String
+
+  """
+  Display name for the Domain
+  """
+  name: String!
+
+  """
+  Optional description for the Domain
+  """
+  description: String
+}
+
+"""
+Input required when listing DataHub Domains
+"""
+input ListDomainsInput {
+  """
+  The starting offset of the result set returned
+  """
+  start: Int
+
+  """
+  The maximum number of Domains to be returned in the result set
+  """
+  count: Int
+}
+
+"""
+The result obtained when listing DataHub Domains
+"""
+type ListDomainsResult {
+  """
+  The starting offset of the result set returned
+  """
+  start: Int!
+
+  """
+  The number of Domains in the returned result set
+  """
+  count: Int!
+
+  """
+  The total number of Domains in the result set
+  """
+  total: Int!
+
+  """
+  The Domains themselves
+  """
+  domains: [Domain!]!
 }

@@ -56,7 +56,7 @@ public class LabelUtils {
       terms.setAuditStamp(getAuditStamp(actor));
 
       removeTermIfExists(terms, labelUrn);
-      persistAspect(targetUrn, terms, actor, entityService);
+      persistAspect(targetUrn, GLOSSARY_TERM_ASPECT_NAME, terms, actor, entityService);
     } else {
       com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
           (com.linkedin.schema.EditableSchemaMetadata) getAspectFromEntity(
@@ -67,7 +67,7 @@ public class LabelUtils {
       }
 
       removeTermIfExists(editableFieldInfo.getGlossaryTerms(), labelUrn);
-      persistAspect(targetUrn, editableSchemaMetadata, actor, entityService);
+      persistAspect(targetUrn, GLOSSARY_TERM_ASPECT_NAME, editableSchemaMetadata, actor, entityService);
     }
   }
 
@@ -86,7 +86,7 @@ public class LabelUtils {
         tags.setTags(new TagAssociationArray());
       }
       removeTagIfExists(tags, labelUrn);
-      persistAspect(targetUrn, tags, actor, entityService);
+      persistAspect(targetUrn, TAGS_ASPECT_NAME, tags, actor, entityService);
     } else {
       com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
           (com.linkedin.schema.EditableSchemaMetadata) getAspectFromEntity(
@@ -97,7 +97,7 @@ public class LabelUtils {
         editableFieldInfo.setGlobalTags(new GlobalTags());
       }
       removeTagIfExists(editableFieldInfo.getGlobalTags(), labelUrn);
-      persistAspect(targetUrn, editableSchemaMetadata, actor, entityService);
+      persistAspect(targetUrn, EDITABLE_SCHEMA_METADATA, editableSchemaMetadata, actor, entityService);
     }
   }
 
@@ -116,7 +116,7 @@ public class LabelUtils {
         tags.setTags(new TagAssociationArray());
       }
       addTagIfNotExists(tags, labelUrn);
-      persistAspect(targetUrn, tags, actor, entityService);
+      persistAspect(targetUrn, TAGS_ASPECT_NAME, tags, actor, entityService);
     } else {
       com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
           (com.linkedin.schema.EditableSchemaMetadata) getAspectFromEntity(
@@ -128,7 +128,7 @@ public class LabelUtils {
       }
 
       addTagIfNotExists(editableFieldInfo.getGlobalTags(), labelUrn);
-      persistAspect(targetUrn, editableSchemaMetadata, actor, entityService);
+      persistAspect(targetUrn, EDITABLE_SCHEMA_METADATA, editableSchemaMetadata, actor, entityService);
     }
   }
 
@@ -149,7 +149,7 @@ public class LabelUtils {
       }
 
       addTermIfNotExistsToEntity(terms, labelUrn);
-      persistAspect(targetUrn, terms, actor, entityService);
+      persistAspect(targetUrn, GLOSSARY_TERM_ASPECT_NAME, terms, actor, entityService);
     } else {
       com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
           (com.linkedin.schema.EditableSchemaMetadata) getAspectFromEntity(
@@ -163,7 +163,7 @@ public class LabelUtils {
       editableFieldInfo.getGlossaryTerms().setAuditStamp(getAuditStamp(actor));
 
       addTermIfNotExistsToEntity(editableFieldInfo.getGlossaryTerms(), labelUrn);
-      persistAspect(targetUrn, editableSchemaMetadata, actor, entityService);
+      persistAspect(targetUrn, EDITABLE_SCHEMA_METADATA, editableSchemaMetadata, actor, entityService);
     }
   }
 

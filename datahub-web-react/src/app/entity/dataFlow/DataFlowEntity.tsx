@@ -3,7 +3,6 @@ import { ShareAltOutlined } from '@ant-design/icons';
 import { DataFlow, EntityType, PlatformType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
-import { getLogoFromPlatform } from '../../shared/getLogoFromPlatform';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { useGetDataFlowQuery, useUpdateDataFlowMutation } from '../../../graphql/dataFlow.generated';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
@@ -15,6 +14,7 @@ import { GenericEntityProperties } from '../shared/types';
 import { DataFlowJobsTab } from '../shared/tabs/Entity/DataFlowJobsTab';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { capitalizeFirstLetter } from '../../shared/textUtil';
+import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 
 /**
  * Definition of the DataHub DataFlow entity.
@@ -90,6 +90,9 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 {
                     component: SidebarOwnerSection,
                 },
+                {
+                    component: SidebarDomainSection,
+                },
             ]}
         />
     );
@@ -106,8 +109,8 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 urn: `urn:li:dataPlatform:(${tool})`,
                 type: EntityType.DataPlatform,
                 name: tool,
-                info: {
-                    logoUrl: getLogoFromPlatform(tool),
+                properties: {
+                    logoUrl: dataFlow?.platform?.properties?.logoUrl || '',
                     displayName: capitalizeFirstLetter(tool),
                     type: PlatformType.Others,
                     datasetNameDelimiter: '.',
@@ -124,9 +127,10 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 name={data.properties?.name || ''}
                 description={data.editableProperties?.description || data.properties?.description}
                 platformName={platformName}
-                platformLogo={getLogoFromPlatform(data.orchestrator)}
+                platformLogo={data?.platform?.properties?.logoUrl || ''}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
+                domain={data.domain}
             />
         );
     };
@@ -140,10 +144,11 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 name={data.properties?.name || ''}
                 description={data.editableProperties?.description || data.properties?.description || ''}
                 platformName={platformName}
-                platformLogo={getLogoFromPlatform(data.orchestrator)}
+                platformLogo={data?.platform?.properties?.logoUrl || ''}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
                 insights={result.insights}
+                domain={data.domain}
             />
         );
     };
