@@ -4462,6 +4462,11 @@ Input for creating a new group
 """
 input CreateGroupInput {
   """
+  Optional! A custom id to use as the primary key identifier for the group. If not provided, a random UUID will be generated as the id.
+  """
+  id: String
+
+  """
   The display name of the group
   """
   name: String!
