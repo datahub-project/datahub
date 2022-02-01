@@ -124,7 +124,7 @@ class KafkaSource(StatefulIngestionSourceBase):
 
     def create_checkpoint(self, job_id: JobId) -> Optional[Checkpoint]:
         """
-        Create the custom checkpoint with empty state for the job.
+        Create a custom checkpoint with empty state for the job.
         """
         assert self.ctx.pipeline_name is not None
         if job_id == self.get_default_ingestion_job_id():
@@ -195,7 +195,8 @@ class KafkaSource(StatefulIngestionSourceBase):
             if self.source_config.topic_patterns.allowed(t):
                 yield from self._extract_record(t)
                 # add topic to checkpoint if stateful ingestion is enabled
-                self._add_topic_to_checkpoint(t)
+                if self.is_stateful_ingestion_configured():
+                    self._add_topic_to_checkpoint(t)
             else:
                 self.report.report_dropped(t)
         if self.is_stateful_ingestion_configured():
@@ -253,20 +254,19 @@ class KafkaSource(StatefulIngestionSourceBase):
         return schema_str
 
     def _add_topic_to_checkpoint(self, topic: str) -> None:
-        if self.is_stateful_ingestion_configured():
-            cur_checkpoint = self.get_current_checkpoint(
-                self.get_default_ingestion_job_id()
-            )
-            if cur_checkpoint is not None:
-                checkpoint_state = cast(KafkaCheckpointState, cur_checkpoint.state)
-                checkpoint_state.add_topic_urn(
-                    make_dataset_urn_with_platform_instance(
-                        platform=self.platform,
-                        name=topic,
-                        platform_instance=None,
-                        env=self.source_config.env,
-                    )
+        cur_checkpoint = self.get_current_checkpoint(
+            self.get_default_ingestion_job_id()
+        )
+        if cur_checkpoint is not None:
+            checkpoint_state = cast(KafkaCheckpointState, cur_checkpoint.state)
+            checkpoint_state.add_topic_urn(
+                make_dataset_urn_with_platform_instance(
+                    platform=self.platform,
+                    name=topic,
+                    platform_instance=None,
+                    env=self.source_config.env,
                 )
+            )
 
     def _extract_record(self, topic: str) -> Iterable[MetadataWorkUnit]:
         logger.debug(f"topic = {topic}")
