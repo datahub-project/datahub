@@ -4,7 +4,7 @@ export function urlEncodeUrn(urn: string) {
         urn
             // Hack - React Router v5 does not like pre-url-encoded paths. Since URNs can contain free form IDs, there's nothing preventing them from having percentages.
             // If we use double encoded paths, React ends up decoding them fully, which breaks our ability to read urns properly.
-            .replace(/%/g, '((encoded_percent))')
+            .replace(/%/g, '{{encoded_percent}}')
             .replace(/\//g, '%2F')
             .replace(/\?/g, '%3F')
             .replace(/#/g, '%23')
