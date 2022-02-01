@@ -55,6 +55,10 @@ task yarnLint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   args = ['run', 'lint']
 }
 
+task yarnLintFix(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+  args = ['run', 'lint-fix']
+}
+
 task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnTest, yarnLint]) {
   args = ['run', 'build']
 }
