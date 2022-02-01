@@ -14,12 +14,27 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 class KafkaSourceTest(unittest.TestCase):
     def test_get_schema_str_replace_confluent_ref_avro(self):
 
-        schema_str_orig = """
+        # References external schema by name 'TestTopic1' in the definition of 'my_field1'.
+        schema_str_orig_external_schema_ref_by_name = """
 {
   "fields": [
     {
       "name": "my_field1",
       "type": "TestTopic1"
+    }
+  ],
+  "name": "TestTopic1Val",
+  "namespace": "io.acryl",
+  "type": "record"
+}
+"""
+        # References external schema by subject 'schema_subject1' in the definition of 'my_field1'.
+        schema_str_orig_external_schema_ref_by_subject = """
+{
+  "fields": [
+    {
+      "name": "my_field1",
+      "type": "schema_subject_1"
     }
   ],
   "name": "TestTopic1Val",
@@ -84,14 +99,30 @@ class KafkaSourceTest(unittest.TestCase):
         ):
             schema_str = kafka_source.get_schema_str_replace_confluent_ref_avro(
                 schema=Schema(
-                    schema_str=schema_str_orig,
+                    schema_str=schema_str_orig_external_schema_ref_by_name,
                     schema_type="AVRO",
                     references=[
                         dict(name="TestTopic1", subject="schema_subject_1", version=1)
                     ],
                 )
             )
-            assert schema_str == schema_str_final
+            assert schema_str == KafkaSource._compact_schema(schema_str_final)
+
+        with patch.object(
+            kafka_source.schema_registry_client,
+            "get_latest_version",
+            new_get_latest_version,
+        ):
+            schema_str = kafka_source.get_schema_str_replace_confluent_ref_avro(
+                schema=Schema(
+                    schema_str=schema_str_orig_external_schema_ref_by_subject,
+                    schema_type="AVRO",
+                    references=[
+                        dict(name="TestTopic1", subject="schema_subject_1", version=1)
+                    ],
+                )
+            )
+            assert schema_str == KafkaSource._compact_schema(schema_str_final)
 
     @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
     def test_kafka_source_configuration(self, mock_kafka):
