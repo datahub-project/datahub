@@ -24,6 +24,7 @@ import ViewDefinitionTab from '../shared/tabs/Dataset/View/ViewDefinitionTab';
 import { SidebarViewDefinitionSection } from '../shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection';
 import { SidebarRecommendationsSection } from '../shared/containers/profile/sidebar/Recommendations/SidebarRecommendationsSection';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
+import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -165,6 +166,9 @@ export class DatasetEntity implements Entity<Dataset> {
                     component: SidebarOwnerSection,
                 },
                 {
+                    component: SidebarDomainSection,
+                },
+                {
                     component: SidebarRecommendationsSection,
                 },
             ]}
@@ -189,10 +193,11 @@ export class DatasetEntity implements Entity<Dataset> {
                 subtype={data.subTypes?.typeNames?.[0]}
                 description={data.editableProperties?.description || data.properties?.description}
                 platformName={data.platform.displayName || data.platform.name}
-                platformLogo={data.platform.info?.logoUrl}
+                platformLogo={data.platform.properties?.logoUrl}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
                 glossaryTerms={data.glossaryTerms}
+                domain={data.domain}
             />
         );
     };
@@ -206,9 +211,10 @@ export class DatasetEntity implements Entity<Dataset> {
                 origin={data.origin}
                 description={data.editableProperties?.description || data.properties?.description}
                 platformName={data.platform.name}
-                platformLogo={data.platform.info?.logoUrl}
+                platformLogo={data.platform.properties?.logoUrl}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
+                domain={data.domain}
                 glossaryTerms={data.glossaryTerms}
                 subtype={data.subTypes?.typeNames?.[0]}
                 snippet={
@@ -246,7 +252,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 outgoingRelationships: entity?.['outgoing'],
                 direction: RelationshipDirection.Outgoing,
             }),
-            icon: entity?.platform?.info?.logoUrl || undefined,
+            icon: entity?.platform?.properties?.logoUrl || undefined,
             platform: entity?.platform?.name,
         };
     };
@@ -256,7 +262,7 @@ export class DatasetEntity implements Entity<Dataset> {
     };
 
     platformLogoUrl = (data: Dataset) => {
-        return data.platform.info?.logoUrl || undefined;
+        return data.platform.properties?.logoUrl || undefined;
     };
 
     getGenericEntityProperties = (data: Dataset) => {

@@ -15,6 +15,10 @@ for more details on Metabase's login api.
 This plugin extracts Charts, dashboards, and associated metadata. This plugin is in beta and has only been tested
 on PostgreSQL and H2 database.
 
+| Capability | Status | Details | 
+| -----------| ------ | ---- |
+| Platform Instance | ✔️ | [link](../../docs/platform-instances.md) |
+
 ### Dashboard
 
 [/api/dashboard](https://www.metabase.com/docs/latest/api-documentation.html#dashboard) endpoint is used to
@@ -67,6 +71,9 @@ source:
     default_schema: public
     database_alias_map:
       h2: sample-dataset.db
+    # Optional mapping of platform types to instance ids
+    platform_instance_map: # optional
+      postgres: test_postgres    # optional
 
 sink:
   # sink configs

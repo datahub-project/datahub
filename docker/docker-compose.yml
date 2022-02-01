@@ -2,7 +2,7 @@
 
 # Please see the README.md for instructions as to how to use and customize.
 
-# NOTE: This file will cannot build! No dockerfiles are set. See the README.md in this directory.
+# NOTE: This file does not build! No dockerfiles are set. See the README.md in this directory.
 ---
 version: '3.8'
 services:
@@ -118,10 +118,7 @@ services:
   datahub-actions:
     image: public.ecr.aws/datahub/acryl-datahub-actions:${ACTIONS_VERSION:-head}
     hostname: actions
-    env_file:
-      - datahub-actions/env/docker.env
-    volumes:
-      - ./datahub-actions/default_actions.yaml:/etc/datahub/actions/default_actions.yaml:ro
+    env_file: datahub-actions/env/docker.env
     depends_on:
       - datahub-gms
 

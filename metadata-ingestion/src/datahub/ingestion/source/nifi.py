@@ -310,7 +310,10 @@ class NifiSource(Source):
             ), "Config password is required for SINGLE_USER auth"
             token_response = self.session.post(
                 url=urljoin(self.config.site_url, TOKEN_ENDPOINT),
-                data={"username": self.config.username, "password": "admin@datahub"},
+                data={
+                    "username": self.config.username,
+                    "password": self.config.password,
+                },
             )
             if not token_response.ok:
                 logger.error("Failed to get token")

@@ -1,7 +1,9 @@
 package com.datahub.authentication.authenticator;
 
 import com.datahub.authentication.Authentication;
+
 import com.datahub.authentication.AuthenticationException;
+import com.datahub.authentication.AuthenticationExpiredException;
 import com.datahub.authentication.Authenticator;
 import com.datahub.authentication.AuthenticatorContext;
 import javax.annotation.Nonnull;
@@ -39,7 +41,7 @@ public class AuthenticatorChain {
    * Returns null if {@link Authentication} cannot be resolved for the incoming request.
    */
   @Nullable
-  public Authentication authenticate(@Nonnull final AuthenticatorContext context) {
+  public Authentication authenticate(@Nonnull final AuthenticatorContext context) throws AuthenticationException {
     Objects.requireNonNull(context);
     for (final Authenticator authenticator : this.authenticators) {
       try {
@@ -49,9 +51,10 @@ public class AuthenticatorChain {
           // Authentication was successful - Short circuit
           return result;
         }
-      } catch (AuthenticationException e) {
-        // Simply log and continue if it's an AuthenticationException.
+      } catch (AuthenticationExpiredException e) {
+        // Throw if it's an AuthenticationException to propagate the error message to the end user
         log.debug(String.format("Unable to authenticate request using Authenticator %s", authenticator.getClass().getCanonicalName()), e);
+        throw e;
       } catch (Exception e) {
         // Log as a normal error otherwise.
         log.error(String.format(

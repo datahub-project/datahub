@@ -3,19 +3,27 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { BookOutlined, PlusOutlined } from '@ant-design/icons';
-
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { ActionRequest, EntityType, GlobalTags, GlossaryTerms, SubResourceType } from '../../../types.generated';
+import {
+    Domain,
+    ActionRequest,
+    EntityType,
+    GlobalTags,
+    GlossaryTerms,
+    SubResourceType,
+} from '../../../types.generated';
 import AddTagTermModal from './AddTagTermModal';
 import { StyledTag } from '../../entity/shared/components/styled/StyledTag';
 import { EMPTY_MESSAGES } from '../../entity/shared/constants';
 import { useRemoveTagMutation, useRemoveTermMutation } from '../../../graphql/mutations.generated';
+import { DomainLink } from './DomainLink';
 
 type Props = {
     uneditableTags?: GlobalTags | null;
     editableTags?: GlobalTags | null;
     editableGlossaryTerms?: GlossaryTerms | null;
     uneditableGlossaryTerms?: GlossaryTerms | null;
+    domain?: Domain | null;
     canRemove?: boolean;
     canAddTag?: boolean;
     canAddTerm?: boolean;
@@ -65,6 +73,7 @@ export default function TagTermGroup({
     editableGlossaryTerms,
     proposedGlossaryTerms,
     proposedTags,
+    domain,
     entityUrn,
     entityType,
     entitySubresource,
@@ -162,6 +171,9 @@ export default function TagTermGroup({
 
     return (
         <TagWrapper>
+            {domain && (
+                <DomainLink urn={domain.urn} name={entityRegistry.getDisplayName(EntityType.Domain, domain) || ''} />
+            )}
             {uneditableGlossaryTerms?.terms?.map((term) => (
                 <TagLink to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)} key={term.term.urn}>
                     <Tag closable={false}>

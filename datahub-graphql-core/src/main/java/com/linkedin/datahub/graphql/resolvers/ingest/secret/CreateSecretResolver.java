@@ -39,36 +39,38 @@ public class CreateSecretResolver implements DataFetcher<CompletableFuture<Strin
   public CompletableFuture<String> get(final DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
 
-    if (IngestionAuthUtils.canManageSecrets(context)) {
+    return CompletableFuture.supplyAsync(() -> {
 
-      final CreateSecretInput input = bindArgument(environment.getArgument("input"), CreateSecretInput.class);
+      if (IngestionAuthUtils.canManageSecrets(context)) {
 
-      final MetadataChangeProposal proposal = new MetadataChangeProposal();
+        final CreateSecretInput input = bindArgument(environment.getArgument("input"), CreateSecretInput.class);
 
-      // Create the Ingestion source key --> use the display name as a unique id to ensure it's not duplicated.
-      final DataHubSecretKey key = new DataHubSecretKey();
-      key.setId(input.getName());
-      proposal.setEntityKeyAspect(GenericAspectUtils.serializeAspect(key));
+        final MetadataChangeProposal proposal = new MetadataChangeProposal();
 
-      // Create the secret value.
-      final DataHubSecretValue value = new DataHubSecretValue();
-      value.setName(input.getName());
-      value.setValue(_secretService.encrypt(input.getValue()));
-      value.setDescription(input.getDescription(), SetMode.IGNORE_NULL);
+        // Create the Ingestion source key --> use the display name as a unique id to ensure it's not duplicated.
+        final DataHubSecretKey key = new DataHubSecretKey();
+        key.setId(input.getName());
+        proposal.setEntityKeyAspect(GenericAspectUtils.serializeAspect(key));
 
-      proposal.setEntityType(Constants.SECRETS_ENTITY_NAME);
-      proposal.setAspectName(Constants.SECRET_VALUE_ASPECT_NAME);
-      proposal.setAspect(GenericAspectUtils.serializeAspect(value));
-      proposal.setChangeType(ChangeType.UPSERT);
+        // Create the secret value.
+        final DataHubSecretValue value = new DataHubSecretValue();
+        value.setName(input.getName());
+        value.setValue(_secretService.encrypt(input.getValue()));
+        value.setDescription(input.getDescription(), SetMode.IGNORE_NULL);
 
-      return CompletableFuture.supplyAsync(() -> {
+        proposal.setEntityType(Constants.SECRETS_ENTITY_NAME);
+        proposal.setAspectName(Constants.SECRET_VALUE_ASPECT_NAME);
+        proposal.setAspect(GenericAspectUtils.serializeAspect(value));
+        proposal.setChangeType(ChangeType.UPSERT);
+
+        System.out.println(String.format("About to ingest %s", proposal));
         try {
           return _entityClient.ingestProposal(proposal, context.getAuthentication());
         } catch (Exception e) {
           throw new RuntimeException(String.format("Failed to create new secret with name %s", input.getName()), e);
         }
-      });
-    }
-    throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+      }
+      throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+    });
   }
 }
