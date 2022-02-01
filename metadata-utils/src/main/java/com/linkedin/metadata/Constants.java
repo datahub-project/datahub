@@ -23,6 +23,7 @@ public class Constants {
   public static final String DATA_FLOW_ENTITY_NAME = "dataFlow";
   public static final String DATA_JOB_ENTITY_NAME = "dataJob";
   public static final String CONTAINER_ENTITY_NAME = "container";
+  public static final String GLOSSARY_TERM_ENTITY_NAME = "glossaryTerm";
   public static final String DATA_PLATFORM_ENTITY_NAME = "dataPlatform";
   public static final String DOMAIN_ENTITY_NAME = "domain";
   public static final String INGESTION_SOURCE_ENTITY_NAME = "dataHubIngestionSource";
@@ -89,6 +90,11 @@ public class Constants {
   public static final String CONTAINER_PROPERTIES_ASPECT_NAME = "containerProperties";
   public static final String CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME = "editableContainerProperties";
   public static final String CONTAINER_ASPECT_NAME = "container"; // parent container
+
+ // Glossary term
+  public static final String GLOSSARY_TERM_KEY_ASPECT_NAME = "glossaryTermKey";
+  public static final String GLOSSARY_TERM_INFO_ASPECT_NAME = "glossaryTermInfo";
+  public static final String GLOSSARY_RELATED_TERM_ASPECT_NAME = "glossaryRelatedTerms";
 
   // Domain
   public static final String DOMAIN_KEY_ASPECT_NAME = "domainKey";

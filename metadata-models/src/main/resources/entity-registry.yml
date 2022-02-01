@@ -59,6 +59,10 @@ entities:
       - institutionalMemory
       - browsePaths # unclear if this will be used
       - status
+  - name: glossaryTerm
+    keyAspect: glossaryTermKey
+    aspects:
+      - schemaMetadata
   - name: domain
     doc: A data domain within an organization.
     keyAspect: domainKey
