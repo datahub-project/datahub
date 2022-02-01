@@ -4,7 +4,14 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { BookOutlined, PlusOutlined } from '@ant-design/icons';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { Domain, ActionRequest, EntityType, GlobalTags, GlossaryTerms, SubResourceType } from '../../../types.generated';
+import {
+    Domain,
+    ActionRequest,
+    EntityType,
+    GlobalTags,
+    GlossaryTerms,
+    SubResourceType,
+} from '../../../types.generated';
 import AddTagTermModal from './AddTagTermModal';
 import { StyledTag } from '../../entity/shared/components/styled/StyledTag';
 import { EMPTY_MESSAGES } from '../../entity/shared/constants';
