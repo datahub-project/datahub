@@ -3,6 +3,7 @@ from datetime import datetime
 import pytest
 from pydantic import ValidationError
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration, get_time_bucket
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -20,11 +21,8 @@ _TestAggregatedDataset = GenericAggregatedDataset[_TestTableRef]
 def test_add_one_query_without_columns():
     test_email = "test_email@test.com"
     test_query = "select * from test"
-
     event_time = datetime(2020, 1, 1)
-
     floored_ts = get_time_bucket(event_time, BucketDuration.DAY)
-
     resource = "test_db.test_schema.test_table"
 
     ta = _TestAggregatedDataset(bucket_start_time=floored_ts, resource=resource)
@@ -40,16 +38,75 @@ def test_add_one_query_without_columns():
     assert len(ta.columnFreq) == 0
 
 
+def test_add_one_query_with_ignored_user():
+    test_email = "test_email@test.com"
+    test_query = "select * from test"
+    event_time = datetime(2020, 1, 1)
+    floored_ts = get_time_bucket(event_time, BucketDuration.DAY)
+    resource = "test_db.test_schema.test_table"
+
+    ta = _TestAggregatedDataset(
+        bucket_start_time=floored_ts,
+        resource=resource,
+        user_email_pattern=AllowDenyPattern(deny=list(["test_email@test.com"])),
+    )
+    ta.add_read_entry(
+        test_email,
+        test_query,
+        [],
+    )
+
+    assert ta.queryCount == 0
+    assert ta.queryFreq[test_query] == 0
+    assert ta.userFreq[test_email] == 0
+    assert len(ta.columnFreq) == 0
+
+
+def test_multiple_query_with_ignored_user():
+    test_email = "test_email@test.com"
+    test_email2 = "test_email2@test.com"
+    test_query = "select * from test"
+    test_query2 = "select * from test2"
+    event_time = datetime(2020, 1, 1)
+    floored_ts = get_time_bucket(event_time, BucketDuration.DAY)
+    resource = "test_db.test_schema.test_table"
+
+    ta = _TestAggregatedDataset(
+        bucket_start_time=floored_ts,
+        resource=resource,
+        user_email_pattern=AllowDenyPattern(deny=list(["test_email@test.com"])),
+    )
+    ta.add_read_entry(
+        test_email,
+        test_query,
+        [],
+    )
+    ta.add_read_entry(
+        test_email,
+        test_query,
+        [],
+    )
+    ta.add_read_entry(
+        test_email2,
+        test_query2,
+        [],
+    )
+
+    assert ta.queryCount == 1
+    assert ta.queryFreq[test_query] == 0
+    assert ta.userFreq[test_email] == 0
+    assert ta.queryFreq[test_query2] == 1
+    assert ta.userFreq[test_email2] == 1
+    assert len(ta.columnFreq) == 0
+
+
 def test_multiple_query_without_columns():
     test_email = "test_email@test.com"
     test_email2 = "test_email2@test.com"
     test_query = "select * from test"
     test_query2 = "select * from test2"
-
     event_time = datetime(2020, 1, 1)
-
     floored_ts = get_time_bucket(event_time, BucketDuration.DAY)
-
     resource = "test_db.test_schema.test_table"
 
     ta = _TestAggregatedDataset(bucket_start_time=floored_ts, resource=resource)
@@ -58,13 +115,11 @@ def test_multiple_query_without_columns():
         test_query,
         [],
     )
-
     ta.add_read_entry(
         test_email,
         test_query,
         [],
     )
-
     ta.add_read_entry(
         test_email2,
         test_query2,
@@ -83,9 +138,7 @@ def test_make_usage_workunit():
     test_email = "test_email@test.com"
     test_query = "select * from test"
     event_time = datetime(2020, 1, 1)
-
     floored_ts = get_time_bucket(event_time, BucketDuration.DAY)
-
     resource = "test_db.test_schema.test_table"
 
     ta = _TestAggregatedDataset(bucket_start_time=floored_ts, resource=resource)
@@ -97,6 +150,7 @@ def test_make_usage_workunit():
     wu: MetadataWorkUnit = ta.make_usage_workunit(
         bucket_duration=BucketDuration.DAY, urn_builder=lambda x: x, top_n_queries=10
     )
+
     assert wu.id == "2020-01-01T00:00:00-test_db.test_schema.test_table"
     assert isinstance(wu.get_metadata()["metadata"], MetadataChangeProposalWrapper)
     du: DatasetUsageStatisticsClass = wu.get_metadata()["metadata"].aspect
@@ -110,16 +164,12 @@ def test_query_trimming():
     test_query: str = "select * from test where a > 10 and b > 20 order by a asc"
     top_n_queries: int = 10
     total_budget_for_query_list: int = 200
-
     event_time = datetime(2020, 1, 1)
-
     floored_ts = get_time_bucket(event_time, BucketDuration.DAY)
-
     resource = "test_db.test_schema.test_table"
 
     ta = _TestAggregatedDataset(bucket_start_time=floored_ts, resource=resource)
     ta.total_budget_for_query_list = total_budget_for_query_list
-
     ta.add_read_entry(
         test_email,
         test_query,
@@ -130,6 +180,7 @@ def test_query_trimming():
         urn_builder=lambda x: x,
         top_n_queries=top_n_queries,
     )
+
     assert wu.id == "2020-01-01T00:00:00-test_db.test_schema.test_table"
     assert isinstance(wu.get_metadata()["metadata"], MetadataChangeProposalWrapper)
     du: DatasetUsageStatisticsClass = wu.get_metadata()["metadata"].aspect
