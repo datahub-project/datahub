@@ -53,7 +53,7 @@ export class GroupEntity implements Entity<CorpGroup> {
             urn={data.urn}
             name={data.info?.displayName || data.name || ''}
             description={data.info?.description}
-            membersCount={data?.relationships?.total || 0}
+            membersCount={(data as any)?.memberCount?.total || 0}
         />
     );
 
