@@ -42,7 +42,8 @@ export const EntityPage = ({ entityType }: Props) => {
         entityType === EntityType.Dashboard ||
         entityType === EntityType.Chart ||
         entityType === EntityType.DataFlow ||
-        entityType === EntityType.DataJob
+        entityType === EntityType.DataJob ||
+        entityType === EntityType.GlossaryTerm
     ) {
         return <SearchablePage>{entityRegistry.renderProfile(entityType, urn)}</SearchablePage>;
     }
