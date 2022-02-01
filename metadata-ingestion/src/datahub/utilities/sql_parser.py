@@ -88,22 +88,31 @@ class MetadataSQLSQLParser(SQLParser):
 class SqlLineageSQLParser(SQLParser):
     _DATE_SWAP_TOKEN = "__d_a_t_e"
     _TIMESTAMP_SWAP_TOKEN = "__t_i_m_e_s_t_a_m_p"
+    _MYVIEW_SQL_TABLE_NAME_TOKEN = "__my_view__.__sql_table_name__"
+    _MYVIEW_LOOKER_TOKEN = "my_view.SQL_TABLE_NAME"
 
     def __init__(self, sql_query: str) -> None:
         super().__init__(sql_query)
 
         original_sql_query = sql_query
 
-        # MetadataSQLParser makes mistakes on lateral flatten queries, use the prefix
+        # SqlLineageParser makes mistakes on lateral flatten queries, use the prefix
         if "lateral flatten" in sql_query:
             sql_query = sql_query[: sql_query.find("lateral flatten")]
 
-        # MetadataSQLParser also makes mistakes on columns called "date", rename them
+        # SqlLineageParser makes mistakes on columns called "date", rename them
         sql_query = re.sub(
             r"(\bdate\b)", rf"{self._DATE_SWAP_TOKEN}", sql_query, flags=re.IGNORECASE
         )
 
-        # SqlLineageParser also makes mistakes on columns called "timestamp", rename them
+        # SqlLineageParser lowercarese tablenames and we need to replace Looker specific token which should be uppercased
+        sql_query = re.sub(
+            rf"(\${{{self._MYVIEW_LOOKER_TOKEN}}})",
+            rf"{self._MYVIEW_SQL_TABLE_NAME_TOKEN}",
+            sql_query,
+        )
+
+        # SqlLineageParser makes mistakes on columns called "timestamp", rename them
         sql_query = re.sub(
             r"(\btimestamp\b)",
             rf"{self._TIMESTAMP_SWAP_TOKEN}",
@@ -111,7 +120,7 @@ class SqlLineageSQLParser(SQLParser):
             flags=re.IGNORECASE,
         )
 
-        # MetadataSQLParser does not handle "encode" directives well. Remove them
+        # SqlLineageParser does not handle "encode" directives well. Remove them
         sql_query = re.sub(r"\sencode [a-zA-Z]*", "", sql_query, flags=re.IGNORECASE)
 
         # Replace lookml templates with the variable otherwise sqlparse can't parse ${
@@ -153,6 +162,16 @@ class SqlLineageSQLParser(SQLParser):
         for table in self._sql_holder.source_tables:
             table_normalized = re.sub(r"^<default>.", "", str(table))
             result.append(str(table_normalized))
+
+        # We need to revert TOKEN replacements
+        result = ["date" if c == self._DATE_SWAP_TOKEN else c for c in result]
+        result = [
+            "timestamp" if c == self._TIMESTAMP_SWAP_TOKEN else c for c in list(result)
+        ]
+        result = [
+            self._MYVIEW_LOOKER_TOKEN if c == self._MYVIEW_SQL_TABLE_NAME_TOKEN else c
+            for c in result
+        ]
 
         # Sort tables to make the list deterministic
         result.sort()

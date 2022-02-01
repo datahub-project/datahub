@@ -8,7 +8,10 @@ import threading
 import traceback
 import unittest.mock
 import uuid
+from math import log10
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+
+from datahub.telemetry import telemetry
 
 # Fun compatibility hack! GE version 0.13.44 broke compatibility with SQLAlchemy 1.3.24.
 # This is a temporary workaround until GE fixes the issue on their end.
@@ -33,7 +36,7 @@ from great_expectations.data_context.types.base import (
 )
 from great_expectations.dataset.dataset import Dataset
 from great_expectations.datasource.sqlalchemy_datasource import SqlAlchemyDatasource
-from great_expectations.profile.base import OrderedProfilerCardinality, ProfilerDataType
+from great_expectations.profile.base import ProfilerDataType
 from great_expectations.profile.basic_dataset_profiler import BasicDatasetProfilerBase
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.exc import ProgrammingError
@@ -41,6 +44,10 @@ from typing_extensions import Concatenate, ParamSpec
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.emitter.mce_builder import get_sys_time
+from datahub.ingestion.source.profiling.common import (
+    Cardinality,
+    _convert_to_cardinality,
+)
 from datahub.ingestion.source.sql.sql_common import SQLSourceReport
 from datahub.metadata.schema_classes import (
     DatasetFieldProfileClass,
@@ -233,35 +240,6 @@ class GEProfilingConfig(ConfigModel):
         return values
 
 
-def _convert_to_cardinality(
-    unique_count: Optional[int], pct_unique: Optional[float]
-) -> Optional[OrderedProfilerCardinality]:
-    # Logic adopted from Great Expectations.
-
-    cardinality = None
-    if unique_count is None or unique_count == 0 or pct_unique is None:
-        cardinality = OrderedProfilerCardinality.NONE
-    elif pct_unique == 1.0:
-        cardinality = OrderedProfilerCardinality.UNIQUE
-    elif pct_unique > 0.1:
-        cardinality = OrderedProfilerCardinality.VERY_MANY
-    elif pct_unique > 0.02:
-        cardinality = OrderedProfilerCardinality.MANY
-    else:
-        if unique_count == 1:
-            cardinality = OrderedProfilerCardinality.ONE
-        elif unique_count == 2:
-            cardinality = OrderedProfilerCardinality.TWO
-        elif unique_count < 60:
-            cardinality = OrderedProfilerCardinality.VERY_FEW
-        elif unique_count < 1000:
-            cardinality = OrderedProfilerCardinality.FEW
-        else:
-            cardinality = OrderedProfilerCardinality.MANY
-
-    return cardinality
-
-
 def _is_single_row_query_method(query: Any) -> bool:
     SINGLE_ROW_QUERY_FILES = {
         # "great_expectations/dataset/dataset.py",
@@ -349,7 +327,7 @@ class _SingleColumnSpec:
 
     unique_count: Optional[int] = None
     nonnull_count: Optional[int] = None
-    cardinality: Optional[OrderedProfilerCardinality] = None
+    cardinality: Optional[Cardinality] = None
 
 
 @dataclasses.dataclass
@@ -578,6 +556,14 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         assert profile.rowCount is not None
         row_count: int = profile.rowCount
 
+        telemetry.telemetry_instance.ping(
+            "sql_profiling",
+            "rows_profiled",
+            # bucket by taking floor of log of the number of rows scanned
+            # report the bucket as a label so the count is not collapsed
+            str(10 ** int(log10(row_count + 1))),
+        )
+
         for column_spec in columns_profiling_queue:
             column = column_spec.column
             column_profile = column_spec.column_profile
@@ -609,42 +595,51 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
             self._get_dataset_column_sample_values(column_profile, column)
 
-            if type_ == ProfilerDataType.INT or type_ == ProfilerDataType.FLOAT:
-                if cardinality == OrderedProfilerCardinality.UNIQUE:
+            if (
+                type_ == ProfilerDataType.INT
+                or type_ == ProfilerDataType.FLOAT
+                or type_ == ProfilerDataType.NUMERIC
+            ):
+                if cardinality == Cardinality.UNIQUE:
                     pass
                 elif cardinality in [
-                    OrderedProfilerCardinality.ONE,
-                    OrderedProfilerCardinality.TWO,
-                    OrderedProfilerCardinality.VERY_FEW,
-                    OrderedProfilerCardinality.FEW,
-                ]:
-                    self._get_dataset_column_distinct_value_frequencies(
-                        column_profile,
-                        column,
-                    )
-                elif cardinality in [
-                    OrderedProfilerCardinality.MANY,
-                    OrderedProfilerCardinality.VERY_MANY,
-                    OrderedProfilerCardinality.UNIQUE,
+                    Cardinality.ONE,
+                    Cardinality.TWO,
+                    Cardinality.VERY_FEW,
+                    Cardinality.FEW,
+                    Cardinality.MANY,
+                    Cardinality.VERY_MANY,
+                    Cardinality.UNIQUE,
                 ]:
                     self._get_dataset_column_min(column_profile, column)
                     self._get_dataset_column_max(column_profile, column)
                     self._get_dataset_column_mean(column_profile, column)
                     self._get_dataset_column_median(column_profile, column)
+
                     if type_ == ProfilerDataType.INT:
                         self._get_dataset_column_stdev(column_profile, column)
 
                     self._get_dataset_column_quantiles(column_profile, column)
                     self._get_dataset_column_histogram(column_profile, column)
+                    if cardinality in [
+                        Cardinality.ONE,
+                        Cardinality.TWO,
+                        Cardinality.VERY_FEW,
+                        Cardinality.FEW,
+                    ]:
+                        self._get_dataset_column_distinct_value_frequencies(
+                            column_profile,
+                            column,
+                        )
                 else:  # unknown cardinality - skip
                     pass
 
             elif type_ == ProfilerDataType.STRING:
                 if cardinality in [
-                    OrderedProfilerCardinality.ONE,
-                    OrderedProfilerCardinality.TWO,
-                    OrderedProfilerCardinality.VERY_FEW,
-                    OrderedProfilerCardinality.FEW,
+                    Cardinality.ONE,
+                    Cardinality.TWO,
+                    Cardinality.VERY_FEW,
+                    Cardinality.FEW,
                 ]:
                     self._get_dataset_column_distinct_value_frequencies(
                         column_profile,
@@ -658,10 +653,10 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 # FIXME: Re-add histogram once kl_divergence has been modified to support datetimes
 
                 if cardinality in [
-                    OrderedProfilerCardinality.ONE,
-                    OrderedProfilerCardinality.TWO,
-                    OrderedProfilerCardinality.VERY_FEW,
-                    OrderedProfilerCardinality.FEW,
+                    Cardinality.ONE,
+                    Cardinality.TWO,
+                    Cardinality.VERY_FEW,
+                    Cardinality.FEW,
                 ]:
                     self._get_dataset_column_distinct_value_frequencies(
                         column_profile,
@@ -670,10 +665,10 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
             else:
                 if cardinality in [
-                    OrderedProfilerCardinality.ONE,
-                    OrderedProfilerCardinality.TWO,
-                    OrderedProfilerCardinality.VERY_FEW,
-                    OrderedProfilerCardinality.FEW,
+                    Cardinality.ONE,
+                    Cardinality.TWO,
+                    Cardinality.VERY_FEW,
+                    Cardinality.FEW,
                 ]:
                     self._get_dataset_column_distinct_value_frequencies(
                         column_profile,

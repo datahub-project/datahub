@@ -18,16 +18,18 @@ import {
     OwnershipUpdate,
     SchemaMetadata,
     StringMapEntry,
+    Domain,
 } from '../../../types.generated';
 import { FetchedEntity } from '../../lineage/types';
 
 export type EntityTab = {
     name: string;
-    component: React.FunctionComponent;
+    component: React.FunctionComponent<{ properties?: any }>;
     display?: {
         visible: (GenericEntityProperties, T) => boolean; // Whether the tab is visible on the UI. Defaults to true.
         enabled: (GenericEntityProperties, T) => boolean; // Whether the tab is enabled on the UI. Defaults to true.
     };
+    properties?: any;
 };
 
 export type EntitySidebarSection = {
@@ -47,6 +49,7 @@ export type GenericEntityProperties = {
     globalTags?: Maybe<GlobalTags>;
     glossaryTerms?: Maybe<GlossaryTerms>;
     ownership?: Maybe<Ownership>;
+    domain?: Maybe<Domain>;
     platform?: Maybe<DataPlatform>;
     customProperties?: Maybe<StringMapEntry[]>;
     institutionalMemory?: Maybe<InstitutionalMemory>;
@@ -86,7 +89,7 @@ export type EntityContextType = {
     entityType: EntityType;
     entityData: GenericEntityProperties | null;
     baseEntity: any;
-    updateEntity: UpdateEntityType<any>;
+    updateEntity?: UpdateEntityType<any> | null;
     routeToTab: (params: { tabName: string; tabParams?: Record<string, any>; method?: 'push' | 'replace' }) => void;
     refetch: () => Promise<any>;
     lineage: FetchedEntity | undefined;

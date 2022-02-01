@@ -22,8 +22,7 @@ public class SearchQueryBuilder {
   private static final String TEXT_ANALYZER = "word_delimited";
 
   private static final Set<FieldType> TYPES_WITH_DELIMITED_SUBFIELD =
-      new HashSet<>(Arrays.asList(FieldType.TEXT, FieldType.TEXT_PARTIAL, FieldType.URN,
-          FieldType.URN_PARTIAL));
+      new HashSet<>(Arrays.asList(FieldType.TEXT, FieldType.TEXT_PARTIAL));
   private static final Set<FieldType> TYPES_WITH_NGRAM_SUBFIELD =
       new HashSet<>(Arrays.asList(FieldType.TEXT_PARTIAL, FieldType.URN_PARTIAL));
 

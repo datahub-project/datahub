@@ -20,5 +20,9 @@ record DataPlatformInstance {
   /**
    * Instance of the data platform (e.g. db instance)
    */
-  instance: optional string
+  @Searchable = {
+    "fieldType": "URN",
+    "fieldName": "platformInstance"
+  }
+  instance: optional Urn
 }

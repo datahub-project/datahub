@@ -9,13 +9,15 @@ import com.linkedin.gms.factory.auth.DataHubTokenServiceFactory;
 import com.linkedin.gms.factory.common.GitVersionFactory;
 import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
-import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
+import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.recommendation.RecommendationServiceFactory;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
+import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.usage.UsageClient;
@@ -66,8 +68,15 @@ public class GraphQLEngineFactory {
   private TokenService _tokenService;
 
   @Autowired
+  @Qualifier("dataHubSecretService")
+  private SecretService _secretService;
+
+  @Autowired
   @Qualifier("entityRegistry")
   private EntityRegistry _entityRegistry;
+
+  @Autowired
+  private ConfigurationProvider _configProvider;
 
   @Autowired
   @Qualifier("gitVersion")
@@ -80,11 +89,32 @@ public class GraphQLEngineFactory {
   @Nonnull
   protected GraphQLEngine getInstance() {
     if (isAnalyticsEnabled) {
-      return new GmsGraphQLEngine(_entityClient, _graphClient, _usageClient,
-          new AnalyticsService(elasticClient, indexConvention.getPrefix()), _entityService, _recommendationsService,
-          _tokenService, _entityRegistry, _gitVersion).builder().build();
+      return new GmsGraphQLEngine(
+          _entityClient,
+          _graphClient,
+          _usageClient,
+          new AnalyticsService(elasticClient, indexConvention.getPrefix()),
+          _entityService,
+          _recommendationsService,
+          _tokenService,
+          _entityRegistry,
+          _secretService,
+          _configProvider.getIngestion(),
+          _gitVersion
+          ).builder().build();
     }
-    return new GmsGraphQLEngine(_entityClient, _graphClient, _usageClient, null, _entityService,
-        _recommendationsService, _tokenService, _entityRegistry, _gitVersion).builder().build();
+    return new GmsGraphQLEngine(
+        _entityClient,
+        _graphClient,
+        _usageClient,
+        null,
+        _entityService,
+        _recommendationsService,
+        _tokenService,
+        _entityRegistry,
+        _secretService,
+        _configProvider.getIngestion(),
+        _gitVersion
+        ).builder().build();
   }
 }

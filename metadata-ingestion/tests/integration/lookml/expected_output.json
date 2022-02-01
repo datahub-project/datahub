@@ -77,7 +77,8 @@
                                     ]
                                 },
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "city",
@@ -99,7 +100,8 @@
                                     ]
                                 },
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "is_latest",
@@ -121,7 +123,8 @@
                                     ]
                                 },
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "timestamp",
@@ -146,7 +149,8 @@
                                     ]
                                 },
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "average_measurement",
@@ -168,7 +172,8 @@
                                     ]
                                 },
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             }
                         ],
                         "primaryKeys": [],
@@ -195,6 +200,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "lookml-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -209,7 +216,13 @@
         "value": "{\"typeNames\": [\"view\"]}",
         "contentType": "application/json"
     },
-    "systemMetadata": null
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -222,7 +235,13 @@
         "value": "{\"materialized\": false, \"viewLogic\": \"SELECT\\n          is_latest,\\n          country,\\n          city,\\n          timestamp,\\n          measurement\\n        FROM\\n          my_table\", \"viewLanguage\": \"sql\"}",
         "contentType": "application/json"
     },
-    "systemMetadata": null
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -302,7 +321,8 @@
                                     ]
                                 },
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "city",
@@ -324,7 +344,8 @@
                                     ]
                                 },
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "timestamp",
@@ -349,7 +370,8 @@
                                     ]
                                 },
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "average_measurement",
@@ -371,7 +393,8 @@
                                     ]
                                 },
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             }
                         ],
                         "primaryKeys": [],
@@ -398,6 +421,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "lookml-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -412,7 +437,13 @@
         "value": "{\"typeNames\": [\"view\"]}",
         "contentType": "application/json"
     },
-    "systemMetadata": null
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -425,7 +456,13 @@
         "value": "{\"materialized\": false, \"viewLogic\": \"SELECT\\n          country,\\n          city,\\n          timestamp,\\n          measurement\\n        FROM\\n          ${my_view.SQL_TABLE_NAME} AS my_view\", \"viewLanguage\": \"sql\"}",
         "contentType": "application/json"
     },
-    "systemMetadata": null
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -479,6 +516,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "lookml-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -493,7 +532,13 @@
         "value": "{\"typeNames\": [\"view\"]}",
         "contentType": "application/json"
     },
-    "systemMetadata": null
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -547,6 +592,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "lookml-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -561,7 +608,13 @@
         "value": "{\"typeNames\": [\"view\"]}",
         "contentType": "application/json"
     },
-    "systemMetadata": null
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -641,7 +694,8 @@
                                     ]
                                 },
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             }
                         ],
                         "primaryKeys": [],
@@ -668,6 +722,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "lookml-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -682,7 +738,13 @@
         "value": "{\"typeNames\": [\"view\"]}",
         "contentType": "application/json"
     },
-    "systemMetadata": null
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -736,6 +798,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "lookml-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -750,7 +814,13 @@
         "value": "{\"typeNames\": [\"view\"]}",
         "contentType": "application/json"
     },
-    "systemMetadata": null
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -804,6 +874,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "lookml-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -818,7 +890,13 @@
         "value": "{\"typeNames\": [\"view\"]}",
         "contentType": "application/json"
     },
-    "systemMetadata": null
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -894,25 +972,8 @@
                                     "tags": []
                                 },
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "aliased_platform",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": "",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
-                                    }
-                                },
-                                "nativeDataType": "unknown",
-                                "recursive": false,
-                                "globalTags": {
-                                    "tags": []
-                                },
-                                "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "country",
@@ -930,7 +991,27 @@
                                     "tags": []
                                 },
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "aliased_platform",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "unknown",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": []
+                                },
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             }
                         ],
                         "primaryKeys": [],
@@ -957,6 +1038,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "lookml-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -971,7 +1054,13 @@
         "value": "{\"typeNames\": [\"view\"]}",
         "contentType": "application/json"
     },
-    "systemMetadata": null
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -984,7 +1073,13 @@
         "value": "{\"materialized\": false, \"viewLogic\": \"date DATE encode ZSTD, \\n         platform VARCHAR(20) encode ZSTD AS aliased_platform, \\n         country VARCHAR(20) encode ZSTD\", \"viewLanguage\": \"sql\"}",
         "contentType": "application/json"
     },
-    "systemMetadata": null
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -1023,6 +1118,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "lookml-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -1037,7 +1134,13 @@
         "value": "{\"typeNames\": [\"view\"]}",
         "contentType": "application/json"
     },
-    "systemMetadata": null
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -1050,6 +1153,12 @@
         "value": "{\"materialized\": false, \"viewLogic\": \"SELECT\\n        customer_id,\\n        SUM(sale_price) AS lifetime_spend\\n      FROM\\n        order\\n      WHERE\\n        {% condition order_region %} order.region {% endcondition %}\\n      GROUP BY 1\", \"viewLanguage\": \"sql\"}",
         "contentType": "application/json"
     },
-    "systemMetadata": null
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
 }
 ]
