@@ -1,8 +1,10 @@
 package com.datahub.authentication.filter;
 
 import com.datahub.authentication.Authentication;
+
 import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authentication.AuthenticationContext;
+import com.datahub.authentication.AuthenticationException;
 import com.datahub.authentication.Authenticator;
 import com.datahub.authentication.AuthenticatorConfiguration;
 import com.datahub.authentication.authenticator.AuthenticatorChain;
@@ -56,7 +58,16 @@ public class AuthenticationFilter implements Filter {
       FilterChain chain)
       throws IOException, ServletException {
     AuthenticatorContext context = buildAuthContext((HttpServletRequest) request);
-    Authentication authentication = this.authenticatorChain.authenticate(context);
+    Authentication authentication = null;
+    try {
+      authentication = this.authenticatorChain.authenticate(context);
+    } catch (AuthenticationException e) {
+      // For AuthenticationExpiredExceptions, terminate and provide that feedback to the user
+      log.debug("Failed to authenticate request. Received an AuthenticationExpiredException from authenticator chain.", e);
+      ((HttpServletResponse) response).sendError(HttpServletResponse.SC_UNAUTHORIZED, e.getMessage());
+      return;
+    }
+
     if (authentication != null) {
       // Successfully authenticated.
       log.debug(String.format("Successfully authenticated request for Actor with type: %s, id: %s",

@@ -82,7 +82,7 @@
               },
               "fields": [
                 {
-                  "fieldPath": "yr",
+                  "fieldPath": "[version=2.0].[type=int].yr",
                   "jsonPath": null,
                   "nullable": true,
                   "description": null,
@@ -95,10 +95,11 @@
                   "recursive": false,
                   "globalTags": null,
                   "glossaryTerms": null,
-                  "isPartOfKey": false
+                  "isPartOfKey": false,
+                  "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                 },
                 {
-                  "fieldPath": "flightdate",
+                  "fieldPath": "[version=2.0].[type=string].flightdate",
                   "jsonPath": null,
                   "nullable": true,
                   "description": null,
@@ -111,10 +112,11 @@
                   "recursive": false,
                   "globalTags": null,
                   "glossaryTerms": null,
-                  "isPartOfKey": false
+                  "isPartOfKey": false,
+                  "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                 },
                 {
-                  "fieldPath": "uniquecarrier",
+                  "fieldPath": "[version=2.0].[type=string].uniquecarrier",
                   "jsonPath": null,
                   "nullable": true,
                   "description": null,
@@ -127,10 +129,11 @@
                   "recursive": false,
                   "globalTags": null,
                   "glossaryTerms": null,
-                  "isPartOfKey": false
+                  "isPartOfKey": false,
+                  "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                 },
                 {
-                  "fieldPath": "airlineid",
+                  "fieldPath": "[version=2.0].[type=int].airlineid",
                   "jsonPath": null,
                   "nullable": true,
                   "description": null,
@@ -143,10 +146,11 @@
                   "recursive": false,
                   "globalTags": null,
                   "glossaryTerms": null,
-                  "isPartOfKey": false
+                  "isPartOfKey": false,
+                  "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                 },
                 {
-                  "fieldPath": "carrier",
+                  "fieldPath": "[version=2.0].[type=string].carrier",
                   "jsonPath": null,
                   "nullable": true,
                   "description": null,
@@ -159,10 +163,11 @@
                   "recursive": false,
                   "globalTags": null,
                   "glossaryTerms": null,
-                  "isPartOfKey": false
+                  "isPartOfKey": false,
+                  "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                 },
                 {
-                  "fieldPath": "flightnum",
+                  "fieldPath": "[version=2.0].[type=string].flightnum",
                   "jsonPath": null,
                   "nullable": true,
                   "description": null,
@@ -175,10 +180,11 @@
                   "recursive": false,
                   "globalTags": null,
                   "glossaryTerms": null,
-                  "isPartOfKey": false
+                  "isPartOfKey": false,
+                  "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                 },
                 {
-                  "fieldPath": "origin",
+                  "fieldPath": "[version=2.0].[type=string].origin",
                   "jsonPath": null,
                   "nullable": true,
                   "description": null,
@@ -191,12 +197,13 @@
                   "recursive": false,
                   "globalTags": null,
                   "glossaryTerms": null,
-                  "isPartOfKey": false
+                  "isPartOfKey": false,
+                  "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                 },
                 {
-                  "fieldPath": "year",
+                  "fieldPath": "[version=2.0].[type=string].year",
                   "jsonPath": null,
-                  "nullable": false,
+                  "nullable": true,
                   "description": null,
                   "type": {
                     "type": {
@@ -207,7 +214,8 @@
                   "recursive": false,
                   "globalTags": null,
                   "glossaryTerms": null,
-                  "isPartOfKey": false
+                  "isPartOfKey": false,
+                  "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                 }
               ],
               "primaryKeys": null,
@@ -303,7 +311,7 @@
               },
               "fields": [
                 {
-                  "fieldPath": "markers",
+                  "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].markers",
                   "jsonPath": null,
                   "nullable": true,
                   "description": null,
@@ -318,7 +326,63 @@
                   "recursive": false,
                   "globalTags": null,
                   "glossaryTerms": null,
-                  "isPartOfKey": false
+                  "isPartOfKey": false,
+                  "jsonProps": "{\"native_data_type\": \"array<struct<name:string,position:array<double>,location:array<double>>>\"}"
+                },
+                {
+                  "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].markers.[type=string].name",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "string",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                },
+                {
+                  "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].markers.[type=array].[type=double].position",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.ArrayType": {
+                        "nestedType": null
+                      }
+                    }
+                  },
+                  "nativeDataType": "array<double>",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "jsonProps": "{\"native_data_type\": \"array<double>\"}"
+                },
+                {
+                  "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].markers.[type=array].[type=double].location",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.ArrayType": {
+                        "nestedType": null
+                      }
+                    }
+                  },
+                  "nativeDataType": "array<double>",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "jsonProps": "{\"native_data_type\": \"array<double>\"}"
                 }
               ],
               "primaryKeys": null,
@@ -414,7 +478,7 @@
               },
               "fields": [
                 {
-                  "fieldPath": "yr",
+                  "fieldPath": "[version=2.0].[type=int].yr",
                   "jsonPath": null,
                   "nullable": true,
                   "description": null,
@@ -427,10 +491,11 @@
                   "recursive": false,
                   "globalTags": null,
                   "glossaryTerms": null,
-                  "isPartOfKey": false
+                  "isPartOfKey": false,
+                  "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                 },
                 {
-                  "fieldPath": "quarter",
+                  "fieldPath": "[version=2.0].[type=int].quarter",
                   "jsonPath": null,
                   "nullable": true,
                   "description": null,
@@ -443,10 +508,11 @@
                   "recursive": false,
                   "globalTags": null,
                   "glossaryTerms": null,
-                  "isPartOfKey": false
+                  "isPartOfKey": false,
+                  "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                 },
                 {
-                  "fieldPath": "month",
+                  "fieldPath": "[version=2.0].[type=int].month",
                   "jsonPath": null,
                   "nullable": true,
                   "description": null,
@@ -459,10 +525,11 @@
                   "recursive": false,
                   "globalTags": null,
                   "glossaryTerms": null,
-                  "isPartOfKey": false
+                  "isPartOfKey": false,
+                  "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                 },
                 {
-                  "fieldPath": "dayofmonth",
+                  "fieldPath": "[version=2.0].[type=int].dayofmonth",
                   "jsonPath": null,
                   "nullable": true,
                   "description": null,
@@ -475,12 +542,13 @@
                   "recursive": false,
                   "globalTags": null,
                   "glossaryTerms": null,
-                  "isPartOfKey": false
+                  "isPartOfKey": false,
+                  "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                 },
                 {
-                  "fieldPath": "year",
+                  "fieldPath": "[version=2.0].[type=string].year",
                   "jsonPath": null,
-                  "nullable": false,
+                  "nullable": true,
                   "description": null,
                   "type": {
                     "type": {
@@ -491,7 +559,8 @@
                   "recursive": false,
                   "globalTags": null,
                   "glossaryTerms": null,
-                  "isPartOfKey": false
+                  "isPartOfKey": false,
+                  "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                 }
               ],
               "primaryKeys": null,

@@ -17,7 +17,8 @@
         "MANAGE_USERS_AND_GROUPS",
         "VIEW_ANALYTICS",
         "GENERATE_PERSONAL_ACCESS_TOKENS",
-        "VIEW_METADATA_PROPOSALS"
+        "VIEW_METADATA_PROPOSALS",
+        "MANAGE_DOMAINS"
       ],
       "displayName":"Root User - All Platform Privileges",
       "description":"Grants full platform privileges to root datahub super user.",
@@ -43,61 +44,6 @@
       "displayName":"Root User - Edit All Datasets",
       "resources":{
         "type":"dataset",
-        "allResources":true
-      },
-      "description":"Grants full edit privileges for Datasets to root 'datahub' root user.",
-      "state":"ACTIVE",
-      "type":"METADATA",
-      "editable":false
-    }
-  },
-  {
-    "urn": "urn:li:dataHubPolicy:1-1",
-    "info": {
-      "actors":{
-        "resourceOwners":false,
-        "allUsers":false,
-        "allGroups":false,
-        "users":[
-          "urn:li:corpuser:datahub"
-        ]
-      },
-      "privileges":[
-        "MANAGE_ENTITY_GLOSSARY_TERMS", "MANAGE_ENTITY_TAGS", "MANAGE_DATASET_COL_TAGS", "MANAGE_DATASET_COL_GLOSSARY_TERMS",
-        "PROPOSE_ENTITY_GLOSSARY_TERMS", "PROPOSE_DATASET_COL_TAGS", "PROPOSE_DATASET_COL_GLOSSARY_TERMS",
-        "PROPOSE_ENTITY_TAGS", "EDIT_ENTITY_TAGS", "EDIT_ENTITY_GLOSSARY_TERMS",
-        "EDIT_DATASET_COL_GLOSSARY_TERMS", "EDIT_DATASET_COL_TAGS", "EDIT_DATASET_COL_DESCRIPTION"
-      ],
-      "displayName":"Root User - Manage All Proposals",
-      "resources":{
-        "type":"dataset",
-        "allResources":true
-      },
-      "description":"Grants full edit privileges for Datasets to root 'datahub' root user.",
-      "state":"ACTIVE",
-      "type":"METADATA",
-      "editable":false
-    }
-  },
-  {
-    "urn": "urn:li:dataHubPolicy:1-2",
-    "info": {
-      "actors":{
-        "resourceOwners":false,
-        "allUsers":false,
-        "allGroups":false,
-        "users":[
-          "urn:li:corpuser:datahub"
-        ]
-      },
-      "privileges":[
-        "MANAGE_ENTITY_GLOSSARY_TERMS", "MANAGE_ENTITY_TAGS",
-        "PROPOSE_ENTITY_GLOSSARY_TERMS",
-        "PROPOSE_ENTITY_TAGS", "EDIT_ENTITY_TAGS", "EDIT_ENTITY_GLOSSARY_TERMS"
-      ],
-      "displayName":"Root User - Manage All Proposals",
-      "resources":{
-        "type":"chart",
         "allResources":true
       },
       "description":"Grants full edit privileges for Datasets to root 'datahub' root user.",
@@ -239,18 +185,18 @@
         "allUsers":false,
         "allGroups":false,
         "users":[
-          "urn:li:corpuser:datahub"
+          "urn:li:corpuser:admin"
         ]
       },
       "privileges":[
         "EDIT_ENTITY"
       ],
-      "displayName":"Root User - Edit All Data Tasks",
+      "displayName":"Root User - Edit All Domains",
       "resources":{
-        "type":"dataJob",
+        "type":"domain",
         "allResources":true
       },
-      "description":"Grants full edit privileges for Data Tasks to root datahub super user.",
+      "description":"Grants full edit privileges for Domains to root datahub super user.",
       "state":"ACTIVE",
       "type":"METADATA",
       "editable":false
@@ -269,7 +215,8 @@
         "MANAGE_POLICIES",
         "MANAGE_USERS_AND_GROUPS",
         "GENERATE_PERSONAL_ACCESS_TOKENS",
-        "VIEW_METADATA_PROPOSALS"
+        "VIEW_METADATA_PROPOSALS",
+        "MANAGE_DOMAINS"
       ],
       "displayName":"All Users - All Platform Privileges",
       "description":"Grants full platform privileges to ALL users of DataHub. Change this policy to alter that behavior.",

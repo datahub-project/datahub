@@ -440,7 +440,6 @@ def generate_stitched_record(relnships_graph: RelationshipGraph) -> List[Any]:
 
         mce = MetadataChangeEventClass(
             proposedSnapshot=d,
-            systemMetadata=SystemMetadataClass(runId="test-metamodel"),
         )
         events.append(mce)
 

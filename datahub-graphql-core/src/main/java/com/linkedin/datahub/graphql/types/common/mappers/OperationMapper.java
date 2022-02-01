@@ -31,9 +31,13 @@ public class OperationMapper implements TimeSeriesAspectMapper<com.linkedin.data
 
         result.setTimestampMillis(gmsProfile.getTimestampMillis());
         result.setLastUpdatedTimestamp(gmsProfile.getLastUpdatedTimestamp());
-        result.setActor(gmsProfile.getActor().toString());
+        if (gmsProfile.hasActor()) {
+            result.setActor(gmsProfile.getActor().toString());
+        }
         result.setOperationType(OperationType.valueOf(OperationType.class, gmsProfile.getOperationType().toString()));
-        result.setNumAffectedRows(gmsProfile.getNumAffectedRows());
+        if (gmsProfile.hasNumAffectedRows()) {
+            result.setNumAffectedRows(gmsProfile.getNumAffectedRows());
+        }
         if (gmsProfile.hasAffectedDatasets()) {
             result.setAffectedDatasets(gmsProfile.getAffectedDatasets().stream().map(Urn::toString).collect(Collectors.toList()));
         }
