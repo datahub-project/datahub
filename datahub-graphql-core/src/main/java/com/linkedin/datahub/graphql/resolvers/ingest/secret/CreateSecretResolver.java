@@ -39,31 +39,6 @@ public class CreateSecretResolver implements DataFetcher<CompletableFuture<Strin
   public CompletableFuture<String> get(final DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
 
-<<<<<<< HEAD
-    if (IngestionAuthUtils.canManageSecrets(context)) {
-
-      final CreateSecretInput input = bindArgument(environment.getArgument("input"), CreateSecretInput.class);
-
-      final MetadataChangeProposal proposal = new MetadataChangeProposal();
-
-      // Create the Ingestion source key --> use the display name as a unique id to ensure it's not duplicated.
-      final DataHubSecretKey key = new DataHubSecretKey();
-      key.setId(input.getName());
-      proposal.setEntityKeyAspect(GenericAspectUtils.serializeAspect(key));
-
-      // Create the secret value.
-      final DataHubSecretValue value = new DataHubSecretValue();
-      value.setName(input.getName());
-      value.setValue(_secretService.encrypt(input.getValue()));
-      value.setDescription(input.getDescription(), SetMode.IGNORE_NULL);
-
-      proposal.setEntityType(Constants.SECRETS_ENTITY_NAME);
-      proposal.setAspectName(Constants.SECRET_VALUE_ASPECT_NAME);
-      proposal.setAspect(GenericAspectUtils.serializeAspect(value));
-      proposal.setChangeType(ChangeType.UPSERT);
-
-      return CompletableFuture.supplyAsync(() -> {
-=======
     return CompletableFuture.supplyAsync(() -> {
 
       if (IngestionAuthUtils.canManageSecrets(context)) {
@@ -89,21 +64,13 @@ public class CreateSecretResolver implements DataFetcher<CompletableFuture<Strin
         proposal.setChangeType(ChangeType.UPSERT);
 
         System.out.println(String.format("About to ingest %s", proposal));
-
->>>>>>> master
         try {
           return _entityClient.ingestProposal(proposal, context.getAuthentication());
         } catch (Exception e) {
           throw new RuntimeException(String.format("Failed to create new secret with name %s", input.getName()), e);
         }
-<<<<<<< HEAD
-      });
-    }
-    throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
-=======
       }
       throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
     });
->>>>>>> master
   }
 }

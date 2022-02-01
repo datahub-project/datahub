@@ -709,6 +709,7 @@ public class GmsGraphQLEngine {
                         new ArrayList<>(entityTypes),
                         (env) -> ((ActionRequest) env.getSource()).getEntity()))
                 )
+            )
             .type("ListDomainsResult", typeWiring -> typeWiring
                 .dataFetcher("domains",
                     new LoadableTypeBatchResolver<>(domainType,
