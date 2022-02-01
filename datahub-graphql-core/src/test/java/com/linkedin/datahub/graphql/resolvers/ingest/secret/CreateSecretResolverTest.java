@@ -43,13 +43,9 @@ public class CreateSecretResolverTest {
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
-<<<<<<< HEAD
-    resolver.get(mockEnv);
-=======
 
     // Invoke the resolver
     resolver.get(mockEnv).join();
->>>>>>> master
 
     // Verify ingest proposal has been called
     DataHubSecretKey key = new DataHubSecretKey();
