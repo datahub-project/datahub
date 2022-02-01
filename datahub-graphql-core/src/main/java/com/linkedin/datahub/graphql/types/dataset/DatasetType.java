@@ -72,6 +72,7 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
         GLOBAL_TAGS_ASPECT_NAME,
         GLOSSARY_TERMS_ASPECT_NAME,
         STATUS_ASPECT_NAME,
+        CONTAINER_ASPECT_NAME,
         DOMAINS_ASPECT_NAME
     );
 
