@@ -191,7 +191,7 @@ public class PoliciesConfig {
       ImmutableList.of(EDIT_ENTITY_OWNERS_PRIVILEGE, EDIT_ENTITY_PRIVILEGE)
   );
 
-  // Tag Privileges
+  // Domain Privileges
   public static final ResourcePrivileges DOMAIN_PRIVILEGES = ResourcePrivileges.of(
       "domain",
       "Domains",
