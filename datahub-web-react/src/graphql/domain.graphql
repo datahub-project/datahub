@@ -44,7 +44,7 @@ query listDomains($input: ListDomainsInput!) {
             ownership {
                 ...ownershipFields
             }
-            relationships(input: { start: 0, count: 1 }) {
+            entities(input: { start: 0, count: 1 }) {
                 total
             }
         }
