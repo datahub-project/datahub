@@ -10,6 +10,10 @@ authentication:
       configs:
         # Key used to validate incoming tokens. Should typically be the same as authentication.tokenService.signingKey
         signingKey: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY:WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=}
+    - type: com.datahub.authentication.authenticator.LegacyTokenAuthenticator
+      configs:
+        # Key used to validate incoming tokens. Should typically be the same as authentication.tokenService.signingKey
+        signingKey: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY:WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=}
 
   # Required separately from the DataHubTokenAuthenticator as this is used by the AuthServiceController to authorize token generation
   # at user login time.
