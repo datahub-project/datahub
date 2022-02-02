@@ -108,12 +108,12 @@ class CassandraSource(Source):
         keyspaces = self._get_db_keyspaces()
         for keyspace in keyspaces:
             if not self.config.schema_pattern.allowed(keyspace):
-                logging.info(f'Skipping keyspace: {keyspace}')
+                logger.info(f'Skipping keyspace: {keyspace}')
                 continue
 
             for table_name, table_schema in self._get_db_tables(keyspace).items():
                 if not self.config.table_pattern.allowed(table_name):
-                    logging.info(f'Skipping: {keyspace}.{table_name}')
+                    logger.info(f'Skipping: {keyspace}.{table_name}')
                     continue
 
                 for wu in self.prepare_metadata_for(platform,
@@ -125,7 +125,7 @@ class CassandraSource(Source):
 
             for view_name, view_schema in self._get_db_views(keyspace).items():
                 if not self.config.view_pattern.allowed(view_name):
-                    logging.info(f'Skipping: {keyspace}.{view_name}')
+                    logger.info(f'Skipping: {keyspace}.{view_name}')
                     continue
                 for wu in self.prepare_metadata_for(platform,
                                           keyspace,
