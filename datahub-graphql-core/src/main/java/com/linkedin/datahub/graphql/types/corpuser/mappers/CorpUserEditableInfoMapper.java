@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.types.corpuser.mappers;
 
-import com.linkedin.datahub.graphql.generated.CorpUserEditableInfo;
 import com.linkedin.datahub.graphql.generated.CorpUserEditableProperties;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 
