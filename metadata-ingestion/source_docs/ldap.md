@@ -31,7 +31,6 @@ source:
     ldap_user: "cn=admin,dc=example,dc=org"
     ldap_password: "admin"
 
-    # Options
     base_dn: "dc=example,dc=org"
 
 sink:
