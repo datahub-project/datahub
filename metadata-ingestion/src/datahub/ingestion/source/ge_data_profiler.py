@@ -53,6 +53,7 @@ from datahub.metadata.schema_classes import (
     DatasetFieldProfileClass,
     DatasetProfileClass,
     HistogramClass,
+    PartitionSpecClass,
     QuantileClass,
     ValueFrequencyClass,
 )
@@ -196,6 +197,8 @@ class GEProfilingConfig(ConfigModel):
     # Hidden option - used for debugging purposes.
     catch_exceptions: bool = True
 
+    bigquery_temp_table_schema: Optional[str] = None
+
     @pydantic.root_validator()
     def ensure_field_level_settings_are_normalized(
         cls: "GEProfilingConfig", values: Dict[str, Any]
@@ -334,6 +337,7 @@ class _SingleColumnSpec:
 class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     dataset: Dataset
     dataset_name: str
+    partition: Optional[str]
     config: GEProfilingConfig
     report: SQLSourceReport
 
@@ -528,6 +532,8 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         )
 
         profile = DatasetProfileClass(timestampMillis=get_sys_time())
+        if self.partition:
+            profile.partitionSpec = PartitionSpecClass(partition=self.partition)
         profile.fieldProfiles = []
         self._get_dataset_rows(profile)
 
@@ -799,10 +805,22 @@ class DatahubGEProfiler:
         request: GEProfilerRequest,
     ) -> Tuple[GEProfilerRequest, Optional[DatasetProfileClass]]:
         return request, self._generate_single_profile(
-            query_combiner,
-            request.pretty_name,
+            query_combiner=query_combiner,
+            pretty_name=request.pretty_name,
             **request.batch_kwargs,
         )
+
+    def _drop_bigquery_temp_table(self, ge_config: dict) -> None:
+        if "bigquery_temp_table" in ge_config:
+            try:
+                with self.base_engine.connect() as connection:
+                    connection.execute(
+                        f"drop view if exists `{ge_config.get('bigquery_temp_table')}`"
+                    )
+            except Exception:
+                logger.warning(
+                    f"Unable to delete bigquery temporary table: {ge_config.get('bigquery_temp_table')}"
+                )
 
     def _generate_single_profile(
         self,
@@ -810,36 +828,64 @@ class DatahubGEProfiler:
         pretty_name: str,
         schema: str = None,
         table: str = None,
+        partition: Optional[str] = None,
+        custom_sql: str = None,
         **kwargs: Any,
     ) -> Optional[DatasetProfileClass]:
+        logger.info(f"Profiling {pretty_name}")
+        bigquery_temp_table: Optional[str] = None
+        ge_config = {
+            "schema": schema,
+            "table": table,
+            "limit": self.config.limit,
+            "offset": self.config.offset,
+            **kwargs,
+        }
+
+        if custom_sql:
+            if self.config.bigquery_temp_table_schema:
+                bigquery_temp_table = (
+                    f"{self.config.bigquery_temp_table_schema}.ge-temp-{uuid.uuid4()}"
+                )
+
+            ge_config = {
+                "query": custom_sql,
+                "bigquery_temp_table": bigquery_temp_table,
+                **kwargs,
+            }
+
         with self._ge_context() as ge_context, PerfTimer() as timer:
             try:
                 logger.info(f"Profiling {pretty_name}")
 
                 batch = self._get_ge_dataset(
                     ge_context,
-                    {
-                        "schema": schema,
-                        "table": table,
-                        "limit": self.config.limit,
-                        "offset": self.config.offset,
-                        **kwargs,
-                    },
+                    ge_config,
                     pretty_name=pretty_name,
                 )
+
                 profile = _SingleDatasetProfiler(
-                    batch, pretty_name, self.config, self.report, query_combiner
+                    batch,
+                    pretty_name,
+                    partition,
+                    self.config,
+                    self.report,
+                    query_combiner,
                 ).generate_dataset_profile()
 
                 logger.info(
                     f"Finished profiling {pretty_name}; took {(timer.elapsed_seconds()):.3f} seconds"
                 )
+
+                self._drop_bigquery_temp_table(ge_config)
+
                 return profile
             except Exception as e:
                 if not self.config.catch_exceptions:
                     raise e
                 logger.exception(f"Encountered exception while profiling {pretty_name}")
                 self.report.report_failure(pretty_name, f"Profiling exception {e}")
+                self._drop_bigquery_temp_table(ge_config)
                 return None
 
     def _get_ge_dataset(

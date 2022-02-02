@@ -22,6 +22,7 @@ public class Constants {
   public static final String DASHBOARD_ENTITY_NAME = "dashboard";
   public static final String DATA_FLOW_ENTITY_NAME = "dataFlow";
   public static final String DATA_JOB_ENTITY_NAME = "dataJob";
+  public static final String CONTAINER_ENTITY_NAME = "container";
   public static final String GLOSSARY_TERM_ENTITY_NAME = "glossaryTerm";
   public static final String DATA_PLATFORM_ENTITY_NAME = "dataPlatform";
   public static final String DOMAIN_ENTITY_NAME = "domain";
@@ -40,6 +41,7 @@ public class Constants {
   public static final String GLOBAL_TAGS_ASPECT_NAME = "globalTags";
   public static final String GLOSSARY_TERMS_ASPECT_NAME = "glossaryTerms";
   public static final String STATUS_ASPECT_NAME = "status";
+  public static final String SUB_TYPES_ASPECT_NAME = "subTypes";
 
   // User
   public static final String CORP_USER_KEY_ASPECT_NAME = "corpUserKey";
@@ -82,6 +84,12 @@ public class Constants {
   public static final String DATA_JOB_INFO_ASPECT_NAME = "dataJobInfo";
   public static final String DATA_JOB_INPUT_OUTPUT_ASPECT_NAME = "dataJobInputOutput";
   public static final String EDITABLE_DATA_JOB_PROPERTIES_ASPECT_NAME = "editableDataJobProperties";
+
+  // Container
+  public static final String CONTAINER_KEY_ASPECT_NAME = "containerKey";
+  public static final String CONTAINER_PROPERTIES_ASPECT_NAME = "containerProperties";
+  public static final String CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME = "editableContainerProperties";
+  public static final String CONTAINER_ASPECT_NAME = "container"; // parent container
 
  // Glossary term
   public static final String GLOSSARY_TERM_KEY_ASPECT_NAME = "glossaryTermKey";

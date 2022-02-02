@@ -742,7 +742,11 @@ class BigQueryUsageSource(Source):
 
             agg_bucket = datasets[floored_ts].setdefault(
                 resource,
-                AggregatedDataset(bucket_start_time=floored_ts, resource=resource),
+                AggregatedDataset(
+                    bucket_start_time=floored_ts,
+                    resource=resource,
+                    user_email_pattern=self.config.user_email_pattern,
+                ),
             )
             agg_bucket.add_read_entry(event.actor_email, event.query, event.fieldsRead)
             num_aggregated += 1
