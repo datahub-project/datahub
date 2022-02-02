@@ -46,7 +46,7 @@ We automatically expand environment variables in the config (e.g. `${MSSQL_PASSW
 similar to variable substitution in GNU bash or in docker-compose files. For details, see
 https://docs.docker.com/compose/compose-file/compose-file-v2/#variable-substitution. This environment variable substitution should be used to mask sensitive information in recipe files. As long as you can get env variables securely to the ingestion process there would not be any need to store sensitive information in recipes.
 
-### Basic Usage
+### Basic Usage of CLI for ingestion
 
 ```shell
 pip install 'acryl-datahub[datahub-rest]'  # install the required plugin

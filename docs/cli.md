@@ -55,7 +55,7 @@ If you'd like to install from source, see the [developer guide](../metadata-inge
 
 We use a plugin architecture so that you can install only the dependencies you actually need. Click the plugin name to learn more about the specific source recipe and any FAQs!
 
-Sources:
+### Sources
 
 | Plugin Name                                                     | Install Command                                            | Provides                            |
 |-----------------------------------------------------------------|------------------------------------------------------------| ----------------------------------- |
@@ -95,7 +95,7 @@ Sources:
 | [starburst-trino-usage](../metadata-ingestion/source_docs/trino.md)                 | `pip install 'acryl-datahub[starburst-trino-usage]'`       | Starburst Trino usage statistics source   |
 | [nifi](../metadata-ingestion/source_docs/nifi.md)                                   | `pip install 'acryl-datahub[nifi]`                         | Nifi source                         |
 
-Sinks
+### Sinks
 
 | Plugin Name                             | Install Command                              | Provides                   |
 | --------------------------------------- | -------------------------------------------- | -------------------------- |
@@ -153,33 +153,6 @@ The `docker` command allows you to start up a local DataHub instance using `data
 ### ingest
 
 The `ingest` command allows you to ingest metadata from your sources using ingestion configuration files, which we call recipes. The main [ingestion page](../metadata-ingestion/README.md) contains detailed instructions about how you can use the ingest command and perform advanced operations like rolling-back previously ingested metadata through the `rollback` sub-command.
-
-#### Basic Usage
-
-```shell
-pip install 'acryl-datahub[datahub-rest]'  # install the required plugin
-datahub ingest -c ./examples/recipes/example_to_datahub_rest.yml
-```
-
-The `--dry-run` option of the `ingest` command performs all of the ingestion steps, except writing to the sink. This is useful to ensure that the
-ingestion recipe is producing the desired workunits before ingesting them into datahub.
-
-```shell
-# Dry run
-datahub ingest -c ./examples/recipes/example_to_datahub_rest.yml --dry-run
-# Short-form
-datahub ingest -c ./examples/recipes/example_to_datahub_rest.yml -n
-```
-
-The `--preview` option of the `ingest` command performs all of the ingestion steps, but limits the processing to only the first 10 workunits produced by the source.
-This option helps with quick end-to-end smoke testing of the ingestion recipe.
-
-```shell
-# Preview
-datahub ingest -c ./examples/recipes/example_to_datahub_rest.yml --preview
-# Preview with dry-run
-datahub ingest -c ./examples/recipes/example_to_datahub_rest.yml -n --preview
-```
 
 ### check
 
