@@ -7,6 +7,13 @@ import pydantic
 
 # This import verifies that the dependencies are available.
 import snowflake.sqlalchemy  # noqa: F401
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import serialization
+from snowflake.connector.network import (
+    DEFAULT_AUTHENTICATOR,
+    EXTERNAL_BROWSER_AUTHENTICATOR,
+    KEY_PAIR_AUTHENTICATOR,
+)
 from snowflake.sqlalchemy import custom_types, snowdialect
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
@@ -55,10 +62,45 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
 
     username: Optional[str] = None
     password: Optional[pydantic.SecretStr] = pydantic.Field(default=None, exclude=True)
+    private_key_path: Optional[str]
+    private_key_password: Optional[pydantic.SecretStr] = pydantic.Field(
+        default=None, exclude=True
+    )
+    authentication_type: Optional[str] = "DEFAULT_AUTHENTICATOR"
     host_port: str
     warehouse: Optional[str]
     role: Optional[str]
     include_table_lineage: Optional[bool] = True
+
+    connect_args: Optional[dict]
+
+    @pydantic.validator("authentication_type", always=True)
+    def authenticator_type_is_valid(cls, v, values, **kwargs):
+        valid_auth_types = {
+            "DEFAULT_AUTHENTICATOR": DEFAULT_AUTHENTICATOR,
+            "EXTERNAL_BROWSER_AUTHENTICATOR": EXTERNAL_BROWSER_AUTHENTICATOR,
+            "KEY_PAIR_AUTHENTICATOR": KEY_PAIR_AUTHENTICATOR,
+        }
+        if v not in valid_auth_types.keys():
+            raise ValueError(
+                f"unsupported authenticator type '{v}' was provided,"
+                f" use one of {list(valid_auth_types.keys())}"
+            )
+        else:
+            if v == "KEY_PAIR_AUTHENTICATOR":
+                # If we are using key pair auth, we need the private key path and password to be set
+                if values.get("private_key_path") is None:
+                    raise ValueError(
+                        f"'private_key_path' was none "
+                        f"but should be set when using {v} authentication"
+                    )
+                if values.get("private_key_password") is None:
+                    raise ValueError(
+                        f"'private_key_password' was none "
+                        f"but should be set when using {v} authentication"
+                    )
+            logger.info(f"using authenticator type '{v}'")
+        return valid_auth_types.get(v)
 
     def get_sql_alchemy_url(self, database=None):
         return make_sqlalchemy_uri(
@@ -71,6 +113,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
                 # Drop the options if value is None.
                 key: value
                 for (key, value) in {
+                    "authenticator": self.authentication_type,
                     "warehouse": self.warehouse,
                     "role": self.role,
                     "application": APPLICATION_NAME,
@@ -78,6 +121,29 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
                 if value
             },
         )
+
+    def get_sql_alchemy_connect_args(self) -> dict:
+        if self.authentication_type != KEY_PAIR_AUTHENTICATOR:
+            return {}
+        if self.connect_args is None:
+            if self.private_key_path is None:
+                raise ValueError("missing required private key path to read key from")
+            if self.private_key_password is None:
+                raise ValueError("missing required private key password")
+            with open(self.private_key_path, "rb") as key:
+                p_key = serialization.load_pem_private_key(
+                    key.read(),
+                    password=self.private_key_password.get_secret_value().encode(),
+                    backend=default_backend(),
+                )
+
+            pkb = p_key.private_bytes(
+                encoding=serialization.Encoding.DER,
+                format=serialization.PrivateFormat.PKCS8,
+                encryption_algorithm=serialization.NoEncryption(),
+            )
+            self.connect_args = {"private_key": pkb}
+        return self.connect_args
 
 
 class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
@@ -98,6 +164,9 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
     def get_sql_alchemy_url(self, database: str = None) -> str:
         return super().get_sql_alchemy_url(database=database)
 
+    def get_sql_alchemy_connect_args(self) -> dict:
+        return super().get_sql_alchemy_connect_args()
+
 
 class SnowflakeSource(SQLAlchemySource):
     config: SnowflakeConfig
@@ -116,7 +185,12 @@ class SnowflakeSource(SQLAlchemySource):
     def get_inspectors(self) -> Iterable[Inspector]:
         url = self.config.get_sql_alchemy_url(database=None)
         logger.debug(f"sql_alchemy_url={url}")
-        db_listing_engine = create_engine(url, **self.config.options)
+
+        db_listing_engine = create_engine(
+            url,
+            connect_args=self.config.get_sql_alchemy_connect_args(),
+            **self.config.options,
+        )
 
         for db_row in db_listing_engine.execute(text("SHOW DATABASES")):
             db = db_row.name
@@ -125,7 +199,9 @@ class SnowflakeSource(SQLAlchemySource):
                 # they are isolated from each other.
                 self.current_database = db
                 engine = create_engine(
-                    self.config.get_sql_alchemy_url(database=db), **self.config.options
+                    self.config.get_sql_alchemy_url(database=db),
+                    connect_args=self.config.get_sql_alchemy_connect_args(),
+                    **self.config.options,
                 )
 
                 with engine.connect() as conn:
@@ -182,7 +258,11 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name ORDER BY query_sta
     def _populate_lineage(self) -> None:
         url = self.config.get_sql_alchemy_url()
         logger.debug(f"sql_alchemy_url={url}")
-        engine = create_engine(url, **self.config.options)
+        engine = create_engine(
+            url,
+            connect_args=self.config.get_sql_alchemy_connect_args(),
+            **self.config.options,
+        )
         query: str = """
 WITH table_lineage_history AS (
     SELECT
@@ -253,8 +333,11 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
             if not self._is_dataset_allowed(upstream_table_name):
                 continue
             upstream_table = UpstreamClass(
-                dataset=builder.make_dataset_urn(
-                    self.platform, upstream_table_name, self.config.env
+                dataset=builder.make_dataset_urn_with_platform_instance(
+                    self.platform,
+                    upstream_table_name,
+                    self.config.platform_instance,
+                    self.config.env,
                 ),
                 type=DatasetLineageTypeClass.TRANSFORMED,
             )

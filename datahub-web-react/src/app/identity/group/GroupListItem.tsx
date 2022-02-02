@@ -65,7 +65,7 @@ export default function GroupListItem({ group, onDelete }: Props) {
     return (
         <List.Item>
             <GroupItemContainer>
-                <Link to={entityRegistry.getEntityUrl(EntityType.CorpGroup, group.urn)}>
+                <Link to={`${entityRegistry.getEntityUrl(EntityType.CorpGroup, group.urn)}`}>
                     <GroupHeaderContainer>
                         <CustomAvatar size={32} name={displayName} />
                         <div style={{ marginLeft: 16, marginRight: 16 }}>

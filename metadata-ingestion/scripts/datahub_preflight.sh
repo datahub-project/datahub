@@ -47,13 +47,29 @@ arm64_darwin_preflight() {
   export CPPFLAGS
   LDFLAGS="-L$(brew --prefix openssl@1.1)/lib -L$(brew --prefix librdkafka)/lib"
   export LDFLAGS
+  CPATH="$(brew --prefix librdkafka)/include"
+  export CPATH
+  C_INCLUDE_PATH="$(brew --prefix librdkafka)/include"
+  export C_INCLUDE_PATH
+  LIBRARY_PATH="$(brew --prefix librdkafka)/lib"
+  export LIBRARY_PATH
 
 cat << EOF
   export GRPC_PYTHON_BUILD_SYSTEM_OPENSSL=1
   export GRPC_PYTHON_BUILD_SYSTEM_ZLIB=1
   export CPPFLAGS="-I$(brew --prefix openssl@1.1)/include -I$(brew --prefix librdkafka)/include"
   export LDFLAGS="-L$(brew --prefix openssl@1.1)/lib -L$(brew --prefix librdkafka)/lib"
+  export CPATH="$(brew --prefix librdkafka)/include"
+  export C_INCLUDE_PATH="$(brew --prefix librdkafka)/include"
+  export LIBRARY_PATH="$(brew --prefix librdkafka)/lib"
+
 EOF
+
+  if pip list | grep -F confluent-kafka; then
+    printf "✅ confluent-kafka already installed\n"
+  else
+    pip3 install confluent-kafka
+  fi
 
   printf "✨ Setting up prerequisities\n"
   brew install "jq"

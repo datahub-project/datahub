@@ -14,6 +14,10 @@ See documentation for Mode's API at https://mode.com/developer/api-reference/int
 This plugin extracts Charts, Reports, and associated metadata from a given Mode workspace. This plugin is in beta and has only been tested
 on PostgreSQL database.
 
+| Capability | Status | Details | 
+| -----------| ------ | ---- |
+| Platform Instance | ✔️ | [link](../../docs/platform-instances.md) |
+
 ### Report
 
 [/api/{account}/reports/{report}](https://mode.com/developer/api-reference/analytics/reports/) endpoint is used to
@@ -104,6 +108,7 @@ sink:
 | `password`                        |    ✅    |                          | Mode password for authentication.                                                                 |
 | `default_schema`                  |          | `public`                 | Default schema to use when schema is not provided in an SQL query                                 |
 | `env`                             |          | `"PROD"`                 | Environment to use in namespace when constructing URNs.                                           |
+| `platform_instance_map` |     |     | Platform instance mapping to use when constructing URNs to data sources through lineage. e.g.`platform_instance_map: { "hive": "warehouse" }` |
 | `owner_username_instead_of_email` |          | `True`                   | Use username for owner URN instead of Email                                                       |
 | `api_options`                     |          |                          | Retry/Wait settings for Mode API to avoid "Too many Requests" error. See Mode API Options below   |
 
