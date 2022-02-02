@@ -6,7 +6,7 @@
     "changeType":"UPSERT",
     "aspectName":"containerProperties",
     "aspect":{
-      "value":"{\"name\": \"datahub_db\", \"description\": \"The DataHub db\" }",
+      "value":"{\"name\": \"datahub_db\", \"description\": \"The Root DataHub DB\" }",
       "contentType":"application/json"
     },
     "systemMetadata":null
@@ -42,7 +42,7 @@
     "changeType":"UPSERT",
     "aspectName":"containerProperties",
     "aspect":{
-      "value":"{\"name\": \"datahub_schema\", \"description\": \"The DataHub schema\" }",
+      "value":"{\"name\": \"datahub_schema\", \"description\": \"The Root DataHub Schema\" }",
       "contentType":"application/json"
     },
     "systemMetadata":null
@@ -86,7 +86,31 @@
   {
     "auditHeader":null,
     "entityType":"dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datahub.metadata_aspect_v2,PROD)",
+    "changeType":"UPSERT",
+    "aspectName":"container",
+    "aspect":{
+      "value":"{\"container\": \"urn:li:container:SCHEMA\" }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datahub.metadata_aspect,PROD)",
+    "changeType":"UPSERT",
+    "aspectName":"container",
+    "aspect":{
+      "value":"{\"container\": \"urn:li:container:SCHEMA\" }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datahub.metadata_aspect_v3,PROD)",
     "changeType":"UPSERT",
     "aspectName":"container",
     "aspect":{
