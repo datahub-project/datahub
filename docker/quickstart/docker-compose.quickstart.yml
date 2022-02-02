@@ -19,6 +19,8 @@ services:
     ports:
     - 29092:29092
     - 9092:9092
+    volumes:
+    - broker:/var/lib/kafka/data/
   datahub-actions:
     depends_on:
     - datahub-gms
@@ -190,6 +192,7 @@ services:
     - zkdata:/var/opt/zookeeper
 version: '2.3'
 volumes:
+  broker: null
   esdata: null
   mysqldata: null
   neo4jdata: null
