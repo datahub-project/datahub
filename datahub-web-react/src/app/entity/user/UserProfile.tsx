@@ -1,21 +1,18 @@
-import { Alert, Col, Row, Avatar, Divider, Space, Button, Tooltip, Tag } from 'antd';
-import React, { useMemo, useState } from 'react';
+import { Alert, Col, Row, Divider, Space, Button, Tag } from 'antd';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 import { EditOutlined, MailOutlined, PhoneOutlined, SlackOutlined } from '@ant-design/icons';
-import UserHeader from './UserHeader';
 import useUserParams from '../../shared/entitySearch/routingUtils/useUserParams';
 import { useGetUserQuery } from '../../../graphql/user.generated';
 import { useGetAllEntitySearchResults } from '../../../utils/customGraphQL/useGetAllEntitySearchResults';
 import { Message } from '../../shared/Message';
-import RelatedEntityResults from '../../shared/entitySearch/RelatedEntityResults';
-import { LegacyEntityProfile } from '../../shared/LegacyEntityProfile';
-import { CorpUser, EntityType, SearchResult, EntityRelationshipsResult } from '../../../types.generated';
+import { EntityRelationshipsResult } from '../../../types.generated';
 import UserGroups from './UserGroups';
-import { useEntityRegistry } from '../../useEntityRegistry';
 import { RoutedTabs } from '../../shared/RoutedTabs';
 import { UserAssets } from './UserAssets';
 import UserEditProfileModal from './UserEditProfileModal';
 import { ExtendedEntityRelationshipsResult } from './type';
+import CustomAvatar from '../../shared/avatar/CustomAvatar';
 
 const messageStyle = { marginTop: '10%' };
 export interface Props {
@@ -48,10 +45,6 @@ const UserSidebar = styled.div`
     &&& .ant-avatar.ant-avatar-icon {
         font-size: 46px !important;
     }
-
-    // &&& .ant-divider-horizontal {
-    //     margin: 18px 0 15px 0;
-    // }
 `;
 const UserName = styled.div`
     font-size: 20px;
@@ -131,7 +124,6 @@ const Content = styled.div`
 export default function UserProfile() {
     const { urn } = useUserParams();
     const { loading, error, data } = useGetUserQuery({ variables: { urn, groupsCount: GROUP_PAGE_SIZE } });
-    const entityRegistry = useEntityRegistry();
     const username = data?.corpUser?.username;
     const [editProfileModal, setEditProfileModal] = useState(false);
     const ownershipResult = useGetAllEntitySearchResults({
@@ -139,41 +131,12 @@ export default function UserProfile() {
     });
     const [groupSectionScroll, showGroupSectionScroll] = useState(false);
     const groupsDetails = data?.corpUser?.relationships as ExtendedEntityRelationshipsResult;
+    const profileSrc = ''; // TODO: update the profileSrc from BE
 
     const contentLoading =
         Object.keys(ownershipResult).some((type) => {
             return ownershipResult[type].loading;
         }) || loading;
-
-    const ownershipForDetails = useMemo(() => {
-        const filteredOwnershipResult: {
-            [key in EntityType]?: Array<SearchResult>;
-        } = {};
-
-        Object.keys(ownershipResult).forEach((type) => {
-            const entities = ownershipResult[type].data?.search?.searchResults;
-
-            if (entities && entities.length > 0) {
-                filteredOwnershipResult[type] = ownershipResult[type].data?.search?.searchResults;
-            }
-        });
-        return filteredOwnershipResult;
-    }, [ownershipResult]);
-
-    // assetsForDetails- generate the search data for Assets Tab on UI
-    const assetsForDetails = useMemo(() => {
-        const assetsResult: Array<SearchResult> = [];
-        Object.keys(ownershipResult).forEach((type) => {
-            const entities = ownershipResult[type].data?.search?.searchResults;
-
-            if (entities && entities.length > 0) {
-                ownershipResult[type].data?.search?.searchResults.forEach((item) => {
-                    assetsResult.push(item);
-                });
-            }
-        });
-        return assetsResult;
-    }, [ownershipResult]);
 
     if (error || (!loading && !error && !data)) {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
@@ -183,9 +146,9 @@ export default function UserProfile() {
     const getTabs = () => {
         return [
             {
-                name: TabType.Ownership,
-                path: TabType.Ownership.toLocaleLowerCase(),
-                content: <RelatedEntityResults searchResult={ownershipForDetails} />,
+                name: TabType.Assets,
+                path: TabType.Assets.toLocaleLowerCase(),
+                content: <UserAssets />,
             },
             {
                 name: TabType.Groups,
@@ -197,43 +160,8 @@ export default function UserProfile() {
         ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
     };
 
-    const getHeader = (user: CorpUser) => {
-        const { editableInfo, info } = user;
-        const displayName = entityRegistry.getDisplayName(EntityType.CorpUser, user);
-        return (
-            <UserHeader
-                profileSrc={editableInfo?.pictureLink}
-                name={displayName}
-                title={info?.title}
-                email={info?.email}
-                skills={editableInfo?.skills}
-                teams={editableInfo?.teams}
-            />
-        );
-    };
-
-    const tabs = [
-        {
-            name: TabType.Assets,
-            path: TabType.Assets.toLocaleLowerCase(),
-            content: <UserAssets searchResult={assetsForDetails} />,
-        },
-        {
-            name: TabType.Ownership,
-            path: TabType.Ownership.toLocaleLowerCase(),
-            content: <RelatedEntityResults searchResult={ownershipForDetails} />,
-        },
-        {
-            name: TabType.Groups,
-            path: TabType.Groups.toLocaleLowerCase(),
-            content: (
-                <UserGroups urn={urn} initialRelationships={groupMemberRelationships} pageSize={GROUP_PAGE_SIZE} />
-            ),
-        },
-    ];
-    const defaultTabPath = tabs && tabs?.length > 0 ? tabs[0].path : '';
+    const defaultTabPath = getTabs() && getTabs()?.length > 0 ? getTabs()[0].path : '';
     const onTabChange = () => null;
-    // console.log('ownershipForDetails', ownershipForDetails);
 
     return (
         <>
@@ -242,13 +170,11 @@ export default function UserProfile() {
                 <Row>
                     <Col xl={5} lg={5} md={5} sm={24} xs={24}>
                         <UserSidebar>
-                            <Tooltip title="Change Avatar">
-                                <Avatar
-                                    className="avatar-picture"
-                                    size={{ xs: 180, sm: 180, md: 160, lg: 160, xl: 160, xxl: 180 }}
-                                    icon={<EditOutlined />}
-                                />
-                            </Tooltip>
+                            <CustomAvatar
+                                size={160}
+                                photoUrl={profileSrc || undefined}
+                                name={data?.corpUser?.info?.fullName || undefined}
+                            />
                             <UserName>{data?.corpUser?.info?.fullName}</UserName>
                             <UserRole>{data?.corpUser?.info?.title}</UserRole>
                             <UserTeam>Data Team</UserTeam>
@@ -305,10 +231,11 @@ export default function UserProfile() {
                     </Col>
                     <Col xl={19} lg={19} md={19} sm={24} xs={24} style={{ borderLeft: '1px solid #E9E9E9' }}>
                         <Content>
-                            <RoutedTabs defaultPath={defaultTabPath} tabs={tabs || []} onTabChange={onTabChange} />
+                            <RoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />
                         </Content>
                     </Col>
                 </Row>
+                {/* Modal */}
                 <UserEditProfileModal
                     visible={editProfileModal}
                     onClose={() => setEditProfileModal(false)}
@@ -318,14 +245,6 @@ export default function UserProfile() {
                     }}
                 />
             </UserProfileWrapper>
-            {data && data.corpUser && (
-                <LegacyEntityProfile
-                    title=""
-                    tags={null}
-                    header={getHeader(data.corpUser as CorpUser)}
-                    tabs={getTabs()}
-                />
-            )}
         </>
     );
 }
