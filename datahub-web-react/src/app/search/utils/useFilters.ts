@@ -3,6 +3,7 @@ import * as QueryString from 'query-string';
 
 import { FILTER_URL_PREFIX } from './constants';
 import { FacetFilterInput } from '../../../types.generated';
+import { decodeComma } from '../../entity/shared/utils';
 
 export default function useFilters(params: QueryString.ParsedQuery<string>): Array<FacetFilterInput> {
     return useMemo(
@@ -18,9 +19,9 @@ export default function useFilters(params: QueryString.ParsedQuery<string>): Arr
                     if (!value) return [];
 
                     if (Array.isArray(value)) {
-                        return value.map((distinctValue) => ({ field, value: distinctValue }));
+                        return value.map((distinctValue) => ({ field, value: decodeComma(distinctValue) }));
                     }
-                    return [{ field, value }];
+                    return [{ field, value: decodeComma(value) }];
                 }),
         [params],
     );
