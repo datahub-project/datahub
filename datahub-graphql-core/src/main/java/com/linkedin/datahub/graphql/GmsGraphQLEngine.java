@@ -770,10 +770,6 @@ public class GmsGraphQLEngine {
             .dataFetcher("relationships", new AuthenticatedResolver<>(
                 new EntityRelationshipsResultResolver(graphClient)
             ))
-            .dataFetcher("editableProperties", new AuthenticatedResolver(new CorpUserEditablePropertiesResolver(
-                this.entityClient,
-                "corpuser",
-                "corpUserEditableInfo")))
         );
         builder.type("CorpUserInfo", typeWiring -> typeWiring
             .dataFetcher("manager", new AuthenticatedResolver<>(
