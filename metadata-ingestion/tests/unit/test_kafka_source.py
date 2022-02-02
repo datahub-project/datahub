@@ -14,27 +14,13 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 class KafkaSourceTest(unittest.TestCase):
     def test_get_schema_str_replace_confluent_ref_avro(self):
 
-        # References external schema by name 'TestTopic1' in the definition of 'my_field1'.
-        schema_str_orig_external_schema_ref_by_name = """
+        # References external schema 'TestTopic1' in the definition of 'my_field1' field.
+        schema_str_orig = """
 {
   "fields": [
     {
       "name": "my_field1",
       "type": "TestTopic1"
-    }
-  ],
-  "name": "TestTopic1Val",
-  "namespace": "io.acryl",
-  "type": "record"
-}
-"""
-        # References external schema by subject 'schema_subject1' in the definition of 'my_field1'.
-        schema_str_orig_external_schema_ref_by_subject = """
-{
-  "fields": [
-    {
-      "name": "my_field1",
-      "type": "schema_subject_1"
     }
   ],
   "name": "TestTopic1Val",
@@ -98,8 +84,9 @@ class KafkaSourceTest(unittest.TestCase):
             new_get_latest_version,
         ):
             schema_str = kafka_source.get_schema_str_replace_confluent_ref_avro(
+                # The external reference would match by name.
                 schema=Schema(
-                    schema_str=schema_str_orig_external_schema_ref_by_name,
+                    schema_str=schema_str_orig,
                     schema_type="AVRO",
                     references=[
                         dict(name="TestTopic1", subject="schema_subject_1", version=1)
@@ -114,11 +101,12 @@ class KafkaSourceTest(unittest.TestCase):
             new_get_latest_version,
         ):
             schema_str = kafka_source.get_schema_str_replace_confluent_ref_avro(
+                # The external reference would match by subject.
                 schema=Schema(
-                    schema_str=schema_str_orig_external_schema_ref_by_subject,
+                    schema_str=schema_str_orig,
                     schema_type="AVRO",
                     references=[
-                        dict(name="TestTopic1", subject="schema_subject_1", version=1)
+                        dict(name="schema_subject_1", subject="TestTopic1", version=1)
                     ],
                 )
             )
