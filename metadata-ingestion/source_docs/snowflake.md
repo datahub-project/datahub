@@ -95,8 +95,11 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 
 | Field                         | Required | Default                                                                     | Description                                                                                                                                                                             |
 | ----------------------------- | -------- | --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `authentication_type`         |          | `"DEFAULT_AUTHENTICATOR"`                                                   | The type of authenticator to use when connecting to Snowflake. Supports `"DEFAULT_AUTHENTICATOR"`, `"EXTERNAL_BROWSER_AUTHENTICATOR"` and `"KEY_PAIR_AUTHENTICATOR"`.                   |
 | `username`                    |          |                                                                             | Snowflake username.                                                                                                                                                                     |
 | `password`                    |          |                                                                             | Snowflake password.                                                                                                                                                                     |
+| `private_key_path`            |          |                                                                             | The path to the private key if using key pair authentication. See: https://docs.snowflake.com/en/user-guide/key-pair-auth.html                                                          |
+| `private_key_password`        |          |                                                                             | Password for your private key if using key pair authentication.                                                                                                                         |
 | `host_port`                   | ✅       |                                                                             | Snowflake host URL.                                                                                                                                                                     |
 | `warehouse`                   |          |                                                                             | Snowflake warehouse.                                                                                                                                                                    |
 | `role`                        |          |                                                                             | Snowflake role.                                                                                                                                                                         |
@@ -196,25 +199,27 @@ Snowflake integration also supports prevention of redundant reruns for the same 
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-
-| Field                       | Required | Default                                                             | Description                                                                      |
-|-----------------------------|----------|---------------------------------------------------------------------|----------------------------------------------------------------------------------|
-| `username`                  |          |                                                                     | Snowflake username.                                                              |
-| `password`                  |          |                                                                     | Snowflake password.                                                              |
-| `host_port`                 | ✅        |                                                                     | Snowflake host URL.                                                              |
-| `warehouse`                 |          |                                                                     | Snowflake warehouse.                                                             |
-| `role`                      |          |                                                                     | Snowflake role.                                                                  |
-| `env`                       |          | `"PROD"`                                                            | Environment to use in namespace when constructing URNs.                          |
-| `bucket_duration`           |          | `"DAY"`                                                             | Duration to bucket usage events by. Can be `"DAY"` or `"HOUR"`.                  |
-| `email_domain`              |          |                                                                     | Email domain of your organisation so users can be displayed on UI appropriately. |
-| `start_time`                |          | Last full day in UTC (or hour, depending on `bucket_duration`)      | Earliest date of usage logs to consider.                                         |
-| `end_time`                  |          | Last full day in UTC (or hour, depending on `bucket_duration`)      | Latest date of usage logs to consider.                                           |
-| `top_n_queries`             |          | `10`                                                                | Number of top queries to save to each table.                                     |
-| `include_operational_stats` |          | `true`                                                              | Whether to display operational stats.                                            |
-| `database_pattern`          |          | `"^UTIL_DB$" `<br />`"^SNOWFLAKE$"`<br />`"^SNOWFLAKE_SAMPLE_DATA$" | Allow/deny patterns for db in snowflake dataset names.                           |
-| `schema_pattern`            |          |                                                                     | Allow/deny patterns for schema in snowflake dataset names.                       |
-| `view_pattern`              |          |                                                                     | Allow/deny patterns for views in snowflake dataset names.                        |
-| `table_pattern`             |          |                                                                     | Allow/deny patterns for tables in snowflake dataset names.                       |
+| Field                           | Required | Default                                                             | Description                                                                      |
+|---------------------------------|----------|---------------------------------------------------------------------|----------------------------------------------------------------------------------|
+| `username`                      |          |                                                                     | Snowflake username.                                                              |
+| `password`                      |          |                                                                     | Snowflake password.                                                              |
+| `host_port`                     | ✅        |                                                                     | Snowflake host URL.                                                              |
+| `warehouse`                     |          |                                                                     | Snowflake warehouse.                                                             |
+| `role`                          |          |                                                                     | Snowflake role.                                                                  |
+| `env`                           |          | `"PROD"`                                                            | Environment to use in namespace when constructing URNs.                          |
+| `bucket_duration`               |          | `"DAY"`                                                             | Duration to bucket usage events by. Can be `"DAY"` or `"HOUR"`.                  |
+| `email_domain`                  |          |                                                                     | Email domain of your organisation so users can be displayed on UI appropriately. |
+| `start_time`                    |          | Last full day in UTC (or hour, depending on `bucket_duration`)      | Earliest date of usage logs to consider.                                         |
+| `end_time`                      |          | Last full day in UTC (or hour, depending on `bucket_duration`)      | Latest date of usage logs to consider.                                           |
+| `top_n_queries`                 |          | `10`                                                                | Number of top queries to save to each table.                                     |
+| `include_operational_stats`     |          | `true`                                                              | Whether to display operational stats.                                            |
+| `database_pattern`              |          | `"^UTIL_DB$" `<br />`"^SNOWFLAKE$"`<br />`"^SNOWFLAKE_SAMPLE_DATA$" | Allow/deny patterns for db in snowflake dataset names.                           |
+| `schema_pattern`                |          |                                                                     | Allow/deny patterns for schema in snowflake dataset names.                       |
+| `view_pattern`                  |          |                                                                     | Allow/deny patterns for views in snowflake dataset names.                        |
+| `table_pattern`                 |          |                                                                     | Allow/deny patterns for tables in snowflake dataset names.                       |
+| `user_email_pattern.allow`      |          | *                                                                   | List of regex patterns for user emails to include in usage.                      |
+| `user_email_pattern.deny`       |          |                                                                     | List of regex patterns for user emails to exclude from usage.                    |
+| `user_email_pattern.ignoreCase` |          | `True`                                                              | Whether to ignore case sensitivity during pattern matching.                      |
 
 :::caution
 

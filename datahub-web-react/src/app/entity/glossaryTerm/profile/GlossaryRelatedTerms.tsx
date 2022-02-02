@@ -1,11 +1,8 @@
 import { Menu } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
+import { useEntityData } from '../../shared/EntityContext';
 import GlossaryRelatedTermsResult from './GlossaryRelatedTermsResult';
-
-export type Props = {
-    glossaryTerm: any;
-};
 
 export enum RelatedTermTypes {
     hasRelatedTerms = 'Contains',
@@ -26,7 +23,8 @@ const Content = styled.div`
     flex-grow: 1;
 `;
 
-export default function GlossayRelatedTerms({ glossaryTerm }: Props) {
+export default function GlossayRelatedTerms() {
+    const { entityData } = useEntityData();
     const [selectedKey, setSelectedKey] = useState('');
     const menuOptionsArray = Object.keys(RelatedTermTypes);
 
@@ -60,10 +58,10 @@ export default function GlossayRelatedTerms({ glossaryTerm }: Props) {
                 </Menu>
             </MenuWrapper>
             <Content>
-                {selectedKey && (
+                {selectedKey && entityData && (
                     <GlossaryRelatedTermsResult
                         glossaryRelatedTermType={RelatedTermTypes[selectedKey]}
-                        glossaryRelatedTermResult={glossaryTerm[selectedKey]?.relationships || []}
+                        glossaryRelatedTermResult={entityData[selectedKey]?.relationships || []}
                     />
                 )}
             </Content>

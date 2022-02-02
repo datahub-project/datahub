@@ -60,6 +60,11 @@ type Query {
     glossaryTerm(urn: String!): GlossaryTerm
 
     """
+    Fetch an Entity Container by primary key (urn)
+    """
+    container(urn: String!): Container
+
+    """
     Fetch a Domain by primary key (urn)
     """
     domain(urn: String!): Domain
@@ -206,7 +211,7 @@ type Mutation {
     removeLink(input: RemoveLinkInput!): Boolean
 
     """
-    Incubating. Updates the description of a resource. Currently only supports Dataset Schema Fields
+    Incubating. Updates the description of a resource. Currently only supports Dataset Schema Fields, Containers
     """
     updateDescription(input: DescriptionUpdateInput!): Boolean
 
@@ -340,6 +345,11 @@ enum EntityType {
     The Glossary Term Entity
     """
     GLOSSARY_TERM
+
+    """
+    A container of Metadata Entities
+    """
+    CONTAINER
 
     """
     The ML Model Entity
@@ -535,6 +545,11 @@ type Dataset implements EntityWithRelationships & Entity {
     platform: DataPlatform!
 
     """
+    The parent container in which the entity resides
+    """
+    container: Container
+
+    """
     The Dataset display name
     """
     name: String!
@@ -664,7 +679,7 @@ type Dataset implements EntityWithRelationships & Entity {
     subTypes: SubTypes
 
     """
-    View related properties. Only relevant if subtypes field contains VIEW.
+    View related properties. Only relevant if subtypes field contains view.
     """
     viewProperties: ViewProperties
 
@@ -805,6 +820,12 @@ type GlossaryTerm implements Entity {
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Schema metadata of the dataset
+    """
+    schemaMetadata(version: Long): SchemaMetadata
+
 }
 
 """
@@ -914,6 +935,36 @@ type DataPlatform implements Entity {
     Additional properties associated with a data platform
     """
     info: DataPlatformInfo @deprecated
+
+    """
+    Edges extending from this entity
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+}
+
+"""
+A Data Platform instance represents an instance of a 3rd party platform like Looker, Snowflake, etc.
+"""
+type DataPlatformInstance implements Entity {
+    """
+    Urn of the data platform
+    """
+    urn: String!
+
+    """
+    A standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    Name of the data platform
+    """
+    platform: DataPlatform!
+
+    """
+    The platform instance id
+    """
+    instanceId: String!
 
     """
     Edges extending from this entity
@@ -1034,9 +1085,33 @@ enum FabricType {
     DEV
 
     """
-    Designates early integration or staging fabrics
+    Designates testing fabrics
+    """
+    TEST
+
+    """
+    Designates quality assurance fabrics
+    """
+    QA
+
+    """
+    Designates user acceptance testing fabrics
+    """
+    UAT
+
+    """
+    Designates early integration fabrics
     """
     EI
+    """
+    Designates staging fabrics
+    """
+    STG
+
+    """
+    Designates non-production fabrics
+    """
+    NON_PROD
 
     """
     Designates production fabrics
@@ -1047,6 +1122,136 @@ enum FabricType {
     Designates corporation fabrics
     """
     CORP
+}
+
+"""
+A container of other Metadata Entities
+"""
+type Container implements Entity {
+    """
+    The primary key of the container
+    """
+    urn: String!
+
+    """
+    A standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    Standardized platform.
+    """
+    platform: DataPlatform!
+
+    """
+    Fetch an Entity Container by primary key (urn)
+    """
+    container: Container
+
+    """
+    Read-only properties that originate in the source data platform
+    """
+    properties: ContainerProperties
+
+    """
+    Read-write properties that originate in DataHub
+    """
+    editableProperties: ContainerEditableProperties
+
+    """
+    Ownership metadata of the dataset
+    """
+    ownership: Ownership
+
+    """
+    References to internal resources related to the dataset
+    """
+    institutionalMemory: InstitutionalMemory
+
+    """
+    Tags used for searching dataset
+    """
+    tags: GlobalTags
+
+    """
+    The structured glossary terms associated with the dataset
+    """
+    glossaryTerms: GlossaryTerms
+
+    """
+    Sub types of the container, e.g. "Database" etc
+    """
+    subTypes: SubTypes
+
+    """
+    Children entities inside of the Container
+    """
+    entities(input: ContainerEntitiesInput): SearchResults
+
+    """
+    Edges extending from this entity
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+}
+
+"""
+Read-only properties that originate in the source data platform
+"""
+type ContainerProperties {
+  """
+  Display name of the Container
+  """
+  name: String!
+
+  """
+  System description of the Container
+  """
+  description: String
+
+  """
+  Custom properties of the Dataset
+  """
+  customProperties: [StringMapEntry!]
+
+  """
+  Native platform URL of the dashboard
+  """
+  externalUrl: String
+}
+
+"""
+Read-write properties that originate in DataHub
+"""
+type ContainerEditableProperties {
+  """
+  DataHub description of the Container
+  """
+  description: String
+}
+
+"""
+Input required to fetch the entities inside of a container.
+"""
+input ContainerEntitiesInput {
+  """
+  Optional query filter for particular entities inside the container
+  """
+  query: String
+
+  """
+  The offset of the result set
+  """
+  start: Int
+
+  """
+  The number of entities to include in result set
+  """
+  count: Int
+
+  """
+  Optional Facet filters to apply to the result set
+  """
+  filters: [FacetFilterInput!]
 }
 
 """
@@ -2700,6 +2905,11 @@ type Dashboard implements EntityWithRelationships & Entity {
     type: EntityType!
 
     """
+    The parent container in which the entity resides
+    """
+    container: Container
+
+    """
     The dashboard tool name
     Note that this will soon be deprecated in favor of a standardized notion of Data Platform
     """
@@ -2901,6 +3111,11 @@ type Chart implements EntityWithRelationships & Entity {
     A standard Entity Type
     """
     type: EntityType!
+
+    """
+    The parent container in which the entity resides
+    """
+    container: Container
 
     """
     The chart tool name
@@ -4086,7 +4301,7 @@ input DescriptionUpdateInput {
     subResourceType: SubResourceType
 
     """
-    A sub resource identitifer, eg dataset field path
+    A sub resource identifier, eg dataset field path
     """
     subResource: String
 }
@@ -4498,6 +4713,11 @@ type AuditStamp {
 Input for creating a new group
 """
 input CreateGroupInput {
+  """
+  Optional! A custom id to use as the primary key identifier for the group. If not provided, a random UUID will be generated as the id.
+  """
+  id: String
+
   """
   The display name of the group
   """
