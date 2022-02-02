@@ -10,10 +10,13 @@ from confluent_kafka.schema_registry.schema_registry_client import (
     SchemaRegistryClient,
 )
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
+from datahub.configuration.source_common import DatasetSourceConfigBase
 from datahub.emitter.mce_builder import (
     DEFAULT_ENV,
+    make_data_platform_urn,
+    make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
 )
@@ -39,7 +42,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaField,
     SchemaMetadata,
 )
-from datahub.metadata.schema_classes import BrowsePathsClass, ChangeTypeClass
+from datahub.metadata.schema_classes import (
+    BrowsePathsClass,
+    ChangeTypeClass,
+    DataPlatformInstanceClass,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +61,7 @@ class KafkaSourceStatefulIngestionConfig(StatefulIngestionConfig):
     remove_stale_metadata: bool = True
 
 
-class KafkaSourceConfig(StatefulIngestionConfigBase):
+class KafkaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigBase):
     env: str = DEFAULT_ENV
     # TODO: inline the connection config
     connection: KafkaConsumerConnectionConfig = KafkaConsumerConnectionConfig()
@@ -90,6 +97,14 @@ class KafkaSource(StatefulIngestionSourceBase):
     def __init__(self, config: KafkaSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.source_config = config
+        if (
+            self.is_stateful_ingestion_configured()
+            and not self.source_config.platform_instance
+        ):
+            raise ConfigurationError(
+                "Enabling kafka stateful ingestion requires to specify a platform instance."
+            )
+
         self.consumer = confluent_kafka.Consumer(
             {
                 "group.id": "test",
@@ -139,10 +154,7 @@ class KafkaSource(StatefulIngestionSourceBase):
         return None
 
     def get_platform_instance_id(self) -> str:
-        """
-        TODO: how should we put together the platform instance id for kafka?
-        """
-        return f"{self.platform}"
+        return f"{self.source_config.platform_instance}"
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -263,7 +275,7 @@ class KafkaSource(StatefulIngestionSourceBase):
                 make_dataset_urn_with_platform_instance(
                     platform=self.platform,
                     name=topic,
-                    platform_instance=None,
+                    platform_instance=self.source_config.platform_instance,
                     env=self.source_config.env,
                 )
             )
@@ -360,6 +372,21 @@ class KafkaSource(StatefulIngestionSourceBase):
         browse_path = BrowsePathsClass(
             [f"/{self.source_config.env.lower()}/{self.platform}/{topic}"]
         )
+        if self.source_config.platform_instance:
+            browse_path = BrowsePathsClass(
+                [
+                    f"/{self.source_config.env.lower()}/{self.platform}/{self.source_config.platform_instance}/{topic}"
+                ]
+            )
+            dataset_snapshot.aspects.append(
+                DataPlatformInstanceClass(
+                    platform=make_data_platform_urn(self.platform),
+                    instance=make_dataplatform_instance_urn(
+                        self.platform, self.source_config.platform_instance
+                    ),
+                )
+            )
+
         dataset_snapshot.aspects.append(browse_path)
 
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)

@@ -26,7 +26,8 @@ def test_kafka_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
         command = f"{test_resources_dir}/send_records.sh {test_resources_dir}"
         subprocess.run(command, shell=True, check=True)
 
-        # Run the metadata ingestion pipeline.
+        # SCENARIO 1: no platform instance
+        # Run the metadata ingestion pipeline: no platform instance.
         config_file = (test_resources_dir / "kafka_to_file.yml").resolve()
         run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
 
@@ -35,5 +36,21 @@ def test_kafka_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
             pytestconfig,
             output_path=tmp_path / "kafka_mces.json",
             golden_path=test_resources_dir / "kafka_mces_golden.json",
+            ignore_paths=[],
+        )
+
+        # SCENARIO 2: with platform instance
+        # Run the metadata ingestion pipeline with: platform instance.
+        config_file = (
+            test_resources_dir / "kafka_to_file_with_platform_instance.yml"
+        ).resolve()
+        run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
+
+        # Verify the output.
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=tmp_path / "kafka_mces_with_platform_instance.json",
+            golden_path=test_resources_dir
+            / "kafka_mces_golden_with_platform_instance.json",
             ignore_paths=[],
         )

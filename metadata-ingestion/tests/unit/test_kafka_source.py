@@ -1,11 +1,13 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
+import pytest
 from confluent_kafka.schema_registry.schema_registry_client import (
     RegisteredSchema,
     Schema,
 )
 
+from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.kafka import KafkaSource
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -186,3 +188,16 @@ class KafkaSourceTest(unittest.TestCase):
         )
         kafka_source.close()
         assert mock_kafka_instance.close.call_count == 1
+
+    @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
+    def test_kafka_source_invalid_stateful_ingestion_configuration(self, mock_kafka):
+        ctx = PipelineContext(run_id="test", pipeline_name="test")
+        with pytest.raises(ConfigurationError):
+            kafka_source = KafkaSource.create(
+                {
+                    "stateful_ingestion": {"enabled": "true"},
+                    "connection": {"bootstrap": "foobar:9092"},
+                },
+                ctx,
+            )
+            kafka_source.close()
