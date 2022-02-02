@@ -144,7 +144,7 @@ class CassandraSource(Source):
 
         # 1. Prepare DatasetSnapshot
         dataset_snapshot = DatasetSnapshot(
-            urn=make_dataset_urn(platform, dataset_name),
+            urn=make_dataset_urn(platform, dataset_name, self.config.env),
             aspects=[],
         )
 
