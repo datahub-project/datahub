@@ -1,0 +1,11 @@
+version: "3"
+
+services:
+  clickhouse:
+    container_name: "clickhouse_datahub_test"
+    image: yandex/clickhouse-server:21
+    volumes:
+      - "./clickhouse_setup.sql:/clickhouse_setup.sql"
+    ports:
+      - "9000:9000"
+      - "8123:8123"

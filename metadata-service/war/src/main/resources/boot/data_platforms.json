@@ -365,5 +365,15 @@
       "type": "OTHERS",
       "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/elasticsearchlogo.png"
     }
+  },
+  {
+    "urn": "urn:li:dataPlatform:clickhouse",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "clickhouse",
+      "displayName": "Clickhouse",
+      "type": "OTHERS",
+      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/clickhouselogo.png"
+    }
   }
 ]
