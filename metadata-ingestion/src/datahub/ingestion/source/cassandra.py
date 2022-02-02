@@ -1,3 +1,4 @@
+import logging
 import re
 import time
 from typing import (
@@ -20,7 +21,11 @@ from datahub.configuration.common import (
     ConfigModel,
     AllowDenyPattern,
 )
-from datahub.emitter.mce_builder import DEFAULT_ENV
+from datahub.emitter.mce_builder import (
+    DEFAULT_ENV,
+    make_data_platform_urn,
+    make_dataset_urn,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import (
     Source,
@@ -50,6 +55,7 @@ from datahub.metadata.schema_classes import (
     NullTypeClass,
 )
 
+logger: logging.Logger = logging.getLogger(__name__)
 
 class CassandraConfig(ConfigModel):
     ips: List[str] = ['localhost']
@@ -102,12 +108,12 @@ class CassandraSource(Source):
         keyspaces = self._get_db_keyspaces()
         for keyspace in keyspaces:
             if not self.config.schema_pattern.allowed(keyspace):
-                print(f'Skipping keyspace: {keyspace}')
+                logging.info(f'Skipping keyspace: {keyspace}')
                 continue
 
             for table_name, table_schema in self._get_db_tables(keyspace).items():
                 if not self.config.table_pattern.allowed(table_name):
-                    print(f'Skipping: {keyspace}.{table_name}')
+                    logging.info(f'Skipping: {keyspace}.{table_name}')
                     continue
 
                 for wu in self.prepare_metadata_for(platform,
@@ -119,7 +125,7 @@ class CassandraSource(Source):
 
             for view_name, view_schema in self._get_db_views(keyspace).items():
                 if not self.config.view_pattern.allowed(view_name):
-                    print(f'Skipping: {keyspace}.{table_name}')
+                    logging.info(f'Skipping: {keyspace}.{view_name}')
                     continue
                 for wu in self.prepare_metadata_for(platform,
                                           keyspace,
@@ -138,7 +144,7 @@ class CassandraSource(Source):
 
         # 1. Prepare DatasetSnapshot
         dataset_snapshot = DatasetSnapshot(
-            urn=f'urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{self.config.env})',
+            urn=make_dataset_urn(platform, dataset_name),
             aspects=[],
         )
 
@@ -174,7 +180,7 @@ class CassandraSource(Source):
             schemaName=dataset_name,
             version=0,
             hash='',
-            platform=f'urn:li:dataPlatform:{platform}',
+            platform=make_data_platform_urn(platform),
             platformSchema=OtherSchemaClass(rawSchema=table_schema.export_as_string()),
             fields=fields,
             created=AuditStamp(time=sys_time,

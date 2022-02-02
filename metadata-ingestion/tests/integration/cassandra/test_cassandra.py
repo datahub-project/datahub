@@ -33,7 +33,7 @@ def test_cassandra_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_ti
         mce_helpers.check_golden_file(
             pytestconfig,
             output_path=tmp_path / "cassandra_mces.json",
-            golden_path=test_resources_dir / "cassandra_cmes_golden.json",
+            golden_path=test_resources_dir / "cassandra_mces_golden.json",
             ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS + [
                 r"root\[\d+\]\['systemMetadata'\]\['lastObserved'\]",
             ]
