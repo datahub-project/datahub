@@ -15,6 +15,7 @@ import com.linkedin.metadata.utils.GenericAspectUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
@@ -42,7 +43,8 @@ public class CreateGroupResolver implements DataFetcher<CompletableFuture<String
           // First, check if the group already exists.
           // Create the Group key.
           final CorpGroupKey key = new CorpGroupKey();
-          key.setName(input.getName());
+          final String id = input.getId() != null ? input.getId() : UUID.randomUUID().toString();
+          key.setName(id); // 'name' in the key really reflects nothing more than a stable "id".
 
           // Create the Group info.
           final CorpGroupInfo info = new CorpGroupInfo();

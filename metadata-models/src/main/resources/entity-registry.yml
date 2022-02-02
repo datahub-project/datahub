@@ -11,6 +11,7 @@ entities:
       - domains
       - schemaMetadata
       - status
+      - container
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     keyAspect: dataHubPolicyKey
@@ -30,10 +31,12 @@ entities:
     keyAspect: chartKey
     aspects:
       - domains
+      - container
   - name: dashboard
     keyAspect: dashboardKey
     aspects:
       - domains
+      - container
   - name: corpuser
     doc: CorpUser represents an identity of a person (or an account) in the enterprise.
     keyAspect: corpUserKey
@@ -41,6 +44,25 @@ entities:
       - corpUserInfo
       - corpUserEditableInfo
       - corpUserStatus
+  - name: container
+    doc: A container of related data assets.
+    keyAspect: containerKey
+    aspects:
+      - containerProperties
+      - editableContainerProperties
+      - dataPlatformInstance
+      - subTypes
+      - ownership
+      - container
+      - globalTags
+      - glossaryTerms
+      - institutionalMemory
+      - browsePaths # unclear if this will be used
+      - status
+  - name: glossaryTerm
+    keyAspect: glossaryTermKey
+    aspects:
+      - schemaMetadata
   - name: domain
     doc: A data domain within an organization.
     keyAspect: domainKey

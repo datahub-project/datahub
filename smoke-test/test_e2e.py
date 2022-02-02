@@ -1166,7 +1166,13 @@ def test_create_group(frontend_session):
     json = {
         "query": """mutation createGroup($input: CreateGroupInput!) {\n
             createGroup(input: $input) }""",
-        "variables": {"input": {"name": "Test Group", "description": "My test group"}},
+        "variables": {
+            "input": {
+                "id": "test-id",
+                "name": "Test Group",
+                "description": "My test group",
+            }
+        },
     }
 
     response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
@@ -1181,7 +1187,7 @@ def test_create_group(frontend_session):
                 }\n
             }\n
         }""",
-        "variables": {"urn": "urn:li:corpGroup:Test Group"},
+        "variables": {"urn": "urn:li:corpGroup:test-id"},
     }
     response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
     response.raise_for_status()
