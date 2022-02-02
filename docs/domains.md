@@ -2,7 +2,7 @@
 
 ## What is a Domain? 
 
-On DataHub, you can group data assets into logical collections called **Domains**. Domains are curated, top-level
+Starting in version `0.8.25`, DataHub supports grouping data assets into logical collections called **Domains**. Domains are curated, top-level
 folders or categories where related assets can be explicitly grouped. Management of Domains can be centralized, or distributed out
 to Domain owners. Currently, an asset can belong to only one Domain at a time. 
 
@@ -13,6 +13,7 @@ DataHub supports Tags, Glossary Terms, & Domains as distinct types of Metadata t
 - **Tags**: Informal, loosely controlled labels that serve as a tool for search & discovery. Assets may have multiple tags. No formal, central management.
 - **Glossary Terms**: A controlled vocabulary, with optional hierarchy. Terms are typically used to standardize types of leaf-level attributes (i.e. schema fields) for governance. E.g. (EMAIL_PLAINTEXT)
 - **Domains**: A set of top-level categories. Usually aligned to business units / disciplines to which the assets are most relevant. Central or distributed management. Single Domain assignment per data asset.
+
 
 ## Creating a Domain
 
@@ -33,7 +34,7 @@ To create a new Domain, click '+ New Domain'.
 Inside the form, you can choose a name for your name. Most often, this will align with your business units or groups, for example
 'Platform Engineering' or 'Social Marketing'. You can also add an optional description. Don't worry, this can be changed later.
 
-### Advanced: Setting a Custom Domain id
+#### Advanced: Setting a Custom Domain id
 
 Click on 'Advanced' to show the option to set a custom Domain id. The Domain id determines what will appear in the DataHub 'urn' (primary key)
 for the Domain. This option is useful if you intend to refer to Domains by a common name inside your code, or you want the primary
@@ -44,6 +45,7 @@ key to be human-readable. Proceed with caution: once you select a custom id, it 
 By default, you don't need to worry about this. DataHub will auto-generate an unique Domain id for you. 
 
 Once you've chosen a name and a description, click 'Create' to create the new Domain. 
+
 
 ## Assigning an Asset to a Domain 
 
@@ -56,6 +58,7 @@ To remove an asset from a Domain, click the 'x' icon on the Domain tag.
 
 > Notice: Adding or removing an asset from a Domain requires the `Edit Domain` Metadata Privilege, which can be granted
 > by a [Policy](./policies.md).
+
 
 ## Searching by Domain
 
@@ -76,6 +79,7 @@ within a particular Domain using the left-side search filters.
 On the homepage, you'll also find a list of the most popular Domains in your organization.
 
 ![](./imgs/browse-domains.png)
+
 
 ## Domains API
 
