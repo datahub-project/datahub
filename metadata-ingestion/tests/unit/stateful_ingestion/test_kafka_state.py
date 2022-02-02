@@ -2,7 +2,7 @@ from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.ingestion.source.state.kafka_state import KafkaCheckpointState
 
 
-def test_sql_common_state() -> None:
+def test_kafka_common_state() -> None:
     state1 = KafkaCheckpointState()
     test_topic_urn = make_dataset_urn("kafka", "test_topic1", "test")
     state1.add_topic_urn(test_topic_urn)

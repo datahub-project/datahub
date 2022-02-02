@@ -190,7 +190,7 @@ class KafkaSourceTest(unittest.TestCase):
         assert mock_kafka_instance.close.call_count == 1
 
     @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
-    def test_kafka_source_invalid_stateful_ingestion_configuration(self, mock_kafka):
+    def test_kafka_source_stateful_ingestion_requires_platform_instance(self, mock_kafka):
         ctx = PipelineContext(run_id="test", pipeline_name="test")
         with pytest.raises(ConfigurationError):
             kafka_source = KafkaSource.create(

@@ -11,4 +11,4 @@ source:
 sink:
   type: file
   config:
-    filename: "./kafka_mces_with_platform.json"
+    filename: "./kafka_mces_with_platform_instance.json"
