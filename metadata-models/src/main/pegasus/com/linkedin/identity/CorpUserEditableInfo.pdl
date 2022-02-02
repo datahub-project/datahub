@@ -50,4 +50,9 @@ record CorpUserEditableInfo {
    * Phone number to contact the user
    */
   phone: optional string
+
+  /**
+   * Email address to contact the user
+   */
+  email: optional string
 }

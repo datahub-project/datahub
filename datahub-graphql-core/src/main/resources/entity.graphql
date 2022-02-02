@@ -2044,6 +2044,11 @@ type CorpUserEditableProperties {
     Phone number for the user
     """
     phone: String
+
+    """
+    Email address for the user
+    """
+    email: String
 }
 
 
@@ -2080,6 +2085,11 @@ input CorpUserUpdateInput {
     Phone number for the user
     """
     phone: String
+
+    """
+    Email address for the user
+    """
+    email: String
 }
 
 """

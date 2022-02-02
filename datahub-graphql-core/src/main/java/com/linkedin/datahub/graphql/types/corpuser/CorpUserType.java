@@ -159,6 +159,9 @@ public class CorpUserType implements SearchableEntityType<CorpUser>, MutableType
         if (input.getSlack() != null) {
             result.setSlack(input.getSlack());
         }
+        if (input.getEmail() != null) {
+            result.setEmail(input.getEmail());
+        }
 
         return result;
     }

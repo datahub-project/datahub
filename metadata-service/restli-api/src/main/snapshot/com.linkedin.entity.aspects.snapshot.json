@@ -1684,6 +1684,11 @@
       "type" : "string",
       "doc" : "Phone number to contact the user",
       "optional" : true
+    }, {
+      "name" : "email",
+      "type" : "string",
+      "doc" : "Email address to contact the user",
+      "optional" : true
     } ],
     "Aspect" : {
       "EntityUrns" : [ "com.linkedin.common.CorpuserUrn" ],
