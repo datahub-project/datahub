@@ -110,7 +110,7 @@ These plugins can be mixed and matched as desired. For example:
 pip install 'acryl-datahub[bigquery,datahub-rest]'
 ```
 
-You can check the active plugins:
+### Check the active plugins
 
 ```shell
 datahub check plugins
