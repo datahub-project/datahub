@@ -452,7 +452,11 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
                 resource = object.objectName
                 agg_bucket = datasets[floored_ts].setdefault(
                     resource,
-                    AggregatedDataset(bucket_start_time=floored_ts, resource=resource),
+                    AggregatedDataset(
+                        bucket_start_time=floored_ts,
+                        resource=resource,
+                        user_email_pattern=self.config.user_email_pattern,
+                    ),
                 )
                 agg_bucket.add_read_entry(
                     event.email,
