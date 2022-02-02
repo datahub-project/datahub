@@ -1,4 +1,4 @@
-# Metadata Ingestion
+# Intro to Metadata Ingestion
 
 ![Python version 3.6+](https://img.shields.io/badge/python-3.6%2B-blue)
 

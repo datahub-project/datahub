@@ -65,7 +65,6 @@ module.exports = {
     "Getting Started": [
       "docs/quickstart",
       "docs/cli",
-      "metadata-ingestion/README",
       "docs/debugging",
     ],
     "Metadata Ingestion": [
@@ -73,7 +72,7 @@ module.exports = {
       // note that we also have to add the path to this file in sidebarsjs_hardcoded_titles in generateDocsDir.ts
       {
         type: "doc",
-        label: "Quickstart",
+        label: "Introduction",
         id: "metadata-ingestion/README",
       },
       {
