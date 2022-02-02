@@ -38,7 +38,7 @@ Sources:
 | [athena](./source_docs/athena.md)                               | `pip install 'acryl-datahub[athena]'`                      | AWS Athena source                       |
 | [bigquery](./source_docs/bigquery.md)                           | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source                         |
 | [bigquery-usage](./source_docs/bigquery.md)                     | `pip install 'acryl-datahub[bigquery-usage]'`              | BigQuery usage statistics source        |
-| [clickhouse](./source_docs/clickhouse.md)                     | `pip install 'acryl-datahub[cassandra]'`                   | Cassandra source                        |
+| [clickhouse](./source_docs/clickhouse.md)                       | `pip install 'acryl-datahub[clickhouse]'`                  | Clickhouse source                       |
 | [datahub-business-glossary](./source_docs/business_glossary.md) | _no additional dependencies_                               | Business Glossary File source           |
 | [dbt](./source_docs/dbt.md)                                     | _no additional dependencies_                               | dbt source                              |
 | [druid](./source_docs/druid.md)                                 | `pip install 'acryl-datahub[druid]'`                       | Druid Source                            |
