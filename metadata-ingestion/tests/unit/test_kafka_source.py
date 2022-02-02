@@ -189,17 +189,30 @@ class KafkaSourceTest(unittest.TestCase):
         kafka_source.close()
         assert mock_kafka_instance.close.call_count == 1
 
-    @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
     def test_kafka_source_stateful_ingestion_requires_platform_instance(
-        self, mock_kafka
+        self,
     ):
+        class StatefulProviderMock:
+            def __init__(self, config, ctx):
+                self.ctx = ctx
+                self.config = config
+
+            def is_stateful_ingestion_configured(self):
+                return self.config.stateful_ingestion.enabled
+
+        kafka_source_patcher = unittest.mock.patch.object(
+            KafkaSource, "__bases__", (StatefulProviderMock,)
+        )
+
         ctx = PipelineContext(run_id="test", pipeline_name="test")
         with pytest.raises(ConfigurationError):
-            kafka_source = KafkaSource.create(
-                {
-                    "stateful_ingestion": {"enabled": "true"},
-                    "connection": {"bootstrap": "foobar:9092"},
-                },
-                ctx,
-            )
-            kafka_source.close()
+            with kafka_source_patcher:
+                # prevent delattr on __bases__ on context __exit__
+                kafka_source_patcher.is_local = True
+                KafkaSource.create(
+                    {
+                        "stateful_ingestion": {"enabled": "true"},
+                        "connection": {"bootstrap": "localhost:9092"},
+                    },
+                    ctx,
+                )
