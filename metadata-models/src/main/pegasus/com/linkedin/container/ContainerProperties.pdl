@@ -1,0 +1,37 @@
+namespace com.linkedin.container
+
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.ExternalReference
+
+/**
+ * Information about a Asset Container as received from a 3rd party source system
+ */
+@Aspect = {
+  "name": "containerProperties"
+}
+record ContainerProperties includes CustomProperties, ExternalReference {
+  /**
+   * Display name of the Asset Container
+   */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
+  name: string
+
+  /**
+   * Fully-qualified name of the Container
+   */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
+  qualifiedName: optional string
+
+  /**
+   * Description of the Asset Container as it exists inside a source system
+   */
+  description: optional string
+}
