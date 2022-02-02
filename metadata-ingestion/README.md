@@ -17,6 +17,8 @@ Before running any metadata ingestion job, you should make sure that DataHub bac
 A recipe is a configuration file that tells our ingestion scripts where to pull data from (source) and where to put it (sink).
 Here's a simple example that pulls metadata from MSSQL (source) and puts it into datahub rest (sink).
 
+> Note that one recipe file can only have 1 source and 1 sink. If you want multiple sources then you will need multiple recipe files.
+
 ```yaml
 # A sample recipe that pulls metadata from MSSQL and puts it into DataHub
 # using the Rest API.
