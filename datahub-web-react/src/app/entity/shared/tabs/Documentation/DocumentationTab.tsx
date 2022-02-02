@@ -23,13 +23,21 @@ const DocumentationContainer = styled.div`
 `;
 
 export const DocumentationTab = () => {
-    const { entityData } = useEntityData();
+    const { urn, entityData } = useEntityData();
     const refetch = useRefetch();
     const description = entityData?.editableProperties?.description || entityData?.properties?.description || '';
     const links = entityData?.institutionalMemory?.elements || [];
+    const localStorageDictionary = localStorage.getItem('editedDescriptions');
 
     const routeToTab = useRouteToTab();
     const isEditing = queryString.parse(useLocation().search, { parseBooleans: true }).editing;
+
+    React.useEffect(() => {
+        const editedDescriptions = (localStorageDictionary && JSON.parse(localStorageDictionary)) || {};
+        if (editedDescriptions.hasOwnProperty(urn)) {
+            routeToTab({ tabName: 'Documentation', tabParams: { editing: true } });
+        }
+    }, [urn, routeToTab, localStorageDictionary]);
 
     return isEditing ? (
         <>

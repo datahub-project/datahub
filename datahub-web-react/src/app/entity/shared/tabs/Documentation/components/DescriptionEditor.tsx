@@ -17,8 +17,14 @@ export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) =
     const updateEntity = useEntityUpdate<GenericEntityUpdate>();
     const [updateDescriptionMutation] = useUpdateDescriptionMutation();
 
-    const description = entityData?.editableProperties?.description || entityData?.properties?.description || '';
+    const localStorageDictionary = localStorage.getItem('editedDescriptions');
+    const editedDescriptions = (localStorageDictionary && JSON.parse(localStorageDictionary)) || {};
+    const description = editedDescriptions.hasOwnProperty(urn)
+        ? editedDescriptions[urn]
+        : entityData?.editableProperties?.description || entityData?.properties?.description || '';
+
     const [updatedDescription, setUpdatedDescription] = useState(description);
+    const [isDescriptionUpdated, setIsDescriptionUpdated] = useState(editedDescriptions.hasOwnProperty(urn));
 
     const updateDescriptionLegacy = () => {
         return updateEntity?.({
@@ -55,6 +61,13 @@ export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) =
                 entityUrn: urn,
             });
             message.success({ content: 'Description Updated', duration: 2 });
+            // Updating the localStorage after save
+            delete editedDescriptions[urn];
+            if (Object.keys(editedDescriptions).length === 0) {
+                localStorage.removeItem('editedDescriptions');
+            } else {
+                localStorage.setItem('editedDescriptions', JSON.stringify(editedDescriptions));
+            }
             if (onComplete) onComplete();
         } catch (e: unknown) {
             message.destroy();
@@ -65,19 +78,43 @@ export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) =
         refetch?.();
     };
 
+    // Function to handle all changes in Editor
+    const handleEditorChange = (editedDescription: string) => {
+        setUpdatedDescription(editedDescription);
+        if (editedDescription === description) {
+            setIsDescriptionUpdated(false);
+        } else {
+            setIsDescriptionUpdated(true);
+        }
+    };
+
+    // Updating the localStorage when the user has paused for 5 sec
+    React.useEffect(() => {
+        let delayDebounceFn: ReturnType<typeof setTimeout>;
+        const editedDescriptionsLocal = (localStorageDictionary && JSON.parse(localStorageDictionary)) || {};
+
+        if (isDescriptionUpdated) {
+            delayDebounceFn = setTimeout(() => {
+                editedDescriptionsLocal[urn] = updatedDescription;
+                localStorage.setItem('editedDescriptions', JSON.stringify(editedDescriptionsLocal));
+            }, 5000);
+        }
+        return () => clearTimeout(delayDebounceFn);
+    }, [urn, isDescriptionUpdated, updatedDescription, localStorageDictionary]);
+
     return entityData ? (
         <>
             <TabToolbar>
                 <Button type="text" onClick={onComplete}>
-                    Cancel
+                    Back
                 </Button>
-                <Button onClick={handleSaveDescription}>
+                <Button onClick={handleSaveDescription} disabled={!isDescriptionUpdated}>
                     <CheckOutlined /> Save
                 </Button>
             </TabToolbar>
             <StyledMDEditor
                 value={description}
-                onChange={(v) => setUpdatedDescription(v || '')}
+                onChange={(v) => handleEditorChange(v || '')}
                 preview="live"
                 visiableDragbar={false}
             />
