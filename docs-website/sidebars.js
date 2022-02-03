@@ -195,7 +195,7 @@ module.exports = {
         ],
       },
     ],
-    "Usage Guides": ["docs/policies"],
+    "Usage Guides": ["docs/policies", "docs/domains"],
     "Developer Guides": [
       // TODO: the titles of these should not be in question form in the sidebar
       "docs/developers",

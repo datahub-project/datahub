@@ -6,8 +6,6 @@ For context on getting started with ingestion, check out our [metadata ingestion
 
 To install this plugin, run `pip install 'acryl-datahub[trino]'`.
 
-Note! This plugin uses a package that requires Python 3.7+!
-
 ## Capabilities
 
 This plugin extracts the following:
@@ -112,17 +110,20 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 
 By default, we extract usage stats for the last day, with the recommendation that this source is executed every day.
 
-| Field                  | Required | Default                                                        | Description                                                                                                                                                                                                                                                                                                                                                                            |
-| ---------------------- | -------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `database`        |    yes   |                                                                |  The name of the catalog from getting the usage                                                                                                                                                                                                                                                                                                                                  |
-| `audit_catalog`        |    yes   |                                                                |  The catalog name where the audit table can be found                                                                                                                                                                                                                                                                                                                                   |
-| `audit_schema`        |    yes   |                                                                |  The schema name where the audit table can be found                                                                                                                                                                                                                                                                                                                                   |
-| `email_domain`        |    yes   |                                                                |  The email domain which will be appended to the users                                                                                                                                                                                                                                                                                                                                  |
-| `env`                  |          | `"PROD"`                                                       | Environment to use in namespace when constructing URNs.                                                                                                                                                                                                                                                                                                                                |
-| `bucket_duration` |          | `"DAY"`                                                        | Duration to bucket usage events by. Can be `"DAY"` or `"HOUR"`. |
-| `start_time`           |          | Last full day in UTC (or hour, depending on `bucket_duration`) | Earliest date of usage logs to consider.                                                                                                                                                                                                                                                                                                                                               |
-| `end_time`             |          | Last full day in UTC (or hour, depending on `bucket_duration`) | Latest date of usage logs to consider.                                                                                                                                                                                                                                                                                                                                                 |
-| `top_n_queries`        |          | `10`                                                           | Number of top queries to save to each table.                                                                                                                                                                                                                                                                                                                                           |
+| Field                           | Required | Default                                                        | Description                                                     |
+|---------------------------------|----------|----------------------------------------------------------------|-----------------------------------------------------------------|
+| `database`                      | yes      |                                                                | The name of the catalog from getting the usage                  |
+| `audit_catalog`                 | yes      |                                                                | The catalog name where the audit table can be found             |
+| `audit_schema`                  | yes      |                                                                | The schema name where the audit table can be found              |
+| `email_domain`                  | yes      |                                                                | The email domain which will be appended to the users            |
+| `env`                           |          | `"PROD"`                                                       | Environment to use in namespace when constructing URNs.         |
+| `bucket_duration`               |          | `"DAY"`                                                        | Duration to bucket usage events by. Can be `"DAY"` or `"HOUR"`. |
+| `start_time`                    |          | Last full day in UTC (or hour, depending on `bucket_duration`) | Earliest date of usage logs to consider.                        |
+| `end_time`                      |          | Last full day in UTC (or hour, depending on `bucket_duration`) | Latest date of usage logs to consider.                          |
+| `top_n_queries`                 |          | `10`                                                           | Number of top queries to save to each table.                    |
+| `user_email_pattern.allow`      |          | *                                                              | List of regex patterns for user emails to include in usage.     |
+| `user_email_pattern.deny`       |          |                                                                | List of regex patterns for user emails to exclude from usage.   |
+| `user_email_pattern.ignoreCase` |          | `True`                                                         | Whether to ignore case sensitivity during pattern matching.     |
 
 ## Questions
 

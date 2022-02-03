@@ -74,7 +74,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
 
     connect_args: Optional[dict]
 
-    @pydantic.validator("authentication_type")
+    @pydantic.validator("authentication_type", always=True)
     def authenticator_type_is_valid(cls, v, values, **kwargs):
         valid_auth_types = {
             "DEFAULT_AUTHENTICATOR": DEFAULT_AUTHENTICATOR,

@@ -319,7 +319,11 @@ class RedshiftUsageSource(Source):
 
             agg_bucket = datasets[floored_ts].setdefault(
                 resource,
-                AggregatedDataset(bucket_start_time=floored_ts, resource=resource),
+                AggregatedDataset(
+                    bucket_start_time=floored_ts,
+                    resource=resource,
+                    user_email_pattern=self.config.user_email_pattern,
+                ),
             )
 
             # current limitation in user stats UI, we need to provide email to show users
