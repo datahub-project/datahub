@@ -46,6 +46,7 @@ from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     ChangeTypeClass,
     DataPlatformInstanceClass,
+    JobStatusClass,
 )
 
 logger = logging.getLogger(__name__)
@@ -413,9 +414,20 @@ class KafkaSource(StatefulIngestionSourceBase):
     def get_report(self):
         return self.report
 
+    def update_default_job_run_summary(self) -> None:
+        summary = self.get_job_run_summary(self.get_default_ingestion_job_id())
+        if summary is not None:
+            # For now just add the config and the report.
+            summary.config = self.source_config.json()
+            summary.custom_summary = self.report.as_string()
+            summary.runStatus = (
+                JobStatusClass.FAILED
+                if self.get_report().failures
+                else JobStatusClass.COMPLETED
+            )
+
     def close(self):
-        if self.is_stateful_ingestion_configured():
-            # Commit the checkpoints for this run
-            self.commit_checkpoints()
+        self.update_default_job_run_summary()
+        self.prepare_for_commit()
         if self.consumer:
             self.consumer.close()
