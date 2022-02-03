@@ -12,6 +12,7 @@ entities:
       - schemaMetadata
       - status
       - container
+      - assertionResult
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     keyAspect: dataHubPolicyKey
@@ -84,3 +85,9 @@ entities:
       - dataHubExecutionRequestInput
       - dataHubExecutionRequestSignal
       - dataHubExecutionRequestResult
+  - name: assertion
+    doc: Assertion represents a data quality rule applied on one or more dataset.
+    keyAspect: assertionKey
+    aspects:
+      - assertionInfo
+      - dataPlatformInstance

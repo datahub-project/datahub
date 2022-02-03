@@ -4,6 +4,13 @@ namespace com.linkedin.timeseries
  * Defines how the data is partitioned
  */
 record PartitionSpec {
+
+  type: enum PartitionType {
+          FULL_TABLE,
+          QUERY,
+          PARTITION            
+      } = "PARTITION"
+      
   /**
    * String representation of the partition
    */
