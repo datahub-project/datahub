@@ -1,25 +1,6 @@
 [
   {
     "auditHeader": null,
-    "entityType": "domain",
-    "entityUrn": "urn:li:domain:sales",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "domainProperties",
-    "aspect": {
-      "value": "{\"name\": \"sales\"}",
-      "contentType": "application/json"
-    },
-    "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
-    }
-  },
-  {
-    "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datacharmer.employees,PROD)",

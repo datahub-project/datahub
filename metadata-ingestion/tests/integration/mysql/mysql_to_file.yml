@@ -30,7 +30,7 @@ source:
       include_field_distinct_value_frequencies: true
       include_field_histogram: true
       include_field_sample_values: true
-    domains:
+    domain:
       sales:
         allow:
           - "^metagalaxy"

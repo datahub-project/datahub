@@ -13,7 +13,7 @@ from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
 from datahub.emitter.mce_builder import DEFAULT_ENV, make_dataset_urn, make_domain_urn
-from datahub.emitter.mcp_builder import add_domain_wu, add_domains_to_dataset_wu
+from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -36,7 +36,7 @@ class KafkaSourceConfig(ConfigModel):
     # TODO: inline the connection config
     connection: KafkaConsumerConnectionConfig = KafkaConsumerConnectionConfig()
     topic_patterns: AllowDenyPattern = AllowDenyPattern(allow=[".*"], deny=["^_.*"])
-    domains: Dict[str, AllowDenyPattern] = dict()
+    domain: Dict[str, AllowDenyPattern] = dict()
 
 
 @dataclass
@@ -81,10 +81,6 @@ class KafkaSource(Source):
         return cls(config, ctx)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        # Generating domain descriptions
-        for key in self.source_config.domains:
-            yield from add_domain_wu(key, self.report)
-
         topics = self.consumer.list_topics().topics
         for t in topics:
             self.report.report_topic_scanned(t)
@@ -220,13 +216,19 @@ class KafkaSource(Source):
         self.report.report_workunit(wu)
         yield wu
 
-        domain_urns: List = []
-        for domain, pattern in self.source_config.domains.items():
-            if pattern.allowed(dataset_name):
-                domain_urns.append(make_domain_urn(domain))
+        domain_urn: Optional[str] = None
 
-        if domain_urns:
-            yield from add_domains_to_dataset_wu(dataset_urn, domain_urns, self.report)
+        for domain, pattern in self.source_config.domain.items():
+            if pattern.allowed(dataset_name):
+                domain_urn = make_domain_urn(domain)
+
+        if domain_urn:
+            yield from add_domain_to_entity_wu(
+                entity_type="dataset",
+                entity_urn=dataset_urn,
+                domain_urn=domain_urn,
+                report=self.report,
+            )
 
     def get_report(self):
         return self.report

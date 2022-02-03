@@ -8,32 +8,16 @@ from datahub.metadata.com.linkedin.pegasus2avro.domain import DomainProperties
 from datahub.metadata.schema_classes import ChangeTypeClass, DomainsClass
 
 
-def add_domain_wu(
-    domain: str, report: SourceReport
-) -> Iterable[Union[MetadataWorkUnit]]:
-    domain_urn = make_domain_urn(domain)
-    mcp = MetadataChangeProposalWrapper(
-        entityType="domain",
-        changeType=ChangeTypeClass.UPSERT,
-        entityUrn=f"{domain_urn}",
-        aspectName="domainProperties",
-        aspect=DomainProperties(name=domain),
-    )
-    wu = MetadataWorkUnit(id=f"domain-{domain_urn}", mcp=mcp)
-    report.report_workunit(wu)
-    yield wu
-
-
-def add_domains_to_dataset_wu(
-    dataset_urn: str, domains: List[str], report: SourceReport
+def add_domain_to_entity_wu(
+    entity_type:str, entity_urn: str, domain_urn: str, report: SourceReport
 ) -> Iterable[Union[MetadataWorkUnit]]:
     mcp = MetadataChangeProposalWrapper(
-        entityType="dataset",
+        entityType=entity_type,
         changeType=ChangeTypeClass.UPSERT,
-        entityUrn=f"{dataset_urn}",
+        entityUrn=f"{entity_urn}",
         aspectName="domains",
-        aspect=DomainsClass(domains=domains),
+        aspect=DomainsClass(domains=[domain_urn]),
     )
-    wu = MetadataWorkUnit(id=f"domains-to-{dataset_urn}", mcp=mcp)
+    wu = MetadataWorkUnit(id=f"{domain_urn}-to-{entity_urn}", mcp=mcp)
     report.report_workunit(wu)
     yield wu

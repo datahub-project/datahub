@@ -30,7 +30,7 @@ from datahub.emitter.mce_builder import (
     make_domain_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import add_domain_wu, add_domains_to_dataset_wu
+from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -198,7 +198,7 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase):
     table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     view_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     profile_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    domains: Dict[str, AllowDenyPattern] = dict()
+    domain: Dict[str, AllowDenyPattern] = dict()
 
     include_views: Optional[bool] = True
     include_tables: Optional[bool] = True
@@ -519,10 +519,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 "max_overflow", sql_config.profiling.max_workers
             )
 
-        # Generating domain descriptions
-        for key in sql_config.domains:
-            yield from add_domain_wu(key, self.report)
-
         for inspector in self.get_inspectors():
             profiler = None
             profile_requests: List["GEProfilerRequest"] = []
@@ -613,13 +609,20 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
     def _get_domains_wu(
         self, dataset_name: str, dataset_urn: str, sql_config: SQLAlchemyConfig
     ) -> Iterable[Union[MetadataWorkUnit]]:
-        domain_urns: List = []
+
+        domain_urn: Optional[str] = None
+
         for domain, pattern in sql_config.domains.items():
             if pattern.allowed(dataset_name):
-                domain_urns.append(make_domain_urn(domain))
-                break
-        if domain_urns:
-            yield from add_domains_to_dataset_wu(dataset_urn, domain_urns, self.report)
+                domain_urn = make_domain_urn(domain)
+
+        if domain_urn:
+            yield from add_domain_to_entity_wu(
+                entity_type="dataset",
+                entity_urn=dataset_urn,
+                domain_urn=domain_urn,
+                report=self.report,
+            )
 
     def loop_tables(  # noqa: C901
         self,

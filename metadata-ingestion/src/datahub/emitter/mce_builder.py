@@ -131,6 +131,8 @@ def make_chart_urn(platform: str, name: str) -> str:
 
 
 def make_domain_urn(domain: str) -> str:
+    if domain.startswith("urn:li:domain:"):
+        return domain
     return f"urn:li:domain:{domain}"
 
 
