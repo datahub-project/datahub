@@ -26,7 +26,6 @@ class IcebergProfilingConfig(ConfigModel):
     # include_field_sample_values: bool = True
 
 
-
 class IcebergSourceConfig(ConfigModel):
     env: str = DEFAULT_ENV
     adls: Optional[AdlsSourceConfig]
