@@ -116,11 +116,16 @@ if sys.version_info >= (3, 7):  # noqa: C901
 
         def get_identifier(self: BasicSQLAlchemyConfig, schema: str, table: str) -> str:
             regular = f"{schema}.{table}"
+            identifier = regular
             if self.database_alias:
-                return f"{self.database_alias}.{regular}"
-            if self.database:
-                return f"{self.database}.{regular}"
-            return regular
+                identifier = f"{self.database_alias}.{regular}"
+            elif self.database:
+                identifier = f"{self.database}.{regular}"
+            return (
+                f"{self.platform_instance}.{identifier}"
+                if self.platform_instance
+                else identifier
+            )
 
     class TrinoSource(SQLAlchemySource):
         def __init__(self, config, ctx):

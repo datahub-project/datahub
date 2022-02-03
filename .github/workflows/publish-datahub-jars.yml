@@ -44,7 +44,7 @@ jobs:
       - name: checkout upstream repo
         run: |
           git remote add upstream https://github.com/linkedin/datahub.git
-          git fetch upstream --tags
+          git fetch upstream --tags --force
       - name: publish datahub-client jar
         env:
           RELEASE_USERNAME: ${{ secrets.RELEASE_USERNAME }}

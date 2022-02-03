@@ -5,7 +5,7 @@ from typing import Any, List, Optional
 import click
 from click.exceptions import UsageError
 
-from datahub.cli.cli_utils import get_entity
+from datahub.cli.cli_utils import get_aspects_for_entity
 from datahub.telemetry import telemetry
 
 logger = logging.getLogger(__name__)
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 @click.command(
     name="get",
     context_settings=dict(
-        ignore_unknown_options=True,
+        ignore_unknown_options=False,
         allow_extra_args=True,
     ),
 )
@@ -30,4 +30,10 @@ def get(ctx: Any, urn: Optional[str], aspect: List[str]) -> None:
             raise UsageError("Nothing for me to get. Maybe provide an urn?")
         urn = ctx.args[0]
         logger.debug(f"Using urn from args {urn}")
-    click.echo(json.dumps(get_entity(urn=urn, aspect=aspect), sort_keys=True, indent=2))
+    click.echo(
+        json.dumps(
+            get_aspects_for_entity(entity_urn=urn, aspects=aspect, typed=False),
+            sort_keys=True,
+            indent=2,
+        )
+    )

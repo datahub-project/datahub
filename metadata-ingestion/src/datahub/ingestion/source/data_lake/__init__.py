@@ -28,6 +28,7 @@ from pyspark.sql.types import (
     StructType,
     TimestampType,
 )
+from pyspark.sql.utils import AnalysisException
 
 from datahub.emitter.mce_builder import make_data_platform_urn, make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -121,7 +122,16 @@ class DataLakeSource(Source):
 
         conf = SparkConf()
 
-        conf.set("spark.jars.packages", "org.apache.hadoop:hadoop-aws:3.0.3")
+        conf.set(
+            "spark.jars.packages",
+            ",".join(
+                [
+                    "org.apache.hadoop:hadoop-aws:3.0.3",
+                    "org.apache.spark:spark-avro_2.12:3.0.3",
+                    pydeequ.deequ_maven_coord,
+                ]
+            ),
+        )
 
         if self.source_config.aws_config is not None:
 
@@ -170,7 +180,6 @@ class DataLakeSource(Source):
                     "org.apache.hadoop.fs.s3a.AnonymousAWSCredentialsProvider",
                 )
 
-        conf.set("spark.jars.packages", pydeequ.deequ_maven_coord)
         conf.set("spark.jars.excludes", pydeequ.f2j_maven_coord)
         conf.set("spark.driver.memory", config.spark_driver_memory)
 
@@ -206,11 +215,19 @@ class DataLakeSource(Source):
             )
         elif file.endswith(".json"):
             df = self.spark.read.json(file)
+        elif file.endswith(".avro"):
+            try:
+                df = self.spark.read.format("avro").load(file)
+            except AnalysisException:
+                self.report.report_warning(
+                    file,
+                    "To ingest avro files, please install the spark-avro package: https://mvnrepository.com/artifact/org.apache.spark/spark-avro_2.12/3.0.3",
+                )
+                return None
+
         # TODO: add support for more file types
         # elif file.endswith(".orc"):
-        #     df = self.spark.read.orc(file)
-        # elif file.endswith(".avro"):
-        #     df = self.spark.read.avro(file)
+        # df = self.spark.read.orc(file)
         else:
             self.report.report_warning(file, f"file {file} has unsupported extension")
             return None

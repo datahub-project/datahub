@@ -43,6 +43,7 @@ import com.linkedin.metadata.snapshot.DataJobSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
 import graphql.execution.DataFetcherResult;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -67,7 +68,8 @@ public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEnti
         INSTITUTIONAL_MEMORY_ASPECT_NAME,
         GLOBAL_TAGS_ASPECT_NAME,
         GLOSSARY_TERMS_ASPECT_NAME,
-        STATUS_ASPECT_NAME
+        STATUS_ASPECT_NAME,
+        DOMAINS_ASPECT_NAME
     );
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("flow");
     private final EntityClient _entityClient;
@@ -93,13 +95,13 @@ public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEnti
 
     @Override
     public List<DataFetcherResult<DataJob>> batchLoad(final List<String> urnStrs, final QueryContext context) throws Exception {
-        final Set<Urn> urns = urnStrs.stream()
+        final List<Urn> urns = urnStrs.stream()
             .map(UrnUtils::getUrn)
-            .collect(Collectors.toSet());
+            .collect(Collectors.toList());
         try {
             final Map<Urn, EntityResponse> dataJobMap = _entityClient.batchGetV2(
                 Constants.DATA_JOB_ENTITY_NAME,
-                urns,
+                new HashSet<>(urns),
                 ASPECTS_TO_RESOLVE,
                 context.getAuthentication());
 

@@ -45,6 +45,10 @@ grant imported privileges on database snowflake to role datahub_role;
 
 ## Capabilities
 
+| Capability | Status | Details | 
+| -----------| ------ | ---- |
+| Platform Instance | ✔️ | [link](../../docs/platform-instances.md) |
+
 This plugin extracts the following:
 
 - Metadata for databases, schemas, views and tables
@@ -91,12 +95,16 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 
 | Field                         | Required | Default                                                                     | Description                                                                                                                                                                             |
 | ----------------------------- | -------- | --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `authentication_type`         |          | `"DEFAULT_AUTHENTICATOR"`                                                   | The type of authenticator to use when connecting to Snowflake. Supports `"DEFAULT_AUTHENTICATOR"`, `"EXTERNAL_BROWSER_AUTHENTICATOR"` and `"KEY_PAIR_AUTHENTICATOR"`.                   |
 | `username`                    |          |                                                                             | Snowflake username.                                                                                                                                                                     |
 | `password`                    |          |                                                                             | Snowflake password.                                                                                                                                                                     |
+| `private_key_path`            |          |                                                                             | The path to the private key if using key pair authentication. See: https://docs.snowflake.com/en/user-guide/key-pair-auth.html                                                          |
+| `private_key_password`        |          |                                                                             | Password for your private key if using key pair authentication.                                                                                                                         |
 | `host_port`                   | ✅       |                                                                             | Snowflake host URL.                                                                                                                                                                     |
 | `warehouse`                   |          |                                                                             | Snowflake warehouse.                                                                                                                                                                    |
 | `role`                        |          |                                                                             | Snowflake role.                                                                                                                                                                         |
 | `env`                         |          | `"PROD"`                                                                    | Environment to use in namespace when constructing URNs.                                                                                                                                 |
+| `platform_instance`         |          | None             | The Platform instance to use while constructing URNs.         |
 | `options.<option>`            |          |                                                                             | Any options specified here will be passed to SQLAlchemy's `create_engine` as kwargs.<br />See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details. |
 | `database_pattern.allow`      |          |                                                                             | List of regex patterns for databases to include in ingestion.                                                                                                                           |
 | `database_pattern.deny`       |          | `"^UTIL_DB$" `<br />`"^SNOWFLAKE$"`<br />`"^SNOWFLAKE_SAMPLE_DATA$"`        | List of regex patterns for databases to exclude from ingestion.                                                                                                                         |
@@ -112,12 +120,11 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `view_pattern.ignoreCase`     |          | `True`                                                                      | Whether to ignore case sensitivity during pattern matching.                                                                                                                             |
 | `include_tables`              |          | `True`                                                                      | Whether tables should be ingested.                                                                                                                                                      |
 | `include_views`               |          | `True`                                                                      | Whether views should be ingested.                                                                                                                                                       |
-| `include_table_lineage`       |          | `True`                                                                      | Whether table lineage should be ingested.                                                                                                                                               |
+| `include_table_lineage`       |          | `True`                                                                      | If enabled, populates the snowflake table-to-table and s3-to-snowflake table lineage. Requires role to be `accountadmin`                                                                |
 | `bucket_duration`             |          | `"DAY"`                                                                     | Duration to bucket lineage data extraction by. Can be `"DAY"` or `"HOUR"`.                                                                                                              |
-| `start_time`                  |          | Start of last full day in UTC (or hour, depending on `bucket_duration`)     | Earliest time of lineage data to consider.                                                                                                                                              |
+| `start_time`                  |          | Start of last full day in UTC (or hour, depending on `bucket_duration`)     | Earliest time of lineage data to consider. For the bootstrap run, set it as far back in time as possible.                                                                               |
 | `end_time`                    |          | End of last full day in UTC (or hour, depending on `bucket_duration`)       | Latest time of lineage data to consider.                                                                                                                                                |
 | `profiling`                   |          | See the defaults for [profiling config](./sql_profiles.md#Config-details).   | See [profiling config](./sql_profiles.md#Config-details).                                                                                                                              |
-| `include_table_lineage`       |          | `True`                                                                      | If enabled, populates the snowflake table-to-table lineage. Requires role to be `accountadmin`                                                                                          |     
 
 
 ## Compatibility
