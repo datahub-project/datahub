@@ -91,6 +91,9 @@ snowflake_common = {
     "cryptography==3.4.8"
 }
 
+powerbi_common = {
+    "msal==1.16.0"
+}
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
@@ -149,6 +152,7 @@ plugins: Dict[str, Set[str]] = {
     "trino": sql_common | {"trino"},
     "starburst-trino-usage": sql_common | {"trino"},
     "nifi": {"requests"},
+    "powerbi": powerbi_common
 }
 
 all_exclude_plugins: Set[str] = {
@@ -218,6 +222,7 @@ base_dev_requirements = {
             "data-lake",
             "trino",
             "starburst-trino-usage",
+            "powerbi"
             # airflow is added below
         ]
         for dependency in plugins[plugin]
@@ -305,6 +310,7 @@ entry_points = {
         "trino = datahub.ingestion.source.sql.trino:TrinoSource",
         "starburst-trino-usage = datahub.ingestion.source.usage.starburst_trino_usage:TrinoUsageSource",
         "nifi = datahub.ingestion.source.nifi:NifiSource",
+        "powerbi = datahub.ingestion.source.powerbi:PowerBiDashboardSource",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",
