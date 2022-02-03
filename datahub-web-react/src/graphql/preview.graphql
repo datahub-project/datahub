@@ -252,4 +252,7 @@ fragment entityPreview on Entity {
             name
         }
     }
+    ... on Container {
+        ...entityContainer
+    }
 }
