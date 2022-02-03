@@ -38,9 +38,9 @@ class BaseSQLAlchemyCheckpointState(CheckpointStateBase):
     @staticmethod
     def _get_container_lightweight_repr(container_urn: str) -> str:
         """Reduces the amount of text in the URNs for smaller state footprint."""
-        guid = container_urn_to_key(container_urn)
-        assert guid is not None
-        return f"{guid}"
+        key = container_urn_to_key(container_urn)
+        assert key is not None
+        return f"{key.guid}"
 
     @staticmethod
     def _get_dataset_urns_not_in(
@@ -72,14 +72,14 @@ class BaseSQLAlchemyCheckpointState(CheckpointStateBase):
         self, checkpoint: "BaseSQLAlchemyCheckpointState"
     ) -> Iterable[str]:
         yield from self._get_dataset_urns_not_in(
-            self.encoded_view_urns, self.encoded_view_urns
+            self.encoded_view_urns, checkpoint.encoded_view_urns
         )
 
     def get_container_urns_not_in(
         self, checkpoint: "BaseSQLAlchemyCheckpointState"
     ) -> Iterable[str]:
         yield from self._get_container_urns_not_in(
-            checkpoint.encoded_container_urns, self.encoded_container_urns
+            self.encoded_container_urns, checkpoint.encoded_container_urns
         )
 
     def add_table_urn(self, table_urn: str) -> None:
@@ -89,6 +89,6 @@ class BaseSQLAlchemyCheckpointState(CheckpointStateBase):
         self.encoded_view_urns.append(self._get_lightweight_repr(view_urn))
 
     def add_container_guid(self, container_urn: str) -> None:
-        self.encoded_view_urns.append(
+        self.encoded_container_urns.append(
             self._get_container_lightweight_repr(container_urn)
         )

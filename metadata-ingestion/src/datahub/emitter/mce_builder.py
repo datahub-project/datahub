@@ -109,13 +109,14 @@ def make_container_urn(guid: str) -> str:
 
 
 def container_urn_to_key(guid: str) -> Optional[ContainerKeyClass]:
-    pattern = r"urn:li:container:\((.*)\)"
+    pattern = r"urn:li:container:(.*)"
     results = re.search(pattern, guid)
     if results is not None:
         return ContainerKeyClass(
             guid=results.group(1),
         )
     return None
+
 
 def datahub_guid(obj: dict) -> str:
     obj_str = json.dumps(
@@ -127,6 +128,7 @@ def datahub_guid(obj: dict) -> str:
 
 def make_assertion_urn(assertion_id: str) -> str:
     return f"urn:li:assertion:{assertion_id}"
+
 
 def make_user_urn(username: str) -> str:
     return f"urn:li:corpuser:{username}"
