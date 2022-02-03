@@ -1,17 +1,32 @@
 package datahub.spark;
 
+import com.google.common.base.Splitter;
+import datahub.spark.model.LineageUtils;
+import datahub.spark.model.AppEndEvent;
+import datahub.spark.model.AppStartEvent;
+import datahub.spark.model.DatasetLineage;
+import datahub.spark.model.LineageConsumer;
+import datahub.spark.model.SQLQueryExecEndEvent;
+import datahub.spark.model.SQLQueryExecStartEvent;
+import datahub.spark.model.dataset.SparkDataset;
+import datahub.spark.consumer.impl.McpEmitter;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
-
+import java.util.stream.StreamSupport;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
 import org.apache.spark.SparkEnv;
@@ -26,22 +41,13 @@ import org.apache.spark.sql.execution.QueryExecution;
 import org.apache.spark.sql.execution.SQLExecution;
 import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionEnd;
 import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionStart;
+import scala.collection.JavaConversions;
+import scala.runtime.AbstractFunction1;
+import scala.runtime.AbstractPartialFunction;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 
-import datahub.spark.consumer.impl.McpEmitter;
-import datahub.spark.model.AppEndEvent;
-import datahub.spark.model.AppStartEvent;
-import datahub.spark.model.DatasetLineage;
-import datahub.spark.model.LineageUtils;
-import datahub.spark.model.SQLQueryExecEndEvent;
-import datahub.spark.model.SQLQueryExecStartEvent;
-import datahub.spark.model.dataset.SparkDataset;
-import lombok.extern.slf4j.Slf4j;
-import scala.collection.JavaConversions;
-import scala.runtime.AbstractFunction1;
-import scala.runtime.AbstractPartialFunction;
 
 
 @Slf4j
@@ -140,6 +146,7 @@ public class DatahubSparkListener extends SparkListener {
       if (emitter != null) {
         emitter.accept(evt);
       }
+      consumers().forEach(c -> c.accept(evt));
 
       log.debug("LINEAGE \n{}\n", lineage);
       log.debug("Parsed execution id {}:{}", ctx.appName(), sqlStart.executionId());
@@ -168,6 +175,7 @@ public class DatahubSparkListener extends SparkListener {
                   applicationStart.sparkUser());
           Config datahubConf = parseSparkConfig();
           appEmitters.computeIfAbsent(applicationStart.appName(), s -> new McpEmitter(datahubConf)).accept(evt);
+          consumers().forEach(c -> c.accept(evt));
 
           appDetails.put(applicationStart.appName(), evt);
           appSqlDetails.put(applicationStart.appName(), new ConcurrentHashMap<>());
@@ -214,6 +222,14 @@ public class DatahubSparkListener extends SparkListener {
                 log.warn("Failed to close underlying emitter due to {}", e.getMessage());
               }
             }
+            consumers().forEach(x -> {
+                x.accept(evt);
+                try {
+                  x.close();
+                } catch (IOException e) {
+                  log.warn("Failed to close lineage consumer", e);
+                }
+              });
           }
           return null;
         }
@@ -289,5 +305,16 @@ public class DatahubSparkListener extends SparkListener {
     ExecutorService pool = appPoolDetails.get(ctx.appName());
     pool.execute(new SqlStartTask(sqlStart, plan, ctx));
   }
+  private List<LineageConsumer> consumers() {
+      SparkConf conf = SparkEnv.get().conf();
+      if (conf.contains(CONSUMER_TYPE_KEY)) {
+        String consumerTypes = conf.get(CONSUMER_TYPE_KEY);
+        return StreamSupport.stream(Splitter.on(",").trimResults().split(consumerTypes).spliterator(), false)
+            .map(x -> LineageUtils.getConsumer(x)).filter(Objects::nonNull).collect(Collectors.toList());
+      } else {
+        return Collections.emptyList();
+        //singletonList(LineageUtils.getConsumer(DATAHUB_EMITTER));
+      }
 
+    }
 }
