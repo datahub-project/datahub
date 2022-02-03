@@ -19,7 +19,7 @@ const DocumentationContainer = styled.div`
     margin: 0 auto;
     padding: 40px 0;
     max-width: calc(100% - 10px);
-    margin: 20px;
+    margin: 32px;
 `;
 
 export const DocumentationTab = () => {
