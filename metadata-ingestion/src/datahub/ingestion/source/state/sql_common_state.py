@@ -72,7 +72,7 @@ class BaseSQLAlchemyCheckpointState(CheckpointStateBase):
         self, checkpoint: "BaseSQLAlchemyCheckpointState"
     ) -> Iterable[str]:
         yield from self._get_dataset_urns_not_in(
-            checkpoint.encoded_view_urns, self.encoded_view_urns
+            self.encoded_view_urns, self.encoded_view_urns
         )
 
     def get_container_urns_not_in(

@@ -19,6 +19,8 @@ import {
     SchemaMetadata,
     StringMapEntry,
     Domain,
+    SubTypes,
+    Container,
 } from '../../../types.generated';
 import { FetchedEntity } from '../../lineage/types';
 
@@ -61,6 +63,9 @@ export type GenericEntityProperties = {
     editableSchemaMetadata?: Maybe<EditableSchemaMetadata>;
     editableProperties?: Maybe<DatasetEditableProperties>;
     autoRenderAspects?: Maybe<Array<RawAspect>>;
+    subTypes?: Maybe<SubTypes>;
+    entityCount?: number;
+    container?: Maybe<Container>;
 };
 
 export type GenericEntityUpdate = {

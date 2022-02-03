@@ -1,3 +1,4 @@
+import json
 import logging
 from dataclasses import dataclass, field
 from hashlib import md5
@@ -90,15 +91,20 @@ class KafkaSource(Source):
             else:
                 self.report.report_dropped(t)
 
+    @staticmethod
+    def _compact_schema(schema_str: str) -> str:
+        # Eliminate all white-spaces for a compact representation.
+        return json.dumps(json.loads(schema_str), separators=(",", ":"))
+
     def get_schema_str_replace_confluent_ref_avro(
         self, schema: Schema, schema_seen: Optional[set] = None
     ) -> str:
         if not schema.references:
-            return schema.schema_str
+            return self._compact_schema(schema.schema_str)
 
         if schema_seen is None:
             schema_seen = set()
-        schema_str = schema.schema_str
+        schema_str = self._compact_schema(schema.schema_str)
         for schema_ref in schema.references:
             ref_subject = schema_ref["subject"]
             if ref_subject in schema_seen:
@@ -110,12 +116,28 @@ class KafkaSource(Source):
             logger.debug(
                 f"ref for {ref_subject} is {reference_schema.schema.schema_str}"
             )
+            # Replace only external type references with the reference schema recursively.
+            # NOTE: The type pattern is dependent on _compact_schema.
+            avro_type_kwd = '"type"'
             ref_name = schema_ref["name"]
+            # Try by name first
+            pattern_to_replace = f'{avro_type_kwd}:"{ref_name}"'
+            if pattern_to_replace not in schema_str:
+                # Try by subject
+                pattern_to_replace = f'{avro_type_kwd}:"{ref_subject}"'
+                if pattern_to_replace not in schema_str:
+                    logger.warning(
+                        f"Not match for external schema type: {{name:{ref_name}, subject:{ref_subject}}} in schema:{schema_str}"
+                    )
+                else:
+                    logger.debug(
+                        f"External schema matches by subject, {pattern_to_replace}"
+                    )
+            else:
+                logger.debug(f"External schema matches by name, {pattern_to_replace}")
             schema_str = schema_str.replace(
-                f'"{ref_name}"',
-                self.get_schema_str_replace_confluent_ref_avro(
-                    reference_schema.schema, schema_seen
-                ),
+                pattern_to_replace,
+                f"{avro_type_kwd}:{self.get_schema_str_replace_confluent_ref_avro(reference_schema.schema, schema_seen)}",
             )
         return schema_str
 
