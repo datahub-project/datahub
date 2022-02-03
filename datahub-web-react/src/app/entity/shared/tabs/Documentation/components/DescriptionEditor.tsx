@@ -10,6 +10,7 @@ import TabToolbar from '../../../components/styled/TabToolbar';
 import { GenericEntityUpdate } from '../../../types';
 import { useEntityData, useEntityUpdate, useRefetch } from '../../../EntityContext';
 import { useUpdateDescriptionMutation } from '../../../../../../graphql/mutations.generated';
+import { DiscardDescriptionModal } from './DiscardDescriptionModal';
 
 export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) => {
     const { urn, entityType, entityData } = useEntityData();
@@ -105,9 +106,11 @@ export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) =
     return entityData ? (
         <>
             <TabToolbar>
-                <Button type="text" onClick={onComplete}>
-                    Back
-                </Button>
+                <DiscardDescriptionModal
+                    buttonProps={{ type: 'text' }}
+                    isDescriptionUpdated={isDescriptionUpdated}
+                    urn={urn}
+                />
                 <Button onClick={handleSaveDescription} disabled={!isDescriptionUpdated}>
                     <CheckOutlined /> Save
                 </Button>
