@@ -95,7 +95,7 @@ class IcebergProfiler:
         current_snapshot: Snapshot = table.current_snapshot()
         totalCount = 0
         nullCounts = {}
-        valueCounts = {}
+        # valueCounts = {}
         minBounds = {}
         maxBounds = {}
         manifest: ManifestFile
@@ -107,26 +107,29 @@ class IcebergProfiler:
                 manifest_reader = ManifestReader.read(manifest_input_file)
                 dataFile: DataFile
                 for dataFile in manifest_reader.iterator():
-                    self._aggregateCounts(
-                        nullCounts, fieldPaths, dataFile.null_value_counts()
-                    )
-                    self._aggregateCounts(
-                        valueCounts, fieldPaths, dataFile.value_counts()
-                    )
-                    self._aggregateBounds(
-                        table.schema(),
-                        min,
-                        minBounds,
-                        fieldPaths,
-                        dataFile.lower_bounds(),
-                    )
-                    self._aggregateBounds(
-                        table.schema(),
-                        max,
-                        maxBounds,
-                        fieldPaths,
-                        dataFile.upper_bounds(),
-                    )
+                    if self.config.include_field_null_count:
+                        self._aggregateCounts(
+                            nullCounts, fieldPaths, dataFile.null_value_counts()
+                        )
+                    # self._aggregateCounts(
+                    #     valueCounts, fieldPaths, dataFile.value_counts()
+                    # )
+                    if self.config.include_field_min_value:
+                        self._aggregateBounds(
+                            table.schema(),
+                            min,
+                            minBounds,
+                            fieldPaths,
+                            dataFile.lower_bounds(),
+                        )
+                    if self.config.include_field_max_value:
+                        self._aggregateBounds(
+                            table.schema(),
+                            max,
+                            maxBounds,
+                            fieldPaths,
+                            dataFile.upper_bounds(),
+                        )
                     totalCount += dataFile.record_count()
         # TODO Work on error handling to provide better feedback.  Iceberg exceptions are weak...
         except FileSystemNotFound as e:
@@ -135,20 +138,27 @@ class IcebergProfiler:
             # Iterating through fieldPaths introduces unwanted stats for list element fields...
             for fieldPath in fieldPaths.values():
                 column_profile = DatasetFieldProfileClass(fieldPath=fieldPath)
-                column_profile.nullCount = nullCounts.get(fieldPath, 0)
-                column_profile.nullProportion = column_profile.nullCount / rowCount
+                if self.config.include_field_null_count:
+                    column_profile.nullCount = nullCounts.get(fieldPath, 0)
+                    column_profile.nullProportion = column_profile.nullCount / rowCount
                 # column_profile.uniqueCount = valueCounts.get(fieldPath, 0)
                 # non_null_count = rowCount - column_profile.nullCount
                 # if non_null_count is not None and non_null_count > 0:
                 #     column_profile.uniqueProportion = column_profile.uniqueCount / non_null_count
 
                 # TODO: transform value into domain? Example: transform number to timestamp if type is TimestampType
-                column_profile.min = (
-                    str(minBounds.get(fieldPath)) if fieldPath in minBounds else None
-                )
-                column_profile.max = (
-                    str(maxBounds.get(fieldPath)) if fieldPath in maxBounds else None
-                )
+                if self.config.include_field_min_value:
+                    column_profile.min = (
+                        str(minBounds.get(fieldPath))
+                        if fieldPath in minBounds
+                        else None
+                    )
+                if self.config.include_field_max_value:
+                    column_profile.max = (
+                        str(maxBounds.get(fieldPath))
+                        if fieldPath in maxBounds
+                        else None
+                    )
                 dataset_profile.fieldProfiles.append(column_profile)
 
         datasetUrn = make_dataset_urn(self.platform, dataset_name, env)

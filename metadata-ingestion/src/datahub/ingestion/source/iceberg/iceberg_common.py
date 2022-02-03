@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import Iterable, List, Optional
 
-from azure.storage.filedatalake import FileSystemClient
+from azure.storage.filedatalake import FileSystemClient, PathProperties
 from iceberg.core.filesystem.abfss_filesystem import AbfssFileSystem
 from iceberg.core.filesystem.filesystem_tables import FilesystemTables
 
@@ -13,12 +13,24 @@ from datahub.ingestion.source.azure.azure_common import AdlsSourceConfig
 
 class IcebergProfilingConfig(ConfigModel):
     enabled: bool = False
+    include_field_null_count: bool = True
+    include_field_min_value: bool = True
+    include_field_max_value: bool = True
+    # Stats we cannot compute without looking at data
+    # include_field_mean_value: bool = True
+    # include_field_median_value: bool = True
+    # include_field_stddev_value: bool = True
+    # include_field_quantiles: bool = False
+    # include_field_distinct_value_frequencies: bool = False
+    # include_field_histogram: bool = False
+    # include_field_sample_values: bool = True
 
 
 class IcebergSourceConfig(ConfigModel):
     env: str = DEFAULT_ENV
     adls: Optional[AdlsSourceConfig]
     base_path: str = "/"
+    max_path_depth: int = 2
     table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     profiling: IcebergProfilingConfig = IcebergProfilingConfig()
 
@@ -40,6 +52,20 @@ class IcebergSourceConfig(ConfigModel):
         if self.adls:
             return self.adls.get_abfss_url()
         raise ValueError("No filesystem client configured")
+
+    def _get_paths(self, root_path: str, depth: int) -> Iterable[str]:
+        if depth < self.max_path_depth:
+            sub_paths = self.filesystem_client.get_paths(
+                path=root_path, recursive=False
+            )
+            sub_path: PathProperties
+            for sub_path in sub_paths:
+                if sub_path.is_directory:
+                    yield sub_path.name
+                    yield from self._get_paths(sub_path.name, depth + 1)
+
+    def get_paths(self) -> Iterable[str]:
+        yield from self._get_paths(self.base_path, 0)
 
 
 @dataclass

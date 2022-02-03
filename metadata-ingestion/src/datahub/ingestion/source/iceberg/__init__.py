@@ -7,6 +7,7 @@ from azure.storage.filedatalake import PathProperties
 from iceberg.api import types as IcebergTypes
 from iceberg.api.table import Table
 from iceberg.api.types.types import NestedField
+from iceberg.exceptions import NoSuchTableException
 
 from datahub.emitter.mce_builder import (
     DEFAULT_ENV,
@@ -75,38 +76,33 @@ class IcebergSource(Source):
           {namespaceName}/{tableName}
         where each name is only one level deep
         """
-        namespaces = self.fsClient.get_paths(
-            path=self.config.base_path, recursive=False
-        )
-        namespace: PathProperties
-        for namespace in namespaces:
-            namespaceTables = self.fsClient.get_paths(
-                path=namespace.name, recursive=False
-            )
-            tablePath: PathProperties
-            for tablePath in namespaceTables:
-                try:
-                    # TODO Stripping 'base_path/' from tablePath.  Weak code, need to be improved later
-                    namespace, tableName = tablePath.name[
-                        len(self.config.base_path) + 1 :
-                    ].split("/")
-                    datasetName = f"{namespace}.{tableName}"
-                    if not self.config.table_pattern.allowed(datasetName):
-                        self.report.report_dropped(datasetName)
-                        continue
-                    else:
-                        table: Table = self.icebergClient.load(
-                            f"{self.config.filesystem_url}/{tablePath.name}"
-                        )
-                        yield from self._createIcebergWorkunit(datasetName, table)
-                except Exception as e:
-                    self.report.report_failure(
-                        "general", f"Failed to create workunit: {e}"
-                    )
-                    LOGGER.exception(
-                        f"Exception while processing table {self.config.filesystem_url}/{tablePath.name}, skipping it.",
-                        e,
-                    )
+        tablePath: PathProperties
+        for tablePath in self.config.get_paths():
+            try:
+                # TODO Stripping 'base_path/' from tablePath.  Weak code, need to be improved later
+                datasetName = ".".join(
+                    tablePath[len(self.config.base_path) + 1 :].split("/")
+                )
+
+                # Try to load an Iceberg table.  Might not contain one, this will be caught by NoSuchTableException.
+                table: Table = self.icebergClient.load(
+                    f"{self.config.filesystem_url}/{tablePath}"
+                )
+                if not self.config.table_pattern.allowed(datasetName):
+                    # Path contained a valid Iceberg table, but is rejected by pattern.
+                    self.report.report_dropped(datasetName)
+                    continue
+
+                yield from self._createIcebergWorkunit(datasetName, table)
+            except NoSuchTableException:
+                # Path did not contain a valid Iceberg table. Silently ignore this.
+                pass
+            except Exception as e:
+                self.report.report_failure("general", f"Failed to create workunit: {e}")
+                LOGGER.exception(
+                    f"Exception while processing table {self.config.filesystem_url}/{tablePath.name}, skipping it.",
+                    e,
+                )
 
     def _createIcebergWorkunit(
         self, datasetName: str, table: Table
@@ -128,15 +124,16 @@ class IcebergSource(Source):
         )
         dataset_snapshot.aspects.append(dataset_properties)
 
+        # TODO: Should we use last-updated-ms instead?  YES
+        # last_updated_time_millis = (
+        #     table.current_snapshot().timestamp_millis
+        # )
         # TODO: The following seems to go in OperationClass.  It is usually part of the "usage" source.  Should I create a new python module?
-        last_updated_time_millis = (
-            table.current_snapshot().timestamp_millis
-        )  # Should we use last-updated-ms instead?  YES
-        operation_aspect = OperationClass(
-            timestampMillis=get_sys_time(),
-            lastUpdatedTimestamp=last_updated_time_millis,
-            operationType=OperationTypeClass.UNKNOWN,
-        )
+        # operation_aspect = OperationClass(
+        #     timestampMillis=get_sys_time(),
+        #     lastUpdatedTimestamp=last_updated_time_millis,
+        #     operationType=OperationTypeClass.UNKNOWN,
+        # )
         # TODO: How do I add an operation_aspect?
 
         if "owner" in table.properties():
