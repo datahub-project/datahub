@@ -213,11 +213,11 @@ DNS name for the `datahub-gms` pod:
 ### I see 'N/A' when I try to run ingestion. What do I do?
 
 If you see 'N/A', and the ingestion run state never changes to 'Running', this may mean 
-that your executor (`acryl-datahub-actions`) container is down. 
+that your executor (`datahub-actions`) container is down. 
 
 This container is responsible for executing requests to run ingestion when they come in, either
 on demand on a particular schedule. You can verify the health of the container using `docker ps`. Moreover, you can inspect the container logs using by finding the container id
-for the `acryl-datahub-actions` container and running `docker logs <container-id>`.
+for the `datahub-actions` container and running `docker logs <container-id>`.
 
 ### When should I NOT use UI Ingestion?
 
