@@ -1,0 +1,173 @@
+[
+    {
+        "auditHeader": null,
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,datasets.05169CD2-E713-41E6-9600-1D8066D95445,PROD)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "datasetProperties",
+        "aspect": {
+            "value": "{\"customProperties\": {}, \"description\": \"test_dataset\", \"tags\": []}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "powerbi-test",
+            "registryName": null,
+            "registryVersion": null,
+            "properties": null
+        }
+    },
+    {
+        "auditHeader": null,
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,datasets.05169CD2-E713-41E6-9600-1D8066D95445,PROD)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "status",
+        "aspect": {
+            "value": "{\"removed\": false}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "powerbi-test",
+            "registryName": null,
+            "registryVersion": null,
+            "properties": null
+        }
+    },
+    {
+        "auditHeader": null,
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,datasets.05169CD2-E713-41E6-9600-1D8066D95445,PROD)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "datasetKey",
+        "aspect": {
+            "value": "{\"platform\": \"urn:li:dataset:(urn:li:dataPlatform:powerbi,datasets.05169CD2-E713-41E6-9600-1D8066D95445,PROD)\", \"name\": \"powerbi.linkedin.com/datasets/05169CD2-E713-41E6-9600-1D8066D95445\", \"origin\": \"PROD\"}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "powerbi-test",
+            "registryName": null,
+            "registryVersion": null,
+            "properties": null
+        }
+    },
+    {
+        "auditHeader": null,
+        "entityType": "chart",
+        "entityUrn": "urn:li:chart:(powerbi,tiles.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "chartInfo",
+        "aspect": {
+            "value": "{\"customProperties\": {}, \"title\": \"test_tiles\", \"description\": \"\", \"lastModified\": {\"created\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}}, \"chartUrl\": \"https://localhost/tiles/embed/1\", \"inputs\": [{\"string\": \"urn:li:dataset:(urn:li:dataPlatform:powerbi,datasets.05169CD2-E713-41E6-9600-1D8066D95445,PROD)\"}]}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "powerbi-test",
+            "registryName": null,
+            "registryVersion": null,
+            "properties": null
+        }
+    },
+    {
+        "auditHeader": null,
+        "entityType": "chart",
+        "entityUrn": "urn:li:chart:(powerbi,tiles.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "status",
+        "aspect": {
+            "value": "{\"removed\": false}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "powerbi-test",
+            "registryName": null,
+            "registryVersion": null,
+            "properties": null
+        }
+    },
+    {
+        "auditHeader": null,
+        "entityType": "chart",
+        "entityUrn": "urn:li:chart:(powerbi,tiles.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "chartKey",
+        "aspect": {
+            "value": "{\"dashboardTool\": \"powerbi\", \"chartId\": \"powerbi.linkedin.com/charts/B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0\"}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "powerbi-test",
+            "registryName": null,
+            "registryVersion": null,
+            "properties": null
+        }
+    },
+    {
+        "auditHeader": null,
+        "entityType": "dashboard",
+        "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "dashboardInfo",
+        "aspect": {
+            "value": "{\"customProperties\": {}, \"title\": \"test_dashboard\", \"description\": \"\", \"charts\": [\"urn:li:chart:(powerbi,tiles.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0)\"], \"lastModified\": {\"created\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}}, \"dashboardUrl\": \"https://localhost/dashboards/web/1\"}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "powerbi-test",
+            "registryName": null,
+            "registryVersion": null,
+            "properties": null
+        }
+    },
+    {
+        "auditHeader": null,
+        "entityType": "dashboard",
+        "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "status",
+        "aspect": {
+            "value": "{\"removed\": false}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "powerbi-test",
+            "registryName": null,
+            "registryVersion": null,
+            "properties": null
+        }
+    },
+    {
+        "auditHeader": null,
+        "entityType": "dashboard",
+        "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "dashboardKey",
+        "aspect": {
+            "value": "{\"dashboardTool\": \"powerbi\", \"dashboardId\": \"powerbi.linkedin.com/dashboards/7D668CAD-7FFC-4505-9215-655BCA5BEBAE\"}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "powerbi-test",
+            "registryName": null,
+            "registryVersion": null,
+            "properties": null
+        }
+    }
+]

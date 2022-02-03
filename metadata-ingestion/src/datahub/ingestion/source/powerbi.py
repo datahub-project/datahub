@@ -93,7 +93,7 @@ class PowerBiAPI:
         name: str
 
         def get_urn_part(self):
-            return "dataset.{}".format(self.id)
+            return "datasets.{}".format(self.id)
 
     @dataclass
     class Tile:
@@ -104,7 +104,7 @@ class PowerBiAPI:
         # TODO: set report if dataset is not available
 
         def get_urn_part(self):
-            return "tile.{}".format(self.id)
+            return "tiles.{}".format(self.id)
 
     @dataclass
     class Dashboard:
@@ -117,7 +117,7 @@ class PowerBiAPI:
         tiles: List[Any]
 
         def get_urn_part(self):
-            return "dashboard.{}".format(self.id)
+            return "dashboards.{}".format(self.id)
 
     def __init__(self, config: PowerBiAPIConfig) -> None:
         self.__config: PowerBiAPIConfig = config
