@@ -606,13 +606,13 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
     def normalise_dataset_name(self, dataset_name: str) -> str:
         return dataset_name
 
-    def _get_domains_wu(
+    def _get_domain_wu(
         self, dataset_name: str, dataset_urn: str, sql_config: SQLAlchemyConfig
     ) -> Iterable[Union[MetadataWorkUnit]]:
 
         domain_urn: Optional[str] = None
 
-        for domain, pattern in sql_config.domains.items():
+        for domain, pattern in sql_config.domain.items():
             if pattern.allowed(dataset_name):
                 domain_urn = make_domain_urn(domain)
 
@@ -731,7 +731,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             if dpi_aspect:
                 yield dpi_aspect
 
-            yield from self._get_domains_wu(dataset_name, dataset_urn, sql_config)
+            yield from self._get_domain_wu(dataset_name, dataset_urn, sql_config)
 
     def get_dataplatform_instance_aspect(
         self, dataset_urn: str
@@ -923,7 +923,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             if dpi_aspect:
                 yield dpi_aspect
 
-            yield from self._get_domains_wu(dataset_name, dataset_urn, sql_config)
+            yield from self._get_domain_wu(dataset_name, dataset_urn, sql_config)
 
     def _get_profiler_instance(self, inspector: Inspector) -> "DatahubGEProfiler":
         from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
