@@ -223,12 +223,14 @@ class KafkaSource(Source):
                 domain_urn = make_domain_urn(domain)
 
         if domain_urn:
-            yield from add_domain_to_entity_wu(
+            wus = add_domain_to_entity_wu(
                 entity_type="dataset",
                 entity_urn=dataset_urn,
                 domain_urn=domain_urn,
-                report=self.report,
             )
+            for wu in wus:
+                self.report.report_workunit(wu)
+                yield wu
 
     def get_report(self):
         return self.report

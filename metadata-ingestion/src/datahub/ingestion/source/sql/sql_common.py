@@ -29,17 +29,16 @@ from datahub.emitter.mce_builder import (
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
-    DEFAULT_ENV,
+)
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import (
     DatabaseKey,
     PlatformKey,
     SchemaKey,
     add_dataset_to_container,
+    add_domain_to_entity_wu,
     gen_containers,
-    make_data_platform_urn,
-    make_dataset_urn,
 )
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -555,10 +554,14 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         )
 
     def gen_database_containers(self, database: str) -> Iterable[MetadataWorkUnit]:
-        database_container_key = self.gen_database_key(database)
+        domain_urn = self._gen_domain_urn(database)
 
+        database_container_key = self.gen_database_key(database)
         container_workunits = gen_containers(
-            database_container_key, database, [SqlContainerSubTypes.DATABASE]
+            container_key=database_container_key,
+            name=database,
+            sub_types=[SqlContainerSubTypes.DATABASE],
+            domain_urn=domain_urn,
         )
 
         for wu in container_workunits:
@@ -689,23 +692,33 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
     def normalise_dataset_name(self, dataset_name: str) -> str:
         return dataset_name
 
-    def _get_domain_wu(
-        self, dataset_name: str, dataset_urn: str, sql_config: SQLAlchemyConfig
-    ) -> Iterable[Union[MetadataWorkUnit]]:
-
+    def _gen_domain_urn(self, dataset_name: str) -> Optional[str]:
         domain_urn: Optional[str] = None
 
-        for domain, pattern in sql_config.domain.items():
+        for domain, pattern in self.config.domain.items():
             if pattern.allowed(dataset_name):
                 domain_urn = make_domain_urn(domain)
 
+        return domain_urn
+
+    def _get_domain_wu(
+        self,
+        dataset_name: str,
+        entity_urn: str,
+        entity_type: str,
+        sql_config: SQLAlchemyConfig,
+    ) -> Iterable[Union[MetadataWorkUnit]]:
+
+        domain_urn = self._gen_domain_urn(dataset_name)
         if domain_urn:
-            yield from add_domain_to_entity_wu(
-                entity_type="dataset",
-                entity_urn=dataset_urn,
+            wus = add_domain_to_entity_wu(
+                entity_type=entity_type,
+                entity_urn=entity_urn,
                 domain_urn=domain_urn,
-                report=self.report,
             )
+            for wu in wus:
+                self.report.report_workunit(wu)
+                yield wu
 
     def loop_tables(  # noqa: C901
         self,
@@ -819,7 +832,12 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             if dpi_aspect:
                 yield dpi_aspect
 
-            yield from self._get_domain_wu(dataset_name, dataset_urn, sql_config)
+            yield from self._get_domain_wu(
+                dataset_name=dataset_name,
+                entity_urn=dataset_urn,
+                entity_type="dataset",
+                sql_config=sql_config,
+            )
 
     def get_dataplatform_instance_aspect(
         self, dataset_urn: str
@@ -1014,8 +1032,13 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             if dpi_aspect:
                 yield dpi_aspect
 
-            yield from self._get_domain_wu(dataset_name, dataset_urn, sql_config)
-    
+            yield from self._get_domain_wu(
+                dataset_name=dataset_name,
+                entity_urn=dataset_urn,
+                entity_type="dataset",
+                sql_config=sql_config,
+            )
+
     def add_table_to_schema_container(
         self, dataset_urn: str, db_name: str, schema: str
     ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
