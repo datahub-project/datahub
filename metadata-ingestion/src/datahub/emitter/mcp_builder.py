@@ -1,10 +1,8 @@
-from typing import Iterable, List, Union
+from typing import Iterable, Union
 
-from datahub.emitter.mce_builder import make_domain_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.metadata.com.linkedin.pegasus2avro.domain import DomainProperties
 from datahub.metadata.schema_classes import ChangeTypeClass, DomainsClass
 
 
