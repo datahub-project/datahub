@@ -20,7 +20,6 @@ import com.typesafe.config.Config;
 public class McpEmitter implements LineageConsumer {
 
   private final Optional<Emitter> emitter;
-  //private static final String CONF_PREFIX = "spark.datahub.";
   private static final String TRANSPORT_KEY = "transport";
   private static final String GMS_URL_KEY = "rest.server";
   private static final String GMS_AUTH_TOKEN = "rest.token";
@@ -45,22 +44,25 @@ public class McpEmitter implements LineageConsumer {
     }
   }
 
-  public McpEmitter(Config datahub_conf) {
-    String emitterType = datahub_conf.hasPath(TRANSPORT_KEY) ? datahub_conf.getString(TRANSPORT_KEY) : "rest";
-    switch(emitterType) {
+  public McpEmitter(Config datahubConf) {
+      String emitterType = datahubConf.hasPath(TRANSPORT_KEY) ? datahubConf.getString(TRANSPORT_KEY) : "rest";
+      switch (emitterType) {
       case "rest":
-    	String gmsUrl = datahub_conf.hasPath(GMS_URL_KEY) ? datahub_conf.getString(GMS_URL_KEY) : "http://localhost:8080";
-        String token = datahub_conf.hasPath(GMS_AUTH_TOKEN) ? datahub_conf.getString(GMS_AUTH_TOKEN) : null;
-        log.info("REST Emitter Configuration: GMS url {}{}", gmsUrl, (datahub_conf.hasPath(GMS_URL_KEY) ? "" : "(default)"));
-        if (token != null) {
-          log.info("REST Emitter Configuration: Token {}", (token != null) ? "XXXXX" : "(empty)");
-        }
-        emitter = Optional.of(RestEmitter.create($ -> $.server(gmsUrl).token(token)));
-        break;
+          String gmsUrl = datahubConf.hasPath(GMS_URL_KEY) ? datahubConf.getString(GMS_URL_KEY)
+                  : "http://localhost:8080";
+          String token = datahubConf.hasPath(GMS_AUTH_TOKEN) ? datahubConf.getString(GMS_AUTH_TOKEN) : null;
+          log.info("REST Emitter Configuration: GMS url {}{}", gmsUrl,
+                  (datahubConf.hasPath(GMS_URL_KEY) ? "" : "(default)"));
+          if (token != null) {
+              log.info("REST Emitter Configuration: Token {}", (token != null) ? "XXXXX" : "(empty)");
+          }
+          emitter = Optional.of(RestEmitter.create($ -> $.server(gmsUrl).token(token)));
+          break;
       default:
-        emitter = Optional.empty();
-        log.error("DataHub Transport {} not recognized. DataHub Lineage emission will not work", emitterType);
-    }
+          emitter = Optional.empty();
+          log.error("DataHub Transport {} not recognized. DataHub Lineage emission will not work", emitterType);
+          break;
+      }
   }
 
   @Override

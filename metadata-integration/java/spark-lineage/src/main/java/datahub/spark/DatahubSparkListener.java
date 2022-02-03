@@ -148,7 +148,9 @@ public class DatahubSparkListener extends SparkListener {
   
   private Config parseSparkConfig() {
     SparkConf conf = SparkEnv.get().conf();
-    String propertiesString = Arrays.stream(conf.getAllWithPrefix("spark.datahub.")).map(tup -> tup._1 + "= \"" + tup._2 + "\"").collect(Collectors.joining("\n"));
+    String propertiesString = Arrays.stream(conf.getAllWithPrefix("spark.datahub."))
+            .map(tup -> tup._1 + "= \"" + tup._2 + "\"")
+            .collect(Collectors.joining("\n"));
     return ConfigFactory.parseString(propertiesString);
   }
 
@@ -164,8 +166,8 @@ public class DatahubSparkListener extends SparkListener {
           AppStartEvent evt =
               new AppStartEvent(LineageUtils.getMaster(sc), applicationStart.appName(), appId, applicationStart.time(),
                   applicationStart.sparkUser());
-          Config datahub_conf = parseSparkConfig();
-          appEmitters.computeIfAbsent(applicationStart.appName(), s -> new McpEmitter(datahub_conf)).accept(evt);
+          Config datahubConf = parseSparkConfig();
+          appEmitters.computeIfAbsent(applicationStart.appName(), s -> new McpEmitter(datahubConf)).accept(evt);
 
           appDetails.put(applicationStart.appName(), evt);
           appSqlDetails.put(applicationStart.appName(), new ConcurrentHashMap<>());
