@@ -8,7 +8,9 @@ from datahub.ingestion.source.kafka import KafkaSource
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.kafka_state import KafkaCheckpointState
 
-from tests.utils import create_kafka_topics, delete_kafka_topics
+from tests.utils import (create_kafka_topics, delete_kafka_topics,
+                         run_and_get_pipeline,
+                         validate_all_providers_have_committed_successfully)
 
 GMS_ENDPOINT = "http://localhost:8080"
 FRONTEND_ENDPOINT = "http://localhost:9002"
@@ -33,24 +35,22 @@ def kafka_topics(request):
     return topic_names
 
 
-@pytest.mark.dependency(depends=["test_healthchecks"])
 def test_stateful_ingestion_kafka(wait_for_healthchecks, kafka_topics):
     def get_current_checkpoint_from_pipeline(
-        pipeline_config_dict: Dict[str, Any]
+        pipeline: Pipeline,
     ) -> Optional[Checkpoint]:
-        pipeline = Pipeline.create(pipeline_config_dict)
-        pipeline.run()
-
-        pipeline.raise_from_status()
         kafka_source = cast(KafkaSource, pipeline.source)
         return kafka_source.get_current_checkpoint(
             kafka_source.get_default_ingestion_job_id()
         )
 
+    PLATFORM_INSTANCE = "smoke_test"
+
     source_config_dict: Dict[str, Any] = {
         "connection": {
             "bootstrap": f"{KAFKA_BROKER}",
         },
+        "platform_instance": f"{PLATFORM_INSTANCE}",
         "topic_patterns": {"allow": ["stateful_ingestion_test.*"]},
         "stateful_ingestion": {
             "enabled": True,
@@ -72,12 +72,17 @@ def test_stateful_ingestion_kafka(wait_for_healthchecks, kafka_topics):
             "config": {"server": GMS_ENDPOINT},
         },
         "pipeline_name": "kafka_stateful_ingestion_smoke_test_pipeline",
+        "reporting": [
+            {
+                "type": "datahub",
+                "config": {"datahub_api": {"server": GMS_ENDPOINT}},
+            }
+        ],
     }
 
     # 1. Do the first run of the pipeline and get the default job's checkpoint.
-    checkpoint1 = get_current_checkpoint_from_pipeline(
-        pipeline_config_dict=pipeline_config_dict
-    )
+    pipeline_run1 = run_and_get_pipeline(pipeline_config_dict)
+    checkpoint1 = get_current_checkpoint_from_pipeline(pipeline_run1)
 
     assert checkpoint1
     assert checkpoint1.state
@@ -87,9 +92,9 @@ def test_stateful_ingestion_kafka(wait_for_healthchecks, kafka_topics):
     # sleep to guarantee eventual consistency
     time.sleep(1)
 
-    checkpoint2 = get_current_checkpoint_from_pipeline(
-        pipeline_config_dict=pipeline_config_dict
-    )
+    pipeline_run2 = run_and_get_pipeline(pipeline_config_dict)
+    checkpoint2 = get_current_checkpoint_from_pipeline(pipeline_run2)
+
     assert checkpoint2
     assert checkpoint2.state
 
@@ -101,8 +106,18 @@ def test_stateful_ingestion_kafka(wait_for_healthchecks, kafka_topics):
     assert len(difference_urns) == 1
     assert (
         difference_urns[0]
-        == f"urn:li:dataset:(urn:li:dataPlatform:kafka,{kafka_topics[0]},PROD)"
+        == f"urn:li:dataset:(urn:li:dataPlatform:kafka,{PLATFORM_INSTANCE}.{kafka_topics[0]},PROD)"
     )
 
     # 4. Perform all assertions on the config.
     assert checkpoint1.config == checkpoint2.config
+
+    # 5. Validate that all providers have committed successfully.
+    # NOTE: The following validation asserts for presence of state as well
+    # and validates reporting.
+    validate_all_providers_have_committed_successfully(
+        pipeline=pipeline_run1, expected_providers=2
+    )
+    validate_all_providers_have_committed_successfully(
+        pipeline=pipeline_run1, expected_providers=2
+    )

@@ -1,6 +1,5 @@
 from typing import Any, Dict, Optional, cast
 
-from datahub.ingestion.api.committable import StatefulCommittable
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.sql.mysql import MySQLConfig, MySQLSource
 from datahub.ingestion.source.sql.sql_common import \
@@ -8,6 +7,8 @@ from datahub.ingestion.source.sql.sql_common import \
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from sqlalchemy import create_engine
 from sqlalchemy.sql import text
+
+from tests.utils import run_and_get_pipeline, validate_all_providers_have_committed_successfully
 
 
 def test_stateful_ingestion(wait_for_healthchecks):
@@ -23,22 +24,6 @@ def test_stateful_ingestion(wait_for_healthchecks):
     def drop_table(engine: Any, table_name: str) -> None:
         drop_table_query = text(f"DROP TABLE {table_name};")
         engine.execute(drop_table_query)
-
-    def run_and_get_pipeline(pipeline_config_dict: Dict[str, Any]) -> Pipeline:
-        pipeline = Pipeline.create(pipeline_config_dict)
-        pipeline.run()
-        pipeline.raise_from_status()
-        return pipeline
-
-    def validate_all_providers_have_committed_successfully(pipeline: Pipeline) -> None:
-        provider_count: int = 0
-        for name, provider in pipeline.ctx.get_committables():
-            provider_count += 1
-            assert isinstance(provider, StatefulCommittable)
-            stateful_committable = cast(StatefulCommittable, provider)
-            assert stateful_committable.has_successfully_committed()
-            assert stateful_committable.state_to_commit
-        assert provider_count == 2
 
     def get_current_checkpoint_from_pipeline(
         pipeline: Pipeline,
@@ -125,5 +110,5 @@ def test_stateful_ingestion(wait_for_healthchecks):
     # 8. Validate that all providers have committed successfully.
     # NOTE: The following validation asserts for presence of state as well
     # and validates reporting.
-    validate_all_providers_have_committed_successfully(pipeline_run1)
-    validate_all_providers_have_committed_successfully(pipeline_run2)
+    validate_all_providers_have_committed_successfully(pipeline=pipeline_run1, expected_providers=2)
+    validate_all_providers_have_committed_successfully(pipeline=pipeline_run1, expected_providers=2)

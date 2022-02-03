@@ -1,9 +1,10 @@
 import json
-from typing import Any, Dict, List
+from typing import Any, Dict, List, cast
 
 import requests
 from confluent_kafka.admin import AdminClient, NewTopic
 from datahub.cli import cli_utils
+from datahub.ingestion.api.committable import StatefulCommittable
 from datahub.ingestion.run.pipeline import Pipeline
 
 GMS_ENDPOINT = "http://localhost:8080"
@@ -56,6 +57,26 @@ def delete_urns_from_file(filename: str) -> None:
                 GMS_ENDPOINT + "/entities?action=delete",
                 payload_obj,
             )
+
+
+def run_and_get_pipeline(pipeline_config_dict: Dict[str, Any]) -> Pipeline:
+    pipeline = Pipeline.create(pipeline_config_dict)
+    pipeline.run()
+    pipeline.raise_from_status()
+    return pipeline
+
+
+def validate_all_providers_have_committed_successfully(
+    pipeline: Pipeline, expected_providers: int
+) -> None:
+    provider_count: int = 0
+    for _, provider in pipeline.ctx.get_committables():
+        provider_count += 1
+        assert isinstance(provider, StatefulCommittable)
+        stateful_committable = cast(StatefulCommittable, provider)
+        assert stateful_committable.has_successfully_committed()
+        assert stateful_committable.state_to_commit
+    assert provider_count == expected_providers
 
 
 def create_kafka_topics(topics: List[NewTopic]) -> None:
