@@ -195,7 +195,7 @@ A variety of things can cause an ingestion run to fail. Common reasons for failu
     in your Recipe Configuration. To so this, set the 'token' field of the sink configuration to contain a Personal Access Token:
    ![](./imgs/ingestion-with-token.png)
 
-The output of each run is captured and available to view in the UI for easier debugging. To view output logs, click the 'DETAILS' button 
+The output of each run is captured and available to view in the UI for easier debugging. To view output logs, click **DETAILS** 
 on the corresponding ingestion run. 
 
 ![](./imgs/ingestion-logs.png)
