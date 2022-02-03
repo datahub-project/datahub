@@ -411,9 +411,8 @@ schema name to use when constructing a table URN.
 
 ### Authentication
 
-Currently, authentication is supported on Tableau Online only using username and password. 
-Authenticating using a personal token is not supported. <br/>
-For more information on Tableau authentication, refer to [How to Authenticate](https://help.tableau.com/current/api/metadata_api/en-us/docs/meta_api_auth.html) guide.
+Currently, authentication is supported on Tableau Online using username and password
+and personal token. For more information on Tableau authentication, refer to [How to Authenticate](https://help.tableau.com/current/api/metadata_api/en-us/docs/meta_api_auth.html) guide.
 
 
 ## Compatibility
