@@ -9,7 +9,7 @@ from datahub.metadata.schema_classes import ChangeTypeClass, DomainsClass
 
 
 def add_domain_to_entity_wu(
-    entity_type:str, entity_urn: str, domain_urn: str, report: SourceReport
+    entity_type: str, entity_urn: str, domain_urn: str, report: SourceReport
 ) -> Iterable[Union[MetadataWorkUnit]]:
     mcp = MetadataChangeProposalWrapper(
         entityType=entity_type,
