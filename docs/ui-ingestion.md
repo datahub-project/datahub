@@ -129,7 +129,7 @@ To learn more about the CRON scheduling format, check out the [Wikipedia](https:
 If you plan to execute ingestion on an ad-hoc basis, you can click **Skip** to skip the scheduling step entirely. Don't worry - 
 you can always come back and change this. 
 
-#### Finishing Up
+#### Step 4: Finishing Up
 
 Finally, give your Ingestion Source a name. 
 
@@ -151,6 +151,7 @@ _Pinning the CLI version to version `0.8.23.2`_
 
 Once you're happy with your changes, simply click 'Done' to save. 
 
+
 ### Running an Ingestion Source
 
 Once you've created your Ingestion Source, you can run it by clicking 'Execute'. Shortly after,
@@ -163,6 +164,7 @@ If ingestion has executed successfully, you should see it's state shown in green
 
 ![](./imgs/successful-ingestion.png)
 
+
 ### Cancelling an Ingestion Run
 
 If your ingestion run is hanging, there may a bug in the ingestion source, or another persistent issue like exponential timeouts. If these situations, 
@@ -171,6 +173,7 @@ you can cancel ingestion by clicking **Cancel** on the problematic run.
 ![](./imgs/cancelled-ingestion.png)
 
 Once cancelled, you can view the output of the ingestion run by clicking **Details**. 
+
 
 ### Debugging a Failed Ingestion Run
 
