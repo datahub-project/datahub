@@ -88,7 +88,7 @@ snowflake_common = {
     *sql_common,
     # Required for all Snowflake sources
     "snowflake-sqlalchemy<=1.2.4",
-    "cryptography==3.4.8"
+    "cryptography"
 }
 
 # Note: for all of these, framework_common will be added.
@@ -217,6 +217,7 @@ base_dev_requirements = {
             "redshift-usage",
             "data-lake",
             "trino",
+            "hive",
             "starburst-trino-usage",
             # airflow is added below
         ]
