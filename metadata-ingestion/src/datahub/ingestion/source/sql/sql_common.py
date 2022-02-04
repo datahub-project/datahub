@@ -25,6 +25,7 @@ from sqlalchemy.sql import sqltypes as types
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
+    make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -65,7 +66,9 @@ from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
+    JobStatusClass,
 )
+from datahub.telemetry import telemetry
 from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombinerReport
 
 if TYPE_CHECKING:
@@ -346,6 +349,24 @@ def get_schema_metadata(
     return schema_metadata
 
 
+# flags to emit telemetry for
+profiling_flags_to_report = [
+    "turn_off_expensive_profiling_metrics",
+    "profile_table_level_only",
+    "include_field_null_count",
+    "include_field_min_value",
+    "include_field_max_value",
+    "include_field_mean_value",
+    "include_field_median_value",
+    "include_field_stddev_value",
+    "include_field_quantiles",
+    "include_field_distinct_value_frequencies",
+    "include_field_histogram",
+    "include_field_sample_values",
+    "query_combiner_enabled",
+]
+
+
 class SQLAlchemySource(StatefulIngestionSourceBase):
     """A Base class for all SQL Sources that use SQLAlchemy to extend"""
 
@@ -354,6 +375,28 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self.config = config
         self.platform = platform
         self.report = SQLSourceReport()
+
+        telemetry.telemetry_instance.ping(
+            "sql_profiling",
+            "config",
+            "enabled",
+            1 if config.profiling.enabled else 0,
+        )
+
+        if config.profiling.enabled:
+
+            for config_flag in profiling_flags_to_report:
+                config_value = getattr(config.profiling, config_flag)
+                config_int = (
+                    1 if config_value else 0
+                )  # convert to int so it can be emitted as a value
+
+                telemetry.telemetry_instance.ping(
+                    "sql_profiling",
+                    "config",
+                    config_flag,
+                    config_int,
+                )
 
     def get_inspectors(self) -> Iterable[Inspector]:
         # This method can be overridden in the case that you want to dynamically
@@ -399,6 +442,18 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 state=BaseSQLAlchemyCheckpointState(),
             )
         return None
+
+    def update_default_job_run_summary(self) -> None:
+        summary = self.get_job_run_summary(self.get_default_ingestion_job_id())
+        if summary is not None:
+            # For now just add the config and the report.
+            summary.config = self.config.json()
+            summary.custom_summary = self.report.as_string()
+            summary.runStatus = (
+                JobStatusClass.FAILED
+                if self.get_report().failures
+                else JobStatusClass.COMPLETED
+            )
 
     def get_schema_names(self, inspector):
         return inspector.get_schema_names()
@@ -558,6 +613,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             fk_dict["name"], foreign_fields, source_fields, foreign_dataset
         )
 
+    def normalise_dataset_name(self, dataset_name: str) -> str:
+        return dataset_name
+
     def loop_tables(  # noqa: C901
         self,
         inspector: Inspector,
@@ -572,6 +630,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             dataset_name = self.get_identifier(
                 schema=schema, entity=table, inspector=inspector
             )
+
+            dataset_name = self.normalise_dataset_name(dataset_name)
+
             if dataset_name not in tables_seen:
                 tables_seen.add(dataset_name)
             else:
@@ -681,21 +742,32 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             self.report.report_workunit(wu)
             yield wu
 
-            # If we are a platform instance based source, emit the instance aspect
-            if self.config.platform_instance:
-                mcp = MetadataChangeProposalWrapper(
-                    entityType="dataset",
-                    changeType=ChangeTypeClass.UPSERT,
-                    entityUrn=dataset_urn,
-                    aspectName="dataPlatformInstance",
-                    aspect=DataPlatformInstanceClass(
-                        platform=make_data_platform_urn(self.platform),
-                        instance=self.config.platform_instance,
+            dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
+            if dpi_aspect:
+                yield dpi_aspect
+
+    def get_dataplatform_instance_aspect(
+        self, dataset_urn: str
+    ) -> Optional[SqlWorkUnit]:
+        # If we are a platform instance based source, emit the instance aspect
+        if self.config.platform_instance:
+            mcp = MetadataChangeProposalWrapper(
+                entityType="dataset",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=dataset_urn,
+                aspectName="dataPlatformInstance",
+                aspect=DataPlatformInstanceClass(
+                    platform=make_data_platform_urn(self.platform),
+                    instance=make_dataplatform_instance_urn(
+                        self.platform, self.config.platform_instance
                     ),
-                )
-                wu = SqlWorkUnit(id=f"{dataset_name}-dataPlatformInstance", mcp=mcp)
-                self.report.report_workunit(wu)
-                yield wu
+                ),
+            )
+            wu = SqlWorkUnit(id=f"{dataset_urn}-dataPlatformInstance", mcp=mcp)
+            self.report.report_workunit(wu)
+            return wu
+        else:
+            return None
 
     def get_schema_fields(
         self, dataset_name: str, columns: List[dict], pk_constraints: dict = None
@@ -740,6 +812,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             dataset_name = self.get_identifier(
                 schema=schema, entity=view, inspector=inspector
             )
+            dataset_name = self.normalise_dataset_name(dataset_name)
+
             self.report.report_entity_scanned(dataset_name, ent_type="view")
 
             if not sql_config.view_pattern.allowed(dataset_name):
@@ -827,21 +901,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             self.report.report_workunit(wu)
             yield wu
 
-            # If we are a platform instance based source, emit the instance aspect
-            if self.config.platform_instance:
-                mcp = MetadataChangeProposalWrapper(
-                    entityType="dataset",
-                    changeType=ChangeTypeClass.UPSERT,
-                    entityUrn=dataset_urn,
-                    aspectName="dataPlatformInstance",
-                    aspect=DataPlatformInstanceClass(
-                        platform=make_data_platform_urn(self.platform),
-                        instance=self.config.platform_instance,
-                    ),
-                )
-                wu = SqlWorkUnit(id=f"{dataset_name}-dataPlatformInstance", mcp=mcp)
-                self.report.report_workunit(wu)
-                yield wu
+            dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
+            if dpi_aspect:
+                yield dpi_aspect
 
     def _get_profiler_instance(self, inspector: Inspector) -> "DatahubGEProfiler":
         from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
@@ -849,6 +911,18 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         return DatahubGEProfiler(
             conn=inspector.bind, report=self.report, config=self.config.profiling
         )
+
+    # Override if needed
+    def generate_partition_profiler_query(
+        self, schema: str, table: str
+    ) -> Tuple[Optional[str], Optional[str]]:
+        return None, None
+
+    # Override if you want to do additional checks
+    def is_dataset_eligable_profiling(
+        self, dataset_name: str, sql_config: SQLAlchemyConfig
+    ) -> bool:
+        return sql_config.profile_pattern.allowed(dataset_name)
 
     def loop_profiler_requests(
         self,
@@ -858,6 +932,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
     ) -> Iterable["GEProfilerRequest"]:
         from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
 
+        tables_seen: Set[str] = set()
+
         for table in inspector.get_table_names(schema):
             schema, table = self.standardize_schema_table_names(
                 schema=schema, entity=table
@@ -865,15 +941,31 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             dataset_name = self.get_identifier(
                 schema=schema, entity=table, inspector=inspector
             )
-
-            if not sql_config.profile_pattern.allowed(dataset_name):
+            if not self.is_dataset_eligable_profiling(dataset_name, sql_config):
                 self.report.report_dropped(f"profile of {dataset_name}")
                 continue
+
+            dataset_name = self.normalise_dataset_name(dataset_name)
+
+            if dataset_name not in tables_seen:
+                tables_seen.add(dataset_name)
+            else:
+                logger.debug(f"{dataset_name} has already been seen, skipping...")
+                continue
+
+            (partition, custom_sql) = self.generate_partition_profiler_query(
+                schema, table
+            )
 
             self.report.report_entity_profiled(dataset_name)
             yield GEProfilerRequest(
                 pretty_name=dataset_name,
-                batch_kwargs=self.prepare_profiler_args(schema=schema, table=table),
+                batch_kwargs=self.prepare_profiler_args(
+                    schema=schema,
+                    table=table,
+                    partition=partition,
+                    custom_sql=custom_sql,
+                ),
             )
 
     def loop_profiler(
@@ -903,16 +995,20 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
             yield wu
 
-    def prepare_profiler_args(self, schema: str, table: str) -> dict:
+    def prepare_profiler_args(
+        self,
+        schema: str,
+        table: str,
+        partition: Optional[str],
+        custom_sql: Optional[str] = None,
+    ) -> dict:
         return dict(
-            schema=schema,
-            table=table,
+            schema=schema, table=table, partition=partition, custom_sql=custom_sql
         )
 
     def get_report(self):
         return self.report
 
     def close(self):
-        if self.is_stateful_ingestion_configured():
-            # Commit the checkpoints for this run
-            self.commit_checkpoints()
+        self.update_default_job_run_summary()
+        self.prepare_for_commit()

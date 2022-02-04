@@ -736,12 +736,17 @@
     "name" : "FabricType",
     "namespace" : "com.linkedin.common",
     "doc" : "Fabric group type",
-    "symbols" : [ "DEV", "EI", "PROD", "CORP" ],
+    "symbols" : [ "DEV", "TEST", "QA", "UAT", "EI", "STG", "NON_PROD", "PROD", "CORP" ],
     "symbolDocs" : {
       "CORP" : "Designates corporation fabrics",
       "DEV" : "Designates development fabrics",
-      "EI" : "Designates early-integration (staging) fabrics",
-      "PROD" : "Designates production fabrics"
+      "EI" : "Designates early-integration fabrics",
+      "NON_PROD" : "Designates non-production fabrics",
+      "PROD" : "Designates production fabrics",
+      "QA" : "Designates quality assurance fabrics",
+      "STG" : "Designates staging fabrics",
+      "TEST" : "Designates testing fabrics",
+      "UAT" : "Designates user acceptance testing fabrics"
     }
   }, {
     "type" : "record",
@@ -1558,7 +1563,8 @@
       "name" : "rawSchema",
       "type" : "string",
       "doc" : "Schema definition of the glossary term",
-      "optional" : true
+      "optional" : true,
+      "deprecated" : true
     } ],
     "Aspect" : {
       "name" : "glossaryTermInfo"
@@ -1674,6 +1680,21 @@
       "type" : "com.linkedin.common.Url",
       "doc" : "A URL which points to a picture which user wants to set as a profile photo",
       "default" : "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/default_avatar.png"
+    }, {
+      "name" : "slack",
+      "type" : "string",
+      "doc" : "Slack handle for the user",
+      "optional" : true
+    }, {
+      "name" : "phone",
+      "type" : "string",
+      "doc" : "Phone number to contact the user",
+      "optional" : true
+    }, {
+      "name" : "email",
+      "type" : "string",
+      "doc" : "Email address to contact the user",
+      "optional" : true
     } ],
     "Aspect" : {
       "EntityUrns" : [ "com.linkedin.common.CorpuserUrn" ],

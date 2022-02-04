@@ -9,6 +9,7 @@ import com.linkedin.dashboard.EditableDashboardProperties;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.generated.AccessLevel;
 import com.linkedin.datahub.graphql.generated.Chart;
+import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.Dashboard;
 import com.linkedin.datahub.graphql.generated.DashboardEditableProperties;
 import com.linkedin.datahub.graphql.generated.DashboardInfo;
@@ -81,6 +82,13 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
                 result.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(data)));
             } else if (GLOSSARY_TERMS_ASPECT_NAME.equals(name)) {
                 result.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(data)));
+            } else if (CONTAINER_ASPECT_NAME.equals(name)) {
+                final com.linkedin.container.Container gmsContainer = new com.linkedin.container.Container(data);
+                result.setContainer(Container
+                    .builder()
+                    .setType(EntityType.CONTAINER)
+                    .setUrn(gmsContainer.getContainer().toString())
+                    .build());
             } else if (DOMAINS_ASPECT_NAME.equals(name)) {
                 final Domains domains = new Domains(data);
                 // Currently we only take the first domain if it exists.
