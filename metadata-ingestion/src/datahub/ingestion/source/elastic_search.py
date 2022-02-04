@@ -13,6 +13,7 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetSourceConfigBase
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
+    make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -339,7 +340,9 @@ class ElasticsearchSource(Source):
                 aspectName="dataPlatformInstance",
                 aspect=DataPlatformInstanceClass(
                     platform=make_data_platform_urn(self.platform),
-                    instance=self.source_config.platform_instance,
+                    instance=make_dataplatform_instance_urn(
+                        self.platform, self.source_config.platform_instance
+                    ),
                 ),
                 changeType=ChangeTypeClass.UPSERT,
             )

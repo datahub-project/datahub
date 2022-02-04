@@ -36,11 +36,11 @@ class EnvBasedSourceConfigBase(ConfigModel):
 
     @validator("env")
     def env_must_be_one_of(cls, v: str) -> str:
+        # Get all the constants from the FabricTypeClass. It's not an enum, so this is a bit hacky but works
         allowed_envs = [
-            FabricTypeClass.PROD,
-            FabricTypeClass.CORP,
-            FabricTypeClass.DEV,
-            FabricTypeClass.EI,
+            value
+            for name, value in vars(FabricTypeClass).items()
+            if not name.startswith("_")
         ]
         if (v.upper()) not in allowed_envs:
             raise ConfigurationError(f"env must be one of {allowed_envs}, found {v}")

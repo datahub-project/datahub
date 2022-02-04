@@ -42,7 +42,7 @@ def wait_for_port(
         subprocess.run(f"docker logs {container_name}", shell=True, check=True)
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def docker_compose_runner(docker_compose_project_name, docker_cleanup):
     @contextlib.contextmanager
     def run(

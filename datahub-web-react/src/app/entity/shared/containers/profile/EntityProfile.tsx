@@ -47,7 +47,6 @@ const ContentContainer = styled.div`
     display: flex;
     height: auto;
     min-height: 100%;
-    max-height: calc(100vh - 108px);
     align-items: stretch;
     flex: 1;
 `;
@@ -233,7 +232,9 @@ export const EntityProfile = <T, U>({
                                             selectedTab={routedTab}
                                         />
                                     </Header>
-                                    <TabContent>{routedTab && <routedTab.component />}</TabContent>
+                                    <TabContent>
+                                        {routedTab && <routedTab.component properties={routedTab.properties} />}
+                                    </TabContent>
                                 </HeaderAndTabsFlex>
                             </HeaderAndTabs>
                             <Sidebar>
