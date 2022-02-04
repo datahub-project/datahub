@@ -40,13 +40,10 @@ def side_effect_query_metadata(query):
 
 @freeze_time(FROZEN_TIME)
 def test_tableau_ingest(pytestconfig, tmp_path):
-    attrs = {
-        "auth.sign_in.return_value": None,
-        "metadata.query.side_effect": side_effect_query_metadata,
-    }
-    mocked_client = mock.MagicMock(**attrs)
     with mock.patch("tableauserverclient.Server") as mock_sdk:
-        mock_sdk.return_value = mocked_client
+
+        mock_sdk.auth.sign_in.return_value = None
+        mock_sdk.metadata.query.side_effect = side_effect_query_metadata
 
         global test_resources_dir
         test_resources_dir = pytestconfig.rootpath / "tests/integration/tableau"
