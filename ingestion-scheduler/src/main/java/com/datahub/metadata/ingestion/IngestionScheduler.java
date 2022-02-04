@@ -40,6 +40,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import javax.annotation.Nonnull;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.support.CronSequenceGenerator;
 
@@ -68,6 +69,7 @@ import org.springframework.scheduling.support.CronSequenceGenerator;
  * schedules on a once-per-day cadence.
  */
 @Slf4j
+@RequiredArgsConstructor
 public class IngestionScheduler {
 
   private final Authentication _systemAuthentication;
@@ -80,23 +82,18 @@ public class IngestionScheduler {
   // Shared executor service used for executing an ingestion source on a schedule
   private final ScheduledExecutorService _sharedExecutorService = Executors.newScheduledThreadPool(1);
   private final IngestionConfiguration _ingestionConfiguration;
+  private final int _batchGetDelayIntervalSeconds;
+  private final int _batchGetRefreshIntervalSeconds;
 
-  // Visible for testing.
-  public IngestionScheduler(@Nonnull final Authentication systemAuthentication,
-      @Nonnull final JavaEntityClient entityClient, @Nonnull final IngestionConfiguration configuration,
-      final int batchGetDelayIntervalSeconds, final int batchGetRefreshIntervalSeconds) {
-    _systemAuthentication = Objects.requireNonNull(systemAuthentication);
-    _entityClient = Objects.requireNonNull(entityClient);
-    _ingestionConfiguration = configuration;
-
+  public void init() {
     final BatchRefreshSchedulesRunnable batchRefreshSchedulesRunnable = new BatchRefreshSchedulesRunnable(
-        systemAuthentication,
-        entityClient,
+        _systemAuthentication,
+        _entityClient,
         this::scheduleNextIngestionSourceExecution);
 
     // Schedule a recurring batch-reload task.
     _sharedExecutorService.scheduleAtFixedRate(
-        batchRefreshSchedulesRunnable, batchGetDelayIntervalSeconds, batchGetRefreshIntervalSeconds,
+        batchRefreshSchedulesRunnable, _batchGetDelayIntervalSeconds, _batchGetRefreshIntervalSeconds,
         TimeUnit.SECONDS);
   }
 
