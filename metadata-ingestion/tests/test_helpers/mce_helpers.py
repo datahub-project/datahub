@@ -138,6 +138,7 @@ def _get_field_for_entity_type_in_mce(entity_type: str) -> str:
     """Returns the field to look for depending on the type of entity in the MCE"""
     if entity_type == EntityType.DATASET:
         return MCEConstants.DATASET_SNAPSHOT_CLASS
+    raise Exception(f"Not implemented for entity_type {entity_type}")
 
 
 def _get_filter(
@@ -148,7 +149,7 @@ def _get_filter(
         if entity_type:
             return (
                 lambda x: MCEConstants.PROPOSED_SNAPSHOT in x
-                and _get_field_for_entity_type_in_mce(entity_type)
+                and _get_field_for_entity_type_in_mce(str(entity_type))
                 in x[MCEConstants.PROPOSED_SNAPSHOT]
             )
         else:
