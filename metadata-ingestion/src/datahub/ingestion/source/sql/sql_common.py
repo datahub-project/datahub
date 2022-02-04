@@ -66,6 +66,7 @@ from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
+    JobStatusClass,
 )
 from datahub.telemetry import telemetry
 from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombinerReport
@@ -441,6 +442,18 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 state=BaseSQLAlchemyCheckpointState(),
             )
         return None
+
+    def update_default_job_run_summary(self) -> None:
+        summary = self.get_job_run_summary(self.get_default_ingestion_job_id())
+        if summary is not None:
+            # For now just add the config and the report.
+            summary.config = self.config.json()
+            summary.custom_summary = self.report.as_string()
+            summary.runStatus = (
+                JobStatusClass.FAILED
+                if self.get_report().failures
+                else JobStatusClass.COMPLETED
+            )
 
     def get_schema_names(self, inspector):
         return inspector.get_schema_names()
@@ -997,6 +1010,5 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         return self.report
 
     def close(self):
-        if self.is_stateful_ingestion_configured():
-            # Commit the checkpoints for this run
-            self.commit_checkpoints()
+        self.update_default_job_run_summary()
+        self.prepare_for_commit()

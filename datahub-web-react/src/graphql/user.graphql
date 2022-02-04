@@ -109,3 +109,9 @@ mutation removeUser($urn: String!) {
 mutation updateUserStatus($urn: String!, $status: CorpUserStatus!) {
     updateUserStatus(urn: $urn, status: $status)
 }
+
+mutation updateCorpUserProperties($urn: String!, $input: CorpUserUpdateInput!) {
+    updateCorpUserProperties(urn: $urn, input: $input) {
+        urn
+    }
+}
