@@ -13,9 +13,10 @@ This plugin extracts the following:
 - Topics from the Kafka broker
 - Schemas associated with each topic from the schema registry
 
-| Capability | Status | Details | 
-| -----------| ------ | ---- |
-| Platform Instance | 🛑 | [link](../../docs/platform-instances.md) |
+| Capability        | Status | Details                                  | 
+|-------------------|--------|------------------------------------------|
+| Platform Instance | 🛑     | [link](../../docs/platform-instances.md) |
+| Data Domains      | ✔️     | [link](../../docs/domains.md)            |
 
 ## Quickstart recipe
 

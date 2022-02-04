@@ -16,9 +16,11 @@ This plugin extracts the following:
 - Column types associated with each table/view
 - Table, row, and column statistics via optional [SQL profiling](./sql_profiles.md)
 
-| Capability | Status | Details | 
-| -----------| ------ | ---- |
-| Platform Instance | ✔️ | [link](../../docs/platform-instances.md) |
+| Capability        | Status | Details                                  | 
+|-------------------|--------|------------------------------------------|
+| Platform Instance | ✔️     | [link](../../docs/platform-instances.md) |
+| Data Containers   | ✔️     |                                          |
+| Data Domains      | ✔️     | [link](../../docs/domains.md)            |
 
 
 ## Quickstart recipe

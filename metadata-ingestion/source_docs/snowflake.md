@@ -45,10 +45,6 @@ grant imported privileges on database snowflake to role datahub_role;
 
 ## Capabilities
 
-| Capability | Status | Details | 
-| -----------| ------ | ---- |
-| Platform Instance | ✔️ | [link](../../docs/platform-instances.md) |
-
 This plugin extracts the following:
 
 - Metadata for databases, schemas, views and tables
@@ -61,6 +57,12 @@ This plugin extracts the following:
 You can also get fine-grained usage statistics for Snowflake using the `snowflake-usage` source described below.
 
 :::
+
+| Capability        | Status | Details                                  | 
+|-------------------|--------|------------------------------------------|
+| Platform Instance | ✔️     | [link](../../docs/platform-instances.md) |
+| Data Containers   | ✔️     |                                          |
+| Data Domains      | ✔️     | [link](../../docs/domains.md)            |
 
 ## Quickstart recipe
 

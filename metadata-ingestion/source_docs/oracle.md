@@ -16,6 +16,11 @@ This plugin extracts the following:
 
 Using the Oracle source requires that you've also installed the correct drivers; see the [cx_Oracle docs](https://cx-oracle.readthedocs.io/en/latest/user_guide/installation.html). The easiest one is the [Oracle Instant Client](https://www.oracle.com/database/technologies/instant-client.html).
 
+| Capability        | Status | Details                                  | 
+|-------------------|--------|------------------------------------------|
+| Data Containers   | ✔️     |                                          |
+| Data Domains      | ✔️     | [link](../../docs/domains.md)            |
+
 ## Quickstart recipe
 
 Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.

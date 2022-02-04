@@ -73,9 +73,11 @@ This plugin extracts the following:
 - Table, row, and column statistics via optional [SQL profiling](./sql_profiles.md)
 - Table level lineage.
 
-| Capability | Status | Details | 
-| -----------| ------ | ---- |
-| Platform Instance | 🛑 | BigQuery doesn't need platform instances because `project ids` in BigQuery are globally unique. [link](../../docs/platform-instances.md) |
+| Capability        | Status | Details                                                                                                                                  | 
+|-------------------|--------|------------------------------------------------------------------------------------------------------------------------------------------|
+| Platform Instance | 🛑     | BigQuery doesn't need platform instances because `project ids` in BigQuery are globally unique. [link](../../docs/platform-instances.md) |
+| Data Containers   | ✔️     |                                                                                                                                          |
+| Data Domains      | ✔️     | [link](../../docs/domains.md)                                                                                                            |
 
 :::tip
 

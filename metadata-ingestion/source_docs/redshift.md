@@ -21,10 +21,6 @@ Giving a user unrestricted access to system tables gives the user visibility to 
 
 ## Capabilities
 
-| Capability | Status | Details | 
-| -----------| ------ | ---- |
-| Platform Instance | ✔️ | [link](../../docs/platform-instances.md) |
-
 This plugin extracts the following:
 
 - Metadata for databases, schemas, views and tables
@@ -33,12 +29,17 @@ This plugin extracts the following:
 - Table, row, and column statistics via optional [SQL profiling](./sql_profiles.md)
 - Table lineage
 
-
 :::tip
 
 You can also get fine-grained usage statistics for Redshift using the `redshift-usage` source described below.
 
 :::
+
+| Capability        | Status | Details                                  | 
+|-------------------|--------|------------------------------------------|
+| Platform Instance | ✔️     | [link](../../docs/platform-instances.md) |
+| Data Containers   | ✔️     |                                          |
+| Data Domains      | ✔️     | [link](../../docs/domains.md)            |
 
 ## Quickstart recipe
 

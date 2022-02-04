@@ -14,6 +14,11 @@ This plugin extracts the following:
 - Column types and schema associated with each table
 - Table, row, and column statistics via optional [SQL profiling](./sql_profiles.md)
 
+| Capability        | Status | Details                                  | 
+|-------------------|--------|------------------------------------------|
+| Data Containers   | ✔️     |                                          |
+| Data Domains      | ✔️     | [link](../../docs/domains.md)            |
+
 ## Quickstart recipe
 
 Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
