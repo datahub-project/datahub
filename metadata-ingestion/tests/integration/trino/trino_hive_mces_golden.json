@@ -2,7 +2,7 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:93d34d9f599989ff87c497e8d2be8e6a",
+    "entityUrn": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
@@ -21,7 +21,7 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:93d34d9f599989ff87c497e8d2be8e6a",
+    "entityUrn": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -40,7 +40,7 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:93d34d9f599989ff87c497e8d2be8e6a",
+    "entityUrn": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -59,7 +59,7 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:deb4e66d7133021e70b7b09876b6e79d",
+    "entityUrn": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
@@ -78,7 +78,7 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:deb4e66d7133021e70b7b09876b6e79d",
+    "entityUrn": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -97,7 +97,7 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:deb4e66d7133021e70b7b09876b6e79d",
+    "entityUrn": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -116,12 +116,12 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:deb4e66d7133021e70b7b09876b6e79d",
+    "entityUrn": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:93d34d9f599989ff87c497e8d2be8e6a\"}",
+      "value": "{\"container\": \"urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -140,7 +140,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:deb4e66d7133021e70b7b09876b6e79d\"}",
+      "value": "{\"container\": \"urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -172,7 +172,7 @@
                 "numrows": "1",
                 "rawdatasize": "32",
                 "totalsize": "33",
-                "transient_lastddltime": "1643925832"
+                "transient_lastddltime": "1643991015"
               },
               "externalUrl": null,
               "description": "This table has array of structs",
@@ -303,7 +303,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:deb4e66d7133021e70b7b09876b6e79d\"}",
+      "value": "{\"container\": \"urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -333,7 +333,7 @@
                 "numrows": "0",
                 "rawdatasize": "0",
                 "totalsize": "0",
-                "transient_lastddltime": "1643925836"
+                "transient_lastddltime": "1643991018"
               },
               "externalUrl": null,
               "description": null,
@@ -429,7 +429,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:deb4e66d7133021e70b7b09876b6e79d\"}",
+      "value": "{\"container\": \"urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -459,7 +459,7 @@
                 "numrows": "0",
                 "rawdatasize": "0",
                 "totalsize": "0",
-                "transient_lastddltime": "1643925836"
+                "transient_lastddltime": "1643991017"
               },
               "externalUrl": null,
               "description": null,
@@ -620,7 +620,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:deb4e66d7133021e70b7b09876b6e79d\"}",
+      "value": "{\"container\": \"urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -645,7 +645,7 @@
           {
             "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
               "customProperties": {
-                "transient_lastddltime": "1643925826"
+                "transient_lastddltime": "1643991008"
               },
               "externalUrl": null,
               "description": null,
@@ -755,7 +755,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:deb4e66d7133021e70b7b09876b6e79d\"}",
+      "value": "{\"container\": \"urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -785,7 +785,7 @@
                 "numrows": "0",
                 "rawdatasize": "0",
                 "totalsize": "0",
-                "transient_lastddltime": "1643925829"
+                "transient_lastddltime": "1643991011"
               },
               "externalUrl": null,
               "description": null,
@@ -914,7 +914,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:deb4e66d7133021e70b7b09876b6e79d\"}",
+      "value": "{\"container\": \"urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -941,7 +941,7 @@
               "customProperties": {
                 "numfiles": "0",
                 "totalsize": "0",
-                "transient_lastddltime": "1643925835"
+                "transient_lastddltime": "1643991017"
               },
               "externalUrl": null,
               "description": null,
@@ -1070,7 +1070,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:deb4e66d7133021e70b7b09876b6e79d\"}",
+      "value": "{\"container\": \"urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1100,7 +1100,7 @@
                 "numrows": "0",
                 "rawdatasize": "0",
                 "totalsize": "0",
-                "transient_lastddltime": "1643925829"
+                "transient_lastddltime": "1643991011"
               },
               "externalUrl": null,
               "description": null,
@@ -1193,7 +1193,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:deb4e66d7133021e70b7b09876b6e79d\"}",
+      "value": "{\"container\": \"urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1223,7 +1223,7 @@
                 "numrows": "0",
                 "rawdatasize": "0",
                 "totalsize": "0",
-                "transient_lastddltime": "1643925836"
+                "transient_lastddltime": "1643991018"
               },
               "externalUrl": null,
               "description": null,
@@ -1420,7 +1420,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:deb4e66d7133021e70b7b09876b6e79d\"}",
+      "value": "{\"container\": \"urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1445,7 +1445,7 @@
           {
             "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
               "customProperties": {
-                "transient_lastddltime": "1643925835",
+                "transient_lastddltime": "1643991017",
                 "view_definition": "SELECT \"property_id\", \"service\"\nFROM \"db1\".\"array_struct_test\"",
                 "is_view": "True"
               },
