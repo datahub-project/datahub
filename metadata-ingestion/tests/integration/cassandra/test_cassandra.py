@@ -21,9 +21,7 @@ def test_cassandra_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_ti
         wait_for_port(docker_services, "cassandra_datahub_test", 9042, timeout=120)
 
         command = "docker exec cassandra_datahub_test cqlsh -f /cassandra_setup.cql"
-        subprocess.run(command,
-                       shell=True,
-                       check=True)
+        subprocess.run(command, shell=True, check=True)
 
         # Run the metadata ingestion pipeline.
         config_file = (test_resources_dir / "cassandra_to_file.yml").resolve()
@@ -34,7 +32,8 @@ def test_cassandra_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_ti
             pytestconfig,
             output_path=tmp_path / "cassandra_mces.json",
             golden_path=test_resources_dir / "cassandra_mces_golden.json",
-            ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS + [
+            ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS
+            + [
                 r"root\[\d+\]\['systemMetadata'\]\['lastObserved'\]",
-            ]
+            ],
         )
