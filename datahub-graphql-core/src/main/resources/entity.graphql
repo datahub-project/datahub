@@ -260,6 +260,11 @@ type Mutation {
     Sets the Domain for a Dataset, Chart, Dashboard, Data Flow (Pipeline), or Data Job (Task). Returns true if the Domain was successfully removed, or was already removed. Requires the Edit Domains privilege for an asset.
     """
     unsetDomain(entityUrn: String!): Boolean
+
+    """
+    Update a particular Corp User's editable properties
+    """
+    updateCorpUserProperties(urn: String!, input: CorpUserUpdateInput!): CorpUser
 }
 
 """
@@ -1177,6 +1182,11 @@ type Container implements Entity {
     Sub types of the container, e.g. "Database" etc
     """
     subTypes: SubTypes
+
+    """
+    The Domain associated with the Dataset
+    """
+    domain: Domain
 
     """
     Children entities inside of the Container
@@ -2234,6 +2244,62 @@ type CorpUserEditableProperties {
     A URL which points to a picture which user wants to set as a profile photo
     """
     pictureLink: String
+
+    """
+    The slack handle of the user
+    """
+    slack: String
+
+    """
+    Phone number for the user
+    """
+    phone: String
+
+    """
+    Email address for the user
+    """
+    email: String
+}
+
+
+"""
+Arguments provided to update a CorpUser Entity
+"""
+input CorpUserUpdateInput {
+    """
+    About me section of the user
+    """
+    aboutMe: String
+
+    """
+    Teams that the user belongs to
+    """
+    teams: [String!]
+
+    """
+    Skills that the user possesses
+    """
+    skills: [String!]
+
+    """
+    A URL which points to a picture which user wants to set as a profile photo
+    """
+    pictureLink: String
+
+    """
+    The slack handle of the user
+    """
+    slack: String
+
+    """
+    Phone number for the user
+    """
+    phone: String
+
+    """
+    Email address for the user
+    """
+    email: String
 }
 
 """

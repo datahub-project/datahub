@@ -1,0 +1,72 @@
+[
+  {
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:2d3b06a6e77e1f24adc9860a05ea089b",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+      "value": "{\"customProperties\": {\"suite_name\": \"demo_suite\"}, \"datasetFields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,fooTable,PROD), col1)\"], \"datasets\": [\"urn:li:dataset:(urn:li:dataPlatform:postgres,fooTable,PROD)\"], \"assertionType\": {\"scope\": \"DATASET_COLUMN\", \"datasetColumnAssertion\": {\"stdOperator\": \"LESS_THAN\", \"nativeOperator\": \"column_value_is_less_than\", \"stdAggFunc\": \"IDENTITY\"}}, \"assertionParameters\": {\"max_value\": \"99\"}}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,fooTable,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "assertionResult",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1643794280350, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"[{'country': 'IN'}]\"}, \"messageId\": \"1643794280350\", \"assertionUrn\": \"urn:li:assertion:2d3b06a6e77e1f24adc9860a05ea089b\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,fooTable,PROD)\", \"batchAssertionResult\": {\"success\": true, \"actualAggValue\": 90, \"nativeResults\": {}, \"externalUrl\": \"http://example.com/uuid1\"}, \"nativeEvaluatorRunId\": \"uuid1\", \"runtimeContext\": {}}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,fooTable,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "assertionResult",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1643794280352, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"[{'country': 'US'}]\"}, \"messageId\": \"1643794280352\", \"assertionUrn\": \"urn:li:assertion:2d3b06a6e77e1f24adc9860a05ea089b\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,fooTable,PROD)\", \"batchAssertionResult\": {\"success\": false, \"actualAggValue\": 101, \"nativeResults\": {}, \"externalUrl\": \"http://example.com/uuid1\"}, \"nativeEvaluatorRunId\": \"uuid1\", \"runtimeContext\": {}}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,fooTable,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "assertionResult",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1643794280354, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"messageId\": \"1643794280354\", \"assertionUrn\": \"urn:li:assertion:2d3b06a6e77e1f24adc9860a05ea089b\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,fooTable,PROD)\", \"batchAssertionResult\": {\"success\": true, \"actualAggValue\": 93, \"nativeResults\": {}, \"externalUrl\": \"http://example.com/uuid1\"}, \"nativeEvaluatorRunId\": \"uuid1\", \"runtimeContext\": {}}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,fooTable,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "assertionResult",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1643880726872, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"[{'country': 'IN'}]\"}, \"messageId\": \"1643880726872\", \"assertionUrn\": \"urn:li:assertion:2d3b06a6e77e1f24adc9860a05ea089b\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,fooTable,PROD)\", \"batchAssertionResult\": {\"success\": true, \"actualAggValue\": 90, \"nativeResults\": {}, \"externalUrl\": \"http://example.com/uuid1\"}, \"nativeEvaluatorRunId\": \"uuid1\", \"runtimeContext\": {}}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,fooTable,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "assertionResult",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1643880726874, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"[{'country': 'US'}]\"}, \"messageId\": \"1643880726874\", \"assertionUrn\": \"urn:li:assertion:2d3b06a6e77e1f24adc9860a05ea089b\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,fooTable,PROD)\", \"batchAssertionResult\": {\"success\": false, \"actualAggValue\": 101, \"nativeResults\": {}, \"externalUrl\": \"http://example.com/uuid1\"}, \"nativeEvaluatorRunId\": \"uuid1\", \"runtimeContext\": {}}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,fooTable,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "assertionResult",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1643880726875, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"messageId\": \"1643880726875\", \"assertionUrn\": \"urn:li:assertion:2d3b06a6e77e1f24adc9860a05ea089b\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,fooTable,PROD)\", \"batchAssertionResult\": {\"success\": true, \"actualAggValue\": 93, \"nativeResults\": {}, \"externalUrl\": \"http://example.com/uuid1\"}, \"nativeEvaluatorRunId\": \"uuid1\", \"runtimeContext\": {}}",
+      "contentType": "application/json"
+    }
+  }
+]

@@ -45,6 +45,7 @@ public class Constants {
 
   // User
   public static final String CORP_USER_KEY_ASPECT_NAME = "corpUserKey";
+  public static final String CORP_USER_EDITABLE_INFO_NAME = "corpUserEditableInfo";
   public static final String GROUP_MEMBERSHIP_ASPECT_NAME = "groupMembership";
   public static final String CORP_USER_STATUS_ASPECT_NAME = "corpUserStatus";
 

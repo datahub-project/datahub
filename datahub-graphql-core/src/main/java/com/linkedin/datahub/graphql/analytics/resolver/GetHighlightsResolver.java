@@ -9,6 +9,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.joda.time.DateTime;
 
@@ -78,16 +79,31 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
   }
 
   private Highlight getEntityMetadataStats(String title, String index) {
-    int numEntities = _analyticsService.getHighlights(index, Optional.empty(), ImmutableMap.of(),
-        ImmutableMap.of("removed", ImmutableList.of("true")), Optional.empty());
+    int numEntities = getNumEntitiesFiltered(index, ImmutableMap.of());
     int numEntitiesWithOwners =
-        _analyticsService.getHighlights(index, Optional.empty(), ImmutableMap.of("hasOwners", ImmutableList.of("true")),
-            ImmutableMap.of("removed", ImmutableList.of("true")), Optional.empty());
+            getNumEntitiesFiltered(index, ImmutableMap.of("hasOwners", ImmutableList.of("true")));
+    int numEntitiesWithTags =
+            getNumEntitiesFiltered(index, ImmutableMap.of("hasTags", ImmutableList.of("true")));
+    int numEntitiesWithDescription =
+            getNumEntitiesFiltered(index, ImmutableMap.of("hasDescription", ImmutableList.of("true")));
+    int numEntitiesWithDomains =
+            getNumEntitiesFiltered(index, ImmutableMap.of("hasDomain", ImmutableList.of("true")));
+
     String bodyText = "";
     if (numEntities > 0) {
-      double percentChange = 100.0 * numEntitiesWithOwners / numEntities;
-      bodyText = String.format("%.2f%% have owners assigned!", percentChange);
+      double percentWithOwners = 100.0 * numEntitiesWithOwners / numEntities;
+      double percentWithTags = 100.0 * numEntitiesWithTags / numEntities;
+      double percentWithDescription = 100.0 * numEntitiesWithDescription / numEntities;
+      double percentWithDomains = 100.0 * numEntitiesWithDomains / numEntities;
+      bodyText = String.format(
+              "%.2f%% have owners, %.2f%% have tags, %.2f%% have description, %.2f%% have domain assigned!",
+              percentWithOwners, percentWithTags, percentWithDescription, percentWithDomains);
     }
     return Highlight.builder().setTitle(title).setValue(numEntities).setBody(bodyText).build();
+  }
+
+  private int getNumEntitiesFiltered(String index, Map<String, List<String>> filters) {
+    return _analyticsService.getHighlights(index, Optional.empty(), filters,
+            ImmutableMap.of("removed", ImmutableList.of("true")), Optional.empty());
   }
 }

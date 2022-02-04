@@ -1,0 +1,14 @@
+namespace com.linkedin.metadata.aspect
+
+import com.linkedin.metadata.key.AssertionKey
+import com.linkedin.common.DataPlatformInstance
+import com.linkedin.assertion.AssertionInfo
+
+/**
+ * A union of all supported metadata aspects for a Assertion
+ */
+typeref AssertionAspect = union[
+    AssertionKey,
+    DataPlatformInstance,
+    AssertionInfo
+]
