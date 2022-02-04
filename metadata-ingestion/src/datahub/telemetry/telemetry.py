@@ -171,8 +171,9 @@ T = TypeVar("T")
 def with_telemetry(func: Callable[..., T]) -> Callable[..., T]:
     @wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
+        telemetry_instance.ping(func.__module__, func.__name__, "started")
         res = func(*args, **kwargs)
-        telemetry_instance.ping(func.__module__, func.__name__)
+        telemetry_instance.ping(func.__module__, func.__name__, "completed")
         return res
 
     return wrapper
