@@ -44,6 +44,8 @@ framework_common = {
     "stackprinter",
     "tabulate",
     "progressbar2",
+    "termcolor>=1.0.0",
+    "types-termcolor>=1.0.0",
     "psutil>=5.8.0",
     # Markupsafe breaking change broke Jinja and some other libs
     # Pinning it to a version which works even though we are not using explicitly
