@@ -18,7 +18,6 @@ export enum PageRoutes {
     IDENTITIES = '/identities',
     SETTINGS = '/settings',
 }
-
 /**
  * Name of the auth cookie checked on client side (contains the currently authenticated user urn).
  */
