@@ -1,5 +1,7 @@
 package com.linkedin.metadata.timeseries.elastic;
 
+import com.datahub.test.BatchType;
+import com.datahub.test.ComplexNestedRecord;
 import com.datahub.test.TestEntityComponentProfile;
 import com.datahub.test.TestEntityComponentProfileArray;
 import com.datahub.test.TestEntityProfile;
@@ -11,6 +13,8 @@ import com.linkedin.common.urn.TestEntityUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringArrayArray;
+import com.linkedin.data.template.StringMap;
+import com.linkedin.data.template.StringMapArray;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.DataSchemaFactory;
@@ -155,6 +159,15 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     componentProfile2.setKey("col2");
     componentProfile2.setStat(stat + 2);
     testEntityProfile.setComponentProfiles(new TestEntityComponentProfileArray(componentProfile1, componentProfile2));
+
+    StringMap stringMap1 = new StringMap();
+    stringMap1.put("p_key1", "p_val1");
+    StringMap stringMap2 = new StringMap();
+    stringMap2.put("p_key2", "p_val2");
+    ComplexNestedRecord nestedRecord = new ComplexNestedRecord().setType(BatchType.PARTITION_BATCH)
+        .setPartitions(new StringMapArray(stringMap1, stringMap2));
+    testEntityProfile.setAComplexNestedRecord(nestedRecord);
+
     return testEntityProfile;
   }
 
@@ -344,6 +357,50 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     assertEquals(resultTable.getRows().size(), 1);
     assertEquals(resultTable.getRows(), new StringArrayArray(new StringArray(_startTime.toString(),
         _testEntityProfiles.get(_startTime + 23 * TIME_INCREMENT).getStat().toString())));
+  }
+
+  @Test(groups = {"getAggregatedStats"}, dependsOnGroups = {"upsert"})
+  public void testGetAggregatedStatsLatestAComplexNestedRecordForDay1() {
+    // Filter is only on the urn
+    Criterion hasUrnCriterion =
+        new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
+    Criterion startTimeCriterion = new Criterion().setField(ES_FILED_TIMESTAMP)
+        .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
+        .setValue(_startTime.toString());
+    Criterion endTimeCriterion = new Criterion().setField(ES_FILED_TIMESTAMP)
+        .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
+        .setValue(String.valueOf(_startTime + 23 * TIME_INCREMENT));
+
+    Filter filter =
+        QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
+
+    // Aggregate on latest stat value
+    AggregationSpec latestStatAggregationSpec =
+        new AggregationSpec().setAggregationType(AggregationType.LATEST).setFieldPath("aComplexNestedRecord");
+
+    // Grouping bucket is only timestamp filed.
+    GroupingBucket timestampBucket = new GroupingBucket().setKey(ES_FILED_TIMESTAMP)
+        .setType(GroupingBucketType.DATE_GROUPING_BUCKET)
+        .setTimeWindowSize(new TimeWindowSize().setMultiple(1).setUnit(CalendarInterval.DAY));
+
+    GenericTable resultTable = _elasticSearchTimeseriesAspectService.getAggregatedStats(ENTITY_NAME, ASPECT_NAME,
+        new AggregationSpec[]{latestStatAggregationSpec}, filter, new GroupingBucket[]{timestampBucket});
+    // Validate column names
+    assertEquals(resultTable.getColumnNames(), new StringArray(ES_FILED_TIMESTAMP, "latest_aComplexNestedRecord"));
+    // Validate column types
+    assertEquals(resultTable.getColumnTypes(), new StringArray("long", "record"));
+    // Validate rows
+    assertNotNull(resultTable.getRows());
+    assertEquals(resultTable.getRows().size(), 1);
+    assertEquals(resultTable.getRows().get(0).get(0), _startTime.toString());
+    try {
+      ComplexNestedRecord latestAComplexNestedRecord =
+          OBJECT_MAPPER.readValue(resultTable.getRows().get(0).get(1), ComplexNestedRecord.class);
+      assertEquals(latestAComplexNestedRecord,
+          _testEntityProfiles.get(_startTime + 23 * TIME_INCREMENT).getAComplexNestedRecord());
+    } catch (JsonProcessingException e) {
+      fail("Unexpected exception thrown" + e);
+    }
   }
 
   @Test(groups = {"getAggregatedStats"}, dependsOnGroups = {"upsert"})

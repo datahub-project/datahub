@@ -1,10 +1,15 @@
-from datahub.ingestion.api.ingestion_state_provider import IngestionStateProvider
+from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
+    IngestionCheckpointingProviderBase,
+)
 from datahub.ingestion.api.registry import PluginRegistry
 
-ingestion_state_provider_registry = PluginRegistry[IngestionStateProvider]()
-ingestion_state_provider_registry.register_from_entrypoint(
-    "datahub.ingestion.state_provider.plugins"
+ingestion_checkpoint_provider_registry = PluginRegistry[
+    IngestionCheckpointingProviderBase
+]()
+ingestion_checkpoint_provider_registry.register_from_entrypoint(
+    "datahub.ingestion.checkpointing_provider.plugins"
 )
 
-# These sinks are always enabled
-assert ingestion_state_provider_registry.get("datahub")
+
+# These providers are always enabled
+assert ingestion_checkpoint_provider_registry.get("datahub")

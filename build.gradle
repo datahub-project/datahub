@@ -137,6 +137,7 @@ project.ext.externalDependency = [
     'testContainersJunit': 'org.testcontainers:junit-jupiter:1.15.3',
     'testContainersPostgresql':'org.testcontainers:postgresql:1.15.3',
     'testContainersElasticsearch': 'org.testcontainers:elasticsearch:1.15.3',
+    'typesafeConfig':'com.typesafe:config:1.4.1',
     'wiremock':'com.github.tomakehurst:wiremock:2.10.0',
     'zookeeper': 'org.apache.zookeeper:zookeeper:3.4.14'
 ]

@@ -44,6 +44,10 @@ graphqlCodegen {
     ]
 }
 
+clean {
+    delete 'mainGeneratedGraphQL'
+}
+
 tasks.withType(Checkstyle) {
     exclude "**/generated/**"
 }

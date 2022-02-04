@@ -253,7 +253,15 @@ public class PoliciesConfig {
       ImmutableList.of(EDIT_ENTITY_OWNERS_PRIVILEGE, EDIT_ENTITY_PRIVILEGE)
   );
 
-  // Tag Privileges
+  // Container Privileges
+  public static final ResourcePrivileges CONTAINER_PRIVILEGES = ResourcePrivileges.of(
+      "container",
+      "Containers",
+      "Containers indexed by DataHub",
+      COMMON_ENTITY_PRIVILEGES
+  );
+
+  // Domain Privileges
   public static final ResourcePrivileges DOMAIN_PRIVILEGES = ResourcePrivileges.of(
       "domain",
       "Domains",
@@ -268,6 +276,7 @@ public class PoliciesConfig {
       DATA_FLOW_PRIVILEGES,
       DATA_JOB_PRIVILEGES,
       TAG_PRIVILEGES,
+      CONTAINER_PRIVILEGES,
       DOMAIN_PRIVILEGES
   );
 
