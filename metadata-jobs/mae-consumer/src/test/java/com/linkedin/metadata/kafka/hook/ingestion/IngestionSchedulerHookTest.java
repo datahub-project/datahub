@@ -27,7 +27,6 @@ public class IngestionSchedulerHookTest {
         IngestionSchedulerHookTest.class.getClassLoader().getResourceAsStream("test-entity-registry.yml"));
     IngestionScheduler mockScheduler = Mockito.mock(IngestionScheduler.class);
     _ingestionSchedulerHook = new IngestionSchedulerHook(registry, mockScheduler);
-    _ingestionSchedulerHook.init();
   }
 
   @Test
