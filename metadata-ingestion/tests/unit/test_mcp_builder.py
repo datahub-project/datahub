@@ -8,7 +8,7 @@ def test_guid_generator():
     )
 
     guid = key.guid()
-    assert guid == "06a1f87f99e1d82efa3da13637913c87"
+    assert guid == "f5268c71373b9100d50c1299861cfb3f"
 
 
 def test_guid_generator_with_empty_instance():
@@ -17,7 +17,7 @@ def test_guid_generator_with_empty_instance():
     )
 
     guid = key.guid()
-    assert guid == "0ce13865e9e414406a895612787d9ae6"
+    assert guid == "693ed953c7192bcf46f8b9db36d71c2b"
 
 
 def test_guid_generators():
