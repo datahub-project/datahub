@@ -19,7 +19,7 @@ const DocumentationContainer = styled.div`
     margin: 0 auto;
     padding: 40px 0;
     max-width: calc(100% - 10px);
-    margin: 32px;
+    margin: 0 32px;
 `;
 
 export const DocumentationTab = () => {
@@ -62,9 +62,7 @@ export const DocumentationTab = () => {
                         {description ? (
                             <MDEditor.Markdown style={{ fontWeight: 400 }} source={description} />
                         ) : (
-                            <Typography.Text type="secondary" style={{ display: 'table', margin: '0 auto' }}>
-                                No documentation added yet.
-                            </Typography.Text>
+                            <Typography.Text type="secondary">No documentation added yet.</Typography.Text>
                         )}
                         <Divider />
                         <LinkList refetch={refetch} />
