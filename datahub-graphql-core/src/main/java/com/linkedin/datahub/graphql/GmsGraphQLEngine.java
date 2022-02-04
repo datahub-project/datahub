@@ -12,6 +12,7 @@ import com.linkedin.datahub.graphql.generated.Aspect;
 import com.linkedin.datahub.graphql.generated.BrowseResults;
 import com.linkedin.datahub.graphql.generated.Chart;
 import com.linkedin.datahub.graphql.generated.ChartInfo;
+import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.CorpGroupInfo;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.CorpUserInfo;
@@ -44,6 +45,7 @@ import com.linkedin.datahub.graphql.generated.UserUsageCounts;
 import com.linkedin.datahub.graphql.resolvers.AuthenticatedResolver;
 import com.linkedin.datahub.graphql.resolvers.MeResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.GetAccessTokenResolver;
+import com.linkedin.datahub.graphql.resolvers.container.ContainerEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowsePathsResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowseResolver;
 import com.linkedin.datahub.graphql.resolvers.config.AppConfigResolver;
@@ -112,9 +114,10 @@ import com.linkedin.datahub.graphql.types.LoadableType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.aspect.AspectType;
 import com.linkedin.datahub.graphql.types.chart.ChartType;
+import com.linkedin.datahub.graphql.types.container.ContainerType;
+import com.linkedin.datahub.graphql.types.corpuser.CorpUserType;
 import com.linkedin.datahub.graphql.types.common.mappers.OperationMapper;
 import com.linkedin.datahub.graphql.types.corpgroup.CorpGroupType;
-import com.linkedin.datahub.graphql.types.corpuser.CorpUserType;
 import com.linkedin.datahub.graphql.types.dashboard.DashboardType;
 import com.linkedin.datahub.graphql.types.dataflow.DataFlowType;
 import com.linkedin.datahub.graphql.types.datajob.DataJobType;
@@ -199,6 +202,7 @@ public class GmsGraphQLEngine {
     private final GlossaryTermType glossaryTermType;
     private final AspectType aspectType;
     private final UsageType usageType;
+    private final ContainerType containerType;
     private final DomainType domainType;
 
 
@@ -288,6 +292,7 @@ public class GmsGraphQLEngine {
         this.glossaryTermType = new GlossaryTermType(entityClient);
         this.aspectType = new AspectType(entityClient);
         this.usageType = new UsageType(this.usageClient);
+        this.containerType = new ContainerType(entityClient);
         this.domainType = new DomainType(entityClient);
 
         // Init Lists
@@ -307,6 +312,7 @@ public class GmsGraphQLEngine {
             dataFlowType,
             dataJobType,
             glossaryTermType,
+            containerType,
             domainType
         );
         this.loadableTypes = new ArrayList<>(entityTypes);
@@ -436,6 +442,8 @@ public class GmsGraphQLEngine {
         configureGlossaryRelationshipResolvers(builder);
         configureIngestionSourceResolvers(builder);
         configureAnalyticsResolvers(builder);
+        configureContainerResolvers(builder);
+        configureGlossaryTermResolvers(builder);
         configureDomainResolvers(builder);
     }
 
@@ -463,6 +471,24 @@ public class GmsGraphQLEngine {
                 typeWiring -> typeWiring.dataFetcher("getAnalyticsCharts", new GetChartsResolver(analyticsService))
                     .dataFetcher("getHighlights", new GetHighlightsResolver(analyticsService)));
         }
+    }
+
+    private void configureContainerResolvers(final RuntimeWiring.Builder builder) {
+        builder
+            .type("Container", typeWiring -> typeWiring
+                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
+                .dataFetcher("entities", new ContainerEntitiesResolver(entityClient))
+                .dataFetcher("platform",
+                    new LoadableTypeResolver<>(dataPlatformType,
+                        (env) -> ((Container) env.getSource()).getPlatform().getUrn()))
+                .dataFetcher("container",
+                    new LoadableTypeResolver<>(containerType,
+                        (env) -> {
+                            final Container container = env.getSource();
+                            return container.getContainer() != null ? container.getContainer().getUrn() : null;
+                        })
+                )
+            );
     }
 
     private void configureQueryResolvers(final RuntimeWiring.Builder builder) {
@@ -540,6 +566,9 @@ public class GmsGraphQLEngine {
                 new EntityCountsResolver(this.entityClient))
             .dataFetcher("getAccessToken",
                 new GetAccessTokenResolver(tokenService))
+            .dataFetcher("container", new AuthenticatedResolver<>(
+                new LoadableTypeResolver<>(containerType,
+                    (env) -> env.getArgument(URN_FIELD_NAME))))
             .dataFetcher("listDomains",
                 new ListDomainsResolver(this.entityClient))
             .dataFetcher("listSecrets",
@@ -563,6 +592,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("updateDashboard", new AuthenticatedResolver<>(new MutableTypeResolver<>(dashboardType)))
             .dataFetcher("updateDataJob", new AuthenticatedResolver<>(new MutableTypeResolver<>(dataJobType)))
             .dataFetcher("updateDataFlow", new AuthenticatedResolver<>(new MutableTypeResolver<>(dataFlowType)))
+            .dataFetcher("updateCorpUserProperties", new AuthenticatedResolver<>(new MutableTypeResolver<>(corpUserType)))
             .dataFetcher("addTag", new AuthenticatedResolver<>(new AddTagResolver(entityService)))
             .dataFetcher("removeTag", new AuthenticatedResolver<>(new RemoveTagResolver(entityService)))
             .dataFetcher("addTerm", new AuthenticatedResolver<>(new AddTermResolver(entityService)))
@@ -660,8 +690,15 @@ public class GmsGraphQLEngine {
                             return dataset.getDomain() != null ? dataset.getDomain().getUrn() : null;
                         }))
                 .dataFetcher("platform", new AuthenticatedResolver<>(
-                        new LoadableTypeResolver<>(dataPlatformType,
-                                (env) -> ((Dataset) env.getSource()).getPlatform().getUrn()))
+                    new LoadableTypeResolver<>(dataPlatformType,
+                            (env) -> ((Dataset) env.getSource()).getPlatform().getUrn()))
+                )
+                .dataFetcher("container",
+                    new LoadableTypeResolver<>(containerType,
+                        (env) -> {
+                            final Dataset dataset = env.getSource();
+                            return dataset.getContainer() != null ? dataset.getContainer().getUrn() : null;
+                        })
                 )
                 .dataFetcher("datasetProfiles", new AuthenticatedResolver<>(
                     new TimeSeriesAspectResolver(
@@ -672,12 +709,12 @@ public class GmsGraphQLEngine {
                     )
                 ))
                 .dataFetcher("operations", new AuthenticatedResolver<>(
-                        new TimeSeriesAspectResolver(
-                                this.entityClient,
-                                "dataset",
-                                "operation",
-                                OperationMapper::map
-                        )
+                    new TimeSeriesAspectResolver(
+                            this.entityClient,
+                            "dataset",
+                            "operation",
+                            OperationMapper::map
+                    )
                 ))
                 .dataFetcher("usageStats", new AuthenticatedResolver<>(new UsageTypeResolver()))
                 .dataFetcher("schemaMetadata", new AuthenticatedResolver<>(
@@ -715,6 +752,14 @@ public class GmsGraphQLEngine {
                                 (env) -> ((InstitutionalMemoryMetadata) env.getSource()).getAuthor().getUrn()))
                 )
             );
+    }
+
+    private void configureGlossaryTermResolvers(final RuntimeWiring.Builder builder) {
+        builder.type("GlossaryTerm", typeWiring -> typeWiring
+            .dataFetcher("schemaMetadata", new AuthenticatedResolver<>(
+                    new AspectResolver())
+            )
+        );
     }
 
     /**
@@ -794,6 +839,13 @@ public class GmsGraphQLEngine {
                     }
                 )
             )
+            .dataFetcher("container",
+                new LoadableTypeResolver<>(containerType,
+                    (env) -> {
+                        final Dashboard dashboard = env.getSource();
+                        return dashboard.getContainer() != null ? dashboard.getContainer().getUrn() : null;
+                    })
+            )
         );
         builder.type("DashboardInfo", typeWiring -> typeWiring
             .dataFetcher("charts", new AuthenticatedResolver<>(
@@ -823,6 +875,14 @@ public class GmsGraphQLEngine {
                     (env) -> {
                         final Chart chart = env.getSource();
                         return chart.getDomain() != null ? chart.getDomain().getUrn() : null;
+                    })
+            )
+            .dataFetcher("container",
+                new LoadableTypeResolver<>(
+                    containerType,
+                    (env) -> {
+                        final Chart chart = env.getSource();
+                        return chart.getContainer() != null ? chart.getContainer().getUrn() : null;
                     })
             )
         );

@@ -3,7 +3,7 @@ import logging
 import os
 import pprint
 import shutil
-from typing import List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import deepdiff
 
@@ -105,3 +105,151 @@ def check_golden_file(
         # raise the error if we're just running the test
         else:
             raise e
+
+
+def _get_filter(mce: bool = False, mcp: bool = False) -> Callable[[Dict], bool]:
+    if mce:
+        # cheap way to determine if we are working with an MCE
+        return lambda x: "proposedSnapshot" in x
+    if mcp:
+        # cheap way to determine if we are working with an MCP
+        return lambda x: "changeType" in x
+    return lambda _: False
+
+
+def _get_element(event: Dict[str, Any], path_spec: List[str]) -> Any:
+    try:
+        for p in path_spec:
+            event = event.get(p, {})
+            if not event:
+                return None
+        return event
+    except Exception as e:
+        print(event)
+        raise e
+
+
+def _element_matches_pattern(
+    event: Dict[str, Any], path_spec: List[str], pattern: str
+) -> Tuple[bool, bool]:
+    import re
+
+    element = _get_element(event, path_spec)
+    if element is None:
+        return (False, False)
+    else:
+        return (True, re.search(pattern, str(element)) is not None)
+
+
+def assert_mcp_entity_urn(
+    filter: str, entity_type: str, regex_pattern: str, file: str
+) -> int:
+    def get_path_spec(entity_type: str) -> List[str]:
+        return ["entityUrn"]
+
+    test_output = load_json_file(file)
+    if isinstance(test_output, list):
+        path_spec = get_path_spec(entity_type)
+        filter_operator = _get_filter(mcp=True)
+        filtered_events = [
+            (x, _element_matches_pattern(x, path_spec, regex_pattern))
+            for x in test_output
+            if filter_operator(x)
+        ]
+        failed_events = [y for y in filtered_events if not y[1][0] or not y[1][1]]
+        if failed_events:
+            raise Exception("Failed to match events", failed_events)
+        return len(filtered_events)
+    else:
+        raise Exception(
+            f"Did not expect the file {file} to not contain a list of items"
+        )
+
+
+def _get_mce_urn_path_spec(entity_type: str) -> List[str]:
+    if entity_type == "dataset":
+        return [
+            "proposedSnapshot",
+            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot",
+            "urn",
+        ]
+    raise Exception(f"Not implemented for entity_type: {entity_type}")
+
+
+def _get_mcp_urn_path_spec() -> List[str]:
+    return ["entityUrn"]
+
+
+def assert_mce_entity_urn(
+    filter: str, entity_type: str, regex_pattern: str, file: str
+) -> int:
+
+    test_output = load_json_file(file)
+    if isinstance(test_output, list):
+        path_spec = _get_mce_urn_path_spec(entity_type)
+        filter_operator = _get_filter(mce=True)
+        filtered_events = [
+            (x, _element_matches_pattern(x, path_spec, regex_pattern))
+            for x in test_output
+            if filter_operator(x)
+        ]
+        failed_events = [y for y in filtered_events if not y[1][0] or not y[1][1]]
+        if failed_events:
+            raise Exception("Failed to match events", failed_events)
+        return len(filtered_events)
+    else:
+        raise Exception(
+            f"Did not expect the file {file} to not contain a list of items"
+        )
+
+
+def assert_for_each_entity(
+    entity_type: str, aspect_name: str, aspect_field_matcher: Dict[str, str], file: str
+) -> int:
+    """Assert that an aspect name with the desired fields exists for each entity urn"""
+    test_output = load_json_file(file)
+    assert isinstance(test_output, list)
+    # mce urns
+    mce_urns = set(
+        [
+            _get_element(x, _get_mce_urn_path_spec(entity_type))
+            for x in test_output
+            if _get_filter(mce=True)(x)
+        ]
+    )
+    mcp_urns = set(
+        [
+            _get_element(x, _get_mcp_urn_path_spec())
+            for x in test_output
+            if _get_filter(mcp=True)(x)
+        ]
+    )
+    all_urns = mce_urns.union(mcp_urns)
+    # there should not be any None urns
+    assert None not in all_urns
+    aspect_map = {urn: None for urn in all_urns}
+    # iterate over all mcps
+    for o in [mcp for mcp in test_output if _get_filter(mcp=True)(mcp)]:
+        if o.get("aspectName") == aspect_name:
+            aspect_map[o["entityUrn"]] = json.loads(o.get("aspect", {}).get("value"))
+
+    success: List[str] = []
+    failures: List[str] = []
+    # breakpoint()
+    for urn, aspect_val in aspect_map.items():
+        if aspect_val is not None:
+            for f in aspect_field_matcher:
+                assert aspect_field_matcher[f] == _get_element(
+                    aspect_val, [f]
+                ), f"urn: {urn} -> Field {f} must match value {aspect_field_matcher[f]}, found {_get_element(aspect_val, [f])}"
+            success.append(urn)
+        else:
+            print(f"Adding {urn} to failures")
+            failures.append(urn)
+
+    if success:
+        print(f"Succeeded on assertion for urns {success}")
+    if failures:
+        assert False, f"Failed to find aspect_name {aspect_name} for urns {failures}"
+
+    return len(success)

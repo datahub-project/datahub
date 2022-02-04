@@ -1,0 +1,51 @@
+namespace com.linkedin.assertion
+
+import com.linkedin.timeseries.TimeseriesAspectBase
+import com.linkedin.common.ExternalReference
+import com.linkedin.common.Urn
+
+/**
+ * The results of evaluating the assertion on the batch
+ */
+@Aspect = {
+  "name": "assertionResult",
+  "type": "timeseries",
+}
+
+record AssertionResult includes TimeseriesAspectBase {
+  
+  /*
+  * Urn of assertion which is evaluated
+  */
+  @TimeseriesField = {}
+  assertionUrn: Urn
+
+  /*
+  * Urn of entity being asserted
+  */
+  //example - dataset urn, if dataset is being asserted
+  @TimeseriesField = {}
+  asserteeUrn: Urn
+  
+  /**
+  * Specification of the batch whose data quality is evaluated
+  */
+  batchSpec: optional BatchSpec
+
+  /**
+  * Results of assertion
+  */
+  @TimeseriesField = {}
+  batchAssertionResult: BatchAssertionResult
+
+  /**
+  *  Native Run identifier of platform evaluating the assertions 
+  */
+  //Multiple assertions could occur in same evaluator run
+  nativeEvaluatorRunId: optional string
+
+  /**
+   * Runtime parameters of evaluation
+   */
+  runtimeContext: map[string, string] = { }
+}

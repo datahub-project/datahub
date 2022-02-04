@@ -17,6 +17,7 @@ from looker_sdk.sdk.api31.models import DBConnection
 from pydantic import root_validator, validator
 from pydantic.fields import Field
 
+from datahub.configuration.source_common import EnvBasedSourceConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.looker_common import (
     LookerCommonConfig,
@@ -28,7 +29,6 @@ from datahub.ingestion.source.looker_common import (
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DatasetPropertiesClass,
-    FabricTypeClass,
     SubTypesClass,
 )
 from datahub.utilities.sql_parser import SQLParser
@@ -102,15 +102,7 @@ class LookerConnectionDefinition(ConfigModel):
 
     @validator("platform_env")
     def platform_env_must_be_one_of(cls, v: str) -> str:
-        allowed_envs = [
-            FabricTypeClass.PROD,
-            FabricTypeClass.CORP,
-            FabricTypeClass.DEV,
-            FabricTypeClass.EI,
-        ]
-        if (v.upper()) not in allowed_envs:
-            raise ConfigurationError(f"env must be one of {allowed_envs}, found {v}")
-        return v.upper()
+        return EnvBasedSourceConfigBase.env_must_be_one_of(v)
 
     @validator("platform", "default_db", "default_schema")
     def lower_everything(cls, v):

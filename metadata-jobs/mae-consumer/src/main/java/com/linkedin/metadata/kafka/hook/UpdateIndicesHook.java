@@ -174,11 +174,9 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
 
     log.info(String.format("Here's the relationship types found %s", relationshipTypesBeingAdded));
     if (relationshipTypesBeingAdded.size() > 0) {
-      new Thread(() -> {
-        _graphService.removeEdgesFromNode(urn, new ArrayList<>(relationshipTypesBeingAdded),
-            newRelationshipFilter(new Filter().setOr(new ConjunctiveCriterionArray()), RelationshipDirection.OUTGOING));
-        edgesToAdd.forEach(edge -> _graphService.addEdge(edge));
-      }).start();
+      _graphService.removeEdgesFromNode(urn, new ArrayList<>(relationshipTypesBeingAdded),
+          newRelationshipFilter(new Filter().setOr(new ConjunctiveCriterionArray()), RelationshipDirection.OUTGOING));
+      edgesToAdd.forEach(edge -> _graphService.addEdge(edge));
     }
   }
 
