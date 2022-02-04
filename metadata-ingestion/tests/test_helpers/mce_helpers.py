@@ -227,7 +227,7 @@ def assert_for_each_entity(
         [
             _get_element(x, _get_mcp_urn_path_spec())
             for x in test_output
-            if _get_filter(mcp=True)(x)
+            if _get_filter(mcp=True, entity_type=entity_type)(x)
         ]
     )
     all_urns = mce_urns.union(mcp_urns)
