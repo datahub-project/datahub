@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { message, Button } from 'antd';
 import { CheckOutlined } from '@ant-design/icons';
 
@@ -91,7 +91,7 @@ export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) =
     };
 
     // Updating the localStorage when the user has paused for 5 sec
-    React.useEffect(() => {
+    useEffect(() => {
         let delayDebounceFn: ReturnType<typeof setTimeout>;
         const editedDescriptionsLocal = (localStorageDictionary && JSON.parse(localStorageDictionary)) || {};
 
