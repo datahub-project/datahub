@@ -85,6 +85,7 @@ bigquery_common = {
 
 snowflake_common = {
     # Snowflake plugin utilizes sql common
+    *aws_common,
     *sql_common,
     # Required for all Snowflake sources
     "snowflake-sqlalchemy<=1.2.4",
