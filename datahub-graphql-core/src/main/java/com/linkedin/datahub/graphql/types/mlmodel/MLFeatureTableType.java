@@ -26,6 +26,7 @@ import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.execution.DataFetcherResult;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -58,13 +59,13 @@ public class MLFeatureTableType implements SearchableEntityType<MLFeatureTable>,
 
     @Override
     public List<DataFetcherResult<MLFeatureTable>> batchLoad(final List<String> urns, final QueryContext context) throws Exception {
-        final Set<Urn> mlFeatureTableUrns = urns.stream()
+        final List<Urn> mlFeatureTableUrns = urns.stream()
             .map(UrnUtils::getUrn)
-            .collect(Collectors.toSet());
+            .collect(Collectors.toList());
 
         try {
             final Map<Urn, EntityResponse> mlFeatureTableMap = _entityClient.batchGetV2(ML_FEATURE_TABLE_ENTITY_NAME,
-                mlFeatureTableUrns, null, context.getAuthentication());
+                new HashSet<>(mlFeatureTableUrns), null, context.getAuthentication());
 
             final List<EntityResponse> gmsResults = mlFeatureTableUrns.stream()
                 .map(featureTableUrn -> mlFeatureTableMap.getOrDefault(featureTableUrn, null))

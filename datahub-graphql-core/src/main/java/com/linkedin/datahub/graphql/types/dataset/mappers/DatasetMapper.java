@@ -78,7 +78,7 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         return mappingHelper.getResult();
     }
 
-    private void mapDatasetKey(Dataset dataset, DataMap dataMap) {
+    private void mapDatasetKey(@Nonnull Dataset dataset, @Nonnull DataMap dataMap) {
         final DatasetKey gmsKey = new DatasetKey(dataMap);
         dataset.setName(gmsKey.getName());
         dataset.setOrigin(FabricType.valueOf(gmsKey.getOrigin().toString()));
@@ -87,7 +87,7 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
             .setUrn(gmsKey.getPlatform().toString()).build());
     }
 
-    private void mapDatasetProperties(Dataset dataset, DataMap dataMap) {
+    private void mapDatasetProperties(@Nonnull Dataset dataset, @Nonnull DataMap dataMap) {
         final DatasetProperties gmsProperties = new DatasetProperties(dataMap);
         final com.linkedin.datahub.graphql.generated.DatasetProperties properties =
             new com.linkedin.datahub.graphql.generated.DatasetProperties();
@@ -106,14 +106,14 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         }
     }
 
-    private void mapEditableDatasetProperties(Dataset dataset, DataMap dataMap) {
+    private void mapEditableDatasetProperties(@Nonnull Dataset dataset, @Nonnull DataMap dataMap) {
         final EditableDatasetProperties editableDatasetProperties = new EditableDatasetProperties(dataMap);
         final DatasetEditableProperties editableProperties = new DatasetEditableProperties();
         editableProperties.setDescription(editableDatasetProperties.getDescription());
         dataset.setEditableProperties(editableProperties);
     }
 
-    private void mapViewProperties(Dataset dataset, DataMap dataMap) {
+    private void mapViewProperties(@Nonnull Dataset dataset, @Nonnull DataMap dataMap) {
         final ViewProperties properties = new ViewProperties(dataMap);
         final com.linkedin.datahub.graphql.generated.ViewProperties graphqlProperties =
             new com.linkedin.datahub.graphql.generated.ViewProperties();
@@ -123,7 +123,7 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         dataset.setViewProperties(graphqlProperties);
     }
 
-    private void mapGlobalTags(Dataset dataset, DataMap dataMap) {
+    private void mapGlobalTags(@Nonnull Dataset dataset, @Nonnull DataMap dataMap) {
         com.linkedin.datahub.graphql.generated.GlobalTags globalTags = GlobalTagsMapper.map(new GlobalTags(dataMap));
         dataset.setGlobalTags(globalTags);
         dataset.setTags(globalTags);

@@ -43,6 +43,7 @@ import graphql.execution.DataFetcherResult;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -92,14 +93,14 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
 
     @Override
     public List<DataFetcherResult<Chart>> batchLoad(@Nonnull List<String> urnStrs, @Nonnull QueryContext context) throws Exception {
-        final Set<Urn> urns = urnStrs.stream()
+        final List<Urn> urns = urnStrs.stream()
             .map(UrnUtils::getUrn)
-            .collect(Collectors.toSet());
+            .collect(Collectors.toList());
         try {
             final Map<Urn, EntityResponse> chartMap =
                 _entityClient.batchGetV2(
                     Constants.CHART_ENTITY_NAME,
-                    urns, ASPECTS_TO_RESOLVE,
+                    new HashSet<>(urns), ASPECTS_TO_RESOLVE,
                     context.getAuthentication());
 
             final List<EntityResponse> gmsResults = new ArrayList<>();

@@ -50,12 +50,12 @@ public class CorpUserMapper implements ModelMapper<EntityResponse, CorpUser> {
         return mappingHelper.getResult();
     }
 
-    private void mapCorpUserKey(CorpUser corpUser, DataMap dataMap) {
+    private void mapCorpUserKey(@Nonnull CorpUser corpUser, @Nonnull DataMap dataMap) {
         CorpUserKey corpUserKey = new CorpUserKey(dataMap);
         corpUser.setUsername(corpUserKey.getUsername());
     }
 
-    private void mapCorpUserInfo(CorpUser corpUser, DataMap dataMap) {
+    private void mapCorpUserInfo(@Nonnull CorpUser corpUser, @Nonnull DataMap dataMap) {
         CorpUserInfo corpUserInfo = new CorpUserInfo(dataMap);
         corpUser.setProperties(CorpUserPropertiesMapper.map(corpUserInfo));
         corpUser.setInfo(CorpUserInfoMapper.map(corpUserInfo));

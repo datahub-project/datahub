@@ -41,7 +41,8 @@ public class DataFlowUpdateInputMapper implements InputModelMapper<DataFlowUpdat
 
     if (dataFlowUpdateInput.getOwnership() != null) {
       proposals.add(
-          updateMappingHelper.aspectToProposal(OwnershipUpdateMapper.map(dataFlowUpdateInput.getOwnership(), actor)));
+          updateMappingHelper.aspectToProposal(OwnershipUpdateMapper.map(dataFlowUpdateInput.getOwnership(), actor),
+              OWNERSHIP_ASPECT_NAME));
     }
 
     if (dataFlowUpdateInput.getTags() != null || dataFlowUpdateInput.getGlobalTags() != null) {
@@ -61,7 +62,7 @@ public class DataFlowUpdateInputMapper implements InputModelMapper<DataFlowUpdat
             )
         );
       }
-      proposals.add(updateMappingHelper.aspectToProposal(globalTags));
+      proposals.add(updateMappingHelper.aspectToProposal(globalTags, GLOBAL_TAGS_ASPECT_NAME));
     }
 
     if (dataFlowUpdateInput.getEditableProperties() != null) {
@@ -69,7 +70,8 @@ public class DataFlowUpdateInputMapper implements InputModelMapper<DataFlowUpdat
       editableDataFlowProperties.setDescription(dataFlowUpdateInput.getEditableProperties().getDescription());
       editableDataFlowProperties.setCreated(auditStamp);
       editableDataFlowProperties.setLastModified(auditStamp);
-      proposals.add(updateMappingHelper.aspectToProposal(editableDataFlowProperties));
+      proposals.add(updateMappingHelper.aspectToProposal(editableDataFlowProperties,
+          EDITABLE_DATA_FLOW_PROPERTIES_ASPECT_NAME));
     }
 
     return proposals;

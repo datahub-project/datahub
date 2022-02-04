@@ -40,7 +40,8 @@ public class ChartUpdateInputMapper implements InputModelMapper<ChartUpdateInput
 
         if (chartUpdateInput.getOwnership() != null) {
             proposals.add(updateMappingHelper
-                .aspectToProposal(OwnershipUpdateMapper.map(chartUpdateInput.getOwnership(), actor)));
+                .aspectToProposal(OwnershipUpdateMapper.map(chartUpdateInput.getOwnership(), actor),
+                    OWNERSHIP_ASPECT_NAME));
         }
 
         if (chartUpdateInput.getTags() != null || chartUpdateInput.getGlobalTags() != null) {
@@ -64,7 +65,7 @@ public class ChartUpdateInputMapper implements InputModelMapper<ChartUpdateInput
                     )
                 );
             }
-            proposals.add(updateMappingHelper.aspectToProposal(globalTags));
+            proposals.add(updateMappingHelper.aspectToProposal(globalTags, GLOBAL_TAGS_ASPECT_NAME));
         }
 
         if (chartUpdateInput.getEditableProperties() != null) {
@@ -74,7 +75,7 @@ public class ChartUpdateInputMapper implements InputModelMapper<ChartUpdateInput
                 editableChartProperties.setCreated(auditStamp);
             }
             editableChartProperties.setLastModified(auditStamp);
-            proposals.add(updateMappingHelper.aspectToProposal(editableChartProperties));
+            proposals.add(updateMappingHelper.aspectToProposal(editableChartProperties, EDITABLE_CHART_PROPERTIES_ASPECT_NAME));
         }
 
         return proposals;

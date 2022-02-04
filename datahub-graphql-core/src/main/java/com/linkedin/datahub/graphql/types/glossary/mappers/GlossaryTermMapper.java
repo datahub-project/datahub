@@ -46,7 +46,7 @@ public class GlossaryTermMapper implements ModelMapper<EntityResponse, GlossaryT
         return mappingHelper.getResult();
     }
 
-    private void mapGlossaryTermKey(GlossaryTerm glossaryTerm, DataMap dataMap) {
+    private void mapGlossaryTermKey(@Nonnull GlossaryTerm glossaryTerm, @Nonnull DataMap dataMap) {
         GlossaryTermKey glossaryTermKey = new GlossaryTermKey(dataMap);
         glossaryTerm.setName(GlossaryTermUtils.getGlossaryTermName(glossaryTermKey.getName()));
         glossaryTerm.setHierarchicalName(glossaryTermKey.getName());

@@ -24,7 +24,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -53,10 +52,10 @@ public class CorpUserType implements SearchableEntityType<CorpUser> {
     @Override
     public List<DataFetcherResult<CorpUser>> batchLoad(final List<String> urns, final QueryContext context) {
         try {
-            final Set<Urn> corpUserUrns = urns
+            final List<Urn> corpUserUrns = urns
                     .stream()
                     .map(UrnUtils::getUrn)
-                    .collect(Collectors.toSet());
+                    .collect(Collectors.toList());
 
             final Map<Urn, EntityResponse> corpUserMap = _entityClient
                     .batchGetV2(CORP_USER_ENTITY_NAME, new HashSet<>(corpUserUrns), null,

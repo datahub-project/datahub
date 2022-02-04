@@ -42,6 +42,7 @@ import com.linkedin.r2.RemoteInvocationException;
 import graphql.execution.DataFetcherResult;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -91,14 +92,14 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
     @Override
     public List<DataFetcherResult<DataFlow>> batchLoad(final List<String> urnStrs, @Nonnull final QueryContext context)
         throws Exception {
-        final Set<Urn> urns = urnStrs.stream()
+        final List<Urn> urns = urnStrs.stream()
             .map(UrnUtils::getUrn)
-            .collect(Collectors.toSet());
+            .collect(Collectors.toList());
         try {
             final Map<Urn, EntityResponse> dataFlowMap =
                 _entityClient.batchGetV2(
                     Constants.DATA_FLOW_ENTITY_NAME,
-                    urns,
+                    new HashSet<>(urns),
                     ASPECTS_TO_RESOLVE,
                     context.getAuthentication());
 

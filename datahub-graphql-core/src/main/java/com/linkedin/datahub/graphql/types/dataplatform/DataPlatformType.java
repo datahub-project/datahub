@@ -10,9 +10,9 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import graphql.execution.DataFetcherResult;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.linkedin.metadata.Constants.*;
@@ -34,13 +34,13 @@ public class DataPlatformType implements EntityType<DataPlatform> {
     @Override
     public List<DataFetcherResult<DataPlatform>> batchLoad(final List<String> urns, final QueryContext context) {
 
-        final Set<Urn> dataPlatformUrns = urns.stream()
+        final List<Urn> dataPlatformUrns = urns.stream()
             .map(UrnUtils::getUrn)
-            .collect(Collectors.toSet());
+            .collect(Collectors.toList());
 
         try {
             final Map<Urn, EntityResponse> dataPlatformMap = _entityClient.batchGetV2(
-                DATA_PLATFORM_ENTITY_NAME, dataPlatformUrns, null, context.getAuthentication());
+                DATA_PLATFORM_ENTITY_NAME, new HashSet<>(dataPlatformUrns), null, context.getAuthentication());
 
             final List<EntityResponse> gmsResults = new ArrayList<>();
             for (Urn urn : dataPlatformUrns) {

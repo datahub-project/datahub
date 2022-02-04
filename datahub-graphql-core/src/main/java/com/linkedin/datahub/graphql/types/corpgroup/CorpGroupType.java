@@ -19,9 +19,9 @@ import com.linkedin.metadata.search.SearchResult;
 import graphql.execution.DataFetcherResult;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -50,13 +50,13 @@ public class CorpGroupType implements SearchableEntityType<CorpGroup> {
     @Override
     public List<DataFetcherResult<CorpGroup>> batchLoad(final List<String> urns, final QueryContext context) {
         try {
-            final Set<Urn> corpGroupUrns = urns
+            final List<Urn> corpGroupUrns = urns
                     .stream()
                     .map(UrnUtils::getUrn)
-                    .collect(Collectors.toSet());
+                    .collect(Collectors.toList());
 
-            final Map<Urn, EntityResponse> corpGroupMap = _entityClient
-                    .batchGetV2(CORP_GROUP_ENTITY_NAME, corpGroupUrns, null, context.getAuthentication());
+            final Map<Urn, EntityResponse> corpGroupMap = _entityClient.batchGetV2(CORP_GROUP_ENTITY_NAME,
+                new HashSet<>(corpGroupUrns), null, context.getAuthentication());
 
             final List<EntityResponse> results = new ArrayList<>();
             for (Urn urn : corpGroupUrns) {

@@ -27,6 +27,7 @@ import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.execution.DataFetcherResult;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -60,13 +61,13 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, Bro
 
     @Override
     public List<DataFetcherResult<GlossaryTerm>> batchLoad(final List<String> urns, final QueryContext context) {
-        final Set<Urn> glossaryTermUrns = urns.stream()
+        final List<Urn> glossaryTermUrns = urns.stream()
                 .map(UrnUtils::getUrn)
-                .collect(Collectors.toSet());
+                .collect(Collectors.toList());
 
         try {
             final Map<Urn, EntityResponse> glossaryTermMap = _entityClient.batchGetV2(GLOSSARY_TERM_ENTITY_NAME,
-                glossaryTermUrns, null, context.getAuthentication());
+                new HashSet<>(glossaryTermUrns), null, context.getAuthentication());
 
             final List<EntityResponse> gmsResults = new ArrayList<>();
             for (Urn urn : glossaryTermUrns) {

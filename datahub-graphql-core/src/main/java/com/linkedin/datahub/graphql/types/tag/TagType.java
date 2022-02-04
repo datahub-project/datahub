@@ -32,6 +32,7 @@ import graphql.execution.DataFetcherResult;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -70,13 +71,13 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
     @Override
     public List<DataFetcherResult<Tag>> batchLoad(final List<String> urns, final QueryContext context) {
 
-        final Set<Urn> tagUrns = urns.stream()
+        final List<Urn> tagUrns = urns.stream()
                 .map(UrnUtils::getUrn)
-                .collect(Collectors.toSet());
+                .collect(Collectors.toList());
 
         try {
-            final Map<Urn, EntityResponse> tagMap = _entityClient.batchGetV2(TAG_ENTITY_NAME, tagUrns, null,
-                context.getAuthentication());
+            final Map<Urn, EntityResponse> tagMap = _entityClient.batchGetV2(TAG_ENTITY_NAME, new HashSet<>(tagUrns),
+                null, context.getAuthentication());
 
             final List<EntityResponse> gmsResults = new ArrayList<>();
             for (Urn urn : tagUrns) {

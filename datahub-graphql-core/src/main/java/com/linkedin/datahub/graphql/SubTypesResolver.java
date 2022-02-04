@@ -15,8 +15,6 @@ import javax.annotation.Nullable;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.Constants.*;
-
 
 @Slf4j
 @AllArgsConstructor
@@ -35,7 +33,7 @@ public class SubTypesResolver implements DataFetcher<CompletableFuture<SubTypes>
             final String urnStr = ((Entity) environment.getSource()).getUrn();
             try {
                 final Urn urn = Urn.createFromString(urnStr);
-                EntityResponse entityResponse = _entityClient.batchGetV2(DATASET_ENTITY_NAME, Collections.singleton(urn),
+                EntityResponse entityResponse = _entityClient.batchGetV2(urn.getEntityType(), Collections.singleton(urn),
                     Collections.singleton(_aspectName), context.getAuthentication()).get(urn);
                 if (entityResponse != null && entityResponse.getAspects().containsKey(_aspectName)) {
                     subType = new SubTypes(entityResponse.getAspects().get(_aspectName).getValue().data());

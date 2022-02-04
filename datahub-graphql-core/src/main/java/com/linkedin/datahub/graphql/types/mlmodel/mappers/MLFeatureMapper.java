@@ -57,13 +57,13 @@ public class MLFeatureMapper implements ModelMapper<EntityResponse, MLFeature> {
         return mappingHelper.getResult();
     }
 
-    private void mapMLFeatureKey(MLFeature mlFeature, DataMap dataMap) {
+    private void mapMLFeatureKey(@Nonnull MLFeature mlFeature, @Nonnull DataMap dataMap) {
         MLFeatureKey mlFeatureKey = new MLFeatureKey(dataMap);
         mlFeature.setName(mlFeatureKey.getName());
         mlFeature.setFeatureNamespace(mlFeatureKey.getFeatureNamespace());
     }
 
-    private void mapMLFeatureProperties(MLFeature mlFeature, DataMap dataMap) {
+    private void mapMLFeatureProperties(@Nonnull MLFeature mlFeature, @Nonnull DataMap dataMap) {
         MLFeatureProperties featureProperties = new MLFeatureProperties(dataMap);
         mlFeature.setFeatureProperties(MLFeaturePropertiesMapper.map(featureProperties));
         mlFeature.setDescription(featureProperties.getDescription());

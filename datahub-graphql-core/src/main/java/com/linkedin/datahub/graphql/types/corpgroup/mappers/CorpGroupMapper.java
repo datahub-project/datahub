@@ -40,12 +40,12 @@ public class CorpGroupMapper implements ModelMapper<EntityResponse, CorpGroup> {
         return mappingHelper.getResult();
     }
 
-    private void mapCorpGroupKey(CorpGroup corpGroup, DataMap dataMap) {
+    private void mapCorpGroupKey(@Nonnull CorpGroup corpGroup, @Nonnull DataMap dataMap) {
         CorpGroupKey corpGroupKey = new CorpGroupKey(dataMap);
         corpGroup.setName(corpGroupKey.getName());
     }
 
-    private void mapCorpGroupInfo(CorpGroup corpGroup, DataMap dataMap) {
+    private void mapCorpGroupInfo(@Nonnull CorpGroup corpGroup, @Nonnull DataMap dataMap) {
         CorpGroupInfo corpGroupInfo = new CorpGroupInfo(dataMap);
         corpGroup.setProperties(CorpGroupPropertiesMapper.map(corpGroupInfo));
         corpGroup.setInfo(CorpGroupInfoMapper.map(corpGroupInfo));

@@ -57,7 +57,7 @@ public class MLFeatureTableMapper implements ModelMapper<EntityResponse, MLFeatu
         return mappingHelper.getResult();
     }
 
-    private void mapMLFeatureTableKey(MLFeatureTable mlFeatureTable, DataMap dataMap) {
+    private void mapMLFeatureTableKey(@Nonnull MLFeatureTable mlFeatureTable, @Nonnull DataMap dataMap) {
         MLFeatureTableKey mlFeatureTableKey = new MLFeatureTableKey(dataMap);
         mlFeatureTable.setName(mlFeatureTableKey.getName());
         DataPlatform partialPlatform = new DataPlatform();
@@ -65,7 +65,7 @@ public class MLFeatureTableMapper implements ModelMapper<EntityResponse, MLFeatu
         mlFeatureTable.setPlatform(partialPlatform);
     }
 
-    private void mapMLFeatureTableProperties(MLFeatureTable mlFeatureTable, DataMap dataMap) {
+    private void mapMLFeatureTableProperties(@Nonnull MLFeatureTable mlFeatureTable, @Nonnull DataMap dataMap) {
         MLFeatureTableProperties featureTableProperties = new MLFeatureTableProperties(dataMap);
         mlFeatureTable.setFeatureTableProperties(MLFeatureTablePropertiesMapper.map(featureTableProperties));
         mlFeatureTable.setDescription(featureTableProperties.getDescription());

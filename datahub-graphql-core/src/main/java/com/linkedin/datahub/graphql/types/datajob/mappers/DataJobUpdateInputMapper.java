@@ -42,7 +42,7 @@ public class DataJobUpdateInputMapper implements InputModelMapper<DataJobUpdateI
 
         if (dataJobUpdateInput.getOwnership() != null) {
             proposals.add(updateMappingHelper.aspectToProposal(
-                OwnershipUpdateMapper.map(dataJobUpdateInput.getOwnership(), actor)));
+                OwnershipUpdateMapper.map(dataJobUpdateInput.getOwnership(), actor), OWNERSHIP_ASPECT_NAME));
         }
 
         if (dataJobUpdateInput.getTags() != null || dataJobUpdateInput.getGlobalTags() != null) {
@@ -62,7 +62,7 @@ public class DataJobUpdateInputMapper implements InputModelMapper<DataJobUpdateI
                     )
                 );
             }
-            proposals.add(updateMappingHelper.aspectToProposal(globalTags));
+            proposals.add(updateMappingHelper.aspectToProposal(globalTags, GLOBAL_TAGS_ASPECT_NAME));
         }
 
         if (dataJobUpdateInput.getEditableProperties() != null) {
@@ -70,7 +70,8 @@ public class DataJobUpdateInputMapper implements InputModelMapper<DataJobUpdateI
             editableDataJobProperties.setDescription(dataJobUpdateInput.getEditableProperties().getDescription());
             editableDataJobProperties.setCreated(auditStamp);
             editableDataJobProperties.setLastModified(auditStamp);
-            proposals.add(updateMappingHelper.aspectToProposal(editableDataJobProperties));
+            proposals.add(updateMappingHelper.aspectToProposal(editableDataJobProperties,
+                EDITABLE_DATA_JOB_PROPERTIES_ASPECT_NAME));
         }
 
         return proposals;

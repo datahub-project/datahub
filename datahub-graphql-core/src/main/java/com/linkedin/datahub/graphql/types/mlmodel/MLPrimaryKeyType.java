@@ -19,6 +19,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.execution.DataFetcherResult;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -51,13 +52,13 @@ public class MLPrimaryKeyType implements SearchableEntityType<MLPrimaryKey> {
     @Override
     public List<DataFetcherResult<MLPrimaryKey>> batchLoad(final List<String> urns, @Nonnull final QueryContext context)
         throws Exception {
-        final Set<Urn> mlPrimaryKeyUrns = urns.stream()
+        final List<Urn> mlPrimaryKeyUrns = urns.stream()
             .map(UrnUtils::getUrn)
-            .collect(Collectors.toSet());
+            .collect(Collectors.toList());
 
         try {
             final Map<Urn, EntityResponse> mlPrimaryKeyMap = _entityClient.batchGetV2(ML_PRIMARY_KEY_ENTITY_NAME,
-                mlPrimaryKeyUrns, null, context.getAuthentication());
+                new HashSet<>(mlPrimaryKeyUrns), null, context.getAuthentication());
 
             final List<EntityResponse> gmsResults = mlPrimaryKeyUrns.stream()
                 .map(primaryKeyUrn -> mlPrimaryKeyMap.getOrDefault(primaryKeyUrn, null))

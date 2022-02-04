@@ -26,6 +26,7 @@ import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.execution.DataFetcherResult;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -58,13 +59,13 @@ public class MLModelType implements SearchableEntityType<MLModel>, BrowsableEnti
 
     @Override
     public List<DataFetcherResult<MLModel>> batchLoad(final List<String> urns, final QueryContext context) throws Exception {
-        final Set<Urn> mlModelUrns = urns.stream()
+        final List<Urn> mlModelUrns = urns.stream()
             .map(UrnUtils::getUrn)
-            .collect(Collectors.toSet());
+            .collect(Collectors.toList());
 
         try {
             final Map<Urn, EntityResponse> mlModelMap = _entityClient.batchGetV2(ML_MODEL_ENTITY_NAME,
-                mlModelUrns, null, context.getAuthentication());
+                new HashSet<>(mlModelUrns), null, context.getAuthentication());
 
             final List<EntityResponse> gmsResults = mlModelUrns.stream()
                 .map(modelUrn -> mlModelMap.getOrDefault(modelUrn, null))

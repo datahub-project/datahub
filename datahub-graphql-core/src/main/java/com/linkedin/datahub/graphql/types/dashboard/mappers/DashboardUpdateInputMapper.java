@@ -41,7 +41,7 @@ public class DashboardUpdateInputMapper implements
 
         if (dashboardUpdateInput.getOwnership() != null) {
             proposals.add(updateMappingHelper.aspectToProposal(
-                OwnershipUpdateMapper.map(dashboardUpdateInput.getOwnership(), actor)));
+                OwnershipUpdateMapper.map(dashboardUpdateInput.getOwnership(), actor), OWNERSHIP_ASPECT_NAME));
         }
 
         if (dashboardUpdateInput.getTags() != null || dashboardUpdateInput.getGlobalTags() != null) {
@@ -64,7 +64,7 @@ public class DashboardUpdateInputMapper implements
                     )
                 );
             }
-            proposals.add(updateMappingHelper.aspectToProposal(globalTags));
+            proposals.add(updateMappingHelper.aspectToProposal(globalTags, GLOBAL_TAGS_ASPECT_NAME));
         }
 
         if (dashboardUpdateInput.getEditableProperties() != null) {
@@ -74,7 +74,7 @@ public class DashboardUpdateInputMapper implements
                 editableDashboardProperties.setCreated(auditStamp);
             }
             editableDashboardProperties.setLastModified(auditStamp);
-            proposals.add(updateMappingHelper.aspectToProposal(editableDashboardProperties));
+            proposals.add(updateMappingHelper.aspectToProposal(editableDashboardProperties, EDITABLE_DASHBOARD_PROPERTIES_ASPECT_NAME));
         }
 
         return proposals;

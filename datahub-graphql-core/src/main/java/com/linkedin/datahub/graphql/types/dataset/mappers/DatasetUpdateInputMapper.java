@@ -47,7 +47,7 @@ public class DatasetUpdateInputMapper implements InputModelMapper<DatasetUpdateI
 
     if (datasetUpdateInput.getOwnership() != null) {
       proposals.add(updateMappingHelper.aspectToProposal(
-          OwnershipUpdateMapper.map(datasetUpdateInput.getOwnership(), actor)));
+          OwnershipUpdateMapper.map(datasetUpdateInput.getOwnership(), actor), OWNERSHIP_ASPECT_NAME));
     }
 
     if (datasetUpdateInput.getDeprecation() != null) {
@@ -58,12 +58,12 @@ public class DatasetUpdateInputMapper implements InputModelMapper<DatasetUpdateI
       }
       deprecation.setNote(datasetUpdateInput.getDeprecation().getNote());
       deprecation.setActor(actor, SetMode.IGNORE_NULL);
-      proposals.add(updateMappingHelper.aspectToProposal(deprecation));
+      proposals.add(updateMappingHelper.aspectToProposal(deprecation, DATASET_DEPRECATION_ASPECT_NAME));
     }
 
     if (datasetUpdateInput.getInstitutionalMemory() != null) {
       proposals.add(updateMappingHelper.aspectToProposal(InstitutionalMemoryUpdateMapper
-          .map(datasetUpdateInput.getInstitutionalMemory())));
+          .map(datasetUpdateInput.getInstitutionalMemory()), INSTITUTIONAL_MEMORY_ASPECT_NAME));
     }
 
     if (datasetUpdateInput.getTags() != null || datasetUpdateInput.getGlobalTags() != null) {
@@ -82,7 +82,7 @@ public class DatasetUpdateInputMapper implements InputModelMapper<DatasetUpdateI
             .map(element -> TagAssociationUpdateMapper.map(element))
             .collect(Collectors.toList())));
       }
-      proposals.add(updateMappingHelper.aspectToProposal(globalTags));
+      proposals.add(updateMappingHelper.aspectToProposal(globalTags, GLOBAL_TAGS_ASPECT_NAME));
     }
 
     if (datasetUpdateInput.getEditableSchemaMetadata() != null) {
@@ -94,7 +94,7 @@ public class DatasetUpdateInputMapper implements InputModelMapper<DatasetUpdateI
               ).collect(Collectors.toList())));
       editableSchemaMetadata.setLastModified(auditStamp);
       editableSchemaMetadata.setCreated(auditStamp);
-      proposals.add(updateMappingHelper.aspectToProposal(editableSchemaMetadata));
+      proposals.add(updateMappingHelper.aspectToProposal(editableSchemaMetadata, EDITABLE_SCHEMA_METADATA_ASPECT_NAME));
     }
 
     if (datasetUpdateInput.getEditableProperties() != null) {
@@ -102,7 +102,7 @@ public class DatasetUpdateInputMapper implements InputModelMapper<DatasetUpdateI
       editableDatasetProperties.setDescription(datasetUpdateInput.getEditableProperties().getDescription());
       editableDatasetProperties.setLastModified(auditStamp);
       editableDatasetProperties.setCreated(auditStamp);
-      proposals.add(updateMappingHelper.aspectToProposal(editableDatasetProperties));
+      proposals.add(updateMappingHelper.aspectToProposal(editableDatasetProperties, EDITABLE_DATASET_PROPERTIES_ASPECT_NAME));
     }
 
     return proposals;
