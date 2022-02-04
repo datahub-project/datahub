@@ -4,6 +4,7 @@ import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
 import com.google.common.collect.ImmutableList;
+import com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.kafka.config.MetadataChangeLogProcessorCondition;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
@@ -28,7 +29,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @Conditional(MetadataChangeLogProcessorCondition.class)
-@Import({UpdateIndicesHook.class, IngestionSchedulerHook.class})
+@Import({UpdateIndicesHook.class, IngestionSchedulerHook.class, KafkaEventConsumerFactory.class})
 @EnableKafka
 public class MetadataChangeLogProcessor {
 
@@ -39,6 +40,7 @@ public class MetadataChangeLogProcessor {
   public MetadataChangeLogProcessor(@Nonnull final UpdateIndicesHook updateIndicesHook,
       @Nonnull final IngestionSchedulerHook ingestionSchedulerHook) {
     this.hooks = ImmutableList.of(updateIndicesHook, ingestionSchedulerHook);
+    this.hooks.forEach(MetadataChangeLogHook::init);
   }
 
   @KafkaListener(id = "${METADATA_CHANGE_LOG_KAFKA_CONSUMER_GROUP_ID:generic-mae-consumer-job-client}", topics = {
