@@ -109,13 +109,17 @@ def check_golden_file(
             raise e
 
 
-def _get_filter(mce: bool = False, mcp: bool = False) -> Callable[[Dict], bool]:
+def _get_filter(
+    mce: bool = False, mcp: bool = False, entity_type: Optional[str] = None
+) -> Callable[[Dict], bool]:
     if mce:
         # cheap way to determine if we are working with an MCE
         return lambda x: "proposedSnapshot" in x
     if mcp:
         # cheap way to determine if we are working with an MCP
-        return lambda x: "changeType" in x
+        return lambda x: "changeType" in x and (
+            x["entityType"] == entity_type if entity_type else True
+        )
     return lambda _: False
 
 
@@ -152,7 +156,7 @@ def assert_mcp_entity_urn(
     test_output = load_json_file(file)
     if isinstance(test_output, list):
         path_spec = get_path_spec(entity_type)
-        filter_operator = _get_filter(mcp=True)
+        filter_operator = _get_filter(mcp=True, entity_type=entity_type)
         filtered_events = [
             (x, _element_matches_pattern(x, path_spec, regex_pattern))
             for x in test_output
