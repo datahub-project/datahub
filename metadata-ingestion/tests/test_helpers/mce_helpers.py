@@ -25,7 +25,9 @@ IGNORE_PATH_TIMESTAMPS = [
 
 class MCEConstants:
     PROPOSED_SNAPSHOT = "proposedSnapshot"
-    DATASET_SNAPSHOT_CLASS = "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot"
+    DATASET_SNAPSHOT_CLASS = (
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot"
+    )
 
 
 class MCPConstants:
@@ -144,7 +146,11 @@ def _get_filter(
     if mce:
         # cheap way to determine if we are working with an MCE for the appropriate entity_type
         if entity_type:
-            return lambda x: MCEConstants.PROPOSED_SNAPSHOT in x and _get_field_for_entity_type_in_mce(entity_type) in x[MCEConstants.PROPOSED_SNAPSHOT]
+            return (
+                lambda x: MCEConstants.PROPOSED_SNAPSHOT in x
+                and _get_field_for_entity_type_in_mce(entity_type)
+                in x[MCEConstants.PROPOSED_SNAPSHOT]
+            )
         else:
             return lambda x: MCEConstants.PROPOSED_SNAPSHOT in x
     if mcp:
@@ -233,7 +239,9 @@ def assert_mce_entity_urn(
         ]
         failed_events = [y for y in filtered_events if not y[1][0] or not y[1][1]]
         if failed_events:
-            raise Exception("Failed to match events: {json.dumps(failed_events, indent=2)}")
+            raise Exception(
+                "Failed to match events: {json.dumps(failed_events, indent=2)}"
+            )
         return len(filtered_events)
     else:
         raise Exception(
@@ -267,10 +275,16 @@ def assert_for_each_entity(
     assert None not in all_urns
     aspect_map = {urn: None for urn in all_urns}
     # iterate over all mcps
-    for o in [mcp for mcp in test_output if _get_filter(mcp=True, entity_type=entity_type)(mcp)]:
+    for o in [
+        mcp
+        for mcp in test_output
+        if _get_filter(mcp=True, entity_type=entity_type)(mcp)
+    ]:
         if o.get(MCPConstants.ASPECT_NAME) == aspect_name:
             # load the inner aspect payload and assign to this urn
-            aspect_map[o[MCPConstants.ASPECT_NAME]] = json.loads(o.get(MCPConstants.ASPECT_VALUE, {}).get("value"))
+            aspect_map[o[MCPConstants.ASPECT_NAME]] = json.loads(
+                o.get(MCPConstants.ASPECT_VALUE, {}).get("value")
+            )
 
     success: List[str] = []
     failures: List[str] = []
@@ -288,6 +302,8 @@ def assert_for_each_entity(
     if success:
         print(f"Succeeded on assertion for urns {success}")
     if failures:
-        assert False, f"Failed to find aspect_name {aspect_name} for urns {json.dumps(failures, indent=2)}"
+        assert (
+            False
+        ), f"Failed to find aspect_name {aspect_name} for urns {json.dumps(failures, indent=2)}"
 
     return len(success)
