@@ -41,3 +41,5 @@ export const singularizeCollectionName = (collectionName: string): string => {
 
     return collectionName;
 };
+
+export const EDITED_DESCRIPTIONS_CACHE_NAME = 'editedDescriptions';

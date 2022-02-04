@@ -11,6 +11,7 @@ import { GenericEntityUpdate } from '../../../types';
 import { useEntityData, useEntityUpdate, useRefetch } from '../../../EntityContext';
 import { useUpdateDescriptionMutation } from '../../../../../../graphql/mutations.generated';
 import { DiscardDescriptionModal } from './DiscardDescriptionModal';
+import { EDITED_DESCRIPTIONS_CACHE_NAME } from '../../../utils';
 
 export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) => {
     const { urn, entityType, entityData } = useEntityData();
@@ -18,7 +19,7 @@ export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) =
     const updateEntity = useEntityUpdate<GenericEntityUpdate>();
     const [updateDescriptionMutation] = useUpdateDescriptionMutation();
 
-    const localStorageDictionary = localStorage.getItem('editedDescriptions');
+    const localStorageDictionary = localStorage.getItem(EDITED_DESCRIPTIONS_CACHE_NAME);
     const editedDescriptions = (localStorageDictionary && JSON.parse(localStorageDictionary)) || {};
     const description = editedDescriptions.hasOwnProperty(urn)
         ? editedDescriptions[urn]
