@@ -7,6 +7,7 @@ import useIsLineageMode from '../lineage/utils/useIsLineageMode';
 import { SearchablePage } from '../search/SearchablePage';
 import { useEntityRegistry } from '../useEntityRegistry';
 import analytics, { EventType } from '../analytics';
+import { decodeUrn } from './shared/utils';
 
 interface RouteParams {
     urn: string;
@@ -21,7 +22,7 @@ interface Props {
  */
 export const EntityPage = ({ entityType }: Props) => {
     const { urn: encodedUrn } = useParams<RouteParams>();
-    const urn = decodeURIComponent(encodedUrn);
+    const urn = decodeUrn(encodedUrn);
     const entityRegistry = useEntityRegistry();
     const isBrowsable = entityRegistry.getEntity(entityType).isBrowseEnabled();
     const isLineageSupported = entityRegistry.getEntity(entityType).isLineageEnabled();

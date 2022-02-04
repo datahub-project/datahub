@@ -56,9 +56,9 @@ COMMON="
     java $JAVA_OPTS $JMX_OPTS $OTEL_AGENT $PROMETHEUS_AGENT -jar /datahub/datahub-mae-consumer/bin/mae-consumer-job.jar
 "
 if [[ $SKIP_ELASTICSEARCH_CHECK != true ]]; then
-  dockerize $COMMON
-else
   dockerize \
     -wait $ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT -wait-http-header "$ELASTICSEARCH_AUTH_HEADER" \
     $COMMON
+else
+  dockerize $COMMON
 fi

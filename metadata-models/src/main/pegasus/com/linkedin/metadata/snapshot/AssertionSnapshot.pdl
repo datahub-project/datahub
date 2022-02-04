@@ -1,0 +1,24 @@
+namespace com.linkedin.metadata.snapshot
+
+import com.linkedin.common.Urn
+import com.linkedin.metadata.aspect.AssertionAspect
+
+/**
+ * A metadata snapshot for a specific Assertion entity.
+ */
+@Entity = {
+  "name": "assertion",
+  "keyAspect": "assertionKey"
+}
+record AssertionSnapshot {
+
+  /**
+   * URN for the entity the metadata snapshot is associated with.
+   */
+  urn: Urn
+
+  /**
+   * The list of metadata aspects associated with the assertion.
+   */
+  aspects: array[AssertionAspect]
+}

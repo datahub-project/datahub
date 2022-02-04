@@ -147,6 +147,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 glossaryTerms={data?.glossaryTerms}
                 logoUrl={data?.platform?.properties?.logoUrl}
                 domain={data.domain}
+                container={data.container}
             />
         );
     };
@@ -166,6 +167,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 insights={result.insights}
                 logoUrl={data?.platform?.properties?.logoUrl || ''}
                 domain={data.domain}
+                container={data.container}
             />
         );
     };

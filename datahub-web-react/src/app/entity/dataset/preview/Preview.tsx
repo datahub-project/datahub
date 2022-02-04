@@ -7,10 +7,12 @@ import {
     GlossaryTerms,
     SearchInsight,
     Domain,
+    Container,
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { capitalizeFirstLetter } from '../../../shared/textUtil';
+import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
+import { IconStyleType } from '../../Entity';
 
 export const Preview = ({
     urn,
@@ -26,6 +28,7 @@ export const Preview = ({
     insights,
     glossaryTerms,
     subtype,
+    container,
 }: {
     urn: string;
     name: string;
@@ -40,21 +43,24 @@ export const Preview = ({
     insights?: Array<SearchInsight> | null;
     glossaryTerms?: GlossaryTerms | null;
     subtype?: string | null;
+    container?: Container | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
-    const capitalPlatformName = capitalizeFirstLetter(platformName);
+    const capitalPlatformName = capitalizeFirstLetterOnly(platformName);
     return (
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.Dataset, urn)}
             name={name || ''}
             description={description || ''}
-            type={capitalizeFirstLetter(subtype) || 'Dataset'}
+            type={capitalizeFirstLetterOnly(subtype) || 'Dataset'}
             logoUrl={platformLogo || ''}
+            typeIcon={entityRegistry.getIcon(EntityType.Dataset, 12, IconStyleType.ACCENT)}
             platform={capitalPlatformName}
             qualifier={origin}
             tags={globalTags || undefined}
             owners={owners}
             domain={domain}
+            container={container || undefined}
             snippet={snippet}
             glossaryTerms={glossaryTerms || undefined}
             insights={insights}

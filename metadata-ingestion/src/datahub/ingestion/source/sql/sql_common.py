@@ -66,6 +66,7 @@ from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
+    JobStatusClass,
 )
 from datahub.telemetry import telemetry
 from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombinerReport
@@ -442,6 +443,18 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             )
         return None
 
+    def update_default_job_run_summary(self) -> None:
+        summary = self.get_job_run_summary(self.get_default_ingestion_job_id())
+        if summary is not None:
+            # For now just add the config and the report.
+            summary.config = self.config.json()
+            summary.custom_summary = self.report.as_string()
+            summary.runStatus = (
+                JobStatusClass.FAILED
+                if self.get_report().failures
+                else JobStatusClass.COMPLETED
+            )
+
     def get_schema_names(self, inspector):
         return inspector.get_schema_names()
 
@@ -600,6 +613,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             fk_dict["name"], foreign_fields, source_fields, foreign_dataset
         )
 
+    def normalise_dataset_name(self, dataset_name: str) -> str:
+        return dataset_name
+
     def loop_tables(  # noqa: C901
         self,
         inspector: Inspector,
@@ -614,6 +630,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             dataset_name = self.get_identifier(
                 schema=schema, entity=table, inspector=inspector
             )
+
+            dataset_name = self.normalise_dataset_name(dataset_name)
+
             if dataset_name not in tables_seen:
                 tables_seen.add(dataset_name)
             else:
@@ -793,6 +812,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             dataset_name = self.get_identifier(
                 schema=schema, entity=view, inspector=inspector
             )
+            dataset_name = self.normalise_dataset_name(dataset_name)
+
             self.report.report_entity_scanned(dataset_name, ent_type="view")
 
             if not sql_config.view_pattern.allowed(dataset_name):
@@ -891,6 +912,18 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             conn=inspector.bind, report=self.report, config=self.config.profiling
         )
 
+    # Override if needed
+    def generate_partition_profiler_query(
+        self, schema: str, table: str
+    ) -> Tuple[Optional[str], Optional[str]]:
+        return None, None
+
+    # Override if you want to do additional checks
+    def is_dataset_eligable_profiling(
+        self, dataset_name: str, sql_config: SQLAlchemyConfig
+    ) -> bool:
+        return sql_config.profile_pattern.allowed(dataset_name)
+
     def loop_profiler_requests(
         self,
         inspector: Inspector,
@@ -899,6 +932,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
     ) -> Iterable["GEProfilerRequest"]:
         from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
 
+        tables_seen: Set[str] = set()
+
         for table in inspector.get_table_names(schema):
             schema, table = self.standardize_schema_table_names(
                 schema=schema, entity=table
@@ -906,15 +941,31 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             dataset_name = self.get_identifier(
                 schema=schema, entity=table, inspector=inspector
             )
-
-            if not sql_config.profile_pattern.allowed(dataset_name):
+            if not self.is_dataset_eligable_profiling(dataset_name, sql_config):
                 self.report.report_dropped(f"profile of {dataset_name}")
                 continue
+
+            dataset_name = self.normalise_dataset_name(dataset_name)
+
+            if dataset_name not in tables_seen:
+                tables_seen.add(dataset_name)
+            else:
+                logger.debug(f"{dataset_name} has already been seen, skipping...")
+                continue
+
+            (partition, custom_sql) = self.generate_partition_profiler_query(
+                schema, table
+            )
 
             self.report.report_entity_profiled(dataset_name)
             yield GEProfilerRequest(
                 pretty_name=dataset_name,
-                batch_kwargs=self.prepare_profiler_args(schema=schema, table=table),
+                batch_kwargs=self.prepare_profiler_args(
+                    schema=schema,
+                    table=table,
+                    partition=partition,
+                    custom_sql=custom_sql,
+                ),
             )
 
     def loop_profiler(
@@ -944,16 +995,20 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
             yield wu
 
-    def prepare_profiler_args(self, schema: str, table: str) -> dict:
+    def prepare_profiler_args(
+        self,
+        schema: str,
+        table: str,
+        partition: Optional[str],
+        custom_sql: Optional[str] = None,
+    ) -> dict:
         return dict(
-            schema=schema,
-            table=table,
+            schema=schema, table=table, partition=partition, custom_sql=custom_sql
         )
 
     def get_report(self):
         return self.report
 
     def close(self):
-        if self.is_stateful_ingestion_configured():
-            # Commit the checkpoints for this run
-            self.commit_checkpoints()
+        self.update_default_job_run_summary()
+        self.prepare_for_commit()

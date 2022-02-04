@@ -65,6 +65,8 @@ clean {
   delete 'tmp'
   delete 'build'
   delete 'just'
+  delete 'src/types.generated.ts'
+  delete 'src/graphql/*.generated.ts'
 }
 
 configurations {
