@@ -20,8 +20,13 @@ from datahub.metadata.schema_classes import (
 class DatahubKey:
     def guid(self) -> str:
         nonnull_dict = {k: v for k, v in self.__dict__.items() if v}
-        json_urn = json.dumps(nonnull_dict, sort_keys=True, cls=DatahubKeyJSONEncoder)
-        md5_hash = hashlib.md5(json_urn.encode("utf-8"))
+        json_key = json.dumps(
+            nonnull_dict,
+            separators=(",", ":"),
+            sort_keys=True,
+            cls=DatahubKeyJSONEncoder,
+        )
+        md5_hash = hashlib.md5(json_key.encode("utf-8"))
         return str(md5_hash.hexdigest())
 
 
@@ -133,7 +138,7 @@ def gen_containers(
         )
 
         # Set database container
-        db_container_mcp = MetadataChangeProposalWrapper(
+        parent_container_mcp = MetadataChangeProposalWrapper(
             entityType="container",
             changeType=ChangeTypeClass.UPSERT,
             entityUrn=f"{container_urn}",
@@ -144,7 +149,7 @@ def gen_containers(
         )
         wu = MetadataWorkUnit(
             id=f"container-parent-container-{name}-{container_urn}-{parent_container_urn}",
-            mcp=db_container_mcp,
+            mcp=parent_container_mcp,
         )
 
         yield wu

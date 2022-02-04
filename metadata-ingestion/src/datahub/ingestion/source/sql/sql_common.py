@@ -511,9 +511,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             def soft_delete_item(urn: str, type: str) -> Iterable[MetadataWorkUnit]:
                 entity_type: str = "dataset"
 
-                if type in ["view", "table"]:
-                    entity_type = "dataset"
-                elif type == "container":
+                if type == "container":
                     entity_type = "container"
 
                 logger.info(f"Soft-deleting stale entity of type {type} - {urn}.")

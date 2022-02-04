@@ -2,31 +2,12 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:(urn:li:dataPlatform:trino,PROD,hivedb)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-      "value": "{\"container\": \"urn:li:container:(urn:li:dataPlatform:trino,PROD,hivedb)\"}",
-      "contentType": "application/json"
-    },
-    "systemMetadata": {
-      "lastObserved": 1632398400000,
-      "runId": "trino-hive-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
-    }
-  },
-  {
-    "auditHeader": null,
-    "entityType": "container",
-    "entityUrn": "urn:li:container:(urn:li:dataPlatform:trino,PROD,hivedb)",
+    "entityUrn": "urn:li:container:93d34d9f599989ff87c497e8d2be8e6a",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-      "value": "{\"name\": \"hivedb\"}",
+      "value": "{\"customProperties\": {\"platform\": \"trino\", \"instance\": \"PROD\", \"database\": \"hivedb\"}, \"name\": \"hivedb\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -40,7 +21,26 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:(urn:li:dataPlatform:trino,PROD,hivedb)",
+    "entityUrn": "urn:li:container:93d34d9f599989ff87c497e8d2be8e6a",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "value": "{\"platform\": \"urn:li:dataPlatform:trino\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1632398400000,
+      "runId": "trino-hive-test",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "container",
+    "entityUrn": "urn:li:container:93d34d9f599989ff87c497e8d2be8e6a",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -59,31 +59,12 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:(urn:li:dataPlatform:trino,PROD,hivedb.db1)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-      "value": "{\"container\": \"urn:li:container:(urn:li:dataPlatform:trino,PROD,hivedb.db1)\"}",
-      "contentType": "application/json"
-    },
-    "systemMetadata": {
-      "lastObserved": 1632398400000,
-      "runId": "trino-hive-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
-    }
-  },
-  {
-    "auditHeader": null,
-    "entityType": "container",
-    "entityUrn": "urn:li:container:(urn:li:dataPlatform:trino,PROD,hivedb.db1)",
+    "entityUrn": "urn:li:container:deb4e66d7133021e70b7b09876b6e79d",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-      "value": "{\"name\": \"db1\"}",
+      "value": "{\"customProperties\": {\"platform\": \"trino\", \"instance\": \"PROD\", \"database\": \"hivedb\", \"schema\": \"db1\"}, \"name\": \"db1\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -97,7 +78,26 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:(urn:li:dataPlatform:trino,PROD,hivedb.db1)",
+    "entityUrn": "urn:li:container:deb4e66d7133021e70b7b09876b6e79d",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "value": "{\"platform\": \"urn:li:dataPlatform:trino\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1632398400000,
+      "runId": "trino-hive-test",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "container",
+    "entityUrn": "urn:li:container:deb4e66d7133021e70b7b09876b6e79d",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -116,12 +116,12 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:(urn:li:dataPlatform:trino,PROD,hivedb.db1)",
+    "entityUrn": "urn:li:container:deb4e66d7133021e70b7b09876b6e79d",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:(urn:li:dataPlatform:trino,PROD,hivedb)\"}",
+      "value": "{\"container\": \"urn:li:container:93d34d9f599989ff87c497e8d2be8e6a\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -140,7 +140,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:(urn:li:dataPlatform:trino,PROD,hivedb.db1)\"}",
+      "value": "{\"container\": \"urn:li:container:deb4e66d7133021e70b7b09876b6e79d\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -172,7 +172,7 @@
                 "numrows": "1",
                 "rawdatasize": "32",
                 "totalsize": "33",
-                "transient_lastddltime": "1642494487"
+                "transient_lastddltime": "1643925832"
               },
               "externalUrl": null,
               "description": "This table has array of structs",
@@ -303,7 +303,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:(urn:li:dataPlatform:trino,PROD,hivedb.db1)\"}",
+      "value": "{\"container\": \"urn:li:container:deb4e66d7133021e70b7b09876b6e79d\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -333,7 +333,7 @@
                 "numrows": "0",
                 "rawdatasize": "0",
                 "totalsize": "0",
-                "transient_lastddltime": "1642494489"
+                "transient_lastddltime": "1643925836"
               },
               "externalUrl": null,
               "description": null,
@@ -429,7 +429,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:(urn:li:dataPlatform:trino,PROD,hivedb.db1)\"}",
+      "value": "{\"container\": \"urn:li:container:deb4e66d7133021e70b7b09876b6e79d\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -459,7 +459,7 @@
                 "numrows": "0",
                 "rawdatasize": "0",
                 "totalsize": "0",
-                "transient_lastddltime": "1642494489"
+                "transient_lastddltime": "1643925836"
               },
               "externalUrl": null,
               "description": null,
@@ -620,7 +620,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:(urn:li:dataPlatform:trino,PROD,hivedb.db1)\"}",
+      "value": "{\"container\": \"urn:li:container:deb4e66d7133021e70b7b09876b6e79d\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -645,7 +645,7 @@
           {
             "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
               "customProperties": {
-                "transient_lastddltime": "1642494480"
+                "transient_lastddltime": "1643925826"
               },
               "externalUrl": null,
               "description": null,
@@ -755,7 +755,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:(urn:li:dataPlatform:trino,PROD,hivedb.db1)\"}",
+      "value": "{\"container\": \"urn:li:container:deb4e66d7133021e70b7b09876b6e79d\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -785,7 +785,7 @@
                 "numrows": "0",
                 "rawdatasize": "0",
                 "totalsize": "0",
-                "transient_lastddltime": "1642494483"
+                "transient_lastddltime": "1643925829"
               },
               "externalUrl": null,
               "description": null,
@@ -914,7 +914,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:(urn:li:dataPlatform:trino,PROD,hivedb.db1)\"}",
+      "value": "{\"container\": \"urn:li:container:deb4e66d7133021e70b7b09876b6e79d\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -941,7 +941,7 @@
               "customProperties": {
                 "numfiles": "0",
                 "totalsize": "0",
-                "transient_lastddltime": "1642494489"
+                "transient_lastddltime": "1643925835"
               },
               "externalUrl": null,
               "description": null,
@@ -1070,7 +1070,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:(urn:li:dataPlatform:trino,PROD,hivedb.db1)\"}",
+      "value": "{\"container\": \"urn:li:container:deb4e66d7133021e70b7b09876b6e79d\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1100,7 +1100,7 @@
                 "numrows": "0",
                 "rawdatasize": "0",
                 "totalsize": "0",
-                "transient_lastddltime": "1642494483"
+                "transient_lastddltime": "1643925829"
               },
               "externalUrl": null,
               "description": null,
@@ -1193,7 +1193,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:(urn:li:dataPlatform:trino,PROD,hivedb.db1)\"}",
+      "value": "{\"container\": \"urn:li:container:deb4e66d7133021e70b7b09876b6e79d\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1223,7 +1223,7 @@
                 "numrows": "0",
                 "rawdatasize": "0",
                 "totalsize": "0",
-                "transient_lastddltime": "1642494489"
+                "transient_lastddltime": "1643925836"
               },
               "externalUrl": null,
               "description": null,
@@ -1420,7 +1420,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:(urn:li:dataPlatform:trino,PROD,hivedb.db1)\"}",
+      "value": "{\"container\": \"urn:li:container:deb4e66d7133021e70b7b09876b6e79d\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1445,7 +1445,7 @@
           {
             "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
               "customProperties": {
-                "transient_lastddltime": "1642494489",
+                "transient_lastddltime": "1643925835",
                 "view_definition": "SELECT \"property_id\", \"service\"\nFROM \"db1\".\"array_struct_test\"",
                 "is_view": "True"
               },
