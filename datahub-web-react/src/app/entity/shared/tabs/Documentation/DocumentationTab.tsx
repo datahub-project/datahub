@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import queryString from 'query-string';
 import { useLocation } from 'react-router-dom';
 
@@ -32,7 +32,7 @@ export const DocumentationTab = () => {
     const routeToTab = useRouteToTab();
     const isEditing = queryString.parse(useLocation().search, { parseBooleans: true }).editing;
 
-    React.useEffect(() => {
+    useEffect(() => {
         const editedDescriptions = (localStorageDictionary && JSON.parse(localStorageDictionary)) || {};
         if (editedDescriptions.hasOwnProperty(urn)) {
             routeToTab({ tabName: 'Documentation', tabParams: { editing: true } });
