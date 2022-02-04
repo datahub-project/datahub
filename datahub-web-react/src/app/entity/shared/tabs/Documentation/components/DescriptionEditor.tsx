@@ -27,6 +27,7 @@ export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) =
 
     const [updatedDescription, setUpdatedDescription] = useState(description);
     const [isDescriptionUpdated, setIsDescriptionUpdated] = useState(editedDescriptions.hasOwnProperty(urn));
+    const [visible, setVisible] = useState(false);
 
     const updateDescriptionLegacy = () => {
         return updateEntity?.({
@@ -66,9 +67,9 @@ export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) =
             // Updating the localStorage after save
             delete editedDescriptions[urn];
             if (Object.keys(editedDescriptions).length === 0) {
-                localStorage.removeItem('editedDescriptions');
+                localStorage.removeItem(EDITED_DESCRIPTIONS_CACHE_NAME);
             } else {
-                localStorage.setItem('editedDescriptions', JSON.stringify(editedDescriptions));
+                localStorage.setItem(EDITED_DESCRIPTIONS_CACHE_NAME, JSON.stringify(editedDescriptions));
             }
             if (onComplete) onComplete();
         } catch (e: unknown) {
@@ -98,20 +99,39 @@ export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) =
         if (isDescriptionUpdated) {
             delayDebounceFn = setTimeout(() => {
                 editedDescriptionsLocal[urn] = updatedDescription;
-                localStorage.setItem('editedDescriptions', JSON.stringify(editedDescriptionsLocal));
+                localStorage.setItem(EDITED_DESCRIPTIONS_CACHE_NAME, JSON.stringify(editedDescriptionsLocal));
             }, 5000);
         }
         return () => clearTimeout(delayDebounceFn);
     }, [urn, isDescriptionUpdated, updatedDescription, localStorageDictionary]);
 
+    // Handling the Discard Modal
+    const showModal = () => {
+        if (isDescriptionUpdated) {
+            setVisible(true);
+        } else if (onComplete) onComplete();
+    };
+
+    function onCancel() {
+        setVisible(false);
+    }
+
+    const onDiscard = () => {
+        delete editedDescriptions[urn];
+        if (Object.keys(editedDescriptions).length === 0) {
+            localStorage.removeItem(EDITED_DESCRIPTIONS_CACHE_NAME);
+        } else {
+            localStorage.setItem(EDITED_DESCRIPTIONS_CACHE_NAME, JSON.stringify(editedDescriptions));
+        }
+        if (onComplete) onComplete();
+    };
+
     return entityData ? (
         <>
             <TabToolbar>
-                <DiscardDescriptionModal
-                    buttonProps={{ type: 'text' }}
-                    isDescriptionUpdated={isDescriptionUpdated}
-                    urn={urn}
-                />
+                <Button type="text" onClick={showModal}>
+                    Back
+                </Button>
                 <Button onClick={handleSaveDescription} disabled={!isDescriptionUpdated}>
                     <CheckOutlined /> Save
                 </Button>
@@ -122,6 +142,7 @@ export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) =
                 preview="live"
                 visiableDragbar={false}
             />
+            {visible && <DiscardDescriptionModal visible={visible} onDiscard={onDiscard} onCancel={onCancel} />}
         </>
     ) : null;
 };

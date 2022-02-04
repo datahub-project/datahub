@@ -1,58 +1,25 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Modal, Button } from 'antd';
-import { useRouteToTab } from '../../../EntityContext';
 
 type Props = {
-    buttonProps?: Record<string, unknown>;
-    isDescriptionUpdated?: boolean;
-    urn: string;
+    visible?: boolean;
+    onDiscard?: () => void;
+    onCancel?: () => void;
 };
 
-export const DiscardDescriptionModal = ({ buttonProps, isDescriptionUpdated, urn }: Props) => {
-    const [isModalVisible, setIsModalVisible] = useState(false);
-    const routeToTab = useRouteToTab();
-    const localStorageDictionary = localStorage.getItem('editedDescriptions');
-    const editedDescriptions = (localStorageDictionary && JSON.parse(localStorageDictionary)) || {};
-
-    const showModal = () => {
-        if (isDescriptionUpdated) {
-            setIsModalVisible(true);
-        } else {
-            routeToTab({ tabName: 'Documentation' });
-        }
-    };
-
-    const handleCancel = () => {
-        setIsModalVisible(false);
-    };
-
-    const handleDiscard = () => {
-        // Remove the urn_id from localStorage
-        // Updating the localStorage after save
-        delete editedDescriptions[urn];
-        if (Object.keys(editedDescriptions).length === 0) {
-            localStorage.removeItem('editedDescriptions');
-        } else {
-            localStorage.setItem('editedDescriptions', JSON.stringify(editedDescriptions));
-        }
-        routeToTab({ tabName: 'Documentation' });
-    };
-
+export const DiscardDescriptionModal = ({ visible, onDiscard, onCancel }: Props) => {
     return (
         <>
-            <Button onClick={showModal} {...buttonProps}>
-                Back
-            </Button>
             <Modal
                 title="Discard Changes"
-                visible={isModalVisible}
+                visible={visible}
                 destroyOnClose
-                onCancel={handleCancel}
+                onCancel={onCancel}
                 footer={[
-                    <Button type="text" onClick={handleCancel}>
+                    <Button type="text" onClick={onCancel}>
                         Cancel
                     </Button>,
-                    <Button onClick={handleDiscard}>Discard</Button>,
+                    <Button onClick={onDiscard}>Discard</Button>,
                 ]}
             >
                 <p>Changes will not be saved. Do you want to proceed?</p>
