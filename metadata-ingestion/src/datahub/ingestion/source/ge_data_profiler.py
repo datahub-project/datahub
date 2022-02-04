@@ -8,7 +8,10 @@ import threading
 import traceback
 import unittest.mock
 import uuid
+from math import log10
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+
+from datahub.telemetry import telemetry
 
 # Fun compatibility hack! GE version 0.13.44 broke compatibility with SQLAlchemy 1.3.24.
 # This is a temporary workaround until GE fixes the issue on their end.
@@ -50,6 +53,7 @@ from datahub.metadata.schema_classes import (
     DatasetFieldProfileClass,
     DatasetProfileClass,
     HistogramClass,
+    PartitionSpecClass,
     QuantileClass,
     ValueFrequencyClass,
 )
@@ -193,6 +197,8 @@ class GEProfilingConfig(ConfigModel):
     # Hidden option - used for debugging purposes.
     catch_exceptions: bool = True
 
+    bigquery_temp_table_schema: Optional[str] = None
+
     @pydantic.root_validator()
     def ensure_field_level_settings_are_normalized(
         cls: "GEProfilingConfig", values: Dict[str, Any]
@@ -331,6 +337,7 @@ class _SingleColumnSpec:
 class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     dataset: Dataset
     dataset_name: str
+    partition: Optional[str]
     config: GEProfilingConfig
     report: SQLSourceReport
 
@@ -525,6 +532,8 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         )
 
         profile = DatasetProfileClass(timestampMillis=get_sys_time())
+        if self.partition:
+            profile.partitionSpec = PartitionSpecClass(partition=self.partition)
         profile.fieldProfiles = []
         self._get_dataset_rows(profile)
 
@@ -552,6 +561,14 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
         assert profile.rowCount is not None
         row_count: int = profile.rowCount
+
+        telemetry.telemetry_instance.ping(
+            "sql_profiling",
+            "rows_profiled",
+            # bucket by taking floor of log of the number of rows scanned
+            # report the bucket as a label so the count is not collapsed
+            str(10 ** int(log10(row_count + 1))),
+        )
 
         for column_spec in columns_profiling_queue:
             column = column_spec.column
@@ -584,7 +601,11 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
             self._get_dataset_column_sample_values(column_profile, column)
 
-            if type_ == ProfilerDataType.INT or type_ == ProfilerDataType.FLOAT:
+            if (
+                type_ == ProfilerDataType.INT
+                or type_ == ProfilerDataType.FLOAT
+                or type_ == ProfilerDataType.NUMERIC
+            ):
                 if cardinality == Cardinality.UNIQUE:
                     pass
                 elif cardinality in [
@@ -592,12 +613,6 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                     Cardinality.TWO,
                     Cardinality.VERY_FEW,
                     Cardinality.FEW,
-                ]:
-                    self._get_dataset_column_distinct_value_frequencies(
-                        column_profile,
-                        column,
-                    )
-                elif cardinality in [
                     Cardinality.MANY,
                     Cardinality.VERY_MANY,
                     Cardinality.UNIQUE,
@@ -606,11 +621,22 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                     self._get_dataset_column_max(column_profile, column)
                     self._get_dataset_column_mean(column_profile, column)
                     self._get_dataset_column_median(column_profile, column)
+
                     if type_ == ProfilerDataType.INT:
                         self._get_dataset_column_stdev(column_profile, column)
 
                     self._get_dataset_column_quantiles(column_profile, column)
                     self._get_dataset_column_histogram(column_profile, column)
+                    if cardinality in [
+                        Cardinality.ONE,
+                        Cardinality.TWO,
+                        Cardinality.VERY_FEW,
+                        Cardinality.FEW,
+                    ]:
+                        self._get_dataset_column_distinct_value_frequencies(
+                            column_profile,
+                            column,
+                        )
                 else:  # unknown cardinality - skip
                     pass
 
@@ -779,10 +805,22 @@ class DatahubGEProfiler:
         request: GEProfilerRequest,
     ) -> Tuple[GEProfilerRequest, Optional[DatasetProfileClass]]:
         return request, self._generate_single_profile(
-            query_combiner,
-            request.pretty_name,
+            query_combiner=query_combiner,
+            pretty_name=request.pretty_name,
             **request.batch_kwargs,
         )
+
+    def _drop_bigquery_temp_table(self, ge_config: dict) -> None:
+        if "bigquery_temp_table" in ge_config:
+            try:
+                with self.base_engine.connect() as connection:
+                    connection.execute(
+                        f"drop view if exists `{ge_config.get('bigquery_temp_table')}`"
+                    )
+            except Exception:
+                logger.warning(
+                    f"Unable to delete bigquery temporary table: {ge_config.get('bigquery_temp_table')}"
+                )
 
     def _generate_single_profile(
         self,
@@ -790,36 +828,64 @@ class DatahubGEProfiler:
         pretty_name: str,
         schema: str = None,
         table: str = None,
+        partition: Optional[str] = None,
+        custom_sql: str = None,
         **kwargs: Any,
     ) -> Optional[DatasetProfileClass]:
+        logger.info(f"Profiling {pretty_name}")
+        bigquery_temp_table: Optional[str] = None
+        ge_config = {
+            "schema": schema,
+            "table": table,
+            "limit": self.config.limit,
+            "offset": self.config.offset,
+            **kwargs,
+        }
+
+        if custom_sql:
+            if self.config.bigquery_temp_table_schema:
+                bigquery_temp_table = (
+                    f"{self.config.bigquery_temp_table_schema}.ge-temp-{uuid.uuid4()}"
+                )
+
+            ge_config = {
+                "query": custom_sql,
+                "bigquery_temp_table": bigquery_temp_table,
+                **kwargs,
+            }
+
         with self._ge_context() as ge_context, PerfTimer() as timer:
             try:
                 logger.info(f"Profiling {pretty_name}")
 
                 batch = self._get_ge_dataset(
                     ge_context,
-                    {
-                        "schema": schema,
-                        "table": table,
-                        "limit": self.config.limit,
-                        "offset": self.config.offset,
-                        **kwargs,
-                    },
+                    ge_config,
                     pretty_name=pretty_name,
                 )
+
                 profile = _SingleDatasetProfiler(
-                    batch, pretty_name, self.config, self.report, query_combiner
+                    batch,
+                    pretty_name,
+                    partition,
+                    self.config,
+                    self.report,
+                    query_combiner,
                 ).generate_dataset_profile()
 
                 logger.info(
                     f"Finished profiling {pretty_name}; took {(timer.elapsed_seconds()):.3f} seconds"
                 )
+
+                self._drop_bigquery_temp_table(ge_config)
+
                 return profile
             except Exception as e:
                 if not self.config.catch_exceptions:
                     raise e
                 logger.exception(f"Encountered exception while profiling {pretty_name}")
                 self.report.report_failure(pretty_name, f"Profiling exception {e}")
+                self._drop_bigquery_temp_table(ge_config)
                 return None
 
     def _get_ge_dataset(

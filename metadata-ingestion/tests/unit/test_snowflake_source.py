@@ -18,7 +18,7 @@ def test_snowflake_uri_default_authentication():
 
     assert (
         config.get_sql_alchemy_url()
-        == "snowflake://user:password@acctname/?authenticator=DEFAULT_AUTHENTICATOR&warehouse=COMPUTE_WH&role"
+        == "snowflake://user:password@acctname/?authenticator=SNOWFLAKE&warehouse=COMPUTE_WH&role"
         "=sysadmin&application=acryl_datahub"
     )
 

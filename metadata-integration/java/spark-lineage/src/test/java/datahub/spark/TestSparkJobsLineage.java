@@ -39,6 +39,7 @@ import org.mockserver.integration.ClientAndServer;
 import org.mockserver.matchers.Times;
 import org.mockserver.model.HttpResponse;
 import org.mockserver.model.JsonBody;
+import org.mockserver.socket.PortFactory;
 import org.mockserver.verify.VerificationTimes;
 import org.testcontainers.containers.PostgreSQLContainer;
 
@@ -64,7 +65,8 @@ public class TestSparkJobsLineage {
 
   private static final int N = 3; // num of GMS requests per spark job
 
-  private static final int GMS_PORT = MOCK_GMS ? 8089 : 8080;
+  private static final int MOCK_PORT = PortFactory.findFreePort();
+  private static final int GMS_PORT = MOCK_GMS ? MOCK_PORT : 8080;
 
   private static final String EXPECTED_JSON_ROOT = "src/test/resources/expected/";
   @ClassRule
@@ -101,7 +103,7 @@ public class TestSparkJobsLineage {
   }
 
   public static void init() {
-    mockServer = startClientAndServer();
+    mockServer = startClientAndServer(GMS_PORT);
     resetBaseExpectations();
   }
 
