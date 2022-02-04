@@ -60,6 +60,7 @@ entities:
       - institutionalMemory
       - browsePaths # unclear if this will be used
       - status
+      - domains
   - name: glossaryTerm
     keyAspect: glossaryTermKey
     aspects:
