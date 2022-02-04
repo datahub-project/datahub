@@ -1,4 +1,5 @@
 import json
+import pathlib
 from unittest import mock
 
 from freezegun import freeze_time
@@ -37,17 +38,27 @@ def side_effect_query_metadata(query):
     if "customSQLTablesConnection (first:2" in query:
         return _read_response("customSQLTablesConnection_2.json")
 
+    return _read_response("workbooksConnection_0.json")
+
 
 @freeze_time(FROZEN_TIME)
 def test_tableau_ingest(pytestconfig, tmp_path):
-    mocked_client = mock.Mock()
-    with mock.patch("tableauserverclient.Server") as mock_sdk:
-        mock_sdk.return_value = mocked_client
-        mocked_client.metadata.query.side_effect = side_effect_query_metadata
-        mocked_client.auth_token.return_value = "ABC"
 
-        global test_resources_dir
-        test_resources_dir = pytestconfig.rootpath / "tests/integration/tableau"
+    global test_resources_dir
+    test_resources_dir = pathlib.Path(
+        pytestconfig.rootpath / "tests/integration/tableau"
+    )
+
+    with mock.patch(
+        "tableauserverclient.Server"
+    ) as mock_sdk:
+        mock_client = mock.Mock()
+        mocked_metadata = mock.Mock()
+        mocked_metadata.query.side_effect = side_effect_query_metadata
+        mock_client.metadata = mocked_metadata
+        mock_sdk.return_value = mock_client
+        mock_sdk._auth_token = "ABC"
+        print(mock_sdk()._auth_token)
 
         pipeline = Pipeline.create(
             {
