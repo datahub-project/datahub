@@ -17,7 +17,7 @@ record AssertionRunEvent includes TimeseriesAspectBase {
   *  Native Run identifier of platform evaluating the assertions
   */
   //Multiple assertions could occur in same evaluator run
-  runId: optional string
+  runId: string
 
   /*
   * Urn of assertion which is evaluated
@@ -45,7 +45,7 @@ record AssertionRunEvent includes TimeseriesAspectBase {
     /**
      * The Assertion Run has completed
      */
-    COMPLETED
+    COMPLETE
   }
 
   /**

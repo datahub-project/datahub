@@ -10,7 +10,32 @@ import com.linkedin.common.Urn
 @Aspect = {
   "name": "assertionInfo"
 }
-record AssertionInfo includes CustomProperties, ExternalReference { 
+record AssertionInfo includes CustomProperties, ExternalReference {
+    /**
+    * Type of assertion
+    */
+    type: enum AssertionType {
+      DATASET_COLUMN
+      DATASET_ROWS
+      DATASET_SCHEMA
+      CROSS_DATASET
+    }
+
+    /**
+    * Assertion details for scope DATASET_COLUMN
+    */
+    datasetColumnAssertion: optional DatasetColumnAssertion
+
+    /**
+    * Assertion details for scope DATASET_ROWS
+    */
+    datasetRowsAssertion: optional DatasetRowsAssertion
+
+    /**
+    * Assertion details for scope DATASET_SCHEMA
+    */
+    datasetSchemaAssertion: optional DatasetSchemaAssertion
+
     /**
     * One or more dataset schema fields that are targeted by this assertion
     */
@@ -32,20 +57,14 @@ record AssertionInfo includes CustomProperties, ExternalReference {
       }
     }
     datasets: optional array[Urn]
-    
-    /**
-    * Type of assertion
-    */
-    assertionType: AssertionType
 
     /*
     * Logic for assertion such as implementation of custom nativeOperator
     */
-    assertionLogic: optional string
+    logic: optional string
 
     /**
     * Parameters required for the assertion. e.g. min_value, max_value, value, columns
     */
-    assertionParameters: map[string, string] = { }
-
+    parameters: map[string, string] = { }
 }
