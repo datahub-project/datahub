@@ -131,6 +131,9 @@ profiling_flags_to_report = [
 ]
 
 
+S3_PREFIXES = ["s3://", "s3n://", "s3a://"]
+
+
 class DataLakeSource(Source):
     source_config: DataLakeSourceConfig
     report: DataLakeSourceReport
@@ -454,82 +457,88 @@ class DataLakeSource(Source):
         self.report.report_workunit(wu)
         yield wu
 
+    def get_workunits_s3(self) -> Iterable[MetadataWorkUnit]:
+
+        for s3_prefix in S3_PREFIXES:
+            if self.source_config.base_path.startswith(s3_prefix):
+                plain_base_path = self.source_config.base_path.lstrip(s3_prefix)
+                break
+
+        # append a trailing slash if it's not there so prefix filtering works
+        if not plain_base_path.endswith("/"):
+            plain_base_path = plain_base_path + "/"
+
+        if self.source_config.aws_config is None:
+            raise ValueError("AWS config is required for S3 file sources")
+
+        s3 = self.source_config.aws_config.get_s3_resource()
+        bucket = s3.Bucket(plain_base_path.split("/")[0])
+
+        unordered_files = []
+
+        for obj in bucket.objects.filter(
+            Prefix=plain_base_path.split("/", maxsplit=1)[1]
+        ):
+
+            s3_path = f"s3://{obj.bucket_name}/{obj.key}"
+
+            # if table patterns do not allow this file, skip
+            if not self.source_config.schema_patterns.allowed(s3_path):
+                continue
+
+            # if the file is a directory, skip it
+            if obj.key.endswith("/"):
+                continue
+
+            file = os.path.basename(obj.key)
+
+            if self.source_config.ignore_dotfiles and file.startswith("."):
+                continue
+
+            obj_path = f"s3a://{obj.bucket_name}/{obj.key}"
+
+            unordered_files.append(obj_path)
+
+        for aws_file in sorted(unordered_files):
+
+            relative_path = "./" + aws_file[len(f"s3a://{plain_base_path}") :]
+
+            # pass in the same relative_path as the full_path for S3 files
+            yield from self.ingest_table(aws_file, relative_path)
+
+    def get_workunits_local(self) -> Iterable[MetadataWorkUnit]:
+        for root, dirs, files in os.walk(self.source_config.base_path):
+            for file in sorted(files):
+
+                if self.source_config.ignore_dotfiles and file.startswith("."):
+                    continue
+
+                full_path = os.path.join(root, file)
+
+                relative_path = "./" + os.path.relpath(
+                    full_path, self.source_config.base_path
+                )
+
+                # if table patterns do not allow this file, skip
+                if not self.source_config.schema_patterns.allowed(full_path):
+                    continue
+
+                yield from self.ingest_table(full_path, relative_path)
+
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
 
         with PerfTimer() as timer:
 
-            s3_prefixes = ["s3://", "s3n://", "s3a://"]
-
             # check if file is an s3 object
             if any(
                 self.source_config.base_path.startswith(s3_prefix)
-                for s3_prefix in s3_prefixes
+                for s3_prefix in S3_PREFIXES
             ):
 
-                for s3_prefix in s3_prefixes:
-                    if self.source_config.base_path.startswith(s3_prefix):
-                        plain_base_path = self.source_config.base_path.lstrip(s3_prefix)
-                        break
+                yield from self.get_workunits_s3()
 
-                # append a trailing slash if it's not there so prefix filtering works
-                if not plain_base_path.endswith("/"):
-                    plain_base_path = plain_base_path + "/"
-
-                if self.source_config.aws_config is None:
-                    raise ValueError("AWS config is required for S3 file sources")
-
-                s3 = self.source_config.aws_config.get_s3_resource()
-                bucket = s3.Bucket(plain_base_path.split("/")[0])
-
-                unordered_files = []
-
-                for obj in bucket.objects.filter(
-                    Prefix=plain_base_path.split("/", maxsplit=1)[1]
-                ):
-
-                    s3_path = f"s3://{obj.bucket_name}/{obj.key}"
-
-                    # if table patterns do not allow this file, skip
-                    if not self.source_config.schema_patterns.allowed(s3_path):
-                        continue
-
-                    # if the file is a directory, skip it
-                    if obj.key.endswith("/"):
-                        continue
-
-                    file = os.path.basename(obj.key)
-
-                    if self.source_config.ignore_dotfiles and file.startswith("."):
-                        continue
-
-                    obj_path = f"s3a://{obj.bucket_name}/{obj.key}"
-
-                    unordered_files.append(obj_path)
-
-                for aws_file in sorted(unordered_files):
-
-                    relative_path = "./" + aws_file[len(f"s3a://{plain_base_path}") :]
-
-                    # pass in the same relative_path as the full_path for S3 files
-                    yield from self.ingest_table(aws_file, relative_path)
             else:
-                for root, dirs, files in os.walk(self.source_config.base_path):
-                    for file in sorted(files):
-
-                        if self.source_config.ignore_dotfiles and file.startswith("."):
-                            continue
-
-                        full_path = os.path.join(root, file)
-
-                        relative_path = "./" + os.path.relpath(
-                            full_path, self.source_config.base_path
-                        )
-
-                        # if table patterns do not allow this file, skip
-                        if not self.source_config.schema_patterns.allowed(full_path):
-                            continue
-
-                        yield from self.ingest_table(full_path, relative_path)
+                yield from self.get_workunits_local()
 
             if not self.source_config.profiling.enabled:
                 return
@@ -542,7 +551,7 @@ class DataLakeSource(Source):
 
             telemetry.telemetry_instance.ping(
                 "data_lake_profiling",
-                f"time_taken_total",
+                "time_taken_total",
                 # bucket by taking floor of log of time taken
                 # report the bucket as a label so the count is not collapsed
                 str(10 ** int(log10(total_time_taken + 1))),

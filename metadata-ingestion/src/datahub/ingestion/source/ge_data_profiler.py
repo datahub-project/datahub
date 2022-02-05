@@ -3,13 +3,12 @@ import contextlib
 import dataclasses
 import functools
 import logging
-import statistics
 import threading
 import traceback
 import unittest.mock
 import uuid
 from math import log10
-from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import Any, Callable, Iterable, Iterator, List, Optional, Tuple, Union
 
 from datahub.telemetry import stats, telemetry
 

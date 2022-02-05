@@ -1,12 +1,22 @@
 import math
-from typing import Any, List
+from typing import Any, Dict, List, Protocol, TypeVar
 
 
-def calculate_percentiles(data: List[Any], percentiles: List[int]):
+class SupportsLT(Protocol):
+    def __lt__(self, __other: Any) -> Any:
+        ...
+
+
+SupportsComparisonT = TypeVar("SupportsComparisonT", bound=SupportsLT)  # noqa: Y001
+
+
+def calculate_percentiles(
+    data: List[SupportsComparisonT], percentiles: List[int]
+) -> Dict[int, SupportsComparisonT]:
     size = len(data)
 
     if size == 0:
-        return {p: None for p in percentiles}
+        return {}
 
     data_sorted = sorted(data)
 
@@ -18,6 +28,3 @@ def calculate_percentiles(data: List[Any], percentiles: List[int]):
     values = {p: data_sorted[i] for p, i in zip(percentiles, percentile_indices)}
 
     return values
-
-
-calculate_percentiles([1], [50, 75, 90, 95, 99])
