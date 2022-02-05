@@ -1,5 +1,7 @@
 import math
-from typing import Any, Dict, List, Protocol, TypeVar
+from typing import Any, Dict, List, TypeVar
+
+from typing_extensions import Protocol
 
 
 class SupportsLT(Protocol):
