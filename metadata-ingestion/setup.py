@@ -219,6 +219,7 @@ base_dev_requirements = {
             "data-lake",
             "tableau",
             "trino",
+            "tableau",
             "hive",
             "starburst-trino-usage",
             # airflow is added below

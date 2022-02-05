@@ -105,6 +105,7 @@ class TableauSource(Source):
 
     def __init__(self, ctx: PipelineContext, config: TableauConfig):
         super().__init__(ctx)
+
         self.config = config
         self.report = SourceReport()
         # This list keeps track of datasource being actively used by workbooks so that we only retrieve those
@@ -166,6 +167,7 @@ class TableauSource(Source):
 
     def emit_workbooks(self, count_on_query: int) -> Iterable[MetadataWorkUnit]:
         projects = f"projectNameWithin: {json.dumps(self.config.projects)}"
+
         workbook_connection, total_count, has_next_page = self.get_connection_object(
             workbook_graphql_query, "workbooksConnection", projects
         )
@@ -188,6 +190,7 @@ class TableauSource(Source):
                 count,
                 current_count,
             )
+
             current_count += count
 
             for workbook in workbook_connection.get("nodes", []):

@@ -38,8 +38,6 @@ def side_effect_query_metadata(query):
     if "customSQLTablesConnection (first:2" in query:
         return _read_response("customSQLTablesConnection_2.json")
 
-    return _read_response("workbooksConnection_0.json")
-
 
 @freeze_time(FROZEN_TIME)
 def test_tableau_ingest(pytestconfig, tmp_path):
@@ -49,16 +47,16 @@ def test_tableau_ingest(pytestconfig, tmp_path):
         pytestconfig.rootpath / "tests/integration/tableau"
     )
 
-    with mock.patch(
-        "tableauserverclient.Server"
-    ) as mock_sdk:
+    with mock.patch("tableauserverclient.Server") as mock_sdk:
         mock_client = mock.Mock()
         mocked_metadata = mock.Mock()
         mocked_metadata.query.side_effect = side_effect_query_metadata
         mock_client.metadata = mocked_metadata
+        mock_client.auth = mock.Mock()
+        mock_client.auth.sign_in.return_value = None
+        mock_client.auth.sign_out.return_value = None
         mock_sdk.return_value = mock_client
         mock_sdk._auth_token = "ABC"
-        print(mock_sdk()._auth_token)
 
         pipeline = Pipeline.create(
             {
@@ -68,7 +66,7 @@ def test_tableau_ingest(pytestconfig, tmp_path):
                     "config": {
                         "username": "username",
                         "password": "pass`",
-                        "connect_uri": "https://prod-ca-a.online.tableau.com/",
+                        "connect_uri": "https://do-not-connect",
                         "site": "acryl",
                         "projects": ["default", "Project 2"],
                         "ingest_tags": True,
