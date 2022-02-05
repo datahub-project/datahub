@@ -2,17 +2,17 @@ import React from 'react';
 import { Modal, Button } from 'antd';
 
 type Props = {
-    visible?: boolean;
+    cancelModalVisible?: boolean;
     onDiscard?: () => void;
     onCancel?: () => void;
 };
 
-export const DiscardDescriptionModal = ({ visible, onDiscard, onCancel }: Props) => {
+export const DiscardDescriptionModal = ({ cancelModalVisible, onDiscard, onCancel }: Props) => {
     return (
         <>
             <Modal
                 title="Discard Changes"
-                visible={visible}
+                visible={cancelModalVisible}
                 destroyOnClose
                 onCancel={onCancel}
                 footer={[

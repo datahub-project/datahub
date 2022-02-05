@@ -79,7 +79,7 @@ export default function AddTagTermModal({
     const tagSearchResults = tagSearchData?.search?.searchResults || [];
 
     const handleSearch = (text: string) => {
-        if (text.length > 2) {
+        if (text.length > 0) {
             tagSearch({
                 variables: {
                     input: {
@@ -97,7 +97,7 @@ export default function AddTagTermModal({
         const displayName = entityRegistry.getDisplayName(result.entity.type, result.entity);
         const item = renderItem(
             displayName,
-            entityRegistry.getIcon(result.entity.type, 14, IconStyleType.TAB_VIEW),
+            entityRegistry.getIcon(result.entity.type, 14, IconStyleType.ACCENT),
             result.entity.type,
         );
         return (

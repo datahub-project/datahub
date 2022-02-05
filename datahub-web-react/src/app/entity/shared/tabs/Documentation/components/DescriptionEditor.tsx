@@ -27,7 +27,7 @@ export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) =
 
     const [updatedDescription, setUpdatedDescription] = useState(description);
     const [isDescriptionUpdated, setIsDescriptionUpdated] = useState(editedDescriptions.hasOwnProperty(urn));
-    const [visible, setVisible] = useState(false);
+    const [cancelModalVisible, setCancelModalVisible] = useState(false);
 
     const updateDescriptionLegacy = () => {
         return updateEntity?.({
@@ -108,12 +108,12 @@ export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) =
     // Handling the Discard Modal
     const showModal = () => {
         if (isDescriptionUpdated) {
-            setVisible(true);
+            setCancelModalVisible(true);
         } else if (onComplete) onComplete();
     };
 
     function onCancel() {
-        setVisible(false);
+        setCancelModalVisible(false);
     }
 
     const onDiscard = () => {
@@ -142,7 +142,13 @@ export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) =
                 preview="live"
                 visiableDragbar={false}
             />
-            {visible && <DiscardDescriptionModal visible={visible} onDiscard={onDiscard} onCancel={onCancel} />}
+            {cancelModalVisible && (
+                <DiscardDescriptionModal
+                    cancelModalVisible={cancelModalVisible}
+                    onDiscard={onDiscard}
+                    onCancel={onCancel}
+                />
+            )}
         </>
     ) : null;
 };
