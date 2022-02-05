@@ -1,0 +1,42 @@
+namespace com.linkedin.assertion
+
+import com.linkedin.common.Urn
+
+record DatasetAssertionInfo {
+    /**
+    * Assertion details for scope DATASET_COLUMN
+    */
+    datasetColumnAssertion: optional DatasetColumnAssertion
+
+    /**
+    * Assertion details for scope DATASET_ROWS
+    */
+    datasetRowsAssertion: optional DatasetRowsAssertion
+
+    /**
+    * Assertion details for scope DATASET_SCHEMA
+    */
+    datasetSchemaAssertion: optional DatasetSchemaAssertion
+
+    /**
+    * One or more dataset schema fields that are targeted by this assertion
+    */
+    @Relationship = {
+      "/*": {
+        "name": "Asserts",
+        "entityTypes": [ "schemaField" ]
+      }
+    }
+    datasetFields: optional array[Urn]
+
+    /**
+    * One or more datasets that are targeted by this assertion
+    */
+    @Relationship = {
+      "/*": {
+        "name": "Asserts",
+        "entityTypes": [ "dataset" ]
+      }
+    }
+    datasets: optional array[Urn]
+}

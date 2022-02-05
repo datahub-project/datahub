@@ -2,7 +2,6 @@ namespace com.linkedin.assertion
 
 import com.linkedin.common.CustomProperties
 import com.linkedin.common.ExternalReference
-import com.linkedin.common.Urn
 
 /**
  * Information about an assertion
@@ -10,7 +9,7 @@ import com.linkedin.common.Urn
 @Aspect = {
   "name": "assertionInfo"
 }
-record AssertionInfo includes CustomProperties, ExternalReference {
+record AssertionInfo includes CustomProperties, ExternalReference, DatasetAssertionInfo {
     /**
     * Type of assertion
     */
@@ -19,43 +18,6 @@ record AssertionInfo includes CustomProperties, ExternalReference {
       DATASET_ROWS
       DATASET_SCHEMA
     }
-
-    /**
-    * Assertion details for scope DATASET_COLUMN
-    */
-    datasetColumnAssertion: optional DatasetColumnAssertion
-
-    /**
-    * Assertion details for scope DATASET_ROWS
-    */
-    datasetRowsAssertion: optional DatasetRowsAssertion
-
-    /**
-    * Assertion details for scope DATASET_SCHEMA
-    */
-    datasetSchemaAssertion: optional DatasetSchemaAssertion
-
-    /**
-    * One or more dataset schema fields that are targeted by this assertion
-    */
-    @Relationship = {
-      "/*": {
-        "name": "Asserts",
-        "entityTypes": [ "schemaField" ]
-      }
-    }
-    datasetFields: optional array[Urn]
-
-    /**
-    * One or more datasets that are targeted by this assertion
-    */
-    @Relationship = {
-      "/*": {
-        "name": "Asserts",
-        "entityTypes": [ "dataset" ]
-      }
-    }
-    datasets: optional array[Urn]
 
     /**
     * Parameters required for the assertion. e.g. min_value, max_value, value, columns
