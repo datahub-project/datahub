@@ -2,6 +2,8 @@
 
 For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
 
+Note that this connector is currently considered in `BETA`, and has not been validated for production use. 
+
 ## Setup
 
 To install this plugin, run `pip install 'acryl-datahub[tableau]'`.
