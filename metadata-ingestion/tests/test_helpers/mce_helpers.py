@@ -283,7 +283,7 @@ def assert_for_each_entity(
     ]:
         if o.get(MCPConstants.ASPECT_NAME) == aspect_name:
             # load the inner aspect payload and assign to this urn
-            aspect_map[o[MCPConstants.ASPECT_NAME]] = json.loads(
+            aspect_map[o[MCPConstants.ENTITY_URN]] = json.loads(
                 o.get(MCPConstants.ASPECT_VALUE, {}).get("value")
             )
 
