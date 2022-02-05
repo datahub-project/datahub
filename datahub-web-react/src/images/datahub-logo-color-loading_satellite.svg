@@ -1,0 +1,56 @@
+<svg id="datahub-logo-color-loading_satellite" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+    viewBox="0 0 180 180" shape-rendering="geometricPrecision" text-rendering="geometricPrecision">
+    <defs>
+        <linearGradient id="red_gradient" x1="0" y1="0" x2="0" y2="1" spreadMethod="pad"
+            gradientUnits="objectBoundingBox" gradientTransform="translate(0 0)">
+            <stop id="red_gradient-start" offset="0%" stop-color="#f84e63" />
+            <stop id="red_gradient-end" offset="100%" stop-color="#dd3163" />
+        </linearGradient>
+        <linearGradient id="blue_gradient" x1="0" y1="0" x2="0" y2="1" spreadMethod="pad"
+            gradientUnits="objectBoundingBox" gradientTransform="translate(0 0)">
+            <stop id="blue_gradient-start" offset="0%" stop-color="#1890ff" />
+            <stop id="blue_gradient-end" offset="100%" stop-color="#18b5ff" />
+        </linearGradient>
+        <linearGradient id="yellow_gradient" x1="0" y1="0" x2="0" y2="1" spreadMethod="pad"
+            gradientUnits="objectBoundingBox" gradientTransform="translate(0 0)">
+            <stop id="yellow_gradient-start" offset="0%" stop-color="#efb700" />
+            <stop id="yellow_gradient-end" offset="100%" stop-color="#efb200" />
+        </linearGradient>
+    </defs>
+    <g>
+        <circle cx="90" cy="90" r="60" fill="none" transform="rotate(-90 90 90)" 
+                stroke="url(#blue_gradient)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="226.2">
+        </circle>
+        <circle cx="160" cy="50" r="10" fill="#18b4ff">
+            <animateTransform attributeName="transform" type="rotate" begin="0s" dur="4s" fill="freeze" 
+                              values="0 90 90;0 90 90; 720 90 90" keyTimes="0; 0.1; 1" 
+                              calcMode="spline" keySplines="0.25 0.1 0.25 1.0; 0.25 0.1 0.25 1.0"
+                              repeatCount="indefinite" />
+        </circle>
+        <line x1="-70" y1="40" x2="70" y2="-40" transform="translate(90 90)" fill="none" stroke="#18b4ff"
+            stroke-width="8" stroke-linecap="round" stroke-linejoin="round" stroke-dashoffset="180"
+            stroke-dasharray="161">
+        </line>
+    </g>
+    <g>
+        <circle cx="90" cy="90" r="30" fill="none" stroke="url(#red_gradient)"
+                stroke-width="8" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="94.25" stroke-dashoffset="47.13">
+            <animateTransform attributeName="transform" type="rotate" begin="0s" dur="1s" fill="freeze" from="0,90,90" to="360,90,90" repeatCount="indefinite" />
+        </circle>
+        
+    </g>
+    <g>
+        <circle cx="90" cy="90" r="45" fill="none" transform="rotate(70 90 90)" 
+                stroke="url(#yellow_gradient)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="169.65">
+        </circle>
+        <circle cx="20" cy="130" r="10" fill="#efb400">
+            <animateTransform attributeName="transform" type="rotate" begin="0s" dur="4s" fill="freeze" 
+                              values="360 90 90;360 90 90; 0 90 90" keyTimes="0; 0.1; 1" 
+                              calcMode="spline" keySplines="0.25 0.1 0.25 1.0; 0.25 0.1 0.25 1.0"
+                              repeatCount="indefinite" />
+        </circle>
+        <line x1="-70" y1="40" x2="70" y2="-40" transform="translate(90 90)" fill="none" stroke="#efb200"
+            stroke-width="8" stroke-linecap="round" stroke-linejoin="round" stroke-dashoffset="130"
+            stroke-dasharray="161" />
+    </g>
+</svg>
