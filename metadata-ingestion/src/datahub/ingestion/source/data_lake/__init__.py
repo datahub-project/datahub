@@ -2,7 +2,7 @@ import logging
 import os
 from datetime import datetime
 from math import log10
-from typing import Any, Iterable, Optional
+from typing import Any, Iterable, List, Optional
 
 import parse
 import pydeequ
@@ -133,12 +133,13 @@ profiling_flags_to_report = [
 
 class DataLakeSource(Source):
     source_config: DataLakeSourceConfig
-    report = DataLakeSourceReport()
-    profiling_times_taken = []
+    report: DataLakeSourceReport
+    profiling_times_taken: List[float]
 
     def __init__(self, config: DataLakeSourceConfig, ctx: PipelineContext):
         super().__init__(ctx)
         self.source_config = config
+        self.report = DataLakeSourceReport()
         self.profiling_times_taken = []
 
         telemetry.telemetry_instance.ping(
