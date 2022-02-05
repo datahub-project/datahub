@@ -1,9 +1,9 @@
 import concurrent.futures
 import contextlib
-import statistics
 import dataclasses
 import functools
 import logging
+import statistics
 import threading
 import traceback
 import unittest.mock
@@ -11,7 +11,7 @@ import uuid
 from math import log10
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
-from datahub.telemetry import telemetry, stats
+from datahub.telemetry import stats, telemetry
 
 # Fun compatibility hack! GE version 0.13.44 broke compatibility with SQLAlchemy 1.3.24.
 # This is a temporary workaround until GE fixes the issue on their end.
@@ -616,7 +616,7 @@ class DatahubGEProfiler:
     times_taken: List[float]
 
     base_engine: Engine
-    platform: str # passed from parent source config
+    platform: str  # passed from parent source config
 
     # The actual value doesn't matter, it just matters that we use it consistently throughout.
     _datasource_name_base: str = "my_sqlalchemy_datasource"
@@ -639,7 +639,6 @@ class DatahubGEProfiler:
         # got an engine here.
         self.base_engine = conn.engine
         self.platform = platform
-
 
     @contextlib.contextmanager
     def _ge_context(self) -> Iterator[GEContext]:
@@ -715,13 +714,13 @@ class DatahubGEProfiler:
                     # for async_profile in concurrent.futures.as_completed(async_profiles):
                     for async_profile in async_profiles:
                         yield async_profile.result()
-                        
+
                     total_time_taken = timer.elapsed_seconds()
 
                     logger.info(
                         f"Profiling {len(requests)} table(s) finished in {total_time_taken:.3f} seconds"
                     )
-                    
+
                     telemetry.telemetry_instance.ping(
                         "sql_profiling",
                         f"time_taken_total:{self.platform}",
@@ -729,19 +728,23 @@ class DatahubGEProfiler:
                         # report the bucket as a label so the count is not collapsed
                         str(10 ** int(log10(total_time_taken + 1))),
                     )
-                    
+
                     if len(self.times_taken) > 0:
-                    
+
                         percentiles = [50, 75, 95, 99]
-                        
-                        percentile_values = stats.calculate_percentiles(self.times_taken, percentiles)
+
+                        percentile_values = stats.calculate_percentiles(
+                            self.times_taken, percentiles
+                        )
                         for percentile in percentiles:
                             telemetry.telemetry_instance.ping(
                                 "sql_profiling",
                                 f"time_taken_p{percentile}:{self.platform}",
                                 # bucket by taking floor of log of time taken
                                 # report the bucket as a label so the count is not collapsed
-                                str(10 ** int(log10(percentile_values[percentile] + 1))),
+                                str(
+                                    10 ** int(log10(percentile_values[percentile] + 1))
+                                ),
                             )
 
                     self.report.report_from_query_combiner(query_combiner.report)

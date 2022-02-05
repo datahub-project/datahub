@@ -909,7 +909,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
 
         return DatahubGEProfiler(
-            conn=inspector.bind, report=self.report, config=self.config.profiling, platform=self.platform
+            conn=inspector.bind,
+            report=self.report,
+            config=self.config.profiling,
+            platform=self.platform,
         )
 
     # Override if needed
