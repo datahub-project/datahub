@@ -546,7 +546,7 @@ class DataLakeSource(Source):
             total_time_taken = timer.elapsed_seconds()
 
             logger.info(
-                f"Profiling {self.profiling_times_taken} table(s) finished in {total_time_taken:.3f} seconds"
+                f"Profiling {len(self.profiling_times_taken)} table(s) finished in {total_time_taken:.3f} seconds"
             )
 
             telemetry.telemetry_instance.ping(
