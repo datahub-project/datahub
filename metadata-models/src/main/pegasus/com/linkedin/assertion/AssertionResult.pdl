@@ -39,7 +39,7 @@ record AssertionResult {
   /**
    * Other results of evaluation
    */
-  nativeResults: map[string, string] = { }
+  nativeResults: optional map[string, string]
 
   /**
    * URL where full results are available
