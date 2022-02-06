@@ -75,6 +75,11 @@ def make_dataset_urn_with_platform_instance(
         return make_dataset_urn(platform=platform, name=name, env=env)
 
 
+def make_schema_field_urn(parent_urn: str, field_path: str):
+    assert parent_urn.startswith("urn:li:"), "Schema field's parent must be an urn"
+    return f"urn:li:schemaField:({parent_urn},{field_path})"
+
+
 def dataset_urn_to_key(dataset_urn: str) -> Optional[DatasetKeyClass]:
     pattern = r"urn:li:dataset:\(urn:li:dataPlatform:(.*),(.*),(.*)\)"
     results = re.search(pattern, dataset_urn)
