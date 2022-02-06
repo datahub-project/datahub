@@ -2,19 +2,34 @@ namespace com.linkedin.assertion
 
 import com.linkedin.common.Urn
 
+/**
+* Assertion attributes that are applicable to Dataset Assertions
+**/
 record DatasetAssertionInfo {
     /**
-    * Assertion details for scope DATASET_COLUMN
+    * Scope of the Assertion. What part of the dataset does this assertion apply to?
+    * Declared optional to make it convenient to inline into other aspects like AssertionInfo without requiring
+    * additional nesting. Semantically required, if this is a Dataset Assertion.
+    **/
+    datasetAssertionScope: optional enum DatasetAssertionScope {
+      DATASET_COLUMN
+      DATASET_ROWS
+      DATASET_SCHEMA
+      // Future evolution can include things like CROSS_DATASET assertions
+    }
+
+    /**
+    * Assertion details when scope is DATASET_COLUMN
     */
     datasetColumnAssertion: optional DatasetColumnAssertion
 
     /**
-    * Assertion details for scope DATASET_ROWS
+    * Assertion details when scope is DATASET_ROWS
     */
     datasetRowsAssertion: optional DatasetRowsAssertion
 
     /**
-    * Assertion details for scope DATASET_SCHEMA
+    * Assertion details when scope is DATASET_SCHEMA
     */
     datasetSchemaAssertion: optional DatasetSchemaAssertion
 

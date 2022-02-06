@@ -3,7 +3,7 @@ namespace com.linkedin.assertion
 record AssertionResult {
 
   /**
-  *  The type of the result, e.g. either SUCCESS or FAILURE.
+  *  The final result, e.g. either SUCCESS or FAILURE.
   */
   type: enum AssertionResultType {
     /**
@@ -42,7 +42,7 @@ record AssertionResult {
   nativeResults: map[string, string] = { }
 
   /**
-   * URL where full results
+   * URL where full results are available
    */
   externalUrl: optional string
 }

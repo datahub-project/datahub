@@ -11,12 +11,11 @@ import com.linkedin.common.ExternalReference
 }
 record AssertionInfo includes CustomProperties, ExternalReference, DatasetAssertionInfo {
     /**
-    * Type of assertion
+    * Type of assertion. Assertion types can evolve to span Datasets, Flows (Pipelines), Models, Features etc.
     */
     type: enum AssertionType {
-      DATASET_COLUMN
-      DATASET_ROWS
-      DATASET_SCHEMA
+      // When present, then DatasetAssertionInfo elements are filled out
+      DATASET
     }
 
     /**

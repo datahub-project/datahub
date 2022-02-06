@@ -5,7 +5,8 @@ import com.linkedin.common.ExternalReference
 import com.linkedin.common.Urn
 
 /**
- * The results of evaluating the assertion on the batch
+ * An event representing the current status of evaluating an assertion on a batch.
+ * AssertionRunEvent should be used for reporting the status of a run as an assertion evaluation progresses.
  */
 @Aspect = {
   "name": "assertionRunEvent",
@@ -14,7 +15,7 @@ import com.linkedin.common.Urn
 record AssertionRunEvent includes TimeseriesAspectBase {
 
   /**
-  *  Native Run identifier of platform evaluating the assertions
+  *  Native (platform-specific) identifier for this run
   */
   //Multiple assertions could occur in same evaluator run
   runId: string
@@ -26,20 +27,21 @@ record AssertionRunEvent includes TimeseriesAspectBase {
   assertionUrn: Urn
 
   /*
-  * Urn of entity being asserted
+  * Urn of entity on which the assertion is applicable
   */
   //example - dataset urn, if dataset is being asserted
   @TimeseriesField = {}
   asserteeUrn: Urn
   
   /**
-  * Specification of the batch whose data quality is evaluated
+  * Specification of the batch which this run is evaluating
   */
   batchSpec: optional BatchSpec
 
   /**
-  * The status of the assertion run as per this timseries event.
+  * The status of the assertion run as per this timeseries event.
   */
+  // Currently just supports COMPLETE, but should evolve to support other statuses like STARTED, RUNNING, etc.
   @TimeseriesField = {}
   status: enum AssertionRunStatus {
     /**
