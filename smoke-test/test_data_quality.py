@@ -204,6 +204,7 @@ def create_test_data(test_file):
 
 @pytest.fixture(scope="session")
 def generate_test_data(tmp_path_factory):
+    """Generates metadata events data and stores into a test file"""
     dir_name = tmp_path_factory.mktemp("test_dq_events")
     file_name = dir_name / "test_dq_events.json"
     create_test_data(test_file=str(file_name))
@@ -225,7 +226,6 @@ def test_healthchecks(wait_for_healthchecks):
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_run_ingestion(wait_for_healthchecks, generate_test_data):
-    #create_test_data(bootstrap_test_data)
     ingest_file_via_rest(generate_test_data)
 
 

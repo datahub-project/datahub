@@ -75,7 +75,7 @@ def make_dataset_urn_with_platform_instance(
         return make_dataset_urn(platform=platform, name=name, env=env)
 
 
-def make_schema_field_urn(parent_urn: str, field_path: str):
+def make_schema_field_urn(parent_urn: str, field_path: str) -> str:
     assert parent_urn.startswith("urn:li:"), "Schema field's parent must be an urn"
     return f"urn:li:schemaField:({parent_urn},{field_path})"
 
