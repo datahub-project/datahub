@@ -12,8 +12,17 @@ record DatasetAssertionInfo {
     * additional nesting. Semantically required, if this is a Dataset Assertion.
     **/
     datasetAssertionScope: optional enum DatasetAssertionScope {
+      /**
+      * This assertion applies to dataset columns
+      */
       DATASET_COLUMN
+      /**
+      * This assertion applies to entire rows of the dataset
+      */
       DATASET_ROWS
+      /**
+      * This assertion applies to the schema of the dataset
+      */
       DATASET_SCHEMA
       // Future evolution can include things like CROSS_DATASET assertions
     }
