@@ -11,7 +11,7 @@ record DatasetAssertionInfo {
     * Declared optional to make it convenient to inline into other aspects like AssertionInfo without requiring
     * additional nesting. Semantically required, if this is a Dataset Assertion.
     **/
-    datasetAssertionScope: optional enum DatasetAssertionScope {
+    scope: optional enum DatasetAssertionScope {
       /**
       * This assertion applies to dataset columns
       */
@@ -30,17 +30,17 @@ record DatasetAssertionInfo {
     /**
     * Assertion details when scope is DATASET_COLUMN
     */
-    datasetColumnAssertion: optional DatasetColumnAssertion
+    columnAssertion: optional DatasetColumnAssertion
 
     /**
     * Assertion details when scope is DATASET_ROWS
     */
-    datasetRowsAssertion: optional DatasetRowsAssertion
+    rowsAssertion: optional DatasetRowsAssertion
 
     /**
     * Assertion details when scope is DATASET_SCHEMA
     */
-    datasetSchemaAssertion: optional DatasetSchemaAssertion
+    schemaAssertion: optional DatasetSchemaAssertion
 
     /**
     * One or more dataset schema fields that are targeted by this assertion
@@ -51,7 +51,7 @@ record DatasetAssertionInfo {
         "entityTypes": [ "schemaField" ]
       }
     }
-    datasetFields: optional array[Urn]
+    fields: optional array[Urn]
 
     /**
     * One or more datasets that are targeted by this assertion

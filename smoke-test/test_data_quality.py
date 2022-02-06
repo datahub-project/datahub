@@ -5,7 +5,7 @@ import pytest
 import requests
 from datahub.cli.docker import check_local_docker_containers
 from tests.utils import ingest_file_via_rest
-from datahub.metadata.schema_classes import AssertionResultTypeClass, PartitionTypeClass, AssertionInfoClass, AssertionTypeClass, DatasetAssertionScopeClass, DatasetColumnAssertionClass, AssertionStdOperatorClass, DatasetColumnStdAggFuncClass, AssertionRunEventClass, PartitionSpecClass, AssertionResultClass, AssertionRunStatusClass
+from datahub.metadata.schema_classes import AssertionResultTypeClass, DatasetAssertionInfoClass, PartitionTypeClass, AssertionInfoClass, AssertionTypeClass, DatasetAssertionScopeClass, DatasetColumnAssertionClass, AssertionStdOperatorClass, DatasetColumnStdAggFuncClass, AssertionRunEventClass, PartitionSpecClass, AssertionResultClass, AssertionRunStatusClass
 from datahub.emitter.mce_builder import make_schema_field_urn, make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.sink.file import FileSink, FileSinkConfig
@@ -27,13 +27,15 @@ def create_test_data(test_file):
         customProperties={
             "suite_name": "demo_suite"
         },
-        datasetFields=[make_schema_field_urn(dataset_urn,"col1")],
-        datasets=[dataset_urn],
-        datasetAssertionScope=DatasetAssertionScopeClass.DATASET_COLUMN,
-        datasetColumnAssertion=DatasetColumnAssertionClass(
+        datasetAssertion=DatasetAssertionInfoClass(
+            fields=[make_schema_field_urn(dataset_urn,"col1")],
+            datasets=[dataset_urn],
+            scope=DatasetAssertionScopeClass.DATASET_COLUMN,
+            columnAssertion=DatasetColumnAssertionClass(
             stdOperator=AssertionStdOperatorClass.LESS_THAN,
             nativeOperator="column_value_is_less_than",
             stdAggFunc=DatasetColumnStdAggFuncClass.IDENTITY,
+        ),
         ),
         parameters={
             "max_value": "99"
@@ -339,6 +341,6 @@ def test_gms_get_assertion_info():
 
     assert data["aspect"]
     assert data["aspect"]["com.linkedin.assertion.AssertionInfo"]
-    assert data["aspect"]["com.linkedin.assertion.AssertionInfo"]["type"]
-    assert data["aspect"]["com.linkedin.assertion.AssertionInfo"]["datasetAssertionScope"]
+    assert data["aspect"]["com.linkedin.assertion.AssertionInfo"]["type"] == "DATASET"
+    assert data["aspect"]["com.linkedin.assertion.AssertionInfo"]["datasetAssertion"]["scope"]
 
