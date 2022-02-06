@@ -155,7 +155,11 @@ class KafkaSource(StatefulIngestionSourceBase):
         return None
 
     def get_platform_instance_id(self) -> str:
-        return f"{self.source_config.platform_instance}"
+        return (
+            f"{self.source_config.platform_instance}"
+            if self.source_config.platform_instance
+            else ""
+        )
 
     @classmethod
     def create(cls, config_dict, ctx):
