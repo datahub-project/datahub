@@ -13,9 +13,27 @@ import com.linkedin.common.CustomProperties
 record GlossaryTermInfo includes CustomProperties {
 
   /**
-   * Definition of business term
+   * Display name of the term
+   */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
+  name: optional string
+
+  /**
+   * Description of the term.
    */
   @Searchable = {}
+  description: optional string
+
+  /**
+   * Definition of business term.
+   * Deprecated! Use 'description' field instead.
+   */
+  @Searchable = {}
+  @deprecated
   definition: string
 
   /**
