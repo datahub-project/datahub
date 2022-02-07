@@ -260,7 +260,7 @@ full_test_dev_requirements = {
             "mariadb",
             "snowflake",
             "redash",
-            "tableau"
+            "tableau",
             "kafka-connect",
         ]
         for dependency in plugins[plugin]
