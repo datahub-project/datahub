@@ -1,0 +1,7 @@
+mutation proposeTag($input: TagAssociationInput!) {
+    proposeTag(input: $input)
+}
+
+mutation proposeTerm($input: TermAssociationInput!) {
+    proposeTerm(input: $input)
+}

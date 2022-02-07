@@ -55,7 +55,7 @@ const NoElementButton = styled(Button)`
     }
 `;
 
-const ProposedTag = styled(Tag)`
+const ProposedTerm = styled(Tag)`
     opacity: 0.7;
 `;
 
@@ -204,10 +204,13 @@ export default function TagTermGroup({
                     key={actionRequest.params?.glossaryTermProposal?.glossaryTerm.urn}
                 >
                     <Tooltip overlay="Pending approval from owners">
-                        <ProposedTag closable={false}>
+                        <ProposedTerm
+                            closable={false}
+                            data-testid={`proposed-term-${actionRequest.params?.glossaryTermProposal?.glossaryTerm.name}`}
+                        >
                             {actionRequest.params?.glossaryTermProposal?.glossaryTerm.name}
                             <BookOutlined style={{ marginLeft: '2%' }} />
-                        </ProposedTag>
+                        </ProposedTerm>
                     </Tooltip>
                 </TagLink>
             ))}
@@ -250,7 +253,11 @@ export default function TagTermGroup({
                     key={actionRequest?.params?.tagProposal?.tag?.urn}
                 >
                     <Tooltip overlay="Pending approval from owners">
-                        <StyledTag disabled $colorHash={actionRequest?.params?.tagProposal?.tag?.urn}>
+                        <StyledTag
+                            data-testid={`proposed-tag-${actionRequest?.params?.tagProposal?.tag?.name}`}
+                            disabled
+                            $colorHash={actionRequest?.params?.tagProposal?.tag?.urn}
+                        >
                             {actionRequest?.params?.tagProposal?.tag?.name}
                         </StyledTag>
                     </Tooltip>
@@ -302,7 +309,7 @@ export default function TagTermGroup({
                     onClose={() => {
                         onOpenModal?.();
                         setShowAddModal(false);
-                        refetch?.();
+                        setTimeout(() => refetch?.(), 2000);
                     }}
                     entityUrn={entityUrn}
                     entityType={entityType}

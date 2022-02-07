@@ -14,6 +14,7 @@ import CreateTagModal from './CreateTagModal';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { IconStyleType } from '../../entity/Entity';
 import { useAddTagMutation, useAddTermMutation } from '../../../graphql/mutations.generated';
+import { useProposeTagMutation, useProposeTermMutation } from '../../../graphql/proposals.generated';
 import analytics, { EventType, EntityActionType } from '../../analytics';
 
 type AddTagModalProps = {
@@ -39,6 +40,11 @@ const SuggestionContainer = styled.div`
 
 const SuggestionText = styled.span`
     margin-left: 10px;
+`;
+
+const AddFooter = styled.div`
+    display: flex;
+    justify-content: space-between;
 `;
 
 const CREATE_TAG_VALUE = '____reserved____.createTagValue';
@@ -84,6 +90,8 @@ export default function AddTagTermModal({
     const entityRegistry = useEntityRegistry();
     const [addTagMutation] = useAddTagMutation();
     const [addTermMutation] = useAddTermMutation();
+    const [proposeTagMutation] = useProposeTagMutation();
+    const [proposeTermMutation] = useProposeTermMutation();
 
     const autoComplete = (query: string) => {
         if (query && query !== '') {
@@ -123,19 +131,19 @@ export default function AddTagTermModal({
         );
     }
 
-    const onOk = () => {
+    const onOk = (isProposal: boolean) => {
         const { name: selectedName, type: selectedType } = getSelectedValue(selectedValue);
         let mutation: ((input: any) => Promise<any>) | null = null;
 
         if (selectedType === EntityType.Tag) {
-            mutation = addTagMutation;
+            mutation = isProposal ? proposeTagMutation : addTagMutation;
             if (globalTags?.tags?.some((tag) => tag.tag.name === selectedName)) {
                 onClose();
                 return;
             }
         }
         if (selectedType === EntityType.GlossaryTerm) {
-            mutation = addTermMutation;
+            mutation = isProposal ? proposeTermMutation : addTermMutation;
             if (glossaryTerms?.terms?.some((term) => term.term.name === selectedName)) {
                 onClose();
                 return;
@@ -184,14 +192,19 @@ export default function AddTagTermModal({
             .then(({ errors }) => {
                 if (!errors) {
                     message.success({
-                        content: `Added ${selectedType === EntityType.GlossaryTerm ? 'Term' : 'Tag'}!`,
+                        content: `${isProposal ? 'Proposed' : 'Added'} ${
+                            selectedType === EntityType.GlossaryTerm ? 'Term' : 'Tag'
+                        }!`,
                         duration: 2,
                     });
                 }
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to add: \n ${e.message || ''}`, duration: 3 });
+                message.error({
+                    content: `Failed to ${isProposal ? 'propose' : 'add'}: \n ${e.message || ''}`,
+                    duration: 3,
+                });
             })
             .finally(() => {
                 setDisableAdd(false);
@@ -220,14 +233,27 @@ export default function AddTagTermModal({
             okButtonProps={{ disabled: selectedValue.length === 0 }}
             okText="Add"
             footer={
-                <>
+                <AddFooter>
                     <Button onClick={onClose} type="text">
                         Cancel
                     </Button>
-                    <Button onClick={onOk} disabled={selectedValue.length === 0 || disableAdd}>
-                        Add
-                    </Button>
-                </>
+                    <div>
+                        <Button
+                            onClick={() => onOk(true)}
+                            disabled={selectedValue.length === 0 || disableAdd}
+                            data-testid="create-proposal-btn"
+                        >
+                            Propose
+                        </Button>
+                        <Button
+                            type="primary"
+                            onClick={() => onOk(false)}
+                            disabled={selectedValue.length === 0 || disableAdd}
+                        >
+                            Add
+                        </Button>
+                    </div>
+                </AddFooter>
             }
         >
             <TagSelect

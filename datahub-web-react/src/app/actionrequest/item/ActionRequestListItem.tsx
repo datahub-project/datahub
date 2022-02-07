@@ -39,7 +39,10 @@ export default function ActionRequestListItem({ actionRequest, onUpdate }: Props
 
     return (
         <List.Item>
-            <ActionRequestItemContainer>{actionRequestItemContent}</ActionRequestItemContainer>
+            {/* test id is being provided as a classname here so the number of action requests can be counted */}
+            <ActionRequestItemContainer className="action-request-test-id">
+                {actionRequestItemContent}
+            </ActionRequestItemContainer>
         </List.Item>
     );
 }

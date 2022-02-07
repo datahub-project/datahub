@@ -249,5 +249,31 @@
       "type":"METADATA",
       "editable":false
     }
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:ApproveProposals",
+    "info": {
+      "actors": {
+        "resourceOwners": false,
+        "allUsers": false,
+        "allGroups": false,
+        "users": [
+          "urn:li:corpuser:admin"
+        ]
+      },
+      "privileges": [
+        "MANAGE_ENTITY_TAGS",
+        "MANAGE_ENTITY_GLOSSARY_TERMS"
+      ],
+      "displayName": "Admin - Can Manage Proposals",
+      "resources":{
+        "type":"dataset",
+        "allResources":true
+      },
+      "description": "Grants privileges to manage terms to admin.",
+      "state": "ACTIVE",
+      "type": "METADATA",
+      "editable": false
+    }
   }
 ]
