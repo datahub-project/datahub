@@ -9,6 +9,7 @@ on:
 
 jobs:
   setup:
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
@@ -22,7 +23,7 @@ jobs:
         run: |
           echo "GITHUB_REF: $GITHUB_REF"
           SHORT_SHA=$(git rev-parse --short "$GITHUB_SHA")
-          TAG=$(echo ${GITHUB_REF} | sed -e "s,refs/heads/master,head\,${SHORT_SHA},g" -e 's,refs/tags/,,g' -e 's,refs/pull/\([0-9]*\).*,pr\1,g')
+          TAG=$(echo ${GITHUB_REF} | sed -e 's,refs/tags/,,g')
           echo "tag=$TAG"
           echo "::set-output name=tag::$TAG"
       - name: Check whether publishing enabled
@@ -37,7 +38,7 @@ jobs:
         run: |
           echo "GITHUB_REF: $GITHUB_REF"
           SHORT_SHA=$(git rev-parse --short "$GITHUB_SHA")
-          RELEASE_VERSION=$(echo ${GITHUB_REF} | sed -e "s,refs/heads/master,0.0.0+docker.${SHORT_SHA},g" -e 's,refs/tags/v\(.*\),\1+docker,g' -e 's,refs/pull/\([0-9]*\).*,0.0.0+docker.pr\1,g')
+          RELEASE_VERSION=$(echo ${GITHUB_REF} | sed -e 's,refs/tags/v,,g')
           echo "release_version=$RELEASE_VERSION"
           echo "::set-output name=release_version::$RELEASE_VERSION"
   push_to_registries:
