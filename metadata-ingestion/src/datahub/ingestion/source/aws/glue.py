@@ -48,6 +48,7 @@ logger = logging.getLogger(__name__)
 
 class GlueSourceConfig(AwsSourceConfig):
 
+    extract_owners: Optional[bool] = True
     extract_transforms: Optional[bool] = True
     underlying_platform: Optional[str] = None
     ignore_unsupported_connectors: Optional[bool] = True
@@ -89,6 +90,7 @@ class GlueSource(Source):
 
     def __init__(self, config: GlueSourceConfig, ctx: PipelineContext):
         super().__init__(ctx)
+        self.extract_owners = config.extract_owners
         self.source_config = config
         self.report = GlueSourceReport()
         self.glue_client = config.glue_client
@@ -612,7 +614,7 @@ class GlueSource(Source):
                     yield dataset_wu
 
     def _extract_record(self, table: Dict, table_name: str) -> MetadataChangeEvent:
-        def get_owner() -> OwnershipClass:
+        def get_owner() -> Optional[OwnershipClass]:
             owner = table.get("Owner")
             if owner:
                 owners = [
@@ -621,11 +623,10 @@ class GlueSource(Source):
                         type=OwnershipTypeClass.DATAOWNER,
                     )
                 ]
-            else:
-                owners = []
-            return OwnershipClass(
-                owners=owners,
-            )
+                return OwnershipClass(
+                    owners=owners,
+                )
+            return None
 
         def get_dataset_properties() -> DatasetPropertiesClass:
             return DatasetPropertiesClass(
@@ -680,7 +681,12 @@ class GlueSource(Source):
         )
 
         dataset_snapshot.aspects.append(Status(removed=False))
-        dataset_snapshot.aspects.append(get_owner())
+
+        if self.extract_owners:
+            owner_aspect = get_owner()
+            if owner_aspect is not None:
+                dataset_snapshot.aspects.append(get_owner())
+
         dataset_snapshot.aspects.append(get_dataset_properties())
         dataset_snapshot.aspects.append(get_schema_metadata(self))
 
