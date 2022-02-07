@@ -1,4 +1,5 @@
 import collections
+import dataclasses
 import datetime
 import functools
 import json
@@ -27,6 +28,7 @@ from datahub.configuration.common import ConfigurationError
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import PlatformKey, gen_containers
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemyConfig,
@@ -273,6 +275,16 @@ class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
     @pydantic.validator("platform")
     def platform_is_always_bigquery(cls, v):
         return "bigquery"
+
+
+@dataclasses.dataclass
+class ProjectIdKey(PlatformKey):
+    project_id: str
+
+
+@dataclasses.dataclass
+class BigQueryDatasetKey(ProjectIdKey):
+    dataset_id: str
 
 
 class BigQuerySource(SQLAlchemySource):
@@ -763,6 +775,55 @@ WHERE
         if segments[0] != schema:
             raise ValueError(f"schema {schema} does not match table {entity}")
         return segments[0], segments[1]
+
+    def gen_schema_key(self, db_name: str, schema: str) -> PlatformKey:
+        return BigQueryDatasetKey(
+            project_id=db_name,
+            dataset_id=schema,
+            platform=self.platform,
+            instance=self.config.env,
+        )
+
+    def gen_database_key(self, database: str) -> PlatformKey:
+        return ProjectIdKey(
+            project_id=database,
+            platform=self.platform,
+            instance=self.config.env,
+        )
+
+    def gen_database_containers(self, database: str) -> Iterable[MetadataWorkUnit]:
+        domain_urn = self._gen_domain_urn(database)
+
+        database_container_key = self.gen_database_key(database)
+
+        container_workunits = gen_containers(
+            container_key=database_container_key,
+            name=database,
+            sub_types=["Project"],
+            domain_urn=domain_urn,
+        )
+
+        for wu in container_workunits:
+            self.report.report_workunit(wu)
+            yield wu
+
+    def gen_schema_containers(
+        self, schema: str, db_name: str
+    ) -> Iterable[MetadataWorkUnit]:
+        schema_container_key = self.gen_schema_key(db_name, schema)
+
+        database_container_key = self.gen_database_key(database=db_name)
+
+        container_workunits = gen_containers(
+            schema_container_key,
+            schema,
+            ["Dataset"],
+            database_container_key,
+        )
+
+        for wu in container_workunits:
+            self.report.report_workunit(wu)
+            yield wu
 
     # We can't use close as it is not called if the ingestion is not successful
     def __del__(self):

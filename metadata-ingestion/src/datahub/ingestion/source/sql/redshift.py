@@ -379,10 +379,7 @@ class RedshiftSource(SQLAlchemySource):
         catalog_metadata = _get_external_db_mapping(conn)
         if catalog_metadata is None:
             return
-        db_name = getattr(self.config, "database")
-        db_alias = getattr(self.config, "database_alias")
-        if db_alias:
-            db_name = db_alias
+        db_name = self.get_db_name()
 
         external_schema_mapping = {}
         for rel in catalog_metadata:
@@ -498,11 +495,7 @@ class RedshiftSource(SQLAlchemySource):
         n.nspname not in ('pg_catalog', 'information_schema')
 
         """
-        db_name = getattr(self.config, "database")
-        db_alias = getattr(self.config, "database_alias")
-        if db_alias:
-            db_name = db_alias
-
+        db_name = self.get_db_name()
         all_tables_set = set()
 
         url = self.config.get_sql_alchemy_url()
@@ -533,7 +526,7 @@ class RedshiftSource(SQLAlchemySource):
 
         return sources
 
-    def _get_db_name(self) -> str:
+    def get_db_name(self, inspector: Inspector = None) -> str:
         db_name = getattr(self.config, "database")
         db_alias = getattr(self.config, "database_alias")
         if db_alias:
@@ -565,7 +558,7 @@ class RedshiftSource(SQLAlchemySource):
         logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(url, **self.config.options)
 
-        db_name = self._get_db_name()
+        db_name = self.get_db_name()
 
         try:
             for db_row in engine.execute(query):
@@ -662,7 +655,7 @@ class RedshiftSource(SQLAlchemySource):
 
     def _populate_lineage(self) -> None:
 
-        db_name = self._get_db_name()
+        db_name = self.get_db_name()
 
         stl_scan_based_lineage_query: str = """
             select
