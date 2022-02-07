@@ -99,6 +99,11 @@ const TagsSection = styled.div`
     height: 130px;
     padding: 5px;
 `;
+const NoDataFound = styled.span`
+    font-size: 12px;
+    color: #262626;
+    font-weight: 100;
+`;
 const Tags = styled.div`
     margin-top: 5px;
 `;
@@ -156,6 +161,9 @@ export default function UserProfile() {
                 content: (
                     <UserGroups urn={urn} initialRelationships={groupMemberRelationships} pageSize={GROUP_PAGE_SIZE} />
                 ),
+                display: {
+                    enabled: () => groupsDetails?.relationships.length > 0,
+                },
             },
         ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
     };
@@ -198,6 +206,9 @@ export default function UserProfile() {
                             <GroupsSection>
                                 Groups
                                 <TagsSection style={{ overflow: groupSectionScroll ? 'auto' : 'hidden' }}>
+                                    {groupsDetails?.relationships.length === 0 && (
+                                        <NoDataFound>No Groups found</NoDataFound>
+                                    )}
                                     {!groupSectionScroll &&
                                         groupsDetails?.relationships.slice(0, 3).map((item) => {
                                             return (
