@@ -39,7 +39,7 @@ framework_common = {
     "docker",
     "expandvars>=0.6.5",
     "avro-gen3==0.7.1",
-    "avro>=1.10.2",
+    "avro>=1.10.2,<1.11",
     "python-dateutil>=2.8.0",
     "stackprinter",
     "tabulate",
@@ -83,6 +83,14 @@ bigquery_common = {
     "more-itertools>=8.12.0",
 }
 
+snowflake_common = {
+    # Snowflake plugin utilizes sql common
+    *sql_common,
+    # Required for all Snowflake sources
+    "snowflake-sqlalchemy<=1.2.4",
+    "cryptography"
+}
+
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
@@ -98,7 +106,7 @@ plugins: Dict[str, Set[str]] = {
     "bigquery": sql_common | bigquery_common | {"pybigquery >= 0.6.0"},
     "bigquery-usage": bigquery_common | {"cachetools"},
     "datahub-business-glossary": set(),
-    "data-lake": {"pydeequ==1.0.1", "pyspark==3.0.3", "parse==1.19.0"},
+    "data-lake": {*aws_common, "pydeequ==1.0.1", "pyspark==3.0.3", "parse==1.19.0"},
     "dbt": {"requests"},
     "druid": sql_common | {"pydruid>=0.6.2"},
     "elasticsearch": {"elasticsearch"},
@@ -134,24 +142,12 @@ plugins: Dict[str, Set[str]] = {
     "redshift-usage": sql_common
     | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2"},
     "sagemaker": aws_common,
-    "snowflake": sql_common | {"snowflake-sqlalchemy<=1.2.4"},
-    "snowflake-usage": sql_common | {"snowflake-sqlalchemy<=1.2.4"},
+    "snowflake": snowflake_common,
+    "snowflake-usage": snowflake_common | {"more-itertools>=8.12.0"},
     "sqlalchemy": sql_common,
     "superset": {"requests"},
-    "trino": sql_common
-    | {
-        # SQLAlchemy support is coming up in trino python client
-        # subject to PR merging - https://github.com/trinodb/trino-python-client/pull/81.
-        # PR is from same author as that of sqlalchemy-trino library below.
-        "sqlalchemy-trino"
-    },
-    "starburst-trino-usage": sql_common
-    | {
-        # SQLAlchemy support is coming up in trino python client
-        # subject to PR merging - https://github.com/trinodb/trino-python-client/pull/81.
-        # PR is from same author as that of sqlalchemy-trino library below.
-        "sqlalchemy-trino"
-    },
+    "trino": sql_common | {"trino"},
+    "starburst-trino-usage": sql_common | {"trino"},
     "nifi": {"requests"},
 }
 
@@ -183,7 +179,7 @@ base_dev_requirements = {
     *base_requirements,
     *framework_common,
     *mypy_stubs,
-    "black>=19.10b0",
+    "black>=21.12b0",
     "coverage>=5.1",
     "flake8>=3.8.3",
     "flake8-tidy-imports>=4.3.0",
@@ -219,7 +215,10 @@ base_dev_requirements = {
             "redash",
             "redshift",
             "redshift-usage",
-            "data-lake"
+            "data-lake",
+            "trino",
+            "hive",
+            "starburst-trino-usage",
             # airflow is added below
         ]
         for dependency in plugins[plugin]
@@ -228,14 +227,8 @@ base_dev_requirements = {
 
 if is_py37_or_newer:
     # The lookml plugin only works on Python 3.7 or newer.
-    # The trino plugin only works on Python 3.7 or newer.
-    # The trino plugin can be supported on Python 3.6 with minimal changes to opensource sqlalchemy-trino sourcecode.
     base_dev_requirements = base_dev_requirements.union(
-        {
-            dependency
-            for plugin in ["lookml", "trino", "starburst-trino-usage"]
-            for dependency in plugins[plugin]
-        }
+        {dependency for plugin in ["lookml"] for dependency in plugins[plugin]}
     )
 
 dev_requirements = {
@@ -320,8 +313,11 @@ entry_points = {
         "datahub-kafka = datahub.ingestion.sink.datahub_kafka:DatahubKafkaSink",
         "datahub-rest = datahub.ingestion.sink.datahub_rest:DatahubRestSink",
     ],
-    "datahub.ingestion.state_provider.plugins": [
-        "datahub = datahub.ingestion.source.state_provider.datahub_ingestion_state_provider:DatahubIngestionStateProvider",
+    "datahub.ingestion.checkpointing_provider.plugins": [
+        "datahub = datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider:DatahubIngestionCheckpointingProvider",
+    ],
+    "datahub.ingestion.reporting_provider.plugins": [
+        "datahub = datahub.ingestion.reporting.datahub_ingestion_reporting_provider:DatahubIngestionReportingProvider",
     ],
     "apache_airflow_provider": ["provider_info=datahub_provider:get_provider_info"],
 }
@@ -363,7 +359,8 @@ setuptools.setup(
     ],
     # Package info.
     zip_safe=False,
-    python_requires=">=3.6",
+    # restrict python to <=3.9.9 due to https://github.com/looker-open-source/sdk-codegen/issues/944
+    python_requires=">=3.6, <=3.9.9",
     package_dir={"": "src"},
     packages=setuptools.find_namespace_packages(where="./src"),
     package_data={

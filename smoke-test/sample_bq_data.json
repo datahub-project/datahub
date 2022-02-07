@@ -380,5 +380,23 @@
             }
         },
         "proposedDelta": null
+    },
+    {
+        "auditHeader": null,
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.covid19_geotab_mobility_impact.ca_border_wait_times,PROD)",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                            "description": "This dataset shows hourly average border crossing duration for Canada-US border wait times",
+                            "uri": null,
+                            "tags": [],
+                            "customProperties": {}
+                        }
+                    }
+                ]
+            }
+        }
     }
 ]

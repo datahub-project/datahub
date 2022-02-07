@@ -9,7 +9,7 @@ RUN apk --no-cache add curl tar wget bash coreutils \
     && curl -L https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz | tar -C /usr/local/bin -xzv
 
 FROM adoptopenjdk/openjdk8:alpine-slim as prod-build
-RUN apk --no-cache add perl
+RUN apk --no-cache add openjdk8-jre perl
 COPY . datahub-src
 RUN cd datahub-src && ./gradlew :metadata-jobs:mae-consumer-job:build -x test
 RUN cd datahub-src && cp metadata-jobs/mae-consumer-job/build/libs/mae-consumer-job.jar ../mae-consumer-job.jar
@@ -20,6 +20,9 @@ COPY --from=prod-build /datahub-src/metadata-models/src/main/resources/entity-re
 COPY --from=prod-build /datahub-src/docker/datahub-mae-consumer/start.sh /datahub/datahub-mae-consumer/scripts/
 COPY --from=prod-build /datahub-src/docker/monitoring/client-prometheus-config.yaml /datahub/datahub-mae-consumer/scripts/prometheus-config.yaml
 RUN chmod +x /datahub/datahub-mae-consumer/scripts/start.sh
+
+# Setup TLS JKS
+COPY --from=prod-build /usr/lib/jvm/java-1.8-openjdk/jre/lib/security/cacerts /tmp/kafka.client.truststore.jks
 
 FROM base as dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.

@@ -9,27 +9,32 @@ import com.linkedin.common.Status;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.generated.AccessLevel;
 import com.linkedin.datahub.graphql.generated.Chart;
+import com.linkedin.datahub.graphql.generated.ChartEditableProperties;
 import com.linkedin.datahub.graphql.generated.ChartInfo;
 import com.linkedin.datahub.graphql.generated.ChartProperties;
 import com.linkedin.datahub.graphql.generated.ChartQuery;
 import com.linkedin.datahub.graphql.generated.ChartQueryType;
 import com.linkedin.datahub.graphql.generated.ChartType;
+import com.linkedin.datahub.graphql.generated.Container;
+import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.Dataset;
+import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
-import com.linkedin.datahub.graphql.generated.ChartEditableProperties;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
-import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
-import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
-import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
+import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
+import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
+import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.key.ChartKey;
-
-import javax.annotation.Nonnull;
+import com.linkedin.metadata.key.DataPlatformKey;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 
 import static com.linkedin.metadata.Constants.*;
 
@@ -55,6 +60,11 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
                 final ChartKey gmsKey = new ChartKey(data);
                 result.setChartId(gmsKey.getChartId());
                 result.setTool(gmsKey.getDashboardTool());
+                result.setPlatform(DataPlatform.builder()
+                    .setType(EntityType.DATA_PLATFORM)
+                    .setUrn(EntityKeyUtils
+                        .convertEntityKeyToUrn(new DataPlatformKey()
+                            .setPlatformName(gmsKey.getDashboardTool()), DATA_PLATFORM_ENTITY_NAME).toString()).build());
             } else if (CHART_INFO_ASPECT_NAME.equals(name)) {
                 final com.linkedin.chart.ChartInfo gmsChartInfo = new com.linkedin.chart.ChartInfo(data);
                 result.setInfo(mapChartInfo(gmsChartInfo));
@@ -79,6 +89,21 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
                 result.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(data)));
             } else if (GLOSSARY_TERMS_ASPECT_NAME.equals(name)) {
                 result.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(data)));
+            } else if (CONTAINER_ASPECT_NAME.equals(name)) {
+                final com.linkedin.container.Container gmsContainer = new com.linkedin.container.Container(data);
+                result.setContainer(Container
+                    .builder()
+                    .setType(EntityType.CONTAINER)
+                    .setUrn(gmsContainer.getContainer().toString())
+                    .build());
+            } else if (DOMAINS_ASPECT_NAME.equals(name)) {
+                final Domains domains = new Domains(data);
+                // Currently we only take the first domain if it exists.
+                if (domains.getDomains().size() > 0) {
+                    result.setDomain(Domain.builder()
+                        .setType(EntityType.DOMAIN)
+                        .setUrn(domains.getDomains().get(0).toString()).build());
+                }
             }
         });
 

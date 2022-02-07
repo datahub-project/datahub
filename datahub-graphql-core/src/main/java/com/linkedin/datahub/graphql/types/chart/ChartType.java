@@ -43,6 +43,7 @@ import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.r2.RemoteInvocationException;
 
 import graphql.execution.DataFetcherResult;
+import java.util.HashSet;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -67,7 +68,9 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
         INSTITUTIONAL_MEMORY_ASPECT_NAME,
         GLOBAL_TAGS_ASPECT_NAME,
         GLOSSARY_TERMS_ASPECT_NAME,
-        STATUS_ASPECT_NAME
+        STATUS_ASPECT_NAME,
+        CONTAINER_ASPECT_NAME,
+        DOMAINS_ASPECT_NAME
     );
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("access", "queryType", "tool", "type");
 
@@ -94,14 +97,15 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
 
     @Override
     public List<DataFetcherResult<Chart>> batchLoad(@Nonnull List<String> urnStrs, @Nonnull QueryContext context) throws Exception {
-        final Set<Urn> urns = urnStrs.stream()
+        final List<Urn> urns = urnStrs.stream()
             .map(UrnUtils::getUrn)
-            .collect(Collectors.toSet());
+            .collect(Collectors.toList());
         try {
             final Map<Urn, EntityResponse> chartMap =
                 _entityClient.batchGetV2(
                     Constants.CHART_ENTITY_NAME,
-                    urns, ASPECTS_TO_RESOLVE,
+                    new HashSet<>(urns),
+                    ASPECTS_TO_RESOLVE,
                     context.getAuthentication());
 
             final List<EntityResponse> gmsResults = new ArrayList<>();

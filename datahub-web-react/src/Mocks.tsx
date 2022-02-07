@@ -93,6 +93,18 @@ const user2 = {
     },
 };
 
+const dataPlatform = {
+    urn: 'urn:li:dataPlatform:hdfs',
+    name: 'HDFS',
+    type: EntityType.DataPlatform,
+    properties: {
+        displayName: 'HDFS',
+        type: PlatformType.FileSystem,
+        datasetNameDelimiter: '.',
+        logoUrl: '',
+    },
+};
+
 const dataset1 = {
     urn: 'urn:li:dataset:1',
     type: EntityType.Dataset,
@@ -100,7 +112,7 @@ const dataset1 = {
         urn: 'urn:li:dataPlatform:hdfs',
         name: 'HDFS',
         type: EntityType.DataPlatform,
-        info: {
+        properties: {
             displayName: 'HDFS',
             type: PlatformType.FileSystem,
             datasetNameDelimiter: '.',
@@ -176,6 +188,8 @@ const dataset1 = {
             ],
         },
     ],
+    domain: null,
+    container: null,
 };
 
 const dataset2 = {
@@ -246,6 +260,8 @@ const dataset2 = {
             ],
         },
     ],
+    domain: null,
+    container: null,
 };
 
 export const dataset3 = {
@@ -432,6 +448,8 @@ export const dataset3 = {
             },
         },
     ],
+    domain: null,
+    container: null,
 } as Dataset;
 
 export const dataset4 = {
@@ -856,6 +874,10 @@ export const dataFlow1 = {
             },
         ],
     },
+    platform: {
+        ...dataPlatform,
+    },
+    domain: null,
 } as DataFlow;
 
 export const dataJob1 = {
@@ -923,6 +945,7 @@ export const dataJob1 = {
             },
         ],
     },
+    domain: null,
 } as DataJob;
 
 export const dataJob2 = {
@@ -976,6 +999,7 @@ export const dataJob2 = {
             },
         ],
     },
+    domain: null,
 } as DataJob;
 
 export const dataJob3 = {
@@ -1029,6 +1053,7 @@ export const dataJob3 = {
             },
         ],
     },
+    domain: null,
 } as DataJob;
 
 export const mlModel = {
@@ -1175,9 +1200,14 @@ export const recommendationModules = [
                 entity: {
                     urn: 'urn:li:dataPlatform:snowflake',
                     type: EntityType.DataPlatform,
-                    info: {
+                    name: 'snowflake',
+                    properties: {
                         displayName: 'Snowflake',
+                        datasetNameDelimiter: '.',
+                        logoUrl: null,
                     },
+                    displayName: null,
+                    info: null,
                 },
                 params: {
                     contentParams: {
@@ -2634,7 +2664,7 @@ export const mocks = [
                     requestContext: {
                         scenario: ScenarioType.Home,
                     },
-                    limit: 5,
+                    limit: 10,
                 },
             },
         },

@@ -7,12 +7,16 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Tuple, Un
 from urllib.parse import urlparse
 
 import yaml
+from pydantic import validator
 
+from datahub.configuration.common import ConfigurationError
 from datahub.emitter import mce_builder
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.aws.aws_common import AwsSourceConfig, make_s3_urn
+from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
+from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -22,16 +26,20 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaMetadata,
 )
 from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
     DataFlowInfoClass,
     DataFlowSnapshotClass,
     DataJobInfoClass,
     DataJobInputOutputClass,
     DataJobSnapshotClass,
+    DatasetLineageTypeClass,
     DatasetPropertiesClass,
     MetadataChangeEventClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
+    UpstreamClass,
+    UpstreamLineageClass,
 )
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 
@@ -43,6 +51,8 @@ class GlueSourceConfig(AwsSourceConfig):
     extract_transforms: Optional[bool] = True
     underlying_platform: Optional[str] = None
     ignore_unsupported_connectors: Optional[bool] = True
+    emit_s3_lineage: bool = False
+    glue_s3_lineage_direction: str = "upstream"
 
     @property
     def glue_client(self):
@@ -51,6 +61,14 @@ class GlueSourceConfig(AwsSourceConfig):
     @property
     def s3_client(self):
         return self.get_s3_client()
+
+    @validator("glue_s3_lineage_direction")
+    def check_direction(cls, v: str) -> str:
+        if v.lower() not in ["upstream", "downstream"]:
+            raise ConfigurationError(
+                "glue_s3_lineage_direction must be either upstream or downstream"
+            )
+        return v.lower()
 
 
 @dataclass
@@ -454,6 +472,55 @@ class GlueSource(Source):
             all_tables += get_tables_from_database(database)
         return all_tables
 
+    def get_lineage_if_enabled(
+        self, mce: MetadataChangeEventClass
+    ) -> Optional[MetadataChangeProposalWrapper]:
+        if self.source_config.emit_s3_lineage:
+            # extract dataset properties aspect
+            dataset_properties: Optional[
+                DatasetPropertiesClass
+            ] = mce_builder.get_aspect_if_available(mce, DatasetPropertiesClass)
+            if dataset_properties and "Location" in dataset_properties.customProperties:
+                location = dataset_properties.customProperties["Location"]
+                if location.startswith("s3://"):
+                    s3_dataset_urn = make_s3_urn(location, self.source_config.env)
+                    if self.source_config.glue_s3_lineage_direction == "upstream":
+                        upstream_lineage = UpstreamLineageClass(
+                            upstreams=[
+                                UpstreamClass(
+                                    dataset=s3_dataset_urn,
+                                    type=DatasetLineageTypeClass.COPY,
+                                )
+                            ]
+                        )
+                        mcp = MetadataChangeProposalWrapper(
+                            entityType="dataset",
+                            entityUrn=mce.proposedSnapshot.urn,
+                            changeType=ChangeTypeClass.UPSERT,
+                            aspectName="upstreamLineage",
+                            aspect=upstream_lineage,
+                        )
+                        return mcp
+                    else:
+                        # Need to mint the s3 dataset with upstream lineage from it to glue
+                        upstream_lineage = UpstreamLineageClass(
+                            upstreams=[
+                                UpstreamClass(
+                                    dataset=mce.proposedSnapshot.urn,
+                                    type=DatasetLineageTypeClass.COPY,
+                                )
+                            ]
+                        )
+                        mcp = MetadataChangeProposalWrapper(
+                            entityType="dataset",
+                            entityUrn=s3_dataset_urn,
+                            changeType=ChangeTypeClass.UPSERT,
+                            aspectName="upstreamLineage",
+                            aspect=upstream_lineage,
+                        )
+                        return mcp
+        return None
+
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
 
         tables = self.get_all_tables()
@@ -473,6 +540,13 @@ class GlueSource(Source):
             workunit = MetadataWorkUnit(full_table_name, mce=mce)
             self.report.report_workunit(workunit)
             yield workunit
+            mcp = self.get_lineage_if_enabled(mce)
+            if mcp:
+                mcp_wu = MetadataWorkUnit(
+                    id=f"{full_table_name}-upstreamLineage", mcp=mcp
+                )
+                self.report.report_workunit(mcp_wu)
+                yield mcp_wu
 
         if self.extract_transforms:
 

@@ -13,6 +13,10 @@ This plugin extracts the following:
 - Topics from the Kafka broker
 - Schemas associated with each topic from the schema registry
 
+| Capability | Status | Details | 
+| -----------| ------ | ---- |
+| Platform Instance | 🛑 | [link](../../docs/platform-instances.md) |
+
 ## Quickstart recipe
 
 Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.

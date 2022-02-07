@@ -25,7 +25,11 @@ class DruidConfig(BasicSQLAlchemyConfig):
     """
 
     def get_identifier(self, schema: str, table: str) -> str:
-        return f"{table}"
+        return (
+            f"{self.platform_instance}.{table}"
+            if self.platform_instance
+            else f"{table}"
+        )
 
 
 class DruidSource(SQLAlchemySource):

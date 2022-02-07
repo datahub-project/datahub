@@ -8,8 +8,11 @@ entities:
       - datasetProfile
       - datasetUsageStatistics
       - operation
+      - domains
       - schemaMetadata
       - status
+      - container
+      - assertionRunEvent
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     keyAspect: dataHubPolicyKey
@@ -20,6 +23,21 @@ entities:
     aspects:
       - datahubIngestionRunSummary
       - datahubIngestionCheckpoint
+      - domains
+  - name: dataFlow
+    keyAspect: dataFlowKey
+    aspects:
+      - domains
+  - name: chart
+    keyAspect: chartKey
+    aspects:
+      - domains
+      - container
+  - name: dashboard
+    keyAspect: dashboardKey
+    aspects:
+      - domains
+      - container
   - name: corpuser
     doc: CorpUser represents an identity of a person (or an account) in the enterprise.
     keyAspect: corpUserKey
@@ -27,3 +45,50 @@ entities:
       - corpUserInfo
       - corpUserEditableInfo
       - corpUserStatus
+  - name: container
+    doc: A container of related data assets.
+    keyAspect: containerKey
+    aspects:
+      - containerProperties
+      - editableContainerProperties
+      - dataPlatformInstance
+      - subTypes
+      - ownership
+      - container
+      - globalTags
+      - glossaryTerms
+      - institutionalMemory
+      - browsePaths # unclear if this will be used
+      - status
+      - domains
+  - name: glossaryTerm
+    keyAspect: glossaryTermKey
+    aspects:
+      - schemaMetadata
+  - name: domain
+    doc: A data domain within an organization.
+    keyAspect: domainKey
+    aspects:
+      - domainProperties
+      - institutionalMemory
+      - ownership
+  - name: dataHubIngestionSource
+    keyAspect: dataHubIngestionSourceKey
+    aspects:
+      - dataHubIngestionSourceInfo
+  - name: dataHubSecret
+    keyAspect: dataHubSecretKey
+    aspects:
+      - dataHubSecretValue
+  - name: dataHubExecutionRequest
+    keyAspect: dataHubExecutionRequestKey
+    aspects:
+      - dataHubExecutionRequestInput
+      - dataHubExecutionRequestSignal
+      - dataHubExecutionRequestResult
+  - name: assertion
+    doc: Assertion represents a data quality rule applied on one or more dataset.
+    keyAspect: assertionKey
+    aspects:
+      - assertionInfo
+      - dataPlatformInstance
