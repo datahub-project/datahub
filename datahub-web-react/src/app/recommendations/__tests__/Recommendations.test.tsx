@@ -31,6 +31,8 @@ describe('Recommendations', () => {
         );
         await waitFor(() => expect(getByText('Datasets')).toBeInTheDocument());
         await waitFor(() => expect(getByText('Explore your Metadata')).toBeInTheDocument());
+        await waitFor(() => expect(getByText('Top Platforms')).toBeInTheDocument());
+        await waitFor(() => expect(getByText('Snowflake')).toBeInTheDocument());
         await waitFor(() => expect(getByText('Popular Tags')).toBeInTheDocument());
         await waitFor(() => expect(getByText('TestTag')).toBeInTheDocument());
         await waitFor(() => expect(getByText('Most Popular')).toBeInTheDocument());

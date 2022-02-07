@@ -48,7 +48,6 @@ const ContentContainer = styled.div`
     display: flex;
     height: auto;
     min-height: 100%;
-    max-height: calc(100vh - 108px);
     align-items: stretch;
     flex: 1;
 `;

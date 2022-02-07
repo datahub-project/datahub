@@ -86,6 +86,8 @@ dependencies {
   
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
+  
+  implementation externalDependency.typesafeConfig
 
   implementation project(path: ':metadata-integration:java:datahub-client', configuration: 'shadow')
 
@@ -143,6 +145,7 @@ shadowJar {
   relocate 'org.apache.http','datahub.spark2.shaded.http'
   relocate 'org.apache.commons.codec', 'datahub.spark2.shaded.o.a.c.codec'
   relocate 'mozilla', 'datahub.spark2.shaded.mozilla'
+  relocate 'com.typesafe','datahub.spark2.shaded.typesafe'
   finalizedBy checkShadowJar
 }
 

@@ -2,6 +2,7 @@ import React from 'react';
 import {
     AccessLevel,
     Domain,
+    Container,
     EntityType,
     GlobalTags,
     GlossaryTerms,
@@ -22,6 +23,7 @@ export const DashboardPreview = ({
     tags,
     glossaryTerms,
     domain,
+    container,
     insights,
     logoUrl,
 }: {
@@ -34,6 +36,7 @@ export const DashboardPreview = ({
     tags?: GlobalTags;
     glossaryTerms?: GlossaryTerms | null;
     domain?: Domain | null;
+    container?: Container | null;
     insights?: Array<SearchInsight> | null;
     logoUrl?: string | null;
 }): JSX.Element => {
@@ -51,6 +54,7 @@ export const DashboardPreview = ({
             qualifier={access}
             owners={owners}
             tags={tags}
+            container={container || undefined}
             glossaryTerms={glossaryTerms || undefined}
             domain={domain}
             insights={insights}

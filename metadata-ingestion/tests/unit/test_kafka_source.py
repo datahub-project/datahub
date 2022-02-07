@@ -14,6 +14,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 class KafkaSourceTest(unittest.TestCase):
     def test_get_schema_str_replace_confluent_ref_avro(self):
 
+        # References external schema 'TestTopic1' in the definition of 'my_field1' field.
         schema_str_orig = """
 {
   "fields": [
@@ -83,6 +84,7 @@ class KafkaSourceTest(unittest.TestCase):
             new_get_latest_version,
         ):
             schema_str = kafka_source.get_schema_str_replace_confluent_ref_avro(
+                # The external reference would match by name.
                 schema=Schema(
                     schema_str=schema_str_orig,
                     schema_type="AVRO",
@@ -91,7 +93,24 @@ class KafkaSourceTest(unittest.TestCase):
                     ],
                 )
             )
-            assert schema_str == schema_str_final
+            assert schema_str == KafkaSource._compact_schema(schema_str_final)
+
+        with patch.object(
+            kafka_source.schema_registry_client,
+            "get_latest_version",
+            new_get_latest_version,
+        ):
+            schema_str = kafka_source.get_schema_str_replace_confluent_ref_avro(
+                # The external reference would match by subject.
+                schema=Schema(
+                    schema_str=schema_str_orig,
+                    schema_type="AVRO",
+                    references=[
+                        dict(name="schema_subject_1", subject="TestTopic1", version=1)
+                    ],
+                )
+            )
+            assert schema_str == KafkaSource._compact_schema(schema_str_final)
 
     @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
     def test_kafka_source_configuration(self, mock_kafka):
