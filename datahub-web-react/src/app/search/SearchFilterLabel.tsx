@@ -5,8 +5,9 @@ import styled from 'styled-components';
 
 import {
     AggregationMetadata,
-    DataPlatform,
     Domain,
+    Container,
+    DataPlatform,
     EntityType,
     GlossaryTerm,
     Tag as TagType,
@@ -77,6 +78,20 @@ export const SearchFilterLabel = ({ aggregation, field }: Props) => {
                 )}
                 <span>
                     {platform.properties?.displayName || platform.name} ({countText})
+                </span>
+            </>
+        );
+    }
+
+    if (aggregation.entity?.type === EntityType.Container) {
+        const container = aggregation.entity as Container;
+        return (
+            <>
+                {!!container.platform?.properties?.logoUrl && (
+                    <PreviewImage src={container.platform?.properties?.logoUrl} alt={container.properties?.name} />
+                )}
+                <span>
+                    {container.properties?.name} ({countText})
                 </span>
             </>
         );

@@ -23,4 +23,15 @@ record TestEntityProfile includes TimeseriesAspectBase {
     "key":"key"
   }
   componentProfiles: array[TestEntityComponentProfile]
+
+  @TimeseriesField = {}
+  aComplexNestedRecord: record ComplexNestedRecord {
+      type: enum BatchType {
+            QUERY_BATCH,
+            PARTITION_BATCH,
+            FULL_TABLE,
+            _NATIVE_
+      }
+      partitions: array[map[string, string]]
+    }
 }

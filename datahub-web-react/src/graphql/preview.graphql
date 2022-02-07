@@ -55,28 +55,8 @@ fragment entityPreview on Entity {
             displayName
             description
         }
-        relationships(input: { types: ["IsMemberOfGroup"], direction: INCOMING }) {
-            relationships {
-                type
-                direction
-                entity {
-                    urn
-                    type
-                    ... on CorpUser {
-                        username
-                        info {
-                            active
-                            displayName
-                            title
-                            firstName
-                            lastName
-                        }
-                        editableInfo {
-                            pictureLink
-                        }
-                    }
-                }
-            }
+        memberCount: relationships(input: { types: ["IsMemberOfGroup"], direction: INCOMING, start: 0, count: 1 }) {
+            total
         }
     }
     ... on Dashboard {
@@ -271,5 +251,8 @@ fragment entityPreview on Entity {
         properties {
             name
         }
+    }
+    ... on Container {
+        ...entityContainer
     }
 }

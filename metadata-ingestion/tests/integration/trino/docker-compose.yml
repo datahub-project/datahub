@@ -5,7 +5,7 @@ version: "3"
 services:
  
   testtrino:
-    image: trinodb/trino
+    image: trinodb/trino:369
     container_name: "testtrino"
     ports:
       - 5300:8080

@@ -1,5 +1,6 @@
 package com.linkedin.metadata.timeseries.transformer;
 
+import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -7,10 +8,10 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.ArrayDataSchema;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.template.RecordTemplate;
-import com.datahub.util.RecordUtils;
 import com.linkedin.metadata.extractor.FieldExtractor;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.TimeseriesFieldCollectionSpec;
@@ -85,6 +86,30 @@ public class TimeseriesAspectTransformer {
         document.put(MappingsBuilder.EVENT_GRANULARITY, OBJECT_MAPPER.writeValueAsString(eventGranularity));
       } catch (JsonProcessingException e) {
         throw new IllegalArgumentException("Failed to convert eventGranulairty to Json string!", e);
+      }
+    }
+    // PartitionSpec handling
+    DataMap partitionSpec = (DataMap) timeseriesAspect.data().get(MappingsBuilder.PARTITION_SPEC);
+    if (partitionSpec != null) {
+      Object partition = partitionSpec.get(MappingsBuilder.PARTITION_SPEC_PARTITION);
+      Object timePartition = partitionSpec.get(MappingsBuilder.PARTITION_SPEC_TIME_PARTITION);
+      if (partition != null && timePartition != null) {
+        throw new IllegalArgumentException("Both partition and timePartition cannot be specified in partitionSpec!");
+      } else if (partition != null) {
+        ObjectNode partitionDoc = JsonNodeFactory.instance.objectNode();
+        partitionDoc.put(MappingsBuilder.PARTITION_SPEC_PARTITION, partition.toString());
+        document.set(MappingsBuilder.PARTITION_SPEC, partitionDoc);
+      } else if (timePartition != null) {
+        ObjectNode timePartitionDoc = JsonNodeFactory.instance.objectNode();
+        try {
+          timePartitionDoc.put(MappingsBuilder.PARTITION_SPEC_TIME_PARTITION,
+              OBJECT_MAPPER.writeValueAsString(timePartition));
+        } catch (JsonProcessingException e) {
+          throw new IllegalArgumentException("Failed to convert timePartition to Json string!", e);
+        }
+        document.set(MappingsBuilder.PARTITION_SPEC, timePartitionDoc);
+      } else {
+        throw new IllegalArgumentException("Both partition and timePartition cannot be null in partitionSpec.");
       }
     }
     String messageId = (String) timeseriesAspect.data().get(MappingsBuilder.MESSAGE_ID_FIELD);
@@ -197,6 +222,10 @@ public class TimeseriesAspectTransformer {
     JsonNode messageId = document.get(MappingsBuilder.MESSAGE_ID_FIELD);
     if (messageId != null) {
       docId += messageId.toString();
+    }
+    JsonNode partitionSpec = document.get(MappingsBuilder.PARTITION_SPEC);
+    if (partitionSpec != null) {
+      docId += partitionSpec.toString();
     }
 
     return DigestUtils.md5Hex(docId);

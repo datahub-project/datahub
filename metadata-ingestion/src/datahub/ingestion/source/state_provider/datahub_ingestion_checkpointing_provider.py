@@ -1,33 +1,36 @@
 import logging
-import re
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
-import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import ConfigModel, ConfigurationError
+from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.ingestion_state_provider import IngestionStateProvider, JobId
+from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
+    CheckpointJobStatesMap,
+    IngestionCheckpointingProviderBase,
+    IngestionCheckpointingProviderConfig,
+    JobId,
+    JobStateFilterType,
+    JobStateKey,
+)
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.metadata.schema_classes import (
-    CalendarIntervalClass,
     ChangeTypeClass,
     DatahubIngestionCheckpointClass,
-    DatahubIngestionRunSummaryClass,
-    TimeWindowSizeClass,
 )
 
 logger = logging.getLogger(__name__)
 
 
-class DatahubIngestionStateProviderConfig(ConfigModel):
+class DatahubIngestionStateProviderConfig(IngestionCheckpointingProviderConfig):
     datahub_api: Optional[DatahubClientConfig] = DatahubClientConfig()
 
 
-class DatahubIngestionStateProvider(IngestionStateProvider):
+class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
     orchestrator_name: str = "datahub"
 
-    def __init__(self, graph: DataHubGraph):
+    def __init__(self, graph: DataHubGraph, name: str):
+        super().__init__(name)
         self.graph = graph
         if not self._is_server_stateful_ingestion_capable():
             raise ConfigurationError(
@@ -37,17 +40,18 @@ class DatahubIngestionStateProvider(IngestionStateProvider):
 
     @classmethod
     def create(
-        cls, config_dict: Dict[str, Any], ctx: PipelineContext
-    ) -> IngestionStateProvider:
+        cls, config_dict: Dict[str, Any], ctx: PipelineContext, name: str
+    ) -> IngestionCheckpointingProviderBase:
         if ctx.graph:
-            return cls(ctx.graph)
+            # Use the pipeline-level graph if set
+            return cls(ctx.graph, name)
         elif config_dict is None:
-            raise ConfigurationError("Missing provider configuration")
+            raise ConfigurationError("Missing provider configuration.")
         else:
             provider_config = DatahubIngestionStateProviderConfig.parse_obj(config_dict)
             if provider_config.datahub_api:
                 graph = DataHubGraph(provider_config.datahub_api)
-                return cls(graph)
+                return cls(graph, name)
             else:
                 raise ConfigurationError(
                     "Missing datahub_api. Provide either a global one or under the state_provider."
@@ -71,8 +75,8 @@ class DatahubIngestionStateProvider(IngestionStateProvider):
             f" platformInstanceId:'{platform_instance_id}', job_name:'{job_name}'"
         )
 
-        data_job_urn = builder.make_data_job_urn(
-            self.orchestrator_name, pipeline_name, job_name
+        data_job_urn = self.get_data_job_urn(
+            self.orchestrator_name, pipeline_name, job_name, platform_instance_id
         )
         latest_checkpoint: Optional[
             DatahubIngestionCheckpointClass
@@ -101,20 +105,50 @@ class DatahubIngestionStateProvider(IngestionStateProvider):
 
         return None
 
-    def commit_checkpoints(
-        self, job_checkpoints: Dict[JobId, DatahubIngestionCheckpointClass]
-    ) -> None:
-        for job_name, checkpoint in job_checkpoints.items():
+    def get_previous_states(
+        self,
+        state_key: JobStateKey,
+        last_only: bool = True,
+        filter_opt: Optional[JobStateFilterType] = None,
+    ) -> List[CheckpointJobStatesMap]:
+        if not last_only:
+            raise NotImplementedError(
+                "Currently supports retrieving only the last commited state."
+            )
+        if filter_opt is not None:
+            raise NotImplementedError(
+                "Support for optional filters is not implemented yet."
+            )
+        checkpoints: List[CheckpointJobStatesMap] = []
+        last_job_checkpoint_map: CheckpointJobStatesMap = {}
+        for job_name in state_key.job_names:
+            last_job_checkpoint = self.get_latest_checkpoint(
+                state_key.pipeline_name, state_key.platform_instance_id, job_name
+            )
+            if last_job_checkpoint is not None:
+                last_job_checkpoint_map[job_name] = last_job_checkpoint
+        checkpoints.append(last_job_checkpoint_map)
+        return checkpoints
+
+    def commit(self) -> None:
+        if not self.state_to_commit:
+            logger.warning(f"No state available to commit for {self.name}")
+            return None
+
+        for job_name, checkpoint in self.state_to_commit.items():
             # Emit the ingestion state for each job
             logger.info(
                 f"Committing ingestion checkpoint for pipeline:'{checkpoint.pipelineName}',"
                 f"instance:'{checkpoint.platformInstanceId}', job:'{job_name}'"
             )
 
-            datajob_urn = builder.make_data_job_urn(
+            self.committed = False
+
+            datajob_urn = self.get_data_job_urn(
                 self.orchestrator_name,
                 checkpoint.pipelineName,
                 job_name,
+                checkpoint.platformInstanceId,
             )
 
             self.graph.emit_mcp(
@@ -127,59 +161,9 @@ class DatahubIngestionStateProvider(IngestionStateProvider):
                 )
             )
 
+            self.committed = True
+
             logger.info(
                 f"Committed ingestion checkpoint for pipeline:'{checkpoint.pipelineName}',"
                 f"instance:'{checkpoint.platformInstanceId}', job:'{job_name}'"
             )
-
-    @staticmethod
-    def get_end_time(ingestion_state: DatahubIngestionRunSummaryClass) -> int:
-        start_time_millis = ingestion_state.timestampMillis
-        granularity = ingestion_state.eventGranularity
-        granularity_millis = (
-            DatahubIngestionStateProvider.get_granularity_to_millis(granularity)
-            if granularity is not None
-            else 0
-        )
-        return start_time_millis + granularity_millis
-
-    @staticmethod
-    def get_time_window_size(interval_str: str) -> TimeWindowSizeClass:
-        to_calendar_interval: Dict[str, str] = {
-            "s": CalendarIntervalClass.SECOND,
-            "m": CalendarIntervalClass.MINUTE,
-            "h": CalendarIntervalClass.HOUR,
-            "d": CalendarIntervalClass.DAY,
-            "W": CalendarIntervalClass.WEEK,
-            "M": CalendarIntervalClass.MONTH,
-            "Q": CalendarIntervalClass.QUARTER,
-            "Y": CalendarIntervalClass.YEAR,
-        }
-        interval_pattern = re.compile(r"(\d+)([s|m|h|d|W|M|Q|Y])")
-        token_search = interval_pattern.search(interval_str)
-        if token_search is None:
-            raise ValueError("Invalid interval string:", interval_str)
-        (multiples_str, unit_str) = (token_search.group(1), token_search.group(2))
-        if not multiples_str or not unit_str:
-            raise ValueError("Invalid interval string:", interval_str)
-        unit = to_calendar_interval.get(unit_str)
-        if not unit:
-            raise ValueError("Invalid time unit token:", unit_str)
-        return TimeWindowSizeClass(unit=unit, multiple=int(multiples_str))
-
-    @staticmethod
-    def get_granularity_to_millis(granularity: TimeWindowSizeClass) -> int:
-        to_millis_from_interval: Dict[str, int] = {
-            CalendarIntervalClass.SECOND: 1000,
-            CalendarIntervalClass.MINUTE: 60 * 1000,
-            CalendarIntervalClass.HOUR: 60 * 60 * 1000,
-            CalendarIntervalClass.DAY: 24 * 60 * 60 * 1000,
-            CalendarIntervalClass.WEEK: 7 * 24 * 60 * 60 * 1000,
-            CalendarIntervalClass.MONTH: 31 * 7 * 24 * 60 * 60 * 1000,
-            CalendarIntervalClass.QUARTER: 90 * 7 * 24 * 60 * 60 * 1000,
-            CalendarIntervalClass.YEAR: 365 * 7 * 24 * 60 * 60 * 1000,
-        }
-        units_to_millis = to_millis_from_interval.get(str(granularity.unit), None)
-        if not units_to_millis:
-            raise ValueError("Invalid unit", granularity.unit)
-        return granularity.multiple * units_to_millis

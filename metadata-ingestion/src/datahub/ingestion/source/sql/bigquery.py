@@ -1,10 +1,13 @@
 import collections
+import datetime
 import functools
 import json
 import logging
 import os
+import re
 import tempfile
 import textwrap
+from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 from unittest.mock import patch
@@ -13,8 +16,10 @@ from unittest.mock import patch
 import pybigquery  # noqa: F401
 import pybigquery.sqlalchemy_bigquery
 import pydantic
+from dateutil import parser
 from google.cloud.bigquery import Client as BigQueryClient
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
+from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
 
 from datahub.configuration import ConfigModel
@@ -68,6 +73,49 @@ AND
 timestamp >= "{start_time}"
 AND
 timestamp < "{end_time}"
+""".strip()
+
+BQ_GET_LATEST_PARTITION_TEMPLATE = """
+SELECT
+    c.table_catalog,
+    c.table_schema,
+    c.table_name,
+    c.column_name,
+    c.data_type,
+    max(p.partition_id) as partition_id
+FROM
+    `{project_id}.{schema}.INFORMATION_SCHEMA.COLUMNS` as c
+join `{project_id}.{schema}.INFORMATION_SCHEMA.PARTITIONS` as p
+on
+    c.table_catalog = p.table_catalog
+    and c.table_schema = p.table_schema
+    and c.table_name = p.table_name
+where
+    is_partitioning_column = 'YES'
+    -- Filter out special partitions (https://cloud.google.com/bigquery/docs/partitioned-tables#date_timestamp_partitioned_tables)
+    and p.partition_id not in ('__NULL__', '__UNPARTITIONED__')
+    and STORAGE_TIER='ACTIVE'
+group by
+    c.table_catalog,
+    c.table_schema,
+    c.table_name,
+    c.column_name,
+    c.data_type
+order by
+    c.table_catalog,
+    c.table_schema,
+    c.table_name,
+    c.column_name
+limit {limit}
+offset {offset}
+""".strip()
+
+SHARDED_TABLE_REGEX = r"^(.+)[_](\d{4}|\d{6}|\d{8}|\d{10})$"
+
+BQ_GET_LATEST_SHARD = """
+SELECT SUBSTR(MAX(table_id), LENGTH('{table}_') + 1) as max_shard
+FROM `{project_id}.{schema}.__TABLES_SUMMARY__`
+WHERE table_id LIKE '{table}%'
 """.strip()
 
 # The existing implementation of this method can be found here:
@@ -165,6 +213,16 @@ class BigQueryCredential(ConfigModel):
             )
 
 
+@dataclass
+class BigQueryPartitionColumn:
+    table_catalog: str
+    table_schema: str
+    table_name: str
+    column_name: str
+    data_type: str
+    partition_id: str
+
+
 def create_credential_temp_file(credential: BigQueryCredential) -> str:
     with tempfile.NamedTemporaryFile(delete=False) as fp:
         cred_json = json.dumps(credential.dict(), indent=4, separators=(",", ": "))
@@ -219,10 +277,18 @@ class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
 
 class BigQuerySource(SQLAlchemySource):
     config: BigQueryConfig
+    partiton_columns: Dict[str, Dict[str, BigQueryPartitionColumn]] = dict()
+    maximum_shard_ids: Dict[str, str] = dict()
     lineage_metadata: Optional[Dict[str, Set[str]]] = None
 
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "bigquery")
+
+    def get_db_name(self, inspector: Inspector = None) -> str:
+        if self.config.project_id:
+            return self.config.project_id
+        else:
+            return self._get_project_id(inspector)
 
     def _compute_big_query_lineage(self) -> None:
         if self.config.include_table_lineage:
@@ -408,6 +474,153 @@ class BigQuerySource(SQLAlchemySource):
                     lineage_map[destination_table_str].add(ref_table_str)
         return lineage_map
 
+    def get_latest_partitions_for_schema(self, schema: str) -> None:
+        query_limit: int = 500
+        offset: int = 0
+        url = self.config.get_sql_alchemy_url()
+        engine = create_engine(url, **self.config.options)
+        with engine.connect() as con:
+            inspector = inspect(con)
+            partitions = {}
+
+            def get_partition_columns(
+                project_id: str, schema: str, limit: int, offset: int
+            ) -> int:
+                sql = BQ_GET_LATEST_PARTITION_TEMPLATE.format(
+                    project_id=project_id,
+                    schema=schema,
+                    limit=limit,
+                    offset=offset,
+                )
+                result = con.execute(sql)
+                row_count: int = 0
+                for row in result:
+                    partition = BigQueryPartitionColumn(**row)
+                    partitions[partition.table_name] = partition
+                    row_count = row_count + 1
+                return row_count
+
+            res_size = get_partition_columns(
+                self.get_db_name(inspector), schema, query_limit, offset
+            )
+            while res_size == query_limit:
+                offset = offset + query_limit
+                res_size = get_partition_columns(
+                    self.get_db_name(inspector), schema, query_limit, offset
+                )
+
+            self.partiton_columns[schema] = partitions
+
+    def get_latest_partition(
+        self, schema: str, table: str
+    ) -> Optional[BigQueryPartitionColumn]:
+        if schema not in self.partiton_columns:
+            self.get_latest_partitions_for_schema(schema)
+
+        return self.partiton_columns[schema].get(table)
+
+    def get_shard_from_table(self, table: str) -> Tuple[str, Optional[str]]:
+        match = re.search(SHARDED_TABLE_REGEX, table, re.IGNORECASE)
+        if match:
+            table_name = match.group(1)
+            shard = match.group(2)
+            return table_name, shard
+        return table, None
+
+    def is_latest_shard(self, project_id: str, schema: str, table: str) -> bool:
+        # Getting latest shard from table names
+        # https://cloud.google.com/bigquery/docs/partitioned-tables#dt_partition_shard
+        table_name, shard = self.get_shard_from_table(table)
+        if shard:
+            logger.debug(f"{table_name} is sharded and shard id is: {shard}")
+            url = self.config.get_sql_alchemy_url()
+            engine = create_engine(url, **self.config.options)
+            if f"{project_id}.{schema}.{table_name}" not in self.maximum_shard_ids:
+                with engine.connect() as con:
+                    sql = BQ_GET_LATEST_SHARD.format(
+                        project_id=project_id,
+                        schema=schema,
+                        table=table_name,
+                    )
+
+                    result = con.execute(sql)
+                    for row in result:
+                        max_shard = row["max_shard"]
+                        self.maximum_shard_ids[
+                            f"{project_id}.{schema}.{table_name}"
+                        ] = max_shard
+
+                    logger.debug(f"Max shard for table {table_name} is {max_shard}")
+
+            return (
+                self.maximum_shard_ids[f"{project_id}.{schema}.{table_name}"] == shard
+            )
+        else:
+            return True
+
+    def generate_partition_profiler_query(
+        self, schema: str, table: str
+    ) -> Tuple[Optional[str], Optional[str]]:
+        """
+        Method returns partition id if table is partitioned or sharded and generate custom partition query for
+        partitioned table.
+        See more about partitioned tables at https://cloud.google.com/bigquery/docs/partitioned-tables
+        """
+
+        partition = self.get_latest_partition(schema, table)
+        if partition:
+            partition_ts: Union[datetime.datetime, datetime.date]
+
+            logger.debug(f"{table} is partitioned and partition column is {partition}")
+            if partition.data_type in ("TIMESTAMP", "DATETIME"):
+                partition_ts = parser.parse(partition.partition_id)
+            elif partition.data_type == "DATE":
+                partition_ts = parser.parse(partition.partition_id).date()
+            else:
+                logger.warning(f"Not supported partition type {partition.data_type}")
+                return None, None
+
+            custom_sql = """
+SELECT
+    *
+FROM
+    `{table_catalog}.{table_schema}.{table_name}`
+WHERE
+    {column_name} = '{partition_id}'
+            """.format(
+                table_catalog=partition.table_catalog,
+                table_schema=partition.table_schema,
+                table_name=partition.table_name,
+                column_name=partition.column_name,
+                partition_id=partition_ts,
+            )
+
+            return (partition.partition_id, custom_sql)
+        else:
+            # For sharded table we want to get the partition id but not needed to generate custom query
+            table, shard = self.get_shard_from_table(table)
+            if shard:
+                return shard, None
+        return None, None
+
+    def is_dataset_eligable_profiling(
+        self, dataset_name: str, sql_config: SQLAlchemyConfig
+    ) -> bool:
+        """
+        Method overrides default profiling filter which checks profiling eligibility based on allow-deny pattern.
+        This one also don't profile those sharded tables which are not the latest.
+        """
+        if not super().is_dataset_eligable_profiling(dataset_name, sql_config):
+            return False
+
+        (project_id, schema, table) = dataset_name.split(".")
+        if not self.is_latest_shard(project_id=project_id, table=table, schema=schema):
+            logger.warning(
+                f"{dataset_name} is sharded but not the latest shard, skipping..."
+            )
+            return False
+        return True
+
     @classmethod
     def create(cls, config_dict, ctx):
         config = BigQueryConfig.parse_obj(config_dict)
@@ -486,11 +699,19 @@ class BigQuerySource(SQLAlchemySource):
                 return mcp
         return None
 
-    def prepare_profiler_args(self, schema: str, table: str) -> dict:
+    def prepare_profiler_args(
+        self,
+        schema: str,
+        table: str,
+        partition: Optional[str],
+        custom_sql: Optional[str] = None,
+    ) -> dict:
         self.config: BigQueryConfig
         return dict(
             schema=self.config.project_id,
             table=f"{schema}.{table}",
+            partition=partition,
+            custom_sql=custom_sql,
         )
 
     @staticmethod
@@ -499,6 +720,18 @@ class BigQuerySource(SQLAlchemySource):
         with inspector.bind.connect() as connection:
             project_id = connection.connection._client.project
             return project_id
+
+    def normalise_dataset_name(self, dataset_name: str) -> str:
+        (project_id, schema, table) = dataset_name.split(".")
+
+        trimmed_table_name = (
+            BigQueryTableRef.from_spec_obj(
+                {"projectId": project_id, "datasetId": schema, "tableId": table}
+            )
+            .remove_extras()
+            .table
+        )
+        return f"{project_id}.{schema}.{trimmed_table_name}"
 
     def get_identifier(
         self,
@@ -510,14 +743,10 @@ class BigQuerySource(SQLAlchemySource):
     ) -> str:
         assert inspector
         project_id = self._get_project_id(inspector)
-        trimmed_table_name = (
-            BigQueryTableRef.from_spec_obj(
-                {"projectId": project_id, "datasetId": schema, "tableId": entity}
-            )
-            .remove_extras()
-            .table
-        )
-        return f"{project_id}.{schema}.{trimmed_table_name}"
+        table_name = BigQueryTableRef.from_spec_obj(
+            {"projectId": project_id, "datasetId": schema, "tableId": entity}
+        ).table
+        return f"{project_id}.{schema}.{table_name}"
 
     def standardize_schema_table_names(
         self, schema: str, entity: str
