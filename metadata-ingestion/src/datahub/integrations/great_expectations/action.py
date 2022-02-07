@@ -30,11 +30,10 @@ from datahub.ingestion.source.sql.sql_common import get_platform_from_sqlalchemy
 from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
     AssertionInfo,
     AssertionResult,
-    AssertionScope,
     AssertionStdOperator,
     AssertionType,
-    BatchAssertionResult,
     BatchSpec,
+    DatasetAssertionScope,
     DatasetColumnAssertion,
     DatasetColumnStdAggFunc,
     DatasetRowsAssertion,
@@ -46,6 +45,12 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import DataPlatformInstan
 from datahub.metadata.com.linkedin.pegasus2avro.events.metadata import ChangeType
 from datahub.metadata.schema_classes import PartitionSpecClass, PartitionTypeClass
 from datahub.utilities.sql_parser import MetadataSQLSQLParser
+from src.datahub.metadata.com.linkedin.pegasus2avro.assertion import (
+    AssertionResultType,
+    AssertionRunEvent,
+    AssertionRunStatus,
+    DatasetAssertionInfo,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -187,13 +192,19 @@ class DatahubValidationAction(ValidationAction):
             assertionInfo: AssertionInfo = self.get_assertion_info(
                 expectation_type, kwargs
             )
-            assertionInfo.datasets = [d["dataset_urn"] for d in datasets]
+            assertion_datasets = [d["dataset_urn"] for d in datasets]
             if len(datasets) == 1 and "column" in kwargs:
-                assertionInfo.datasetFields = [
+                assertion_fields = [
                     builder.make_schema_field_urn(
                         datasets[0]["dataset_urn"], kwargs["column"]
                     )
                 ]
+            else:
+                assertion_fields = None
+            assertionInfo.datasetAssertion = DatasetAssertionInfo(
+                datasets=assertion_datasets,
+                fields=assertion_fields,
+            )
             assertionInfo.customProperties = {
                 "expectation_suite_name": validation_result_suite_identifier.expectation_suite_identifier.expectation_suite_name
             }
@@ -226,13 +237,15 @@ class DatahubValidationAction(ValidationAction):
                         nativeResults["observed_value"] = result.get("observed_value")
 
                 # https://docs.greatexpectations.io/docs/reference/expectations/result_format/
-                assertionResult = AssertionResult(
+                assertionResult = AssertionRunEvent(
                     timestampMillis=int(run_time.timestamp() * 1000),
                     assertionUrn=assertionUrn,
                     asserteeUrn=dset["dataset_urn"],
-                    nativeEvaluatorRunId=run_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                    batchAssertionResult=BatchAssertionResult(
-                        success=success,
+                    runId=run_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    result=AssertionResult(
+                        type=AssertionResultType.SUCCESS
+                        if success
+                        else AssertionResultType.FAIL,
                         rowCount=result.get("element_count"),
                         missingCount=result.get("missing_count"),
                         unexpectedCount=result.get("unexpected_count"),
@@ -242,6 +255,7 @@ class DatahubValidationAction(ValidationAction):
                     ),
                     batchSpec=dset["batchSpec"],
                     messageId=assertionUrn,
+                    status=AssertionRunStatus.COMPLETE,
                 )
                 if dset.get("partitionSpec") is not None:
                     assertionResult.partitionSpec = dset.get("partitionSpec")
@@ -369,48 +383,48 @@ class DatahubValidationAction(ValidationAction):
         }
 
         if expectation_type in column_aggregate_expectations.keys():
-            assertionType = AssertionType(
-                scope=AssertionScope.DATASET_COLUMN,
-                datasetColumnAssertion=column_aggregate_expectations[expectation_type],
+            datasetAssertionInfo = DatasetAssertionInfo(
+                scope=DatasetAssertionScope.DATASET_COLUMN,
+                columnAssertion=column_aggregate_expectations[expectation_type],
             )
         elif expectation_type in column_map_expectations.keys():
-            assertionType = AssertionType(
-                scope=AssertionScope.DATASET_COLUMN,
-                datasetColumnAssertion=column_map_expectations[expectation_type],
+            datasetAssertionInfo = DatasetAssertionInfo(
+                scope=DatasetAssertionScope.DATASET_COLUMN,
+                columnAssertion=column_map_expectations[expectation_type],
             )
         elif expectation_type in table_schema_expectations.keys():
-            assertionType = AssertionType(
-                scope=AssertionScope.DATASET_SCHEMA,
-                datasetSchemaAssertion=table_schema_expectations[expectation_type],
+            datasetAssertionInfo = DatasetAssertionInfo(
+                scope=DatasetAssertionScope.DATASET_SCHEMA,
+                schemaAssertion=table_schema_expectations[expectation_type],
             )
         elif expectation_type in table_expectations.keys():
-            assertionType = AssertionType(
-                scope=AssertionScope.DATASET_ROWS,
-                datasetRowsAssertion=table_expectations[expectation_type],
+            datasetAssertionInfo = DatasetAssertionInfo(
+                scope=DatasetAssertionScope.DATASET_ROWS,
+                rowsAssertion=table_expectations[expectation_type],
             )
         # Heuristically mapping other expectations
         elif "column" in kwargs and expectation_type.startswith("expect_column_value"):
-            assertionType = AssertionType(
-                scope=AssertionScope.DATASET_COLUMN,
-                datasetColumnAssertion=DatasetColumnAssertion(
+            datasetAssertionInfo = DatasetAssertionInfo(
+                scope=DatasetAssertionScope.DATASET_COLUMN,
+                columnAssertion=DatasetColumnAssertion(
                     stdOperator=AssertionStdOperator._NATIVE_,
                     nativeOperator=expectation_type,
                     stdAggFunc=DatasetColumnStdAggFunc.IDENTITY,
                 ),
             )
         elif "column" in kwargs:
-            assertionType = AssertionType(
-                scope=AssertionScope.DATASET_COLUMN,
-                datasetColumnAssertion=DatasetColumnAssertion(
+            datasetAssertionInfo = DatasetAssertionInfo(
+                scope=DatasetAssertionScope.DATASET_COLUMN,
+                columnAssertion=DatasetColumnAssertion(
                     stdOperator=AssertionStdOperator._NATIVE_,
                     nativeOperator=expectation_type,
                     stdAggFunc=DatasetColumnStdAggFunc._NATIVE_,
                 ),
             )
         else:
-            assertionType = AssertionType(
-                scope=AssertionScope.DATASET_ROWS,
-                datasetRowsAssertion=DatasetRowsAssertion(
+            datasetAssertionInfo = DatasetAssertionInfo(
+                scope=DatasetAssertionScope.DATASET_ROWS,
+                rowsAssertion=DatasetRowsAssertion(
                     stdOperator=AssertionStdOperator._NATIVE_,
                     nativeOperator=expectation_type,
                     stdAggFunc=DatasetRowsStdAggFunc._NATIVE_,
@@ -418,14 +432,15 @@ class DatahubValidationAction(ValidationAction):
             )
 
         return AssertionInfo(
-            assertionType=assertionType,
+            type=AssertionType.DATASET,
+            datasetAssertion=datasetAssertionInfo,
             # 1. keys `max_val`, `min_val` for to_be_between constraints,
             # except for expect_column_quantile_values_to_be_between having parameter
             # keys `quantile_ranges`.quantiles` and `quantile_ranges`.`value_ranges`
             # 2. `value` for singular equal_to constraints
             # 3. `values` or `columns_set` or `values_set` or `columns_list`
             # for columns equal_to and to_be_in_set constraints
-            assertionParameters={
+            parameters={
                 k: str(v) for k, v in kwargs.items() if k not in ["batch_id", "column"]
             },
         )
