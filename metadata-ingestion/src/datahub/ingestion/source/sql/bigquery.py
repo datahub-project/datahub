@@ -370,12 +370,18 @@ class BigQuerySource(SQLAlchemySource):
             ),
         )
 
-        logger.debug("Start loading log entries from BigQuery")
+        logger.info("Start loading log entries from BigQuery")
         for client in clients:
-            yield from client.list_entries(
+            entries = client.list_entries(
                 filter_=filter, page_size=self.config.log_page_size
             )
-        logger.debug("finished loading log entries from BigQuery")
+            item = 0
+            for entry in entries:
+                item = item + 1
+                if item % self.config.log_page_size == 0:
+                    logger.info(f"Read {item} entry from log entries")
+                    yield entry
+        logger.info("Finished loading log entries from BigQuery")
 
     def _get_exported_bigquery_audit_metadata(
         self, bigquery_client: BigQueryClient
@@ -391,7 +397,7 @@ class BigQuerySource(SQLAlchemySource):
         ).strftime(BQ_DATETIME_FORMAT)
 
         for dataset in self.config.bigquery_audit_metadata_datasets:
-            logger.debug(
+            logger.info(
                 f"Start loading log entries from BigQueryAuditMetadata in {dataset}"
             )
 
@@ -418,7 +424,7 @@ class BigQuerySource(SQLAlchemySource):
                 ).format(start_time=start_time, end_time=end_time)
             query_job = bigquery_client.query(query)
 
-            logger.debug(
+            logger.info(
                 f"Finished loading log entries from BigQueryAuditMetadata in {dataset}"
             )
 
