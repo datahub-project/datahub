@@ -139,6 +139,20 @@ and this URL will be called to get back the needed metadata.
 
 ## Config details
 
+### Token authentication
+
+If this tool needs to get an access token to interrogate the endpoints, this can be requested. Two methods are available at the moment:
+
+* 'get' : this requires username/password combination to be present in the url:
+
+```yaml
+    get_token:  # optional, if you need to get an authentication token beforehand 
+        request_type: get
+        url: api/authentication/login?username={username}&password={password}
+```
+
+* 'post' : username and password will be inserted in the body of the POST request
+
 ### Getting dataset metadata from `forced_example`
 
 Suppose you have an endpoint defined in the swagger file, but without example given, and the tool is 
