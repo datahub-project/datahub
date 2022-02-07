@@ -28,10 +28,14 @@ from datahub.integrations.great_expectations.action import DatahubValidationActi
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
     AssertionResultClass,
+    AssertionResultTypeClass,
+    AssertionRunEventClass,
+    AssertionRunStatusClass,
     AssertionTypeClass,
-    BatchAssertionResultClass,
     BatchSpecClass,
     DataPlatformInstanceClass,
+    DatasetAssertionInfoClass,
+    DatasetAssertionScopeClass,
     DatasetRowsAssertionClass,
     PartitionSpecClass,
 )
@@ -164,22 +168,23 @@ def test_DatahubValidationAction_basic(
                 MetadataChangeProposalWrapper(
                     entityType="assertion",
                     changeType="UPSERT",
-                    entityUrn="urn:li:assertion:648c320cbde1e018bab1ecf8f1add9b6",
+                    entityUrn="urn:li:assertion:f0f6f56e3b1b5a029e261af0390a9fc4",
                     aspectName="assertionInfo",
                     aspect=AssertionInfoClass(
+                        type=AssertionTypeClass.DATASET,
                         customProperties={"expectation_suite_name": "asset.default"},
-                        datasets=[
-                            "urn:li:dataset:(urn:li:dataPlatform:postgres,test.public.foo2,PROD)"
-                        ],
-                        assertionType=AssertionTypeClass(
-                            scope="DATASET_ROWS",
-                            datasetRowsAssertion=DatasetRowsAssertionClass(
+                        datasetAssertion=DatasetAssertionInfoClass(
+                            scope=DatasetAssertionScopeClass.DATASET_ROWS,
+                            datasets=[
+                                "urn:li:dataset:(urn:li:dataPlatform:postgres,test.public.foo2,PROD)"
+                            ],
+                            rowsAssertion=DatasetRowsAssertionClass(
                                 stdOperator="BETWEEN",
                                 nativeOperator="expect_table_row_count_to_be_between",
                                 stdAggFunc="ROW_COUNT",
                             ),
                         ),
-                        assertionParameters={
+                        parameters={
                             "max_value": "10000",
                             "min_value": "10000",
                         },
@@ -191,7 +196,7 @@ def test_DatahubValidationAction_basic(
                 MetadataChangeProposalWrapper(
                     entityType="assertion",
                     changeType="UPSERT",
-                    entityUrn="urn:li:assertion:648c320cbde1e018bab1ecf8f1add9b6",
+                    entityUrn="urn:li:assertion:f0f6f56e3b1b5a029e261af0390a9fc4",
                     aspectName="dataPlatformInstance",
                     aspect=DataPlatformInstanceClass(
                         platform="urn:li:dataPlatform:greatExpectations"
@@ -206,25 +211,27 @@ def test_DatahubValidationAction_basic(
                     entityUrn="urn:li:dataset:(urn:li:dataPlatform:postgres,test.public.foo2,PROD)",
                     entityKeyAspect=None,
                     aspectName="assertionResult",
-                    aspect=AssertionResultClass(
+                    aspect=AssertionRunEventClass(
                         timestampMillis=1640701702000,
+                        runId="2021-12-28T14:28:22Z",
                         partitionSpec=PartitionSpecClass(
                             type="FULL_TABLE",
                             partition="FULL_TABLE_SNAPSHOT",
                             timePartition=None,
                         ),
-                        messageId="urn:li:assertion:648c320cbde1e018bab1ecf8f1add9b6",
-                        assertionUrn="urn:li:assertion:648c320cbde1e018bab1ecf8f1add9b6",
+                        messageId="urn:li:assertion:f0f6f56e3b1b5a029e261af0390a9fc4",
+                        assertionUrn="urn:li:assertion:f0f6f56e3b1b5a029e261af0390a9fc4",
                         asserteeUrn="urn:li:dataset:(urn:li:dataPlatform:postgres,test.public.foo2,PROD)",
                         batchSpec=BatchSpecClass(
                             customProperties={"data_asset_name": "foo2"},
                             nativeBatchId="010ef8c1cd417910b971f4468f024ec5",
                         ),
-                        batchAssertionResult=BatchAssertionResultClass(
-                            success=True,
+                        status=AssertionRunStatusClass.COMPLETE,
+                        result=AssertionResultClass(
+                            type=AssertionResultTypeClass.SUCCESS,
                             actualAggValue=10000,
+                            nativeResults={},
                         ),
-                        nativeEvaluatorRunId="2021-12-28T14:28:22Z",
                     ),
                 ),
             ),

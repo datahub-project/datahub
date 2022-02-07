@@ -200,11 +200,10 @@ class DatahubValidationAction(ValidationAction):
                     )
                 ]
             else:
-                assertion_fields = None
-            assertionInfo.datasetAssertion = DatasetAssertionInfo(
-                datasets=assertion_datasets,
-                fields=assertion_fields,
-            )
+                assertion_fields = None  # type:ignore
+            assertionInfo.datasetAssertion.datasets = assertion_datasets  # type:ignore
+            assertionInfo.datasetAssertion.fields = assertion_fields  # type:ignore
+
             assertionInfo.customProperties = {
                 "expectation_suite_name": validation_result_suite_identifier.expectation_suite_identifier.expectation_suite_name
             }

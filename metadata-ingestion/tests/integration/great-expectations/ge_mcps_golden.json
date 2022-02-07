@@ -2,12 +2,12 @@
 {
     "auditHeader": null,
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:7eb6c4fa061ab7d5c6d91787dc721419",
+    "entityUrn": "urn:li:assertion:c4fc93a9f8800dc05dd6dfd3e4576602",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
-        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD),id)\"], \"datasets\": [\"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\"]}, \"parameters\": {}}",
+        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"scope\": \"DATASET_SCHEMA\", \"schemaAssertion\": {\"stdOperator\": \"_NATIVE_\", \"nativeOperator\": \"expect_column_to_exist\", \"stdAggFunc\": \"_NATIVE_\"}, \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD),id)\"], \"datasets\": [\"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\"]}, \"parameters\": {}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -15,7 +15,7 @@
 {
     "auditHeader": null,
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:7eb6c4fa061ab7d5c6d91787dc721419",
+    "entityUrn": "urn:li:assertion:c4fc93a9f8800dc05dd6dfd3e4576602",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -33,7 +33,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionResult",
     "aspect": {
-        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"{'category': 'catA'}\"}, \"messageId\": \"urn:li:assertion:7eb6c4fa061ab7d5c6d91787dc721419\", \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:7eb6c4fa061ab7d5c6d91787dc721419\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"data__foo1__asset\"}, \"nativeBatchId\": \"c8f12129f2e57412eee5fb8656154d05\", \"limit\": 10}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"nativeResults\": {}}}",
+        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"{'category': 'catA'}\"}, \"messageId\": \"urn:li:assertion:c4fc93a9f8800dc05dd6dfd3e4576602\", \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:c4fc93a9f8800dc05dd6dfd3e4576602\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"data__foo1__asset\"}, \"nativeBatchId\": \"c8f12129f2e57412eee5fb8656154d05\", \"limit\": 10}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"nativeResults\": {}}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -41,12 +41,12 @@
 {
     "auditHeader": null,
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:e1a421e5707e0ac08fd5ab6307042ab7",
+    "entityUrn": "urn:li:assertion:fb245ea5a99078aceba74d0646f02e44",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
-        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD),id)\"], \"datasets\": [\"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\"]}, \"parameters\": {\"max_value\": \"5\", \"min_value\": \"1\"}}",
+        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"scope\": \"DATASET_COLUMN\", \"columnAssertion\": {\"stdOperator\": \"BETWEEN\", \"nativeOperator\": \"expect_column_min_to_be_between\", \"stdAggFunc\": \"MIN\"}, \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD),id)\"], \"datasets\": [\"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\"]}, \"parameters\": {\"max_value\": \"5\", \"min_value\": \"1\"}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -54,7 +54,7 @@
 {
     "auditHeader": null,
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:e1a421e5707e0ac08fd5ab6307042ab7",
+    "entityUrn": "urn:li:assertion:fb245ea5a99078aceba74d0646f02e44",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -72,7 +72,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionResult",
     "aspect": {
-        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"{'category': 'catA'}\"}, \"messageId\": \"urn:li:assertion:e1a421e5707e0ac08fd5ab6307042ab7\", \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:e1a421e5707e0ac08fd5ab6307042ab7\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"data__foo1__asset\"}, \"nativeBatchId\": \"c8f12129f2e57412eee5fb8656154d05\", \"limit\": 10}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"actualAggValue\": 1, \"nativeResults\": {}}}",
+        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"{'category': 'catA'}\"}, \"messageId\": \"urn:li:assertion:fb245ea5a99078aceba74d0646f02e44\", \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:fb245ea5a99078aceba74d0646f02e44\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"data__foo1__asset\"}, \"nativeBatchId\": \"c8f12129f2e57412eee5fb8656154d05\", \"limit\": 10}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"actualAggValue\": 1, \"nativeResults\": {}}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -80,12 +80,12 @@
 {
     "auditHeader": null,
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:5e864944d42f27786fdc146244f603fc",
+    "entityUrn": "urn:li:assertion:785c4da6c41c0cc157ba7eef214d249f",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
-        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"datasets\": [\"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\"]}, \"parameters\": {\"max_value\": \"5\", \"min_value\": \"1\"}}",
+        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"scope\": \"DATASET_ROWS\", \"rowsAssertion\": {\"stdOperator\": \"BETWEEN\", \"nativeOperator\": \"expect_table_row_count_to_be_between\", \"stdAggFunc\": \"ROW_COUNT\"}, \"datasets\": [\"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\"]}, \"parameters\": {\"max_value\": \"5\", \"min_value\": \"1\"}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -93,7 +93,7 @@
 {
     "auditHeader": null,
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:5e864944d42f27786fdc146244f603fc",
+    "entityUrn": "urn:li:assertion:785c4da6c41c0cc157ba7eef214d249f",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -111,7 +111,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionResult",
     "aspect": {
-        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"{'category': 'catA'}\"}, \"messageId\": \"urn:li:assertion:5e864944d42f27786fdc146244f603fc\", \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:5e864944d42f27786fdc146244f603fc\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"data__foo1__asset\"}, \"nativeBatchId\": \"c8f12129f2e57412eee5fb8656154d05\", \"limit\": 10}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"actualAggValue\": 3, \"nativeResults\": {}}}",
+        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"{'category': 'catA'}\"}, \"messageId\": \"urn:li:assertion:785c4da6c41c0cc157ba7eef214d249f\", \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:785c4da6c41c0cc157ba7eef214d249f\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"data__foo1__asset\"}, \"nativeBatchId\": \"c8f12129f2e57412eee5fb8656154d05\", \"limit\": 10}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"actualAggValue\": 3, \"nativeResults\": {}}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -119,12 +119,12 @@
 {
     "auditHeader": null,
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:1468b14498461f3009b42226bcdc7b44",
+    "entityUrn": "urn:li:assertion:3843343cad612521462c244579ade742",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
-        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD),name)\"], \"datasets\": [\"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\"]}, \"parameters\": {}}",
+        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"scope\": \"DATASET_COLUMN\", \"columnAssertion\": {\"stdOperator\": \"NOT_NULL\", \"nativeOperator\": \"expect_column_values_to_not_be_null\", \"stdAggFunc\": \"IDENTITY\"}, \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD),name)\"], \"datasets\": [\"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\"]}, \"parameters\": {}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -132,7 +132,7 @@
 {
     "auditHeader": null,
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:1468b14498461f3009b42226bcdc7b44",
+    "entityUrn": "urn:li:assertion:3843343cad612521462c244579ade742",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -150,7 +150,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionResult",
     "aspect": {
-        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"{'category': 'catA'}\"}, \"messageId\": \"urn:li:assertion:1468b14498461f3009b42226bcdc7b44\", \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:1468b14498461f3009b42226bcdc7b44\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"data__foo1__asset\"}, \"nativeBatchId\": \"c8f12129f2e57412eee5fb8656154d05\", \"limit\": 10}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"rowCount\": 3, \"unexpectedCount\": 0, \"nativeResults\": {\"partial_unexpected_list\": \"[]\", \"partial_unexpected_counts\": \"[]\"}}}",
+        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"{'category': 'catA'}\"}, \"messageId\": \"urn:li:assertion:3843343cad612521462c244579ade742\", \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:3843343cad612521462c244579ade742\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"data__foo1__asset\"}, \"nativeBatchId\": \"c8f12129f2e57412eee5fb8656154d05\", \"limit\": 10}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"rowCount\": 3, \"unexpectedCount\": 0, \"nativeResults\": {\"partial_unexpected_list\": \"[]\", \"partial_unexpected_counts\": \"[]\"}}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -158,12 +158,12 @@
 {
     "auditHeader": null,
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:7eb6c4fa061ab7d5c6d91787dc721419",
+    "entityUrn": "urn:li:assertion:c4fc93a9f8800dc05dd6dfd3e4576602",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
-        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD),id)\"], \"datasets\": [\"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\"]}, \"parameters\": {}}",
+        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"scope\": \"DATASET_SCHEMA\", \"schemaAssertion\": {\"stdOperator\": \"_NATIVE_\", \"nativeOperator\": \"expect_column_to_exist\", \"stdAggFunc\": \"_NATIVE_\"}, \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD),id)\"], \"datasets\": [\"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\"]}, \"parameters\": {}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -171,7 +171,7 @@
 {
     "auditHeader": null,
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:7eb6c4fa061ab7d5c6d91787dc721419",
+    "entityUrn": "urn:li:assertion:c4fc93a9f8800dc05dd6dfd3e4576602",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -189,7 +189,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionResult",
     "aspect": {
-        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"{'category': 'catB'}\"}, \"messageId\": \"urn:li:assertion:7eb6c4fa061ab7d5c6d91787dc721419\", \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:7eb6c4fa061ab7d5c6d91787dc721419\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"data__foo1__asset\"}, \"nativeBatchId\": \"aaee0c1f4ae6bba9bcb50c5f20277d0a\", \"limit\": 10}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"nativeResults\": {}}}",
+        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"{'category': 'catB'}\"}, \"messageId\": \"urn:li:assertion:c4fc93a9f8800dc05dd6dfd3e4576602\", \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:c4fc93a9f8800dc05dd6dfd3e4576602\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"data__foo1__asset\"}, \"nativeBatchId\": \"aaee0c1f4ae6bba9bcb50c5f20277d0a\", \"limit\": 10}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"nativeResults\": {}}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -197,12 +197,12 @@
 {
     "auditHeader": null,
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:e1a421e5707e0ac08fd5ab6307042ab7",
+    "entityUrn": "urn:li:assertion:fb245ea5a99078aceba74d0646f02e44",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
-        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD),id)\"], \"datasets\": [\"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\"]}, \"parameters\": {\"max_value\": \"5\", \"min_value\": \"1\"}}",
+        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"scope\": \"DATASET_COLUMN\", \"columnAssertion\": {\"stdOperator\": \"BETWEEN\", \"nativeOperator\": \"expect_column_min_to_be_between\", \"stdAggFunc\": \"MIN\"}, \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD),id)\"], \"datasets\": [\"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\"]}, \"parameters\": {\"max_value\": \"5\", \"min_value\": \"1\"}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -210,7 +210,7 @@
 {
     "auditHeader": null,
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:e1a421e5707e0ac08fd5ab6307042ab7",
+    "entityUrn": "urn:li:assertion:fb245ea5a99078aceba74d0646f02e44",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -228,7 +228,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionResult",
     "aspect": {
-        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"{'category': 'catB'}\"}, \"messageId\": \"urn:li:assertion:e1a421e5707e0ac08fd5ab6307042ab7\", \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:e1a421e5707e0ac08fd5ab6307042ab7\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"data__foo1__asset\"}, \"nativeBatchId\": \"aaee0c1f4ae6bba9bcb50c5f20277d0a\", \"limit\": 10}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"actualAggValue\": 3, \"nativeResults\": {}}}",
+        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"{'category': 'catB'}\"}, \"messageId\": \"urn:li:assertion:fb245ea5a99078aceba74d0646f02e44\", \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:fb245ea5a99078aceba74d0646f02e44\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"data__foo1__asset\"}, \"nativeBatchId\": \"aaee0c1f4ae6bba9bcb50c5f20277d0a\", \"limit\": 10}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"actualAggValue\": 3, \"nativeResults\": {}}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -236,12 +236,12 @@
 {
     "auditHeader": null,
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:5e864944d42f27786fdc146244f603fc",
+    "entityUrn": "urn:li:assertion:785c4da6c41c0cc157ba7eef214d249f",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
-        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"datasets\": [\"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\"]}, \"parameters\": {\"max_value\": \"5\", \"min_value\": \"1\"}}",
+        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"scope\": \"DATASET_ROWS\", \"rowsAssertion\": {\"stdOperator\": \"BETWEEN\", \"nativeOperator\": \"expect_table_row_count_to_be_between\", \"stdAggFunc\": \"ROW_COUNT\"}, \"datasets\": [\"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\"]}, \"parameters\": {\"max_value\": \"5\", \"min_value\": \"1\"}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -249,7 +249,7 @@
 {
     "auditHeader": null,
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:5e864944d42f27786fdc146244f603fc",
+    "entityUrn": "urn:li:assertion:785c4da6c41c0cc157ba7eef214d249f",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -267,7 +267,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionResult",
     "aspect": {
-        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"{'category': 'catB'}\"}, \"messageId\": \"urn:li:assertion:5e864944d42f27786fdc146244f603fc\", \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:5e864944d42f27786fdc146244f603fc\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"data__foo1__asset\"}, \"nativeBatchId\": \"aaee0c1f4ae6bba9bcb50c5f20277d0a\", \"limit\": 10}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"actualAggValue\": 2, \"nativeResults\": {}}}",
+        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"{'category': 'catB'}\"}, \"messageId\": \"urn:li:assertion:785c4da6c41c0cc157ba7eef214d249f\", \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:785c4da6c41c0cc157ba7eef214d249f\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"data__foo1__asset\"}, \"nativeBatchId\": \"aaee0c1f4ae6bba9bcb50c5f20277d0a\", \"limit\": 10}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"actualAggValue\": 2, \"nativeResults\": {}}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -275,12 +275,12 @@
 {
     "auditHeader": null,
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:1468b14498461f3009b42226bcdc7b44",
+    "entityUrn": "urn:li:assertion:3843343cad612521462c244579ade742",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
-        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD),name)\"], \"datasets\": [\"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\"]}, \"parameters\": {}}",
+        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"scope\": \"DATASET_COLUMN\", \"columnAssertion\": {\"stdOperator\": \"NOT_NULL\", \"nativeOperator\": \"expect_column_values_to_not_be_null\", \"stdAggFunc\": \"IDENTITY\"}, \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD),name)\"], \"datasets\": [\"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\"]}, \"parameters\": {}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -288,7 +288,7 @@
 {
     "auditHeader": null,
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:1468b14498461f3009b42226bcdc7b44",
+    "entityUrn": "urn:li:assertion:3843343cad612521462c244579ade742",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -306,7 +306,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionResult",
     "aspect": {
-        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"{'category': 'catB'}\"}, \"messageId\": \"urn:li:assertion:1468b14498461f3009b42226bcdc7b44\", \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:1468b14498461f3009b42226bcdc7b44\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"data__foo1__asset\"}, \"nativeBatchId\": \"aaee0c1f4ae6bba9bcb50c5f20277d0a\", \"limit\": 10}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"rowCount\": 2, \"unexpectedCount\": 0, \"nativeResults\": {\"partial_unexpected_list\": \"[]\", \"partial_unexpected_counts\": \"[]\"}}}",
+        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"{'category': 'catB'}\"}, \"messageId\": \"urn:li:assertion:3843343cad612521462c244579ade742\", \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:3843343cad612521462c244579ade742\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"data__foo1__asset\"}, \"nativeBatchId\": \"aaee0c1f4ae6bba9bcb50c5f20277d0a\", \"limit\": 10}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"rowCount\": 2, \"unexpectedCount\": 0, \"nativeResults\": {\"partial_unexpected_list\": \"[]\", \"partial_unexpected_counts\": \"[]\"}}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -314,12 +314,12 @@
 {
     "auditHeader": null,
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:f92ada72c578e83dd621a1048ff046d9",
+    "entityUrn": "urn:li:assertion:6cc7de07e0b3783aa29294e35b3335d3",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
-        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD),id)\"], \"datasets\": [\"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\"]}, \"parameters\": {}}",
+        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"scope\": \"DATASET_SCHEMA\", \"schemaAssertion\": {\"stdOperator\": \"_NATIVE_\", \"nativeOperator\": \"expect_column_to_exist\", \"stdAggFunc\": \"_NATIVE_\"}, \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD),id)\"], \"datasets\": [\"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\"]}, \"parameters\": {}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -327,7 +327,7 @@
 {
     "auditHeader": null,
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:f92ada72c578e83dd621a1048ff046d9",
+    "entityUrn": "urn:li:assertion:6cc7de07e0b3783aa29294e35b3335d3",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -345,7 +345,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionResult",
     "aspect": {
-        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"messageId\": \"urn:li:assertion:f92ada72c578e83dd621a1048ff046d9\", \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:f92ada72c578e83dd621a1048ff046d9\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"foo2\"}, \"nativeBatchId\": \"010ef8c1cd417910b971f4468f024ec5\"}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"nativeResults\": {}}}",
+        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"messageId\": \"urn:li:assertion:6cc7de07e0b3783aa29294e35b3335d3\", \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:6cc7de07e0b3783aa29294e35b3335d3\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"foo2\"}, \"nativeBatchId\": \"010ef8c1cd417910b971f4468f024ec5\"}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"nativeResults\": {}}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -353,12 +353,12 @@
 {
     "auditHeader": null,
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:763ac69e89e0b45777468a1f4d7e8d75",
+    "entityUrn": "urn:li:assertion:0954407614847eeeb8ba8be96ebff41b",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
-        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD),id)\"], \"datasets\": [\"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\"]}, \"parameters\": {\"max_value\": \"5\", \"min_value\": \"1\"}}",
+        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"scope\": \"DATASET_COLUMN\", \"columnAssertion\": {\"stdOperator\": \"BETWEEN\", \"nativeOperator\": \"expect_column_min_to_be_between\", \"stdAggFunc\": \"MIN\"}, \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD),id)\"], \"datasets\": [\"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\"]}, \"parameters\": {\"max_value\": \"5\", \"min_value\": \"1\"}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -366,7 +366,7 @@
 {
     "auditHeader": null,
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:763ac69e89e0b45777468a1f4d7e8d75",
+    "entityUrn": "urn:li:assertion:0954407614847eeeb8ba8be96ebff41b",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -384,7 +384,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionResult",
     "aspect": {
-        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"messageId\": \"urn:li:assertion:763ac69e89e0b45777468a1f4d7e8d75\", \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:763ac69e89e0b45777468a1f4d7e8d75\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"foo2\"}, \"nativeBatchId\": \"010ef8c1cd417910b971f4468f024ec5\"}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"actualAggValue\": 1, \"nativeResults\": {}}}",
+        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"messageId\": \"urn:li:assertion:0954407614847eeeb8ba8be96ebff41b\", \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:0954407614847eeeb8ba8be96ebff41b\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"foo2\"}, \"nativeBatchId\": \"010ef8c1cd417910b971f4468f024ec5\"}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"actualAggValue\": 1, \"nativeResults\": {}}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -392,12 +392,12 @@
 {
     "auditHeader": null,
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:d0cd8582447304f3569b725babb05c29",
+    "entityUrn": "urn:li:assertion:68b37b2a272e617f3b9647d9e5a9163b",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
-        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"datasets\": [\"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\"]}, \"parameters\": {\"max_value\": \"5\", \"min_value\": \"1\"}}",
+        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"scope\": \"DATASET_ROWS\", \"rowsAssertion\": {\"stdOperator\": \"BETWEEN\", \"nativeOperator\": \"expect_table_row_count_to_be_between\", \"stdAggFunc\": \"ROW_COUNT\"}, \"datasets\": [\"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\"]}, \"parameters\": {\"max_value\": \"5\", \"min_value\": \"1\"}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -405,7 +405,7 @@
 {
     "auditHeader": null,
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:d0cd8582447304f3569b725babb05c29",
+    "entityUrn": "urn:li:assertion:68b37b2a272e617f3b9647d9e5a9163b",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -423,7 +423,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionResult",
     "aspect": {
-        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"messageId\": \"urn:li:assertion:d0cd8582447304f3569b725babb05c29\", \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:d0cd8582447304f3569b725babb05c29\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"foo2\"}, \"nativeBatchId\": \"010ef8c1cd417910b971f4468f024ec5\"}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"actualAggValue\": 5, \"nativeResults\": {}}}",
+        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"messageId\": \"urn:li:assertion:68b37b2a272e617f3b9647d9e5a9163b\", \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:68b37b2a272e617f3b9647d9e5a9163b\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"foo2\"}, \"nativeBatchId\": \"010ef8c1cd417910b971f4468f024ec5\"}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"actualAggValue\": 5, \"nativeResults\": {}}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -431,12 +431,12 @@
 {
     "auditHeader": null,
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:a23e7af4622c38d152b5e4c0fffcb7a3",
+    "entityUrn": "urn:li:assertion:a0ae856482e9cb7497f0b80ccb68239c",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
-        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD),name)\"], \"datasets\": [\"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\"]}, \"parameters\": {}}",
+        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"scope\": \"DATASET_COLUMN\", \"columnAssertion\": {\"stdOperator\": \"NOT_NULL\", \"nativeOperator\": \"expect_column_values_to_not_be_null\", \"stdAggFunc\": \"IDENTITY\"}, \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD),name)\"], \"datasets\": [\"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\"]}, \"parameters\": {}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -444,7 +444,7 @@
 {
     "auditHeader": null,
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:a23e7af4622c38d152b5e4c0fffcb7a3",
+    "entityUrn": "urn:li:assertion:a0ae856482e9cb7497f0b80ccb68239c",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -462,7 +462,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionResult",
     "aspect": {
-        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"messageId\": \"urn:li:assertion:a23e7af4622c38d152b5e4c0fffcb7a3\", \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:a23e7af4622c38d152b5e4c0fffcb7a3\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"foo2\"}, \"nativeBatchId\": \"010ef8c1cd417910b971f4468f024ec5\"}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"rowCount\": 5, \"unexpectedCount\": 0, \"nativeResults\": {\"partial_unexpected_list\": \"[]\", \"partial_unexpected_counts\": \"[]\"}}}",
+        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"messageId\": \"urn:li:assertion:a0ae856482e9cb7497f0b80ccb68239c\", \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:a0ae856482e9cb7497f0b80ccb68239c\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"foo2\"}, \"nativeBatchId\": \"010ef8c1cd417910b971f4468f024ec5\"}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"rowCount\": 5, \"unexpectedCount\": 0, \"nativeResults\": {\"partial_unexpected_list\": \"[]\", \"partial_unexpected_counts\": \"[]\"}}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -470,12 +470,12 @@
 {
     "auditHeader": null,
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:f92ada72c578e83dd621a1048ff046d9",
+    "entityUrn": "urn:li:assertion:6cc7de07e0b3783aa29294e35b3335d3",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
-        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD),id)\"], \"datasets\": [\"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\"]}, \"parameters\": {}}",
+        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"scope\": \"DATASET_SCHEMA\", \"schemaAssertion\": {\"stdOperator\": \"_NATIVE_\", \"nativeOperator\": \"expect_column_to_exist\", \"stdAggFunc\": \"_NATIVE_\"}, \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD),id)\"], \"datasets\": [\"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\"]}, \"parameters\": {}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -483,7 +483,7 @@
 {
     "auditHeader": null,
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:f92ada72c578e83dd621a1048ff046d9",
+    "entityUrn": "urn:li:assertion:6cc7de07e0b3783aa29294e35b3335d3",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -501,7 +501,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionResult",
     "aspect": {
-        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"QUERY\", \"partition\": \"Query_5c069023db2845910198ff14ab86ac27\"}, \"messageId\": \"urn:li:assertion:f92ada72c578e83dd621a1048ff046d9\", \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:f92ada72c578e83dd621a1048ff046d9\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\", \"batchSpec\": {\"customProperties\": {}, \"nativeBatchId\": \"60f7ffb6e021abc8c6333d9040f97140\", \"query\": \"select * from foo2 where score>5\"}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"nativeResults\": {}}}",
+        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"QUERY\", \"partition\": \"Query_5c069023db2845910198ff14ab86ac27\"}, \"messageId\": \"urn:li:assertion:6cc7de07e0b3783aa29294e35b3335d3\", \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:6cc7de07e0b3783aa29294e35b3335d3\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\", \"batchSpec\": {\"customProperties\": {}, \"nativeBatchId\": \"60f7ffb6e021abc8c6333d9040f97140\", \"query\": \"select * from foo2 where score>5\"}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"nativeResults\": {}}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -509,12 +509,12 @@
 {
     "auditHeader": null,
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:763ac69e89e0b45777468a1f4d7e8d75",
+    "entityUrn": "urn:li:assertion:0954407614847eeeb8ba8be96ebff41b",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
-        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD),id)\"], \"datasets\": [\"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\"]}, \"parameters\": {\"max_value\": \"5\", \"min_value\": \"1\"}}",
+        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"scope\": \"DATASET_COLUMN\", \"columnAssertion\": {\"stdOperator\": \"BETWEEN\", \"nativeOperator\": \"expect_column_min_to_be_between\", \"stdAggFunc\": \"MIN\"}, \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD),id)\"], \"datasets\": [\"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\"]}, \"parameters\": {\"max_value\": \"5\", \"min_value\": \"1\"}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -522,7 +522,7 @@
 {
     "auditHeader": null,
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:763ac69e89e0b45777468a1f4d7e8d75",
+    "entityUrn": "urn:li:assertion:0954407614847eeeb8ba8be96ebff41b",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -540,7 +540,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionResult",
     "aspect": {
-        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"QUERY\", \"partition\": \"Query_5c069023db2845910198ff14ab86ac27\"}, \"messageId\": \"urn:li:assertion:763ac69e89e0b45777468a1f4d7e8d75\", \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:763ac69e89e0b45777468a1f4d7e8d75\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\", \"batchSpec\": {\"customProperties\": {}, \"nativeBatchId\": \"60f7ffb6e021abc8c6333d9040f97140\", \"query\": \"select * from foo2 where score>5\"}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"actualAggValue\": 1, \"nativeResults\": {}}}",
+        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"QUERY\", \"partition\": \"Query_5c069023db2845910198ff14ab86ac27\"}, \"messageId\": \"urn:li:assertion:0954407614847eeeb8ba8be96ebff41b\", \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:0954407614847eeeb8ba8be96ebff41b\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\", \"batchSpec\": {\"customProperties\": {}, \"nativeBatchId\": \"60f7ffb6e021abc8c6333d9040f97140\", \"query\": \"select * from foo2 where score>5\"}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"actualAggValue\": 1, \"nativeResults\": {}}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -548,12 +548,12 @@
 {
     "auditHeader": null,
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:d0cd8582447304f3569b725babb05c29",
+    "entityUrn": "urn:li:assertion:68b37b2a272e617f3b9647d9e5a9163b",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
-        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"datasets\": [\"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\"]}, \"parameters\": {\"max_value\": \"5\", \"min_value\": \"1\"}}",
+        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"scope\": \"DATASET_ROWS\", \"rowsAssertion\": {\"stdOperator\": \"BETWEEN\", \"nativeOperator\": \"expect_table_row_count_to_be_between\", \"stdAggFunc\": \"ROW_COUNT\"}, \"datasets\": [\"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\"]}, \"parameters\": {\"max_value\": \"5\", \"min_value\": \"1\"}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -561,7 +561,7 @@
 {
     "auditHeader": null,
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:d0cd8582447304f3569b725babb05c29",
+    "entityUrn": "urn:li:assertion:68b37b2a272e617f3b9647d9e5a9163b",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -579,7 +579,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionResult",
     "aspect": {
-        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"QUERY\", \"partition\": \"Query_5c069023db2845910198ff14ab86ac27\"}, \"messageId\": \"urn:li:assertion:d0cd8582447304f3569b725babb05c29\", \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:d0cd8582447304f3569b725babb05c29\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\", \"batchSpec\": {\"customProperties\": {}, \"nativeBatchId\": \"60f7ffb6e021abc8c6333d9040f97140\", \"query\": \"select * from foo2 where score>5\"}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"actualAggValue\": 5, \"nativeResults\": {}}}",
+        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"QUERY\", \"partition\": \"Query_5c069023db2845910198ff14ab86ac27\"}, \"messageId\": \"urn:li:assertion:68b37b2a272e617f3b9647d9e5a9163b\", \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:68b37b2a272e617f3b9647d9e5a9163b\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\", \"batchSpec\": {\"customProperties\": {}, \"nativeBatchId\": \"60f7ffb6e021abc8c6333d9040f97140\", \"query\": \"select * from foo2 where score>5\"}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"actualAggValue\": 5, \"nativeResults\": {}}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -587,12 +587,12 @@
 {
     "auditHeader": null,
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:a23e7af4622c38d152b5e4c0fffcb7a3",
+    "entityUrn": "urn:li:assertion:a0ae856482e9cb7497f0b80ccb68239c",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
-        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD),name)\"], \"datasets\": [\"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\"]}, \"parameters\": {}}",
+        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"scope\": \"DATASET_COLUMN\", \"columnAssertion\": {\"stdOperator\": \"NOT_NULL\", \"nativeOperator\": \"expect_column_values_to_not_be_null\", \"stdAggFunc\": \"IDENTITY\"}, \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD),name)\"], \"datasets\": [\"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\"]}, \"parameters\": {}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -600,7 +600,7 @@
 {
     "auditHeader": null,
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:a23e7af4622c38d152b5e4c0fffcb7a3",
+    "entityUrn": "urn:li:assertion:a0ae856482e9cb7497f0b80ccb68239c",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -618,7 +618,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionResult",
     "aspect": {
-        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"QUERY\", \"partition\": \"Query_5c069023db2845910198ff14ab86ac27\"}, \"messageId\": \"urn:li:assertion:a23e7af4622c38d152b5e4c0fffcb7a3\", \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:a23e7af4622c38d152b5e4c0fffcb7a3\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\", \"batchSpec\": {\"customProperties\": {}, \"nativeBatchId\": \"60f7ffb6e021abc8c6333d9040f97140\", \"query\": \"select * from foo2 where score>5\"}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"rowCount\": 5, \"unexpectedCount\": 0, \"nativeResults\": {\"partial_unexpected_list\": \"[]\", \"partial_unexpected_counts\": \"[]\"}}}",
+        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"QUERY\", \"partition\": \"Query_5c069023db2845910198ff14ab86ac27\"}, \"messageId\": \"urn:li:assertion:a0ae856482e9cb7497f0b80ccb68239c\", \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:a0ae856482e9cb7497f0b80ccb68239c\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\", \"batchSpec\": {\"customProperties\": {}, \"nativeBatchId\": \"60f7ffb6e021abc8c6333d9040f97140\", \"query\": \"select * from foo2 where score>5\"}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"rowCount\": 5, \"unexpectedCount\": 0, \"nativeResults\": {\"partial_unexpected_list\": \"[]\", \"partial_unexpected_counts\": \"[]\"}}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
