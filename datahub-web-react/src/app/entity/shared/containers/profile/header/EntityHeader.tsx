@@ -10,6 +10,7 @@ import { IconStyleType } from '../../../../Entity';
 import { ANTD_GRAY } from '../../../constants';
 import { useEntityData } from '../../../EntityContext';
 import { useEntityPath } from '../utils';
+import analytics, { EventType, EntityActionType } from '../../../../../analytics';
 
 const LogoContainer = styled.span`
     margin-right: 10px;
@@ -105,6 +106,16 @@ export const EntityHeader = () => {
     const entityPath = useEntityPath(entityType, urn);
     const externalUrl = entityData?.externalUrl || undefined;
     const hasExternalUrl = !!externalUrl;
+
+    const sendAnalytics = () => {
+        analytics.event({
+            type: EventType.EntityActionEvent,
+            actionType: EntityActionType.ClickExternalUrl,
+            entityType,
+            entityUrn: urn,
+        });
+    };
+
     const entityCount = entityData?.entityCount;
     const typeIcon = entityRegistry.getIcon(entityType, 12, IconStyleType.ACCENT);
     const container = entityData?.container;
@@ -146,7 +157,11 @@ export const EntityHeader = () => {
                     <EntityTitle level={3}>{entityData?.name || ' '}</EntityTitle>
                 </Link>
             </MainHeaderContent>
-            {hasExternalUrl && <ExternalLinkButton href={externalUrl}>View in {platformName}</ExternalLinkButton>}
+            {hasExternalUrl && (
+                <ExternalLinkButton href={externalUrl} onClick={sendAnalytics}>
+                    View in {platformName}
+                </ExternalLinkButton>
+            )}
             <Tooltip title="Copy URN. An URN uniquely identifies an entity on DataHub.">
                 <Button
                     icon={copiedUrn ? <CheckOutlined /> : <CopyOutlined />}
