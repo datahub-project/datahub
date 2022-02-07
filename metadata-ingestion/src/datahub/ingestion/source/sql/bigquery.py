@@ -483,7 +483,10 @@ class BigQuerySource(SQLAlchemySource):
                 project_id=self.get_db_name(inspector), schema=schema, table=table
             )
             result = con.execute(sql)
-            for row in result:
+            # Bigquery only supports one partition column
+            # https://stackoverflow.com/questions/62886213/adding-multiple-partitioned-columns-to-bigquery-table-from-sql-query
+            row = result.fetchone()
+            if row:
                 return BigQueryPartitionColumn(**row)
             return None
 
