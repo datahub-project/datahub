@@ -683,9 +683,9 @@ class GlueSource(Source):
         dataset_snapshot.aspects.append(Status(removed=False))
 
         if self.extract_owners:
-            owner_aspect = get_owner()
-            if owner_aspect is not None:
-                dataset_snapshot.aspects.append(get_owner())
+            optional_owner_aspect = get_owner()
+            if optional_owner_aspect is not None:
+                dataset_snapshot.aspects.append(optional_owner_aspect)
 
         dataset_snapshot.aspects.append(get_dataset_properties())
         dataset_snapshot.aspects.append(get_schema_metadata(self))
