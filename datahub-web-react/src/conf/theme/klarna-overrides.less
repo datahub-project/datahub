@@ -1,0 +1,41 @@
+@black: #000;
+@white: #fff;
+@gray-light: #ccc;
+
+body {
+  font-family: 'Klarna Text', 'Helvetica Neue', Arial, Helvetica, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+}
+
+.ant-btn:not(.ant-btn-text, .ant-btn-link) {
+  border-radius: 0 !important;
+  border-color: @black !important;
+
+  &:hover, &:focus {
+    background-color: @black !important;
+    border-color: transparent !important;
+    color: @white !important;
+  }
+}
+
+.ant-btn[disabled] {
+  background-color: @gray-light !important;
+  border-color: @gray-light !important;
+  color: @white !important;
+
+  &:hover, &:focus {
+    background-color: @gray-light !important;
+    border-color: @gray-light !important;
+  }
+}
+
+.ant-btn-default {
+  border-radius: 0 !important;
+  border-color: transparent;
+  background-color: @black !important;
+  color: @white !important;
+
+  &:hover, &:focus {
+    background-color: lighten(#000, 20%) !important;
+    border-color: @black !important;
+  }
+}
