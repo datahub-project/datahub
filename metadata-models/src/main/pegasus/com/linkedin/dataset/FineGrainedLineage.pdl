@@ -33,13 +33,7 @@ record FineGrainedLineage {
 
   /**
   * Downstream fields in the lineage
-  */
-  @Relationship = {
-    "/*": {
-      "name": "Produces",
-      "entityTypes": [ "schemaField" ]
-    }
-  }       
+  */     
   downstreams: optional array[Urn]
 
   /**

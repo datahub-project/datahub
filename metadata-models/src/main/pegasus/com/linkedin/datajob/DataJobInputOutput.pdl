@@ -65,6 +65,12 @@ record DataJobInputOutput {
   /**
   * Fields of the input datasets used by this job
   */
+  @Relationship = {
+    "/*": {
+      "name": "Consumes",
+      "entityTypes": [ "schemaField" ]
+    }
+  }  
   @Searchable = {
     "/*": {
       "fieldName": "inputFields",
@@ -78,7 +84,12 @@ record DataJobInputOutput {
   /**
   * Fields of the output datasets this job writes to
   */
-
+  @Relationship = {
+    "/*": {
+      "name": "Produces",
+      "entityTypes": [ "schemaField" ]
+    }
+  }
   @Searchable = {
     "/*": {
       "fieldName": "outputFields",
@@ -92,5 +103,7 @@ record DataJobInputOutput {
   /**
    * Fine-grained column-level lineages
    */
+   // No @Relationship specified here; 
+   // all Produces/Consumes relations are effectively determined by the input/output datasets/datasetFields
   fineGrainedLineages: optional array[FineGrainedLineage]
 }
