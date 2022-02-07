@@ -117,6 +117,7 @@ export class ContainerEntity implements Entity<Container> {
                 subTypes={data.subTypes}
                 container={data.container}
                 entityCount={data.entities?.total}
+                domain={data.domain}
             />
         );
     };
@@ -134,6 +135,7 @@ export class ContainerEntity implements Entity<Container> {
                 subTypes={data.subTypes}
                 container={data.container}
                 entityCount={data.entities?.total}
+                domain={data.domain}
             />
         );
     };
