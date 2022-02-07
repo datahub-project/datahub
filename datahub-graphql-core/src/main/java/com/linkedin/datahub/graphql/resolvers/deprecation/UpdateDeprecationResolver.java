@@ -109,7 +109,7 @@ public class UpdateDeprecationResolver implements DataFetcher<CompletableFuture<
 
   private static void updateDeprecation(Deprecation deprecation, UpdateDeprecationInput input, QueryContext context) {
     deprecation.setDeprecated(input.getDeprecated());
-    deprecation.setDecommissionTime(input.getDecommissionTime(), SetMode.IGNORE_NULL);
+    deprecation.setDecommissionTime(input.getDecommissionTime(), SetMode.REMOVE_IF_NULL);
     if (input.getNote() != null) {
       deprecation.setNote(input.getNote());
     } else {
