@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.dashboard.mappers;
 
+import com.linkedin.common.Deprecation;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
@@ -18,6 +19,7 @@ import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
@@ -97,6 +99,8 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
                         .setType(EntityType.DOMAIN)
                         .setUrn(domains.getDomains().get(0).toString()).build());
                 }
+            } else if (DEPRECATION_ASPECT_NAME.equals(name)) {
+                result.setDeprecation(DeprecationMapper.map(new Deprecation(data)));
             }
         });
 
