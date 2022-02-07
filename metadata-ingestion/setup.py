@@ -217,7 +217,7 @@ base_dev_requirements = {
             "redshift",
             "redshift-usage",
             "data-lake",
-            "tableau"
+            "tableau",
             "trino",
             "hive",
             "starburst-trino-usage",
