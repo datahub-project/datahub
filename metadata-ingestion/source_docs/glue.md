@@ -38,6 +38,37 @@ sink:
   # sink configs
 ```
 
+## IAM permissions
+For ingesting datasets, the following IAM permissions are required:
+```json
+{
+    "Effect": "Allow",
+    "Action": [
+        "glue:GetDatabases",
+        "glue:GetTables"
+    ],
+    "Resource": [
+        "arn:aws:glue:$region-id:$account-id:catalog",
+        "arn:aws:glue:$region-id:$account-id:database/*",
+        "arn:aws:glue:$region-id:$account-id:table/*"
+    ]
+}
+```
+
+For ingesting jobs (`extract_transforms: True`), the following additional permissions are required:
+```json
+{
+    "Effect": "Allow",
+    "Action": [
+        "glue:GetDataflowGraph",
+        "glue:GetJobs",
+    ],
+    "Resource": "*"
+}
+```
+
+plus `s3:GetObject` for the job script locations.
+
 ## Config details
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
