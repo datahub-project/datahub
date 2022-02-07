@@ -30,7 +30,9 @@ source:
     name: test_endpoint # this name will appear in DatHub
     url: https://test_endpoint.com/
     swagger_file: classicapi/doc/swagger.json  # where to search for the OpenApi definitions
-    get_token: True  # optional, if you need to get an authentication token beforehand 
+    get_token:  # optional, if you need to get an authentication token beforehand 
+        request_type: get
+        url: api/authentication/login?username={username}&password={password}
     username: your_username  # optional
     password: your_password  # optional
     forced_examples:  # optionals

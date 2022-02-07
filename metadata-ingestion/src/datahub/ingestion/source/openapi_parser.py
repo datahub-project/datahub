@@ -172,7 +172,8 @@ def get_endpoints(sw_dict: dict) -> dict:  # noqa: C901
             if "parameters" in p_o["get"].keys():
                 url_details[p_k]["parameters"] = p_o["get"]["parameters"]
 
-    return url_details
+    ord_d = dict(sorted(url_details.items()))  # sorting for convenience
+    return ord_d
 
 
 def guessing_url_name(url: str, examples: dict) -> str:
@@ -211,6 +212,10 @@ def guessing_url_name(url: str, examples: dict) -> str:
         ex2use = root
     elif root[:-1] in examples.keys():
         ex2use = root[:-1]
+    elif root.replace('/', '.') in examples.keys():
+        ex2use = root.replace('/', '.')
+    elif root[:-1].replace('/', '.') in examples.keys():
+        ex2use = root[:-1].replace('/', '.')
     else:
         return url
 
@@ -332,19 +337,30 @@ def extract_fields(
             return [], {}
 
 
-def get_tok(url: str, username: str = "", password: str = "") -> str:
+def get_tok(url: str, username: str = "", password: str = "", tok_url: str = "") -> str:
     """
     Trying to post username/password to get auth.
-    Simplified version: it expect a POST at api/authenticate
     """
-    data = {"username": username, "password": password}
-    url2post = url + "api/authenticate/"
-    response = requests.post(url2post, data=data)
-    if response.status_code == 200:
-        cont = json.loads(response.content)
-        return cont["tokens"]["access"]
+    token = ""
+    if tok_url == "":
+        # this will make a POST call with username and password
+        data = {"username": username, "password": password}
+        url2post = url + "api/authenticate/"
+        response = requests.post(url2post, data=data)
+        if response.status_code == 200:
+            cont = json.loads(response.content)
+            token = cont["tokens"]["access"]
     else:
-        raise Exception("Unable to get a valid token")
+        # this will make a GET call with username and password
+        url2get = url + tok_url
+        response = requests.get(url2get)
+        if response.status_code == 200:
+            cont = json.loads(response.content)
+            token = cont["token"]
+    if token != "":
+        return token
+    else:
+        raise Exception(f"Unable to get a valid token: {response.text}")
 
 
 def set_metadata(

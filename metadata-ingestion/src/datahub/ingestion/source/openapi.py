@@ -2,7 +2,7 @@ import logging
 import time
 import warnings
 from abc import ABC
-from typing import Dict, Generator, Iterable, Tuple
+from typing import Dict, Generator, Iterable, Tuple, Optional
 
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import make_tag_urn
@@ -44,14 +44,22 @@ class OpenApiConfig(ConfigModel):
     password: str = ""
     forced_examples: dict = {}
     token: str = ""
-    get_token: bool = False
+    get_token: Optional[dict] = None
 
     def get_swagger(self) -> Dict:
-        if self.get_token:  # token based authentication, to be tested
+        if self.token is not None:  # token based authentication, to be expanded
             if self.token == "":
-                self.token = get_tok(
-                    url=self.url, username=self.username, password=self.password
-                )
+                if self.get_token['request_type'] == 'get':
+                    assert 'url' in self.get_token.keys(), "When 'request_type' is set to 'get', a plain url with credentials is expected"
+                    self.token = get_tok(
+                        url=self.url, username=self.username, password=self.password, tok_url=self.get_token['url']
+                    )
+                elif self.get_token['request_type'] == 'post':
+                    self.token = get_tok(
+                        url=self.url, username=self.username, password=self.password
+                    )
+                else:
+                    raise KeyError("This tool accepts only 'get' and 'post' as method for getting tokens")
 
             sw_dict = get_swag_json(
                 self.url, token=self.token, swagger_file=self.swagger_file
@@ -102,7 +110,7 @@ class APISource(Source, ABC):
         elif status_code == 504:
             self.report.report_warning(key=key, reason="Timeout for reaching endpoint")
         else:
-            raise Exception(f"Unable to retrieve endpoint, response code {status_code}")
+            raise Exception(f"Unable to retrieve endpoint, response code {status_code}, key {key}")
 
     def init_dataset(
         self, endpoint_k: str, endpoint_dets: dict
