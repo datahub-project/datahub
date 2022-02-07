@@ -34,7 +34,7 @@ const UserProfileWrapper = styled.div`
     }
 `;
 const UserSidebar = styled.div`
-    padding: 25px 18px 0 17px;
+    padding: 10px 18px 0 17px;
     text-align: center;
 
     font-style: normal;
@@ -44,6 +44,16 @@ const UserSidebar = styled.div`
 
     &&& .ant-avatar.ant-avatar-icon {
         font-size: 46px !important;
+    }
+
+    .divider-infoSection {
+        margin: 14px 0px 18px 0;
+    }
+    .divider-aboutSection {
+        margin: 19px 0px 11px 0;
+    }
+    .divider-groupsSection {
+        margin: 19px 0px 11px 0;
     }
 `;
 const UserName = styled.div`
@@ -88,6 +98,19 @@ const EditProfileButton = styled.div`
         color: #262626;
     }
 `;
+const AboutSection = styled.div`
+    text-align: left;
+    font-weight: bold;
+    font-size: 14px;
+    line-height: 22px;
+    color: #262626;
+`;
+const AboutSectionText = styled.div`
+    font-size: 12px;
+    font-weight: 100;
+    line-height: 15px;
+    padding: 5px 0;
+`;
 const GroupsSection = styled.div`
     text-align: left;
     font-weight: bold;
@@ -96,8 +119,9 @@ const GroupsSection = styled.div`
     color: #262626;
 `;
 const TagsSection = styled.div`
-    height: 130px;
+    height: calc(75vh - 460px);
     padding: 5px;
+    overflow: auto;
 `;
 const NoDataFound = styled.span`
     font-size: 12px;
@@ -186,7 +210,7 @@ export default function UserProfile() {
                             <UserName>{data?.corpUser?.info?.fullName}</UserName>
                             <UserRole>{data?.corpUser?.info?.title}</UserRole>
                             <UserTeam>Data Team</UserTeam>
-                            <Divider style={{ margin: '18px 0px 22px 0' }} />
+                            <Divider className="divider-infoSection" />
                             <UserSocialDetails>
                                 <Space>
                                     <MailOutlined /> {data?.corpUser?.info?.email}
@@ -202,10 +226,17 @@ export default function UserProfile() {
                                     <PhoneOutlined /> {` 928129129`}
                                 </Space>
                             </UserSocialDetails>
-                            <Divider style={{ margin: '23px 0px 15px 0' }} />
+                            <Divider className="divider-aboutSection" />
+                            <AboutSection>
+                                About
+                                <AboutSectionText>
+                                    Some text from the backend for the about section. Please add.
+                                </AboutSectionText>
+                            </AboutSection>
+                            <Divider className="divider-groupsSection" />
                             <GroupsSection>
                                 Groups
-                                <TagsSection style={{ overflow: groupSectionScroll ? 'auto' : 'hidden' }}>
+                                <TagsSection>
                                     {groupsDetails?.relationships.length === 0 && (
                                         <NoDataFound>No Groups found</NoDataFound>
                                     )}
