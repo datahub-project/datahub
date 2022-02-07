@@ -61,7 +61,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `ignore_unsupported_connectors` |          | `True`       | Whether to ignore unsupported connectors. If disabled, an error will be raised.    |
 | `emit_s3_lineage`               |          | `True`       | Whether to emit S3-to-Glue lineage.                                                |
 | `glue_s3_lineage_direction`     |          | `upstream`   | If `upstream`, S3 is upstream to Glue. If `downstream` S3 is downstream to Glue.   |
-| `extract_owners`                |          | `True`       | When enabled, extracts ownership from Glue directly. When disabled, ownership is left empty for datasets.                                                      |
+| `extract_owners`                |          | `True`       | When enabled, extracts ownership from Glue directly and overwrites existing owners. When disabled, ownership is left empty for datasets.                                                      |
 
 ## Compatibility
 
