@@ -50,9 +50,13 @@ class OpenApiConfig(ConfigModel):
         if self.token is not None:  # token based authentication, to be expanded
             if self.token == "":
                 if self.get_token['request_type'] == 'get':
-                    assert 'url' in self.get_token.keys(), "When 'request_type' is set to 'get', a plain url with credentials is expected"
+                    assert 'url_complement' in self.get_token.keys(), "When 'request_type' is set to 'get', an url_complement is needed for the request."
+                    assert '{username}' in self.get_token['url_complement'], "we expect the keyword {username} to be present in the url"
+                    assert '{password}' in self.get_token['url_complement'], "we expect the keyword {password} to be present in the url"
+                    url4req = self.get_token['url_complement'].replace('{username}', self.username)
+                    url4req = url4req.replace('{password}', self.password)
                     self.token = get_tok(
-                        url=self.url, username=self.username, password=self.password, tok_url=self.get_token['url']
+                        url=self.url, username=self.username, password=self.password, tok_url=url4req
                     )
                 elif self.get_token['request_type'] == 'post':
                     self.token = get_tok(

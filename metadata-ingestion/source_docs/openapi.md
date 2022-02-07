@@ -151,7 +151,11 @@ If this tool needs to get an access token to interrogate the endpoints, this can
         url: api/authentication/login?username={username}&password={password}
 ```
 
+Note that {username} and {password} are mandatory placeholders. They will be replaced with the true credentials at runtime.
+
 * 'post' : username and password will be inserted in the body of the POST request
+
+In both cases, username and password are the ones defined in the configuration file.
 
 ### Getting dataset metadata from `forced_example`
 
