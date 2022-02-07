@@ -283,8 +283,8 @@ class ProjectIdKey(PlatformKey):
 
 
 @dataclasses.dataclass
-class BigQuerySchemaKey(ProjectIdKey):
-    schema: str
+class BigQueryDatasetKey(ProjectIdKey):
+    dataset_id: str
 
 
 class BigQuerySource(SQLAlchemySource):
@@ -777,9 +777,9 @@ WHERE
         return segments[0], segments[1]
 
     def gen_schema_key(self, db_name: str, schema: str) -> PlatformKey:
-        return BigQuerySchemaKey(
+        return BigQueryDatasetKey(
             project_id=db_name,
-            schema=schema,
+            dataset_id=schema,
             platform=self.platform,
             instance=self.config.env,
         )
@@ -801,6 +801,24 @@ WHERE
             name=database,
             sub_types=["Project"],
             domain_urn=domain_urn,
+        )
+
+        for wu in container_workunits:
+            self.report.report_workunit(wu)
+            yield wu
+
+    def gen_schema_containers(
+        self, schema: str, db_name: str
+    ) -> Iterable[MetadataWorkUnit]:
+        schema_container_key = self.gen_schema_key(db_name, schema)
+
+        database_container_key = self.gen_database_key(database=db_name)
+
+        container_workunits = gen_containers(
+            schema_container_key,
+            schema,
+            ["Dataset"],
+            database_container_key,
         )
 
         for wu in container_workunits:
