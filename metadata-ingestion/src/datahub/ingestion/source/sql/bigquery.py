@@ -69,6 +69,10 @@ AND
         protoPayload.serviceData.jobCompletedEvent.job.jobStatus.state="DONE"
         AND NOT
         protoPayload.serviceData.jobCompletedEvent.job.jobStatus.error.code:*
+        AND
+        protoPayload.serviceData.jobCompletedEvent.job.jobConfiguration.query.destinationTable.datasetId !~ "^_.*"
+        AND
+        protoPayload.serviceData.jobCompletedEvent.job.jobStatistics.referencedTables:*
     )
 )
 AND
@@ -95,7 +99,7 @@ on
 where
     is_partitioning_column = 'YES'
     -- Filter out special partitions (https://cloud.google.com/bigquery/docs/partitioned-tables#date_timestamp_partitioned_tables)
-    and p.partition_id not in ('__NULL__', '__UNPARTITIONED__')
+    and p.partition_id not in ('__NULL__', '__UNPARTITIONED__', '__STREAMING_UNPARTITIONED__')
     and STORAGE_TIER='ACTIVE'
     and p.table_name= '{table}'
 group by
@@ -370,6 +374,8 @@ class BigQuerySource(SQLAlchemySource):
             ),
         )
 
+        assert self.config.log_page_size is not None
+
         logger.info("Start loading log entries from BigQuery")
         for client in clients:
             entries = client.list_entries(
@@ -380,8 +386,8 @@ class BigQuerySource(SQLAlchemySource):
                 item = item + 1
                 if item % self.config.log_page_size == 0:
                     logger.info(f"Read {item} entry from log entries")
-                    yield entry
-        logger.info("Finished loading log entries from BigQuery")
+                yield entry
+        logger.info(f"Finished loading {item} log entries from BigQuery")
 
     def _get_exported_bigquery_audit_metadata(
         self, bigquery_client: BigQueryClient
@@ -548,7 +554,7 @@ class BigQuerySource(SQLAlchemySource):
             return True
 
     def generate_partition_profiler_query(
-        self, schema: str, table: str
+        self, schema: str, table: str, partition_datetime: Optional[datetime.datetime]
     ) -> Tuple[Optional[str], Optional[str]]:
         """
         Method returns partition id if table is partitioned or sharded and generate custom partition query for
@@ -559,12 +565,13 @@ class BigQuerySource(SQLAlchemySource):
         partition = self.get_latest_partition(schema, table)
         if partition:
             partition_ts: Union[datetime.datetime, datetime.date]
-
+            if not partition_datetime:
+                partition_datetime = parser.parse(partition.partition_id)
             logger.debug(f"{table} is partitioned and partition column is {partition}")
             if partition.data_type in ("TIMESTAMP", "DATETIME"):
-                partition_ts = parser.parse(partition.partition_id)
+                partition_ts = partition_datetime
             elif partition.data_type == "DATE":
-                partition_ts = parser.parse(partition.partition_id).date()
+                partition_ts = partition_datetime.date()
             else:
                 logger.warning(f"Not supported partition type {partition.data_type}")
                 return None, None
