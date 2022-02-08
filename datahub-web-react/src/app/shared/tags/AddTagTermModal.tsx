@@ -261,6 +261,7 @@ export default function AddTagTermModal({
                             type="primary"
                             onClick={() => onOk(false)}
                             disabled={selectedValue.length === 0 || disableAdd}
+                            data-testid="add-tag-term-from-modal-btn"
                         >
                             Add
                         </Button>
