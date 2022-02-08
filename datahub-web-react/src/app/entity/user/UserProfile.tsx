@@ -1,4 +1,4 @@
-import { Alert, Col, Row, Divider, Space, Button, Tag } from 'antd';
+import { Alert, Col, Row, Divider, Space, Button, Tag, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { EditOutlined, MailOutlined, PhoneOutlined, SlackOutlined } from '@ant-design/icons';
@@ -15,6 +15,7 @@ import { ExtendedEntityRelationshipsResult } from './type';
 import CustomAvatar from '../../shared/avatar/CustomAvatar';
 
 const messageStyle = { marginTop: '10%' };
+const { Paragraph } = Typography;
 export interface Props {
     onTabChange: (selectedTab: string) => void;
 }
@@ -34,7 +35,7 @@ const UserProfileWrapper = styled.div`
     }
 `;
 const UserSidebar = styled.div`
-    padding: 10px 18px 0 17px;
+    padding: 10px 0 0 17px;
     text-align: center;
 
     font-style: normal;
@@ -54,6 +55,21 @@ const UserSidebar = styled.div`
     }
     .divider-groupsSection {
         margin: 19px 0px 11px 0;
+    }
+`;
+const UserSidebarSubSection = styled.div`
+    height: calc(100vh - 130px);
+    overflow: auto;
+    padding-right: 18px;
+    &::-webkit-scrollbar {
+        height: 12px;
+        width: 5px;
+        background: #ededed;
+    }
+    &::-webkit-scrollbar-thumb {
+        background: #cdcdcd;
+        -webkit-border-radius: 1ex;
+        -webkit-box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.75);
     }
 `;
 const UserName = styled.div`
@@ -110,6 +126,10 @@ const AboutSectionText = styled.div`
     font-weight: 100;
     line-height: 15px;
     padding: 5px 0;
+
+    &&& .ant-typography {
+        margin-bottom: 0;
+    }
 `;
 const GroupsSection = styled.div`
     text-align: left;
@@ -161,6 +181,7 @@ export default function UserProfile() {
     const [groupSectionScroll, showGroupSectionScroll] = useState(false);
     const groupsDetails = data?.corpUser?.relationships as ExtendedEntityRelationshipsResult;
     const profileSrc = ''; // TODO: update the profileSrc from BE
+    // const [ellipsis, setEllipsis] = useState(true);
 
     const contentLoading =
         Object.keys(ownershipResult).some((type) => {
@@ -202,68 +223,75 @@ export default function UserProfile() {
                 <Row>
                     <Col xl={5} lg={5} md={5} sm={24} xs={24}>
                         <UserSidebar>
-                            <CustomAvatar
-                                size={160}
-                                photoUrl={profileSrc || undefined}
-                                name={data?.corpUser?.info?.fullName || undefined}
-                            />
-                            <UserName>{data?.corpUser?.info?.fullName}</UserName>
-                            <UserRole>{data?.corpUser?.info?.title}</UserRole>
-                            <UserTeam>Data Team</UserTeam>
-                            <Divider className="divider-infoSection" />
-                            <UserSocialDetails>
-                                <Space>
-                                    <MailOutlined /> {data?.corpUser?.info?.email}
-                                </Space>
-                            </UserSocialDetails>
-                            <UserSocialDetails>
-                                <Space>
-                                    <SlackOutlined /> {` slack`}
-                                </Space>
-                            </UserSocialDetails>
-                            <UserSocialDetails>
-                                <Space>
-                                    <PhoneOutlined /> {` 928129129`}
-                                </Space>
-                            </UserSocialDetails>
-                            <Divider className="divider-aboutSection" />
-                            <AboutSection>
-                                About
-                                <AboutSectionText>
-                                    Some text from the backend for the about section. Please add.
-                                </AboutSectionText>
-                            </AboutSection>
-                            <Divider className="divider-groupsSection" />
-                            <GroupsSection>
-                                Groups
-                                <TagsSection>
-                                    {groupsDetails?.relationships.length === 0 && (
-                                        <NoDataFound>No Groups found</NoDataFound>
-                                    )}
-                                    {!groupSectionScroll &&
-                                        groupsDetails?.relationships.slice(0, 3).map((item) => {
-                                            return (
-                                                <Tags>
-                                                    <Tag>{item.entity.name}</Tag>
-                                                </Tags>
-                                            );
-                                        })}
-                                    {groupSectionScroll &&
-                                        groupsDetails?.relationships.length > 2 &&
-                                        groupsDetails?.relationships.map((item) => {
-                                            return (
-                                                <Tags>
-                                                    <Tag>{item.entity.name}</Tag>
-                                                </Tags>
-                                            );
-                                        })}
-                                    {!groupSectionScroll && groupsDetails?.relationships.length > 2 && (
-                                        <GroupsSeeMoreText onClick={() => showGroupSectionScroll(!groupSectionScroll)}>
-                                            {`+${groupsDetails?.relationships.length - 3} more`}
-                                        </GroupsSeeMoreText>
-                                    )}
-                                </TagsSection>
-                            </GroupsSection>
+                            <UserSidebarSubSection>
+                                <CustomAvatar
+                                    size={160}
+                                    photoUrl={profileSrc || undefined}
+                                    name={data?.corpUser?.info?.fullName || undefined}
+                                />
+                                <UserName>{data?.corpUser?.info?.fullName}</UserName>
+                                <UserRole>{data?.corpUser?.info?.title}</UserRole>
+                                <UserTeam>Data Team</UserTeam>
+                                <Divider className="divider-infoSection" />
+                                <UserSocialDetails>
+                                    <Space>
+                                        <MailOutlined /> {data?.corpUser?.info?.email}
+                                    </Space>
+                                </UserSocialDetails>
+                                <UserSocialDetails>
+                                    <Space>
+                                        <SlackOutlined /> {` slack`}
+                                    </Space>
+                                </UserSocialDetails>
+                                <UserSocialDetails>
+                                    <Space>
+                                        <PhoneOutlined /> {` 928129129`}
+                                    </Space>
+                                </UserSocialDetails>
+                                <Divider className="divider-aboutSection" />
+                                <AboutSection>
+                                    About
+                                    <AboutSectionText>
+                                        <Paragraph ellipsis={{ rows: 2, expandable: true, symbol: 'Read more' }}>
+                                            Some text from the backend for the about section. Please add some text to
+                                            get the exact about section.
+                                        </Paragraph>
+                                    </AboutSectionText>
+                                </AboutSection>
+                                <Divider className="divider-groupsSection" />
+                                <GroupsSection>
+                                    Groups
+                                    <TagsSection>
+                                        {groupsDetails?.relationships.length === 0 && (
+                                            <NoDataFound>No Groups found</NoDataFound>
+                                        )}
+                                        {!groupSectionScroll &&
+                                            groupsDetails?.relationships.slice(0, 2).map((item) => {
+                                                return (
+                                                    <Tags>
+                                                        <Tag>{item.entity.name}</Tag>
+                                                    </Tags>
+                                                );
+                                            })}
+                                        {groupSectionScroll &&
+                                            groupsDetails?.relationships.length > 2 &&
+                                            groupsDetails?.relationships.map((item) => {
+                                                return (
+                                                    <Tags>
+                                                        <Tag>{item.entity.name}</Tag>
+                                                    </Tags>
+                                                );
+                                            })}
+                                        {!groupSectionScroll && groupsDetails?.relationships.length > 2 && (
+                                            <GroupsSeeMoreText
+                                                onClick={() => showGroupSectionScroll(!groupSectionScroll)}
+                                            >
+                                                {`+${groupsDetails?.relationships.length - 2} more`}
+                                            </GroupsSeeMoreText>
+                                        )}
+                                    </TagsSection>
+                                </GroupsSection>
+                            </UserSidebarSubSection>
                             <EditProfileButton>
                                 <Button icon={<EditOutlined />} onClick={() => setEditProfileModal(true)}>
                                     Edit Profile
