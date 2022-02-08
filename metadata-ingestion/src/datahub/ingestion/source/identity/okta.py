@@ -206,9 +206,9 @@ class OktaSource(Source):
             groups, resp, err = event_loop.run_until_complete(
                 self.okta_client.list_groups(query_parameters)
             )
-        except OktaAPIException as err:
+        except OktaAPIException as api_err:
             self.report.report_failure(
-                "okta_groups", f"Failed to fetch Groups from Okta API: {err}"
+                "okta_groups", f"Failed to fetch Groups from Okta API: {api_err}"
             )
         while True:
             if err:
@@ -222,9 +222,9 @@ class OktaSource(Source):
                 sleep(self.config.delay_seconds)
                 try:
                     groups, err = event_loop.run_until_complete(resp.next())
-                except OktaAPIException as err:
+                except OktaAPIException as api_err:
                     self.report.report_failure(
-                        "okta_groups", f"Failed to fetch Groups from Okta API: {err}"
+                        "okta_groups", f"Failed to fetch Groups from Okta API: {api_err}"
                     )
             else:
                 break
@@ -241,10 +241,10 @@ class OktaSource(Source):
             users, resp, err = event_loop.run_until_complete(
                 self.okta_client.list_group_users(group.id, query_parameters)
             )
-        except OktaAPIException as err:
+        except OktaAPIException as api_err:
             self.report.report_failure(
                 "okta_group_users",
-                f"Failed to fetch Users of Group {group.profile.name} from Okta API: {err}",
+                f"Failed to fetch Users of Group {group.profile.name} from Okta API: {api_err}",
             )
         while True:
             if err:
@@ -259,10 +259,10 @@ class OktaSource(Source):
                 sleep(self.config.delay_seconds)
                 try:
                     users, err = event_loop.run_until_complete(resp.next())
-                except OktaAPIException as err:
+                except OktaAPIException as api_err:
                     self.report.report_failure(
                         "okta_group_users",
-                        f"Failed to fetch Users of Group {group.profile.name} from Okta API: {err}",
+                        f"Failed to fetch Users of Group {group.profile.name} from Okta API: {api_err}",
                     )
             else:
                 break
@@ -276,25 +276,25 @@ class OktaSource(Source):
             users, resp, err = event_loop.run_until_complete(
                 self.okta_client.list_users(query_parameters)
             )
-        except OktaAPIException as err:
+        except OktaAPIException as api_err:
             self.report.report_failure(
-                "okta_users", f"Failed to fetch Users from Okta API: {err}"
+                "okta_users", f"Failed to fetch Users from Okta API: {api_err}"
             )
         while True:
-            if err is not None:
+            if err:
                 self.report.report_failure(
                     "okta_users", f"Failed to fetch Users from Okta API: {err}"
                 )
-            if users is not None:
+            if users:
                 for user in users:
                     yield user
-            if resp is not None and resp.has_next():
+            if resp and resp.has_next():
                 sleep(self.config.delay_seconds)
                 try:
                     users, err = event_loop.run_until_complete(resp.next())
-                except OktaAPIException as err:
+                except OktaAPIException as api_err:
                     self.report.report_failure(
-                        "okta_users", f"Failed to fetch Users from Okta API: {err}"
+                        "okta_users", f"Failed to fetch Users from Okta API: {api_err}"
                     )
             else:
                 break
