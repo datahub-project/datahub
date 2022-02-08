@@ -44,17 +44,13 @@ class DatahubRestEmitter:
     DEFAULT_READ_TIMEOUT_SEC = (
         30  # Any ingest call taking longer than 30 seconds should be abandoned
     )
-    DEFAULT_RETRY_STATUS_CODES = frozenset(
-        [  # Additional status codes to retry on
-            429,
-            502,
-            503,
-            504,
-        ]
-    )
-    DEFAULT_RETRY_METHODS = frozenset(
-        ["HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS", "TRACE"]
-    )
+    DEFAULT_RETRY_STATUS_CODES = [  # Additional status codes to retry on
+        429,
+        502,
+        503,
+        504,
+    ]
+    DEFAULT_RETRY_METHODS = ["HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS", "TRACE"]
     DEFAULT_RETRY_MAX_TIMES = 3
 
     _gms_server: str
@@ -63,6 +59,7 @@ class DatahubRestEmitter:
     _connect_timeout_sec: float = DEFAULT_CONNECT_TIMEOUT_SEC
     _read_timeout_sec: float = DEFAULT_READ_TIMEOUT_SEC
     _retry_status_codes: List[int] = DEFAULT_RETRY_STATUS_CODES
+    _retry_methods: List[str] = DEFAULT_RETRY_METHODS
     _retry_max_times: int = DEFAULT_RETRY_MAX_TIMES
 
     def __init__(
@@ -72,6 +69,7 @@ class DatahubRestEmitter:
         connect_timeout_sec: Optional[float] = None,
         read_timeout_sec: Optional[float] = None,
         retry_status_codes: Optional[List[int]] = None,
+        retry_methods: Optional[List[str]] = None,
         retry_max_times: Optional[int] = None,
         extra_headers: Optional[Dict[str, str]] = None,
         ca_certificate_path: Optional[str] = None,
@@ -110,6 +108,9 @@ class DatahubRestEmitter:
         if retry_status_codes is not None:  # Only if missing. Empty list is allowed
             self._retry_status_codes = retry_status_codes
 
+        if retry_methods is not None:
+            self._retry_methods = retry_methods
+
         if retry_max_times:
             self._retry_max_times = retry_max_times
 
@@ -117,7 +118,7 @@ class DatahubRestEmitter:
             total=self._retry_max_times,
             status_forcelist=self._retry_status_codes,
             backoff_factor=2,
-            allowed_methods=self.DEFAULT_RETRY_METHODS,
+            allowed_methods=self._retry_methods,
         )
 
         adapter = HTTPAdapter(
