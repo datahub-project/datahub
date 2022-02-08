@@ -224,7 +224,8 @@ class OktaSource(Source):
                     groups, err = event_loop.run_until_complete(resp.next())
                 except OktaAPIException as api_err:
                     self.report.report_failure(
-                        "okta_groups", f"Failed to fetch Groups from Okta API: {api_err}"
+                        "okta_groups",
+                        f"Failed to fetch Groups from Okta API: {api_err}",
                     )
             else:
                 break
