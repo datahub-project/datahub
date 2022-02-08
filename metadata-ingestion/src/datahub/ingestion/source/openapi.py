@@ -44,10 +44,10 @@ class OpenApiConfig(ConfigModel):
     password: str = ""
     forced_examples: dict = {}
     token: Optional[str] = None
-    get_token: Optional[dict] = None
+    get_token: dict = {}
 
     def get_swagger(self) -> Dict:
-        if self.get_token is not None or self.token is not None:
+        if self.get_token or self.token is not None:
             if self.token is not None:
                 ...
             else:
