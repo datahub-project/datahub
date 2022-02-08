@@ -187,7 +187,7 @@ base_dev_requirements = {
     # Waiting for https://github.com/samuelcolvin/pydantic/pull/3175 before allowing mypy 0.920.
     "mypy>=0.901,<0.920",
     "pytest>=6.2.2",
-    "pytest-asyncio>=0.17.2",
+    "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
     "pytest-docker>=0.10.3",
     "tox",
