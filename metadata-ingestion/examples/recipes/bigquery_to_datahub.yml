@@ -4,7 +4,7 @@ source:
   type: "bigquery"
   config:
     ## Coordinates
-    project_id: calm-pagoda-323403
+    project_id: project-id-1234567
     ## Credentials
     ## If GOOGLE_APPLICATION_CREDENTIALS environment variable is not set you can specify credentials here
     #credential:
