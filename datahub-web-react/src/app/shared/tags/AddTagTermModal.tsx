@@ -236,7 +236,11 @@ export default function AddTagTermModal({
                     <Button onClick={onClose} type="text">
                         Cancel
                     </Button>
-                    <Button onClick={onOk} disabled={selectedValue.length === 0 || disableAdd}>
+                    <Button
+                        data-testid="add-tag-term-from-modal-btn"
+                        onClick={onOk}
+                        disabled={selectedValue.length === 0 || disableAdd}
+                    >
                         Add
                     </Button>
                 </>

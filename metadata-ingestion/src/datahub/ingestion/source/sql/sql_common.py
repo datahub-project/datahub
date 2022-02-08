@@ -1,3 +1,4 @@
+import datetime
 import logging
 from abc import abstractmethod
 from dataclasses import dataclass, field
@@ -1071,7 +1072,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
     # Override if needed
     def generate_partition_profiler_query(
-        self, schema: str, table: str
+        self, schema: str, table: str, partition_datetime: Optional[datetime.datetime]
     ) -> Tuple[Optional[str], Optional[str]]:
         return None, None
 
@@ -1111,7 +1112,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 continue
 
             (partition, custom_sql) = self.generate_partition_profiler_query(
-                schema, table
+                schema, table, self.config.profiling.partition_datetime
             )
 
             self.report.report_entity_profiled(dataset_name)
