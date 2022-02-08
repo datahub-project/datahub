@@ -22,4 +22,9 @@ record TagProperties {
    */
   @Searchable = {}
   description: optional string
+
+  /**
+   * The color associated with the Tag in Hex. For example #FFFFFF.
+   */
+  colorHex: optional string
 }

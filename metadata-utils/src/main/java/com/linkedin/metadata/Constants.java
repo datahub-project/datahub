@@ -29,6 +29,8 @@ public class Constants {
   public static final String INGESTION_SOURCE_ENTITY_NAME = "dataHubIngestionSource";
   public static final String SECRETS_ENTITY_NAME = "dataHubSecret";
   public static final String EXECUTION_REQUEST_ENTITY_NAME = "dataHubExecutionRequest";
+  public static final String TAG_ENTITY_NAME = "tag";
+
 
   /**
    * Aspects
