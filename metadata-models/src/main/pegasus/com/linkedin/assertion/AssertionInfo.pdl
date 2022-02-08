@@ -2,7 +2,6 @@ namespace com.linkedin.assertion
 
 import com.linkedin.common.CustomProperties
 import com.linkedin.common.ExternalReference
-import com.linkedin.common.Urn
 
 /**
  * Information about an assertion
@@ -10,42 +9,27 @@ import com.linkedin.common.Urn
 @Aspect = {
   "name": "assertionInfo"
 }
-record AssertionInfo includes CustomProperties, ExternalReference { 
+record AssertionInfo includes CustomProperties, ExternalReference {
     /**
-    * One or more dataset schema fields that are targeted by this assertion
+    * Type of assertion. Assertion types can evolve to span Datasets, Flows (Pipelines), Models, Features etc.
     */
-    @Relationship = {
-      "/*": {
-        "name": "Asserts",
-        "entityTypes": [ "schemaField" ]
-      }
+    type: enum AssertionType {
+      // When present, then DatasetAssertionInfo elements are filled out
+      DATASET
     }
-    datasetFields: optional array[Urn]
 
     /**
-    * One or more datasets that are targeted by this assertion
+    * Dataset Assertion information when type is DATASET
     */
-    @Relationship = {
-      "/*": {
-        "name": "Asserts",
-        "entityTypes": [ "dataset" ]
-      }
-    }
-    datasets: optional array[Urn]
-    
-    /**
-    * Type of assertion
-    */
-    assertionType: AssertionType
+    datasetAssertion: optional DatasetAssertionInfo
 
     /*
-    * Logic for assertion such as implementation of custom nativeOperator
+    * Logic for the assertion as expressed in the native assertion language. Code fragments, query strings, etc.
     */
     assertionLogic: optional string
 
     /**
     * Parameters required for the assertion. e.g. min_value, max_value, value, columns
     */
-    assertionParameters: map[string, string] = { }
-
+    parameters: optional map[string, string]
 }

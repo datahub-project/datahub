@@ -1204,6 +1204,11 @@ type Container implements Entity {
     subTypes: SubTypes
 
     """
+    The Domain associated with the Dataset
+    """
+    domain: Domain
+
+    """
     Children entities inside of the Container
     """
     entities(input: ContainerEntitiesInput): SearchResults
