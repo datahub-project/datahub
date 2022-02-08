@@ -90,22 +90,59 @@ class TestPipeline(object):
     @pytest.mark.parametrize(
         "commit_policy,source,should_commit",
         [
-            (CommitPolicy.ALWAYS, "FakeSource", True),
-            (CommitPolicy.ON_NO_ERRORS, "FakeSource", True),
-            (CommitPolicy.ON_NO_ERRORS_AND_NO_WARNINGS, "FakeSource", True),
-            (CommitPolicy.ALWAYS, "FakeSourceWithWarnings", True),
-            (CommitPolicy.ON_NO_ERRORS, "FakeSourceWithWarnings", True),
-            (
+            pytest.param(
+                CommitPolicy.ALWAYS,
+                "FakeSource",
+                True,
+                id="ALWAYS-no-warnings-no-errors",
+            ),
+            pytest.param(
+                CommitPolicy.ON_NO_ERRORS,
+                "FakeSource",
+                True,
+                id="ON_NO_ERRORS-no-warnings-no-errors",
+            ),
+            pytest.param(
+                CommitPolicy.ON_NO_ERRORS_AND_NO_WARNINGS,
+                "FakeSource",
+                True,
+                id="ON_NO_ERRORS_AND_NO_WARNINGS-no-warnings-no-errors",
+            ),
+            pytest.param(
+                CommitPolicy.ALWAYS,
+                "FakeSourceWithWarnings",
+                True,
+                id="ALWAYS-with-warnings",
+            ),
+            pytest.param(
+                CommitPolicy.ON_NO_ERRORS,
+                "FakeSourceWithWarnings",
+                True,
+                id="ON_NO_ERRORS-with-warnings",
+            ),
+            pytest.param(
                 CommitPolicy.ON_NO_ERRORS_AND_NO_WARNINGS,
                 "FakeSourceWithWarnings",
                 False,
+                id="ON_NO_ERRORS_AND_NO_WARNINGS-with-warnings",
             ),
-            (CommitPolicy.ALWAYS, "FakeSourceWithFailures", True),
-            (CommitPolicy.ON_NO_ERRORS, "FakeSourceWithFailures", False),
-            (
+            pytest.param(
+                CommitPolicy.ALWAYS,
+                "FakeSourceWithFailures",
+                True,
+                id="ALWAYS-with-errors",
+            ),
+            pytest.param(
+                CommitPolicy.ON_NO_ERRORS,
+                "FakeSourceWithFailures",
+                False,
+                id="ON_NO_ERRORS-with-errors",
+            ),
+            pytest.param(
                 CommitPolicy.ON_NO_ERRORS_AND_NO_WARNINGS,
                 "FakeSourceWithFailures",
                 False,
+                id="ON_NO_ERRORS_AND_NO_WARNINGS-with-errors",
             ),
         ],
     )
@@ -120,14 +157,14 @@ class TestPipeline(object):
         )
 
         class FakeCommittable(Committable):
-            def __init__(self, commit_policy):
+            def __init__(self, commit_policy: CommitPolicy):
                 self.name = "test_checkpointer"
                 self.commit_policy = commit_policy
 
-            def commit(self):
+            def commit(self) -> None:
                 pass
 
-        fake_committable = FakeCommittable(commit_policy)
+        fake_committable: Committable = FakeCommittable(commit_policy)
 
         with patch.object(
             FakeCommittable, "commit", wraps=fake_committable.commit
