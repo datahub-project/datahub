@@ -128,6 +128,7 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 - [Uphold](https://uphold.com)
 - [Viasat](https://viasat.com)
 - [Wolt](https://wolt.com)
+- [Haibo Technology](https://www.botech.com.cn)
 
 ## Select Articles & Talks
 
