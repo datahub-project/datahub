@@ -229,7 +229,7 @@ export default function TagTermGroup({
                     {...buttonProps}
                 >
                     <PlusOutlined />
-                    Add Tag
+                    <span>Add Tag</span>
                 </NoElementButton>
             )}
             {canAddTerm &&
@@ -243,7 +243,7 @@ export default function TagTermGroup({
                         {...buttonProps}
                     >
                         <PlusOutlined />
-                        Add Term
+                        <span>Add Term</span>
                     </NoElementButton>
                 )}
             {showAddModal && !!entityUrn && !!entityType && (
