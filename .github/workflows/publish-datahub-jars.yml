@@ -21,7 +21,7 @@ jobs:
       publish-enabled: ${{ steps.publish-enabled.outputs.defined }}
     steps:
       - id: publish-enabled
-        if: "${{ env.SIGNING_KEY != '' }}"
+        if: "${{ secrets.SIGNING_KEY != '' }}"
         run: echo "::set-output name=defined::true"
         env:
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
