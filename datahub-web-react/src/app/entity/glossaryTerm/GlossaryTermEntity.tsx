@@ -61,6 +61,10 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                 useEntityQuery={useGetGlossaryTermQuery as any}
                 tabs={[
                     {
+                        name: 'Related Entities',
+                        component: GlossaryRelatedEntity,
+                    },
+                    {
                         name: 'Schema',
                         component: SchemaTab,
                         properties: {
@@ -72,10 +76,6 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                             enabled: (_, glossaryTerm: GetGlossaryTermQuery) =>
                                 glossaryTerm?.glossaryTerm?.schemaMetadata !== null,
                         },
-                    },
-                    {
-                        name: 'Related Entities',
-                        component: GlossaryRelatedEntity,
                     },
                     {
                         name: 'Related Terms',
