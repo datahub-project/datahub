@@ -91,7 +91,7 @@ snowflake_common = {
     "cryptography==3.4.8"
 }
 
-powerbi_common = {
+microsoft_common = {
     "msal==1.16.0"
 }
 # Note: for all of these, framework_common will be added.
@@ -152,7 +152,7 @@ plugins: Dict[str, Set[str]] = {
     "trino": sql_common | {"trino"},
     "starburst-trino-usage": sql_common | {"trino"},
     "nifi": {"requests"},
-    "powerbi": powerbi_common
+    "powerbi": microsoft_common
 }
 
 all_exclude_plugins: Set[str] = {
