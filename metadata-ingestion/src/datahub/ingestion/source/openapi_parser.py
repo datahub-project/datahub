@@ -337,26 +337,34 @@ def extract_fields(
             return [], {}
 
 
-def get_tok(url: str, username: str = "", password: str = "", tok_url: str = "") -> str:
+def get_tok(
+    url: str,
+    username: str = "",
+    password: str = "",
+    tok_url: str = "",
+    method: str = "post",
+) -> str:
     """
     Trying to post username/password to get auth.
     """
     token = ""
-    if tok_url == "":
+    url4req = url + tok_url
+    if method == "post":
         # this will make a POST call with username and password
         data = {"username": username, "password": password}
-        url2post = url + "api/authenticate/"
-        response = requests.post(url2post, data=data)
+        # url2post = url + "api/authenticate/"
+        response = requests.post(url4req, data=data)
         if response.status_code == 200:
             cont = json.loads(response.content)
             token = cont["tokens"]["access"]
-    else:
+    elif method == "get":
         # this will make a GET call with username and password
-        url2get = url + tok_url
-        response = requests.get(url2get)
+        response = requests.get(url4req)
         if response.status_code == 200:
             cont = json.loads(response.content)
             token = cont["token"]
+    else:
+        raise ValueError(f"Method unrecognised: {method}")
     if token != "":
         return token
     else:

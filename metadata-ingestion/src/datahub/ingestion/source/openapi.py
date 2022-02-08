@@ -43,16 +43,18 @@ class OpenApiConfig(ConfigModel):
     username: str = ""
     password: str = ""
     forced_examples: dict = {}
-    token: str = ""
+    token: Optional[str] = None
     get_token: Optional[dict] = None
 
     def get_swagger(self) -> Dict:
-        if self.token is not None:  # token based authentication, to be expanded
-            if self.token == "":
+        if self.get_token is not None or self.token is not None:
+            if self.token is not None:
+                ...
+            else:
+                assert (
+                    "url_complement" in self.get_token.keys()
+                ), "When 'request_type' is set to 'get', an url_complement is needed for the request."
                 if self.get_token["request_type"] == "get":
-                    assert (
-                        "url_complement" in self.get_token.keys()
-                    ), "When 'request_type' is set to 'get', an url_complement is needed for the request."
                     assert (
                         "{username}" in self.get_token["url_complement"]
                     ), "we expect the keyword {username} to be present in the url"
@@ -63,25 +65,24 @@ class OpenApiConfig(ConfigModel):
                         "{username}", self.username
                     )
                     url4req = url4req.replace("{password}", self.password)
-                    self.token = get_tok(
-                        url=self.url,
-                        username=self.username,
-                        password=self.password,
-                        tok_url=url4req,
-                    )
                 elif self.get_token["request_type"] == "post":
-                    self.token = get_tok(
-                        url=self.url, username=self.username, password=self.password
-                    )
+                    url4req = self.get_token["url_complement"]
                 else:
                     raise KeyError(
                         "This tool accepts only 'get' and 'post' as method for getting tokens"
                     )
-
+                self.token = get_tok(
+                    url=self.url,
+                    username=self.username,
+                    password=self.password,
+                    tok_url=url4req,
+                    method=self.get_token["request_type"],
+                )
             sw_dict = get_swag_json(
                 self.url, token=self.token, swagger_file=self.swagger_file
             )  # load the swagger file
-        else:
+
+        else:  # using basic auth for accessing endpoints
             sw_dict = get_swag_json(
                 self.url,
                 username=self.username,

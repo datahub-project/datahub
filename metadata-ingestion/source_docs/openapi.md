@@ -143,16 +143,7 @@ and this URL will be called to get back the needed metadata.
 
 If this tool needs to get an access token to interrogate the endpoints, this can be requested. Two methods are available at the moment:
 
-* 'get' : this requires username/password combination to be present in the url:
-
-```yaml
-    get_token:  # optional, if you need to get an authentication token beforehand 
-        request_type: get
-        url: api/authentication/login?username={username}&password={password}
-```
-
-Note that {username} and {password} are mandatory placeholders. They will be replaced with the true credentials at runtime.
-
+* 'get' : this requires username/password combination to be present in the url. Note that {username} and {password} are mandatory placeholders. They will be replaced with the true credentials at runtime.
 * 'post' : username and password will be inserted in the body of the POST request
 
 In both cases, username and password are the ones defined in the configuration file.
