@@ -86,7 +86,7 @@ export default function AddTagTermModal({
                         type: EntityType.Tag,
                         query: text,
                         start: 0,
-                        count: 5,
+                        count: 10,
                     },
                 },
             });
