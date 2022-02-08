@@ -63,7 +63,7 @@ public class SettingsBuilder {
 
     // Tokenize for urns
     tokenizers.put("urn_char_group",
-        ImmutableMap.<String, Object>builder().put("type", "pattern").put("pattern", "[:\\s(),.]").build());
+        ImmutableMap.<String, Object>builder().put("type", "pattern").put("pattern", "[:\\s(), ./]").build());
 
     return tokenizers.build();
   }
@@ -107,12 +107,12 @@ public class SettingsBuilder {
 
     // Analyzer for getting urn components
     analyzers.put("urn_component", ImmutableMap.<String, Object>builder().put("tokenizer", "urn_char_group")
-        .put("filter", ImmutableList.of("lowercase", "urn_stop_filter"))
+        .put("filter", ImmutableList.of("lowercase", "urn_stop_filter", "custom_delimiter"))
         .build());
 
     // Analyzer for partial matching urn components
     analyzers.put("partial_urn_component", ImmutableMap.<String, Object>builder().put("tokenizer", "urn_char_group")
-        .put("filter", ImmutableList.of("lowercase", "urn_stop_filter", "partial_filter"))
+        .put("filter", ImmutableList.of("lowercase", "urn_stop_filter", "custom_delimiter", "partial_filter"))
         .build());
 
     return analyzers.build();
