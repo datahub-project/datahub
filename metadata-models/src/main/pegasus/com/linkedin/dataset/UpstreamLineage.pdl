@@ -16,6 +16,12 @@ record UpstreamLineage {
   /**
   *  List of fine-grained lineage information, including field-level lineage
   */
+  @Relationship = {
+    "/*/upstreams/*": {
+      "name": "DownstreamOf",
+      "entityTypes": [ "dataset", "schemaField" ]
+    }
+  }   
   fineGrainedLineages: optional array[FineGrainedLineage]
 }
 
