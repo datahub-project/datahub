@@ -1,4 +1,5 @@
 import collections
+import dataclasses
 import datetime
 import functools
 import json
@@ -27,6 +28,7 @@ from datahub.configuration.common import ConfigurationError
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import PlatformKey, gen_containers
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemyConfig,
@@ -94,12 +96,19 @@ where
     is_partitioning_column = 'YES'
     -- Filter out special partitions (https://cloud.google.com/bigquery/docs/partitioned-tables#date_timestamp_partitioned_tables)
     and p.partition_id not in ('__NULL__', '__UNPARTITIONED__')
+    and STORAGE_TIER='ACTIVE'
+    and p.table_name= '{table}'
 group by
     c.table_catalog,
     c.table_schema,
     c.table_name,
     c.column_name,
     c.data_type
+order by
+    c.table_catalog,
+    c.table_schema,
+    c.table_name,
+    c.column_name
 """.strip()
 
 SHARDED_TABLE_REGEX = r"^(.+)[_](\d{4}|\d{6}|\d{8}|\d{10})$"
@@ -267,9 +276,18 @@ class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
         return "bigquery"
 
 
+@dataclasses.dataclass
+class ProjectIdKey(PlatformKey):
+    project_id: str
+
+
+@dataclasses.dataclass
+class BigQueryDatasetKey(ProjectIdKey):
+    dataset_id: str
+
+
 class BigQuerySource(SQLAlchemySource):
     config: BigQueryConfig
-    partiton_columns: Dict[str, Dict[str, BigQueryPartitionColumn]] = dict()
     maximum_shard_ids: Dict[str, str] = dict()
     lineage_metadata: Optional[Dict[str, Set[str]]] = None
 
@@ -466,30 +484,23 @@ class BigQuerySource(SQLAlchemySource):
                     lineage_map[destination_table_str].add(ref_table_str)
         return lineage_map
 
-    def get_latest_partitions_for_schema(self, schema: str) -> None:
+    def get_latest_partition(
+        self, schema: str, table: str
+    ) -> Optional[BigQueryPartitionColumn]:
         url = self.config.get_sql_alchemy_url()
         engine = create_engine(url, **self.config.options)
         with engine.connect() as con:
             inspector = inspect(con)
             sql = BQ_GET_LATEST_PARTITION_TEMPLATE.format(
-                project_id=self.get_db_name(inspector),
-                schema=schema,
+                project_id=self.get_db_name(inspector), schema=schema, table=table
             )
             result = con.execute(sql)
-            partitions = {}
-            for row in result:
-                partition = BigQueryPartitionColumn(**row)
-                partitions[partition.table_name] = partition
-
-            self.partiton_columns[schema] = partitions
-
-    def get_latest_partition(
-        self, schema: str, table: str
-    ) -> Optional[BigQueryPartitionColumn]:
-        if schema not in self.partiton_columns:
-            self.get_latest_partitions_for_schema(schema)
-
-        return self.partiton_columns[schema].get(table)
+            # Bigquery only supports one partition column
+            # https://stackoverflow.com/questions/62886213/adding-multiple-partitioned-columns-to-bigquery-table-from-sql-query
+            row = result.fetchone()
+            if row:
+                return BigQueryPartitionColumn(**row)
+            return None
 
     def get_shard_from_table(self, table: str) -> Tuple[str, Optional[str]]:
         match = re.search(SHARDED_TABLE_REGEX, table, re.IGNORECASE)
@@ -587,7 +598,7 @@ WHERE
 
         (project_id, schema, table) = dataset_name.split(".")
         if not self.is_latest_shard(project_id=project_id, table=table, schema=schema):
-            logger.warning(
+            logger.debug(
                 f"{dataset_name} is sharded but not the latest shard, skipping..."
             )
             return False
@@ -735,6 +746,55 @@ WHERE
         if segments[0] != schema:
             raise ValueError(f"schema {schema} does not match table {entity}")
         return segments[0], segments[1]
+
+    def gen_schema_key(self, db_name: str, schema: str) -> PlatformKey:
+        return BigQueryDatasetKey(
+            project_id=db_name,
+            dataset_id=schema,
+            platform=self.platform,
+            instance=self.config.env,
+        )
+
+    def gen_database_key(self, database: str) -> PlatformKey:
+        return ProjectIdKey(
+            project_id=database,
+            platform=self.platform,
+            instance=self.config.env,
+        )
+
+    def gen_database_containers(self, database: str) -> Iterable[MetadataWorkUnit]:
+        domain_urn = self._gen_domain_urn(database)
+
+        database_container_key = self.gen_database_key(database)
+
+        container_workunits = gen_containers(
+            container_key=database_container_key,
+            name=database,
+            sub_types=["Project"],
+            domain_urn=domain_urn,
+        )
+
+        for wu in container_workunits:
+            self.report.report_workunit(wu)
+            yield wu
+
+    def gen_schema_containers(
+        self, schema: str, db_name: str
+    ) -> Iterable[MetadataWorkUnit]:
+        schema_container_key = self.gen_schema_key(db_name, schema)
+
+        database_container_key = self.gen_database_key(database=db_name)
+
+        container_workunits = gen_containers(
+            schema_container_key,
+            schema,
+            ["Dataset"],
+            database_container_key,
+        )
+
+        for wu in container_workunits:
+            self.report.report_workunit(wu)
+            yield wu
 
     # We can't use close as it is not called if the ingestion is not successful
     def __del__(self):
