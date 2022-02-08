@@ -63,7 +63,7 @@ public class SettingsBuilder {
 
     // Tokenize for urns
     tokenizers.put("urn_char_group",
-        ImmutableMap.<String, Object>builder().put("type", "pattern").put("pattern", "[:\\s(),]").build());
+        ImmutableMap.<String, Object>builder().put("type", "pattern").put("pattern", "[:\\s(),.]").build());
 
     return tokenizers.build();
   }
