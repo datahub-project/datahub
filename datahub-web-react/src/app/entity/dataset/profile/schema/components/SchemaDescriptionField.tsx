@@ -9,6 +9,8 @@ import UpdateDescriptionModal from '../../../../shared/components/legacy/Descrip
 import StripMarkdownText, { removeMarkdown } from '../../../../shared/components/styled/StripMarkdownText';
 import MarkdownViewer from '../../../../shared/components/legacy/MarkdownViewer';
 import SchemaEditableContext from '../../../../../shared/SchemaEditableContext';
+import { useEntityData } from '../../../../shared/EntityContext';
+import analytics, { EventType, EntityActionType } from '../../../../../analytics';
 
 const EditIcon = styled(EditOutlined)`
     cursor: pointer;
@@ -89,6 +91,16 @@ export default function DescriptionField({ description, onUpdate, isEdited = fal
     const [expanded, setExpanded] = useState(!overLimit);
     const isSchemaEditable = React.useContext(SchemaEditableContext);
     const onCloseModal = () => setShowAddModal(false);
+    const { urn, entityType } = useEntityData();
+
+    const sendAnalytics = () => {
+        analytics.event({
+            type: EventType.EntityActionEvent,
+            actionType: EntityActionType.UpdateSchemaDescription,
+            entityType,
+            entityUrn: urn,
+        });
+    };
 
     const onUpdateModal = async (desc: string | null) => {
         message.loading({ content: 'Updating...' });
@@ -96,6 +108,7 @@ export default function DescriptionField({ description, onUpdate, isEdited = fal
             await onUpdate(desc || '');
             message.destroy();
             message.success({ content: 'Updated!', duration: 2 });
+            sendAnalytics();
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) message.error({ content: `Update Failed! \n ${e.message || ''}`, duration: 2 });
