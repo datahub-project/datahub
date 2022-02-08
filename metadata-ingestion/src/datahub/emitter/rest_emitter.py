@@ -113,7 +113,7 @@ class DatahubRestEmitter:
             total=self._retry_max_times,
             status_forcelist=self._retry_status_codes,
             backoff_factor=2,
-            allowed_methods=self.DEFAULT_RETRY_METHODS
+            allowed_methods=self.DEFAULT_RETRY_METHODS,
         )
 
         adapter = HTTPAdapter(
