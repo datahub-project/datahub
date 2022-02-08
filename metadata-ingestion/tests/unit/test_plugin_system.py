@@ -8,7 +8,8 @@ from datahub.ingestion.sink.console import ConsoleSink
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
 from datahub.ingestion.transformer.transform_registry import transform_registry
-from tests.test_helpers.click_helpers import run_datahub_cmd
+
+# from tests.test_helpers.click_helpers import run_datahub_cmd
 
 
 @pytest.mark.parametrize(
@@ -22,6 +23,7 @@ from tests.test_helpers.click_helpers import run_datahub_cmd
 )
 def test_registry_nonempty(registry):
     assert len(registry.mapping) > 0
+
 
 # TODO: Restore this test. This test causes loading interference with test mocks.
 # @pytest.mark.parametrize(
