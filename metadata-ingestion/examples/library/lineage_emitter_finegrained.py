@@ -17,7 +17,8 @@ def datasetUrn(tbl):
     return builder.make_dataset_urn("postgres", tbl)
 
 def fldUrn(tbl, fld):
-    return f"urn:li:schemaField:({datasetUrn(tbl)}, {fld})"
+    return builder.make_schema_field_urn(datasetUrn(tbl), fld); 
+    #f"urn:li:schemaField:({datasetUrn(tbl)}, {fld})"
 
 # Lineage of fields in a dataset (view)
 # c1      <-- unknownFunc(bar2.c1, bar4.c1)
