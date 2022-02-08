@@ -212,10 +212,10 @@ def guessing_url_name(url: str, examples: dict) -> str:
         ex2use = root
     elif root[:-1] in examples.keys():
         ex2use = root[:-1]
-    elif root.replace('/', '.') in examples.keys():
-        ex2use = root.replace('/', '.')
-    elif root[:-1].replace('/', '.') in examples.keys():
-        ex2use = root[:-1].replace('/', '.')
+    elif root.replace("/", ".") in examples.keys():
+        ex2use = root.replace("/", ".")
+    elif root[:-1].replace("/", ".") in examples.keys():
+        ex2use = root[:-1].replace("/", ".")
     else:
         return url
 

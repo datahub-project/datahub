@@ -2,7 +2,7 @@ import logging
 import time
 import warnings
 from abc import ABC
-from typing import Dict, Generator, Iterable, Tuple, Optional
+from typing import Dict, Generator, Iterable, Optional, Tuple
 
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import make_tag_urn
@@ -49,21 +49,34 @@ class OpenApiConfig(ConfigModel):
     def get_swagger(self) -> Dict:
         if self.token is not None:  # token based authentication, to be expanded
             if self.token == "":
-                if self.get_token['request_type'] == 'get':
-                    assert 'url_complement' in self.get_token.keys(), "When 'request_type' is set to 'get', an url_complement is needed for the request."
-                    assert '{username}' in self.get_token['url_complement'], "we expect the keyword {username} to be present in the url"
-                    assert '{password}' in self.get_token['url_complement'], "we expect the keyword {password} to be present in the url"
-                    url4req = self.get_token['url_complement'].replace('{username}', self.username)
-                    url4req = url4req.replace('{password}', self.password)
-                    self.token = get_tok(
-                        url=self.url, username=self.username, password=self.password, tok_url=url4req
+                if self.get_token["request_type"] == "get":
+                    assert (
+                        "url_complement" in self.get_token.keys()
+                    ), "When 'request_type' is set to 'get', an url_complement is needed for the request."
+                    assert (
+                        "{username}" in self.get_token["url_complement"]
+                    ), "we expect the keyword {username} to be present in the url"
+                    assert (
+                        "{password}" in self.get_token["url_complement"]
+                    ), "we expect the keyword {password} to be present in the url"
+                    url4req = self.get_token["url_complement"].replace(
+                        "{username}", self.username
                     )
-                elif self.get_token['request_type'] == 'post':
+                    url4req = url4req.replace("{password}", self.password)
+                    self.token = get_tok(
+                        url=self.url,
+                        username=self.username,
+                        password=self.password,
+                        tok_url=url4req,
+                    )
+                elif self.get_token["request_type"] == "post":
                     self.token = get_tok(
                         url=self.url, username=self.username, password=self.password
                     )
                 else:
-                    raise KeyError("This tool accepts only 'get' and 'post' as method for getting tokens")
+                    raise KeyError(
+                        "This tool accepts only 'get' and 'post' as method for getting tokens"
+                    )
 
             sw_dict = get_swag_json(
                 self.url, token=self.token, swagger_file=self.swagger_file
@@ -114,7 +127,9 @@ class APISource(Source, ABC):
         elif status_code == 504:
             self.report.report_warning(key=key, reason="Timeout for reaching endpoint")
         else:
-            raise Exception(f"Unable to retrieve endpoint, response code {status_code}, key {key}")
+            raise Exception(
+                f"Unable to retrieve endpoint, response code {status_code}, key {key}"
+            )
 
     def init_dataset(
         self, endpoint_k: str, endpoint_dets: dict
