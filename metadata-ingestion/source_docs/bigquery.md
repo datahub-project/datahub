@@ -73,9 +73,11 @@ This plugin extracts the following:
 - Table, row, and column statistics via optional [SQL profiling](./sql_profiles.md)
 - Table level lineage.
 
-| Capability | Status | Details | 
-| -----------| ------ | ---- |
-| Platform Instance | 🛑 | BigQuery doesn't need platform instances because `project ids` in BigQuery are globally unique. [link](../../docs/platform-instances.md) |
+| Capability        | Status | Details                                                                                                                                  | 
+|-------------------|--------|------------------------------------------------------------------------------------------------------------------------------------------|
+| Platform Instance | 🛑     | BigQuery doesn't need platform instances because `project ids` in BigQuery are globally unique. [link](../../docs/platform-instances.md) |
+| Data Containers   | ✔️     |                                                                                                                                          |
+| Data Domains      | ✔️     | [link](../../docs/domains.md)                                                                                                            |
 
 :::tip
 
@@ -134,6 +136,9 @@ As a SQL-based service, the Athena integration is also supported by our SQL prof
 | `use_exported_bigquery_audit_metadata` |                                                                           | `False`                                                                 | When configured, use `BigQueryAuditMetadata` in `bigquery_audit_metadata_datasets` to compute lineage information.                                                                                                                                                                      |
 | `use_date_sharded_audit_log_tables`    |                                                                           | `False`                                                                 | Whether to read date sharded tables or time partitioned tables when extracting lineage from exported audit logs.                                                                                                                                                                        |
 | `bigquery_audit_metadata_datasets`     |                                                                           | None                                                                    | A list of datasets that contain a table named `cloudaudit_googleapis_com_data_access` which contain BigQuery audit logs, specifically, those containing `BigQueryAuditMetadata`. It is recommended that the project of the dataset is also specified, for example, `projectA.datasetB`. |
+| `domain.domain_key.allow`              |                                                                           |                                                                         | List of regex patterns for tables/schemas to set domain_key domain key (domain_key can be any string like `sales`. There can be multiple domain key specified.                                                                                                                          |
+| `domain.domain_key.deny`               |                                                                           |                                                                         | List of regex patterns for tables/schemas to not assign domain_key. There can be multiple domain key specified.                                                                                                                                                                         |
+| `domain.domain_key.ignoreCase`         |                                                                           | `True`                                                                  | Whether to ignore case sensitivity during pattern matching.There can be multiple domain key specified.                                                                                                                                                                                  |
 
 
 The following parameters are only relevant if include_table_lineage is set to true:
