@@ -44,13 +44,14 @@ class DatahubRestEmitter:
     DEFAULT_READ_TIMEOUT_SEC = (
         30  # Any ingest call taking longer than 30 seconds should be abandoned
     )
-    DEFAULT_RETRY_STATUS_CODES = [  # Additional status codes to retry on
+    DEFAULT_RETRY_STATUS_CODES = frozenset([  # Additional status codes to retry on
         429,
         502,
         503,
         504,
-    ]
-    DEFAULT_RETRY_MAX_TIMES = 1
+    ])
+    DEFAULT_RETRY_METHODS = frozenset(["HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS", "TRACE"])
+    DEFAULT_RETRY_MAX_TIMES = 3
 
     _gms_server: str
     _token: Optional[str]
@@ -112,6 +113,7 @@ class DatahubRestEmitter:
             total=self._retry_max_times,
             status_forcelist=self._retry_status_codes,
             backoff_factor=2,
+            allowed_methods=self.DEFAULT_RETRY_METHODS
         )
 
         adapter = HTTPAdapter(
