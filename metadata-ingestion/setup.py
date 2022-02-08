@@ -146,7 +146,7 @@ plugins: Dict[str, Set[str]] = {
     "snowflake-usage": snowflake_common | {"more-itertools>=8.12.0"},
     "sqlalchemy": sql_common,
     "superset": {"requests"},
-    "tableau": {"tableauserverclient==0.17.0"},
+    "tableau": {"tableauserverclient>=0.17.0"},
     "trino": sql_common | {"trino"},
     "starburst-trino-usage": sql_common | {"trino"},
     "nifi": {"requests"},
@@ -219,7 +219,6 @@ base_dev_requirements = {
             "data-lake",
             "tableau",
             "trino",
-            "tableau",
             "hive",
             "starburst-trino-usage",
             # airflow is added below
