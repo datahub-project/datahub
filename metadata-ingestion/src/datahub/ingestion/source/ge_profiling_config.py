@@ -1,3 +1,4 @@
+import datetime
 import os
 from typing import Any, Dict, List, Optional
 
@@ -43,6 +44,7 @@ class GEProfilingConfig(ConfigModel):
     catch_exceptions: bool = True
 
     bigquery_temp_table_schema: Optional[str] = None
+    partition_datetime: Optional[datetime.datetime]
 
     @pydantic.root_validator()
     def ensure_field_level_settings_are_normalized(

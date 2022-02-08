@@ -66,7 +66,7 @@ public class LabelUtils {
       }
 
       removeTermIfExists(editableFieldInfo.getGlossaryTerms(), labelUrn);
-      persistAspect(targetUrn, GLOSSARY_TERM_ASPECT_NAME, editableSchemaMetadata, actor, entityService);
+      persistAspect(targetUrn, EDITABLE_SCHEMA_METADATA, editableSchemaMetadata, actor, entityService);
     }
   }
 
