@@ -1,3 +1,4 @@
 {
-	"baseUrl": "http://localhost:9002"
+	"baseUrl": "http://localhost:9002",
+	"projectId": "minvyd"
 }
