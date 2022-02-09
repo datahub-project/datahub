@@ -1,4 +1,10 @@
 describe('mutations', () => {
+  before(() => {
+    // warm up elastic by issuing a `*` search
+    cy.visit('http://localhost:9002/search?query=%2A');
+    cy.wait(5000);
+  });
+
   it('can create and add a tag to dataset and visit new tag page', () => {
     cy.deleteUrn('urn:li:tag:CypressTestAddTag')
     cy.login();
