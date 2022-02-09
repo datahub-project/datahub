@@ -75,6 +75,7 @@ export default function CreateTagModal({
         <Modal
             title={`Create ${tagName}`}
             visible={visible}
+            onCancel={onClose}
             footer={
                 <>
                     <Button onClick={onBack} type="text">
