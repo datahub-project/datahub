@@ -66,6 +66,10 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                         component: GlossaryRelatedEntity,
                     },
                     {
+                        name: 'Documentation',
+                        component: DocumentationTab,
+                    },
+                    {
                         name: 'Schema',
                         component: SchemaTab,
                         properties: {
@@ -81,10 +85,6 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                     {
                         name: 'Related Terms',
                         component: GlossayRelatedTerms,
-                    },
-                    {
-                        name: 'Documentation',
-                        component: DocumentationTab,
                     },
                     {
                         name: 'Properties',
@@ -119,8 +119,8 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
         return (
             <Preview
                 urn={data?.urn}
-                name={data?.properties?.name}
-                description={data?.properties?.termDescription}
+                name={data?.properties?.name || ''}
+                description={data?.properties?.description || ''}
                 owners={data?.ownership?.owners}
             />
         );

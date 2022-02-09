@@ -336,7 +336,9 @@ export const dataset3 = {
                     urn: 'urn:li:glossaryTerm:sample-glossary-term',
                     name: 'sample-glossary-term',
                     hierarchicalName: 'example.sample-glossary-term',
-                    glossaryTermInfo: {
+                    properties: {
+                        name: 'sample-glossary-term',
+                        description: 'sample definition',
                         definition: 'sample definition',
                         termSource: 'sample term source',
                     },
@@ -703,8 +705,10 @@ const glossaryTerm1 = {
             time: 0,
         },
     },
-    glossaryTermInfo: {
+    properties: {
+        name: 'Another glossary term',
         definition: 'New glossary term',
+        description: 'New glossary term',
         termSource: 'termSource',
         sourceRef: 'sourceRef',
         sourceURI: 'sourceURI',
@@ -717,7 +721,9 @@ const glossaryTerm2 = {
     name: 'glossaryterm1',
     hierarchicalName: 'example.glossaryterm1',
     ownership: null,
-    glossaryTermInfo: {
+    properties: {
+        name: 'glossaryterm1',
+        description: 'is A relation glossary term 1',
         definition: 'is A relation glossary term 1',
         termSource: 'INTERNAL',
         sourceRef: 'TERM_SOURCE_SAXO',
@@ -770,6 +776,8 @@ const glossaryTerm3 = {
     hierarchicalName: 'example.glossaryterm2',
     ownership: null,
     glossaryTermInfo: {
+        name: 'glossaryterm2',
+        description: 'has A relation glossary term 2',
         definition: 'has A relation glossary term 2',
         termSource: 'INTERNAL',
         sourceRef: 'TERM_SOURCE_SAXO',
@@ -789,12 +797,16 @@ const glossaryTerm3 = {
         hasRelatedTerms: [
             {
                 urn: 'urn:li:glossaryTerm:example.glossaryterm3',
-                name: 'glossaryterm3',
+                properties: {
+                    name: 'glossaryterm3',
+                },
                 __typename: 'GlossaryTerm',
             },
             {
                 urn: 'urn:li:glossaryTerm:example.glossaryterm4',
-                name: 'glossaryterm4',
+                properties: {
+                    name: 'glossaryterm4',
+                },
                 __typename: 'GlossaryTerm',
             },
         ],

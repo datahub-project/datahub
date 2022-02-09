@@ -71,11 +71,12 @@ query getBrowseResults($input: BrowseInput!) {
                 }
             }
             ... on GlossaryTerm {
-                name
                 ownership {
                     ...ownershipFields
                 }
-                glossaryTermInfo {
+                properties {
+                    name
+                    termDescription: description
                     definition
                     termSource
                     sourceRef
