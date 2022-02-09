@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.tag.mappers;
 
 import com.datahub.util.ModelUtils;
 import com.linkedin.common.Ownership;
+import com.linkedin.data.template.GetMode;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Tag;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
@@ -29,17 +30,29 @@ public class TagSnapshotMapper implements ModelMapper<TagSnapshot, Tag> {
         final Tag result = new Tag();
         result.setUrn(tag.getUrn().toString());
         result.setType(EntityType.TAG);
+        result.setId(tag.getUrn().getName());
         result.setName(tag.getUrn().getName());
 
         ModelUtils.getAspectsFromSnapshot(tag).forEach(aspect -> {
             if (aspect instanceof TagProperties) {
-                if (TagProperties.class.cast(aspect).hasDescription()) {
+                final TagProperties properties = (TagProperties) aspect;
+                 result.setProperties(mapTagProperties(properties));
+                // Set deprecated top-level description field.
+                if (properties.hasDescription()) {
                     result.setDescription(TagProperties.class.cast(aspect).getDescription());
                 }
             } else if (aspect instanceof Ownership) {
                 result.setOwnership(OwnershipMapper.map((Ownership) aspect));
             }
         });
+        return result;
+    }
+
+    private com.linkedin.datahub.graphql.generated.TagProperties mapTagProperties(final TagProperties gmsProperties) {
+        final com.linkedin.datahub.graphql.generated.TagProperties result = new com.linkedin.datahub.graphql.generated.TagProperties();
+        result.setName(gmsProperties.getName(GetMode.DEFAULT));
+        result.setDescription(gmsProperties.getDescription(GetMode.DEFAULT));
+        result.setColorHex(gmsProperties.getColorHex(GetMode.DEFAULT));
         return result;
     }
 }

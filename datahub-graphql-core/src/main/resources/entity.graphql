@@ -156,6 +156,11 @@ type Mutation {
     updateTag(urn: String!, input: TagUpdateInput!): Tag
 
     """
+    Set the hex color associated with an existing Tag
+    """
+    setTagColor(urn: String!, colorHex: String!): Boolean
+
+    """
     Create a policy and returns the resulting urn
     """
     createPolicy(input: PolicyUpdateInput!): String
@@ -793,7 +798,7 @@ type GlossaryTerm implements Entity {
     urn: String!
 
     """
-    Ownership metadata of the dataset
+    Ownership metadata of the glossary term
     """
     ownership: Ownership
 
@@ -803,9 +808,14 @@ type GlossaryTerm implements Entity {
     type: EntityType!
 
     """
-    Display name of the glossary term
+    Name / id of the glossary term
     """
-    name: String!
+    name: String! @deprecated
+
+    """
+    Unique id associated with the Glossary Term
+    """
+    id: String!
 
     """
     hierarchicalName of glossary term
@@ -846,9 +856,19 @@ Information about a glossary term
 """
 type GlossaryTermInfo {
     """
-    Definition of the glossary term
+    The name of the Glossary Term
     """
-    definition: String!
+    name: String
+
+    """
+    Description of the glossary term
+    """
+    description: String!
+
+    """
+    Definition of the glossary term. Deprecated - Use 'description' instead.
+    """
+    definition: String! @deprecated
 
     """
     Term Source of the glossary term
@@ -881,9 +901,19 @@ Additional read only properties about a Glossary Term
 """
 type GlossaryTermProperties {
     """
-    Definition of the glossary term
+    The name of the Glossary Term
     """
-    definition: String!
+    name: String
+
+    """
+    Description of the glossary term
+    """
+    description: String!
+
+    """
+    Definition of the glossary term. Deprecated - Use 'description' instead.
+    """
+    definition: String! @deprecated
 
     """
     Term Source of the glossary term
@@ -2470,14 +2500,25 @@ type Tag implements Entity {
     type: EntityType!
 
     """
-    The display name of the tag
+    The name / id of the tag. Use properties.name instead.
     """
-    name: String!
+    name: String! @deprecated
+
+    """
+    The id of the tag
+    """
+    id: String!
+
+    """
+    Additional properties about the Tag
+    """
+    properties: TagProperties
 
     """
     Additional read write properties about the Tag
+    Deprecated! Use 'properties' field instead.
     """
-    editableProperties: EditableTagProperties
+    editableProperties: EditableTagProperties @deprecated
 
     """
     Ownership metadata of the dataset
@@ -2490,21 +2531,47 @@ type Tag implements Entity {
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
     """
-    Deprecated, use editableProperties field instead
-    Description of the tag
+    Deprecated, use properties.description field instead
     """
     description: String @deprecated
 }
 
 """
 Additional read write Tag properties
+Deprecated! Replaced by TagProperties.
 """
 type EditableTagProperties {
+  """
+  A display name for the Tag
+  """
+  name: String
+
   """
   A description of the Tag
   """
   description: String
 }
+
+"""
+Properties for a DataHub Tag
+"""
+type TagProperties {
+  """
+  A display name for the Tag
+  """
+  name: String
+
+  """
+  A description of the Tag
+  """
+  description: String
+
+  """
+  An optional RGB hex code for a Tag color, e.g. #FFFFFF
+  """
+  colorHex: String
+}
+
 
 """
 An edge between a Metadata Entity and a Tag Modeled as a struct to permit

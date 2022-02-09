@@ -1281,9 +1281,19 @@
     "doc" : "Properties associated with a GlossaryTerm",
     "include" : [ "com.linkedin.common.CustomProperties" ],
     "fields" : [ {
+      "name" : "name",
+      "type" : "string",
+      "doc" : "Display name of the term",
+      "optional" : true,
+      "Searchable" : {
+        "boostScore" : 10.0,
+        "enableAutocomplete" : true,
+        "fieldType" : "TEXT_PARTIAL"
+      }
+    }, {
       "name" : "definition",
       "type" : "string",
-      "doc" : "Definition of business term",
+      "doc" : "Definition of business term.",
       "Searchable" : { }
     }, {
       "name" : "parentNode",
@@ -2251,8 +2261,10 @@
       "fields" : [ {
         "name" : "name",
         "type" : "string",
+        "doc" : "The term name, which serves as a unique id",
         "Searchable" : {
           "enableAutocomplete" : true,
+          "fieldName" : "id",
           "fieldType" : "TEXT_PARTIAL"
         }
       } ],
@@ -2888,10 +2900,11 @@
       "fields" : [ {
         "name" : "name",
         "type" : "string",
-        "doc" : "The unique tag name",
+        "doc" : "The tag name, which serves as a unique id",
         "Searchable" : {
           "boostScore" : 10.0,
           "enableAutocomplete" : true,
+          "fieldName" : "id",
           "fieldType" : "TEXT_PARTIAL"
         }
       } ],
@@ -2906,11 +2919,22 @@
       "fields" : [ {
         "name" : "name",
         "type" : "string",
-        "doc" : "Name of the tag"
+        "doc" : "Display name of the tag",
+        "Searchable" : {
+          "boostScore" : 10.0,
+          "enableAutocomplete" : true,
+          "fieldType" : "TEXT_PARTIAL"
+        }
       }, {
         "name" : "description",
         "type" : "string",
         "doc" : "Documentation of the tag",
+        "optional" : true,
+        "Searchable" : { }
+      }, {
+        "name" : "colorHex",
+        "type" : "string",
+        "doc" : "The color associated with the Tag in Hex. For example #FFFFFF.",
         "optional" : true
       } ],
       "Aspect" : {
