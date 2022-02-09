@@ -813,11 +813,6 @@ type GlossaryTerm implements Entity {
     name: String! @deprecated
 
     """
-    Unique id associated with the Glossary Term
-    """
-    id: String!
-
-    """
     hierarchicalName of glossary term
     """
     hierarchicalName: String!
