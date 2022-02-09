@@ -53,8 +53,12 @@ public class Analytics extends SimpleResourceTemplate<GetTimeseriesAggregatedSta
       resp.setEntityName(entityName);
       resp.setAspectName(aspectName);
       resp.setAggregationSpecs(new AggregationSpecArray(Arrays.asList(aggregationSpecs)));
-      resp.setFilter(filter);
-      resp.setGroupingBuckets(new GroupingBucketArray(Arrays.asList(groupingBuckets)));
+      if (filter != null) {
+        resp.setFilter(filter);
+      }
+      if (groupingBuckets != null) {
+        resp.setGroupingBuckets(new GroupingBucketArray(Arrays.asList(groupingBuckets)));
+      }
 
       GenericTable aggregatedStatsTable =
           _timeseriesAspectService.getAggregatedStats(entityName, aspectName, aggregationSpecs, filter,

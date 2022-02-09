@@ -710,8 +710,8 @@
       "doc" : "Additional information about the entity deprecation plan, such as the wiki, doc, RB."
     }, {
       "name" : "actor",
-      "type" : "CorpuserUrn",
-      "doc" : "The corpuser URN which will be credited for modifying this deprecation content."
+      "type" : "Urn",
+      "doc" : "The user URN which will be credited for modifying this deprecation content."
     } ],
     "Aspect" : {
       "name" : "deprecation"
@@ -1110,11 +1110,11 @@
     "type" : "record",
     "name" : "Status",
     "namespace" : "com.linkedin.common",
-    "doc" : "The status metadata of an entity, e.g. dataset, metric, feature, etc.\nThis aspect is used to represent soft deletes conventionally.",
+    "doc" : "The lifecycle status metadata of an entity, e.g. dataset, metric, feature, etc.\nThis aspect is used to represent soft deletes conventionally.",
     "fields" : [ {
       "name" : "removed",
       "type" : "boolean",
-      "doc" : "whether the entity is removed or not",
+      "doc" : "Whether the entity has been removed (soft-deleted).",
       "default" : false,
       "Searchable" : {
         "fieldType" : "BOOLEAN"
@@ -1546,7 +1546,7 @@
     "type" : "record",
     "name" : "DatasetDeprecation",
     "namespace" : "com.linkedin.dataset",
-    "doc" : "Dataset deprecation status",
+    "doc" : "Dataset deprecation status\nDeprecated! This aspect is deprecated in favor of the more-general-purpose 'Deprecation' aspect.",
     "fields" : [ {
       "name" : "deprecated",
       "type" : "boolean",
@@ -1574,7 +1574,8 @@
     } ],
     "Aspect" : {
       "name" : "datasetDeprecation"
-    }
+    },
+    "Deprecated" : true
   }, {
     "type" : "record",
     "name" : "DatasetFieldMapping",
@@ -4128,6 +4129,7 @@
                   "name" : "GlossaryTermInfo",
                   "namespace" : "com.linkedin.glossary",
                   "doc" : "Properties associated with a GlossaryTerm",
+                  "include" : [ "com.linkedin.common.CustomProperties" ],
                   "fields" : [ {
                     "name" : "definition",
                     "type" : "string",
@@ -4158,14 +4160,6 @@
                     "type" : "com.linkedin.common.Url",
                     "doc" : "The abstracted URL such as https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/CashInstrument.",
                     "optional" : true
-                  }, {
-                    "name" : "customProperties",
-                    "type" : {
-                      "type" : "map",
-                      "values" : "string"
-                    },
-                    "doc" : "A key-value map to capture any other non-standardized properties for the glossary term",
-                    "default" : { }
                   }, {
                     "name" : "rawSchema",
                     "type" : "string",
