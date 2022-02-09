@@ -149,3 +149,211 @@ fragment viewProperties on Dataset {
         language
     }
 }
+
+query getDatasetWithAssertions($urn: String!) {
+    dataset(urn: $urn) {
+        ...nonRecursiveDatasetFields
+        schemaMetadata(version: 0) {
+            ...schemaMetadataFields
+        }
+        previousSchemaMetadata: schemaMetadata(version: -1) {
+            ...schemaMetadataFields
+        }
+        editableSchemaMetadata {
+            editableSchemaFieldInfo {
+                fieldPath
+                description
+                globalTags {
+                    ...globalTagsFields
+                }
+                glossaryTerms {
+                    ...glossaryTerms
+                }
+            }
+        }
+        deprecation {
+            actor
+            deprecated
+            note
+            decommissionTime
+        }
+        globalTags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        subTypes {
+            typeNames
+        }
+        domain {
+            ...entityDomain
+        }
+        container {
+            ...entityContainer
+        }
+        usageStats(resource: $urn, range: MONTH) {
+            buckets {
+                bucket
+                duration
+                resource
+                metrics {
+                    uniqueUserCount
+                    totalSqlQueries
+                    topSqlQueries
+                }
+            }
+            aggregations {
+                uniqueUserCount
+                totalSqlQueries
+                users {
+                    user {
+                        urn
+                        username
+                    }
+                    count
+                    userEmail
+                }
+                fields {
+                    fieldName
+                    count
+                }
+            }
+        }
+        datasetProfiles(limit: 1) {
+            rowCount
+            columnCount
+            timestampMillis
+            fieldProfiles {
+                fieldPath
+                uniqueCount
+                uniqueProportion
+                nullCount
+                nullProportion
+                min
+                max
+                mean
+                median
+                stdev
+                sampleValues
+            }
+        }
+        operations(limit: 1) {
+            timestampMillis
+        }
+        incoming: relationships(
+            input: { types: ["DownstreamOf", "Consumes", "Produces"], direction: INCOMING, start: 0, count: 100 }
+        ) {
+            ...fullRelationshipResults
+        }
+        outgoing: relationships(
+            input: { types: ["DownstreamOf", "Consumes", "Produces"], direction: OUTGOING, start: 0, count: 100 }
+        ) {
+            ...fullRelationshipResults
+        }
+        ...viewProperties
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            aspectName
+            payload
+            renderSpec {
+                displayType
+                displayName
+                key
+            }
+        }
+        assertions: relationships(
+            input: { types: ["Asserts"], direction: INCOMING, start: 0, count: 100 }
+        ) {
+            start
+            count
+            total
+            relationships {
+                type
+                direction
+                entity {
+                    urn
+                    type
+                    ... on Assertion {
+                        info {
+                            type
+                            parameters {
+                                key
+                                value
+                            }
+                            datasetAssertion {
+                                scope
+                                datasets
+                                fields
+                                columnAssertion {
+                                    stdOperator
+                                    stdAggFunc
+                                    nativeOperator
+                                    nativeAggFunc
+                                }
+                                rowsAssertion {
+                                    stdOperator
+                                    stdAggFunc
+                                    nativeOperator
+                                    nativeAggFunc
+                                }
+                                schemaAssertion {
+                                    stdOperator
+                                    stdAggFunc
+                                    nativeOperator
+                                    nativeAggFunc
+                                }
+                            }
+                        }
+                        runEvents(asserteeUrn: $urn, limit: 1) {
+                            timestampMillis
+                            assertionUrn
+                            result {
+                                type
+                                actualAggValue
+                                rowCount
+                                missingCount
+                                unexpectedCount
+                                externalUrl
+                                nativeResults{
+                                    key
+                                    value
+                                }
+                                runtimeContext {
+                                    key
+                                    value
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+query getDataAssertions($urn: String!,$assertionUrn: String!, $limit: Int, $startTime: Long, $endTime: Long) {
+    assertion(urn: $assertionUrn) {
+        urn
+        runEvents(asserteeUrn: $urn, limit: $limit, startTimeMillis: $startTime, endTimeMillis: $endTime) {
+            timestampMillis
+            assertionUrn
+            result {
+                type
+                actualAggValue
+                rowCount
+                missingCount
+                unexpectedCount
+                externalUrl
+                nativeResults{
+                    key
+                    value
+                }
+                runtimeContext {
+                    key
+                    value
+                }
+            }
+        }
+    }
+}

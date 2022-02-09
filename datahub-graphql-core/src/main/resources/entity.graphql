@@ -70,6 +70,11 @@ type Query {
     domain(urn: String!): Domain
 
     """
+    Fetch an Assertion by primary key (urn)
+    """
+    assertion(urn: String!): Assertion
+
+    """
     List all DataHub Access Policies
     """
     listPolicies(input: ListPoliciesInput!): ListPoliciesResult
@@ -397,6 +402,11 @@ enum EntityType {
     A DataHub ExecutionRequest
     """
     EXECUTION_REQUEST
+
+    """
+    A DataHub Assertion
+    """
+    ASSERTION
 }
 
 """
@@ -631,8 +641,8 @@ type Dataset implements EntityWithRelationships & Entity {
     If no start or end time are provided, the most recent events will be returned
     """
     datasetProfiles(startTimeMillis: Long, endTimeMillis: Long, limit: Int): [DatasetProfile!]
+        
     """
-
     Operational events for an entity.
     """
     operations(startTimeMillis: Long, endTimeMillis: Long, limit: Int): [Operation!]
@@ -4185,6 +4195,373 @@ type TimeWindow {
   The end time of the time window
   """
   durationMillis: Long!
+}
+
+type Assertion implements EntityWithRelationships & Entity {
+
+    """
+    The primary key of the Assertion
+    """
+    urn: String!
+    
+    """
+    The standard Entity Type
+    """
+    type: EntityType!
+    
+    """
+    Standardized platform urn where the assertion is evaluated
+    """
+    platform: DataPlatform!
+
+    """    
+    Details about assertion
+    """
+    info: AssertionInfo
+
+    """
+    TODO Consider whether this query should be serviced by the dataset->datasetAssertions
+    Assertion Events in descending order
+    If no start or end time are provided, the most recent events will be returned
+    """    
+    runEvents(asserteeUrn: String!, startTimeMillis: Long, endTimeMillis: Long, limit: Int): [AssertionRunEvent!]
+
+    """
+    Edges extending from this entity
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult  
+    
+}
+
+"""
+Type of assertion. Assertion types can evolve to span Datasets, Flows (Pipelines), Models, Features etc.
+"""
+type AssertionInfo {
+
+    """
+    Type of assertion. Assertion types can evolve to span Datasets, Flows (Pipelines), Models, Features etc.
+    """
+    type: AssertionType!
+
+    """
+    Logic for the assertion as expressed in the native assertion language. Code fragments, query strings, etc.
+    """
+    assertionLogic: String
+
+    """
+    Parameters required for the assertion. e.g. min_value, max_value, value, columns
+    """
+    parameters: [StringMapEntry!]
+
+    """
+    Dataset Assertion information when type is DATASET
+    """
+    datasetAssertion: DatasetAssertionInfo
+}
+
+type DatasetAssertionInfo {
+
+    scope: DatasetAssertionScope
+    columnAssertion: DatasetColumnAssertion
+    rowsAssertion: DatasetRowsAssertion
+    schemaAssertion: DatasetSchemaAssertion
+    fields: [String!]
+    datasets: [String!]
+}
+
+
+type DatasetColumnAssertion {
+
+    stdOperator: AssertionStdOperator!
+    stdAggFunc: DatasetColumnStdAggFunc!
+    nativeOperator: String
+    nativeAggFunc: String
+}
+
+type DatasetRowsAssertion {
+
+    stdOperator: AssertionStdOperator!
+    stdAggFunc: DatasetRowsStdAggFunc!
+    nativeOperator: String
+    nativeAggFunc: String
+}
+
+type DatasetSchemaAssertion {
+
+    stdOperator: AssertionStdOperator!
+    stdAggFunc: DatasetSchemaStdAggFunc!
+    nativeOperator: String
+    nativeAggFunc: String   
+}
+
+"""
+An event representing the current status of evaluating an assertion on a batch.
+AssertionRunEvent should be used for fetching/reporting the status of a run as an assertion evaluation progresses.
+"""
+type AssertionRunEvent implements TimeSeriesAspect {
+
+  """
+  The time at which the assertion was evaluated
+  """
+  timestampMillis: Long!
+
+  """
+  Urn of assertion which is evaluated
+  """
+  assertionUrn: String!
+
+  """
+  Native (platform-specific) identifier for this run
+  """
+  runId: String!
+
+  """
+  The status of the assertion run as per this timeseries event.
+  """
+  status: AssertionRunStatus!
+
+  """
+  Specification of the batch which this run is evaluating
+  """
+  batchSpec: BatchSpec  
+
+  """
+  Runtime parameters of evaluation
+  """
+  runtimeContext: [StringMapEntry!]
+
+  """
+  Results of assertion, present if the status is COMPLETE
+  """
+  result: AssertionResult
+
+}
+
+type AssertionResult {
+    """
+    The final result, e.g. either SUCCESS or FAILURE.
+    """
+    type:AssertionResultType!
+
+    """
+    Number of rows for evaluated batch
+    """
+    rowCount: Long
+
+    """
+    Number of rows with missing value for evaluated batch
+    """
+    missingCount: Long
+
+    """
+    Number of rows with unexpected value for evaluated batch
+    """
+    unexpectedCount: Long
+
+    """
+    Observed aggregate value for evaluated batch
+    """
+    actualAggValue: Float
+
+    """
+    URL where full results are available
+    """
+    externalUrl: String
+    
+    """
+    Other results of evaluation
+    """
+    nativeResults: [StringMapEntry!]
+
+    """
+    Runtime context for the evaluation
+    """
+    runtimeContext: [StringMapEntry!]
+}
+
+type BatchSpec {
+    """
+    The native identifier as specified by the system operating on the batch.
+    """
+    nativeBatchId: String
+
+    """
+    A query that identifies a batch of data
+    """
+    query: String
+
+    """
+    Any limit to the number of rows in the batch, if applied
+    """
+    limit: Int
+    
+    """
+    Custom properties of the Batch
+    """
+    customProperties: [StringMapEntry!]
+}
+
+enum AssertionResultType {
+    SUCCESS
+    FAILURE
+}
+
+enum AssertionRunStatus {
+    COMPLETE
+}
+
+enum DatasetColumnStdAggFunc {
+    """
+    Assertion is applied on individual column value
+    """
+    IDENTITY
+
+    """
+    Assertion is applied on column mean 
+    """
+    MEAN
+
+    """
+    Assertion is applied on column median
+    """
+    MEDIAN
+
+    """
+    Assertion is applied on number of distinct values in column
+    """
+    UNIQUE_COUNT
+
+    """
+    Assertion is applied on proportion of distinct values in column
+    """
+    UNIQUE_PROPOTION
+
+    """
+    Assertion is applied on number of null values in column
+    """
+    NULL_COUNT
+
+    """
+    Assertion is applied on proportion of null values in column
+    """
+    NULL_PROPORTION
+
+    """
+    Assertion is applied on column std deviation
+    """
+    STDDEV
+
+    """
+    Assertion is applied on column min
+    """
+    MIN
+
+    """
+    Assertion is applied on column std deviation
+    """
+    MAX
+    
+    """
+    Other
+    """
+    _NATIVE_
+}
+enum DatasetSchemaStdAggFunc {
+
+    """
+    Assertion is applied on all columns
+    """
+    COLUMNS
+    """
+    Assertion is applied on number of columns
+    """
+    COLUMN_COUNT
+    """
+    Other
+    """
+    _NATIVE_
+}
+enum DatasetRowsStdAggFunc {
+    """
+    Assertion is applied on number of rows
+    """
+    ROW_COUNT
+    """
+    Other
+    """
+    _NATIVE_
+}
+
+enum AssertionStdOperator {
+    """
+    Value being asserted is between min_value and max_value
+    """
+    BETWEEN
+
+    """
+    Value being asserted is less than max_value
+    """
+    LESS_THAN
+
+    """
+    Value being asserted is less than or equal to max_value
+    """
+    LESS_THAN_OR_EQUAL_TO
+
+    """
+    Value being asserted is greater than min_value
+    """
+    GREATER_THAN
+
+    """
+    Value being asserted is greater than or equal to min_value
+    """
+    GREATER_THAN_OR_EQUAL_TO
+
+    """
+    Value being asserted is equal to value
+    """
+    EQUAL_TO
+
+    """
+    Value being asserted is not null
+    """
+    NOT_NULL 
+
+    """
+    Value being asserted contains value
+    """
+    CONTAIN
+
+    """
+    Value being asserted ends with value
+    """
+    END_WITH
+
+    """
+    Value being asserted starts with value
+    """
+    START_WITH
+
+    """
+    Value being asserted is one of the array values
+    """
+    IN
+
+    """
+    Other
+    """  
+    _NATIVE_
+}
+
+enum DatasetAssertionScope {
+    DATASET_COLUMN,
+    DATASET_ROWS,
+    DATASET_SCHEMA
+}
+
+enum AssertionType {
+    DATASET
 }
 
 """

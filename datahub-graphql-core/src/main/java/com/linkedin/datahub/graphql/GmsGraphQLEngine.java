@@ -26,8 +26,8 @@ import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityRelationship;
 import com.linkedin.datahub.graphql.generated.EntityRelationshipLegacy;
 import com.linkedin.datahub.graphql.generated.ForeignKeyConstraint;
-import com.linkedin.datahub.graphql.generated.ListDomainsResult;
 import com.linkedin.datahub.graphql.generated.InstitutionalMemoryMetadata;
+import com.linkedin.datahub.graphql.generated.ListDomainsResult;
 import com.linkedin.datahub.graphql.generated.MLFeature;
 import com.linkedin.datahub.graphql.generated.MLFeatureProperties;
 import com.linkedin.datahub.graphql.generated.MLFeatureTable;
@@ -45,11 +45,11 @@ import com.linkedin.datahub.graphql.generated.UserUsageCounts;
 import com.linkedin.datahub.graphql.resolvers.AuthenticatedResolver;
 import com.linkedin.datahub.graphql.resolvers.MeResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.GetAccessTokenResolver;
-import com.linkedin.datahub.graphql.resolvers.container.ContainerEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowsePathsResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowseResolver;
 import com.linkedin.datahub.graphql.resolvers.config.AppConfigResolver;
 import com.linkedin.datahub.graphql.resolvers.deprecation.UpdateDeprecationResolver;
+import com.linkedin.datahub.graphql.resolvers.container.ContainerEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.CreateDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.DomainEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.ListDomainsResolver;
@@ -64,17 +64,18 @@ import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupResolver;
 import com.linkedin.datahub.graphql.resolvers.group.UpdateUserStatusResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CancelIngestionExecutionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CreateIngestionExecutionRequestResolver;
-import com.linkedin.datahub.graphql.resolvers.ingest.secret.CreateSecretResolver;
-import com.linkedin.datahub.graphql.resolvers.ingest.source.DeleteIngestionSourceResolver;
-import com.linkedin.datahub.graphql.resolvers.ingest.secret.DeleteSecretResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.GetIngestionExecutionRequestResolver;
-import com.linkedin.datahub.graphql.resolvers.ingest.source.GetIngestionSourceResolver;
-import com.linkedin.datahub.graphql.resolvers.ingest.secret.GetSecretValuesResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.IngestionSourceExecutionRequestsResolver;
-import com.linkedin.datahub.graphql.resolvers.ingest.source.ListIngestionSourcesResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.secret.CreateSecretResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.secret.DeleteSecretResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.secret.GetSecretValuesResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.secret.ListSecretsResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.source.DeleteIngestionSourceResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.source.GetIngestionSourceResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.source.ListIngestionSourcesResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.source.UpsertIngestionSourceResolver;
 import com.linkedin.datahub.graphql.resolvers.load.AspectResolver;
+import com.linkedin.datahub.graphql.resolvers.load.AssertionRunEventsResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityRelationshipsResultResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
@@ -115,16 +116,18 @@ import com.linkedin.datahub.graphql.types.EntityType;
 import com.linkedin.datahub.graphql.types.LoadableType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.aspect.AspectType;
+import com.linkedin.datahub.graphql.types.assertion.AssertionType;
 import com.linkedin.datahub.graphql.types.chart.ChartType;
-import com.linkedin.datahub.graphql.types.container.ContainerType;
-import com.linkedin.datahub.graphql.types.corpuser.CorpUserType;
 import com.linkedin.datahub.graphql.types.common.mappers.OperationMapper;
+import com.linkedin.datahub.graphql.types.container.ContainerType;
 import com.linkedin.datahub.graphql.types.corpgroup.CorpGroupType;
+import com.linkedin.datahub.graphql.types.corpuser.CorpUserType;
 import com.linkedin.datahub.graphql.types.dashboard.DashboardType;
 import com.linkedin.datahub.graphql.types.dataflow.DataFlowType;
 import com.linkedin.datahub.graphql.types.datajob.DataJobType;
 import com.linkedin.datahub.graphql.types.dataplatform.DataPlatformType;
 import com.linkedin.datahub.graphql.types.dataset.DatasetType;
+import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetAssertionMapper;
 import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetProfileMapper;
 import com.linkedin.datahub.graphql.types.domain.DomainType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
@@ -206,6 +209,7 @@ public class GmsGraphQLEngine {
     private final UsageType usageType;
     private final ContainerType containerType;
     private final DomainType domainType;
+    private final AssertionType assertionType;
 
 
     /**
@@ -296,6 +300,7 @@ public class GmsGraphQLEngine {
         this.usageType = new UsageType(this.usageClient);
         this.containerType = new ContainerType(entityClient);
         this.domainType = new DomainType(entityClient);
+        this.assertionType = new AssertionType(entityClient);
 
         // Init Lists
         this.entityTypes = ImmutableList.of(
@@ -315,7 +320,8 @@ public class GmsGraphQLEngine {
             dataJobType,
             glossaryTermType,
             containerType,
-            domainType
+            domainType,
+            assertionType
         );
         this.loadableTypes = new ArrayList<>(entityTypes);
         this.ownerTypes = ImmutableList.of(corpUserType, corpGroupType);
@@ -447,6 +453,7 @@ public class GmsGraphQLEngine {
         configureContainerResolvers(builder);
         configureGlossaryTermResolvers(builder);
         configureDomainResolvers(builder);
+        configureAssertionResolvers(builder);
     }
 
     public GraphQLEngine.Builder builder() {
@@ -556,6 +563,9 @@ public class GmsGraphQLEngine {
             .dataFetcher("mlModelGroup", new AuthenticatedResolver<>(
                     new LoadableTypeResolver<>(mlModelGroupType,
                             (env) -> env.getArgument(URN_FIELD_NAME))))
+            .dataFetcher("assertion", new AuthenticatedResolver<>(
+                new LoadableTypeResolver<>(assertionType,
+                    (env) -> env.getArgument(URN_FIELD_NAME))))
             .dataFetcher("listPolicies",
                 new ListPoliciesResolver(this.entityClient))
             .dataFetcher("listUsers",
@@ -756,6 +766,7 @@ public class GmsGraphQLEngine {
                                 (env) -> ((InstitutionalMemoryMetadata) env.getSource()).getAuthor().getUrn()))
                 )
             );
+
     }
 
     private void configureGlossaryTermResolvers(final RuntimeWiring.Builder builder) {
@@ -1098,6 +1109,22 @@ public class GmsGraphQLEngine {
             .dataFetcher("entities", new DomainEntitiesResolver(this.entityClient))
             .dataFetcher("relationships", new AuthenticatedResolver<>(
                 new EntityRelationshipsResultResolver(graphClient)
+            ))
+        );
+    }
+
+    private void configureAssertionResolvers(final RuntimeWiring.Builder builder) {
+        builder.type("Assertion", typeWiring -> typeWiring
+            .dataFetcher("relationships", new AuthenticatedResolver<>(
+                new EntityRelationshipsResultResolver(graphClient)
+            ))
+            .dataFetcher("runEvents", new AuthenticatedResolver<>(
+                new AssertionRunEventsResolver(
+                    this.entityClient,
+                    "dataset",
+                    "assertionRunEvent",
+                    DatasetAssertionMapper::map
+                )
             ))
         );
     }

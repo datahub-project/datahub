@@ -33,6 +33,7 @@ public class Constants {
   public static final String TAG_ENTITY_NAME = "tag";
   public static final String CONTAINER_ENTITY_NAME = "container";
   public static final String DOMAIN_ENTITY_NAME = "domain";
+  public static final String ASSERTION_ENTITY_NAME = "assertion";
   public static final String INGESTION_SOURCE_ENTITY_NAME = "dataHubIngestionSource";
   public static final String SECRETS_ENTITY_NAME = "dataHubSecret";
   public static final String EXECUTION_REQUEST_ENTITY_NAME = "dataHubExecutionRequest";
@@ -153,6 +154,10 @@ public class Constants {
   public static final String DOMAIN_KEY_ASPECT_NAME = "domainKey";
   public static final String DOMAIN_PROPERTIES_ASPECT_NAME = "domainProperties";
   public static final String DOMAINS_ASPECT_NAME = "domains";
+
+  // Assertion
+  public static final String ASSERTION_KEY_ASPECT_NAME = "assertionKey";
+  public static final String ASSERTION_INFO_ASPECT_NAME = "assertionInfo";
 
   // DataHub Ingestion Source
   public static final String INGESTION_INFO_ASPECT_NAME = "dataHubIngestionSourceInfo";

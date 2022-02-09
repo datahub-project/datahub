@@ -90,13 +90,13 @@ class DatahubValidationAction(ValidationAction):
         datasets = []
         try:
             emitter = DatahubRestEmitter(
-                self.server_url,
-                self.token,
-                self.timeout_sec,
-                self.timeout_sec,
-                self.retry_status_codes,
-                self.retry_max_times,
-                self.extra_headers,
+                gms_server=self.server_url,
+                token=self.token,
+                read_timeout_sec=self.timeout_sec,
+                connect_timeout_sec=self.timeout_sec,
+                retry_status_codes=self.retry_status_codes,
+                retry_max_times=self.retry_max_times,
+                extra_headers=self.extra_headers,
             )
 
             # Returns datasets and corresponding batch requests
@@ -142,7 +142,7 @@ class DatahubValidationAction(ValidationAction):
                         entityType="dataset",
                         changeType=ChangeType.UPSERT,
                         entityUrn=assertionResult.asserteeUrn,
-                        aspectName="assertionResult",
+                        aspectName="assertionRunEvent",
                         aspect=assertionResult,
                     )
 
