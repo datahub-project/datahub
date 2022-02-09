@@ -292,10 +292,9 @@ class KafkaSource(StatefulIngestionSourceBase):
         dataset_urn = make_dataset_urn_with_platform_instance(
             platform=self.platform,
             name=dataset_name,
-            platform_instance=None,
+            platform_instance=self.source_config.platform_instance,
             env=self.source_config.env,
         )
-
         dataset_snapshot = DatasetSnapshot(
             urn=dataset_urn,
             aspects=[],  # we append to this list later on
