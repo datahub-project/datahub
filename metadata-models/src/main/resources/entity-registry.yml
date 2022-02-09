@@ -76,6 +76,7 @@ entities:
     keyAspect: glossaryTermKey
     aspects:
       - glossaryTermInfo
+      - institutionalMemory
       - schemaMetadata
       - ownership
       - deprecation

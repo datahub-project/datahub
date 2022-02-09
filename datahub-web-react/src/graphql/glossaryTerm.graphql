@@ -2,7 +2,6 @@ query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
     glossaryTerm(urn: $urn) {
         urn
         type
-        name
         hierarchicalName
         isRelatedTerms: relationships(input: { types: ["IsA"], direction: OUTGOING, start: $start, count: $count }) {
             start
@@ -31,8 +30,12 @@ query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
         ownership {
             ...ownershipFields
         }
-        glossaryTermInfo {
-            definition
+        institutionalMemory {
+            ...institutionalMemoryFields
+        }
+        properties {
+            name
+            description
             termSource
             sourceRef
             sourceUrl
@@ -42,10 +45,8 @@ query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
                 value
             }
         }
-         schemaMetadata(version: 0) {
+        schemaMetadata(version: 0) {
             ...schemaMetadataFields
         }
     }
 }
-
-

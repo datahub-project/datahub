@@ -47,6 +47,7 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, Bro
         GLOSSARY_TERM_KEY_ASPECT_NAME,
         GLOSSARY_TERM_INFO_ASPECT_NAME,
         GLOSSARY_RELATED_TERM_ASPECT_NAME,
+        INSTITUTIONAL_MEMORY_ASPECT_NAME,
         OWNERSHIP_ASPECT_NAME,
         STATUS_ASPECT_NAME,
         BROWSE_PATHS_ASPECT_NAME,

@@ -11,8 +11,9 @@ import { SchemaTab } from '../shared/tabs/Dataset/Schema/SchemaTab';
 import GlossaryRelatedEntity from './profile/GlossaryRelatedEntity';
 import GlossayRelatedTerms from './profile/GlossaryRelatedTerms';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
-import GlossarySidebarAboutSection from './profile/GlossarySidebarAboutSection';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
+import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
 
 /**
  * Definition of the DataHub Dataset entity.
@@ -82,13 +83,17 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                         component: GlossayRelatedTerms,
                     },
                     {
+                        name: 'Documentation',
+                        component: DocumentationTab,
+                    },
+                    {
                         name: 'Properties',
                         component: PropertiesTab,
                     },
                 ]}
                 sidebarSections={[
                     {
-                        component: GlossarySidebarAboutSection,
+                        component: SidebarAboutSection,
                     },
                     {
                         component: SidebarOwnerSection,
@@ -114,8 +119,8 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
         return (
             <Preview
                 urn={data?.urn}
-                name={data?.name}
-                definition={data?.glossaryTermInfo?.definition}
+                name={data?.properties?.name}
+                description={data?.properties?.termDescription}
                 owners={data?.ownership?.owners}
             />
         );
