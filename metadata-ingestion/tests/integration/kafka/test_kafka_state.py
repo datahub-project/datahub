@@ -129,9 +129,8 @@ def test_kafka_ingest_with_stateful(
                 "config": source_config_dict,
             },
             "sink": {
-                "type": "file",
                 # we are not really interested in the resulting events for this test
-                "config": {"filename": "./kafka_mces_stateful_ingestion.json"},
+                "type": "console"
             },
             "pipeline_name": "test_pipeline",
             # enable reporting
