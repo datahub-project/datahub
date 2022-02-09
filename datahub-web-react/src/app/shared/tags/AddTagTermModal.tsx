@@ -75,15 +75,15 @@ export default function AddTagTermModal({
     const entityRegistry = useEntityRegistry();
     const [addTagMutation] = useAddTagMutation();
     const [addTermMutation] = useAddTermMutation();
-    const [tagSearch, { data: tagSearchData }] = useGetSearchResultsLazyQuery();
-    const tagSearchResults = tagSearchData?.search?.searchResults || [];
+    const [tagTermSearch, { data: tagTermSearchData }] = useGetSearchResultsLazyQuery();
+    const tagSearchResults = tagTermSearchData?.search?.searchResults || [];
 
     const handleSearch = (text: string) => {
         if (text.length > 0) {
-            tagSearch({
+            tagTermSearch({
                 variables: {
                     input: {
-                        type: EntityType.Tag,
+                        type,
                         query: text,
                         start: 0,
                         count: 10,
