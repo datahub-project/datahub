@@ -76,6 +76,8 @@ jobs:
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Gradle build
         run: ./gradlew build -x check -x docs-website:build
+			- name: set cypress env var
+        run: echo "{CYPRESS_RECORD_KEY}={90e5a23a-bd3d-4a34-be8b-e4b116008f71}" >> $GITHUB_ENV
       - name: Smoke test
         run: ./smoke-test/smoke.sh
       - uses: actions/upload-artifact@v2
