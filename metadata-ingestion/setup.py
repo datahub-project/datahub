@@ -44,6 +44,7 @@ framework_common = {
     "stackprinter",
     "tabulate",
     "progressbar2",
+    "psutil>=5.8.0",
 }
 
 kafka_common = {
@@ -88,7 +89,7 @@ snowflake_common = {
     *sql_common,
     # Required for all Snowflake sources
     "snowflake-sqlalchemy<=1.2.4",
-    "cryptography"
+    "cryptography",
 }
 
 # Note: for all of these, framework_common will be added.
