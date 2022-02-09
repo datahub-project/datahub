@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { Button, Input, Modal, Typography, Form } from 'antd';
-// import { useCreateGroupMutation } from '../../../graphql/group.generated';
+// import { useUpdateUserStatusMutation } from '../../../graphql/user.generated';
 
 type Props = {
     visible: boolean;
     onClose: () => void;
     onCreate: (name: string, description: string) => void;
 };
+
+export const validUserName = new RegExp('^[a-zA-Z ]*$');
 
 export default function UserEditProfileModal({ visible, onClose, onCreate }: Props) {
     const [userName, setUserName] = useState('');
@@ -16,10 +18,11 @@ export default function UserEditProfileModal({ visible, onClose, onCreate }: Pro
     const [userEmail, setUserEmail] = useState('');
     const [userSlack, setUserSlack] = useState('');
     const [userPhoneNumber, setUserPhoneNumber] = useState('');
-    // const [createGroupMutation] = useCreateGroupMutation();
+    // const [updateUserStatusMutation] = useUpdateUserStatusMutation();
 
     const onCreateGroup = () => {
-        // createGroupMutation({
+        console.log('inputs', userName, userTitle, userImageURL, userTeam, userEmail, userSlack);
+        // updateUserStatusMutation({
         //     variables: {
         //         input: {
         //             name: stagedName,
@@ -69,50 +72,115 @@ export default function UserEditProfileModal({ visible, onClose, onCreate }: Pro
                 </>
             }
         >
-            <Form layout="vertical">
-                <Form.Item name="name" label={<Typography.Text strong>Name</Typography.Text>}>
+            <Form autoComplete="off" layout="vertical">
+                <Form.Item
+                    name="name"
+                    label={<Typography.Text strong>Name</Typography.Text>}
+                    rules={[
+                        {
+                            required: true,
+                            message: 'Please enter the User name.',
+                        },
+                        { whitespace: true },
+                        { min: 2, max: 50 },
+                        {
+                            pattern: new RegExp('^[a-zA-Z ]*$'),
+                            message: '',
+                        },
+                    ]}
+                    hasFeedback
+                >
                     <Input
                         placeholder="add name"
                         value={userName}
                         onChange={(event) => setUserName(event.target.value)}
                     />
                 </Form.Item>
-                <Form.Item name="title" label={<Typography.Text strong>Title/Role</Typography.Text>}>
+                <Form.Item
+                    name="title"
+                    label={<Typography.Text strong>Title/Role</Typography.Text>}
+                    rules={[{ whitespace: true }, { min: 2, max: 50 }]}
+                    hasFeedback
+                >
                     <Input
                         placeholder="add title/role"
                         value={userTitle}
                         onChange={(event) => setUserTitle(event.target.value)}
                     />
                 </Form.Item>
-                <Form.Item name="image" label={<Typography.Text strong>Image URL</Typography.Text>}>
+                <Form.Item
+                    name="image"
+                    label={<Typography.Text strong>Image URL</Typography.Text>}
+                    rules={[{ whitespace: true }, { type: 'url', message: 'not valid url' }]}
+                    hasFeedback
+                >
                     <Input
                         placeholder="add image URL"
                         value={userImageURL}
                         onChange={(event) => setImageURL(event.target.value)}
                     />
                 </Form.Item>
-                <Form.Item name="team" label={<Typography.Text strong>Team</Typography.Text>}>
+                <Form.Item
+                    name="team"
+                    label={<Typography.Text strong>Team</Typography.Text>}
+                    rules={[{ whitespace: true }, { min: 2, max: 50 }]}
+                >
                     <Input
                         placeholder="add team name"
                         value={userTeam}
                         onChange={(event) => setUserTeam(event.target.value)}
                     />
                 </Form.Item>
-                <Form.Item name="email" label={<Typography.Text strong>Email</Typography.Text>}>
+                <Form.Item
+                    name="email"
+                    label={<Typography.Text strong>Email</Typography.Text>}
+                    rules={[
+                        {
+                            required: true,
+                            message: 'Please enter your email',
+                        },
+                        {
+                            type: 'email',
+                            message: 'Please enter valid email',
+                        },
+                        { whitespace: true },
+                        { min: 2, max: 50 },
+                    ]}
+                    hasFeedback
+                >
                     <Input
                         placeholder="add email"
                         value={userEmail}
                         onChange={(event) => setUserEmail(event.target.value)}
                     />
                 </Form.Item>
-                <Form.Item name="slack" label={<Typography.Text strong>Slack</Typography.Text>}>
+                <Form.Item
+                    name="slack"
+                    label={<Typography.Text strong>Slack</Typography.Text>}
+                    rules={[{ whitespace: true }, { min: 2, max: 50 }]}
+                    hasFeedback
+                >
                     <Input
                         placeholder="add slack id"
                         value={userSlack}
                         onChange={(event) => setUserSlack(event.target.value)}
                     />
                 </Form.Item>
-                <Form.Item name="phone" label={<Typography.Text strong>Phone (optional)</Typography.Text>}>
+                <Form.Item
+                    name="phone"
+                    label={<Typography.Text strong>Phone</Typography.Text>}
+                    rules={[
+                        {
+                            pattern: new RegExp('^(?=.*[0-9])[- +()0-9]+$'),
+                            message: 'not valid phone number',
+                        },
+                        {
+                            min: 5,
+                            max: 15,
+                        },
+                    ]}
+                    hasFeedback
+                >
                     <Input
                         placeholder="add phone number"
                         value={userPhoneNumber}

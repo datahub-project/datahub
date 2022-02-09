@@ -35,7 +35,7 @@ const UserProfileWrapper = styled.div`
     }
 `;
 const UserSidebar = styled.div`
-    padding: 10px 0 0 17px;
+    padding: 0 0 0 17px;
     text-align: center;
 
     font-style: normal;
@@ -48,26 +48,26 @@ const UserSidebar = styled.div`
     }
 
     .divider-infoSection {
-        margin: 14px 0px 18px 0;
+        margin: 18px 0px 18px 0;
     }
     .divider-aboutSection {
-        margin: 19px 0px 11px 0;
+        margin: 23px 0px 11px 0;
     }
     .divider-groupsSection {
-        margin: 19px 0px 11px 0;
+        margin: 23px 0px 11px 0;
     }
 `;
 const UserSidebarSubSection = styled.div`
-    height: calc(100vh - 130px);
+    height: calc(100vh - 135px);
     overflow: auto;
     padding-right: 18px;
     &::-webkit-scrollbar {
         height: 12px;
-        width: 5px;
-        background: #ededed;
+        width: 1px;
+        background: #f1f1f1;
     }
     &::-webkit-scrollbar-thumb {
-        background: #cdcdcd;
+        background: #c3c3c3;
         -webkit-border-radius: 1ex;
         -webkit-box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.75);
     }
@@ -141,7 +141,7 @@ const GroupsSection = styled.div`
 const TagsSection = styled.div`
     height: calc(75vh - 460px);
     padding: 5px;
-    overflow: auto;
+    // overflow: auto;
 `;
 const NoDataFound = styled.span`
     font-size: 12px;
@@ -181,7 +181,6 @@ export default function UserProfile() {
     const [groupSectionScroll, showGroupSectionScroll] = useState(false);
     const groupsDetails = data?.corpUser?.relationships as ExtendedEntityRelationshipsResult;
     const profileSrc = ''; // TODO: update the profileSrc from BE
-    // const [ellipsis, setEllipsis] = useState(true);
 
     const contentLoading =
         Object.keys(ownershipResult).some((type) => {
@@ -215,7 +214,7 @@ export default function UserProfile() {
 
     const defaultTabPath = getTabs() && getTabs()?.length > 0 ? getTabs()[0].path : '';
     const onTabChange = () => null;
-
+    console.log('data', data);
     return (
         <>
             {contentLoading && <Message type="loading" content="Loading..." style={messageStyle} />}
@@ -228,6 +227,7 @@ export default function UserProfile() {
                                     size={160}
                                     photoUrl={profileSrc || undefined}
                                     name={data?.corpUser?.info?.fullName || undefined}
+                                    style={{ marginTop: '14px' }}
                                 />
                                 <UserName>{data?.corpUser?.info?.fullName}</UserName>
                                 <UserRole>{data?.corpUser?.info?.title}</UserRole>
@@ -311,7 +311,7 @@ export default function UserProfile() {
                     onClose={() => setEditProfileModal(false)}
                     onCreate={() => {
                         // Hack to deal with eventual consistency.
-                        console.log('getModalData');
+                        // console.log('getModalData');
                     }}
                 />
             </UserProfileWrapper>
