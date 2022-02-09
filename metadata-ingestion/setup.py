@@ -110,7 +110,8 @@ plugins: Dict[str, Set[str]] = {
     "dbt": {"requests"},
     "druid": sql_common | {"pydruid>=0.6.2"},
     "elasticsearch": {"elasticsearch"},
-    "feast": {"feast>=0.15.0", "docker"},
+    "feast": {"docker"},
+    "feast-repository": {"feast>=0.15.0"},
     "glue": aws_common,
     "hive": sql_common
     | {
@@ -252,6 +253,7 @@ full_test_dev_requirements = {
         for plugin in [
             "druid",
             "feast",
+            "feast-repository",
             "hive",
             "ldap",
             "mongodb",
