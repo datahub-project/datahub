@@ -158,7 +158,7 @@ type Mutation {
     """
     Set the hex color associated with an existing Tag
     """
-    setTagColor(urn: String!, colorHex: String!): boolean
+    setTagColor(urn: String!, colorHex: String!): Boolean
 
     """
     Create a policy and returns the resulting urn
@@ -265,6 +265,13 @@ type Mutation {
     Sets the Domain for a Dataset, Chart, Dashboard, Data Flow (Pipeline), or Data Job (Task). Returns true if the Domain was successfully removed, or was already removed. Requires the Edit Domains privilege for an asset.
     """
     unsetDomain(entityUrn: String!): Boolean
+
+    """
+    Sets the Deprecation status for a Metadata Entity. Requires the Edit Deprecation status privilege for an entity.
+    """
+    updateDeprecation(
+      "Input required to set deprecation for an Entity."
+      input: UpdateDeprecationInput!): Boolean
 
     """
     Update a particular Corp User's editable properties
@@ -575,7 +582,7 @@ type Dataset implements EntityWithRelationships & Entity {
     ownership: Ownership
 
     """
-    The deprecation status
+    The deprecation status of the dataset
     """
     deprecation: Deprecation
 
@@ -827,6 +834,11 @@ type GlossaryTerm implements Entity {
     glossaryTermInfo: GlossaryTermInfo
 
     """
+    The deprecation status of the Glossary Term
+    """
+    deprecation: Deprecation
+
+    """
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
@@ -843,6 +855,11 @@ Deprecated, use GlossaryTermProperties instead
 Information about a glossary term
 """
 type GlossaryTermInfo {
+    """
+    The name of the Glossary Term
+    """
+    name: String
+
     """
     Description of the glossary term
     """
@@ -889,9 +906,14 @@ type GlossaryTermProperties {
     name: String
 
     """
-    Definition of the glossary term
+    Description of the glossary term
     """
-    definition: String!
+    description: String!
+
+    """
+    Definition of the glossary term. Deprecated - Use 'description' instead.
+    """
+    definition: String! @deprecated
 
     """
     Term Source of the glossary term
@@ -1207,6 +1229,11 @@ type Container implements Entity {
     The Domain associated with the Dataset
     """
     domain: Domain
+
+    """
+    The deprecation status of the dashboard
+    """
+    deprecation: Deprecation
 
     """
     Children entities inside of the Container
@@ -3003,6 +3030,11 @@ type Dashboard implements EntityWithRelationships & Entity {
     status: Status
 
     """
+    The deprecation status of the dashboard
+    """
+    deprecation: Deprecation
+
+    """
     The tags associated with the dashboard
     """
     tags: GlobalTags
@@ -3214,6 +3246,11 @@ type Chart implements EntityWithRelationships & Entity {
     Status metadata of the chart
     """
     status: Status
+
+    """
+    The deprecation status of the chart
+    """
+    deprecation: Deprecation
 
     """
     The tags associated with the chart
@@ -3533,6 +3570,11 @@ type DataFlow implements Entity {
     status: Status
 
     """
+    The deprecation status of the Data Flow
+    """
+    deprecation: Deprecation
+
+    """
     References to internal resources related to the dashboard
     """
     institutionalMemory: InstitutionalMemory
@@ -3687,6 +3729,11 @@ type DataJob implements EntityWithRelationships & Entity {
     Status metadata of the DataJob
     """
     status: Status
+
+    """
+    The deprecation status of the Data Flow
+    """
+    deprecation: Deprecation
 
     """
     References to internal resources related to the dashboard
@@ -4190,7 +4237,7 @@ type Deprecation {
     """
     Additional information about the entity deprecation plan
     """
-    note: String!
+    note: String
 
     """
     The user who will be credited for modifying this deprecation content
@@ -4366,6 +4413,31 @@ input DescriptionUpdateInput {
     A sub resource identifier, eg dataset field path
     """
     subResource: String
+}
+
+"""
+Input provided when setting the Deprecation status for an Entity.
+"""
+input UpdateDeprecationInput {
+    """
+    The urn of the Entity to set deprecation for.
+    """
+    urn: String!
+
+    """
+    Whether the Entity is marked as deprecated.
+    """
+    deprecated: Boolean!
+
+    """
+    Optional - The time user plan to decommission this entity
+    """
+    decommissionTime: Long
+
+    """
+    Optional - Additional information about the entity deprecation plan
+    """
+    note: String
 }
 
 """

@@ -208,6 +208,16 @@
     }
   },
   {
+    "urn": "urn:li:dataPlatform:tableau",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "tableau",
+      "displayName": "Tableau",
+      "type": "OTHERS",
+      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/tableaulogo.png"
+    }
+  },
+  {
     "urn": "urn:li:dataPlatform:teradata",
     "aspect": {
       "datasetNameDelimiter": ".",

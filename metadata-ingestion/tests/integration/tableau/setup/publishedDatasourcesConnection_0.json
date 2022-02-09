@@ -1,0 +1,12 @@
+{
+    "data": {
+        "publishedDatasourcesConnection": {
+            "nodes": [],
+            "pageInfo": {
+                "hasNextPage": true,
+                "endCursor": null
+            },
+            "totalCount": 2
+        }
+    }
+}
