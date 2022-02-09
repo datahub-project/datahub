@@ -85,7 +85,7 @@ source:
           - ".*"
 ```
 
-Note that the `domain_urn` in config above (i.e. `urn:li:domain:13ae4d85-d955-49fc-8474-9004c663a810`, `urn:li:domain:d6ec9868-6736-4b1f-8aa6-fee4c5948f17`) will be specific to your instance. The Domain needs to exist in your DataHub instance before you try in the recipe file. After you create it in your instance copy the URN and then only the recipe will work.
+Note that the `domain` in config above can be either an _urn_ or a domain _id_ (i.e. `urn:li:domain:13ae4d85-d955-49fc-8474-9004c663a810` or simply `13ae4d85-d955-49fc-8474-9004c663a810`). The Domain should exist in your DataHub instance before ingesting data into the Domain. To create a Domain on DataHub, check out the [Domains User Guide](https://datahubproject.io/docs/domains/).
 
 ## Config details
 
