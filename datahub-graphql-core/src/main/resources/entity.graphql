@@ -2505,11 +2505,6 @@ type Tag implements Entity {
     name: String! @deprecated
 
     """
-    The id of the tag
-    """
-    id: String!
-
-    """
     Additional properties about the Tag
     """
     properties: TagProperties
