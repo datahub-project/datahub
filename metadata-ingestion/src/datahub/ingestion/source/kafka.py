@@ -285,7 +285,7 @@ class KafkaSource(StatefulIngestionSourceBase):
                 )
             )
 
-    def _extract_record(self, topic: str) -> Iterable[MetadataWorkUnit]:
+    def _extract_record(self, topic: str) -> Iterable[MetadataWorkUnit]:  # noqa: C901
         logger.debug(f"topic = {topic}")
         dataset_name = topic
 
