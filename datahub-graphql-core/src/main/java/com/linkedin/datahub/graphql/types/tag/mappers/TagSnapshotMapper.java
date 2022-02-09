@@ -30,7 +30,6 @@ public class TagSnapshotMapper implements ModelMapper<TagSnapshot, Tag> {
         final Tag result = new Tag();
         result.setUrn(tag.getUrn().toString());
         result.setType(EntityType.TAG);
-        result.setId(tag.getUrn().getName());
         result.setName(tag.getUrn().getName());
 
         ModelUtils.getAspectsFromSnapshot(tag).forEach(aspect -> {
