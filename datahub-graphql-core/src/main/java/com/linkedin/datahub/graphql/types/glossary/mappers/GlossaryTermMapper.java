@@ -42,7 +42,6 @@ public class GlossaryTermMapper implements ModelMapper<EntityResponse, GlossaryT
                 // Construct the legacy name from the URN itself.
                 final String legacyName = GlossaryTermUtils.getGlossaryTermName(entityResponse.getUrn().getId());
                 result.setName(legacyName);
-                result.setId(entityResponse.getUrn().getId());
                 result.setHierarchicalName(gmsKey.getName());
             } else if (GLOSSARY_TERM_INFO_ASPECT_NAME.equals(name)) {
                 // Set deprecation info field.
