@@ -156,6 +156,11 @@ type Mutation {
     updateTag(urn: String!, input: TagUpdateInput!): Tag
 
     """
+    Set the hex color associated with an existing Tag
+    """
+    setTagColor(urn: String!, colorHex: String!): boolean
+
+    """
     Create a policy and returns the resulting urn
     """
     createPolicy(input: PolicyUpdateInput!): String

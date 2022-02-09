@@ -123,11 +123,11 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
   private CompletableFuture<Boolean> updateTagDescription(Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
     return CompletableFuture.supplyAsync(() -> {
 
-      if (!DescriptionUtils.isAuthorizedToUpdateTagDescription(context, targetUrn)) {
+      if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
         throw new AuthorizationException(
             "Unauthorized to perform this action. Please contact your DataHub administrator.");
       }
-      DescriptionUtils.validateTagInput(targetUrn, _entityService);
+      DescriptionUtils.validateLabelInput(targetUrn, _entityService);
 
       try {
         Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
@@ -147,11 +147,11 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
   private CompletableFuture<Boolean> updateGlossaryTermDescription(Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
     return CompletableFuture.supplyAsync(() -> {
 
-      if (!DescriptionUtils.isAuthorizedToUpdateGlossaryTermDescription(context, targetUrn)) {
+      if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
         throw new AuthorizationException(
             "Unauthorized to perform this action. Please contact your DataHub administrator.");
       }
-      DescriptionUtils.validateGlossaryTermInput(targetUrn, _entityService);
+      DescriptionUtils.validateLabelInput(targetUrn, _entityService);
 
       try {
         Urn actor = CorpuserUrn.createFromString(context.getActorUrn());

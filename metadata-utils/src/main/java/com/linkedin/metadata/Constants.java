@@ -99,6 +99,9 @@ public class Constants {
   public static final String GLOSSARY_TERM_INFO_ASPECT_NAME = "glossaryTermInfo";
   public static final String GLOSSARY_RELATED_TERM_ASPECT_NAME = "glossaryRelatedTerms";
 
+  // Tag
+  public static final String TAG_PROPERTIES_ASPECT_NAME = "tagProperties";
+
   // Domain
   public static final String DOMAIN_KEY_ASPECT_NAME = "domainKey";
   public static final String DOMAIN_PROPERTIES_ASPECT_NAME = "domainProperties";

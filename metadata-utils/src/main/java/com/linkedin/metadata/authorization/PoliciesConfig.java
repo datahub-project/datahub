@@ -194,7 +194,15 @@ public class PoliciesConfig {
       "tag",
       "Tags",
       "Tags indexed by DataHub",
-      ImmutableList.of(EDIT_ENTITY_OWNERS_PRIVILEGE, EDIT_TAG_COLOR_PRIVILEGE, EDIT_ENTITY_PRIVILEGE)
+      ImmutableList.of(EDIT_ENTITY_OWNERS_PRIVILEGE, EDIT_TAG_COLOR_PRIVILEGE, EDIT_ENTITY_DOCS_PRIVILEGE, EDIT_ENTITY_PRIVILEGE)
+  );
+
+  // Glossary Term Privileges
+  public static final ResourcePrivileges GLOSSARY_TERM_PRIVILEGES = ResourcePrivileges.of(
+      "glossaryTerm",
+      "Glossary Terms",
+      "Glossary Terms indexed by DataHub",
+      ImmutableList.of(EDIT_ENTITY_OWNERS_PRIVILEGE, EDIT_ENTITY_DOCS_PRIVILEGE, EDIT_ENTITY_PRIVILEGE)
   );
 
   // Container Privileges
@@ -220,6 +228,7 @@ public class PoliciesConfig {
       DATA_FLOW_PRIVILEGES,
       DATA_JOB_PRIVILEGES,
       TAG_PRIVILEGES,
+      GLOSSARY_TERM_PRIVILEGES,
       CONTAINER_PRIVILEGES,
       DOMAIN_PRIVILEGES
   );
