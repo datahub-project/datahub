@@ -5,15 +5,15 @@ describe('mutations', () => {
     cy.visit('/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)');
     cy.contains('cypress_logging_events');
 
-    cy.contains('Add Tag').click();
+    cy.contains('Add Tag').click({force:true});
 
     cy.focused().type('CypressTestAddTag');
 
-    cy.contains('Create CypressTestAddTag').click();
+    cy.contains('Create CypressTestAddTag').click({force:true});
 
     cy.get('textarea').type('CypressTestAddTag Test Description');
 
-    cy.contains(/Create$/).click();
+    cy.contains(/Create$/).click({force:true});
 
     // go to tag page
     cy.get('a[href="/tag/urn:li:tag:CypressTestAddTag"]').click();
