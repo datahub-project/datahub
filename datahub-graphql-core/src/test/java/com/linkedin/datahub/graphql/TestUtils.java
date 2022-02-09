@@ -1,13 +1,12 @@
-package com.linkedin.datahub.graphql.resolvers.domain;
+package com.linkedin.datahub.graphql;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.Authorizer;
-import com.linkedin.datahub.graphql.QueryContext;
 import org.mockito.Mockito;
 
 
-public class DomainTestUtils {
+public class TestUtils {
 
   public static QueryContext getMockAllowContext() {
     QueryContext mockContext = Mockito.mock(QueryContext.class);
@@ -37,5 +36,5 @@ public class DomainTestUtils {
     return mockContext;
   }
 
-  private DomainTestUtils() { }
+  private TestUtils() { }
 }
