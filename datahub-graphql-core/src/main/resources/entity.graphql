@@ -2218,6 +2218,16 @@ Additional read write info about a user
 """
 type CorpUserEditableInfo {
     """
+    Display name to show on DataHub
+    """
+    displayName: String
+
+    """
+    Title to show on DataHub
+    """
+    title: String
+
+    """
     About me section of the user
     """
     aboutMe: String
@@ -2242,6 +2252,16 @@ type CorpUserEditableInfo {
 Additional read write properties about a user
 """
 type CorpUserEditableProperties {
+    """
+    Display name to show on DataHub
+    """
+    displayName: String
+
+    """
+    Title to show on DataHub
+    """
+    title: String
+
     """
     About me section of the user
     """
@@ -2283,6 +2303,16 @@ type CorpUserEditableProperties {
 Arguments provided to update a CorpUser Entity
 """
 input CorpUserUpdateInput {
+    """
+    Display name to show on DataHub
+    """
+    displayName: String
+
+    """
+    Title to show on DataHub
+    """
+    title: String
+
     """
     About me section of the user
     """
