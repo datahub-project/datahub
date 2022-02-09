@@ -110,7 +110,7 @@ plugins: Dict[str, Set[str]] = {
     "dbt": {"requests"},
     "druid": sql_common | {"pydruid>=0.6.2"},
     "elasticsearch": {"elasticsearch"},
-    "feast": {"docker"},
+    "feast": {"feast>=0.15.0", "docker"},
     "glue": aws_common,
     "hive": sql_common
     | {
@@ -280,6 +280,7 @@ entry_points = {
         "druid = datahub.ingestion.source.sql.druid:DruidSource",
         "elasticsearch = datahub.ingestion.source.elastic_search:ElasticsearchSource",
         "feast = datahub.ingestion.source.feast:FeastSource",
+        "feast-repository = datahub.ingestion.source.feast_repository:FeastRepositorySource",
         "glue = datahub.ingestion.source.aws.glue:GlueSource",
         "sagemaker = datahub.ingestion.source.aws.sagemaker:SagemakerSource",
         "hive = datahub.ingestion.source.sql.hive:HiveSource",
