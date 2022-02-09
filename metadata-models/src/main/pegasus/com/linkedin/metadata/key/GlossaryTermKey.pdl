@@ -14,8 +14,7 @@ record GlossaryTermKey {
   */
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
-    "enableAutocomplete": true,
-    "fieldName": "id"
+    "enableAutocomplete": true
   }
   name: string
 
