@@ -1,8 +1,22 @@
 from typing import Dict, Iterable, List, Tuple, Union
 
+from feast import (
+    BigQuerySource,
+    Entity,
+    Feature,
+    FeatureStore,
+    FeatureView,
+    FileSource,
+    KafkaSource,
+    KinesisSource,
+    OnDemandFeatureView,
+    ValueType,
+)
+from feast.data_source import DataSource, RequestDataSource
+
 import datahub.emitter.mce_builder as builder
-from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.configuration.common import ConfigModel
+from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -20,22 +34,7 @@ from datahub.metadata.schema_classes import (
     MLPrimaryKeyPropertiesClass,
 )
 
-from feast import (
-    BigQuerySource,
-    Entity,
-    Feature,
-    FeatureStore,
-    FeatureView,
-    FileSource,
-    KafkaSource,
-    KinesisSource,
-    OnDemandFeatureView,
-    ValueType,
-)
-from feast.data_source import DataSource, RequestDataSource
-
-
-_field_type_mapping: Dict[str, str] = {
+_field_type_mapping: Dict[ValueType, str] = {
     ValueType.UNKNOWN: MLFeatureDataType.UNKNOWN,
     ValueType.BYTES: MLFeatureDataType.BYTE,
     ValueType.STRING: MLFeatureDataType.TEXT,
