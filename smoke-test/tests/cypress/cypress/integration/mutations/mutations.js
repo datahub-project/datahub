@@ -15,6 +15,10 @@ describe('mutations', () => {
 
     cy.contains(/Create$/).click();
 
+    // wait a breath for elasticsearch to index the tag being applied to the dataset- if we navigate too quick ES
+    // wont know and we'll see applied to 0 entities
+    cy.wait(2000);
+
     // go to tag page
     cy.get('a[href="/tag/urn:li:tag:CypressTestAddTag"]').click();
 

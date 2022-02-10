@@ -5,9 +5,9 @@ from typing import Generic, List, Optional, TypeVar
 
 
 class CommitPolicy(Enum):
-    ALWAYS = auto
-    ON_NO_ERRORS = auto
-    ON_NO_ERRORS_AND_NO_WARNINGS = auto
+    ALWAYS = auto()
+    ON_NO_ERRORS = auto()
+    ON_NO_ERRORS_AND_NO_WARNINGS = auto()
 
 
 @dataclass

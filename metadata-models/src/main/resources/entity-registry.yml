@@ -13,6 +13,7 @@ entities:
       - status
       - container
       - assertionRunEvent
+      - deprecation
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     keyAspect: dataHubPolicyKey
@@ -24,20 +25,24 @@ entities:
       - datahubIngestionRunSummary
       - datahubIngestionCheckpoint
       - domains
+      - deprecation
   - name: dataFlow
     keyAspect: dataFlowKey
     aspects:
       - domains
+      - deprecation
   - name: chart
     keyAspect: chartKey
     aspects:
       - domains
       - container
+      - deprecation
   - name: dashboard
     keyAspect: dashboardKey
     aspects:
       - domains
       - container
+      - deprecation
   - name: corpuser
     doc: CorpUser represents an identity of a person (or an account) in the enterprise.
     keyAspect: corpUserKey
@@ -61,10 +66,12 @@ entities:
       - browsePaths # unclear if this will be used
       - status
       - domains
+      - deprecation
   - name: glossaryTerm
     keyAspect: glossaryTermKey
     aspects:
       - schemaMetadata
+      - deprecation
   - name: domain
     doc: A data domain within an organization.
     keyAspect: domainKey
