@@ -1,4 +1,5 @@
 import pytest
+from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import mce_helpers
@@ -6,9 +7,10 @@ from tests.test_helpers import mce_helpers
 FROZEN_TIME = "2020-04-14 07:00:00"
 
 
+@freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_feast_repository_ingest(pytestconfig, tmp_path, mock_time):
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/feast_repository/"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/feast-repository/"
     output_path = tmp_path / "feast_repository_mces.json"
 
     pipeline = Pipeline.create(
