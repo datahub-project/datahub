@@ -10,9 +10,11 @@ To install this plugin, run `pip install 'acryl-datahub[mariadb]'`.
 
 Same as [mysql](./mysql.md)
 
-| Capability | Status | Details | 
-| -----------| ------ | ---- |
-| Platform Instance | ✔️ | [link](../../docs/platform-instances.md) |
+| Capability        | Status | Details                                  | 
+|-------------------|--------|------------------------------------------|
+| Platform Instance | ✔️     | [link](../../docs/platform-instances.md) |
+| Data Containers   | ✔️     |                                          |
+| Data Domains      | ✔️     | [link](../../docs/domains.md)            |
 
 
 ## Quickstart recipe

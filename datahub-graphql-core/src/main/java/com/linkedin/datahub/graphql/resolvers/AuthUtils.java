@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers;
 
+import com.google.common.collect.ImmutableList;
+import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import java.util.List;
 import java.util.Optional;
 import com.datahub.authorization.AuthorizationRequest;
@@ -7,6 +10,10 @@ import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.Authorizer;
 
 public class AuthUtils {
+
+  public static final ConjunctivePrivilegeGroup ALL_PRIVILEGES_GROUP = new ConjunctivePrivilegeGroup(ImmutableList.of(
+      PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()
+  ));
 
   public static boolean isAuthorized(
       String principal,

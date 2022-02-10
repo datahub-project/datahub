@@ -122,12 +122,15 @@ export interface EntitySectionViewEvent extends BaseEvent {
  */
 export const EntityActionType = {
     UpdateTags: 'UpdateTags',
+    UpdateTerms: 'UpdateTerms',
+    UpdateLinks: 'UpdateLinks',
     UpdateOwnership: 'UpdateOwnership',
     UpdateDocumentation: 'UpdateDocumentation',
     UpdateDescription: 'UpdateDescription',
     UpdateProperties: 'UpdateProperties',
     UpdateSchemaDescription: 'UpdateSchemaDescription',
     UpdateSchemaTags: 'UpdateSchemaTags',
+    UpdateSchemaTerms: 'UpdateSchemaTerms',
     ClickExternalUrl: 'ClickExternalUrl',
 };
 

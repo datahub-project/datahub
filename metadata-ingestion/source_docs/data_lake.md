@@ -2,6 +2,12 @@
 
 For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
 
+:::caution
+
+This source is in **Beta** and under active development. Not yet considered ready for production.
+
+:::
+
 ## Setup
 
 To install this plugin, run `pip install 'acryl-datahub[data-lake]'`. Because the files are read using PySpark, we require Spark 3.0.3 with Hadoop 3.2 to be installed.

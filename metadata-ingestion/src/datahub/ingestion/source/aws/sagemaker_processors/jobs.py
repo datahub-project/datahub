@@ -19,7 +19,7 @@ from typing import (
 
 from datahub.emitter import mce_builder
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.aws.aws_common import make_s3_urn
+from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.ingestion.source.aws.sagemaker_processors.common import (
     SagemakerSourceReport,
 )

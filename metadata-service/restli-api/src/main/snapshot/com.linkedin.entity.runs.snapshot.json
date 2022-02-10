@@ -854,11 +854,11 @@
     "type" : "record",
     "name" : "Status",
     "namespace" : "com.linkedin.common",
-    "doc" : "The status metadata of an entity, e.g. dataset, metric, feature, etc.\nThis aspect is used to represent soft deletes conventionally.",
+    "doc" : "The lifecycle status metadata of an entity, e.g. dataset, metric, feature, etc.\nThis aspect is used to represent soft deletes conventionally.",
     "fields" : [ {
       "name" : "removed",
       "type" : "boolean",
-      "doc" : "whether the entity is removed or not",
+      "doc" : "Whether the entity has been removed (soft-deleted).",
       "default" : false,
       "Searchable" : {
         "fieldType" : "BOOLEAN"
@@ -1128,7 +1128,7 @@
     "type" : "record",
     "name" : "DatasetDeprecation",
     "namespace" : "com.linkedin.dataset",
-    "doc" : "Dataset deprecation status",
+    "doc" : "Dataset deprecation status\nDeprecated! This aspect is deprecated in favor of the more-general-purpose 'Deprecation' aspect.",
     "fields" : [ {
       "name" : "deprecated",
       "type" : "boolean",
@@ -1156,7 +1156,8 @@
     } ],
     "Aspect" : {
       "name" : "datasetDeprecation"
-    }
+    },
+    "Deprecated" : true
   }, {
     "type" : "enum",
     "name" : "DatasetLineageType",
@@ -1278,6 +1279,7 @@
     "name" : "GlossaryTermInfo",
     "namespace" : "com.linkedin.glossary",
     "doc" : "Properties associated with a GlossaryTerm",
+    "include" : [ "com.linkedin.common.CustomProperties" ],
     "fields" : [ {
       "name" : "definition",
       "type" : "string",
@@ -1308,14 +1310,6 @@
       "type" : "com.linkedin.common.Url",
       "doc" : "The abstracted URL such as https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/CashInstrument.",
       "optional" : true
-    }, {
-      "name" : "customProperties",
-      "type" : {
-        "type" : "map",
-        "values" : "string"
-      },
-      "doc" : "A key-value map to capture any other non-standardized properties for the glossary term",
-      "default" : { }
     }, {
       "name" : "rawSchema",
       "type" : "string",
@@ -1437,6 +1431,21 @@
       "type" : "com.linkedin.common.Url",
       "doc" : "A URL which points to a picture which user wants to set as a profile photo",
       "default" : "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/default_avatar.png"
+    }, {
+      "name" : "slack",
+      "type" : "string",
+      "doc" : "Slack handle for the user",
+      "optional" : true
+    }, {
+      "name" : "phone",
+      "type" : "string",
+      "doc" : "Phone number to contact the user",
+      "optional" : true
+    }, {
+      "name" : "email",
+      "type" : "string",
+      "doc" : "Email address to contact the user",
+      "optional" : true
     } ],
     "Aspect" : {
       "EntityUrns" : [ "com.linkedin.common.CorpuserUrn" ],

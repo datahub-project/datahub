@@ -2,14 +2,8 @@ import React, { useState } from 'react';
 import { message, Button, Modal, Select, Typography } from 'antd';
 import styled from 'styled-components';
 
-import { useGetAutoCompleteMultipleResultsLazyQuery } from '../../../graphql/search.generated';
-import {
-    GlobalTags,
-    EntityType,
-    AutoCompleteResultForEntity,
-    GlossaryTerms,
-    SubResourceType,
-} from '../../../types.generated';
+import { useGetSearchResultsLazyQuery } from '../../../graphql/search.generated';
+import { GlobalTags, EntityType, GlossaryTerms, SubResourceType, SearchResult } from '../../../types.generated';
 import CreateTagModal from './CreateTagModal';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { IconStyleType } from '../../entity/Entity';
@@ -74,9 +68,6 @@ export default function AddTagTermModal({
     entitySubresource,
     type = EntityType.Tag,
 }: AddTagModalProps) {
-    const [getAutoCompleteResults, { loading, data: suggestionsData }] = useGetAutoCompleteMultipleResultsLazyQuery({
-        fetchPolicy: 'no-cache',
-    });
     const [inputValue, setInputValue] = useState('');
     const [selectedValue, setSelectedValue] = useState('');
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -84,39 +75,49 @@ export default function AddTagTermModal({
     const entityRegistry = useEntityRegistry();
     const [addTagMutation] = useAddTagMutation();
     const [addTermMutation] = useAddTermMutation();
+    const [tagSearch, { data: tagSearchData }] = useGetSearchResultsLazyQuery();
+    const tagSearchResults = tagSearchData?.search?.searchResults || [];
 
-    const autoComplete = (query: string) => {
-        if (query && query !== '') {
-            getAutoCompleteResults({
+    const handleSearch = (text: string) => {
+        if (text.length > 0) {
+            tagSearch({
                 variables: {
                     input: {
-                        types: [type],
-                        query,
-                        limit: 25,
+                        type: EntityType.Tag,
+                        query: text,
+                        start: 0,
+                        count: 10,
                     },
                 },
             });
         }
     };
 
-    const options =
-        suggestionsData?.autoCompleteForMultiple?.suggestions.flatMap((entity: AutoCompleteResultForEntity) =>
-            entity.suggestions.map((suggestion: string) =>
-                renderItem(suggestion, entityRegistry.getIcon(entity.type, 14, IconStyleType.TAB_VIEW), entity.type),
-            ),
-        ) || [];
-
-    const inputExistsInAutocomplete = options.some((option) => option.value.toLowerCase() === inputValue.toLowerCase());
-
-    const autocompleteOptions =
-        options.map((option) => (
-            <Select.Option value={`${option.value}${NAME_TYPE_SEPARATOR}${option.type}`} key={option.value}>
-                {option.label}
+    const renderSearchResult = (result: SearchResult) => {
+        const displayName = entityRegistry.getDisplayName(result.entity.type, result.entity);
+        const item = renderItem(
+            displayName,
+            entityRegistry.getIcon(result.entity.type, 14, IconStyleType.ACCENT),
+            result.entity.type,
+        );
+        return (
+            <Select.Option value={`${item.value}${NAME_TYPE_SEPARATOR}${item.type}`} key={item.value}>
+                {item.label}
             </Select.Option>
-        )) || [];
+        );
+    };
 
-    if (!inputExistsInAutocomplete && inputValue.length > 0 && !loading && type === EntityType.Tag) {
-        autocompleteOptions.push(
+    const tagSearchOptions = tagSearchResults.map((result) => {
+        return renderSearchResult(result);
+    });
+
+    const inputExistsInTagSearch = tagSearchResults.some((result: SearchResult) => {
+        const displayName = entityRegistry.getDisplayName(result.entity.type, result.entity);
+        return displayName.toLowerCase() === inputValue.toLowerCase();
+    });
+
+    if (!inputExistsInTagSearch && inputValue.length > 0 && type === EntityType.Tag) {
+        tagSearchOptions.push(
             <Select.Option value={CREATE_TAG_VALUE} key={CREATE_TAG_VALUE}>
                 <Typography.Link> Create {inputValue}</Typography.Link>
             </Select.Option>,
@@ -151,6 +152,7 @@ export default function AddTagTermModal({
 
         let urnToAdd = '';
         let input = {};
+        let actionType = EntityActionType.UpdateSchemaTags;
         if (selectedType === EntityType.Tag) {
             urnToAdd = `urn:li:tag:${selectedName}`;
             input = {
@@ -159,6 +161,11 @@ export default function AddTagTermModal({
                 subResource: entitySubresource,
                 subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
             };
+            if (entitySubresource) {
+                actionType = EntityActionType.UpdateSchemaTags;
+            } else {
+                actionType = EntityActionType.UpdateTags;
+            }
         }
         if (selectedType === EntityType.GlossaryTerm) {
             urnToAdd = `urn:li:glossaryTerm:${selectedName}`;
@@ -168,14 +175,20 @@ export default function AddTagTermModal({
                 subResource: entitySubresource,
                 subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
             };
+            if (entitySubresource) {
+                actionType = EntityActionType.UpdateSchemaTerms;
+            } else {
+                actionType = EntityActionType.UpdateTerms;
+            }
         }
 
         analytics.event({
             type: EventType.EntityActionEvent,
-            actionType: EntityActionType.UpdateTags,
             entityType,
             entityUrn,
+            actionType,
         });
+
         mutation({
             variables: {
                 input,
@@ -224,7 +237,11 @@ export default function AddTagTermModal({
                     <Button onClick={onClose} type="text">
                         Cancel
                     </Button>
-                    <Button onClick={onOk} disabled={selectedValue.length === 0 || disableAdd}>
+                    <Button
+                        data-testid="add-tag-term-from-modal-btn"
+                        onClick={onOk}
+                        disabled={selectedValue.length === 0 || disableAdd}
+                    >
                         Add
                     </Button>
                 </>
@@ -234,20 +251,19 @@ export default function AddTagTermModal({
                 allowClear
                 autoFocus
                 showSearch
-                placeholder={`Find a ${entityRegistry.getEntityName(type)?.toLowerCase()}`}
+                placeholder={`Search for ${entityRegistry.getEntityName(type)?.toLowerCase()}...`}
                 defaultActiveFirstOption={false}
                 showArrow={false}
                 filterOption={false}
                 onSearch={(value: string) => {
-                    autoComplete(value.trim());
+                    handleSearch(value.trim());
                     setInputValue(value.trim());
                 }}
                 onSelect={(selected) =>
                     selected === CREATE_TAG_VALUE ? setShowCreateModal(true) : setSelectedValue(String(selected))
                 }
-                notFoundContent={loading ? 'loading' : 'type to search'}
             >
-                {autocompleteOptions}
+                {tagSearchOptions}
             </TagSelect>
         </Modal>
     );

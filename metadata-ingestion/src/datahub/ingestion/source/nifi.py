@@ -10,6 +10,7 @@ from urllib.parse import urljoin
 
 import requests
 from dateutil import parser
+from packaging import version
 from requests.adapters import HTTPAdapter
 
 import datahub.emitter.mce_builder as builder
@@ -83,6 +84,7 @@ class NifiSourceConfig(ConfigModel):
 
 
 TOKEN_ENDPOINT = "/nifi-api/access/token"
+ABOUT_ENDPOINT = "/nifi-api/flow/about"
 CLUSTER_ENDPOINT = "/nifi-api/flow/cluster/summary"
 PG_ENDPOINT = "/nifi-api/flow/process-groups/"
 PROVENANCE_ENDPOINT = "/nifi-api/provenance/"
@@ -239,6 +241,7 @@ class NifiRemoteProcessGroup:
 
 @dataclass
 class NifiFlow:
+    version: Optional[str]
     clustered: Optional[bool]
     root_process_group: NifiProcessGroup
     components: Dict[str, NifiComponent] = field(default_factory=dict)
@@ -556,6 +559,14 @@ class NifiSource(Source):
             del self.nifi_flow.components[c.id]
 
     def create_nifi_flow(self):
+        about_response = self.session.get(
+            url=urljoin(self.config.site_url, ABOUT_ENDPOINT)
+        )
+        nifi_version: Optional[str] = None
+        if about_response.ok:
+            nifi_version = about_response.json().get("about", {}).get("version")
+        else:
+            logger.warn("Failed to fetch version for nifi")
         cluster_response = self.session.get(
             url=urljoin(self.config.site_url, CLUSTER_ENDPOINT)
         )
@@ -579,6 +590,7 @@ class NifiSource(Source):
         pg_flow_dto = pg_response.json().get("processGroupFlow", {})
         breadcrumb_dto = pg_flow_dto.get("breadcrumb", {}).get("breadcrumb", {})
         self.nifi_flow = NifiFlow(
+            version=nifi_version,
             clustered=clustered,
             root_process_group=NifiProcessGroup(
                 breadcrumb_dto.get("id"),
@@ -602,16 +614,28 @@ class NifiSource(Source):
             of processor type {processor.type}, Start date: {startDate}, End date: {endDate}"
         )
 
+        older_version: bool = self.nifi_flow.version is not None and version.parse(
+            self.nifi_flow.version
+        ) < version.parse("1.13.0")
+
+        if older_version:
+            searchTerms = {
+                "ProcessorID": processor.id,
+                "EventType": eventType,
+            }
+        else:
+            searchTerms = {
+                "ProcessorID": {"value": processor.id},  # type: ignore
+                "EventType": {"value": eventType},  # type: ignore
+            }
+
         payload = json.dumps(
             {
                 "provenance": {
                     "request": {
                         "maxResults": 1000,
                         "summarize": False,
-                        "searchTerms": {
-                            "ProcessorID": {"value": processor.id},
-                            "EventType": {"value": eventType},
-                        },
+                        "searchTerms": searchTerms,
                         "startDate": startDate.strftime("%m/%d/%Y %H:%M:%S %Z"),
                         "endDate": (
                             endDate.strftime("%m/%d/%Y %H:%M:%S %Z")
@@ -699,6 +723,8 @@ class NifiSource(Source):
         flow_properties = dict()
         if self.nifi_flow.clustered is not None:
             flow_properties["clustered"] = str(self.nifi_flow.clustered)
+        if self.nifi_flow.version is not None:
+            flow_properties["version"] = str(self.nifi_flow.version)
         yield from self.construct_flow_workunits(
             flow_urn, flow_name, self.make_external_url(rootpg.id), flow_properties
         )

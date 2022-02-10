@@ -13,6 +13,8 @@ import { UserAssets } from './UserAssets';
 import UserEditProfileModal from './UserEditProfileModal';
 import { ExtendedEntityRelationshipsResult } from './type';
 import CustomAvatar from '../../shared/avatar/CustomAvatar';
+import { useEntityRegistry } from '../../useEntityRegistry';
+import { decodeUrn } from '../shared/utils';
 
 const messageStyle = { marginTop: '10%' };
 const { Paragraph } = Typography;
@@ -171,7 +173,8 @@ const Content = styled.div`
  * Responsible for reading & writing users.
  */
 export default function UserProfile() {
-    const { urn } = useUserParams();
+    const { urn: encodedUrn } = useUserParams();
+    const urn = decodeUrn(encodedUrn);
     const { loading, error, data } = useGetUserQuery({ variables: { urn, groupsCount: GROUP_PAGE_SIZE } });
     const username = data?.corpUser?.username;
     const [editProfileModal, setEditProfileModal] = useState(false);

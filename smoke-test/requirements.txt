@@ -1,3 +1,4 @@
 pytest>=6.2
 pytest-dependency>=0.5.1
+psutil
 -e ../metadata-ingestion[datahub-rest,datahub-kafka,mysql]

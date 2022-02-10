@@ -26,7 +26,6 @@ export const SearchPage = () => {
     const location = useLocation();
 
     const entityRegistry = useEntityRegistry();
-
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const query: string = params.query ? (params.query as string) : '';
     const activeType = entityRegistry.getTypeOrDefaultFromPathName(useParams<SearchPageParams>().type || '', undefined);
