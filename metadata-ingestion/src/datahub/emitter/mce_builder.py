@@ -1,17 +1,21 @@
 """Convenience functions for creating MCEs"""
+import json
 import logging
 import re
 import time
 from enum import Enum
+from hashlib import md5
 from typing import Any, List, Optional, Type, TypeVar, Union, cast, get_type_hints
 
 import typing_inspect
 from avrogen.dict_wrapper import DictWrapper
 
 from datahub.configuration.source_common import DEFAULT_ENV as DEFAULT_ENV_CONFIGURATION
+from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.metadata.com.linkedin.pegasus2avro.common import GlossaryTerms
 from datahub.metadata.schema_classes import (
     AuditStampClass,
+    ContainerKeyClass,
     DatasetKeyClass,
     DatasetLineageTypeClass,
     DatasetSnapshotClass,
@@ -72,6 +76,11 @@ def make_dataset_urn_with_platform_instance(
         return make_dataset_urn(platform=platform, name=name, env=env)
 
 
+def make_schema_field_urn(parent_urn: str, field_path: str) -> str:
+    assert parent_urn.startswith("urn:li:"), "Schema field's parent must be an urn"
+    return f"urn:li:schemaField:({parent_urn},{field_path})"
+
+
 def dataset_urn_to_key(dataset_urn: str) -> Optional[DatasetKeyClass]:
     pattern = r"urn:li:dataset:\(urn:li:dataPlatform:(.*),(.*),(.*)\)"
     results = re.search(pattern, dataset_urn)
@@ -80,6 +89,50 @@ def dataset_urn_to_key(dataset_urn: str) -> Optional[DatasetKeyClass]:
             platform=results.group(1), name=results.group(2), origin=results.group(3)
         )
     return None
+
+
+def make_container_new_urn(guid: str) -> str:
+    return f"urn:dh:container:0:({guid})"
+
+
+def container_new_urn_to_key(dataset_urn: str) -> Optional[ContainerKeyClass]:
+    pattern = r"urn:dh:container:0:\((.*)\)"
+    results = re.search(pattern, dataset_urn)
+    if results is not None:
+        return ContainerKeyClass(
+            guid=results.group(1),
+        )
+    return None
+
+
+# def make_container_urn(platform: str, name: str, env: str = DEFAULT_ENV) -> str:
+#    return f"urn:li:container:({make_data_platform_urn(platform)},{env},{name})"
+
+
+def make_container_urn(guid: str) -> str:
+    return f"urn:li:container:{guid}"
+
+
+def container_urn_to_key(guid: str) -> Optional[ContainerKeyClass]:
+    pattern = r"urn:li:container:(.*)"
+    results = re.search(pattern, guid)
+    if results is not None:
+        return ContainerKeyClass(
+            guid=results.group(1),
+        )
+    return None
+
+
+def datahub_guid(obj: dict) -> str:
+    obj_str = json.dumps(
+        pre_json_transform(obj), separators=(",", ":"), sort_keys=True
+    ).encode("utf-8")
+    datahub_guid = md5(obj_str).hexdigest()
+    return datahub_guid
+
+
+def make_assertion_urn(assertion_id: str) -> str:
+    return f"urn:li:assertion:{assertion_id}"
 
 
 def make_user_urn(username: str) -> str:
@@ -128,6 +181,12 @@ def make_dashboard_urn(platform: str, name: str) -> str:
 def make_chart_urn(platform: str, name: str) -> str:
     # FIXME: charts don't currently include data platform urn prefixes.
     return f"urn:li:chart:({platform},{name})"
+
+
+def make_domain_urn(domain: str) -> str:
+    if domain.startswith("urn:li:domain:"):
+        return domain
+    return f"urn:li:domain:{domain}"
 
 
 def make_ml_primary_key_urn(feature_table_name: str, primary_key_name: str) -> str:

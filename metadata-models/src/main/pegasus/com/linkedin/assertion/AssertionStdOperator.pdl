@@ -1,0 +1,63 @@
+namespace com.linkedin.assertion
+
+enum AssertionStdOperator {
+        /**
+        * Value being asserted is between min_value and max_value
+        */
+        BETWEEN
+
+        /**
+        * Value being asserted is less than max_value
+        */
+        LESS_THAN
+
+        /**
+        * Value being asserted is less than or equal to max_value
+        */
+        LESS_THAN_OR_EQUAL_TO
+
+        /**
+        * Value being asserted is greater than min_value
+        */
+        GREATER_THAN
+
+        /**
+        * Value being asserted is greater than or equal to min_value
+        */
+        GREATER_THAN_OR_EQUAL_TO
+
+        /**
+        * Value being asserted is equal to value
+        */
+        EQUAL_TO
+
+        /**
+        * Value being asserted is not null
+        */
+        NOT_NULL 
+
+        /**
+        * Value being asserted contains value
+        */
+        CONTAIN
+
+        /**
+        * Value being asserted ends with value
+        */
+        END_WITH
+
+        /**
+        * Value being asserted starts with value
+        */
+        START_WITH
+
+        /**
+        * Value being asserted is one of the array values
+        */
+        IN
+
+        /**
+        * Other
+        */  
+        _NATIVE_
+    }

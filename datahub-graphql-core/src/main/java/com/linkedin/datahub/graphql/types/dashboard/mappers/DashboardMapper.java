@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.dashboard.mappers;
 
+import com.linkedin.common.Deprecation;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
@@ -9,6 +10,7 @@ import com.linkedin.dashboard.EditableDashboardProperties;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.generated.AccessLevel;
 import com.linkedin.datahub.graphql.generated.Chart;
+import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.Dashboard;
 import com.linkedin.datahub.graphql.generated.DashboardEditableProperties;
 import com.linkedin.datahub.graphql.generated.DashboardInfo;
@@ -17,6 +19,7 @@ import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
@@ -81,6 +84,13 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
                 result.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(data)));
             } else if (GLOSSARY_TERMS_ASPECT_NAME.equals(name)) {
                 result.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(data)));
+            } else if (CONTAINER_ASPECT_NAME.equals(name)) {
+                final com.linkedin.container.Container gmsContainer = new com.linkedin.container.Container(data);
+                result.setContainer(Container
+                    .builder()
+                    .setType(EntityType.CONTAINER)
+                    .setUrn(gmsContainer.getContainer().toString())
+                    .build());
             } else if (DOMAINS_ASPECT_NAME.equals(name)) {
                 final Domains domains = new Domains(data);
                 // Currently we only take the first domain if it exists.
@@ -89,6 +99,8 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
                         .setType(EntityType.DOMAIN)
                         .setUrn(domains.getDomains().get(0).toString()).build());
                 }
+            } else if (DEPRECATION_ASPECT_NAME.equals(name)) {
+                result.setDeprecation(DeprecationMapper.map(new Deprecation(data)));
             }
         });
 

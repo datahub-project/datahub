@@ -15,7 +15,8 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.aws.aws_common import AwsSourceConfig, make_s3_urn
+from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
+from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -47,6 +48,7 @@ logger = logging.getLogger(__name__)
 
 class GlueSourceConfig(AwsSourceConfig):
 
+    extract_owners: Optional[bool] = True
     extract_transforms: Optional[bool] = True
     underlying_platform: Optional[str] = None
     ignore_unsupported_connectors: Optional[bool] = True
@@ -88,6 +90,7 @@ class GlueSource(Source):
 
     def __init__(self, config: GlueSourceConfig, ctx: PipelineContext):
         super().__init__(ctx)
+        self.extract_owners = config.extract_owners
         self.source_config = config
         self.report = GlueSourceReport()
         self.glue_client = config.glue_client
@@ -611,7 +614,7 @@ class GlueSource(Source):
                     yield dataset_wu
 
     def _extract_record(self, table: Dict, table_name: str) -> MetadataChangeEvent:
-        def get_owner() -> OwnershipClass:
+        def get_owner() -> Optional[OwnershipClass]:
             owner = table.get("Owner")
             if owner:
                 owners = [
@@ -620,11 +623,10 @@ class GlueSource(Source):
                         type=OwnershipTypeClass.DATAOWNER,
                     )
                 ]
-            else:
-                owners = []
-            return OwnershipClass(
-                owners=owners,
-            )
+                return OwnershipClass(
+                    owners=owners,
+                )
+            return None
 
         def get_dataset_properties() -> DatasetPropertiesClass:
             return DatasetPropertiesClass(
@@ -679,7 +681,12 @@ class GlueSource(Source):
         )
 
         dataset_snapshot.aspects.append(Status(removed=False))
-        dataset_snapshot.aspects.append(get_owner())
+
+        if self.extract_owners:
+            optional_owner_aspect = get_owner()
+            if optional_owner_aspect is not None:
+                dataset_snapshot.aspects.append(optional_owner_aspect)
+
         dataset_snapshot.aspects.append(get_dataset_properties())
         dataset_snapshot.aspects.append(get_schema_metadata(self))
 

@@ -106,6 +106,11 @@ public class PoliciesConfig {
       "Edit Domain",
       "The ability to edit the Domain of an entity.");
 
+  public static final Privilege EDIT_ENTITY_DEPRECATION_PRIVILEGE = Privilege.of(
+      "EDIT_DEPRECATION_PRIVILEGE",
+      "Edit Deprecation",
+      "The ability to edit the Deprecation status of an entity.");
+
   public static final Privilege EDIT_ENTITY_PRIVILEGE = Privilege.of(
       "EDIT_ENTITY",
       "Edit All",
@@ -119,6 +124,7 @@ public class PoliciesConfig {
       EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
       EDIT_ENTITY_STATUS_PRIVILEGE,
       EDIT_ENTITY_DOMAINS_PRIVILEGE,
+      EDIT_ENTITY_DEPRECATION_PRIVILEGE,
       EDIT_ENTITY_PRIVILEGE
   );
 
@@ -191,12 +197,33 @@ public class PoliciesConfig {
       ImmutableList.of(EDIT_ENTITY_OWNERS_PRIVILEGE, EDIT_ENTITY_PRIVILEGE)
   );
 
-  // Tag Privileges
+  // Container Privileges
+  public static final ResourcePrivileges CONTAINER_PRIVILEGES = ResourcePrivileges.of(
+      "container",
+      "Containers",
+      "Containers indexed by DataHub",
+      COMMON_ENTITY_PRIVILEGES
+  );
+
+  // Domain Privileges
   public static final ResourcePrivileges DOMAIN_PRIVILEGES = ResourcePrivileges.of(
       "domain",
       "Domains",
       "Domains created on DataHub",
       ImmutableList.of(EDIT_ENTITY_OWNERS_PRIVILEGE, EDIT_ENTITY_DOCS_PRIVILEGE, EDIT_ENTITY_DOC_LINKS_PRIVILEGE, EDIT_ENTITY_PRIVILEGE)
+  );
+
+  // Glossary Term Privileges
+  public static final ResourcePrivileges GLOSSARY_TERM_PRIVILEGES = ResourcePrivileges.of(
+      "glossaryTerm",
+      "Glossary Terms",
+      "Glossary Terms created on DataHub",
+      ImmutableList.of(
+          EDIT_ENTITY_OWNERS_PRIVILEGE,
+          EDIT_ENTITY_DOCS_PRIVILEGE,
+          EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
+          EDIT_ENTITY_DEPRECATION_PRIVILEGE,
+          EDIT_ENTITY_PRIVILEGE)
   );
 
   public static final List<ResourcePrivileges> RESOURCE_PRIVILEGES = ImmutableList.of(
@@ -206,7 +233,9 @@ public class PoliciesConfig {
       DATA_FLOW_PRIVILEGES,
       DATA_JOB_PRIVILEGES,
       TAG_PRIVILEGES,
-      DOMAIN_PRIVILEGES
+      CONTAINER_PRIVILEGES,
+      DOMAIN_PRIVILEGES,
+      GLOSSARY_TERM_PRIVILEGES
   );
 
   @Data
