@@ -297,7 +297,7 @@ class APISource(Source, ABC):
 
 class OpenApiSource(APISource):
     def __init__(self, config: OpenApiConfig, ctx: PipelineContext):
-        super().__init__(config, ctx, "OpenApi")
+        super().__init__(config, ctx, "openapi")
 
     @classmethod
     def create(cls, config_dict, ctx):
