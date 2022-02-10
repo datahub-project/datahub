@@ -138,6 +138,9 @@ public class CorpUserType implements SearchableEntityType<CorpUser>, MutableType
 
     private RecordTemplate mapCorpUserEditableInfo(CorpUserUpdateInput input, Optional<CorpUserEditableInfo> existing) {
         CorpUserEditableInfo result = existing.orElseGet(() -> new CorpUserEditableInfo());
+        if (input.getDisplayName() != null) {
+            result.setDisplayName(input.getDisplayName());
+        }
         if (input.getAboutMe() != null) {
             result.setAboutMe(input.getAboutMe());
         }
@@ -161,6 +164,9 @@ public class CorpUserType implements SearchableEntityType<CorpUser>, MutableType
         }
         if (input.getEmail() != null) {
             result.setEmail(input.getEmail());
+        }
+        if (input.getTitle() != null) {
+            result.setTitle(input.getTitle());
         }
 
         return result;

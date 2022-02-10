@@ -69,6 +69,23 @@ sink:
   # sink configs
 ```
 
+If you are trying to add domains to your topics you can use a configuration like below.
+
+```yml
+source:
+  type: "kafka"
+  config:
+    # ...connection block
+    domain:
+      "urn:li:domain:13ae4d85-d955-49fc-8474-9004c663a810":
+        allow:
+          - ".*"
+      "urn:li:domain:d6ec9868-6736-4b1f-8aa6-fee4c5948f17":
+        deny:
+          - ".*"
+```
+
+Note that the `domain` in config above can be either an _urn_ or a domain _id_ (i.e. `urn:li:domain:13ae4d85-d955-49fc-8474-9004c663a810` or simply `13ae4d85-d955-49fc-8474-9004c663a810`). The Domain should exist in your DataHub instance before ingesting data into the Domain. To create a Domain on DataHub, check out the [Domains User Guide](https://datahubproject.io/docs/domains/).
 
 ## Config details
 
@@ -84,9 +101,9 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `topic_patterns.allow`                       |          |                          | List of regex patterns for topics to include in ingestion.                                                                                                                                                                                                                           |
 | `topic_patterns.deny`                        |          |                          | List of regex patterns for topics to exclude from ingestion.                                                                                                                                                                                                                         |
 | `topic_patterns.ignoreCase`                  |          | `True`                   | Whether to ignore case sensitivity during pattern matching.                                                                                                                                                                                                                          |
-| `domain.domain_key.allow`                    |          |                          | List of regex patterns for topics to set domain_key domain key. There can be multiple domain key specified.                                                                                                                                                                          |
-| `domain.domain_key.deny`                     |          |                          | List of regex patterns for topics to not assign domain_key. There can be multiple domain key specified.                                                                                                                                                                              |
-| `domain.domain_key.ignoreCase`               |          | `True`                   | Whether to ignore case sensitivity during pattern matching.There can be multiple domain key specified.                                                                                                                                                                               |
+| `domain.domain_urn.allow`                    |          |                          | List of regex patterns for topics to set domain_urn domain key. There can be multiple domain key specified.                                                                                                                                                                          |
+| `domain.domain_urn.deny`                     |          |                          | List of regex patterns for topics to not assign domain_urn. There can be multiple domain key specified.                                                                                                                                                                              |
+| `domain.domain_urn.ignoreCase`               |          | `True`                   | Whether to ignore case sensitivity during pattern matching.There can be multiple domain key specified.                                                                                                                                                                               |
 
 The options in the consumer config and schema registry config are passed to the Kafka DeserializingConsumer and SchemaRegistryClient respectively.
 

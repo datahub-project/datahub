@@ -176,6 +176,10 @@ public class ESAggregatedStatsDAO {
     if (fieldPath.equals(ES_FIELD_URN)) {
       return DataSchema.Type.STRING;
     }
+    if (fieldPath.equals(MappingsBuilder.EVENT_GRANULARITY)) {
+      return DataSchema.Type.RECORD;
+    }
+    
     String[] memberParts = fieldPath.split("\\.");
     if (memberParts.length == 1) {
       // Search in the timeseriesFieldSpecs.

@@ -1,9 +1,11 @@
 package com.linkedin.datahub.graphql.types.glossary.mappers;
 
+import com.linkedin.common.Deprecation;
 import com.linkedin.common.Ownership;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.GlossaryTerm;
+import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermUtils;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -42,6 +44,8 @@ public class GlossaryTermMapper implements ModelMapper<EntityResponse, GlossaryT
                 result.setGlossaryTermInfo(GlossaryTermInfoMapper.map(new GlossaryTermInfo(data)));
             } else if (OWNERSHIP_ASPECT_NAME.equals(name)) {
                 result.setOwnership(OwnershipMapper.map(new Ownership(data)));
+            } else if (DEPRECATION_ASPECT_NAME.equals(name)) {
+                result.setDeprecation(DeprecationMapper.map(new Deprecation(data)));
             }
         });
         return result;
