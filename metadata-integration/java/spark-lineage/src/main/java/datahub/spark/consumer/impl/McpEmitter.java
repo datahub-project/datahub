@@ -3,6 +3,7 @@ package datahub.spark.consumer.impl;
 import datahub.spark.model.LineageConsumer;
 import datahub.spark.model.LineageEvent;
 import datahub.client.Emitter;
+import datahub.client.MetadataWriteResponse;
 import datahub.client.rest.RestEmitter;
 import datahub.event.MetadataChangeProposalWrapper;
 import java.io.IOException;
@@ -28,6 +29,7 @@ public class McpEmitter implements LineageConsumer {
     if (emitter.isPresent()) {
       mcpws.stream().map(mcpw -> {
         try {
+          log.debug("emiiting mcpw: " + mcpw);
           return emitter.get().emit(mcpw);
         } catch (IOException ioException) {
           log.error("Failed to emit metadata to DataHub", ioException);
@@ -35,7 +37,7 @@ public class McpEmitter implements LineageConsumer {
         }
       }).filter(Objects::nonNull).collect(Collectors.toList()).forEach(future -> {
         try {
-          future.get();
+          log.info(future.get().toString());
         } catch (InterruptedException | ExecutionException e) {
           // log error, but don't impact thread
           log.error("Failed to emit metadata to DataHub", e);
