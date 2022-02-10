@@ -61,6 +61,10 @@ public class DatahubSparkListener extends SparkListener {
   private final Map<String, Map<Long, SQLQueryExecStartEvent>> appSqlDetails = new ConcurrentHashMap<>();
   private final Map<String, ExecutorService> appPoolDetails = new ConcurrentHashMap<>();
   private final Map<String, McpEmitter> appEmitters = new ConcurrentHashMap<>();
+  
+  public DatahubSparkListener() {
+    log.info("DatahubSparkListener initialised.");
+  }
 
   private class SqlStartTask implements Runnable {
 
@@ -164,7 +168,7 @@ public class DatahubSparkListener extends SparkListener {
   @Override
   public void onApplicationStart(SparkListenerApplicationStart applicationStart) {
     try {
-      log.debug("App started: " + applicationStart);
+      log.info("Application started: " + applicationStart);
       LineageUtils.findSparkCtx().foreach(new AbstractFunction1<SparkContext, Void>() {
 
         @Override
@@ -202,7 +206,7 @@ public class DatahubSparkListener extends SparkListener {
 
         @Override
         public Void apply(SparkContext sc) {
-          log.debug("Application end event received for appId :" + sc.appName());
+          log.info("Application ended : {} {}", sc.appName(), sc.applicationId());
           AppStartEvent start = appDetails.remove(sc.appName());
           appPoolDetails.remove(sc.appName()).shutdown();
           appSqlDetails.remove(sc.appName());
@@ -313,7 +317,6 @@ public class DatahubSparkListener extends SparkListener {
             .map(x -> LineageUtils.getConsumer(x)).filter(Objects::nonNull).collect(Collectors.toList());
       } else {
         return Collections.emptyList();
-        //singletonList(LineageUtils.getConsumer(DATAHUB_EMITTER));
       }
 
     }
