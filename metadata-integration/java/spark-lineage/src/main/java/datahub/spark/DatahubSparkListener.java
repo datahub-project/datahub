@@ -168,7 +168,7 @@ public class DatahubSparkListener extends SparkListener {
   @Override
   public void onApplicationStart(SparkListenerApplicationStart applicationStart) {
     try {
-      log.info("App started: " + applicationStart);
+      log.info("Application started: " + applicationStart);
       LineageUtils.findSparkCtx().foreach(new AbstractFunction1<SparkContext, Void>() {
 
         @Override
@@ -206,7 +206,7 @@ public class DatahubSparkListener extends SparkListener {
 
         @Override
         public Void apply(SparkContext sc) {
-          log.info("Application end event received for appId :" + sc.appName());
+          log.info("Application ended : {} {}", sc.appName(), sc.applicationId());
           AppStartEvent start = appDetails.remove(sc.appName());
           appPoolDetails.remove(sc.appName()).shutdown();
           appSqlDetails.remove(sc.appName());
