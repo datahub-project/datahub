@@ -5,6 +5,7 @@ configurations {
 }
 
 dependencies {
+  implementation 'com.github.java-json-tools:json-patch:1.13'
   compile project(':entity-registry')
   compile project(':metadata-utils')
   compile project(':metadata-events:mxe-avro-1.7')
@@ -17,6 +18,7 @@ dependencies {
 
   compile externalDependency.dgraph4j exclude group: 'com.google.guava', module: 'guava'
   compile externalDependency.lombok
+  compile externalDependency.parquet
   compile externalDependency.elasticSearchRest
   compile externalDependency.elasticSearchTransport
   compile externalDependency.javatuples
@@ -26,11 +28,13 @@ dependencies {
   compile externalDependency.opentelemetryAnnotations
   compile externalDependency.resilience4j
   compile externalDependency.springContext
+  compile externalDependency.swaggerAnnotations
 
   annotationProcessor externalDependency.lombok
 
   testCompile externalDependency.testng
   testCompile externalDependency.h2
+  testCompile externalDependency.mysqlConnector
   testCompile externalDependency.neo4jHarness
   testCompile externalDependency.mockito
   testCompile externalDependency.mockitoInline
