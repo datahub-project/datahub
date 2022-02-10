@@ -3,7 +3,10 @@ import dataclasses
 import heapq
 import json
 import logging
+import os
 import re
+import tempfile
+
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import (
@@ -24,6 +27,7 @@ from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from more_itertools import partition
 
 import datahub.emitter.mce_builder as builder
+from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.configuration.source_common import DatasetSourceConfigBase
 from datahub.configuration.time_window_config import get_time_bucket
@@ -383,6 +387,32 @@ class QueryEvent:
         return query_event
 
 
+class BigQueryCredential(ConfigModel):
+    project_id: str
+    private_key_id: str
+    private_key: str
+    client_email: str
+    client_id: str
+    auth_uri: str = "https://accounts.google.com/o/oauth2/auth"
+    token_uri: str = "https://oauth2.googleapis.com/token"
+    auth_provider_x509_cert_url: str = "https://www.googleapis.com/oauth2/v1/certs"
+    type: str = "service_account"
+    client_x509_cert_url: Optional[str]
+
+    def __init__(self, **data: Any):
+        super().__init__(**data)  # type: ignore
+        if not self.client_x509_cert_url:
+            self.client_x509_cert_url = (
+                f"https://www.googleapis.com/robot/v1/metadata/x509/{self.client_email}"
+            )
+
+    def create_credential_temp_file(self) -> str:
+        with tempfile.NamedTemporaryFile(delete=False) as fp:
+            cred_json = json.dumps(self.dict(), indent=4, separators=(",", ": "))
+            fp.write(cred_json.encode())
+            return fp.name
+
+
 class BigQueryUsageConfig(DatasetSourceConfigBase, BaseUsageConfig):
     projects: Optional[List[str]] = None
     project_id: Optional[str] = None  # deprecated in favor of `projects`
@@ -392,6 +422,18 @@ class BigQueryUsageConfig(DatasetSourceConfigBase, BaseUsageConfig):
     log_page_size: Optional[pydantic.PositiveInt] = 1000
     query_log_delay: Optional[pydantic.PositiveInt] = None
     max_query_duration: timedelta = timedelta(minutes=15)
+    credential: Optional[BigQueryCredential]
+    credentials_path: Optional[str] = None
+
+    def __init__(self, **data: Any):
+        super().__init__(**data)
+
+        if self.credential:
+            self.credentials_path = self.credential.create_credential_temp_file()
+            logger.warning(
+                f"Creating temporary credential file at {self.credentials_path}"
+            )
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self.credentials_path
 
     @pydantic.validator("project_id")
     def note_project_id_deprecation(cls, v, values, **kwargs):
@@ -772,3 +814,11 @@ class BigQueryUsageSource(Source):
 
     def get_report(self) -> SourceReport:
         return self.report
+
+    # We can't use close as it is not called if the ingestion is not successful
+    def __del__(self):
+        if self.config.credentials_path:
+            logger.debug(
+                f"Deleting temporary credential file at {self.config.credentials_path}"
+            )
+            os.unlink(self.config.credentials_path)

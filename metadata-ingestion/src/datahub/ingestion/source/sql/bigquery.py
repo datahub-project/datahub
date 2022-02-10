@@ -2,11 +2,9 @@ import collections
 import dataclasses
 import datetime
 import functools
-import json
 import logging
 import os
 import re
-import tempfile
 import textwrap
 from dataclasses import dataclass
 from datetime import timedelta
@@ -23,7 +21,6 @@ from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
 
-from datahub.configuration import ConfigModel
 from datahub.configuration.common import ConfigurationError
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter import mce_builder
@@ -38,6 +35,7 @@ from datahub.ingestion.source.sql.sql_common import (
     register_custom_type,
 )
 from datahub.ingestion.source.usage.bigquery_usage import (
+    BigQueryCredential,
     BQ_DATE_SHARD_FORMAT,
     BQ_DATETIME_FORMAT,
     AuditLogEntry,
@@ -198,26 +196,6 @@ register_custom_type(GEOGRAPHY)
 assert pybigquery.sqlalchemy_bigquery._type_map
 
 
-class BigQueryCredential(ConfigModel):
-    project_id: str
-    private_key_id: str
-    private_key: str
-    client_email: str
-    client_id: str
-    auth_uri: str = "https://accounts.google.com/o/oauth2/auth"
-    token_uri: str = "https://oauth2.googleapis.com/token"
-    auth_provider_x509_cert_url: str = "https://www.googleapis.com/oauth2/v1/certs"
-    type: str = "service_account"
-    client_x509_cert_url: Optional[str]
-
-    def __init__(self, **data: Any):
-        super().__init__(**data)  # type: ignore
-        if not self.client_x509_cert_url:
-            self.client_x509_cert_url = (
-                f"https://www.googleapis.com/robot/v1/metadata/x509/{self.client_email}"
-            )
-
-
 @dataclass
 class BigQueryPartitionColumn:
     table_catalog: str
@@ -226,13 +204,6 @@ class BigQueryPartitionColumn:
     column_name: str
     data_type: str
     partition_id: str
-
-
-def create_credential_temp_file(credential: BigQueryCredential) -> str:
-    with tempfile.NamedTemporaryFile(delete=False) as fp:
-        cred_json = json.dumps(credential.dict(), indent=4, separators=(",", ": "))
-        fp.write(cred_json.encode())
-        return fp.name
 
 
 class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
@@ -255,7 +226,7 @@ class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
         super().__init__(**data)
 
         if self.credential:
-            self.credentials_path = create_credential_temp_file(self.credential)
+            self.credentials_path = self.credential.create_credential_temp_file()
             logger.debug(
                 f"Creating temporary credential file at {self.credentials_path}"
             )
