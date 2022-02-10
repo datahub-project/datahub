@@ -35,11 +35,11 @@ from datahub.ingestion.source.sql.sql_common import (
     register_custom_type,
 )
 from datahub.ingestion.source.usage.bigquery_usage import (
-    BigQueryCredential,
     BQ_DATE_SHARD_FORMAT,
     BQ_DATETIME_FORMAT,
     AuditLogEntry,
     BigQueryAuditMetadata,
+    BigQueryCredential,
     BigQueryTableRef,
     QueryEvent,
 )
