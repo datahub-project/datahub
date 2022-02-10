@@ -196,18 +196,6 @@ fragment entityPreview on Entity {
                 value
             }
         }
-        properties {
-            name
-            description
-            definition
-            termSource
-            sourceRef
-            sourceUrl
-            customProperties {
-                key
-                value
-            }
-        }
     }
     ... on MLFeatureTable {
         urn
