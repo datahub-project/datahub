@@ -9,14 +9,23 @@ from urllib.parse import urlparse
 import yaml
 from pydantic import validator
 
-from datahub.configuration.common import ConfigurationError
+from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.emitter import mce_builder
+from datahub.emitter.mce_builder import make_dataset_urn, make_domain_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import (
+    DatabaseKey,
+    PlatformKey,
+    add_dataset_to_container,
+    add_domain_to_entity_wu,
+    gen_containers,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
+from datahub.ingestion.source.sql.sql_common import SqlContainerSubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -54,6 +63,7 @@ class GlueSourceConfig(AwsSourceConfig):
     ignore_unsupported_connectors: Optional[bool] = True
     emit_s3_lineage: bool = False
     glue_s3_lineage_direction: str = "upstream"
+    domain: Dict[str, AllowDenyPattern] = dict()
 
     @property
     def glue_client(self):
@@ -523,8 +533,66 @@ class GlueSource(Source):
                         return mcp
         return None
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+    def gen_database_key(self, database: str) -> PlatformKey:
+        return DatabaseKey(
+            database=database,
+            platform=self.get_underlying_platform(),
+            instance=self.env,
+        )
 
+    def gen_database_containers(self, database: str) -> Iterable[MetadataWorkUnit]:
+        domain_urn = self._gen_domain_urn(database)
+
+        database_container_key = self.gen_database_key(database)
+        container_workunits = gen_containers(
+            container_key=database_container_key,
+            name=database,
+            sub_types=[SqlContainerSubTypes.DATABASE],
+            domain_urn=domain_urn,
+        )
+
+        for wu in container_workunits:
+            self.report.report_workunit(wu)
+            yield wu
+
+    def add_table_to_database_container(
+        self, dataset_urn: str, db_name: str
+    ) -> Iterable[MetadataWorkUnit]:
+        database_container_key = self.gen_database_key(db_name)
+        container_workunits = add_dataset_to_container(
+            container_key=database_container_key,
+            dataset_urn=dataset_urn,
+        )
+        for wu in container_workunits:
+            self.report.report_workunit(wu)
+            yield wu
+
+    def _gen_domain_urn(self, dataset_name: str) -> Optional[str]:
+        domain_urn: Optional[str] = None
+
+        for domain, pattern in self.source_config.domain.items():
+            if pattern.allowed(dataset_name):
+                domain_urn = make_domain_urn(domain)
+
+        return domain_urn
+
+    def _get_domain_wu(
+        self, dataset_name: str, entity_urn: str, entity_type: str
+    ) -> Iterable[Union[MetadataWorkUnit]]:
+
+        domain_urn = self._gen_domain_urn(dataset_name)
+        if domain_urn:
+            wus = add_domain_to_entity_wu(
+                entity_type=entity_type,
+                entity_urn=entity_urn,
+                domain_urn=domain_urn,
+            )
+            for wu in wus:
+                self.report.report_workunit(wu)
+                yield wu
+
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        database_seen = set()
         tables = self.get_all_tables()
 
         for table in tables:
@@ -537,11 +605,26 @@ class GlueSource(Source):
             ) or not self.source_config.table_pattern.allowed(full_table_name):
                 self.report.report_table_dropped(full_table_name)
                 continue
+            if database_name not in database_seen:
+                database_seen.add(database_name)
+                yield from self.gen_database_containers(database_name)
 
             mce = self._extract_record(table, full_table_name)
             workunit = MetadataWorkUnit(full_table_name, mce=mce)
             self.report.report_workunit(workunit)
             yield workunit
+
+            dataset_urn: str = make_dataset_urn(
+                self.get_underlying_platform(), full_table_name, self.env
+            )
+            yield from self._get_domain_wu(
+                dataset_name=full_table_name,
+                entity_urn=dataset_urn,
+                entity_type="dataset",
+            )
+            yield from self.add_table_to_database_container(
+                dataset_urn=dataset_urn, db_name=database_name
+            )
             mcp = self.get_lineage_if_enabled(mce)
             if mcp:
                 mcp_wu = MetadataWorkUnit(
@@ -676,7 +759,7 @@ class GlueSource(Source):
             )
 
         dataset_snapshot = DatasetSnapshot(
-            urn=f"urn:li:dataset:(urn:li:dataPlatform:{self.get_underlying_platform()},{table_name},{self.env})",
+            urn=make_dataset_urn(self.get_underlying_platform(), table_name, self.env),
             aspects=[],
         )
 
