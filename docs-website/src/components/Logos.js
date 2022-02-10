@@ -187,6 +187,10 @@ const platformLogos = [
     imageUrl: "/img/logos/platforms/superset.svg",
   },
   {
+    name: "Tableau",
+    imageUrl: "/img/logos/platforms/tableau.png",
+  },
+  {
     name: "Teradata",
     imageUrl: "/img/logos/platforms/teradata.svg",
   },
