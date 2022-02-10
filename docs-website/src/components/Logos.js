@@ -22,6 +22,11 @@ const companyLogos = [
     size: "default",
   },
   {
+    name: "Zynga",
+    imageUrl: "/img/logos/companies/zynga.png",
+    size: "default",
+  },
+  {
     name: "Grofers",
     imageUrl: "/img/logos/companies/grofers.png",
     size: "default",
