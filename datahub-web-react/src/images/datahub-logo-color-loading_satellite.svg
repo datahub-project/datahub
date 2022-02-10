@@ -1,4 +1,4 @@
-<svg id="datahub-logo-color-loading_pendulum" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+<svg id="datahub-logo-color-loading_satellite" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
     viewBox="0 0 180 180" shape-rendering="geometricPrecision" text-rendering="geometricPrecision">
     <defs>
         <linearGradient id="red_gradient" x1="83.06" y1="68.88" x2="98.74" y2="40.67" gradientUnits="userSpaceOnUse">
@@ -48,16 +48,22 @@
     <g id="yellow" fill="url(#yellow_gradient)">
         <rect id="yellow_joint" width="8" height="35" x="86" y="135" transform="rotate(60 90 90)"/>
         <circle id="yellow_arc" cx="90" cy="90" r="49" mask="url(#yellow_mask)"/>
-        <circle id="yellow_satellite" cx="90" cy="170" r="10" transform="rotate(60 90 90)" />
-        <animateTransform attributeName="transform" type="rotate" values="-10 90 90; 80 90 90; -10 90 90" calcMode="spline" keySplines="0.25 0.1 0.25 1.0; 0.25 0.1 0.25 1.0" dur="2s"
-            repeatCount="indefinite" />
+        <circle id="yellow_satellite" cx="90" cy="170" r="10" transform="rotate(60 90 90)" >
+            <animateTransform attributeName="transform" type="rotate" dur="4s" fill="freeze" 
+                              values="420 90 90;420 90 90; 60 90 90" keyTimes="0; 0.1; 1" calcMode="spline" 
+                              keySplines="0.25 0.1 0.25 1.0; 0.25 0.1 0.25 1.0" repeatCount="indefinite" />
+        </circle>
+        <circle cx="90" cy="170" r="4" transform="rotate(60 90 90)" />
     </g>
 
     <g id="blue" fill="url(#blue_gradient)">
         <rect id="blue_joint" width="8" height="20" x="86" y="10" transform="rotate(60 90 90)"/>
         <circle cx="90" cy="90" r="64" mask="url(#blue_mask)"/>
-        <circle id="blue_satellite" cx="90" cy="10" r="10" transform="rotate(60 90 90)" />
-        <animateTransform attributeName="transform" type="rotate" values="0 90 90; -30 90 90; 0 90 90" keyTimes="0; 0.1; 1" dur="6s"
-            repeatCount="indefinite" />
+        <circle id="blue_satellite" cx="90" cy="10" r="10" transform="rotate(60 90 90)" >
+            <animateTransform attributeName="transform" type="rotate" dur="4s" fill="freeze" 
+                              values="60 90 90;60 90 90; 780 90 90" keyTimes="0; 0.1; 1" 
+                              calcMode="spline" keySplines="0.25 0.1 0.25 1.0; 0.25 0.1 0.25 1.0" repeatCount="indefinite" />
+        </circle>
+        <circle cx="90" cy="10" r="4" transform="rotate(60 90 90)" />
     </g>
 </svg>

@@ -127,8 +127,8 @@ plugins: Dict[str, Set[str]] = {
     "lookml": looker_common
     | {"lkml>=1.1.2", "sql-metadata==2.2.2", "sqllineage==1.3.3"},
     "metabase": {"requests", "sqllineage==1.3.3"},
-    "mode": {"requests", "sqllineage==1.3.3"},
-    "mongodb": {"pymongo>=3.11"},
+    "mode": {"requests", "sqllineage==1.3.3", "tenacity>=8.0.1"},
+    "mongodb": {"pymongo>=3.11", "packaging"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
     "mssql-odbc": sql_common | {"pyodbc"},
     "mysql": sql_common | {"pymysql>=1.0.2"},
@@ -141,16 +141,16 @@ plugins: Dict[str, Set[str]] = {
     "redshift": sql_common
     | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2", "sqllineage==1.3.3"},
     "redshift-usage": sql_common
-    | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2"},
+    | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2", "sqllineage==1.3.3"},
     "sagemaker": aws_common,
     "snowflake": snowflake_common,
     "snowflake-usage": snowflake_common | {"more-itertools>=8.12.0"},
     "sqlalchemy": sql_common,
-    "superset": {"requests"},
+    "superset": {"requests", "sqlalchemy", "great_expectations"},
     "tableau": {"tableauserverclient>=0.17.0"},
     "trino": sql_common | {"trino"},
     "starburst-trino-usage": sql_common | {"trino"},
-    "nifi": {"requests"},
+    "nifi": {"requests", "packaging"},
 }
 
 all_exclude_plugins: Set[str] = {
