@@ -185,7 +185,20 @@ fragment entityPreview on Entity {
     }
     ... on GlossaryTerm {
         name
+        hierarchicalName
         glossaryTermInfo {
+            definition
+            termSource
+            sourceRef
+            sourceUrl
+            customProperties {
+                key
+                value
+            }
+        }
+        properties {
+            name
+            description
             definition
             termSource
             sourceRef
