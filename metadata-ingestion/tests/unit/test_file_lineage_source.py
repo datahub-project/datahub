@@ -2,7 +2,6 @@ from typing import List
 
 import pytest
 import yaml
-
 from datahub.ingestion.source.metadata.lineage import LineageConfig, LineageFileSource
 from datahub.metadata.schema_classes import UpstreamClass
 
@@ -136,7 +135,7 @@ def test_basic_lineage_upstream_urns(basic_mcp):
 
 def test_unsupported_entity_type(unsupported_entity_type_mcp):
     """
-    Checks to see how we handle the case of unsupported entity types. It should the node entirely & move onto the next
+    Checks to see how we handle the case of unsupported entity types. It should ignore the node entirely & move onto the next
      valid entities
     """
     mcp_upstreams: List[UpstreamClass] = unsupported_entity_type_mcp[0].aspect.upstreams
@@ -151,6 +150,5 @@ def test_unsupported_upstream_entity_type(unsupported_upstream_entity_type_mcp):
      an MCP.
     """
     mcp_upstreams: List[UpstreamClass] = unsupported_upstream_entity_type_mcp[0].aspect.upstreams
-    assert (unsupported_upstream_entity_type_mcp[
-                0].entityUrn == 'urn:li:dataset:(urn:li:dataPlatform:kafka,topic3,DEV)' and
-            mcp_upstreams[0].dataset == 'urn:li:dataset:(urn:li:dataPlatform:kafka,topic2,DEV)')
+    assert (unsupported_upstream_entity_type_mcp[0].entityUrn == 'urn:li:dataset:(urn:li:dataPlatform:kafka,topic3,DEV)'
+            and mcp_upstreams[0].dataset == 'urn:li:dataset:(urn:li:dataPlatform:kafka,topic2,DEV)')

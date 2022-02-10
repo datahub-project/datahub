@@ -37,14 +37,14 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 
 | Field               | Required | Default | Description                                                                                                                                                                                                                    |
 |---------------------|----------|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `file`              | ✅        |         | Path to business glossary file to ingest.                                                                                                                                                                                      |
+| `file`              | ✅        |         | Path to lineage file to ingest.                                                                                                                                                                                                    |
 | `preserve_upstream` |          | `True`  | Whether we want to query datahub-gms for upstream data. `False` means it will hard replace upstream data for a given entity. `True` means it will query the backend for existing upstreams and include it in the ingestion run |
 
 ### Lineage File Format
 
-The business glossary source file should be a `.yml` file with the following top-level keys:
+The lineage source file should be a `.yml` file with the following top-level keys:
 
-**version**: the version of business glossary file config the config conforms to. Currently, the only version released
+**version**: the version of lineage file config the config conforms to. Currently, the only version released
 is `1`.
 
 **lineage**: the top level key of the lineage file containing a list of **EntityNodeConfig** objects
@@ -63,11 +63,11 @@ is `1`.
 - **platform**: a valid platform like kafka, snowflake, etc..
 - **platform_instance**: optional string specifying the platform instance of this entity
 
-You can also view an example business glossary file checked in [here](../examples/bootstrap_data/file_lineage.yml)
+You can also view an example lineage file checked in [here](../examples/bootstrap_data/file_lineage.yml)
 
 ## Compatibility
 
-Compatible with version 1 of business glossary format. The source will be evolved as we publish newer versions of this
+Compatible with version 1 of lineage format. The source will be evolved as we publish newer versions of this
 format.
 
 ## Questions
