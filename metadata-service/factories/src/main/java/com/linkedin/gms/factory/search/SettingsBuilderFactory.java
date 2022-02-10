@@ -22,7 +22,7 @@ public class SettingsBuilderFactory {
   @Qualifier("entityRegistry")
   private EntityRegistry entityRegistry;
 
-  @Value("${elasticsearch.mainTokenizer}")
+  @Value("${elasticsearch.index.mainTokenizer}")
   private String mainTokenizer;
 
   @Bean("settingsBuilder")

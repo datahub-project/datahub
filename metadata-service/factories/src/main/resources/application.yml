@@ -80,7 +80,6 @@ elasticsearch:
   username: ${ELASTICSEARCH_USERNAME:#{null}}
   password: ${ELASTICSEARCH_PASSWORD:#{null}}
   pathPrefix: ${ELASTICSEARCH_PATH_PREFIX:#{null}}
-  mainTokenizer: ${ELASTICSEARCH_MAIN_TOKENIZER:#{null}}
   useSSL: ${ELASTICSEARCH_USE_SSL:false}
   sslContext: # Required if useSSL is true
     protocol: ${ELASTICSEARCH_SSL_PROTOCOL:#{null}}
@@ -103,6 +102,7 @@ elasticsearch:
     numReplicas: ${ELASTICSEARCH_NUM_REPLICAS_PER_INDEX:1}
     numRetries: ${ELASTICSEARCH_INDEX_BUILDER_NUM_RETRIES :3}
     maxArrayLength: ${SEARCH_DOCUMENT_MAX_ARRAY_LENGTH:1000}
+    mainTokenizer: ${ELASTICSEARCH_MAIN_TOKENIZER:#{null}}
 
 # TODO: Kafka topic convention
 kafka:
