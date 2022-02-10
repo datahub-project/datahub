@@ -2,12 +2,30 @@ namespace com.linkedin.metadata.aspect
 
 import com.linkedin.metadata.key.DataProcessKey
 import com.linkedin.dataprocess.DataProcessInfo
+import com.linkedin.dataprocess.DataProcessInputOutput
+import com.linkedin.dataprocess.EditableDataProcessProperties
 import com.linkedin.common.Ownership
 import com.linkedin.common.Status
+import com.linkedin.common.GlobalTags
+import com.linkedin.common.BrowsePaths
+import com.linkedin.common.GlossaryTerms
+import com.linkedin.common.InstitutionalMemory
 import com.linkedin.common.DataPlatformInstance
 
 /**
  * A union of all supported metadata aspects for a data process
  */
 @deprecated = "Use DataJob instead."
-typeref DataProcessAspect = union[DataProcessKey, Ownership, DataProcessInfo, Status]
+typeref DataProcessAspect = union[
+  DataProcessKey,
+  DataProcessInfo,
+  DataProcessInputOutput,
+  EditableDataProcessProperties,
+  Ownership,
+  Status,
+  GlobalTags,
+  BrowsePaths,
+  GlossaryTerms,
+  InstitutionalMemory,
+  DataPlatformInstance
+]

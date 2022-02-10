@@ -1,6 +1,7 @@
 namespace com.linkedin.dataprocess
 
-import com.linkedin.common.DatasetUrn
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.ExternalReference
 
 /**
  * The inputs and outputs of this data process
@@ -8,43 +9,38 @@ import com.linkedin.common.DatasetUrn
 @Aspect = {
   "name": "dataProcessInfo"
 }
-record DataProcessInfo {
+record DataProcessInfo includes CustomProperties, ExternalReference {
 
   /**
-   * the inputs of the data process
+   * Process name
    */
-  @Relationship = {
-    "/*": {
-      "name": "Consumes",
-      "entityTypes": [ "dataset" ]
-    }
-  }
   @Searchable = {
-    "/*": {
-      "fieldName": "inputs",
-      "fieldType": "URN",
-      "numValuesFieldName": "numInputDatasets",
-      "queryByDefault": false
-    }
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true,
+    "boostScore": 10.0
   }
-  inputs: optional array[DatasetUrn]
+  name: string
 
   /**
-   * the outputs of the data process
+   * Process description
    */
-  @Relationship = {
-    "/*": {
-      "name": "Consumes",
-      "entityTypes": [ "dataset" ]
-    }
-  }
   @Searchable = {
-    "/*": {
-      "fieldName": "outputs",
-      "fieldType": "URN",
-      "numValuesFieldName": "numOutputDatasets",
-      "queryByDefault": false
-    }
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription"
   }
-  outputs: optional array[DatasetUrn]
+  description: optional string
+
+  /**
+   * Process type
+   */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasType"
+  }
+  type: optional string
+
+  /**
+   * Status of the process
+   */
+  status: optional ProcessStatus
 }

@@ -1,0 +1,47 @@
+namespace com.linkedin.dataprocess
+
+/**
+ * Process statuses
+ */
+enum ProcessStatus {
+
+  /**
+   * Processes being initialized.
+   */
+  STARTING
+
+  /**
+   * Processes currently running.
+   */
+  IN_PROGRESS
+  
+  /**
+   * Processes being stopped.
+   */
+  STOPPING
+
+  /**
+   * Processes that have stopped.
+   */
+  STOPPED
+
+  /**
+   * Processes with successful completion.
+   */
+  COMPLETED
+
+  /**
+   * Processes that have failed.
+   */
+  FAILED
+
+  /**
+   * Processes with unknown status (either unmappable or unavailable)
+   */  
+  UNKNOWN
+
+  /**
+   * Processes that have been skipped.
+   */
+  SKIPPED
+}
