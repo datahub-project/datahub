@@ -634,67 +634,62 @@ class GlueSource(Source):
                 yield mcp_wu
 
         if self.extract_transforms:
+            yield from self._transform_extraction()
 
-            dags = {}
-            flow_names: Dict[str, str] = {}
+    def _transform_extraction(self):
+        dags = {}
+        flow_names: Dict[str, str] = {}
+        for job in self.get_all_jobs():
 
-            for job in self.get_all_jobs():
-
-                flow_urn = mce_builder.make_data_flow_urn(
-                    self.get_underlying_platform(), job["Name"], self.env
-                )
-
-                flow_wu = self.get_dataflow_wu(flow_urn, job)
-                self.report.report_workunit(flow_wu)
-                yield flow_wu
-
-                job_script_location = job.get("Command", {}).get("ScriptLocation")
-
-                dag: Optional[Dict[str, Any]] = None
-
-                if job_script_location is not None:
-
-                    dag = self.get_dataflow_graph(job_script_location)
-
-                dags[flow_urn] = dag
-                flow_names[flow_urn] = job["Name"]
-
-            # run a first pass to pick up s3 bucket names and formats
-            # in Glue, it's possible for two buckets to have files of different extensions
-            # if this happens, we append the extension in the URN so the sources can be distinguished
-            # see process_dataflow_node() for details
-
-            s3_formats: typing.DefaultDict[str, Set[Union[str, None]]] = defaultdict(
-                lambda: set()
+            flow_urn = mce_builder.make_data_flow_urn(
+                self.get_underlying_platform(), job["Name"], self.env
             )
 
-            for dag in dags.values():
-                if dag is not None:
-                    for s3_name, extension in self.get_dataflow_s3_names(dag):
-                        s3_formats[s3_name].add(extension)
+            flow_wu = self.get_dataflow_wu(flow_urn, job)
+            self.report.report_workunit(flow_wu)
+            yield flow_wu
 
-            # run second pass to generate node workunits
-            for flow_urn, dag in dags.items():
+            job_script_location = job.get("Command", {}).get("ScriptLocation")
 
-                if dag is None:
-                    continue
+            dag: Optional[Dict[str, Any]] = None
 
-                nodes, new_dataset_ids, new_dataset_mces = self.process_dataflow_graph(
-                    dag, flow_urn, s3_formats
-                )
+            if job_script_location is not None:
+                dag = self.get_dataflow_graph(job_script_location)
 
-                for node in nodes.values():
+            dags[flow_urn] = dag
+            flow_names[flow_urn] = job["Name"]
+        # run a first pass to pick up s3 bucket names and formats
+        # in Glue, it's possible for two buckets to have files of different extensions
+        # if this happens, we append the extension in the URN so the sources can be distinguished
+        # see process_dataflow_node() for details
+        s3_formats: typing.DefaultDict[str, Set[Union[str, None]]] = defaultdict(
+            lambda: set()
+        )
+        for dag in dags.values():
+            if dag is not None:
+                for s3_name, extension in self.get_dataflow_s3_names(dag):
+                    s3_formats[s3_name].add(extension)
+        # run second pass to generate node workunits
+        for flow_urn, dag in dags.items():
 
-                    if node["NodeType"] not in ["DataSource", "DataSink"]:
-                        job_wu = self.get_datajob_wu(node, flow_names[flow_urn])
-                        self.report.report_workunit(job_wu)
-                        yield job_wu
+            if dag is None:
+                continue
 
-                for dataset_id, dataset_mce in zip(new_dataset_ids, new_dataset_mces):
+            nodes, new_dataset_ids, new_dataset_mces = self.process_dataflow_graph(
+                dag, flow_urn, s3_formats
+            )
 
-                    dataset_wu = MetadataWorkUnit(id=dataset_id, mce=dataset_mce)
-                    self.report.report_workunit(dataset_wu)
-                    yield dataset_wu
+            for node in nodes.values():
+
+                if node["NodeType"] not in ["DataSource", "DataSink"]:
+                    job_wu = self.get_datajob_wu(node, flow_names[flow_urn])
+                    self.report.report_workunit(job_wu)
+                    yield job_wu
+
+            for dataset_id, dataset_mce in zip(new_dataset_ids, new_dataset_mces):
+                dataset_wu = MetadataWorkUnit(id=dataset_id, mce=dataset_mce)
+                self.report.report_workunit(dataset_wu)
+                yield dataset_wu
 
     def _extract_record(self, table: Dict, table_name: str) -> MetadataChangeEvent:
         def get_owner() -> Optional[OwnershipClass]:
