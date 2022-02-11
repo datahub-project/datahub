@@ -398,12 +398,13 @@ class BigQueryCredential(ConfigModel):
     type: str = "service_account"
     client_x509_cert_url: Optional[str]
 
-    def __init__(self, **data: Any):
-        super().__init__(**data)  # type: ignore
-        if not self.client_x509_cert_url:
-            self.client_x509_cert_url = (
-                f"https://www.googleapis.com/robot/v1/metadata/x509/{self.client_email}"
-            )
+    @pydantic.root_validator()
+    def validate_config(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+        if not values["client_x509_cert_url"]:
+            values[
+                "client_x509_cert_url"
+            ] = f'https://www.googleapis.com/robot/v1/metadata/x509/{values["client_email"]}'
+        return values
 
     def create_credential_temp_file(self) -> str:
         with tempfile.NamedTemporaryFile(delete=False) as fp:
@@ -424,15 +425,19 @@ class BigQueryUsageConfig(DatasetSourceConfigBase, BaseUsageConfig):
     credential: Optional[BigQueryCredential]
     credentials_path: Optional[str] = None
 
-    def __init__(self, **data: Any):
-        super().__init__(**data)
+    @pydantic.root_validator()
+    def validate_config(cls, values: Dict[str, Any]) -> Dict[str, Any]:
 
-        if self.credential:
-            self.credentials_path = self.credential.create_credential_temp_file()
-            logger.warning(
-                f"Creating temporary credential file at {self.credentials_path}"
+        if values["credential"]:
+            values["credentials_path"] = values[
+                "credential"
+            ].create_credential_temp_file()
+            logger.debug(
+                f'Creating temporary credential file at {values["credentials_path"]}'
             )
-            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self.credentials_path
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = values["credentials_path"]
+
+        return values
 
     @pydantic.validator("project_id")
     def note_project_id_deprecation(cls, v, values, **kwargs):
