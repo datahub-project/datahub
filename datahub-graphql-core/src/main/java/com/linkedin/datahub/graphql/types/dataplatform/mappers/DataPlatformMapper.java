@@ -38,7 +38,7 @@ public class DataPlatformMapper implements ModelMapper<EntityResponse, DataPlatf
         mappingHelper.mapToResult(DATA_PLATFORM_KEY_ASPECT_NAME, (dataPlatform, dataMap) ->
             dataPlatform.setName(new DataPlatformKey(dataMap).getPlatformName()));
         mappingHelper.mapToResult(DATA_PLATFORM_INFO_ASPECT_NAME, (dataPlatform, dataMap) ->
-            dataPlatform.setInfo(DataPlatformInfoMapper.map(new DataPlatformInfo(dataMap))));
+            dataPlatform.setProperties(DataPlatformPropertiesMapper.map(new DataPlatformInfo(dataMap))));
         return mappingHelper.getResult();
     }
 }

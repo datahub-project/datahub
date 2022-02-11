@@ -9,10 +9,12 @@ import com.linkedin.dashboard.EditableDashboardProperties;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.generated.AccessLevel;
 import com.linkedin.datahub.graphql.generated.Chart;
+import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.Dashboard;
 import com.linkedin.datahub.graphql.generated.DashboardEditableProperties;
 import com.linkedin.datahub.graphql.generated.DashboardInfo;
 import com.linkedin.datahub.graphql.generated.DashboardProperties;
+import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
@@ -23,6 +25,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
+import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.DashboardKey;
@@ -58,6 +61,8 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
             dashboard.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap))));
         mappingHelper.mapToResult(GLOSSARY_TERMS_ASPECT_NAME, (dashboard, dataMap) ->
             dashboard.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(dataMap))));
+        mappingHelper.mapToResult(CONTAINER_ASPECT_NAME, this::mapContainers);
+        mappingHelper.mapToResult(DOMAINS_ASPECT_NAME, this::mapDomains);
 
         return mappingHelper.getResult();
     }
@@ -147,5 +152,24 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
         com.linkedin.datahub.graphql.generated.GlobalTags globalTags = GlobalTagsMapper.map(new GlobalTags(dataMap));
         dashboard.setGlobalTags(globalTags);
         dashboard.setTags(globalTags);
+    }
+
+    private void mapContainers(@Nonnull Dashboard dashboard, @Nonnull DataMap dataMap) {
+        final com.linkedin.container.Container gmsContainer = new com.linkedin.container.Container(dataMap);
+        dashboard.setContainer(Container
+            .builder()
+            .setType(EntityType.CONTAINER)
+            .setUrn(gmsContainer.getContainer().toString())
+            .build());
+    }
+
+    private void mapDomains(@Nonnull Dashboard dashboard, @Nonnull DataMap dataMap) {
+        final Domains domains = new Domains(dataMap);
+        // Currently we only take the first domain if it exists.
+        if (domains.getDomains().size() > 0) {
+            dashboard.setDomain(Domain.builder()
+                .setType(EntityType.DOMAIN)
+                .setUrn(domains.getDomains().get(0).toString()).build());
+        }
     }
 }

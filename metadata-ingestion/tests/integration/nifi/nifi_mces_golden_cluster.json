@@ -7,7 +7,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataFlowInfo",
     "aspect": {
-        "value": "{\"customProperties\": {\"clustered\": \"True\"}, \"externalUrl\": \"http://localhost:9080/nifi/?processGroupId=80820b2f-017d-1000-85cf-05f56cde9185&componentIds=\", \"name\": \"Cluster Flow\"}",
+        "value": "{\"customProperties\": {\"clustered\": \"True\", \"version\": \"1.15.0\"}, \"externalUrl\": \"http://localhost:9080/nifi/?processGroupId=80820b2f-017d-1000-85cf-05f56cde9185&componentIds=\", \"name\": \"Cluster Flow\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {

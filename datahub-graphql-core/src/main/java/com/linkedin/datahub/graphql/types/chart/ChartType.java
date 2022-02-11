@@ -32,7 +32,6 @@ import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -66,7 +65,9 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
         INSTITUTIONAL_MEMORY_ASPECT_NAME,
         GLOBAL_TAGS_ASPECT_NAME,
         GLOSSARY_TERMS_ASPECT_NAME,
-        STATUS_ASPECT_NAME
+        STATUS_ASPECT_NAME,
+        CONTAINER_ASPECT_NAME,
+        DOMAINS_ASPECT_NAME
     );
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("access", "queryType", "tool", "type");
 
@@ -99,8 +100,9 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
         try {
             final Map<Urn, EntityResponse> chartMap =
                 _entityClient.batchGetV2(
-                    Constants.CHART_ENTITY_NAME,
-                    new HashSet<>(urns), ASPECTS_TO_RESOLVE,
+                    CHART_ENTITY_NAME,
+                    new HashSet<>(urns),
+                    ASPECTS_TO_RESOLVE,
                     context.getAuthentication());
 
             final List<EntityResponse> gmsResults = new ArrayList<>();

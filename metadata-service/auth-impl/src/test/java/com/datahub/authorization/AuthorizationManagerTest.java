@@ -1,5 +1,7 @@
 package com.datahub.authorization;
 
+import com.datahub.authentication.Actor;
+import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -37,6 +39,8 @@ import static org.testng.Assert.*;
 
 
 public class AuthorizationManagerTest {
+
+  public static final String DATAHUB_SYSTEM_CLIENT_ID = "__datahub_system";
 
   private EntityClient _entityClient;
   private AuthorizationManager _authorizationManager;
@@ -86,8 +90,13 @@ public class AuthorizationManagerTest {
         .thenReturn(mockMap);
     when(mockMap.get(any(Urn.class))).thenReturn(entityResponse);
 
+    final Authentication systemAuthentication = new Authentication(
+        new Actor(ActorType.USER, DATAHUB_SYSTEM_CLIENT_ID),
+        ""
+    );
+
     _authorizationManager = new AuthorizationManager(
-        Mockito.mock(Authentication.class),
+        systemAuthentication,
         _entityClient,
         new OwnershipClient(_entityClient),
         10,
@@ -96,6 +105,22 @@ public class AuthorizationManagerTest {
     );
     _authorizationManager.invalidateCache();
     Thread.sleep(500); // Sleep so the runnable can execute. (not ideal)
+  }
+
+  @Test
+  public void testSystemAuthentication() throws Exception {
+
+    // Validate that the System Actor is authorized, even if there is no policy.
+
+    ResourceSpec resourceSpec = new ResourceSpec("dataset", "urn:li:dataset:test");
+
+    AuthorizationRequest request = new AuthorizationRequest(
+        new Actor(ActorType.USER, DATAHUB_SYSTEM_CLIENT_ID).toUrnStr(),
+        "EDIT_ENTITY_TAGS",
+        Optional.of(resourceSpec)
+    );
+
+    assertEquals(_authorizationManager.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
   }
 
   @Test

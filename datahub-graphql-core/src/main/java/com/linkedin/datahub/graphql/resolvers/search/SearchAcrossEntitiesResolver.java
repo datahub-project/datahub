@@ -32,7 +32,7 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
   private static final List<EntityType> SEARCHABLE_ENTITY_TYPES =
       ImmutableList.of(EntityType.DATASET, EntityType.DASHBOARD, EntityType.CHART, EntityType.MLMODEL,
           EntityType.MLMODEL_GROUP, EntityType.MLFEATURE_TABLE, EntityType.DATA_FLOW, EntityType.DATA_JOB,
-          EntityType.GLOSSARY_TERM, EntityType.TAG, EntityType.CORP_USER, EntityType.CORP_GROUP);
+          EntityType.GLOSSARY_TERM, EntityType.TAG, EntityType.CORP_USER, EntityType.CORP_GROUP, EntityType.CONTAINER, EntityType.DOMAIN);
 
   private final EntityClient _entityClient;
 

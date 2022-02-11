@@ -32,6 +32,9 @@ public class LoadableTypeResolver<T> implements DataFetcher<CompletableFuture<T>
     @Override
     public CompletableFuture<T> get(DataFetchingEnvironment environment) {
         final String urn = _urnProvider.apply(environment);
+        if (urn == null) {
+            return null;
+        }
         final DataLoader<String, T> loader = environment.getDataLoaderRegistry().getDataLoader(_loadableType.name());
         return loader.load(urn);
     }

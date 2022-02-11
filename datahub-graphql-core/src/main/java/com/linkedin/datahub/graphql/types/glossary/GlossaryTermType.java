@@ -38,10 +38,18 @@ import javax.annotation.Nullable;
 import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.metadata.Constants.*;
 
-
 public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, BrowsableEntityType<GlossaryTerm> {
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("");
+
+    private static final Set<String> ASPECTS_TO_RESOLVE = ImmutableSet.of(
+        GLOSSARY_TERM_KEY_ASPECT_NAME,
+        GLOSSARY_TERM_INFO_ASPECT_NAME,
+        GLOSSARY_RELATED_TERM_ASPECT_NAME,
+        OWNERSHIP_ASPECT_NAME,
+        STATUS_ASPECT_NAME,
+        BROWSE_PATHS_ASPECT_NAME
+    );
 
     private final EntityClient _entityClient;
 

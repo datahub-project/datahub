@@ -31,6 +31,11 @@ public class Constants {
   public static final String ML_PRIMARY_KEY_ENTITY_NAME = "mlPrimaryKey";
   public static final String POLICY_ENTITY_NAME = "dataHubPolicy";
   public static final String TAG_ENTITY_NAME = "tag";
+  public static final String CONTAINER_ENTITY_NAME = "container";
+  public static final String DOMAIN_ENTITY_NAME = "domain";
+  public static final String INGESTION_SOURCE_ENTITY_NAME = "dataHubIngestionSource";
+  public static final String SECRETS_ENTITY_NAME = "dataHubSecret";
+  public static final String EXECUTION_REQUEST_ENTITY_NAME = "dataHubExecutionRequest";
 
   /**
    * Aspects
@@ -43,9 +48,11 @@ public class Constants {
   public static final String GLOBAL_TAGS_ASPECT_NAME = "globalTags";
   public static final String GLOSSARY_TERMS_ASPECT_NAME = "glossaryTerms";
   public static final String STATUS_ASPECT_NAME = "status";
+  public static final String SUB_TYPES_ASPECT_NAME = "subTypes";
 
   // User
   public static final String CORP_USER_KEY_ASPECT_NAME = "corpUserKey";
+  public static final String CORP_USER_EDITABLE_INFO_NAME = "corpUserEditableInfo";
   public static final String GROUP_MEMBERSHIP_ASPECT_NAME = "groupMembership";
   public static final String CORP_USER_EDITABLE_INFO_ASPECT_NAME = "corpUserEditableInfo";
   public static final String CORP_USER_INFO_ASPECT_NAME = "corpUserInfo";
@@ -92,10 +99,6 @@ public class Constants {
   public static final String DATA_PLATFORM_KEY_ASPECT_NAME = "dataPlatformKey";
   public static final String DATA_PLATFORM_INFO_ASPECT_NAME = "dataPlatformInfo";
 
-  //GlossaryTerm
-  public static final String GLOSSARY_TERM_KEY_ASPECT_NAME = "glossaryTermKey";
-  public static final String GLOSSARY_TERM_INFO_ASPECT_NAME = "glossaryTermInfo";
-
   // ML Feature
   public static final String ML_FEATURE_KEY_ASPECT_NAME = "mlFeatureKey";
   public static final String ML_FEATURE_PROPERTIES_ASPECT_NAME = "mlFeatureProperties";
@@ -133,6 +136,33 @@ public class Constants {
   //Tag
   public static final String TAG_KEY_ASPECT_NAME = "tagKey";
   public static final String TAG_PROPERTIES_ASPECT_NAME = "tagProperties";
+
+  // Container
+  public static final String CONTAINER_KEY_ASPECT_NAME = "containerKey";
+  public static final String CONTAINER_PROPERTIES_ASPECT_NAME = "containerProperties";
+  public static final String CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME = "editableContainerProperties";
+  public static final String CONTAINER_ASPECT_NAME = "container"; // parent container
+
+ // Glossary term
+  public static final String GLOSSARY_TERM_KEY_ASPECT_NAME = "glossaryTermKey";
+  public static final String GLOSSARY_TERM_INFO_ASPECT_NAME = "glossaryTermInfo";
+  public static final String GLOSSARY_RELATED_TERM_ASPECT_NAME = "glossaryRelatedTerms";
+
+  // Domain
+  public static final String DOMAIN_KEY_ASPECT_NAME = "domainKey";
+  public static final String DOMAIN_PROPERTIES_ASPECT_NAME = "domainProperties";
+  public static final String DOMAINS_ASPECT_NAME = "domains";
+
+  // DataHub Ingestion Source
+  public static final String INGESTION_INFO_ASPECT_NAME = "dataHubIngestionSourceInfo";
+
+  // DataHub Secret
+  public static final String SECRET_VALUE_ASPECT_NAME = "dataHubSecretValue";
+
+  // DataHub Execution Request
+  public static final String EXECUTION_REQUEST_INPUT_ASPECT_NAME = "dataHubExecutionRequestInput";
+  public static final String EXECUTION_REQUEST_SIGNAL_ASPECT_NAME = "dataHubExecutionRequestSignal";
+  public static final String EXECUTION_REQUEST_RESULT_ASPECT_NAME = "dataHubExecutionRequestResult";
 
   /**
    * User Status

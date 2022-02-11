@@ -14,7 +14,10 @@ record TimeseriesAspectBase {
   /**
    * The optional partition specification.
    */
-  partitionSpec: optional PartitionSpec
+  partitionSpec: optional PartitionSpec = {
+    "type":"FULL_TABLE",
+    "partition":"FULL_TABLE_SNAPSHOT"
+  }
 
   /**
    * The optional messageId, if provided serves as a custom user-defined unique identifier for an aspect value.

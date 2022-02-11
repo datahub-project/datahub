@@ -42,7 +42,7 @@ public class CorpUserMapper implements ModelMapper<EntityResponse, CorpUser> {
         mappingHelper.mapToResult(CORP_USER_KEY_ASPECT_NAME, this::mapCorpUserKey);
         mappingHelper.mapToResult(CORP_USER_INFO_ASPECT_NAME, this::mapCorpUserInfo);
         mappingHelper.mapToResult(CORP_USER_EDITABLE_INFO_ASPECT_NAME, (corpUser, dataMap) ->
-            corpUser.setEditableInfo(CorpUserEditableInfoMapper.map(new CorpUserEditableInfo(dataMap))));
+            corpUser.setEditableProperties(CorpUserEditableInfoMapper.map(new CorpUserEditableInfo(dataMap))));
         mappingHelper.mapToResult(GLOBAL_TAGS_ASPECT_NAME, (corpUser, dataMap) ->
             corpUser.setGlobalTags(GlobalTagsMapper.map(new GlobalTags(dataMap))));
         mappingHelper.mapToResult(CORP_USER_STATUS_ASPECT_NAME, (corpUser, dataMap) ->

@@ -28,6 +28,7 @@ from pyspark.sql.types import (
     StructType,
     TimestampType,
 )
+from pyspark.sql.utils import AnalysisException
 
 from datahub.emitter.mce_builder import make_data_platform_urn, make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -59,6 +60,7 @@ from datahub.metadata.schema_classes import (
     MapTypeClass,
     OtherSchemaClass,
 )
+from datahub.telemetry import telemetry
 
 # hide annoying debug errors from py4j
 logging.getLogger("py4j").setLevel(logging.ERROR)
@@ -111,6 +113,22 @@ def get_column_type(
     return SchemaFieldDataType(type=TypeClass())
 
 
+# flags to emit telemetry for
+profiling_flags_to_report = [
+    "profile_table_level_only",
+    "include_field_null_count",
+    "include_field_min_value",
+    "include_field_max_value",
+    "include_field_mean_value",
+    "include_field_median_value",
+    "include_field_stddev_value",
+    "include_field_quantiles",
+    "include_field_distinct_value_frequencies",
+    "include_field_histogram",
+    "include_field_sample_values",
+]
+
+
 class DataLakeSource(Source):
     source_config: DataLakeSourceConfig
     report = DataLakeSourceReport()
@@ -119,9 +137,40 @@ class DataLakeSource(Source):
         super().__init__(ctx)
         self.source_config = config
 
+        telemetry.telemetry_instance.ping(
+            "data_lake_profiling",
+            "config",
+            "enabled",
+            1 if config.profiling.enabled else 0,
+        )
+
+        if config.profiling.enabled:
+
+            for config_flag in profiling_flags_to_report:
+                config_value = getattr(config.profiling, config_flag)
+                config_int = (
+                    1 if config_value else 0
+                )  # convert to int so it can be emitted as a value
+
+                telemetry.telemetry_instance.ping(
+                    "data_lake_profiling",
+                    "config",
+                    config_flag,
+                    config_int,
+                )
+
         conf = SparkConf()
 
-        conf.set("spark.jars.packages", "org.apache.hadoop:hadoop-aws:3.0.3")
+        conf.set(
+            "spark.jars.packages",
+            ",".join(
+                [
+                    "org.apache.hadoop:hadoop-aws:3.0.3",
+                    "org.apache.spark:spark-avro_2.12:3.0.3",
+                    pydeequ.deequ_maven_coord,
+                ]
+            ),
+        )
 
         if self.source_config.aws_config is not None:
 
@@ -170,7 +219,6 @@ class DataLakeSource(Source):
                     "org.apache.hadoop.fs.s3a.AnonymousAWSCredentialsProvider",
                 )
 
-        conf.set("spark.jars.packages", pydeequ.deequ_maven_coord)
         conf.set("spark.jars.excludes", pydeequ.f2j_maven_coord)
         conf.set("spark.driver.memory", config.spark_driver_memory)
 
@@ -179,9 +227,18 @@ class DataLakeSource(Source):
     @classmethod
     def create(cls, config_dict, ctx):
         config = DataLakeSourceConfig.parse_obj(config_dict)
+
         return cls(config, ctx)
 
     def read_file(self, file: str) -> Optional[DataFrame]:
+
+        extension = os.path.splitext(file)[1]
+
+        telemetry.telemetry_instance.ping(
+            "data_lake_profiling",
+            "file_extension",
+            extension,
+        )
 
         if file.endswith(".parquet"):
             df = self.spark.read.parquet(file)
@@ -206,11 +263,19 @@ class DataLakeSource(Source):
             )
         elif file.endswith(".json"):
             df = self.spark.read.json(file)
+        elif file.endswith(".avro"):
+            try:
+                df = self.spark.read.format("avro").load(file)
+            except AnalysisException:
+                self.report.report_warning(
+                    file,
+                    "To ingest avro files, please install the spark-avro package: https://mvnrepository.com/artifact/org.apache.spark/spark-avro_2.12/3.0.3",
+                )
+                return None
+
         # TODO: add support for more file types
         # elif file.endswith(".orc"):
-        #     df = self.spark.read.orc(file)
-        # elif file.endswith(".avro"):
-        #     df = self.spark.read.avro(file)
+        # df = self.spark.read.orc(file)
         else:
             self.report.report_warning(file, f"file {file} has unsupported extension")
             return None

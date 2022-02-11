@@ -69,7 +69,9 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
         INSTITUTIONAL_MEMORY_ASPECT_NAME,
         GLOBAL_TAGS_ASPECT_NAME,
         GLOSSARY_TERMS_ASPECT_NAME,
-        STATUS_ASPECT_NAME
+        STATUS_ASPECT_NAME,
+        CONTAINER_ASPECT_NAME,
+        DOMAINS_ASPECT_NAME
     );
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("origin", "platform");
@@ -105,7 +107,8 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
             final Map<Urn, EntityResponse> datasetMap =
                 _entityClient.batchGetV2(
                     Constants.DATASET_ENTITY_NAME,
-                    new HashSet<>(urns), ASPECTS_TO_RESOLVE,
+                    new HashSet<>(urns),
+                    ASPECTS_TO_RESOLVE,
                     context.getAuthentication());
 
             final List<EntityResponse> gmsResults = new ArrayList<>();

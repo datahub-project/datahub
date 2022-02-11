@@ -1,5 +1,23 @@
 # Articles & Talks
 
+## Overviews
+- [Tech Deep Dive: DataHub Metadata Service Authentication](https://blog.datahubproject.io/tech-deep-dive-introducing-datahub-metadata-service-authentication-661e3aabbad0) and [video](https://www.youtube.com/watch?v=DPY0G3Ix7Y8)
+- [Data in Context: Lineage Explorer in DataHub](https://blog.datahubproject.io/data-in-context-lineage-explorer-in-datahub-a53a9a476dc4)
+- [DataHub Basics — Users, Groups, & Authentication 101](https://www.youtube.com/watch?v=8Osw6p9vDYY)
+- [DataHub Basics: Lineage 101](https://www.youtube.com/watch?v=rONGpsndzRw)
+
+## Best Practices
+- [Tags and Terms: Two Powerful DataHub Features, Used in Two Different Scenarios](https://blog.datahubproject.io/tags-and-terms-two-powerful-datahub-features-used-in-two-different-scenarios-b5b4791e892e)
+
+## Case Studies
+- [Enabling Data Discovery in a Data Mesh: The Saxo Journey](https://blog.datahubproject.io/enabling-data-discovery-in-a-data-mesh-the-saxo-journey-451b06969c8f)
+- [DataHub @ Grofers Case Study](https://www.youtube.com/watch?v=m9kUYAuezFI)
+- [DataHub @ LinkedIn: Extending the OSS UI](https://www.youtube.com/watch?v=Rdt4kJqDoww)
+- [DataHub @ hipages Case Study: Oct 29 2021](https://www.youtube.com/watch?v=OFNzjUdMcJQ)
+- [DataHub @ Adevinta Case Study: Sept 24 2021 Community Town Hall](https://www.youtube.com/watch?v=u9DRa_5uPIM)
+- [DataHub at Bizzy (Case Study): Aug 27 2021 Community Meeting](https://www.youtube.com/watch?v=SuhLRr3QKt8)
+
+
 ## Related Articles
 * [DataHub: A Generalized Metadata Search & Discovery Tool](https://engineering.linkedin.com/blog/2019/data-hub)
 * [Open sourcing DataHub: LinkedIn’s metadata search and discovery platform](https://engineering.linkedin.com/blog/2020/open-sourcing-datahub--linkedins-metadata-search-and-discovery-p)

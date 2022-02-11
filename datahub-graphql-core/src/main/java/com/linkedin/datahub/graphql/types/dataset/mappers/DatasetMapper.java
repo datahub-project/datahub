@@ -6,9 +6,11 @@ import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.data.DataMap;
+import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.DatasetEditableProperties;
+import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FabricType;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
@@ -23,6 +25,7 @@ import com.linkedin.dataset.DatasetDeprecation;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.EditableDatasetProperties;
 import com.linkedin.dataset.ViewProperties;
+import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.DatasetKey;
@@ -75,6 +78,9 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
             dataset.setEditableSchemaMetadata(EditableSchemaMetadataMapper.map(new EditableSchemaMetadata(dataMap))));
         mappingHelper.mapToResult(GLOSSARY_TERMS_ASPECT_NAME, (dataset, dataMap) ->
             dataset.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(dataMap))));
+        mappingHelper.mapToResult(CONTAINER_ASPECT_NAME, this::mapContainers);
+        mappingHelper.mapToResult(DOMAINS_ASPECT_NAME, this::mapDomains);
+
         return mappingHelper.getResult();
     }
 
@@ -127,5 +133,24 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         com.linkedin.datahub.graphql.generated.GlobalTags globalTags = GlobalTagsMapper.map(new GlobalTags(dataMap));
         dataset.setGlobalTags(globalTags);
         dataset.setTags(globalTags);
+    }
+
+    private void mapContainers(@Nonnull Dataset dataset, @Nonnull DataMap dataMap) {
+        final com.linkedin.container.Container gmsContainer = new com.linkedin.container.Container(dataMap);
+        dataset.setContainer(Container
+            .builder()
+            .setType(EntityType.CONTAINER)
+            .setUrn(gmsContainer.getContainer().toString())
+            .build());
+    }
+
+    private void mapDomains(@Nonnull Dataset dataset, @Nonnull DataMap dataMap) {
+        final Domains domains = new Domains(dataMap);
+        // Currently we only take the first domain if it exists.
+        if (domains.getDomains().size() > 0) {
+            dataset.setDomain(Domain.builder()
+                .setType(EntityType.DOMAIN)
+                .setUrn(domains.getDomains().get(0).toString()).build());
+        }
     }
 }

@@ -1,11 +1,15 @@
 package com.linkedin.datahub.graphql.types.corpuser;
 
+import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.CorpUser;
+import com.linkedin.datahub.graphql.generated.CorpUserUpdateInput;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
@@ -15,8 +19,13 @@ import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.identity.CorpUserEditableInfo;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.execution.DataFetcherResult;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -24,6 +33,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -31,7 +41,7 @@ import javax.annotation.Nullable;
 import static com.linkedin.metadata.Constants.*;
 
 
-public class CorpUserType implements SearchableEntityType<CorpUser> {
+public class CorpUserType implements SearchableEntityType<CorpUser>, MutableType<CorpUserUpdateInput> {
 
     private final EntityClient _entityClient;
 
@@ -101,5 +111,60 @@ public class CorpUserType implements SearchableEntityType<CorpUser> {
         } catch (URISyntaxException e) {
             throw new RuntimeException(String.format("Failed to retrieve user with urn %s, invalid urn", urnStr));
         }
+    }
+
+    public Class<CorpUserUpdateInput> inputClass() {
+        return CorpUserUpdateInput.class;
+    }
+
+    @Override
+    public CorpUser update(@Nonnull String urn, @Nonnull CorpUserUpdateInput input, @Nonnull QueryContext context) throws Exception {
+        final CorpuserUrn actor = CorpuserUrn.createFromString(context.getAuthentication().getActor().toUrnStr());
+
+        // Get existing editable info to merge with
+        Optional<CorpUserEditableInfo> existingCorpUserEditableInfo =
+            _entityClient.getVersionedAspect(urn, Constants.CORP_USER_EDITABLE_INFO_NAME, 0L, CorpUserEditableInfo.class,
+                context.getAuthentication());
+
+        // Create the MCP
+        final MetadataChangeProposal proposal = new MetadataChangeProposal();
+        proposal.setEntityUrn(Urn.createFromString(urn));
+        proposal.setEntityType(Constants.CORP_USER_ENTITY_NAME);
+        proposal.setAspectName(Constants.CORP_USER_EDITABLE_INFO_NAME);
+        proposal.setAspect(GenericAspectUtils.serializeAspect(mapCorpUserEditableInfo(input, existingCorpUserEditableInfo)));
+        proposal.setChangeType(ChangeType.UPSERT);
+        _entityClient.ingestProposal(proposal, context.getAuthentication());
+
+        return load(urn, context).getData();
+    }
+
+    private RecordTemplate mapCorpUserEditableInfo(CorpUserUpdateInput input, Optional<CorpUserEditableInfo> existing) {
+        CorpUserEditableInfo result = existing.orElseGet(() -> new CorpUserEditableInfo());
+        if (input.getAboutMe() != null) {
+            result.setAboutMe(input.getAboutMe());
+        }
+        if (input.getPictureLink() != null) {
+            result.setPictureLink(new Url(input.getPictureLink()));
+        }
+        if (input.getAboutMe() != null) {
+            result.setAboutMe(input.getAboutMe());
+        }
+        if (input.getSkills() != null) {
+            result.setSkills(new StringArray(input.getSkills()));
+        }
+        if (input.getTeams() != null) {
+            result.setTeams(new StringArray(input.getTeams()));
+        }
+        if (input.getPhone() != null) {
+            result.setPhone(input.getPhone());
+        }
+        if (input.getSlack() != null) {
+            result.setSlack(input.getSlack());
+        }
+        if (input.getEmail() != null) {
+            result.setEmail(input.getEmail());
+        }
+
+        return result;
     }
 }

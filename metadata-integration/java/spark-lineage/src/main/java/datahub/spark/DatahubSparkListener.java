@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -43,6 +44,10 @@ import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionStart;
 import scala.collection.JavaConversions;
 import scala.runtime.AbstractFunction1;
 import scala.runtime.AbstractPartialFunction;
+
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
+
 
 
 @Slf4j
@@ -147,6 +152,14 @@ public class DatahubSparkListener extends SparkListener {
       log.debug("Parsed execution id {}:{}", ctx.appName(), sqlStart.executionId());
     }
   }
+  
+  private Config parseSparkConfig() {
+    SparkConf conf = SparkEnv.get().conf();
+    String propertiesString = Arrays.stream(conf.getAllWithPrefix("spark.datahub."))
+            .map(tup -> tup._1 + "= \"" + tup._2 + "\"")
+            .collect(Collectors.joining("\n"));
+    return ConfigFactory.parseString(propertiesString);
+  }
 
   @Override
   public void onApplicationStart(SparkListenerApplicationStart applicationStart) {
@@ -160,8 +173,8 @@ public class DatahubSparkListener extends SparkListener {
           AppStartEvent evt =
               new AppStartEvent(LineageUtils.getMaster(sc), applicationStart.appName(), appId, applicationStart.time(),
                   applicationStart.sparkUser());
-
-          appEmitters.computeIfAbsent(applicationStart.appName(), s -> new McpEmitter()).accept(evt);
+          Config datahubConf = parseSparkConfig();
+          appEmitters.computeIfAbsent(applicationStart.appName(), s -> new McpEmitter(datahubConf)).accept(evt);
           consumers().forEach(c -> c.accept(evt));
 
           appDetails.put(applicationStart.appName(), evt);
@@ -210,13 +223,13 @@ public class DatahubSparkListener extends SparkListener {
               }
             }
             consumers().forEach(x -> {
-              x.accept(evt);
-              try {
-                x.close();
-              } catch (IOException e) {
-                log.warn("Failed to close lineage consumer", e);
-              }
-            });
+                x.accept(evt);
+                try {
+                  x.close();
+                } catch (IOException e) {
+                  log.warn("Failed to close lineage consumer", e);
+                }
+              });
           }
           return null;
         }
@@ -265,9 +278,6 @@ public class DatahubSparkListener extends SparkListener {
               "Execution end event received, but start event missing for appId/sql exec Id " + sc.applicationId() + ":"
                   + sqlEnd.executionId());
         } else if (start.getDatasetLineage() != null) {
-//              JobStatus status = jobEnd.jobResult().equals(org.apache.spark.scheduler.JobSucceeded$.MODULE$)
-//                  ? JobStatus.COMPLETED
-//                  : JobStatus.FAILED;
           SQLQueryExecEndEvent evt =
               new SQLQueryExecEndEvent(LineageUtils.getMaster(sc), sc.appName(), sc.applicationId(), sqlEnd.time(),
                   sqlEnd.executionId(), start);
@@ -295,17 +305,16 @@ public class DatahubSparkListener extends SparkListener {
     ExecutorService pool = appPoolDetails.get(ctx.appName());
     pool.execute(new SqlStartTask(sqlStart, plan, ctx));
   }
-
   private List<LineageConsumer> consumers() {
-    SparkConf conf = SparkEnv.get().conf();
-    if (conf.contains(CONSUMER_TYPE_KEY)) {
-      String consumerTypes = conf.get(CONSUMER_TYPE_KEY);
-      return StreamSupport.stream(Splitter.on(",").trimResults().split(consumerTypes).spliterator(), false)
-          .map(x -> LineageUtils.getConsumer(x)).filter(Objects::nonNull).collect(Collectors.toList());
-    } else {
-      return Collections.emptyList();
-      //singletonList(LineageUtils.getConsumer(DATAHUB_EMITTER));
-    }
+      SparkConf conf = SparkEnv.get().conf();
+      if (conf.contains(CONSUMER_TYPE_KEY)) {
+        String consumerTypes = conf.get(CONSUMER_TYPE_KEY);
+        return StreamSupport.stream(Splitter.on(",").trimResults().split(consumerTypes).spliterator(), false)
+            .map(x -> LineageUtils.getConsumer(x)).filter(Objects::nonNull).collect(Collectors.toList());
+      } else {
+        return Collections.emptyList();
+        //singletonList(LineageUtils.getConsumer(DATAHUB_EMITTER));
+      }
 
-  }
+    }
 }

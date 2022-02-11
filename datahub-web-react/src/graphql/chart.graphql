@@ -4,6 +4,9 @@ query getChart($urn: String!) {
         type
         tool
         chartId
+        platform {
+            ...platformFields
+        }
         properties {
             name
             description
@@ -36,27 +39,22 @@ query getChart($urn: String!) {
             description
         }
         institutionalMemory {
-            elements {
-                url
-                author {
-                    urn
-                    username
-                }
-                label
-                created {
-                    time
-                    actor
-                }
-            }
+            ...institutionalMemoryFields
         }
         glossaryTerms {
             ...glossaryTerms
+        }
+        domain {
+            ...entityDomain
         }
         inputs: relationships(input: { types: ["Consumes"], direction: OUTGOING, start: 0, count: 100 }) {
             ...fullRelationshipResults
         }
         dashboards: relationships(input: { types: ["Contains"], direction: INCOMING, start: 0, count: 100 }) {
             ...fullRelationshipResults
+        }
+        container {
+            ...entityContainer
         }
     }
 }

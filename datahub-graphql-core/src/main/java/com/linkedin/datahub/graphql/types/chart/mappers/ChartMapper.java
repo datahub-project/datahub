@@ -15,7 +15,9 @@ import com.linkedin.datahub.graphql.generated.ChartProperties;
 import com.linkedin.datahub.graphql.generated.ChartQuery;
 import com.linkedin.datahub.graphql.generated.ChartQueryType;
 import com.linkedin.datahub.graphql.generated.ChartType;
+import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.Dataset;
+import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
@@ -26,6 +28,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
+import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.ChartKey;
@@ -64,6 +67,8 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
             chart.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap))));
         mappingHelper.mapToResult(GLOSSARY_TERMS_ASPECT_NAME, (chart, dataMap) ->
             chart.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(dataMap))));
+        mappingHelper.mapToResult(CONTAINER_ASPECT_NAME, this::mapContainers);
+        mappingHelper.mapToResult(DOMAINS_ASPECT_NAME, this::mapDomains);
 
         return mappingHelper.getResult();
     }
@@ -175,5 +180,24 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
         com.linkedin.datahub.graphql.generated.GlobalTags globalTags = GlobalTagsMapper.map(new GlobalTags(dataMap));
         chart.setGlobalTags(globalTags);
         chart.setTags(globalTags);
+    }
+
+    private void mapContainers(@Nonnull Chart chart, @Nonnull DataMap dataMap) {
+        final Container gmsContainer = new Container(dataMap);
+        chart.setContainer(Container
+            .builder()
+            .setType(EntityType.CONTAINER)
+            .setUrn(gmsContainer.getContainer().toString())
+            .build());
+    }
+
+    private void mapDomains(@Nonnull Chart chart, @Nonnull DataMap dataMap) {
+        final Domains domains = new Domains(dataMap);
+        // Currently we only take the first domain if it exists.
+        if (domains.getDomains().size() > 0) {
+            result.setDomain(Domain.builder()
+                .setType(EntityType.DOMAIN)
+                .setUrn(domains.getDomains().get(0).toString()).build());
+        }
     }
 }

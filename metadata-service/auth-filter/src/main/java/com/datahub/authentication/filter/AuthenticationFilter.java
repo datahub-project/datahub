@@ -12,7 +12,7 @@ import com.datahub.authentication.AuthenticatorContext;
 import com.datahub.authentication.authenticator.DataHubSystemAuthenticator;
 import com.datahub.authentication.authenticator.NoOpAuthenticator;
 import com.google.common.collect.ImmutableMap;
-import com.linkedin.gms.factory.auth.ConfigurationProvider;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
