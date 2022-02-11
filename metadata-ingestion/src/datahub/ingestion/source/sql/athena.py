@@ -34,7 +34,7 @@ class AthenaConfig(SQLAlchemyConfig):
 
 class AthenaSource(SQLAlchemySource):
     config: AthenaConfig
-    
+
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "athena")
 
