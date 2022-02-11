@@ -1,0 +1,24 @@
+namespace com.linkedin.assertion
+
+import com.linkedin.common.CustomProperties
+
+/**
+ * A batch on which certain operations, e.g. data quality evaluation, is done.
+ */
+record BatchSpec includes CustomProperties {
+
+    /**
+    * The native identifier as specified by the system operating on the batch.
+    */
+    nativeBatchId: optional string
+
+    /**
+    * A query that identifies a batch of data
+    */
+    query: optional string
+
+    /**
+    * Any limit to the number of rows in the batch, if applied
+    */
+    limit: optional int
+}

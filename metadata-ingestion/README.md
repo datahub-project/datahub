@@ -34,6 +34,7 @@ transformers:
     config:
       some_property: "some.value"
 
+
 sink:
   type: "datahub-rest"
   config:

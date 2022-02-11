@@ -56,6 +56,9 @@ fragment searchResults on SearchResults {
                 domain {
                     ...entityDomain
                 }
+                container {
+                    ...entityContainer
+                }
             }
             ... on CorpUser {
                 username
@@ -115,6 +118,9 @@ fragment searchResults on SearchResults {
                 domain {
                     ...entityDomain
                 }
+                container {
+                    ...entityContainer
+                }
             }
             ... on Chart {
                 urn
@@ -148,6 +154,9 @@ fragment searchResults on SearchResults {
                 }
                 domain {
                     ...entityDomain
+                }
+                container {
+                    ...entityContainer
                 }
             }
             ... on DataFlow {
@@ -209,6 +218,7 @@ fragment searchResults on SearchResults {
             }
             ... on GlossaryTerm {
                 name
+                hierarchicalName
                 glossaryTermInfo {
                     definition
                     termSource
@@ -228,6 +238,40 @@ fragment searchResults on SearchResults {
                 }
                 ownership {
                     ...ownershipFields
+                }
+            }
+            ... on Container {
+                urn
+                properties {
+                    name
+                    description
+                }
+                platform {
+                    ...platformFields
+                }
+                editableProperties {
+                    description
+                }
+                ownership {
+                    ...ownershipFields
+                }
+                tags {
+                    ...globalTagsFields
+                }
+                institutionalMemory {
+                    ...institutionalMemoryFields
+                }
+                glossaryTerms {
+                    ...glossaryTerms
+                }
+                subTypes {
+                    typeNames
+                }
+                entities(input: {}) {
+                    total
+                }
+                container {
+                    ...entityContainer
                 }
             }
             ... on MLFeatureTable {
@@ -308,6 +352,15 @@ fragment searchResults on SearchResults {
                 }
                 ... on Domain {
                     urn
+                    properties {
+                        name
+                    }
+                }
+                ... on Container {
+                    urn
+                    platform {
+                        ...platformFields
+                    }
                     properties {
                         name
                     }

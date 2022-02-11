@@ -91,6 +91,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 | [sql-profiles](../metadata-ingestion/source_docs/sql_profiles.md)                   | `pip install 'acryl-datahub[sql-profiles]'`                | Data profiles for SQL-based systems |
 | [sqlalchemy](../metadata-ingestion/source_docs/sqlalchemy.md)                       | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source           |
 | [superset](../metadata-ingestion/source_docs/superset.md)                           | `pip install 'acryl-datahub[superset]'`                    | Superset source                     |
+| [tableau](../metadata-ingestion/source_docs/tableau.md)                             | `pip install 'acryl-datahub[tableau]'`                     | Tableau source                      |
 | [trino](../metadata-ingestion/source_docs/trino.md)                                 | `pip install 'acryl-datahub[trino]`                        | Trino source                     |
 | [starburst-trino-usage](../metadata-ingestion/source_docs/trino.md)                 | `pip install 'acryl-datahub[starburst-trino-usage]'`       | Starburst Trino usage statistics source   |
 | [nifi](../metadata-ingestion/source_docs/nifi.md)                                   | `pip install 'acryl-datahub[nifi]`                         | Nifi source                         |

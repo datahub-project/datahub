@@ -7,6 +7,8 @@ import { useRemoveOwnerMutation } from '../../../../../graphql/mutations.generat
 import { EntityType, Owner } from '../../../../../types.generated';
 import { CustomAvatar } from '../../../../shared/avatar';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
+import analytics, { EventType, EntityActionType } from '../../../../analytics';
+import { useEntityData } from '../../EntityContext';
 
 type Props = {
     entityUrn: string;
@@ -24,6 +26,7 @@ const OwnerTag = styled(Tag)`
 
 export const ExpandedOwner = ({ entityUrn, owner, refetch }: Props) => {
     const entityRegistry = useEntityRegistry();
+    const { entityType } = useEntityData();
     const [removeOwnerMutation] = useRemoveOwnerMutation();
 
     let name = '';
@@ -47,6 +50,12 @@ export const ExpandedOwner = ({ entityUrn, owner, refetch }: Props) => {
                 },
             });
             message.success({ content: 'Owner Removed', duration: 2 });
+            analytics.event({
+                type: EventType.EntityActionEvent,
+                actionType: EntityActionType.UpdateOwnership,
+                entityType,
+                entityUrn,
+            });
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {

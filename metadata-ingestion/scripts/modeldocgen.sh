@@ -6,8 +6,8 @@ OUTDIR=./generated/docs
 # Note: this assumes that datahub has already been built with `./gradlew build`.
 DATAHUB_ROOT=..
 REGISTRY_ROOT="$DATAHUB_ROOT/metadata-models/src/main/resources"
-SCHEMAS_ROOT="$DATAHUB_ROOT/metadata-models/src/mainGeneratedAvroSchema/avro/com/linkedin"
-FILES="$REGISTRY_ROOT/entity-registry.yml $SCHEMAS_ROOT/mxe/MetadataChangeEvent.avsc"
+SCHEMAS_ROOT="$DATAHUB_ROOT/metadata-events/mxe-schemas/src/mainGeneratedAvroSchema/avro"
+FILES="$REGISTRY_ROOT/entity-registry.yml $SCHEMAS_ROOT/com/linkedin/mxe/MetadataChangeEvent.avsc"
 # Since we depend on jq, check if jq is installed
 if ! which jq > /dev/null; then
    echo "jq is not installed. Please install jq and rerun (https://stedolan.github.io/jq/)"

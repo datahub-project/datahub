@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.container.mappers;
 
 import com.linkedin.common.DataPlatformInstance;
+import com.linkedin.common.Deprecation;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
@@ -11,12 +12,15 @@ import com.linkedin.container.ContainerProperties;
 import com.linkedin.container.EditableContainerProperties;
 import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
+import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
+import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
@@ -87,6 +91,22 @@ public class ContainerMapper {
           .setType(EntityType.CONTAINER)
           .setUrn(gmsContainer.getContainer().toString())
           .build());
+    }
+
+    final EnvelopedAspect envelopedDomains = aspects.get(Constants.DOMAINS_ASPECT_NAME);
+    if (envelopedDomains != null) {
+      final Domains domains = new Domains(envelopedDomains.getValue().data());
+      // Currently we only take the first domain if it exists.
+      if (domains.getDomains().size() > 0) {
+        result.setDomain(Domain.builder()
+            .setType(EntityType.DOMAIN)
+            .setUrn(domains.getDomains().get(0).toString()).build());
+      }
+    }
+
+    final EnvelopedAspect envelopedDeprecation = aspects.get(Constants.DEPRECATION_ASPECT_NAME);
+    if (envelopedDeprecation != null) {
+      result.setDeprecation(DeprecationMapper.map(new Deprecation(envelopedDeprecation.getValue().data())));
     }
 
     return result;

@@ -25,6 +25,14 @@ export function getNumberWithOrdinal(n) {
     return n + (suffixes[(v - 20) % 10] || suffixes[v] || suffixes[0]);
 }
 
+export const encodeComma = (str: string) => {
+    return str.replace(/,/g, '%2C');
+};
+
+export const decodeComma = (str: string) => {
+    return str.replace(/%2C/g, ',');
+};
+
 export function notEmpty<TValue>(value: TValue | null | undefined): value is TValue {
     return value !== null && value !== undefined;
 }
@@ -49,3 +57,5 @@ export const singularizeCollectionName = (collectionName: string): string => {
 
     return collectionName;
 };
+
+export const EDITED_DESCRIPTIONS_CACHE_NAME = 'editedDescriptions';
