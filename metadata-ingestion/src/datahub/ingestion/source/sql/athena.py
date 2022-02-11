@@ -1,5 +1,5 @@
 import typing
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 from sqlalchemy.engine.reflection import Inspector
 
@@ -8,7 +8,6 @@ from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     make_sqlalchemy_uri,
 )
-from src.datahub.ingestion.api.common import PipelineContext
 
 
 class AthenaConfig(SQLAlchemyConfig):
