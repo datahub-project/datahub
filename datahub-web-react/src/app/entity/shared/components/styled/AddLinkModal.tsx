@@ -4,6 +4,7 @@ import { PlusOutlined } from '@ant-design/icons';
 import { useGetAuthenticatedUser } from '../../../../useGetAuthenticatedUser';
 import { useEntityData } from '../../EntityContext';
 import { useAddLinkMutation } from '../../../../../graphql/mutations.generated';
+import analytics, { EventType, EntityActionType } from '../../../../analytics';
 
 type AddLinkProps = {
     buttonProps?: Record<string, unknown>;
@@ -13,7 +14,7 @@ type AddLinkProps = {
 export const AddLinkModal = ({ buttonProps, refetch }: AddLinkProps) => {
     const [isModalVisible, setIsModalVisible] = useState(false);
     const user = useGetAuthenticatedUser();
-    const { urn } = useEntityData();
+    const { urn, entityType } = useEntityData();
     const [addLinkMutation] = useAddLinkMutation();
 
     const [form] = Form.useForm();
@@ -34,6 +35,12 @@ export const AddLinkModal = ({ buttonProps, refetch }: AddLinkProps) => {
                     variables: { input: { linkUrl: formData.url, label: formData.label, resourceUrn: urn } },
                 });
                 message.success({ content: 'Link Added', duration: 2 });
+                analytics.event({
+                    type: EventType.EntityActionEvent,
+                    entityType,
+                    entityUrn: urn,
+                    actionType: EntityActionType.UpdateLinks,
+                });
             } catch (e: unknown) {
                 message.destroy();
                 if (e instanceof Error) {

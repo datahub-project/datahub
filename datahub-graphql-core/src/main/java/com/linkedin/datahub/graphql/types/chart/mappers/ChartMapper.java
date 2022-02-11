@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.chart.mappers;
 
 import com.linkedin.chart.EditableChartProperties;
+import com.linkedin.common.Deprecation;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
@@ -20,6 +21,7 @@ import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
@@ -69,6 +71,8 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
             chart.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(dataMap))));
         mappingHelper.mapToResult(CONTAINER_ASPECT_NAME, this::mapContainers);
         mappingHelper.mapToResult(DOMAINS_ASPECT_NAME, this::mapDomains);
+        mappingHelper.mapToResult(DEPRECATION_ASPECT_NAME, (chart, dataMap) ->
+            chart.setDeprecation(DeprecationMapper.map(new Deprecation(dataMap))));
 
         return mappingHelper.getResult();
     }
@@ -183,7 +187,7 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
     }
 
     private void mapContainers(@Nonnull Chart chart, @Nonnull DataMap dataMap) {
-        final Container gmsContainer = new Container(dataMap);
+        final com.linkedin.container.Container gmsContainer = new com.linkedin.container.Container(dataMap);
         chart.setContainer(Container
             .builder()
             .setType(EntityType.CONTAINER)
@@ -195,7 +199,7 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
         final Domains domains = new Domains(dataMap);
         // Currently we only take the first domain if it exists.
         if (domains.getDomains().size() > 0) {
-            result.setDomain(Domain.builder()
+            chart.setDomain(Domain.builder()
                 .setType(EntityType.DOMAIN)
                 .setUrn(domains.getDomains().get(0).toString()).build());
         }

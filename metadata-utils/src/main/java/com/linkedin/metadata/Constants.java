@@ -49,6 +49,7 @@ public class Constants {
   public static final String GLOSSARY_TERMS_ASPECT_NAME = "glossaryTerms";
   public static final String STATUS_ASPECT_NAME = "status";
   public static final String SUB_TYPES_ASPECT_NAME = "subTypes";
+  public static final String DEPRECATION_ASPECT_NAME = "deprecation";
 
   // User
   public static final String CORP_USER_KEY_ASPECT_NAME = "corpUserKey";
@@ -120,7 +121,6 @@ public class Constants {
   public static final String CAVEATS_AND_RECOMMENDATIONS_ASPECT_NAME = "caveatsAndRecommendations";
   public static final String SOURCE_CODE_ASPECT_NAME = "sourceCode";
   public static final String COST_ASPECT_NAME = "cost";
-  public static final String DEPRECATION_ASPECT_NAME = "deprecation";
 
   // ML Model Group
   public static final String ML_MODEL_GROUP_KEY_ASPECT_NAME = "mlModelGroupKey";

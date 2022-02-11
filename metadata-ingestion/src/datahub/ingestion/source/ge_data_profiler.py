@@ -748,7 +748,6 @@ class DatahubGEProfiler:
         custom_sql: str = None,
         **kwargs: Any,
     ) -> Optional[DatasetProfileClass]:
-        logger.info(f"Profiling {pretty_name}")
         bigquery_temp_table: Optional[str] = None
         ge_config = {
             "schema": schema,

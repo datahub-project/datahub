@@ -21,6 +21,8 @@ public class CorpUserEditableInfoMapper implements ModelMapper<com.linkedin.iden
     @Override
     public CorpUserEditableProperties apply(@Nonnull final com.linkedin.identity.CorpUserEditableInfo info) {
         final CorpUserEditableProperties result = new CorpUserEditableProperties();
+        result.setDisplayName(info.getDisplayName());
+        result.setTitle(info.getTitle());
         result.setAboutMe(info.getAboutMe());
         result.setSkills(info.getSkills());
         result.setTeams(info.getTeams());

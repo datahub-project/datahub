@@ -9,6 +9,7 @@ import sqlalchemy
 import trino.sqlalchemy  # noqa: F401
 from sqlalchemy import exc, sql
 from sqlalchemy.engine import reflection
+from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.sql.type_api import TypeEngine
 from trino.exceptions import TrinoQueryError  # noqa
@@ -131,8 +132,18 @@ class TrinoConfig(BasicSQLAlchemyConfig):
 
 
 class TrinoSource(SQLAlchemySource):
+    config: TrinoConfig
+
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "trino")
+
+    def get_db_name(self, inspector: Inspector) -> str:
+        if self.config.database_alias:
+            return f"{self.config.database_alias}"
+        if self.config.database:
+            return f"{self.config.database}"
+        else:
+            return super().get_db_name(inspector)
 
     @classmethod
     def create(cls, config_dict, ctx):

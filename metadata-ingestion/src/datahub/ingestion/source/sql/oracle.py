@@ -1,10 +1,12 @@
-from typing import Optional
+from typing import Iterable, Optional
 from unittest.mock import patch
 
 # This import verifies that the dependencies are available.
 import cx_Oracle  # noqa: F401
 import pydantic
+from sqlalchemy import event
 from sqlalchemy.dialects.oracle.base import OracleDialect
+from sqlalchemy.engine.reflection import Inspector
 
 from datahub.ingestion.source.sql.sql_common import (
     BasicSQLAlchemyConfig,
@@ -19,6 +21,19 @@ extra_oracle_types = {
     make_sqlalchemy_type("SDO_ORDINATE_ARRAY"),
 }
 assert OracleDialect.ischema_names
+
+
+def output_type_handler(cursor, name, defaultType, size, precision, scale):
+    """Add CLOB and BLOB support to Oracle connection."""
+
+    if defaultType == cx_Oracle.CLOB:
+        return cursor.var(cx_Oracle.LONG_STRING, arraysize=cursor.arraysize)
+    elif defaultType == cx_Oracle.BLOB:
+        return cursor.var(cx_Oracle.LONG_BINARY, arraysize=cursor.arraysize)
+
+
+def before_cursor_execute(conn, cursor, statement, parameters, context, executemany):
+    cursor.outputtypehandler = output_type_handler
 
 
 class OracleConfig(BasicSQLAlchemyConfig):
@@ -51,6 +66,13 @@ class OracleSource(SQLAlchemySource):
     def create(cls, config_dict, ctx):
         config = OracleConfig.parse_obj(config_dict)
         return cls(config, ctx)
+
+    def get_inspectors(self) -> Iterable[Inspector]:
+        for inspector in super().get_inspectors():
+            event.listen(
+                inspector.engine, "before_cursor_execute", before_cursor_execute
+            )
+            yield inspector
 
     def get_workunits(self):
         with patch.dict(

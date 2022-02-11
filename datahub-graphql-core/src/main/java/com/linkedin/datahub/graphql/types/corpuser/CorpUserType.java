@@ -13,6 +13,7 @@ import com.linkedin.datahub.graphql.generated.CorpUserUpdateInput;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
+import com.linkedin.datahub.graphql.types.MutableType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.corpuser.mappers.CorpUserMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
@@ -41,7 +42,7 @@ import javax.annotation.Nullable;
 import static com.linkedin.metadata.Constants.*;
 
 
-public class CorpUserType implements SearchableEntityType<CorpUser>, MutableType<CorpUserUpdateInput> {
+public class CorpUserType implements SearchableEntityType<CorpUser>, MutableType<CorpUserUpdateInput, CorpUser> {
 
     private final EntityClient _entityClient;
 
@@ -140,6 +141,9 @@ public class CorpUserType implements SearchableEntityType<CorpUser>, MutableType
 
     private RecordTemplate mapCorpUserEditableInfo(CorpUserUpdateInput input, Optional<CorpUserEditableInfo> existing) {
         CorpUserEditableInfo result = existing.orElseGet(() -> new CorpUserEditableInfo());
+        if (input.getDisplayName() != null) {
+            result.setDisplayName(input.getDisplayName());
+        }
         if (input.getAboutMe() != null) {
             result.setAboutMe(input.getAboutMe());
         }
@@ -163,6 +167,9 @@ public class CorpUserType implements SearchableEntityType<CorpUser>, MutableType
         }
         if (input.getEmail() != null) {
             result.setEmail(input.getEmail());
+        }
+        if (input.getTitle() != null) {
+            result.setTitle(input.getTitle());
         }
 
         return result;

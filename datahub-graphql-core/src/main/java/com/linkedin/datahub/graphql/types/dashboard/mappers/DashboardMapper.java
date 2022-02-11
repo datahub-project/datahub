@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.dashboard.mappers;
 
+import com.linkedin.common.Deprecation;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
@@ -17,6 +18,7 @@ import com.linkedin.datahub.graphql.generated.DashboardProperties;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
@@ -63,6 +65,8 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
             dashboard.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(dataMap))));
         mappingHelper.mapToResult(CONTAINER_ASPECT_NAME, this::mapContainers);
         mappingHelper.mapToResult(DOMAINS_ASPECT_NAME, this::mapDomains);
+        mappingHelper.mapToResult(DEPRECATION_ASPECT_NAME, (dashboard, dataMap) ->
+            dashboard.setDeprecation(DeprecationMapper.map(new Deprecation(dataMap))));
 
         return mappingHelper.getResult();
     }

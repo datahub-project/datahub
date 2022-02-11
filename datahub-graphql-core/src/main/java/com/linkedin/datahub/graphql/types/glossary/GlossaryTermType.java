@@ -48,7 +48,8 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, Bro
         GLOSSARY_RELATED_TERM_ASPECT_NAME,
         OWNERSHIP_ASPECT_NAME,
         STATUS_ASPECT_NAME,
-        BROWSE_PATHS_ASPECT_NAME
+        BROWSE_PATHS_ASPECT_NAME,
+        DEPRECATION_ASPECT_NAME
     );
 
     private final EntityClient _entityClient;
