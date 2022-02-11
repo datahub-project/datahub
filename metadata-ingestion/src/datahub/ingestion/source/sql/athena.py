@@ -1,5 +1,6 @@
 from typing import Dict, Optional, Tuple
 
+from pyathena.common import BaseCursor
 from pyathena.model import AthenaTableMetadata
 from sqlalchemy.engine.reflection import Inspector
 
@@ -8,7 +9,6 @@ from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     make_sqlalchemy_uri,
 )
-from pyathena.common import BaseCursor
 
 
 class AthenaConfig(SQLAlchemyConfig):
