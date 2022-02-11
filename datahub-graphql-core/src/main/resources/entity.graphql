@@ -156,6 +156,11 @@ type Mutation {
     updateTag(urn: String!, input: TagUpdateInput!): Tag
 
     """
+    Set the hex color associated with an existing Tag
+    """
+    setTagColor(urn: String!, colorHex: String!): Boolean
+
+    """
     Create a policy and returns the resulting urn
     """
     createPolicy(input: PolicyUpdateInput!): String
@@ -260,6 +265,13 @@ type Mutation {
     Sets the Domain for a Dataset, Chart, Dashboard, Data Flow (Pipeline), or Data Job (Task). Returns true if the Domain was successfully removed, or was already removed. Requires the Edit Domains privilege for an asset.
     """
     unsetDomain(entityUrn: String!): Boolean
+
+    """
+    Sets the Deprecation status for a Metadata Entity. Requires the Edit Deprecation status privilege for an entity.
+    """
+    updateDeprecation(
+      "Input required to set deprecation for an Entity."
+      input: UpdateDeprecationInput!): Boolean
 
     """
     Update a particular Corp User's editable properties
@@ -570,7 +582,7 @@ type Dataset implements EntityWithRelationships & Entity {
     ownership: Ownership
 
     """
-    The deprecation status
+    The deprecation status of the dataset
     """
     deprecation: Deprecation
 
@@ -786,7 +798,7 @@ type GlossaryTerm implements Entity {
     urn: String!
 
     """
-    Ownership metadata of the dataset
+    Ownership metadata of the glossary term
     """
     ownership: Ownership
 
@@ -796,9 +808,9 @@ type GlossaryTerm implements Entity {
     type: EntityType!
 
     """
-    Display name of the glossary term
+    Name / id of the glossary term
     """
-    name: String!
+    name: String! @deprecated
 
     """
     hierarchicalName of glossary term
@@ -815,6 +827,11 @@ type GlossaryTerm implements Entity {
     Details of the Glossary Term
     """
     glossaryTermInfo: GlossaryTermInfo
+
+    """
+    The deprecation status of the Glossary Term
+    """
+    deprecation: Deprecation
 
     """
     Edges extending from this entity
@@ -834,9 +851,19 @@ Information about a glossary term
 """
 type GlossaryTermInfo {
     """
-    Definition of the glossary term
+    The name of the Glossary Term
     """
-    definition: String!
+    name: String
+
+    """
+    Description of the glossary term
+    """
+    description: String!
+
+    """
+    Definition of the glossary term. Deprecated - Use 'description' instead.
+    """
+    definition: String! @deprecated
 
     """
     Term Source of the glossary term
@@ -869,9 +896,19 @@ Additional read only properties about a Glossary Term
 """
 type GlossaryTermProperties {
     """
-    Definition of the glossary term
+    The name of the Glossary Term
     """
-    definition: String!
+    name: String
+
+    """
+    Description of the glossary term
+    """
+    description: String!
+
+    """
+    Definition of the glossary term. Deprecated - Use 'description' instead.
+    """
+    definition: String! @deprecated
 
     """
     Term Source of the glossary term
@@ -1187,6 +1224,11 @@ type Container implements Entity {
     The Domain associated with the Dataset
     """
     domain: Domain
+
+    """
+    The deprecation status of the dashboard
+    """
+    deprecation: Deprecation
 
     """
     Children entities inside of the Container
@@ -2201,6 +2243,16 @@ Additional read write info about a user
 """
 type CorpUserEditableInfo {
     """
+    Display name to show on DataHub
+    """
+    displayName: String
+
+    """
+    Title to show on DataHub
+    """
+    title: String
+
+    """
     About me section of the user
     """
     aboutMe: String
@@ -2225,6 +2277,16 @@ type CorpUserEditableInfo {
 Additional read write properties about a user
 """
 type CorpUserEditableProperties {
+    """
+    Display name to show on DataHub
+    """
+    displayName: String
+
+    """
+    Title to show on DataHub
+    """
+    title: String
+
     """
     About me section of the user
     """
@@ -2266,6 +2328,16 @@ type CorpUserEditableProperties {
 Arguments provided to update a CorpUser Entity
 """
 input CorpUserUpdateInput {
+    """
+    Display name to show on DataHub
+    """
+    displayName: String
+
+    """
+    Title to show on DataHub
+    """
+    title: String
+
     """
     About me section of the user
     """
@@ -2453,14 +2525,20 @@ type Tag implements Entity {
     type: EntityType!
 
     """
-    The display name of the tag
+    The name / id of the tag. Use properties.name instead.
     """
-    name: String!
+    name: String! @deprecated
+
+    """
+    Additional properties about the Tag
+    """
+    properties: TagProperties
 
     """
     Additional read write properties about the Tag
+    Deprecated! Use 'properties' field instead.
     """
-    editableProperties: EditableTagProperties
+    editableProperties: EditableTagProperties @deprecated
 
     """
     Ownership metadata of the dataset
@@ -2473,21 +2551,47 @@ type Tag implements Entity {
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
     """
-    Deprecated, use editableProperties field instead
-    Description of the tag
+    Deprecated, use properties.description field instead
     """
     description: String @deprecated
 }
 
 """
 Additional read write Tag properties
+Deprecated! Replaced by TagProperties.
 """
 type EditableTagProperties {
+  """
+  A display name for the Tag
+  """
+  name: String
+
   """
   A description of the Tag
   """
   description: String
 }
+
+"""
+Properties for a DataHub Tag
+"""
+type TagProperties {
+  """
+  A display name for the Tag
+  """
+  name: String
+
+  """
+  A description of the Tag
+  """
+  description: String
+
+  """
+  An optional RGB hex code for a Tag color, e.g. #FFFFFF
+  """
+  colorHex: String
+}
+
 
 """
 An edge between a Metadata Entity and a Tag Modeled as a struct to permit
@@ -2946,6 +3050,11 @@ type Dashboard implements EntityWithRelationships & Entity {
     status: Status
 
     """
+    The deprecation status of the dashboard
+    """
+    deprecation: Deprecation
+
+    """
     The tags associated with the dashboard
     """
     tags: GlobalTags
@@ -3157,6 +3266,11 @@ type Chart implements EntityWithRelationships & Entity {
     Status metadata of the chart
     """
     status: Status
+
+    """
+    The deprecation status of the chart
+    """
+    deprecation: Deprecation
 
     """
     The tags associated with the chart
@@ -3476,6 +3590,11 @@ type DataFlow implements Entity {
     status: Status
 
     """
+    The deprecation status of the Data Flow
+    """
+    deprecation: Deprecation
+
+    """
     References to internal resources related to the dashboard
     """
     institutionalMemory: InstitutionalMemory
@@ -3630,6 +3749,11 @@ type DataJob implements EntityWithRelationships & Entity {
     Status metadata of the DataJob
     """
     status: Status
+
+    """
+    The deprecation status of the Data Flow
+    """
+    deprecation: Deprecation
 
     """
     References to internal resources related to the dashboard
@@ -4133,7 +4257,7 @@ type Deprecation {
     """
     Additional information about the entity deprecation plan
     """
-    note: String!
+    note: String
 
     """
     The user who will be credited for modifying this deprecation content
@@ -4309,6 +4433,31 @@ input DescriptionUpdateInput {
     A sub resource identifier, eg dataset field path
     """
     subResource: String
+}
+
+"""
+Input provided when setting the Deprecation status for an Entity.
+"""
+input UpdateDeprecationInput {
+    """
+    The urn of the Entity to set deprecation for.
+    """
+    urn: String!
+
+    """
+    Whether the Entity is marked as deprecated.
+    """
+    deprecated: Boolean!
+
+    """
+    Optional - The time user plan to decommission this entity
+    """
+    decommissionTime: Long
+
+    """
+    Optional - Additional information about the entity deprecation plan
+    """
+    note: String
 }
 
 """

@@ -3,7 +3,6 @@ import sys
 import pytest
 
 from datahub.utilities.delayed_iter import delayed_iter
-from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.sql_parser import MetadataSQLSQLParser, SqlLineageSQLParser
 
 
@@ -38,16 +37,6 @@ def test_delayed_iter():
         ("add", 1),
         ("remove", 0),
         ("remove", 1),
-    ]
-
-
-def test_groupby_unsorted():
-    grouped = groupby_unsorted("ABCAC", key=lambda x: x)
-
-    assert list(grouped) == [
-        ("A", ["A", "A"]),
-        ("B", ["B"]),
-        ("C", ["C", "C"]),
     ]
 
 

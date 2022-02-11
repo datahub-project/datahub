@@ -44,6 +44,7 @@ framework_common = {
     "stackprinter",
     "tabulate",
     "progressbar2",
+    "psutil>=5.8.0",
 }
 
 kafka_common = {
@@ -88,7 +89,7 @@ snowflake_common = {
     *sql_common,
     # Required for all Snowflake sources
     "snowflake-sqlalchemy<=1.2.4",
-    "cryptography"
+    "cryptography",
 }
 
 # Note: for all of these, framework_common will be added.
@@ -126,8 +127,8 @@ plugins: Dict[str, Set[str]] = {
     "lookml": looker_common
     | {"lkml>=1.1.2", "sql-metadata==2.2.2", "sqllineage==1.3.3"},
     "metabase": {"requests", "sqllineage==1.3.3"},
-    "mode": {"requests", "sqllineage==1.3.3"},
-    "mongodb": {"pymongo>=3.11"},
+    "mode": {"requests", "sqllineage==1.3.3", "tenacity>=8.0.1"},
+    "mongodb": {"pymongo>=3.11", "packaging"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
     "mssql-odbc": sql_common | {"pyodbc"},
     "mysql": sql_common | {"pymysql>=1.0.2"},
@@ -140,15 +141,16 @@ plugins: Dict[str, Set[str]] = {
     "redshift": sql_common
     | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2", "sqllineage==1.3.3"},
     "redshift-usage": sql_common
-    | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2"},
+    | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2", "sqllineage==1.3.3"},
     "sagemaker": aws_common,
     "snowflake": snowflake_common,
     "snowflake-usage": snowflake_common | {"more-itertools>=8.12.0"},
     "sqlalchemy": sql_common,
-    "superset": {"requests"},
+    "superset": {"requests", "sqlalchemy", "great_expectations"},
+    "tableau": {"tableauserverclient>=0.17.0"},
     "trino": sql_common | {"trino"},
     "starburst-trino-usage": sql_common | {"trino"},
-    "nifi": {"requests"},
+    "nifi": {"requests", "packaging"},
 }
 
 all_exclude_plugins: Set[str] = {
@@ -187,6 +189,7 @@ base_dev_requirements = {
     # Waiting for https://github.com/samuelcolvin/pydantic/pull/3175 before allowing mypy 0.920.
     "mypy>=0.901,<0.920",
     "pytest>=6.2.2",
+    "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
     "pytest-docker>=0.10.3",
     "tox",
@@ -216,6 +219,7 @@ base_dev_requirements = {
             "redshift",
             "redshift-usage",
             "data-lake",
+            "tableau",
             "trino",
             "hive",
             "starburst-trino-usage",
@@ -301,6 +305,7 @@ entry_points = {
         "snowflake = datahub.ingestion.source.sql.snowflake:SnowflakeSource",
         "snowflake-usage = datahub.ingestion.source.usage.snowflake_usage:SnowflakeUsageSource",
         "superset = datahub.ingestion.source.superset:SupersetSource",
+        "tableau = datahub.ingestion.source.tableau:TableauSource",
         "openapi = datahub.ingestion.source.openapi:OpenApiSource",
         "metabase = datahub.ingestion.source.metabase:MetabaseSource",
         "trino = datahub.ingestion.source.sql.trino:TrinoSource",
