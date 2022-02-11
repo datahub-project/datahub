@@ -1,0 +1,89 @@
+{
+  "created": {
+    "actor": "urn:li:corpuser:mjames",
+    "time": 1581407189000
+  },
+  "fields": [
+    {
+      "description": "User identifier. Negative values imply test users.",
+      "fieldPath": "user_id",
+      "isPartOfKey": false,
+      "nativeDataType": "long",
+      "nullable": false,
+      "recursive": false,
+      "type": {
+        "type": {
+          "com.linkedin.schema.NumberType": {}
+        }
+      }
+    },
+    {
+      "description": "The first name of the user. Middle names are included here.",
+      "fieldPath": "first_name",
+      "isPartOfKey": false,
+      "nativeDataType": "varchar(100)",
+      "nullable": false,
+      "recursive": false,
+      "type": {
+        "type": {
+          "com.linkedin.schema.StringType": {}
+        }
+      }
+    },
+    {
+      "description": "The last name of the user.",
+      "fieldPath": "last_name",
+      "isPartOfKey": false,
+      "nativeDataType": "varchar(100)",
+      "nullable": false,
+      "recursive": false,
+      "type": {
+        "type": {
+          "com.linkedin.schema.StringType": {}
+        }
+      }
+    },
+    {
+      "description": "The UTC time of registration of the user, computed server side.",
+      "fieldPath": "registration_date",
+      "isPartOfKey": false,
+      "nativeDataType": "date",
+      "nullable": false,
+      "recursive": false,
+      "type": {
+        "type": {
+          "com.linkedin.schema.DateType": {}
+        }
+      }
+    },
+    {
+      "description": "Email address of the user.",
+      "fieldPath": "email",
+      "isPartOfKey": false,
+      "nativeDataType": "varchar(100)",
+      "nullable": false,
+      "recursive": false,
+      "type": {
+        "type": {
+          "com.linkedin.schema.StringType": {}
+        }
+      }
+    }
+  ],
+  "hash": "",
+  "lastModified": {
+    "actor": "urn:li:corpuser:mjames",
+    "time": 1581407189000
+  },
+  "platform": "urn:li:dataPlatform:mysql",
+  "platformSchema": {
+    "com.linkedin.schema.MySqlDDL": {
+      "tableSchema": "CREATE TABLE USER.ACCOUNT (\n\tuser_id long NOT NULL PRIMARY KEY,\n\tfirst_name varchar(100),\n\tlast_name varchar(100),\n\tregistration_date date\n);"
+    }
+  },
+  "primaryKeys": [
+    "user_id"
+  ],
+  "schemaName": "UserAccountSchema",
+  "version": 0
+}
