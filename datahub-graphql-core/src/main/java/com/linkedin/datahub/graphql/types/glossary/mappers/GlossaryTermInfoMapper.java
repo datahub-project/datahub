@@ -23,7 +23,11 @@ public class GlossaryTermInfoMapper implements ModelMapper<com.linkedin.glossary
     public GlossaryTermInfo apply(@Nonnull final com.linkedin.glossary.GlossaryTermInfo glossaryTermInfo) {
         com.linkedin.datahub.graphql.generated.GlossaryTermInfo glossaryTermInfoResult = new com.linkedin.datahub.graphql.generated.GlossaryTermInfo();
         glossaryTermInfoResult.setDefinition(glossaryTermInfo.getDefinition());
+        glossaryTermInfoResult.setDescription(glossaryTermInfo.getDefinition());
         glossaryTermInfoResult.setTermSource(glossaryTermInfo.getTermSource());
+        if (glossaryTermInfo.hasName()) {
+            glossaryTermInfoResult.setName(glossaryTermInfo.getName());
+        }
         if (glossaryTermInfo.hasSourceRef()) {
             glossaryTermInfoResult.setSourceRef(glossaryTermInfo.getSourceRef());
         }

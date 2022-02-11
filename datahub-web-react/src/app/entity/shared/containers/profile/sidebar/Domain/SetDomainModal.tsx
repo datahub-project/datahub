@@ -45,9 +45,6 @@ export const SetDomainModal = ({ visible, onClose, refetch }: Props) => {
     const domainSearchResults = domainSearchData?.search?.searchResults || [];
     const [setDomainMutation] = useSetDomainMutation();
 
-    console.log('Re rendering');
-    console.log(domainSearchResults);
-
     const inputEl = useRef(null);
 
     const onOk = async () => {
@@ -156,7 +153,6 @@ export const SetDomainModal = ({ visible, onClose, refetch }: Props) => {
                         tagRender={(tagProps) => <Tag>{tagProps.value}</Tag>}
                     >
                         {domainSearchResults.map((result) => {
-                            console.log(result);
                             return (
                                 <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
                             );
