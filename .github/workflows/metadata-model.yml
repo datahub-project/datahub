@@ -17,11 +17,11 @@ jobs:
   steps:
     - name: Check whether upload to datahub is enabled
       id: publish
-        env:
-          ENABLE_PUBLISH: ${{ secrets.DataHubToken }}
-        run: |
-          echo "Enable publish: ${{ env.ENABLE_PUBLISH != '' }}"
-          echo "::set-output name=publish::${{ env.ENABLE_PUBLISH != '' }}"
+      env:
+        ENABLE_PUBLISH: ${{ secrets.DataHubToken }}
+      run: |
+        echo "Enable publish: ${{ env.ENABLE_PUBLISH != '' }}"
+        echo "::set-output name=publish::${{ env.ENABLE_PUBLISH != '' }}"
   metadata-ingestion-docgen:
     runs-on: ubuntu-latest
     steps:
