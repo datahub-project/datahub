@@ -1,10 +1,14 @@
-from typing import Optional
+from typing import Dict, Optional, Tuple
+
+from pyathena.model import AthenaTableMetadata
+from sqlalchemy.engine.reflection import Inspector
 
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemyConfig,
     SQLAlchemySource,
     make_sqlalchemy_uri,
 )
+from pyathena.common import BaseCursor
 
 
 class AthenaConfig(SQLAlchemyConfig):
@@ -33,6 +37,8 @@ class AthenaConfig(SQLAlchemyConfig):
 
 
 class AthenaSource(SQLAlchemySource):
+    cursor: Optional[BaseCursor] = None
+
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "athena")
 
@@ -40,3 +46,48 @@ class AthenaSource(SQLAlchemySource):
     def create(cls, config_dict, ctx):
         config = AthenaConfig.parse_obj(config_dict)
         return cls(config, ctx)
+
+    def get_table_properties(
+        self, inspector: Inspector, schema: str, table: str
+    ) -> Tuple[Optional[str], Optional[Dict[str, str]]]:
+        if not self.cursor:
+            self.cursor = inspector.dialect._raw_connection(inspector.engine).cursor()
+
+        assert self.cursor
+        # Unfortunately properties can be only get through private methods as those are not exposed
+        # https://github.com/laughingman7743/PyAthena/blob/9e42752b0cc7145a87c3a743bb2634fe125adfa7/pyathena/model.py#L201
+        metadata: AthenaTableMetadata = self.cursor._get_table_metadata(
+            table_name=table, schema_name=schema
+        )
+        description = metadata.comment
+        parameters = {k: v for k, v in metadata.parameters.items() if v}
+
+        custom_properties = {
+            **parameters,
+            **{
+                k: str(v)
+                for k, v in metadata.__dict__.items()
+                if (
+                    k
+                    not in [
+                        "_columns",
+                        "_parameters",
+                        "_name",
+                        "comment",
+                        "_partition_keys",
+                    ]
+                    and v
+                )
+            },
+        }
+        if metadata.partition_keys:
+            partition_key = []
+            for key in metadata.partition_keys:
+                partition_key.append(key.__dict__)
+                custom_properties["_partition_keys"] = str(partition_key)
+
+        return description, custom_properties
+
+    def __exit__(self):
+        if self.cursor:
+            self.cursor.close()
