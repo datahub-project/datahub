@@ -2,11 +2,9 @@ package com.linkedin.metadata.timeline.ebean;
 
 import com.datahub.util.RecordUtils;
 import com.github.fge.jsonpatch.JsonPatch;
-import com.google.common.collect.Sets;
 import com.linkedin.common.GlossaryTermAssociation;
 import com.linkedin.common.TagAssociation;
 import com.linkedin.common.urn.DatasetUrn;
-import com.linkedin.dataset.SchemaFieldPath;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
@@ -24,6 +22,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 
 public class SchemaDiffer implements Differ {
@@ -45,7 +44,7 @@ public class SchemaDiffer implements Differ {
     return String.format("urn:li:schemaField:(%s,%s)", datasetUrn, getFieldPathV1(schemaField));
   }
 
-  private static String getSchemaFieldUrn(DatasetUrn datasetUrn, SchemaFieldPath schemaFieldPath) {
+  private static String getSchemaFieldUrn(DatasetUrn datasetUrn, String schemaFieldPath) {
     assert (datasetUrn != null && schemaFieldPath != null);
     return String.format("urn:li:schemaField:(%s,%s)", datasetUrn, schemaFieldPath);
   }
@@ -161,10 +160,12 @@ public class SchemaDiffer implements Differ {
       List<ChangeEvent> glossaryTermChangeEvents = new ArrayList<>();
       Set<TagAssociation> baseFieldTags = new HashSet<>(baseField.getGlobalTags().getTags());
       Set<TagAssociation> targetFieldTags = new HashSet<>(targetField.getGlobalTags().getTags());
-      Sets.SetView<TagAssociation> removedTags =
-          com.google.common.collect.Sets.difference(baseFieldTags, targetFieldTags);
-      Sets.SetView<TagAssociation> addedTags =
-          com.google.common.collect.Sets.difference(targetFieldTags, baseFieldTags);
+      Set<TagAssociation> removedTags = baseFieldTags.stream()
+          .filter(key -> !targetFieldTags.contains(key))
+          .collect(Collectors.toSet());
+      Set<TagAssociation> addedTags = targetFieldTags.stream()
+          .filter(key -> !baseFieldTags.contains(key))
+          .collect(Collectors.toSet());
       for (TagAssociation removedTag : removedTags) {
         // Global tags changed.
         glossaryTermChangeEvents.add(ChangeEvent.builder()
@@ -220,10 +221,12 @@ public class SchemaDiffer implements Differ {
       List<ChangeEvent> tagChangeEvents = new ArrayList<>();
       Set<GlossaryTermAssociation> baseFieldTerms = new HashSet<>(baseField.getGlossaryTerms().getTerms());
       Set<GlossaryTermAssociation> targetFieldTerms = new HashSet<>(targetField.getGlossaryTerms().getTerms());
-      Sets.SetView<GlossaryTermAssociation> removedTerms =
-          com.google.common.collect.Sets.difference(baseFieldTerms, targetFieldTerms);
-      Sets.SetView<GlossaryTermAssociation> addedTerms =
-          com.google.common.collect.Sets.difference(targetFieldTerms, baseFieldTerms);
+      Set<GlossaryTermAssociation> removedTerms = baseFieldTerms.stream()
+          .filter(key -> !targetFieldTerms.contains(key))
+          .collect(Collectors.toSet());
+      Set<GlossaryTermAssociation> addedTerms = targetFieldTerms.stream()
+          .filter(key -> !baseFieldTerms.contains(key))
+          .collect(Collectors.toSet());
       for (GlossaryTermAssociation removedTerm : removedTerms) {
         // Global tags changed.
         tagChangeEvents.add(ChangeEvent.builder()
@@ -409,14 +412,15 @@ public class SchemaDiffer implements Differ {
   private List<ChangeEvent> getPrimaryKeyChangeEvents(SchemaMetadata baseSchema, SchemaMetadata targetSchema,
       DatasetUrn datasetUrn) {
     List<ChangeEvent> primaryKeyChangeEvents = new ArrayList<>();
-    Set<SchemaFieldPath> basePrimaryKeys =
-        (baseSchema != null && baseSchema.getPrimaryKeys() != null) ? new HashSet(baseSchema.getPrimaryKeys())
+    Set<String> basePrimaryKeys =
+        (baseSchema != null && baseSchema.getPrimaryKeys() != null) ? new HashSet<>(baseSchema.getPrimaryKeys())
             : new HashSet<>();
-    Set<SchemaFieldPath> targetPrimaryKeys =
-        (targetSchema.getPrimaryKeys() != null) ? new HashSet(targetSchema.getPrimaryKeys()) : new HashSet<>();
-    Sets.SetView<SchemaFieldPath> removedBaseKeys =
-        com.google.common.collect.Sets.difference(basePrimaryKeys, targetPrimaryKeys);
-    for (SchemaFieldPath removedBaseKeyField : removedBaseKeys) {
+    Set<String> targetPrimaryKeys =
+        (targetSchema.getPrimaryKeys() != null) ? new HashSet<>(targetSchema.getPrimaryKeys()) : new HashSet<>();
+    Set<String> removedBaseKeys = basePrimaryKeys.stream()
+        .filter(key -> !targetPrimaryKeys.contains(key))
+        .collect(Collectors.toSet());
+    for (String removedBaseKeyField : removedBaseKeys) {
       primaryKeyChangeEvents.add(ChangeEvent.builder()
           .category(ChangeCategory.TECHNICAL_SCHEMA)
           .elementId(getSchemaFieldUrn(datasetUrn, removedBaseKeyField))
@@ -424,13 +428,14 @@ public class SchemaDiffer implements Differ {
           .changeType(ChangeOperation.MODIFY)
           .semVerChange(SemanticChangeType.MAJOR)
           .description(
-              BACKWARDS_INCOMPATIBLE_DESC + "removal of the primary key field '" + removedBaseKeyField.toString() + "'")
+              BACKWARDS_INCOMPATIBLE_DESC + "removal of the primary key field '" + removedBaseKeyField + "'")
           .build());
     }
 
-    Sets.SetView<SchemaFieldPath> addedTargetKeys =
-        com.google.common.collect.Sets.difference(targetPrimaryKeys, basePrimaryKeys);
-    for (SchemaFieldPath addedTargetKeyField : addedTargetKeys) {
+    Set<String> addedTargetKeys = targetPrimaryKeys.stream()
+        .filter(key -> !basePrimaryKeys.contains(key))
+        .collect(Collectors.toSet());
+    for (String addedTargetKeyField : addedTargetKeys) {
       primaryKeyChangeEvents.add(ChangeEvent.builder()
           .category(ChangeCategory.TECHNICAL_SCHEMA)
           .elementId(getSchemaFieldUrn(datasetUrn, addedTargetKeyField))
@@ -447,9 +452,8 @@ public class SchemaDiffer implements Differ {
 
   private void sortFieldsByPath(SchemaMetadata schemaMetadata) {
     assert (schemaMetadata != null);
-    List<SchemaField> schemaFields = new ArrayList<>();
-    schemaFields.addAll(schemaMetadata.getFields());
-    Collections.sort(schemaFields, Comparator.comparing(SchemaField::getFieldPath));
+    List<SchemaField> schemaFields = new ArrayList<>(schemaMetadata.getFields());
+    schemaFields.sort(Comparator.comparing(SchemaField::getFieldPath));
     schemaMetadata.setFields(new SchemaFieldArray(schemaFields));
   }
 
