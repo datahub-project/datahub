@@ -113,7 +113,7 @@ def get_timeline(
     required=True,
     multiple=True,
     type=str,
-    help="One of tags, glossary_terms, technical_schema, documentation, ownership",
+    help="One of tag, glossary_term, technical_schema, documentation, ownership",
 )
 @click.option(
     "--start",
@@ -145,9 +145,9 @@ def timeline(
     """Get timeline for an entity based on certain categories"""
 
     all_categories = [
-        "TAGS",
+        "TAG",
         "OWNERSHIP",
-        "GLOSSARY_TERMS",
+        "GLOSSARY_TERM",
         "TECHNICAL_SCHEMA",
         "DOCUMENTATION",
     ]
