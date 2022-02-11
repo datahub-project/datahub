@@ -2,7 +2,7 @@ import { Modal, Tag, Typography, Button, message, Tooltip } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { BookOutlined, PlusOutlined } from '@ant-design/icons';
+import { BookOutlined, ClockCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import {
     Domain,
@@ -57,6 +57,7 @@ const NoElementButton = styled(Button)`
 
 const ProposedTerm = styled(Tag)`
     opacity: 0.7;
+    border-style: dashed;
 `;
 
 export default function TagTermGroup({
@@ -177,8 +178,8 @@ export default function TagTermGroup({
             {uneditableGlossaryTerms?.terms?.map((term) => (
                 <TagLink to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)} key={term.term.urn}>
                     <Tag closable={false}>
+                        <BookOutlined style={{ marginRight: '3%' }} />
                         {term.term.name}
-                        <BookOutlined style={{ marginLeft: '2%' }} />
                     </Tag>
                 </TagLink>
             ))}
@@ -191,8 +192,8 @@ export default function TagTermGroup({
                             removeTerm(term.term.urn);
                         }}
                     >
+                        <BookOutlined style={{ marginRight: '3%' }} />
                         {term.term.name}
-                        <BookOutlined style={{ marginLeft: '2%' }} />
                     </Tag>
                 </TagLink>
             ))}
@@ -208,8 +209,9 @@ export default function TagTermGroup({
                             closable={false}
                             data-testid={`proposed-term-${actionRequest.params?.glossaryTermProposal?.glossaryTerm.name}`}
                         >
+                            <BookOutlined style={{ marginRight: '3%' }} />
                             {actionRequest.params?.glossaryTermProposal?.glossaryTerm.name}
-                            <BookOutlined style={{ marginLeft: '2%' }} />
+                            <ClockCircleOutlined style={{ color: 'orange', marginLeft: '3%' }} />
                         </ProposedTerm>
                     </Tooltip>
                 </TagLink>
@@ -259,6 +261,7 @@ export default function TagTermGroup({
                             $colorHash={actionRequest?.params?.tagProposal?.tag?.urn}
                         >
                             {actionRequest?.params?.tagProposal?.tag?.name}
+                            <ClockCircleOutlined style={{ color: 'orange', marginLeft: '3%' }} />
                         </StyledTag>
                     </Tooltip>
                 </TagLink>

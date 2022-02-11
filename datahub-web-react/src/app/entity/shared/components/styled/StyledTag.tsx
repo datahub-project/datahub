@@ -8,6 +8,7 @@ const generateColor = new ColorHash({
 
 export const StyledTag = styled(Tag)<{ $colorHash?: string; disabled?: boolean }>`
     opacity: ${(props) => (props.disabled ? 0.7 : 1)};
+    border-style: ${(props) => (props.disabled ? 'dashed' : 'solid')};
     ${(props) =>
         props.$colorHash &&
         css`
