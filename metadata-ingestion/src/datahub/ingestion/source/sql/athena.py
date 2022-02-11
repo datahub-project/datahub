@@ -1,10 +1,14 @@
-from typing import Optional
+import typing
+from typing import Dict, List, Optional
+
+from sqlalchemy.engine.reflection import Inspector
 
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemyConfig,
     SQLAlchemySource,
     make_sqlalchemy_uri,
 )
+from src.datahub.ingestion.api.common import PipelineContext
 
 
 class AthenaConfig(SQLAlchemyConfig):
@@ -33,8 +37,6 @@ class AthenaConfig(SQLAlchemyConfig):
 
 
 class AthenaSource(SQLAlchemySource):
-    config: AthenaConfig
-
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "athena")
 
@@ -44,11 +46,9 @@ class AthenaSource(SQLAlchemySource):
         return cls(config, ctx)
 
     # It seems like database/schema filter in the connection string does not work and this to work around that
-    def get_schema_names(self, inspector):
+    def get_schema_names(self, inspector: Inspector) -> List[str]:
+        athena_config = typing.cast(AthenaConfig, self.config)
         schemas = inspector.get_schema_names()
-        if self.config.database:
-            for schema in schemas:
-                if schema == self.config.database:
-                    return [schema]
-            return []
+        if athena_config.database:
+            return [schema for schema in schemas if schema == athena_config.database]
         return schemas
