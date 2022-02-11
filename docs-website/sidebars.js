@@ -200,6 +200,7 @@ module.exports = {
       // TODO: the titles of these should not be in question form in the sidebar
       "docs/developers",
       "docs/docker/development",
+      "docs/how/backup-datahub",
       {
         type: "doc",
         label: "Ingesting files from S3",
