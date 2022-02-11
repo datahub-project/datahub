@@ -33,6 +33,8 @@ class AthenaConfig(SQLAlchemyConfig):
 
 
 class AthenaSource(SQLAlchemySource):
+    config: AthenaConfig
+    
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "athena")
 
@@ -40,3 +42,13 @@ class AthenaSource(SQLAlchemySource):
     def create(cls, config_dict, ctx):
         config = AthenaConfig.parse_obj(config_dict)
         return cls(config, ctx)
+
+    # It seems like database/schema filter in the connection string does not work and this to work around that
+    def get_schema_names(self, inspector):
+        schemas = inspector.get_schema_names()
+        if self.config.database:
+            for schema in schemas:
+                if schema == self.config.database:
+                    return [schema]
+            return []
+        return schemas
