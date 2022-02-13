@@ -69,7 +69,7 @@ entrypoints==0.3
 executing==0.8.2
 expandvars==0.7.0
 fastavro==1.4.9
-feast==0.15.0
+feast==0.18.0
 filelock==3.4.2
 flake8==4.0.1
 flake8-tidy-imports==4.6.0
