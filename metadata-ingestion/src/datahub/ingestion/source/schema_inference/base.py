@@ -1,6 +1,5 @@
 from io import TextIOWrapper
-from os import PathLike
-from typing import List, Union
+from typing import List
 
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 

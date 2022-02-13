@@ -1,5 +1,4 @@
 from io import TextIOWrapper
-from os import PathLike
 from typing import Dict, List, Type, Union
 
 import ujson

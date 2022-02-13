@@ -316,6 +316,9 @@ class DataLakeSource(Source):
         dataset_snapshot.aspects.append(dataset_properties)
 
         if file_path.startswith("s3a://"):
+            if self.source_config.aws_config is None:
+                raise ValueError("AWS config is required for S3 file sources")
+
             s3_client = self.source_config.aws_config.get_s3_client()
 
             file = smart_open(file_path, "rb", transport_params={"client": s3_client})
@@ -347,7 +350,7 @@ class DataLakeSource(Source):
                 file_path, f"could not infer schema for file {file_path}: {e}"
             )
             file.close()
-            
+
         fields = sorted(fields, key=lambda f: f.fieldPath)
 
         schema_metadata = SchemaMetadata(

@@ -1,8 +1,6 @@
 from io import TextIOWrapper
-from os import PathLike
-from typing import List, Type, Union
+from typing import List, Type
 
-import pyarrow.parquet
 import ujson
 from avro.datafile import DataFileReader
 from avro.io import DatumReader

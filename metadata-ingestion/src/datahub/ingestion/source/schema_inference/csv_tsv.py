@@ -1,23 +1,13 @@
 from io import TextIOWrapper
-from os import PathLike
-from typing import List, Union
+from typing import List
 
-import pyarrow
-import pyarrow.parquet
-import ujson
-from avro.datafile import DataFileReader
-from avro.io import DatumReader
-from genson import SchemaBuilder
 from tableschema import Table
 
 from datahub.ingestion.source.schema_inference.base import SchemaInferenceBase
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayTypeClass,
     BooleanTypeClass,
-    BytesTypeClass,
     DateTypeClass,
-    EnumTypeClass,
-    MapTypeClass,
     NullTypeClass,
     NumberTypeClass,
     RecordTypeClass,
@@ -78,7 +68,7 @@ class CsvInferrer(SchemaInferenceBase):
         return infer_schema_general(table)
 
 
-class CsvInferrer(SchemaInferenceBase):
+class TsvInferrer(SchemaInferenceBase):
     @staticmethod
     def infer_schema(file: TextIOWrapper) -> List[SchemaField]:
         # infer schema of a tsv file without reading the whole file
