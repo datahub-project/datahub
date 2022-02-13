@@ -23,12 +23,12 @@ For general pointers on writing and running a recipe, see our [main recipe guide
 
 ```yaml
 source:
-  type: feast-repository
+  type: "feast-repository"
   config:
     # Coordinates
-    path: /path/to/repository/
+    path: "/path/to/repository/"
     # Options
-    environment: PROD
+    environment: "PROD"
 
 sink:
   # sink configs
