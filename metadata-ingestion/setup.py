@@ -113,9 +113,9 @@ plugins: Dict[str, Set[str]] = {
         "pyspark==3.0.3",
         "parse==1.19.0",
         "pyarrow==7.0.0",
-        "genson==1.2.2",
         "tableschema==1.20.2",
         "ujson==5.1.0",
+        "types-ujson==4.2.1"
     },
     "dbt": {"requests"},
     "druid": sql_common | {"pydruid>=0.6.2"},

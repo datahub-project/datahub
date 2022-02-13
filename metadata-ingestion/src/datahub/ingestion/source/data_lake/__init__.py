@@ -36,7 +36,7 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
-from datahub.ingestion.source.data_lake import schema_inference
+from datahub.ingestion.source import schema_inference
 from datahub.ingestion.source.data_lake.config import DataLakeSourceConfig
 from datahub.ingestion.source.data_lake.profiling import _SingleTableProfiler
 from datahub.ingestion.source.data_lake.report import DataLakeSourceReport
@@ -49,7 +49,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     NullTypeClass,
     NumberTypeClass,
     RecordTypeClass,
-    SchemaField,
     SchemaFieldDataType,
     SchemaMetadata,
     StringTypeClass,
@@ -314,13 +313,13 @@ class DataLakeSource(Source):
         fields = []
 
         if file_path.endswith(".parquet"):
-            fields = schema_inference.infer_schema_parquet(file_path)
+            fields = schema_inference.parquet.ParquetInferrer.infer_schema(file_path)
         elif file_path.endswith(".csv"):
-            fields = schema_inference.infer_schema_csv(file_path)
+            fields = schema_inference.csv.CsvInferrer.infer_schema(file_path)
         elif file_path.endswith(".json"):
-            fields = schema_inference.infer_schema_json(file_path)
+            fields = schema_inference.json.JsonInferrer.infer_schema(file_path)
         elif file_path.endswith(".avro"):
-            fields = schema_inference.infer_schema_avro(file_path)
+            fields = schema_inference.avro.AvroInferrer.infer_schema(file_path)
         else:
             self.report.report_warning(
                 file_path, f"file {file_path} has unsupported extension"
