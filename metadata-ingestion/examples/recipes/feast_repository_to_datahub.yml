@@ -1,7 +1,7 @@
 source:
   type: "feast-repository"
   config:
-    path: "path/to/repository"
+    path: "/path/to/repository/"
     environment: "PROD"
 sink:
   type: "datahub-rest"
