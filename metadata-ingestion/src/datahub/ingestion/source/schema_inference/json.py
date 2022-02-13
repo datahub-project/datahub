@@ -41,12 +41,8 @@ class JsonInferrer(SchemaInferenceBase):
 
         fields = []
 
-        for schema_field in sorted(
-            schema.values(), key=lambda x: x["delimited_name"]
-        ):
-            mapped_type = _field_type_mapping.get(
-                schema_field["type"], NullTypeClass
-            )
+        for schema_field in sorted(schema.values(), key=lambda x: x["delimited_name"]):
+            mapped_type = _field_type_mapping.get(schema_field["type"], NullTypeClass)
 
             field = SchemaField(
                 fieldPath=schema_field["delimited_name"],

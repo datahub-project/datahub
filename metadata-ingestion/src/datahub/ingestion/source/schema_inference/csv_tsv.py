@@ -46,30 +46,43 @@ tableschema_type_map = {
 }
 
 
+def infer_schema_general(table: Table) -> List[SchemaField]:
+    table.read(keyed=True, limit=100)
+    table.infer()
+
+    fields = []
+
+    for raw_field in table.schema.fields:
+
+        mapped_type = tableschema_type_map.get(raw_field.type, NullTypeClass)
+
+        field = SchemaField(
+            fieldPath=raw_field.name,
+            type=SchemaFieldDataType(mapped_type()),
+            nativeDataType=str(raw_field.type),
+            recursive=False,
+        )
+
+        fields.append(field)
+
+    return fields
+
+
 class CsvInferrer(SchemaInferenceBase):
     @staticmethod
     def infer_schema(file: TextIOWrapper) -> List[SchemaField]:
         # infer schema of a csv file without reading the whole file
 
-        # read the first line of the file
         table = Table(file, format="csv")
 
-        table.read(keyed=True, limit=100)
-        table.infer()
+        return infer_schema_general(table)
 
-        fields = []
 
-        for raw_field in table.schema.fields:
+class CsvInferrer(SchemaInferenceBase):
+    @staticmethod
+    def infer_schema(file: TextIOWrapper) -> List[SchemaField]:
+        # infer schema of a tsv file without reading the whole file
 
-            mapped_type = tableschema_type_map.get(raw_field.type, NullTypeClass)
+        table = Table(file, format="tsv")
 
-            field = SchemaField(
-                fieldPath=raw_field.name,
-                type=SchemaFieldDataType(mapped_type()),
-                nativeDataType=str(raw_field.type),
-                recursive=False,
-            )
-
-            fields.append(field)
-
-        return fields
+        return infer_schema_general(table)
