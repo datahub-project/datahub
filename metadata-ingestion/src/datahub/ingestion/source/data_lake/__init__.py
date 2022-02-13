@@ -347,6 +347,8 @@ class DataLakeSource(Source):
                 file_path, f"could not infer schema for file {file_path}: {e}"
             )
             file.close()
+            
+        fields = sorted(fields, key=lambda f: f.fieldPath)
 
         schema_metadata = SchemaMetadata(
             schemaName=dataset_name,
