@@ -1,5 +1,6 @@
 from os import PathLike
 from typing import List, Union
+
 import pyarrow
 import pyarrow.parquet
 

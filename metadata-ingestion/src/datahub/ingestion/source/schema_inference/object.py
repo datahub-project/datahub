@@ -1,12 +1,14 @@
 from collections import Counter
 from os import PathLike
-from typing import Any, List
+from typing import Any
 from typing import Counter as CounterType
-from typing import Dict, Iterable, Tuple, TypedDict, Union
+from typing import Dict, Iterable, List, Tuple, TypedDict, Union
+
+import ujson
 
 from datahub.ingestion.source.schema_inference.base import SchemaInferenceBase
-import ujson
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
+
 
 class BasicSchemaDescription(TypedDict):
     types: CounterType[type]  # field types and times seen
@@ -181,4 +183,3 @@ def construct_schema(
         extended_schema[field_path] = field_extended
 
     return extended_schema
-
