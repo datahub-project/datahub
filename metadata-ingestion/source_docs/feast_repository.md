@@ -45,7 +45,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 
 ## Compatibility
 
-This source is compatible with [Feast (>=0.15.0)](https://github.com/feast-dev/feast/releases/tag/v0.15.0).
+This source is compatible with [Feast (>=0.18.0)](https://github.com/feast-dev/feast/releases/tag/v0.18.0).
 
 ## Questions
 
