@@ -36,6 +36,7 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
+from datahub.ingestion.source.data_lake import schema_inference
 from datahub.ingestion.source.data_lake.config import DataLakeSourceConfig
 from datahub.ingestion.source.data_lake.profiling import _SingleTableProfiler
 from datahub.ingestion.source.data_lake.report import DataLakeSourceReport
@@ -230,7 +231,7 @@ class DataLakeSource(Source):
 
         return cls(config, ctx)
 
-    def read_file(self, file: str) -> Optional[DataFrame]:
+    def read_file_spark(self, file: str) -> Optional[DataFrame]:
 
         extension = os.path.splitext(file)[1]
 
@@ -285,7 +286,7 @@ class DataLakeSource(Source):
         return df.toDF(*(c.replace(".", "_") for c in df.columns))
 
     def get_table_schema(
-        self, dataframe: DataFrame, file_path: str, table_name: str
+        self, file_path: str, table_name: str
     ) -> Iterable[MetadataWorkUnit]:
 
         data_platform_urn = make_data_platform_urn(self.source_config.platform)
@@ -310,25 +311,27 @@ class DataLakeSource(Source):
         )
         dataset_snapshot.aspects.append(dataset_properties)
 
-        column_fields = []
+        fields = []
 
-        for field in dataframe.schema.fields:
-
-            field = SchemaField(
-                fieldPath=field.name,
-                type=get_column_type(self.report, dataset_name, field.dataType),
-                nativeDataType=str(field.dataType),
-                recursive=False,
+        if file_path.endswith(".parquet"):
+            fields = schema_inference.infer_schema_parquet(file_path)
+        elif file_path.endswith(".csv"):
+            fields = schema_inference.infer_schema_csv(file_path)
+        elif file_path.endswith(".json"):
+            fields = schema_inference.infer_schema_json(file_path)
+        elif file_path.endswith(".avro"):
+            fields = schema_inference.infer_schema_avro(file_path)
+        else:
+            self.report.report_warning(
+                file_path, f"file {file_path} has unsupported extension"
             )
-
-            column_fields.append(field)
 
         schema_metadata = SchemaMetadata(
             schemaName=dataset_name,
             platform=data_platform_urn,
             version=0,
             hash="",
-            fields=column_fields,
+            fields=fields,
             platformSchema=OtherSchemaClass(rawSchema=""),
         )
 
@@ -375,20 +378,24 @@ class DataLakeSource(Source):
 
         table_name = self.get_table_name(relative_path)
 
-        table = self.read_file(full_path)
-
-        # if table is not readable, skip
-        if table is None:
-            return
-
         # yield the table schema first
         logger.debug(
             f"Ingesting {full_path}: making table schemas {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
         )
-        yield from self.get_table_schema(table, full_path, table_name)
+        yield from self.get_table_schema(full_path, table_name)
 
         # If profiling is not enabled, skip the rest
         if not self.source_config.profiling.enabled:
+            return
+
+        # read in the whole table with Spark for profiling
+        table = self.read_file_spark(full_path)
+
+        # if table is not readable, skip
+        if table is None:
+            self.report.report_warning(
+                table_name, f"unable to read table {table_name} from file {full_path}"
+            )
             return
 
         # init PySpark analysis object
