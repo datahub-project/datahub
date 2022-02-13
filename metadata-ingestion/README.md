@@ -42,7 +42,7 @@ Sources:
 | [dbt](./source_docs/dbt.md)                                     | _no additional dependencies_                               | dbt source                          |
 | [druid](./source_docs/druid.md)                                 | `pip install 'acryl-datahub[druid]'`                       | Druid Source                        |
 | [feast](./source_docs/feast.md)                                 | `pip install 'acryl-datahub[feast]'`                       | Feast source                        |
-| [feast-repository](./source_docs/feast-repository.md)           | `pip install 'acryl-datahub[feast-repository]'`            | Feast repository source             |
+| [feast-repository](./source_docs/feast_repository.md)           | `pip install 'acryl-datahub[feast-repository]'`            | Feast repository source             |
 | [glue](./source_docs/glue.md)                                   | `pip install 'acryl-datahub[glue]'`                        | AWS Glue source                     |
 | [hive](./source_docs/hive.md)                                   | `pip install 'acryl-datahub[hive]'`                        | Hive source                         |
 | [kafka](./source_docs/kafka.md)                                 | `pip install 'acryl-datahub[kafka]'`                       | Kafka source                        |
