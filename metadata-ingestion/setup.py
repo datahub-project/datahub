@@ -112,7 +112,7 @@ plugins: Dict[str, Set[str]] = {
     "druid": sql_common | {"pydruid>=0.6.2"},
     "elasticsearch": {"elasticsearch"},
     "feast": {"docker"},
-    "feast-repository": {"feast>=0.15.0"},
+    "feast-repository": {"feast>=0.18.0"},
     "glue": aws_common,
     "hive": sql_common
     | {
