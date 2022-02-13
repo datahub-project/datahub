@@ -77,6 +77,7 @@ def map_pyarrow_type(pyarrow_type):
 
 
 class ParquetInferrer(SchemaInferenceBase):
+    @staticmethod
     def infer_schema(file_path: Union[str, PathLike]) -> List[SchemaField]:
         # infer schema of a parquet file without reading the whole file
 

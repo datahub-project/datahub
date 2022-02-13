@@ -13,7 +13,7 @@ from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.schema_inference.json import (
+from datahub.ingestion.source.schema_inference.object import (
     SchemaDescription,
     construct_schema,
 )

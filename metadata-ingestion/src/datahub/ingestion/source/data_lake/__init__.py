@@ -159,6 +159,10 @@ class DataLakeSource(Source):
                     config_int,
                 )
 
+                self.init_spark()
+
+    def init_spark(self):
+
         conf = SparkConf()
 
         conf.set(
@@ -220,7 +224,7 @@ class DataLakeSource(Source):
                 )
 
         conf.set("spark.jars.excludes", pydeequ.f2j_maven_coord)
-        conf.set("spark.driver.memory", config.spark_driver_memory)
+        conf.set("spark.driver.memory", self.source_config.spark_driver_memory)
 
         self.spark = SparkSession.builder.config(conf=conf).getOrCreate()
 

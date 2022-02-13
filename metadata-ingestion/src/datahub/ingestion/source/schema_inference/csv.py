@@ -46,6 +46,7 @@ tableschema_type_map = {
 
 
 class CsvInferrer(SchemaInferenceBase):
+    @staticmethod
     def infer_schema(file_path: Union[str, PathLike]) -> List[SchemaField]:
         # infer schema of a csv file without reading the whole file
 

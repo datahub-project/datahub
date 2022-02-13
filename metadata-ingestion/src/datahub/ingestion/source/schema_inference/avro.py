@@ -1,5 +1,5 @@
 from os import PathLike
-from typing import List, Union
+from typing import List, Type, Union
 
 import pyarrow.parquet
 import ujson
@@ -41,6 +41,7 @@ avro_type_map = {
 
 
 class AvroInferrer(SchemaInferenceBase):
+    @staticmethod
     def infer_schema(file_path: Union[str, PathLike]) -> List[SchemaField]:
 
         with open(file_path, "rb") as f:
@@ -54,33 +55,23 @@ class AvroInferrer(SchemaInferenceBase):
                 name = field["name"]
                 avro_type = field["type"]
 
-                mapped_type = None
+                mapped_type: Type = NullTypeClass
+                type_args = None
                 nullable = False
 
                 if isinstance(avro_type, str):
-                    mapped_type = avro_type_map.get(avro_type)
+                    mapped_type = avro_type_map.get(avro_type, NullTypeClass)
 
                 elif isinstance(avro_type, list) and len(avro_type) > 1:
 
                     if "null" in avro_type and len(avro_type) == 2:
                         avro_type.remove("null")
                         nullable = True
-                        mapped_type = avro_type_map.get(avro_type[0])
+                        mapped_type = avro_type_map.get(avro_type[0], NullTypeClass)
                     else:
 
-                        union_types = []
-
-                        for subtype in avro_type:
-
-                            mapped_subtype = avro_type_map.get(subtype)
-
-                            if mapped_subtype is None:
-                                # TODO: raise warning
-                                mapped_subtype = NullTypeClass
-
-                            union_types.append(mapped_subtype)
-
-                        mapped_type = UnionTypeClass(union_types)
+                        mapped_type = UnionTypeClass
+                        type_args = avro_type
 
                 else:
                     mapped_type = NullTypeClass
@@ -88,7 +79,7 @@ class AvroInferrer(SchemaInferenceBase):
 
                 field = SchemaField(
                     fieldPath=name,
-                    type=SchemaFieldDataType(mapped_type()),
+                    type=SchemaFieldDataType(mapped_type(type_args)),
                     nativeDataType=str(avro_type),
                     recursive=False,
                     nullable=nullable,
