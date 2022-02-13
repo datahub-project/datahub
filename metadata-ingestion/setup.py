@@ -92,6 +92,11 @@ snowflake_common = {
     "cryptography",
 }
 
+trino = {
+    "trino>=0.308",
+    "trino[sqlalchemy]>=0.308"
+}
+
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
@@ -148,8 +153,8 @@ plugins: Dict[str, Set[str]] = {
     "sqlalchemy": sql_common,
     "superset": {"requests", "sqlalchemy", "great_expectations"},
     "tableau": {"tableauserverclient>=0.17.0"},
-    "trino": sql_common | {"trino"},
-    "starburst-trino-usage": sql_common | {"trino"},
+    "trino": sql_common | trino,
+    "starburst-trino-usage": sql_common | trino,
     "nifi": {"requests", "packaging"},
 }
 

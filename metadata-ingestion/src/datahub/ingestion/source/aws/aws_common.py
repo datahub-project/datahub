@@ -6,7 +6,7 @@ from boto3.session import Session
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
-from datahub.emitter.mce_builder import DEFAULT_ENV
+from datahub.configuration.source_common import DEFAULT_ENV
 
 if TYPE_CHECKING:
 

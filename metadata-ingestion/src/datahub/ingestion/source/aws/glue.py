@@ -10,6 +10,7 @@ import yaml
 from pydantic import validator
 
 from datahub.configuration.common import ConfigurationError
+from datahub.configuration.source_common import PlatformSourceConfigBase
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -45,8 +46,11 @@ from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_col
 
 logger = logging.getLogger(__name__)
 
+VALID_PLATFORMS = ["glue", "athena"]
+DEFAULT_PLATFORM = "glue"
 
-class GlueSourceConfig(AwsSourceConfig):
+
+class GlueSourceConfig(AwsSourceConfig, PlatformSourceConfigBase):
 
     extract_owners: Optional[bool] = True
     extract_transforms: Optional[bool] = True
@@ -70,6 +74,29 @@ class GlueSourceConfig(AwsSourceConfig):
                 "glue_s3_lineage_direction must be either upstream or downstream"
             )
         return v.lower()
+
+    @validator("underlying_platform")
+    def underlying_platform_validator(cls, v: str) -> str:
+        if not v or v in VALID_PLATFORMS:
+            return v
+        else:
+            raise ConfigurationError(
+                f"'underlying_platform' can only take following values: {VALID_PLATFORMS}"
+            )
+
+    @validator("platform")
+    def platform_validator(cls, v: str) -> str:
+        if not v or v in VALID_PLATFORMS:
+            return v
+        else:
+            raise ConfigurationError(
+                f"'platform' can only take following values: {VALID_PLATFORMS}"
+            )
+
+    @validator("platform_instance")
+    def platform_instance_validator(cls, v):
+        # TODO: is there any restriction on platform_instance values?
+        return v
 
 
 @dataclass
@@ -96,7 +123,6 @@ class GlueSource(Source):
         self.glue_client = config.glue_client
         self.s3_client = config.s3_client
         self.extract_transforms = config.extract_transforms
-        self.underlying_platform = config.underlying_platform
         self.env = config.env
 
     @classmethod
@@ -104,10 +130,18 @@ class GlueSource(Source):
         config = GlueSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def get_underlying_platform(self):
-        if self.underlying_platform in ["athena"]:
-            return self.underlying_platform
-        return "glue"
+    @property
+    def platform(self) -> str:
+        """
+        This deprecates "underlying_platform" field in favour of the standard "platform" one, which has
+        more priority when both are defined.
+        :return: platform, otherwise underlying_platform, otherwise "glue"
+        """
+        return (
+            self.source_config.platform
+            or self.source_config.underlying_platform
+            or DEFAULT_PLATFORM
+        )
 
     def get_all_jobs(self):
         """
@@ -231,7 +265,12 @@ class GlueSource(Source):
                 full_table_name = f"{node_args['database']}.{node_args['table_name']}"
 
                 # we know that the table will already be covered when ingesting Glue tables
-                node_urn = f"urn:li:dataset:(urn:li:dataPlatform:{self.get_underlying_platform()},{full_table_name},{self.env})"
+                node_urn = mce_builder.make_dataset_urn_with_platform_instance(
+                    platform=self.platform,
+                    name=full_table_name,
+                    env=self.env,
+                    platform_instance=self.source_config.platform_instance,
+                )
 
             # if data object is S3 bucket
             elif node_args.get("connection_type") == "s3":
@@ -558,7 +597,7 @@ class GlueSource(Source):
             for job in self.get_all_jobs():
 
                 flow_urn = mce_builder.make_data_flow_urn(
-                    self.get_underlying_platform(), job["Name"], self.env
+                    self.platform, job["Name"], self.env
                 )
 
                 flow_wu = self.get_dataflow_wu(flow_urn, job)
@@ -670,13 +709,18 @@ class GlueSource(Source):
                 schemaName=table_name,
                 version=0,
                 fields=fields,
-                platform=f"urn:li:dataPlatform:{self.get_underlying_platform()}",
+                platform=f"urn:li:dataPlatform:{self.platform}",
                 hash="",
                 platformSchema=MySqlDDL(tableSchema=""),
             )
 
         dataset_snapshot = DatasetSnapshot(
-            urn=f"urn:li:dataset:(urn:li:dataPlatform:{self.get_underlying_platform()},{table_name},{self.env})",
+            urn=mce_builder.make_dataset_urn_with_platform_instance(
+                platform=self.platform,
+                name=table_name,
+                env=self.env,
+                platform_instance=self.source_config.platform_instance,
+            ),
             aspects=[],
         )
 
