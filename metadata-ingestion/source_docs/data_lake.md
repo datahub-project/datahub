@@ -10,7 +10,7 @@ This source is in **Beta** and under active development. Not yet considered read
 
 ## Setup
 
-To install this plugin, run `pip install 'acryl-datahub[data-lake]'`. Because the files are read using PySpark, we require Spark 3.0.3 with Hadoop 3.2 to be installed.
+To install this plugin, run `pip install 'acryl-datahub[data-lake]'`. Note that because the profiling is run with PySpark, we require Spark 3.0.3 with Hadoop 3.2 to be installed (see [compatibility](#compatibility) for more details).
 
 The data lake connector extracts schemas and profiles from a variety of file formats (see below for an exhaustive list).
 Individual files are ingested as tables, and profiles are computed similar to the [SQL profiler](./sql_profiles.md).
@@ -37,7 +37,7 @@ If you would like to write a more complicated function for resolving file names,
 Extracts:
 
 - Row and column counts for each table
-- For each column, if applicable:
+- For each column, if profiling is enabled:
   - null counts and proportions
   - distinct counts and proportions
   - minimum, maximum, mean, median, standard deviation, some quantile values
@@ -47,9 +47,11 @@ This connector supports both local files as well as those stored on AWS S3 (whic
 
 - CSV
 - TSV
-- Parquet
 - JSON
+- Parquet
 - Apache Avro
+
+Note that schemas are inferred for CSV and TSV filetypes on the basis of the first 100 rows. JSON file schemas are likewise inferred on the basis of the entire file, which may impact performance. Schemas for Parquet and Avro files are extracted as provided.
 
 :::caution
 
@@ -57,10 +59,9 @@ If you are ingesting datasets from AWS S3, we recommend running the ingestion on
 
 :::
 
-| Capability | Status | Details | 
-| -----------| ------ | ---- |
-| Platform Instance | 🛑 | [link](../../docs/platform-instances.md) |
-
+| Capability        | Status | Details                                  |
+| ----------------- | ------ | ---------------------------------------- |
+| Platform Instance | 🛑     | [link](../../docs/platform-instances.md) |
 
 ## Quickstart recipe
 
@@ -121,9 +122,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 
 ## Compatibility
 
-Files are read using PySpark and profiles are computed with PyDeequ.
-We currently require Spark 3.0.3 with Hadoop 3.2 to be installed and the `SPARK_HOME` environment variable to be set for PySpark.
-The Spark+Hadoop binary can be downloaded [here](https://www.apache.org/dyn/closer.lua/spark/spark-3.0.3/spark-3.0.3-bin-hadoop3.2.tgz).
+Profiles are computed with PyDeequ, which relies on PySpark. Therefore, for computing profiles, we currently require Spark 3.0.3 with Hadoop 3.2 to be installed and the `SPARK_HOME` and `SPARK_VERSION` environment variables to be set. The Spark+Hadoop binary can be downloaded [here](https://www.apache.org/dyn/closer.lua/spark/spark-3.0.3/spark-3.0.3-bin-hadoop3.2.tgz).
 
 For an example guide on setting up PyDeequ on AWS, see [this guide](https://aws.amazon.com/blogs/big-data/testing-data-quality-at-scale-with-pydeequ/).
 

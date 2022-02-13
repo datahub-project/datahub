@@ -35,9 +35,11 @@ tableschema_type_map = {
     "any": UnionTypeClass,
 }
 
+MAX_ROWS = 100
+
 
 def infer_schema_general(table: Table) -> List[SchemaField]:
-    table.read(keyed=True, limit=100)
+    table.read(keyed=True, limit=MAX_ROWS)
     table.infer()
 
     fields = []
