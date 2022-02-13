@@ -17,6 +17,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     NumberTypeClass,
     RecordTypeClass,
     SchemaField,
+    SchemaFieldDataType,
     StringTypeClass,
     TimeTypeClass,
     UnionTypeClass,
@@ -53,9 +54,11 @@ def infer_schema_csv(file_path):
 
     for raw_field in table.schema.fields:
 
+        mapped_type = tableschema_type_map.get(raw_field.type, NullTypeClass)
+
         field = SchemaField(
             fieldPath=raw_field.name,
-            type=tableschema_type_map.get(raw_field.type, NullTypeClass),
+            type=SchemaFieldDataType(mapped_type()),
             nativeDataType=str(raw_field.type),
             recursive=False,
         )
@@ -131,9 +134,11 @@ def infer_schema_parquet(file_path):
 
     for name, pyarrow_type in zip(schema.names, schema.types):
 
+        mapped_type = map_pyarrow_type(pyarrow_type)
+
         field = SchemaField(
             fieldPath=name,
-            type=map_pyarrow_type(pyarrow_type),
+            type=SchemaFieldDataType(mapped_type()),
             nativeDataType=str(pyarrow_type),
             recursive=False,
         )
@@ -151,7 +156,8 @@ def infer_schema_json(file_path):
         datastore = ujson.load(f)
         builder.add_object(datastore)
 
-    return builder.to_schema()
+    # return builder.to_schema()
+    return []
 
 
 # see https://avro.apache.org/docs/current/spec.html
@@ -219,7 +225,7 @@ def infer_schema_avro(file_path):
 
             field = SchemaField(
                 fieldPath=name,
-                type=mapped_type,
+                type=SchemaFieldDataType(mapped_type()),
                 nativeDataType=str(avro_type),
                 recursive=False,
                 nullable=nullable,
