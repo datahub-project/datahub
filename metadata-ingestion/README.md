@@ -38,10 +38,11 @@ Sources:
 | [athena](./source_docs/athena.md)                               | `pip install 'acryl-datahub[athena]'`                      | AWS Athena source                   |
 | [bigquery](./source_docs/bigquery.md)                           | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source                     |
 | [bigquery-usage](./source_docs/bigquery.md)                     | `pip install 'acryl-datahub[bigquery-usage]'`              | BigQuery usage statistics source    |
-| [datahub-business-glossary](./source_docs/business_glossary.md) | _no additional dependencies_                               | Business Glossary File source                         |
+| [datahub-business-glossary](./source_docs/business_glossary.md) | _no additional dependencies_                               | Business Glossary File source       |
 | [dbt](./source_docs/dbt.md)                                     | _no additional dependencies_                               | dbt source                          |
 | [druid](./source_docs/druid.md)                                 | `pip install 'acryl-datahub[druid]'`                       | Druid Source                        |
 | [feast](./source_docs/feast.md)                                 | `pip install 'acryl-datahub[feast]'`                       | Feast source                        |
+| [feast-repository](./source_docs/feast-repository.md)           | `pip install 'acryl-datahub[feast-repository]'`            | Feast repository source             |
 | [glue](./source_docs/glue.md)                                   | `pip install 'acryl-datahub[glue]'`                        | AWS Glue source                     |
 | [hive](./source_docs/hive.md)                                   | `pip install 'acryl-datahub[hive]'`                        | Hive source                         |
 | [kafka](./source_docs/kafka.md)                                 | `pip install 'acryl-datahub[kafka]'`                       | Kafka source                        |
@@ -67,8 +68,8 @@ Sources:
 | [sqlalchemy](./source_docs/sqlalchemy.md)                       | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source           |
 | [superset](./source_docs/superset.md)                           | `pip install 'acryl-datahub[superset]'`                    | Superset source                     |
 | [tableau](./source_docs/tableau.md)                             | `pip install 'acryl-datahub[tableau]'`                     | Tableau source                      |
-| [trino](./source_docs/trino.md)                                 | `pip install 'acryl-datahub[trino]`                        | Trino source                     |
-| [starburst-trino-usage](./source_docs/trino.md)                 | `pip install 'acryl-datahub[starburst-trino-usage]'`       | Starburst Trino usage statistics source   |
+| [trino](./source_docs/trino.md)                                 | `pip install 'acryl-datahub[trino]`                        | Trino source                        |
+| [starburst-trino-usage](./source_docs/trino.md)                 | `pip install 'acryl-datahub[starburst-trino-usage]'`       | Starburst Trino usage statistics source |
 | [nifi](./source_docs/nifi.md)                                   | `pip install 'acryl-datahub[nifi]`                         | Nifi source                         |
 
 Sinks
