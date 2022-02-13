@@ -116,6 +116,7 @@ plugins: Dict[str, Set[str]] = {
         "tableschema==1.20.2",
         "ujson==5.1.0",
         "types-ujson==4.2.1"
+        "smart_open[s3]==5.2.1"
     },
     "dbt": {"requests"},
     "druid": sql_common | {"pydruid>=0.6.2"},

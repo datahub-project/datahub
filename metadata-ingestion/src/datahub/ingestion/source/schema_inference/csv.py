@@ -1,3 +1,4 @@
+from io import TextIOWrapper
 from os import PathLike
 from typing import List, Union
 
@@ -47,11 +48,11 @@ tableschema_type_map = {
 
 class CsvInferrer(SchemaInferenceBase):
     @staticmethod
-    def infer_schema(file_path: Union[str, PathLike]) -> List[SchemaField]:
+    def infer_schema(file: TextIOWrapper) -> List[SchemaField]:
         # infer schema of a csv file without reading the whole file
 
         # read the first line of the file
-        table = Table(file_path)
+        table = Table(file, format="csv")
 
         table.read(keyed=True, limit=100)
         table.infer()

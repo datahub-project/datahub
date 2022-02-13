@@ -1,3 +1,4 @@
+from io import TextIOWrapper
 from os import PathLike
 from typing import Dict, List, Type, Union
 
@@ -29,32 +30,31 @@ _field_type_mapping: Dict[Union[Type, str], Type] = {
 
 class JsonInferrer(SchemaInferenceBase):
     @staticmethod
-    def infer_schema(file_path: Union[str, PathLike]) -> List[SchemaField]:
+    def infer_schema(file: TextIOWrapper) -> List[SchemaField]:
 
-        with open(file_path, "r") as f:
-            datastore = ujson.load(f)
+        datastore = ujson.load(file)
 
-            if not isinstance(datastore, list):
-                datastore = [datastore]
+        if not isinstance(datastore, list):
+            datastore = [datastore]
 
-            schema = construct_schema(datastore, delimiter=".")
+        schema = construct_schema(datastore, delimiter=".")
 
-            fields = []
+        fields = []
 
-            for schema_field in sorted(
-                schema.values(), key=lambda x: x["delimited_name"]
-            ):
-                mapped_type = _field_type_mapping.get(
-                    schema_field["type"], NullTypeClass
-                )
+        for schema_field in sorted(
+            schema.values(), key=lambda x: x["delimited_name"]
+        ):
+            mapped_type = _field_type_mapping.get(
+                schema_field["type"], NullTypeClass
+            )
 
-                field = SchemaField(
-                    fieldPath=schema_field["delimited_name"],
-                    nativeDataType=str(mapped_type),
-                    type=SchemaFieldDataType(type=mapped_type()),
-                    nullable=schema_field["nullable"],
-                    recursive=False,
-                )
-                fields.append(field)
+            field = SchemaField(
+                fieldPath=schema_field["delimited_name"],
+                nativeDataType=str(mapped_type),
+                type=SchemaFieldDataType(type=mapped_type()),
+                nullable=schema_field["nullable"],
+                recursive=False,
+            )
+            fields.append(field)
 
-            return fields
+        return fields

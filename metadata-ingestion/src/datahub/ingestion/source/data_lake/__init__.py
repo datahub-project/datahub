@@ -29,6 +29,7 @@ from pyspark.sql.types import (
     TimestampType,
 )
 from pyspark.sql.utils import AnalysisException
+from smart_open import open as smart_open
 
 from datahub.emitter.mce_builder import make_data_platform_urn, make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -316,18 +317,29 @@ class DataLakeSource(Source):
 
         fields = []
 
+        if file_path.startswith("s3a://"):
+            s3_client = self.source_config.aws_config.get_s3_client()
+
+            file = smart_open(file_path, "rb", transport_params={"client": s3_client})
+
+        else:
+
+            file = open(file_path, "r")
+
         if file_path.endswith(".parquet"):
-            fields = parquet.ParquetInferrer.infer_schema(file_path)
+            fields = parquet.ParquetInferrer.infer_schema(file)
         elif file_path.endswith(".csv"):
-            fields = csv.CsvInferrer.infer_schema(file_path)
+            fields = csv.CsvInferrer.infer_schema(file)
         elif file_path.endswith(".json"):
-            fields = json.JsonInferrer.infer_schema(file_path)
+            fields = json.JsonInferrer.infer_schema(file)
         elif file_path.endswith(".avro"):
-            fields = avro.AvroInferrer.infer_schema(file_path)
+            fields = avro.AvroInferrer.infer_schema(file)
         else:
             self.report.report_warning(
                 file_path, f"file {file_path} has unsupported extension"
             )
+
+        file.close()
 
         schema_metadata = SchemaMetadata(
             schemaName=dataset_name,
@@ -458,7 +470,7 @@ class DataLakeSource(Source):
 
             for s3_prefix in s3_prefixes:
                 if self.source_config.base_path.startswith(s3_prefix):
-                    plain_base_path = self.source_config.base_path.lstrip(s3_prefix)
+                    plain_base_path = self.source_config.base_path[len(s3_prefix) :]
                     break
 
             # append a trailing slash if it's not there so prefix filtering works

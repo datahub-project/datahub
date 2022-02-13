@@ -1,3 +1,4 @@
+from io import TextIOWrapper
 from os import PathLike
 from typing import List, Union
 
@@ -10,7 +11,7 @@ class SchemaInferenceBase:
     """
 
     @staticmethod
-    def infer_schema(file_path: Union[str, PathLike]) -> List[SchemaField]:
+    def infer_schema(file: TextIOWrapper) -> List[SchemaField]:
         """
         Infer schema from file.
         """

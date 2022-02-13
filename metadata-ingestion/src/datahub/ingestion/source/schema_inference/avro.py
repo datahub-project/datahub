@@ -1,3 +1,4 @@
+from io import TextIOWrapper
 from os import PathLike
 from typing import List, Type, Union
 
@@ -42,49 +43,47 @@ avro_type_map = {
 
 class AvroInferrer(SchemaInferenceBase):
     @staticmethod
-    def infer_schema(file_path: Union[str, PathLike]) -> List[SchemaField]:
+    def infer_schema(file: TextIOWrapper) -> List[SchemaField]:
 
-        with open(file_path, "rb") as f:
+        reader = DataFileReader(file, DatumReader())
+        schema = ujson.loads(reader.schema)
 
-            reader = DataFileReader(f, DatumReader())
-            schema = ujson.loads(reader.schema)
+        fields = []
 
-            fields = []
+        for field in schema["fields"]:
+            name = field["name"]
+            avro_type = field["type"]
 
-            for field in schema["fields"]:
-                name = field["name"]
-                avro_type = field["type"]
+            mapped_type: Type = NullTypeClass
+            type_args = None
+            nullable = False
 
-                mapped_type: Type = NullTypeClass
-                type_args = None
-                nullable = False
+            if isinstance(avro_type, str):
+                mapped_type = avro_type_map.get(avro_type, NullTypeClass)
 
-                if isinstance(avro_type, str):
-                    mapped_type = avro_type_map.get(avro_type, NullTypeClass)
+            elif isinstance(avro_type, list) and len(avro_type) > 1:
 
-                elif isinstance(avro_type, list) and len(avro_type) > 1:
-
-                    if "null" in avro_type and len(avro_type) == 2:
-                        avro_type.remove("null")
-                        nullable = True
-                        mapped_type = avro_type_map.get(avro_type[0], NullTypeClass)
-                    else:
-
-                        mapped_type = UnionTypeClass
-                        type_args = avro_type
-
+                if "null" in avro_type and len(avro_type) == 2:
+                    avro_type.remove("null")
+                    nullable = True
+                    mapped_type = avro_type_map.get(avro_type[0], NullTypeClass)
                 else:
-                    mapped_type = NullTypeClass
-                    # TODO: raise warning
 
-                field = SchemaField(
-                    fieldPath=name,
-                    type=SchemaFieldDataType(mapped_type(type_args)),
-                    nativeDataType=str(avro_type),
-                    recursive=False,
-                    nullable=nullable,
-                )
+                    mapped_type = UnionTypeClass
+                    type_args = avro_type
 
-                fields.append(field)
+            else:
+                mapped_type = NullTypeClass
+                # TODO: raise warning
 
-            return fields
+            field = SchemaField(
+                fieldPath=name,
+                type=SchemaFieldDataType(mapped_type(type_args)),
+                nativeDataType=str(avro_type),
+                recursive=False,
+                nullable=nullable,
+            )
+
+            fields.append(field)
+
+        return fields
