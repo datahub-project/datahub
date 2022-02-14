@@ -252,6 +252,7 @@ full_test_dev_requirements = {
     *list(
         dependency
         for plugin in [
+            "athena",
             "druid",
             "feast",
             "hive",

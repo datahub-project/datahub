@@ -3,19 +3,13 @@ from unittest import mock
 
 import pytest
 from freezegun import freeze_time
-from pyathena.model import AthenaTableMetadata
-
-from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.sql.athena import AthenaConfig, AthenaSource
 
 FROZEN_TIME = "2020-04-14 07:00:00"
 
 
-def _base_config():
-    return {"username": "user", "password": "password", "host_port": "host:1521"}
-
-
+@pytest.mark.integration
 def test_athena_uri():
+    from datahub.ingestion.source.sql.athena import AthenaConfig, AthenaSource
 
     config = AthenaConfig.parse_obj(
         {
@@ -32,7 +26,13 @@ def test_athena_uri():
 
 @pytest.mark.integration
 @freeze_time(FROZEN_TIME)
+@pytest.mark.integration
 def test_athena_get_table_properties():
+    from pyathena.model import AthenaTableMetadata
+
+    from datahub.ingestion.api.common import PipelineContext
+    from datahub.ingestion.source.sql.athena import AthenaConfig, AthenaSource
+
     config = AthenaConfig.parse_obj(
         {
             "aws_region": "us-west-1",
