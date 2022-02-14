@@ -35,7 +35,7 @@ public class RestliLoggingFilter implements Filter {
       final FilterRequestContext requestContext,
       final FilterResponseContext responseContext) {
     logResponse(requestContext, responseContext);
-    log.error(th.getMessage());
+    log.error("Rest.li error: ", th);
     return CompletableFuture.completedFuture(null);
   }
 
@@ -52,8 +52,7 @@ public class RestliLoggingFilter implements Filter {
     String method = requestContext.getMethod().getName();
     String uri = requestContext.getRequestURI().toString();
 
-    String logStr = String.format("%s %s - %s - %s - %sms", httpMethod, uri, method, status.getCode(), duration);
-    log.info(logStr);
+    log.info("{} {} - {} - {} - {}ms", httpMethod, uri, method, status.getCode(), duration);
   }
 
 }
