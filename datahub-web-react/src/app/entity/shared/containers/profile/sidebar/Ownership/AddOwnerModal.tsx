@@ -14,6 +14,7 @@ type Props = {
     visible: boolean;
     onClose: () => void;
     refetch?: () => Promise<any>;
+    urn?: string;
 };
 
 const SearchResultContainer = styled.div`
@@ -39,9 +40,9 @@ type SelectedActor = {
     urn: string;
 };
 
-export const AddOwnerModal = ({ visible, onClose, refetch }: Props) => {
+export const AddOwnerModal = ({ visible, onClose, refetch, urn }: Props) => {
     const entityRegistry = useEntityRegistry();
-    const { urn, entityType } = useEntityData();
+    const { entityType } = useEntityData();
     const [selectedActor, setSelectedActor] = useState<SelectedActor | undefined>(undefined);
     const [userSearch, { data: userSearchData }] = useGetSearchResultsLazyQuery();
     const [groupSearch, { data: groupSearchData }] = useGetSearchResultsLazyQuery();
@@ -65,7 +66,7 @@ export const AddOwnerModal = ({ visible, onClose, refetch }: Props) => {
                 variables: {
                     input: {
                         ownerUrn: selectedActor.urn,
-                        resourceUrn: urn,
+                        resourceUrn: urn || '',
                         ownerEntityType,
                     },
                 },
@@ -75,7 +76,7 @@ export const AddOwnerModal = ({ visible, onClose, refetch }: Props) => {
                 type: EventType.EntityActionEvent,
                 actionType: EntityActionType.UpdateOwnership,
                 entityType,
-                entityUrn: urn,
+                entityUrn: urn || '',
             });
         } catch (e: unknown) {
             message.destroy();

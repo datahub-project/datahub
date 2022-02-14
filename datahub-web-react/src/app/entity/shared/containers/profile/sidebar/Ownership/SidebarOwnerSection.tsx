@@ -36,6 +36,7 @@ export const SidebarOwnerSection = () => {
                 onClose={() => {
                     setShowAddModal(false);
                 }}
+                urn={urn}
             />
         </div>
     );

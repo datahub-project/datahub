@@ -11,6 +11,7 @@ import { StyledTag } from '../../entity/shared/components/styled/StyledTag';
 import { EMPTY_MESSAGES } from '../../entity/shared/constants';
 import { useRemoveTagMutation, useRemoveTermMutation } from '../../../graphql/mutations.generated';
 import { DomainLink } from './DomainLink';
+import { TagProfileDrawer } from './TagProfileDrawer';
 
 type Props = {
     uneditableTags?: GlobalTags | null;
@@ -74,6 +75,8 @@ export default function TagTermGroup({
         !uneditableGlossaryTerms?.terms?.length;
     const [removeTagMutation] = useRemoveTagMutation();
     const [removeTermMutation] = useRemoveTermMutation();
+    const [tagProfileDrawerVisible, setTagProfileDrawerVisible] = useState(false);
+    const [addTagUrn, setAddTagUrn] = useState('');
 
     const removeTag = (urnToRemove: string) => {
         onOpenModal?.();
@@ -151,6 +154,15 @@ export default function TagTermGroup({
 
     let renderedTags = 0;
 
+    const showTagProfileDrawer = (urn: string) => {
+        setTagProfileDrawerVisible(true);
+        setAddTagUrn(urn);
+    };
+
+    const closeTagProfileDrawer = () => {
+        setTagProfileDrawerVisible(false);
+    };
+
     return (
         <TagWrapper>
             {domain && (
@@ -195,20 +207,27 @@ export default function TagTermGroup({
                 renderedTags += 1;
                 if (maxShow && renderedTags > maxShow) return null;
                 return (
-                    <TagLink to={entityRegistry.getEntityUrl(EntityType.Tag, tag.tag.urn)} key={tag.tag.urn}>
-                        <StyledTag
-                            $colorHash={tag.tag.urn}
-                            closable={canRemove}
-                            onClose={(e) => {
-                                e.preventDefault();
-                                removeTag(tag.tag.urn);
-                            }}
-                        >
-                            {tag.tag.name}
-                        </StyledTag>
-                    </TagLink>
+                    <StyledTag
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => showTagProfileDrawer(tag.tag.urn)}
+                        $colorHash={tag.tag.urn}
+                        closable={canRemove}
+                        onClose={(e) => {
+                            e.preventDefault();
+                            removeTag(tag.tag.urn);
+                        }}
+                    >
+                        {tag.tag.name}
+                    </StyledTag>
                 );
             })}
+            {tagProfileDrawerVisible && (
+                <TagProfileDrawer
+                    closeTagProfileDrawer={closeTagProfileDrawer}
+                    tagProfileDrawerVisible={tagProfileDrawerVisible}
+                    urn={addTagUrn}
+                />
+            )}
             {showEmptyMessage && canAddTag && tagsEmpty && (
                 <Typography.Paragraph type="secondary">
                     {EMPTY_MESSAGES.tags.title}. {EMPTY_MESSAGES.tags.description}
