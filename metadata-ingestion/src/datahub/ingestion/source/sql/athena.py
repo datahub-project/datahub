@@ -86,7 +86,7 @@ class AthenaSource(SQLAlchemySource):
         )
 
         return description, custom_properties
-   
+
     # It seems like database/schema filter in the connection string does not work and this to work around that
     def get_schema_names(self, inspector: Inspector) -> List[str]:
         athena_config = typing.cast(AthenaConfig, self.config)
