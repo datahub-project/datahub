@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?><testsuite errors="1" failures="0" name="pytest" skips="0" tests="1" time="0.303"><testcase classname="" file="test_e2e.py" name="test_e2e" time="0"><error message="collection failure">ImportError while importing test module &apos;/home/mugdha/mugdha-datahub/datahub/smoke-test/spark-smoke-test/test_e2e.py&apos;.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python2.7/dist-packages/_pytest/python.py:403: in _importtestmodule
+    mod = self.fspath.pyimport(ensuresyspath=importmode)
+/usr/lib/python2.7/dist-packages/py/_path/local.py:668: in pyimport
+    __import__(modname)
+/usr/lib/python2.7/dist-packages/_pytest/assertion/rewrite.py:213: in load_module
+    py.builtin.exec_(co, mod.__dict__)
+test_e2e.py:7: in &lt;module&gt;
+    import requests
+E   ImportError: No module named requests</error></testcase></testsuite>
