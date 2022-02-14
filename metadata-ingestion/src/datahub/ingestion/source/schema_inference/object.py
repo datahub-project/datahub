@@ -1,7 +1,9 @@
 from collections import Counter
 from typing import Any
 from typing import Counter as CounterType
-from typing import Dict, Iterable, Tuple, TypedDict, Union
+from typing import Dict, Iterable, Tuple, Union
+
+from mypy_extensions import TypedDict
 
 
 class BasicSchemaDescription(TypedDict):
