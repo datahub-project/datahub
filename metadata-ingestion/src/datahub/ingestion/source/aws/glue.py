@@ -15,7 +15,6 @@ from datahub.emitter.mce_builder import make_dataset_urn, make_domain_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
     DatabaseKey,
-    PlatformKey,
     add_dataset_to_container,
     add_domain_to_entity_wu,
     gen_containers,
@@ -533,7 +532,7 @@ class GlueSource(Source):
                         return mcp
         return None
 
-    def gen_database_key(self, database: str) -> PlatformKey:
+    def gen_database_key(self, database: str) -> DatabaseKey:
         return DatabaseKey(
             database=database,
             platform=self.get_underlying_platform(),
@@ -568,17 +567,15 @@ class GlueSource(Source):
             yield wu
 
     def _gen_domain_urn(self, dataset_name: str) -> Optional[str]:
-        domain_urn: Optional[str] = None
-
         for domain, pattern in self.source_config.domain.items():
             if pattern.allowed(dataset_name):
-                domain_urn = make_domain_urn(domain)
+                return make_domain_urn(domain)
 
-        return domain_urn
+        return None
 
     def _get_domain_wu(
         self, dataset_name: str, entity_urn: str, entity_type: str
-    ) -> Iterable[Union[MetadataWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
 
         domain_urn = self._gen_domain_urn(dataset_name)
         if domain_urn:
@@ -636,8 +633,8 @@ class GlueSource(Source):
         if self.extract_transforms:
             yield from self._transform_extraction()
 
-    def _transform_extraction(self):
-        dags = {}
+    def _transform_extraction(self) -> Iterable[MetadataWorkUnit]:
+        dags: Dict[str, Optional[Dict[str, Any]]] = {}
         flow_names: Dict[str, str] = {}
         for job in self.get_all_jobs():
 
@@ -662,7 +659,7 @@ class GlueSource(Source):
         # in Glue, it's possible for two buckets to have files of different extensions
         # if this happens, we append the extension in the URN so the sources can be distinguished
         # see process_dataflow_node() for details
-        s3_formats: typing.DefaultDict[str, Set[Union[str, None]]] = defaultdict(
+        s3_formats: typing.DefaultDict[str, Set[Optional[str]]] = defaultdict(
             lambda: set()
         )
         for dag in dags.values():
