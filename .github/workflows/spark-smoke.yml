@@ -23,7 +23,7 @@ jobs:
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Gradle build
-        run: ./gradlew build -x check -x docs-website:build -x signArchives
+        run: ./gradlew build -x check -x docs-website:build 
       - name: build java test library
         working-directory: smoke-test/spark-smoke-test/test-spark-lineage
         run: ./gradlew build
