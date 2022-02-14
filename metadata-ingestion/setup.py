@@ -114,7 +114,7 @@ plugins: Dict[str, Set[str]] = {
         "parse==1.19.0",
         "pyarrow==6.0.1",
         "tableschema==1.20.2",
-        "ujson==5.1.0",
+        "ujson==5.0.0",
         "types-ujson==4.2.1",
         "smart_open[s3]==5.2.1"
     },
