@@ -1,3 +1,4 @@
+import json
 from typing import Dict, Optional, Tuple
 
 from pyathena.common import BaseCursor
@@ -37,10 +38,9 @@ class AthenaConfig(SQLAlchemyConfig):
 
 
 class AthenaSource(SQLAlchemySource):
-    cursor: Optional[BaseCursor] = None
-
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "athena")
+        self.cursor: Optional[BaseCursor] = None
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -60,31 +60,29 @@ class AthenaSource(SQLAlchemySource):
             table_name=table, schema_name=schema
         )
         description = metadata.comment
-        parameters = {k: v for k, v in metadata.parameters.items() if v}
+        custom_properties: Dict[str, str] = {}
+        custom_properties["partition_keys"] = json.dumps(
+            [
+                {
+                    "name": partition.name,
+                    "type": partition.type,
+                    "comment": partition.comment if partition.comment else "",
+                }
+                for partition in metadata.partition_keys
+            ]
+        )
+        for key, value in metadata.parameters.items():
+            custom_properties[key] = value if value else ""
 
-        custom_properties = {
-            **parameters,
-            **{
-                k: str(v)
-                for k, v in metadata.__dict__.items()
-                if (
-                    k
-                    not in [
-                        "_columns",
-                        "_parameters",
-                        "_name",
-                        "comment",
-                        "_partition_keys",
-                    ]
-                    and v
-                )
-            },
-        }
-        if metadata.partition_keys:
-            partition_key = []
-            for key in metadata.partition_keys:
-                partition_key.append(key.__dict__)
-                custom_properties["_partition_keys"] = str(partition_key)
+        custom_properties["create_time"] = (
+            str(metadata.create_time) if metadata.create_time else ""
+        )
+        custom_properties["last_access_time"] = (
+            str(metadata.last_access_time) if metadata.last_access_time else ""
+        )
+        custom_properties["table_type"] = (
+            metadata.table_type if metadata.table_type else ""
+        )
 
         return description, custom_properties
 
