@@ -1,14 +1,17 @@
 import logging
+from dataclasses import dataclass, field
 from typing import Iterable, List, Optional, Union
 
-from dataclasses import dataclass, field
 from pydantic import validator
 
 import datahub.metadata.schema_classes as models
 from datahub.cli.cli_utils import get_aspects_for_entity
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.config_loader import load_config_file
-from datahub.emitter.mce_builder import get_sys_time, make_dataset_urn_with_platform_instance
+from datahub.emitter.mce_builder import (
+    get_sys_time,
+    make_dataset_urn_with_platform_instance,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
@@ -72,8 +75,9 @@ class LineageFileSource(Source):
         return lineage_config
 
     @staticmethod
-    def get_lineage_metadata_change_event_proposal(entities: List[EntityNodeConfig], preserve_upstream: bool) -> \
-            Iterable[MetadataChangeProposalWrapper]:
+    def get_lineage_metadata_change_event_proposal(
+        entities: List[EntityNodeConfig], preserve_upstream: bool
+    ) -> Iterable[MetadataChangeProposalWrapper]:
         """
         Builds a list of events to be emitted to datahub by going through each entity and its upstream nodes
         :param preserve_upstream: This field determines if we want to query the datahub backend to extract
@@ -91,7 +95,8 @@ class LineageFileSource(Source):
                     platform=entity_config.platform,
                     name=entity_config.name,
                     env=entity_config.env,
-                    platform_instance=entity_config.platform_instance)
+                    platform_instance=entity_config.platform_instance,
+                )
             return None
 
         # loop through all the entities
@@ -108,9 +113,16 @@ class LineageFileSource(Source):
                     if preserve_upstream:
                         old_upstream_lineage = get_aspects_for_entity(
                             entity_urn=entity_urn,
-                            aspects=["upstreamLineage"], typed=True).get('upstreamLineage')
+                            aspects=["upstreamLineage"],
+                            typed=True,
+                        ).get("upstreamLineage")
                         if old_upstream_lineage:
-                            new_upstreams.extend(old_upstream_lineage.get('upstreams'))
+                            # Can't seem to get mypy to be happy about
+                            # `Argument 1 to "list" has incompatible type "Optional[Any]";
+                            # expected "Iterable[UpstreamClass]"`
+                            new_upstreams.extend(
+                                old_upstream_lineage.get("upstreams")  # type: ignore
+                            )
                     for upstream_entity_node in entity_node.upstream:
                         upstream_entity = upstream_entity_node.entity
                         upstream_entity_urn = _get_entity_urn(upstream_entity)
@@ -118,24 +130,29 @@ class LineageFileSource(Source):
                             new_upstream = models.UpstreamClass(
                                 dataset=upstream_entity_urn,
                                 type=models.DatasetLineageTypeClass.TRANSFORMED,
-                                auditStamp=auditStamp
+                                auditStamp=auditStamp,
                             )
                             new_upstreams.append(new_upstream)
                         else:
                             logger.warning(
                                 f"Entity type: {upstream_entity.type} is unsupported. Upstream lineage will be skipped "
-                                f"for {upstream_entity.name}->{entity.name}")
-                    new_upstream_lineage = models.UpstreamLineageClass(upstreams=new_upstreams)
+                                f"for {upstream_entity.name}->{entity.name}"
+                            )
+                    new_upstream_lineage = models.UpstreamLineageClass(
+                        upstreams=new_upstreams
+                    )
                     yield MetadataChangeProposalWrapper(
                         entityType=entity.type,
                         changeType=models.ChangeTypeClass.UPSERT,
                         entityUrn=entity_urn,
                         aspectName="upstreamLineage",
-                        aspect=new_upstream_lineage)
+                        aspect=new_upstream_lineage,
+                    )
                 else:
                     logger.warning(
                         f"Entity type: {entity.type} is unsupported. Entity node {entity.name} and its "
-                        f"upstream lineages will be skipped")
+                        f"upstream lineages will be skipped"
+                    )
 
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, UsageStatsWorkUnit]]:
         lineage_config = self.load_lineage_config(self.config.file)
@@ -143,10 +160,15 @@ class LineageFileSource(Source):
         preserve_upstream = self.config.preserve_upstream
         logger.debug(lineage_config)
         logger.info(f"preserve_upstream is set to {self.config.preserve_upstream}")
-        for metadata_change_event_proposal in self.get_lineage_metadata_change_event_proposal(lineage,
-                                                                                              preserve_upstream):
-            work_unit = MetadataWorkUnit(f"lineage-{metadata_change_event_proposal.entityUrn}",
-                                         mcp=metadata_change_event_proposal)
+        for (
+            metadata_change_event_proposal
+        ) in self.get_lineage_metadata_change_event_proposal(
+            lineage, preserve_upstream
+        ):
+            work_unit = MetadataWorkUnit(
+                f"lineage-{metadata_change_event_proposal.entityUrn}",
+                mcp=metadata_change_event_proposal,
+            )
             self.report.report_workunit(work_unit)
             yield work_unit
 
