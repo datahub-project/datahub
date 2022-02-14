@@ -1,12 +1,14 @@
-import { Alert, Col, Row, Divider, Space, Button, Tag, Typography } from 'antd';
+import { Alert, Col, Row, Divider, message, Space, Button, Tag, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { EditOutlined, MailOutlined, PhoneOutlined, SlackOutlined } from '@ant-design/icons';
+import { Link } from 'react-router-dom';
 import useUserParams from '../../shared/entitySearch/routingUtils/useUserParams';
-import { useGetUserQuery } from '../../../graphql/user.generated';
+// import { useGetUserQuery } from '../../../graphql/user.generated';
+import { useGetUserQuery, useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
 import { useGetAllEntitySearchResults } from '../../../utils/customGraphQL/useGetAllEntitySearchResults';
 import { Message } from '../../shared/Message';
-import { EntityRelationshipsResult } from '../../../types.generated';
+import { EntityRelationshipsResult, EntityType } from '../../../types.generated';
 import UserGroups from './UserGroups';
 import { RoutedTabs } from '../../shared/RoutedTabs';
 import { UserAssets } from './UserAssets';
@@ -30,6 +32,10 @@ export enum TabType {
 const ENABLED_TAB_TYPES = [TabType.Assets, TabType.Ownership, TabType.Groups];
 
 const GROUP_PAGE_SIZE = 20;
+
+/**
+ * Styled Components
+ */
 const UserProfileWrapper = styled.div`
     // padding: 0 20px;
     &&& .ant-tabs-nav {
@@ -132,6 +138,10 @@ const AboutSectionText = styled.div`
     &&& .ant-typography {
         margin-bottom: 0;
     }
+    &&& .ant-typography-edit-content {
+        padding-left: 15px;
+        padding-top: 5px;
+    }
 `;
 const GroupsSection = styled.div`
     text-align: left;
@@ -175,16 +185,22 @@ const Content = styled.div`
 export default function UserProfile() {
     const { urn: encodedUrn } = useUserParams();
     const urn = decodeUrn(encodedUrn);
-    const { loading, error, data } = useGetUserQuery({ variables: { urn, groupsCount: GROUP_PAGE_SIZE } });
+    const [updateCorpUserPropertiesMutation] = useUpdateCorpUserPropertiesMutation();
+    const { loading, error, data, refetch } = useGetUserQuery({ variables: { urn, groupsCount: GROUP_PAGE_SIZE } });
+    const entityRegistry = useEntityRegistry();
+
     const username = data?.corpUser?.username;
-    const [editProfileModal, setEditProfileModal] = useState(false);
     const ownershipResult = useGetAllEntitySearchResults({
         query: `owners:${username}`,
     });
-    const [groupSectionScroll, showGroupSectionScroll] = useState(false);
-    const groupsDetails = data?.corpUser?.relationships as ExtendedEntityRelationshipsResult;
-    const profileSrc = ''; // TODO: update the profileSrc from BE
 
+    const [groupSectionScroll, showGroupSectionScroll] = useState(false);
+    const [editProfileModal, setEditProfileModal] = useState(false);
+    const [editableAboutMeText, setEditableAboutMeText] = useState<string | undefined>('');
+
+    const groupMemberRelationships = data?.corpUser?.relationships as EntityRelationshipsResult;
+    const groupsDetails = data?.corpUser?.relationships as ExtendedEntityRelationshipsResult;
+    const profileSrc = data?.corpUser?.editableProperties?.pictureLink || undefined;
     const contentLoading =
         Object.keys(ownershipResult).some((type) => {
             return ownershipResult[type].loading;
@@ -194,13 +210,15 @@ export default function UserProfile() {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
     }
 
-    const groupMemberRelationships = data?.corpUser?.relationships as EntityRelationshipsResult;
     const getTabs = () => {
         return [
             {
                 name: TabType.Assets,
                 path: TabType.Assets.toLocaleLowerCase(),
                 content: <UserAssets />,
+                display: {
+                    enabled: () => true,
+                },
             },
             {
                 name: TabType.Groups,
@@ -217,7 +235,37 @@ export default function UserProfile() {
 
     const defaultTabPath = getTabs() && getTabs()?.length > 0 ? getTabs()[0].path : '';
     const onTabChange = () => null;
-    console.log('data', data);
+    const getEditModalData = () => {
+        return {
+            urn: data?.corpUser?.urn || undefined,
+            name: data?.corpUser?.info?.fullName || undefined,
+            title: data?.corpUser?.info?.title || undefined,
+            team: data?.corpUser?.editableProperties?.teams?.join(',') || undefined,
+            email: data?.corpUser?.info?.email || undefined,
+            image: profileSrc,
+            slack: '' || undefined,
+            phone: '' || undefined,
+        };
+    };
+    const check = (inputString) => {
+        setEditableAboutMeText(inputString);
+        updateCorpUserPropertiesMutation({
+            variables: {
+                urn: data?.corpUser?.urn || '',
+                input: {
+                    aboutMe: inputString,
+                },
+            },
+        })
+            .catch((e) => {
+                message.destroy();
+                message.error({ content: `Failed to create group!: \n ${e.message || ''}`, duration: 3 });
+            })
+            .finally(() => {
+                refetch();
+            });
+    };
+    console.log('data', data, editableAboutMeText);
     return (
         <>
             {contentLoading && <Message type="loading" content="Loading..." style={messageStyle} />}
@@ -228,36 +276,38 @@ export default function UserProfile() {
                             <UserSidebarSubSection>
                                 <CustomAvatar
                                     size={160}
-                                    photoUrl={profileSrc || undefined}
+                                    photoUrl={profileSrc}
                                     name={data?.corpUser?.info?.fullName || undefined}
                                     style={{ marginTop: '14px' }}
                                 />
-                                <UserName>{data?.corpUser?.info?.fullName}</UserName>
-                                <UserRole>{data?.corpUser?.info?.title}</UserRole>
-                                <UserTeam>Data Team</UserTeam>
+                                <UserName>{data?.corpUser?.info?.fullName || 'NA'}</UserName>
+                                <UserRole>{data?.corpUser?.info?.title || 'NA'}</UserRole>
+                                <UserTeam>{data?.corpUser?.editableProperties?.teams?.join(',') || 'NA'}</UserTeam>
                                 <Divider className="divider-infoSection" />
                                 <UserSocialDetails>
                                     <Space>
-                                        <MailOutlined /> {data?.corpUser?.info?.email}
+                                        <MailOutlined /> {data?.corpUser?.info?.email || 'NA'}
                                     </Space>
                                 </UserSocialDetails>
                                 <UserSocialDetails>
                                     <Space>
-                                        <SlackOutlined /> {` slack`}
+                                        <SlackOutlined /> {data?.corpUser?.editableProperties?.slack || 'NA'}
                                     </Space>
                                 </UserSocialDetails>
                                 <UserSocialDetails>
                                     <Space>
-                                        <PhoneOutlined /> {` 928129129`}
+                                        <PhoneOutlined /> {data?.corpUser?.editableProperties?.phone || 'NA'}
                                     </Space>
                                 </UserSocialDetails>
                                 <Divider className="divider-aboutSection" />
                                 <AboutSection>
                                     About
                                     <AboutSectionText>
-                                        <Paragraph ellipsis={{ rows: 2, expandable: true, symbol: 'Read more' }}>
-                                            Some text from the backend for the about section. Please add some text to
-                                            get the exact about section.
+                                        <Paragraph
+                                            editable={{ onChange: check }}
+                                            ellipsis={{ rows: 2, expandable: true, symbol: 'Read more' }}
+                                        >
+                                            {data?.corpUser?.editableProperties?.aboutMe || 'NA'}
                                         </Paragraph>
                                     </AboutSectionText>
                                 </AboutSection>
@@ -271,9 +321,20 @@ export default function UserProfile() {
                                         {!groupSectionScroll &&
                                             groupsDetails?.relationships.slice(0, 2).map((item) => {
                                                 return (
-                                                    <Tags>
-                                                        <Tag>{item.entity.name}</Tag>
-                                                    </Tags>
+                                                    <Link
+                                                        to={entityRegistry.getEntityUrl(
+                                                            EntityType.CorpGroup,
+                                                            item.entity.urn,
+                                                        )}
+                                                    >
+                                                        <Tags>
+                                                            <Tag>
+                                                                {item.entity.info.displayName
+                                                                    ? item.entity.info.displayName
+                                                                    : 'NA'}
+                                                            </Tag>
+                                                        </Tags>
+                                                    </Link>
                                                 );
                                             })}
                                         {groupSectionScroll &&
@@ -281,7 +342,11 @@ export default function UserProfile() {
                                             groupsDetails?.relationships.map((item) => {
                                                 return (
                                                     <Tags>
-                                                        <Tag>{item.entity.name}</Tag>
+                                                        <Tag>
+                                                            {item.entity.info.displayName
+                                                                ? item.entity.info.displayName
+                                                                : 'NA'}
+                                                        </Tag>
                                                     </Tags>
                                                 );
                                             })}
@@ -313,9 +378,12 @@ export default function UserProfile() {
                     visible={editProfileModal}
                     onClose={() => setEditProfileModal(false)}
                     onCreate={() => {
+                        console.log('hello from modal');
+                        refetch();
                         // Hack to deal with eventual consistency.
                         // console.log('getModalData');
                     }}
+                    data={getEditModalData()}
                 />
             </UserProfileWrapper>
         </>

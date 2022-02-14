@@ -1,4 +1,4 @@
-import { EntityRelationshipsResult, EntityRelationship, Entity} from '../../../types.generated';
+import { EntityRelationshipsResult, EntityRelationship, Entity, CorpGroupProperties} from '../../../types.generated';
 
 export interface ExtendedEntityRelationshipsResult extends EntityRelationshipsResult {
     relationships: Array<ExtendedEntityRelationship>
@@ -9,5 +9,5 @@ interface  ExtendedEntityRelationship extends EntityRelationship {
 }
 
 interface ExtendedEntity extends Entity {
-    name: String;
+    info: CorpGroupProperties;
 }

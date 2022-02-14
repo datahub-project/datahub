@@ -1,16 +1,26 @@
 import React, { useState } from 'react';
-import { Button, Input, Modal, Typography, Form } from 'antd';
-// import { useUpdateUserStatusMutation } from '../../../graphql/user.generated';
+import { message, Button, Input, Modal, Typography, Form } from 'antd';
+import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
 
 type Props = {
     visible: boolean;
     onClose: () => void;
-    onCreate: (name: string, description: string) => void;
+    onCreate: () => void;
+    data: {
+        name: string | undefined;
+        title: string | undefined;
+        image: string | undefined;
+        team: string | undefined;
+        email: string | undefined;
+        slack: string | undefined;
+        phone: string | undefined;
+        urn: string | undefined;
+    };
 };
-
+/** Regex Validations */
 export const validUserName = new RegExp('^[a-zA-Z ]*$');
 
-export default function UserEditProfileModal({ visible, onClose, onCreate }: Props) {
+export default function UserEditProfileModal({ visible, onClose, onCreate, data }: Props) {
     const [userName, setUserName] = useState('');
     const [userTitle, setUserTitle] = useState('');
     const [userImageURL, setImageURL] = useState('');
@@ -18,39 +28,50 @@ export default function UserEditProfileModal({ visible, onClose, onCreate }: Pro
     const [userEmail, setUserEmail] = useState('');
     const [userSlack, setUserSlack] = useState('');
     const [userPhoneNumber, setUserPhoneNumber] = useState('');
-    // const [updateUserStatusMutation] = useUpdateUserStatusMutation();
+    const [updateCorpUserPropertiesMutation] = useUpdateCorpUserPropertiesMutation();
 
     const onCreateGroup = () => {
         console.log('inputs', userName, userTitle, userImageURL, userTeam, userEmail, userSlack);
-        // updateUserStatusMutation({
-        //     variables: {
-        //         input: {
-        //             name: stagedName,
-        //             description: stagedDescription,
-        //         },
-        //     },
-        // })
-        //     .catch((e) => {
-        //         message.destroy();
-        //         message.error({ content: `Failed to create group!: \n ${e.message || ''}`, duration: 3 });
-        //     })
-        //     .finally(() => {
-        //         message.success({
-        //             content: `Created group!`,
-        //             duration: 3,
-        //         });
-        //         onCreate(stagedName, stagedDescription);
-        //         setStagedName('');
-        //         setStagedDescription('');
-        //     });
-        // onClose();
-        onCreate('a', 'b');
+        updateCorpUserPropertiesMutation({
+            variables: {
+                urn: data?.urn || '',
+                input: {
+                    displayName: userName || data.name,
+                    title: userTitle || data.title,
+                    pictureLink: userImageURL || data.image,
+                    teams: userTeam.split(',') || data.team,
+                    email: userEmail || data.email,
+                    slack: userSlack || data.slack,
+                    phone: userPhoneNumber || data.phone,
+                },
+            },
+        })
+            .catch((e) => {
+                message.destroy();
+                message.error({ content: `Failed to create group!: \n ${e.message || ''}`, duration: 3 });
+            })
+            .finally(() => {
+                message.success({
+                    content: `Created group!`,
+                    duration: 3,
+                });
+                // onCreate(stagedName, stagedDescription);
+                setUserName('');
+                setUserTitle('');
+                setImageURL('');
+                setUserTeam('');
+                setUserEmail('');
+                setUserSlack('');
+                setUserPhoneNumber('');
+            });
+        onClose();
+        onCreate();
     };
 
     // userFieldValidation before submitting the changes.
     const userFieldValidations = () => {
         // TODO: add validations - need to ask Gabe
-        if (userName !== '') {
+        if (userName !== '' || data.name) {
             return false;
         }
         return true;
@@ -72,7 +93,19 @@ export default function UserEditProfileModal({ visible, onClose, onCreate }: Pro
                 </>
             }
         >
-            <Form autoComplete="off" layout="vertical">
+            <Form
+                initialValues={{
+                    name: data.name,
+                    title: data.title,
+                    image: data.image,
+                    team: data.team,
+                    email: data.email,
+                    slack: data.slack,
+                    phone: data.phone,
+                }}
+                autoComplete="off"
+                layout="vertical"
+            >
                 <Form.Item
                     name="name"
                     label={<Typography.Text strong>Name</Typography.Text>}

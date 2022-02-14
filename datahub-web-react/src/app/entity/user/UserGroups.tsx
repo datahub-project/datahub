@@ -90,11 +90,11 @@ export default function UserGroups({ urn, initialRelationships, pageSize }: Prop
                 {userGroups &&
                     userGroups.map((item) => {
                         return (
-                            <GroupItemColumn xl={8} lg={8} md={12} sm={12} xs={24}>
+                            <GroupItemColumn xl={8} lg={8} md={12} sm={12} xs={24} key={item.urn}>
                                 <Link to={entityRegistry.getEntityUrl(EntityType.CorpGroup, item.urn)}>
                                     <GroupItem>
                                         <Row className="title-row">
-                                            <GroupTitle>{item.name}</GroupTitle>
+                                            <GroupTitle>{item.info?.displayName || 'NA'}</GroupTitle>
                                             <GroupMember>
                                                 {item.relationships?.total}
                                                 {item.relationships?.total === 1 ? ' member' : ' members'}

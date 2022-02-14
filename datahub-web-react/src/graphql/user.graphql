@@ -10,9 +10,13 @@ query getUser($urn: String!, $groupsCount: Int!) {
             lastName
             fullName
             email
+            departmentName
         }
-        editableInfo {
+        editableProperties {
+            slack
+            phone
             pictureLink
+            aboutMe
             teams
             skills
         }
