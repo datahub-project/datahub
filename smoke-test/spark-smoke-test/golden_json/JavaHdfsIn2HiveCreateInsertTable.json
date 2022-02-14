@@ -160,8 +160,7 @@
               "customProperties": {
                 "SQLQueryId": "7",
                 "appName": "JavaHdfsIn2HiveCreateInsertTable",
-                "description": "insertInto at HdfsIn2HiveCreateInsertTable.java:30",
-                "queryPlan": "InsertIntoHadoopFsRelationCommand file:/opt/workspace/java-spark-lineage-test/spark-warehouse/javahdfsin2hivecreateinserttable.db/foo4, false, Parquet, Map(serialization.format -> 1, path -> file:/opt/workspace/java-spark-lineage-test/spark-warehouse/javahdfsin2hivecreateinserttable.db/foo4), Append, CatalogTable(\nDatabase: javahdfsin2hivecreateinserttable\nTable: foo4\nOwner: root\nCreated Time: Wed Jan 19 18:32:46 UTC 2022\nLast Access: Thu Jan 01 00:00:00 UTC 1970\nCreated By: Spark 2.4.8\nType: MANAGED\nProvider: parquet\nTable Properties: [transient_lastDdlTime=1642617166]\nLocation: file:/opt/workspace/java-spark-lineage-test/spark-warehouse/javahdfsin2hivecreateinserttable.db/foo4\nSerde Library: org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe\nInputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat\nStorage Properties: [serialization.format=1]\nSchema: root\n |-- a: string (nullable = true)\n |-- b: string (nullable = true)\n |-- c: string (nullable = true)\n |-- d: string (nullable = true)\n), org.apache.spark.sql.execution.datasources.InMemoryFileIndex@bdff4e14, [a, b, c, d]\n+- Project [a#16, b#20, c#40, d#44]\n   +- Join Inner, (id#10 = id#34)\n      :- Project [id#10, c1#11 AS a#16, c2#12 AS b#20]\n      :  +- Filter isnotnull(id#10)\n      :     +- Relation[id#10,c1#11,c2#12] csv\n      +- Project [id#34, c1#35 AS c#40, c2#36 AS d#44]\n         +- Filter isnotnull(id#34)\n            +- Relation[id#34,c1#35,c2#36] csv\n"
+                "description": "insertInto at HdfsIn2HiveCreateInsertTable.java:30"
               }
             }
           },
