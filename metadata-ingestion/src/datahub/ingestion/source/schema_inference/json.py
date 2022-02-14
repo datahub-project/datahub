@@ -45,7 +45,7 @@ class JsonInferrer(SchemaInferenceBase):
 
             field = SchemaField(
                 fieldPath=schema_field["delimited_name"],
-                nativeDataType=str(mapped_type),
+                nativeDataType=str(schema_field["type"]),
                 type=SchemaFieldDataType(type=mapped_type()),
                 nullable=schema_field["nullable"],
                 recursive=False,
