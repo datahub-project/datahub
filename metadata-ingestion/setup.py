@@ -94,12 +94,12 @@ snowflake_common = {
 
 data_lake_base = {
     *aws_common,
-    "parse==1.19.0",
-    "pyarrow==6.0.1",
-    "tableschema==1.20.2",
-    "ujson==4.3.0",
-    "types-ujson==4.2.1",
-    "smart-open[s3]",
+    "parse>=1.19.0",
+    "pyarrow>=6.0.1",
+    "tableschema>=1.20.2",
+    "ujson>=4.3.0",
+    "types-ujson>=4.2.1",
+    "smart-open[s3]>=5.2.1",
 }
 
 data_lake_profiling = {
