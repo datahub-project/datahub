@@ -1,4 +1,10 @@
-from typing import Optional
+import json
+import typing
+from typing import Dict, List, Optional, Tuple
+
+from pyathena.common import BaseCursor
+from pyathena.model import AthenaTableMetadata
+from sqlalchemy.engine.reflection import Inspector
 
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemyConfig,
@@ -35,8 +41,60 @@ class AthenaConfig(SQLAlchemyConfig):
 class AthenaSource(SQLAlchemySource):
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "athena")
+        self.cursor: Optional[BaseCursor] = None
 
     @classmethod
     def create(cls, config_dict, ctx):
         config = AthenaConfig.parse_obj(config_dict)
         return cls(config, ctx)
+
+    def get_table_properties(
+        self, inspector: Inspector, schema: str, table: str
+    ) -> Tuple[Optional[str], Optional[Dict[str, str]]]:
+        if not self.cursor:
+            self.cursor = inspector.dialect._raw_connection(inspector.engine).cursor()
+
+        assert self.cursor
+        # Unfortunately properties can be only get through private methods as those are not exposed
+        # https://github.com/laughingman7743/PyAthena/blob/9e42752b0cc7145a87c3a743bb2634fe125adfa7/pyathena/model.py#L201
+        metadata: AthenaTableMetadata = self.cursor._get_table_metadata(
+            table_name=table, schema_name=schema
+        )
+        description = metadata.comment
+        custom_properties: Dict[str, str] = {}
+        custom_properties["partition_keys"] = json.dumps(
+            [
+                {
+                    "name": partition.name,
+                    "type": partition.type,
+                    "comment": partition.comment if partition.comment else "",
+                }
+                for partition in metadata.partition_keys
+            ]
+        )
+        for key, value in metadata.parameters.items():
+            custom_properties[key] = value if value else ""
+
+        custom_properties["create_time"] = (
+            str(metadata.create_time) if metadata.create_time else ""
+        )
+        custom_properties["last_access_time"] = (
+            str(metadata.last_access_time) if metadata.last_access_time else ""
+        )
+        custom_properties["table_type"] = (
+            metadata.table_type if metadata.table_type else ""
+        )
+
+        return description, custom_properties
+
+    # It seems like database/schema filter in the connection string does not work and this to work around that
+    def get_schema_names(self, inspector: Inspector) -> List[str]:
+        athena_config = typing.cast(AthenaConfig, self.config)
+        schemas = inspector.get_schema_names()
+        if athena_config.database:
+            return [schema for schema in schemas if schema == athena_config.database]
+        return schemas
+
+    def close(self):
+        if self.cursor:
+            self.cursor.close()
