@@ -196,6 +196,7 @@ base_dev_requirements = {
     *base_requirements,
     *framework_common,
     *mypy_stubs,
+    *data_lake_base,
     "black>=21.12b0",
     "coverage>=5.1",
     "flake8>=3.8.3",
@@ -264,7 +265,6 @@ dev_requirements_airflow_1 = {
 }
 
 full_test_dev_requirements = {
-    *data_lake_base,
     *list(
         dependency
         for plugin in [
