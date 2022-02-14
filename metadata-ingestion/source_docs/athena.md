@@ -6,6 +6,8 @@ For context on getting started with ingestion, check out our [metadata ingestion
 
 To install this plugin, run `pip install 'acryl-datahub[athena]'`.
 
+Athena source only works with python 3.7+.
+
 ## Capabilities
 
 This plugin extracts the following:

@@ -95,6 +95,6 @@ class AthenaSource(SQLAlchemySource):
             return [schema for schema in schemas if schema == athena_config.database]
         return schemas
 
-    def __exit__(self):
+    def close(self):
         if self.cursor:
             self.cursor.close()
