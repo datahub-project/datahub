@@ -127,7 +127,7 @@
                                         }
                                     }
                                 },
-                                "nativeDataType": "<class 'list'>",
+                                "nativeDataType": "list",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -146,7 +146,7 @@
                                         }
                                     }
                                 },
-                                "nativeDataType": "<class 'list'>",
+                                "nativeDataType": "list",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -163,7 +163,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "<class 'str'>",
+                                "nativeDataType": "str",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -180,7 +180,7 @@
                                         "com.linkedin.pegasus2avro.schema.RecordType": {}
                                     }
                                 },
-                                "nativeDataType": "<class 'dict'>",
+                                "nativeDataType": "dict",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -197,7 +197,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "<class 'str'>",
+                                "nativeDataType": "str",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -214,7 +214,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "<class 'str'>",
+                                "nativeDataType": "str",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -231,7 +231,7 @@
                                         "com.linkedin.pegasus2avro.schema.RecordType": {}
                                     }
                                 },
-                                "nativeDataType": "<class 'dict'>",
+                                "nativeDataType": "dict",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -248,7 +248,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "<class 'str'>",
+                                "nativeDataType": "str",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -265,7 +265,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "<class 'str'>",
+                                "nativeDataType": "str",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -284,7 +284,7 @@
                                         }
                                     }
                                 },
-                                "nativeDataType": "<class 'list'>",
+                                "nativeDataType": "list",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -301,7 +301,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "<class 'str'>",
+                                "nativeDataType": "str",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -318,7 +318,7 @@
                                         "com.linkedin.pegasus2avro.schema.RecordType": {}
                                     }
                                 },
-                                "nativeDataType": "<class 'dict'>",
+                                "nativeDataType": "dict",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -335,7 +335,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "<class 'str'>",
+                                "nativeDataType": "str",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -352,7 +352,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "<class 'str'>",
+                                "nativeDataType": "str",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -369,7 +369,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "<class 'str'>",
+                                "nativeDataType": "str",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -388,7 +388,7 @@
                                         }
                                     }
                                 },
-                                "nativeDataType": "<class 'list'>",
+                                "nativeDataType": "list",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -405,7 +405,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "<class 'str'>",
+                                "nativeDataType": "str",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -422,7 +422,7 @@
                                         "com.linkedin.pegasus2avro.schema.RecordType": {}
                                     }
                                 },
-                                "nativeDataType": "<class 'dict'>",
+                                "nativeDataType": "dict",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -439,7 +439,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "<class 'str'>",
+                                "nativeDataType": "str",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -456,7 +456,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "<class 'str'>",
+                                "nativeDataType": "str",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -473,7 +473,7 @@
                                         "com.linkedin.pegasus2avro.schema.RecordType": {}
                                     }
                                 },
-                                "nativeDataType": "<class 'dict'>",
+                                "nativeDataType": "dict",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -490,7 +490,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "<class 'str'>",
+                                "nativeDataType": "str",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -507,7 +507,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "<class 'str'>",
+                                "nativeDataType": "str",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -524,7 +524,7 @@
                                         "com.linkedin.pegasus2avro.schema.RecordType": {}
                                     }
                                 },
-                                "nativeDataType": "<class 'dict'>",
+                                "nativeDataType": "dict",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -541,7 +541,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "<class 'str'>",
+                                "nativeDataType": "str",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -558,7 +558,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "<class 'str'>",
+                                "nativeDataType": "str",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -575,7 +575,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "<class 'int'>",
+                                "nativeDataType": "int",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -592,7 +592,7 @@
                                         "com.linkedin.pegasus2avro.schema.BooleanType": {}
                                     }
                                 },
-                                "nativeDataType": "<class 'bool'>",
+                                "nativeDataType": "bool",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -609,7 +609,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "<class 'str'>",
+                                "nativeDataType": "str",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -628,7 +628,7 @@
                                         }
                                     }
                                 },
-                                "nativeDataType": "<class 'list'>",
+                                "nativeDataType": "list",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -645,7 +645,7 @@
                                         "com.linkedin.pegasus2avro.schema.RecordType": {}
                                     }
                                 },
-                                "nativeDataType": "<class 'dict'>",
+                                "nativeDataType": "dict",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -662,7 +662,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "<class 'str'>",
+                                "nativeDataType": "str",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -679,7 +679,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "<class 'str'>",
+                                "nativeDataType": "str",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -696,7 +696,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "<class 'str'>",
+                                "nativeDataType": "str",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -715,7 +715,7 @@
                                         }
                                     }
                                 },
-                                "nativeDataType": "<class 'list'>",
+                                "nativeDataType": "list",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -732,7 +732,7 @@
                                         "com.linkedin.pegasus2avro.schema.BooleanType": {}
                                     }
                                 },
-                                "nativeDataType": "<class 'bool'>",
+                                "nativeDataType": "bool",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -749,7 +749,7 @@
                                         "com.linkedin.pegasus2avro.schema.RecordType": {}
                                     }
                                 },
-                                "nativeDataType": "<class 'dict'>",
+                                "nativeDataType": "dict",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -766,7 +766,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "<class 'str'>",
+                                "nativeDataType": "str",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -783,7 +783,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "<class 'str'>",
+                                "nativeDataType": "str",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -800,7 +800,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "<class 'int'>",
+                                "nativeDataType": "int",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -1200,7 +1200,7 @@
                                         }
                                     }
                                 },
-                                "nativeDataType": "<class 'list'>",
+                                "nativeDataType": "list",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -1217,7 +1217,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "<class 'str'>",
+                                "nativeDataType": "str",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -1234,7 +1234,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "<class 'str'>",
+                                "nativeDataType": "str",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
