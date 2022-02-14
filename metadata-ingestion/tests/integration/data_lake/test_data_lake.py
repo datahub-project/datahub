@@ -9,8 +9,8 @@ FROZEN_TIME = "2020-04-14 07:00:00"
 @pytest.mark.integration
 def test_data_lake_ingest(pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/data_lake/"
-    
-    os.environ['SPARK_VERSION'] = "3.0.3"
+
+    os.environ["SPARK_VERSION"] = "3.0.3"
 
     # Run the metadata ingestion pipeline.
     pipeline = Pipeline.create(
