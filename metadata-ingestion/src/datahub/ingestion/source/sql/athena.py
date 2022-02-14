@@ -1,4 +1,5 @@
 import json
+import typing
 from typing import Dict, List, Optional, Tuple
 
 from pyathena.common import BaseCursor
