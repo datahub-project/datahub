@@ -155,11 +155,8 @@ class KafkaSource(StatefulIngestionSourceBase):
         return None
 
     def get_platform_instance_id(self) -> str:
-        return (
-            f"{self.source_config.platform_instance}"
-            if self.source_config.platform_instance
-            else ""
-        )
+        assert self.source_config.platform_instance is not None
+        return self.source_config.platform_instance
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -289,6 +286,7 @@ class KafkaSource(StatefulIngestionSourceBase):
         logger.debug(f"topic = {topic}")
         dataset_name = topic
 
+        platform_urn = make_data_platform_urn(self.platform)
         dataset_urn = make_dataset_urn_with_platform_instance(
             platform=self.platform,
             name=dataset_name,
@@ -364,7 +362,7 @@ class KafkaSource(StatefulIngestionSourceBase):
                 schemaName=topic,
                 version=0,
                 hash=md5_hash,
-                platform=f"urn:li:dataPlatform:{self.platform}",
+                platform=platform_urn,
                 platformSchema=KafkaSchema(
                     documentSchema=schema.schema_str if schema is not None else "",
                     keySchema=key_schema_str,
@@ -384,7 +382,7 @@ class KafkaSource(StatefulIngestionSourceBase):
             )
             dataset_snapshot.aspects.append(
                 DataPlatformInstanceClass(
-                    platform=make_data_platform_urn(self.platform),
+                    platform=platform_urn,
                     instance=make_dataplatform_instance_urn(
                         self.platform, self.source_config.platform_instance
                     ),
