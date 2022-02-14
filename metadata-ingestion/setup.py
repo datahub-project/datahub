@@ -92,6 +92,21 @@ snowflake_common = {
     "cryptography",
 }
 
+data_lake_base = {
+    *aws_common,
+    "parse==1.19.0",
+    "pyarrow==6.0.1",
+    "tableschema==1.20.2",
+    "ujson==4.3.0",
+    "types-ujson==4.2.1",
+    "smart-open[s3]",
+}
+
+data_lake_profiling = {
+    "pydeequ==1.0.1",
+    "pyspark==3.0.3",
+}
+
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
@@ -107,17 +122,7 @@ plugins: Dict[str, Set[str]] = {
     "bigquery": sql_common | bigquery_common | {"pybigquery >= 0.6.0"},
     "bigquery-usage": bigquery_common | {"cachetools"},
     "datahub-business-glossary": set(),
-    "data-lake": {
-        *aws_common,
-        "pydeequ==1.0.1",
-        "pyspark==3.0.3",
-        "parse==1.19.0",
-        "pyarrow==6.0.1",
-        "tableschema==1.20.2",
-        "ujson==4.3.0",
-        "types-ujson==4.2.1",
-        "smart-open[s3]",
-    },
+    "data-lake": {*data_lake_base, *data_lake_profiling},
     "dbt": {"requests"},
     "druid": sql_common | {"pydruid>=0.6.2"},
     "elasticsearch": {"elasticsearch"},
@@ -259,6 +264,7 @@ dev_requirements_airflow_1 = {
 }
 
 full_test_dev_requirements = {
+    *data_lake_base,
     *list(
         dependency
         for plugin in [
