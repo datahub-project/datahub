@@ -72,7 +72,6 @@ def map_pyarrow_type(pyarrow_type):
         if checker(pyarrow_type):
             return mapped_type
 
-    # TODO: raise warning
     return NullTypeClass
 
 

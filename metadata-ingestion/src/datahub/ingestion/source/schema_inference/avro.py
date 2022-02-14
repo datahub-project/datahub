@@ -72,7 +72,6 @@ class AvroInferrer(SchemaInferenceBase):
 
             else:
                 mapped_type = NullTypeClass
-                # TODO: raise warning
 
             field = SchemaField(
                 fieldPath=name,
