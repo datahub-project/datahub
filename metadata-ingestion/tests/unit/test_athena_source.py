@@ -9,7 +9,7 @@ FROZEN_TIME = "2020-04-14 07:00:00"
 
 @pytest.mark.integration
 def test_athena_uri():
-    from datahub.ingestion.source.sql.athena import AthenaConfig, AthenaSource
+    from datahub.ingestion.source.sql.athena import AthenaConfig
 
     config = AthenaConfig.parse_obj(
         {
