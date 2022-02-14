@@ -185,7 +185,7 @@ The code responsible for collecting and broadcasting these events is open-source
 Telemetry is enabled by default, and the `telemetry` command lets you toggle the sending of these statistics via `telemetry enable/disable`.
 You can also disable telemetry by setting `DATAHUB_TELEMETRY_ENABLED` to `false`. If you are running CLI in a private environment with no access to public internet then you need to disable telemetry.
 
-You can set `DATAHUB_TELEMETRY_TIMEOUT` to an integer value to timeout sending telemetry.
+You can set `DATAHUB_TELEMETRY_TIMEOUT` to an integer value to specify timeout in secs when sending telemetry.
 
 ### delete
 
