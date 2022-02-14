@@ -43,7 +43,7 @@ ENV SERVER_PORT=$SERVER_PORT
 RUN echo $SERVER_PORT
 EXPOSE $SERVER_PORT
 
-HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:$SERVER_PORT/admin || exit 1
+HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:$SERVER_PORT/data-catalogue/admin || exit 1
 
 ENV JAVA_OPTS=" \
    -Xms512m \
