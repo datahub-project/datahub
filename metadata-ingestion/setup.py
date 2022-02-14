@@ -112,7 +112,7 @@ plugins: Dict[str, Set[str]] = {
         "pydeequ==1.0.1",
         "pyspark==3.0.3",
         "parse==1.19.0",
-        "pyarrow==7.0.0",
+        "pyarrow==6.0.1",
         "tableschema==1.20.2",
         "ujson==5.1.0",
         "types-ujson==4.2.1",
