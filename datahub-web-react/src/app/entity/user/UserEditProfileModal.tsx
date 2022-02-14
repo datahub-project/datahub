@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { message, Button, Input, Modal, Typography, Form } from 'antd';
 import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
 
@@ -21,41 +21,56 @@ type Props = {
 export const validUserName = new RegExp('^[a-zA-Z ]*$');
 
 export default function UserEditProfileModal({ visible, onClose, onCreate, data }: Props) {
-    const [userName, setUserName] = useState('');
-    const [userTitle, setUserTitle] = useState('');
-    const [userImageURL, setImageURL] = useState('');
-    const [userTeam, setUserTeam] = useState('');
-    const [userEmail, setUserEmail] = useState('');
-    const [userSlack, setUserSlack] = useState('');
-    const [userPhoneNumber, setUserPhoneNumber] = useState('');
     const [updateCorpUserPropertiesMutation] = useUpdateCorpUserPropertiesMutation();
+    const [form] = Form.useForm();
 
+    const [userName, setUserName] = useState<string | undefined>('');
+    const [userTitle, setUserTitle] = useState<string | undefined>('');
+    const [userImageURL, setImageURL] = useState<string | undefined>('');
+    const [userTeam, setUserTeam] = useState<string | undefined>('');
+    const [userEmail, setUserEmail] = useState<string | undefined>('');
+    const [userSlack, setUserSlack] = useState<string | undefined>('');
+    const [userPhoneNumber, setUserPhoneNumber] = useState<string | undefined>('');
+    const [buttonDisabled, setButtonDisabled] = useState(true);
+
+    useEffect(() => {
+        if (data) {
+            setUserName(data.name);
+            setUserTitle(data.title);
+            setImageURL(data.image);
+            setUserTeam(data.team);
+            setUserEmail(data.email);
+            setUserSlack(data.slack);
+            setUserPhoneNumber(data.phone);
+        }
+    }, [data]);
+
+    // save changes function
     const onCreateGroup = () => {
-        console.log('inputs', userName, userTitle, userImageURL, userTeam, userEmail, userSlack);
         updateCorpUserPropertiesMutation({
             variables: {
                 urn: data?.urn || '',
                 input: {
-                    displayName: userName || data.name,
-                    title: userTitle || data.title,
-                    pictureLink: userImageURL || data.image,
-                    teams: userTeam.split(',') || data.team,
-                    email: userEmail || data.email,
-                    slack: userSlack || data.slack,
-                    phone: userPhoneNumber || data.phone,
+                    displayName: userName,
+                    title: userTitle,
+                    pictureLink: userImageURL,
+                    teams: userTeam?.split(','),
+                    email: userEmail,
+                    slack: userSlack,
+                    phone: userPhoneNumber,
                 },
             },
         })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to create group!: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: `Failed to Save changes!: \n ${e.message || ''}`, duration: 3 });
             })
             .finally(() => {
                 message.success({
-                    content: `Created group!`,
+                    content: `Changes saved.`,
                     duration: 3,
                 });
-                // onCreate(stagedName, stagedDescription);
+                onCreate();
                 setUserName('');
                 setUserTitle('');
                 setImageURL('');
@@ -70,8 +85,7 @@ export default function UserEditProfileModal({ visible, onClose, onCreate, data 
 
     // userFieldValidation before submitting the changes.
     const userFieldValidations = () => {
-        // TODO: add validations - need to ask Gabe
-        if (userName !== '' || data.name) {
+        if ((userName !== '' || data.name) && !buttonDisabled) {
             return false;
         }
         return true;
@@ -94,6 +108,7 @@ export default function UserEditProfileModal({ visible, onClose, onCreate, data 
             }
         >
             <Form
+                form={form}
                 initialValues={{
                     name: data.name,
                     title: data.title,
@@ -105,6 +120,7 @@ export default function UserEditProfileModal({ visible, onClose, onCreate, data 
                 }}
                 autoComplete="off"
                 layout="vertical"
+                onFieldsChange={() => setButtonDisabled(form.getFieldsError().some((field) => field.errors.length > 0))}
             >
                 <Form.Item
                     name="name"

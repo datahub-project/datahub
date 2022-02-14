@@ -4,7 +4,6 @@ import styled from 'styled-components';
 import { EditOutlined, MailOutlined, PhoneOutlined, SlackOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import useUserParams from '../../shared/entitySearch/routingUtils/useUserParams';
-// import { useGetUserQuery } from '../../../graphql/user.generated';
 import { useGetUserQuery, useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
 import { useGetAllEntitySearchResults } from '../../../utils/customGraphQL/useGetAllEntitySearchResults';
 import { Message } from '../../shared/Message';
@@ -196,6 +195,7 @@ export default function UserProfile() {
 
     const [groupSectionScroll, showGroupSectionScroll] = useState(false);
     const [editProfileModal, setEditProfileModal] = useState(false);
+    /* eslint-disable @typescript-eslint/no-unused-vars */
     const [editableAboutMeText, setEditableAboutMeText] = useState<string | undefined>('');
 
     const groupMemberRelationships = data?.corpUser?.relationships as EntityRelationshipsResult;
@@ -210,6 +210,7 @@ export default function UserProfile() {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
     }
 
+    // Routed Tabs Constants
     const getTabs = () => {
         return [
             {
@@ -232,9 +233,10 @@ export default function UserProfile() {
             },
         ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
     };
-
     const defaultTabPath = getTabs() && getTabs()?.length > 0 ? getTabs()[0].path : '';
     const onTabChange = () => null;
+
+    // EditProfile modal Constants
     const getEditModalData = () => {
         return {
             urn: data?.corpUser?.urn || undefined,
@@ -243,11 +245,13 @@ export default function UserProfile() {
             team: data?.corpUser?.editableProperties?.teams?.join(',') || undefined,
             email: data?.corpUser?.info?.email || undefined,
             image: profileSrc,
-            slack: '' || undefined,
-            phone: '' || undefined,
+            slack: data?.corpUser?.editableProperties?.slack || undefined,
+            phone: data?.corpUser?.editableProperties?.phone || undefined,
         };
     };
-    const check = (inputString) => {
+
+    // About Text Change
+    const aboutMeTextChangeFunction = (inputString) => {
         setEditableAboutMeText(inputString);
         updateCorpUserPropertiesMutation({
             variables: {
@@ -259,13 +263,16 @@ export default function UserProfile() {
         })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to create group!: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: `Failed to Save changes!: \n ${e.message || ''}`, duration: 3 });
             })
             .finally(() => {
+                message.success({
+                    content: `Changes saved.`,
+                    duration: 3,
+                });
                 refetch();
             });
     };
-    console.log('data', data, editableAboutMeText);
     return (
         <>
             {contentLoading && <Message type="loading" content="Loading..." style={messageStyle} />}
@@ -304,7 +311,7 @@ export default function UserProfile() {
                                     About
                                     <AboutSectionText>
                                         <Paragraph
-                                            editable={{ onChange: check }}
+                                            editable={{ onChange: aboutMeTextChangeFunction }}
                                             ellipsis={{ rows: 2, expandable: true, symbol: 'Read more' }}
                                         >
                                             {data?.corpUser?.editableProperties?.aboutMe || 'NA'}
@@ -378,10 +385,7 @@ export default function UserProfile() {
                     visible={editProfileModal}
                     onClose={() => setEditProfileModal(false)}
                     onCreate={() => {
-                        console.log('hello from modal');
                         refetch();
-                        // Hack to deal with eventual consistency.
-                        // console.log('getModalData');
                     }}
                     data={getEditModalData()}
                 />
