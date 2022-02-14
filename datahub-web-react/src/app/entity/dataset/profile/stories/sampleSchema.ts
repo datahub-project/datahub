@@ -124,7 +124,9 @@ export const sampleSchemaWithTags: Schema = {
                             urn: 'urn:li:glossaryTerm:sample-glossary-term',
                             name: 'sample-glossary-term',
                             hierarchicalName: 'example.sample-glossary-term',
-                            glossaryTermInfo: {
+                            properties: {
+                                name: 'sample-glossary-term',
+                                description: 'sample definition',
                                 definition: 'sample definition',
                                 termSource: 'sample term source',
                             },
@@ -246,7 +248,9 @@ export const sampleSchemaWithPkFk: SchemaMetadata = {
                             urn: 'urn:li:glossaryTerm:sample-glossary-term',
                             name: 'sample-glossary-term',
                             hierarchicalName: 'example.sample-glossary-term',
-                            glossaryTermInfo: {
+                            properties: {
+                                name: 'sample-glossary-term',
+                                description: 'sample definition',
                                 definition: 'sample definition',
                                 termSource: 'sample term source',
                             },

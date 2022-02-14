@@ -218,6 +218,7 @@ fragment searchResults on SearchResults {
             }
             ... on GlossaryTerm {
                 name
+                hierarchicalName
                 glossaryTermInfo {
                     definition
                     termSource

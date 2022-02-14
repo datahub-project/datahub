@@ -1,19 +1,29 @@
 describe('mutations', () => {
+  before(() => {
+    // warm up elastic by issuing a `*` search
+    cy.visit('http://localhost:9002/search?query=%2A');
+    cy.wait(5000);
+  });
+
   it('can create and add a tag to dataset and visit new tag page', () => {
     cy.deleteUrn('urn:li:tag:CypressTestAddTag')
     cy.login();
     cy.visit('/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)');
     cy.contains('cypress_logging_events');
 
-    cy.contains('Add Tag').click();
+    cy.contains('Add Tag').click({force:true});
 
     cy.focused().type('CypressTestAddTag');
 
-    cy.contains('Create CypressTestAddTag').click();
+    cy.contains('Create CypressTestAddTag').click({force:true});
 
     cy.get('textarea').type('CypressTestAddTag Test Description');
 
-    cy.contains(/Create$/).click();
+    cy.contains(/Create$/).click({force:true});
+
+    // wait a breath for elasticsearch to index the tag being applied to the dataset- if we navigate too quick ES
+    // wont know and we'll see applied to 0 entities
+    cy.wait(2000);
 
     // go to tag page
     cy.get('a[href="/tag/urn:li:tag:CypressTestAddTag"]').click();
