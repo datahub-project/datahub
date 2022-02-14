@@ -24,6 +24,7 @@ CONFIG_FILE = DATAHUB_FOLDER / "telemetry-config.json"
 
 # also fall back to environment variable if config file is not found
 ENV_ENABLED = os.environ.get("DATAHUB_TELEMETRY_ENABLED", "true").lower() == "true"
+TIMEOUT = int(os.environ.get("DATAHUB_TELEMETRY_TIMEOUT", "10"))
 
 
 class Telemetry:
@@ -158,6 +159,7 @@ class Telemetry:
                 headers={
                     "user-agent": f"datahub {datahub_package.nice_version_name()}"
                 },
+                timouet=TIMEOUT,
             )
         except Exception as e:
 
