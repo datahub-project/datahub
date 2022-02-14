@@ -201,6 +201,7 @@ base_dev_requirements = {
     "build",
     "twine",
     "pydot",
+    "packaging",
     *list(
         dependency
         for plugin in [
