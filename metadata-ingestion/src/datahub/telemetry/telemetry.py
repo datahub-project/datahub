@@ -1,6 +1,9 @@
+import errno
 import json
 import logging
 import os
+import platform
+import sys
 import uuid
 from functools import wraps
 from pathlib import Path
@@ -45,11 +48,24 @@ class Telemetry:
 
         if not DATAHUB_FOLDER.exists():
             os.makedirs(DATAHUB_FOLDER)
-
-        with open(CONFIG_FILE, "w") as f:
-            json.dump(
-                {"client_id": self.client_id, "enabled": self.enabled}, f, indent=2
-            )
+        try:
+            with open(CONFIG_FILE, "w") as f:
+                json.dump(
+                    {"client_id": self.client_id, "enabled": self.enabled}, f, indent=2
+                )
+        except IOError as x:
+            if x.errno == errno.ENOENT:
+                logger.debug(
+                    f"{CONFIG_FILE} does not exist and could not be created. Please check permissions on the parent folder."
+                )
+            elif x.errno == errno.EACCES:
+                logger.debug(
+                    f"{CONFIG_FILE} cannot be read. Please check the permissions on this file."
+                )
+            else:
+                logger.debug(
+                    f"{CONFIG_FILE} had an IOError, please inspect this file for issues."
+                )
 
     def enable(self) -> None:
         """
@@ -72,10 +88,24 @@ class Telemetry:
         Load the saved config for the telemetry client ID and enabled status.
         """
 
-        with open(CONFIG_FILE, "r") as f:
-            config = json.load(f)
-            self.client_id = config["client_id"]
-            self.enabled = config["enabled"] & ENV_ENABLED
+        try:
+            with open(CONFIG_FILE, "r") as f:
+                config = json.load(f)
+                self.client_id = config["client_id"]
+                self.enabled = config["enabled"] & ENV_ENABLED
+        except IOError as x:
+            if x.errno == errno.ENOENT:
+                logger.debug(
+                    f"{CONFIG_FILE} does not exist and could not be created. Please check permissions on the parent folder."
+                )
+            elif x.errno == errno.EACCES:
+                logger.debug(
+                    f"{CONFIG_FILE} cannot be read. Please check the permissions on this file."
+                )
+            else:
+                logger.debug(
+                    f"{CONFIG_FILE} had an IOError, please inspect this file for issues."
+                )
 
     def ping(
         self,
@@ -108,6 +138,10 @@ class Telemetry:
             "cid": self.client_id,  # client id
             "ec": category,  # event category
             "ea": action,  # event action
+            # use custom dimensions to capture OS and Python version
+            # see https://developers.google.com/analytics/devguides/collection/protocol/v1/parameters#cd_
+            "cd1": platform.system(),  # OS
+            "cd2": platform.python_version(),  # Python version
         }
 
         if label:
@@ -135,11 +169,45 @@ telemetry_instance = Telemetry()
 T = TypeVar("T")
 
 
+def get_full_class_name(obj):
+    module = obj.__class__.__module__
+    if module is None or module == str.__class__.__module__:
+        return obj.__class__.__name__
+    return module + "." + obj.__class__.__name__
+
+
 def with_telemetry(func: Callable[..., T]) -> Callable[..., T]:
     @wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
-        res = func(*args, **kwargs)
-        telemetry_instance.ping(func.__module__, func.__name__)
-        return res
+
+        category = func.__module__
+        action = func.__name__
+
+        telemetry_instance.ping(category, action, "started")
+        try:
+            res = func(*args, **kwargs)
+            telemetry_instance.ping(category, action, "completed")
+            return res
+        # Catch general exceptions
+        except Exception as e:
+            telemetry_instance.ping(category, action, f"error:{get_full_class_name(e)}")
+            raise e
+        # System exits (used in ingestion and Docker commands) are not caught by the exception handler,
+        # so we need to catch them here.
+        except SystemExit as e:
+            # Forward successful exits
+            if e.code == 0:
+                telemetry_instance.ping(category, action, "completed")
+                sys.exit(0)
+            # Report failed exits
+            else:
+                telemetry_instance.ping(
+                    category, action, f"error:{get_full_class_name(e)}"
+                )
+                sys.exit(e.code)
+        # Catch SIGINTs
+        except KeyboardInterrupt:
+            telemetry_instance.ping(category, action, "cancelled")
+            sys.exit(0)
 
     return wrapper

@@ -1,0 +1,8 @@
+namespace com.linkedin.entity
+
+/**
+ * Placeholder PDL record to store the aspect in the response. By using this place-holder, metadata-service can return
+ * any type of aspect without having to define a single union class
+ */
+record Aspect {
+}

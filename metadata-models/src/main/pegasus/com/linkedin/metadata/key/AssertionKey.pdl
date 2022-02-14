@@ -1,0 +1,20 @@
+namespace com.linkedin.metadata.key
+
+import com.linkedin.common.Urn
+
+/**
+ * Key for a Assertion
+ */
+@Aspect = {
+  "name": "assertionKey",
+}
+record AssertionKey {
+  
+  //The name of the assertion platform such as greatExpectations etc.
+  //assertionPlatform: Urn
+
+  /**
+  * Unique id for the assertion.
+  */
+  assertionId: string
+}

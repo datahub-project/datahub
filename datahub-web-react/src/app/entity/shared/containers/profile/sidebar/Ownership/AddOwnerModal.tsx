@@ -8,6 +8,7 @@ import { CorpUser, EntityType, OwnerEntityType, SearchResult } from '../../../..
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { useEntityData } from '../../../../EntityContext';
 import { CustomAvatar } from '../../../../../../shared/avatar';
+import analytics, { EventType, EntityActionType } from '../../../../../../analytics';
 
 type Props = {
     visible: boolean;
@@ -40,7 +41,7 @@ type SelectedActor = {
 
 export const AddOwnerModal = ({ visible, onClose, refetch }: Props) => {
     const entityRegistry = useEntityRegistry();
-    const { urn } = useEntityData();
+    const { urn, entityType } = useEntityData();
     const [selectedActor, setSelectedActor] = useState<SelectedActor | undefined>(undefined);
     const [userSearch, { data: userSearchData }] = useGetSearchResultsLazyQuery();
     const [groupSearch, { data: groupSearchData }] = useGetSearchResultsLazyQuery();
@@ -70,6 +71,12 @@ export const AddOwnerModal = ({ visible, onClose, refetch }: Props) => {
                 },
             });
             message.success({ content: 'Owner Added', duration: 2 });
+            analytics.event({
+                type: EventType.EntityActionEvent,
+                actionType: EntityActionType.UpdateOwnership,
+                entityType,
+                entityUrn: urn,
+            });
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {

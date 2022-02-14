@@ -16,6 +16,15 @@ export SPRING_KAFKA_PROPERTIES_SECURITY_PROTOCOL=SASL_PLAINTEXT
 export SPRING_KAFKA_PROPERTIES_SASL_JAAS_CONFIG=com.sun.security.auth.module.Krb5LoginModule required principal='principal@REALM' useKeyTab=true storeKey=true keyTab='/keytab';
 ```
 
+Here is another example of how SASL_SSL can be configured for AWS_MSK_IAM when connecting to MSK using IAM via environment variables
+```bash
+SPRING_KAFKA_PROPERTIES_SECURITY_PROTOCOL=SASL_SSL
+SPRING_KAFKA_PROPERTIES_SSL_TRUSTSTORE_LOCATION=/tmp/kafka.client.truststore.jks
+SPRING_KAFKA_PROPERTIES_SASL_MECHANISM=AWS_MSK_IAM
+SPRING_KAFKA_PROPERTIES_SASL_JAAS_CONFIG=software.amazon.msk.auth.iam.IAMLoginModule required;
+SPRING_KAFKA_PROPERTIES_SASL_CLIENT_CALLBACK_HANDLER_CLASS=software.amazon.msk.auth.iam.IAMClientCallbackHandler
+```
+
 These properties can be specified via `application.properties` or `application.yml` files, or as command line switches, or as environment variables. See Spring's [Externalized Configuration](https://docs.spring.io/spring-boot/docs/current/reference/html/spring-boot-features.html#boot-features-external-config) to see how this works.
 
 See [Kafka Connect Security](https://docs.confluent.io/current/connect/security.html) for more ways to connect.
@@ -72,18 +81,60 @@ extraEnvs:
     value: "my-apps-mae-consumer"
 ```
 
+## Other Components that use Kafka can be configured using environment variables:
+- datahub-frontend
+- kafka-setup
+- schema-registry
+
+##  SASL/GSSAPI properties for kafka-setup and datahub-frontend via environment variables
+```bash
+KAFKA_BOOTSTRAP_SERVER=broker:29092
+KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
+KAFKA_PROPERTIES_SASL_KERBEROS_SERVICE_NAME=kafka
+KAFKA_PROPERTIES_SECURITY_PROTOCOL=SASL_PLAINTEXT
+KAFKA_PROPERTIES_SASL_JAAS_CONFIG=com.sun.security.auth.module.Krb5LoginModule required principal='principal@REALM' useKeyTab=true storeKey=true keyTab='/keytab';
+```
+
+## SASL/GSSAPI properties for schema-registry via environment variables
+```bash
+SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS=broker:29092
+SCHEMA_REGISTRY_KAFKASTORE_SASL_KERBEROS_SERVICE_NAME=kafka
+SCHEMA_REGISTRY_KAFKASTORE_SECURITY_PROTOCOL=SASL_PLAINTEXT
+SCHEMA_REGISTRY_KAFKASTORE_SASL_JAAS_CONFIG=com.sun.security.auth.module.Krb5LoginModule required principal='principal@REALM' useKeyTab=true storeKey=true keyTab='/keytab';
+```
+
+
 ## SSL
 
+### Kafka
 We are using the Spring Boot framework to start our apps, including setting up Kafka. You can
 [use environment variables to set system properties](https://docs.spring.io/spring-boot/docs/current/reference/html/spring-boot-features.html#boot-features-external-config-relaxed-binding-from-environment-variables),
 including [Kafka properties](https://docs.spring.io/spring-boot/docs/current/reference/html/appendix-application-properties.html#integration-properties).
 From there you can set your SSL configuration for Kafka.
 
-If Schema Registry is configured to use security (SSL), then you also need to set 
-[this config](https://docs.confluent.io/current/kafka/encryption.html#encryption-ssl-schema-registry).
+### Schema Registry
+If Schema Registry is configured to use security (SSL), then you also need to set additional values.
+
+The [MCE](../../metadata-jobs/mce-consumer-job) and [MAE](../../metadata-jobs/mae-consumer-job) consumers can set 
+default Spring Kafka environment values, for example:
+- `SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_SECURITY_PROTOCOL`
+- `SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_SSL_KEYSTORE_LOCATION`
+- `SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_SSL_KEYSTORE_PASSWORD`
+- `SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_SSL_TRUSTSTORE_LOCATION`
+- `SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_SSL_TRUSTSTORE_PASSWORD`
+
+[GMS](../what/gms.md) can set the following environment variables that will be passed as properties when creating the Schema Registry
+Client. 
+- `KAFKA_SCHEMA_REGISTRY_SECURITY_PROTOCOL`
+- `KAFKA_SCHEMA_REGISTRY_SSL_KEYSTORE_LOCATION`
+- `KAFKA_SCHEMA_REGISTRY_SSL_KEYSTORE_PASSWORD`
+- `KAFKA_SCHEMA_REGISTRY_SSL_TRUSTSTORE_LOCATION`
+- `KAFKA_SCHEMA_REGISTRY_SSL_TRUSTSTORE_PASSWORD`
 
 > **Note** In the logs you might see something like
 > `The configuration 'kafkastore.ssl.truststore.password' was supplied but isn't a known config.` The configuration is
 > not a configuration required for the producer. These WARN message can be safely ignored. Each of Datahub services are
 > passed a full set of configuration but may not require all the configurations that are passed to them. These warn
 > messages indicate that the service was passed a configuration that is not relevant to it and can be safely ignored.
+
+>Other errors: `Failed to start bean 'org.springframework.kafka.config.internalKafkaListenerEndpointRegistry'; nested exception is org.apache.kafka.common.errors.TopicAuthorizationException: Not authorized to access topics: [DataHubUsageEvent_v1]`. Please check ranger permissions or kafka broker logs.

@@ -58,22 +58,9 @@ import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.maven.artifact.versioning.ComparableVersion;
 
-import static com.linkedin.metadata.entity.ValidationUtils.validateOrThrow;
-import static com.linkedin.metadata.restli.RestliConstants.ACTION_AUTOCOMPLETE;
-import static com.linkedin.metadata.restli.RestliConstants.ACTION_BROWSE;
-import static com.linkedin.metadata.restli.RestliConstants.ACTION_GET_BROWSE_PATHS;
-import static com.linkedin.metadata.restli.RestliConstants.ACTION_INGEST;
-import static com.linkedin.metadata.restli.RestliConstants.PARAM_ASPECTS;
-import static com.linkedin.metadata.restli.RestliConstants.PARAM_FIELD;
-import static com.linkedin.metadata.restli.RestliConstants.PARAM_FILTER;
-import static com.linkedin.metadata.restli.RestliConstants.PARAM_INPUT;
-import static com.linkedin.metadata.restli.RestliConstants.PARAM_LIMIT;
-import static com.linkedin.metadata.restli.RestliConstants.PARAM_PATH;
-import static com.linkedin.metadata.restli.RestliConstants.PARAM_QUERY;
-import static com.linkedin.metadata.restli.RestliConstants.PARAM_SORT;
-import static com.linkedin.metadata.restli.RestliConstants.PARAM_START;
-import static com.linkedin.metadata.restli.RestliConstants.PARAM_URN;
-import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
+import static com.linkedin.metadata.entity.ValidationUtils.*;
+import static com.linkedin.metadata.resources.restli.RestliConstants.*;
+import static com.linkedin.metadata.utils.PegasusUtils.*;
 
 
 /**

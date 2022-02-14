@@ -55,3 +55,5 @@ MANIFEST
 
 # Metadata Ingestion Generated
 metadata-ingestion/generated/**
+
+.remote*

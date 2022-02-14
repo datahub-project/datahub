@@ -7,6 +7,8 @@ def test_datahub_rest_emitter_construction():
     emitter = DatahubRestEmitter(MOCK_GMS_ENDPOINT)
     assert emitter._connect_timeout_sec == emitter.DEFAULT_CONNECT_TIMEOUT_SEC
     assert emitter._read_timeout_sec == emitter.DEFAULT_READ_TIMEOUT_SEC
+    assert emitter._retry_status_codes == emitter.DEFAULT_RETRY_STATUS_CODES
+    assert emitter._retry_max_times == emitter.DEFAULT_RETRY_MAX_TIMES
 
 
 def test_datahub_rest_emitter_timeout_construction():
@@ -15,6 +17,16 @@ def test_datahub_rest_emitter_timeout_construction():
     )
     assert emitter._connect_timeout_sec == 2
     assert emitter._read_timeout_sec == 4
+
+
+def test_datahub_rest_emitter_retry_construction():
+    emitter = DatahubRestEmitter(
+        MOCK_GMS_ENDPOINT,
+        retry_status_codes=[418],
+        retry_max_times=42,
+    )
+    assert emitter._retry_status_codes == [418]
+    assert emitter._retry_max_times == 42
 
 
 def test_datahub_rest_emitter_extra_params():

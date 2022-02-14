@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.mlmodel.mappers;
 
+import com.datahub.util.ModelUtils;
 import com.linkedin.common.Deprecation;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
@@ -13,11 +14,9 @@ import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapp
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
-import com.linkedin.metadata.dao.utils.ModelUtils;
+import com.linkedin.metadata.key.MLFeatureTableKey;
 import com.linkedin.metadata.snapshot.MLFeatureTableSnapshot;
 import com.linkedin.ml.metadata.MLFeatureTableProperties;
-import com.linkedin.metadata.key.MLFeatureTableKey;
-
 import javax.annotation.Nonnull;
 
 

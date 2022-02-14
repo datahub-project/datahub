@@ -1,23 +1,22 @@
 package com.linkedin.datahub.graphql.types.mlmodel.mappers;
 
+import com.datahub.util.ModelUtils;
 import com.linkedin.common.Deprecation;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.generated.EntityType;
-import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
 import com.linkedin.datahub.graphql.generated.MLFeatureDataType;
+import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
-import com.linkedin.metadata.dao.utils.ModelUtils;
+import com.linkedin.metadata.key.MLPrimaryKeyKey;
 import com.linkedin.metadata.snapshot.MLPrimaryKeySnapshot;
 import com.linkedin.ml.metadata.MLPrimaryKeyProperties;
-import com.linkedin.metadata.key.MLPrimaryKeyKey;
-
 import javax.annotation.Nonnull;
 
 
@@ -50,7 +49,9 @@ public class MLPrimaryKeySnapshotMapper implements ModelMapper<MLPrimaryKeySnaps
                 MLPrimaryKeyProperties primaryKeyProperties = MLPrimaryKeyProperties.class.cast(aspect);
                 result.setPrimaryKeyProperties(MLPrimaryKeyPropertiesMapper.map(primaryKeyProperties));
                 result.setDescription(primaryKeyProperties.getDescription());
-                result.setDataType(MLFeatureDataType.valueOf(primaryKeyProperties.getDataType().toString()));
+                if (primaryKeyProperties.getDataType() != null) {
+                    result.setDataType(MLFeatureDataType.valueOf(primaryKeyProperties.getDataType().toString()));
+                }
             } else if (aspect instanceof InstitutionalMemory) {
                 InstitutionalMemory institutionalMemory = InstitutionalMemory.class.cast(aspect);
                 result.setInstitutionalMemory(InstitutionalMemoryMapper.map(institutionalMemory));

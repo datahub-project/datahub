@@ -97,7 +97,7 @@ public class ElasticSearchServiceTest {
   }
 
   public static ESIndexBuilder getIndexBuilder(RestHighLevelClient searchClient) {
-    return new ESIndexBuilder(searchClient, 1, 1);
+    return new ESIndexBuilder(searchClient, 1, 1, 3);
   }
 
   @Nonnull
