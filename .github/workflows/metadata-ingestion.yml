@@ -15,6 +15,9 @@ on:
   release:
     types: [published, edited]
 
+env:
+  SPARK_VERSION: 3.0.3
+
 jobs:
 
   metadata-ingestion-general:
@@ -55,6 +58,10 @@ jobs:
       - uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python-version }}
+      - uses: vemonet/setup-spark@v1 # spark is required for pyspark+pydeequ data lake profiling
+        with:
+          spark-version: '3.0.3'
+          hadoop-version: '3.2'
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh && python -m pip install --upgrade pip && pip install tox tox-gh-actions
       - name: Codegen
