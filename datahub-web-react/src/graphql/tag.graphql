@@ -19,3 +19,17 @@ mutation updateTag($urn: String!, $input: TagUpdateInput!) {
         }
     }
 }
+
+query getTagWithColor($urn: String!) {
+    tag(urn: $urn) {
+        urn
+        properties {
+          name
+          description
+          colorHex
+        }
+        ownership {
+            ...ownershipFields
+        }
+    }
+}

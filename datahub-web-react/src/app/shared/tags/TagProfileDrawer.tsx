@@ -6,7 +6,7 @@ import { useHistory } from 'react-router';
 import { EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { ChromePicker } from 'react-color';
 
-import { useGetTagQuery } from '../../../graphql/tag.generated';
+import { useGetTagWithColorQuery } from '../../../graphql/tag.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { EntityType } from '../../../types.generated';
 import { useGetAllEntitySearchResults } from '../../../utils/customGraphQL/useGetAllEntitySearchResults';
@@ -125,16 +125,17 @@ const ReadLessText = styled(Typography.Link)`
 const ABBREVIATED_LIMIT = 80;
 
 export const TagProfileDrawer = ({ closeTagProfileDrawer, tagProfileDrawerVisible, urn }: Props) => {
-    const { loading, error, data, refetch } = useGetTagQuery({ variables: { urn } });
+    const { loading, error, data, refetch } = useGetTagWithColorQuery({ variables: { urn } });
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
     const [updateDescription] = useUpdateDescriptionMutation();
     const [setTagColorMutation] = useSetTagColorMutation();
 
-    const entityAndSchemaQuery = `tags:"${data?.tag?.name}" OR fieldTags:"${data?.tag?.name}" OR editedFieldTags:"${data?.tag?.name}"`;
-    const entityQuery = `tags:"${data?.tag?.name}"`;
+    const entityAndSchemaQuery = `tags:"${data?.tag?.properties?.name}" OR fieldTags:"${data?.tag?.properties?.name}" OR editedFieldTags:"${data?.tag?.properties?.name}"`;
+    const entityQuery = `tags:"${data?.tag?.properties?.name}"`;
     const ownersEmpty = !data?.tag?.ownership?.owners?.length;
-    const description = data?.tag?.description || '';
+    const description = data?.tag?.properties?.description || '';
+    const hexColor = data?.tag?.properties?.colorHex || '';
 
     const [showAddModal, setShowAddModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
@@ -147,8 +148,8 @@ export const TagProfileDrawer = ({ closeTagProfileDrawer, tagProfileDrawerVisibl
     useEffect(() => {
         setUpdatedDescription(description);
         // Manual Color Set-Up, Need to set once it will come from backend
-        setColorValue('#84C878');
-    }, [description]);
+        setColorValue(hexColor);
+    }, [description, hexColor]);
 
     const allSearchResultsByType = useGetAllEntitySearchResults({
         query: entityAndSchemaQuery,
@@ -271,7 +272,7 @@ export const TagProfileDrawer = ({ closeTagProfileDrawer, tagProfileDrawerVisibl
                                 <ChromePicker color={colorValue} onChange={handleColorChange} />
                             </ColorPickerPopOver>
                         )}
-                        <TitleText>{data?.tag?.name}</TitleText>
+                        <TitleText>{data?.tag?.properties?.name}</TitleText>
                     </div>
                     <Divider />
                     {/* Tag Description */}
