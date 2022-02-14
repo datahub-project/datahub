@@ -198,6 +198,7 @@ py==1.11.0
 py4j==0.10.9
 pyasn1==0.4.8
 pyasn1-modules==0.2.8
+PyAthena[SQLAlchemy]==2.4.1
 pybigquery==0.10.2
 pycodestyle==2.8.0
 pycparser==2.21
