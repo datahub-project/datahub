@@ -256,7 +256,8 @@ full_test_dev_requirements = {
     *list(
         dependency
         for plugin in [
-            "athena",
+            # Only include Athena for Python 3.7 or newer.
+            *(["athena"] if is_py37_or_newer else []),
             "druid",
             "feast",
             "hive",
