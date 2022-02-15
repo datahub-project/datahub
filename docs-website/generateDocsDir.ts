@@ -390,7 +390,9 @@ slug: /releases
 custom_edit_url: https://github.com/linkedin/datahub/blob/master/docs-website/generateDocsDir.ts
 ---
 
-# DataHub Releases\n\n`);
+# DataHub Releases
+
+## Summary\n\n`);
 
   const releases_list = await octokit.rest.repos.listReleases({
     owner: "linkedin",
