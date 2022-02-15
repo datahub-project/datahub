@@ -189,6 +189,7 @@ module.exports = {
           path: "genDocs",
           sidebarPath: require.resolve("./sidebars.js"),
           editUrl: "https://github.com/linkedin/datahub/blob/master/",
+          numberPrefixParser: false,
           // TODO: make these work correctly with the doc generation
           showLastUpdateAuthor: true,
           showLastUpdateTime: true,
