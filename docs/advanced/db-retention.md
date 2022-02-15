@@ -17,6 +17,7 @@ various levels:
 ## What type of retention policies are supported?
 
 We support 3 types of retention policies for aspects:
+
 |     Policy    |            Versions Kept            |
 |:-------------:|:-----------------------------------:|
 | Indefinite    | All versions                        |
