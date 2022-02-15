@@ -3,7 +3,7 @@ package com.linkedin.gms.factory.graphql;
 import com.datahub.authentication.token.TokenService;
 import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GraphQLEngine;
-import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
+import com.linkedin.datahub.graphql.analytics.service.GeneralAnalyticsService;
 import com.linkedin.entity.client.JavaEntityClient;
 import com.linkedin.gms.factory.auth.DataHubTokenServiceFactory;
 import com.linkedin.gms.factory.common.GitVersionFactory;
@@ -94,7 +94,7 @@ public class GraphQLEngineFactory {
           _entityClient,
           _graphClient,
           _usageClient,
-          new AnalyticsService(elasticClient, indexConvention.getPrefix()),
+          new GeneralAnalyticsService(elasticClient, indexConvention),
           _entityService,
           _recommendationsService,
           _tokenService,
