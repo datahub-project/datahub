@@ -102,7 +102,8 @@ plugins: Dict[str, Set[str]] = {
         "apache-airflow >= 1.10.2",
     },
     # Source plugins
-    "athena": sql_common | {"PyAthena[SQLAlchemy]"},
+    # PyAthena is pinned with exact version because we use private method in PyAthena
+    "athena": sql_common | {"PyAthena[SQLAlchemy]==2.4.1"},
     "azure-ad": set(),
     "bigquery": sql_common | bigquery_common | {"pybigquery >= 0.6.0"},
     "bigquery-usage": bigquery_common | {"cachetools"},
@@ -256,6 +257,7 @@ full_test_dev_requirements = {
     *list(
         dependency
         for plugin in [
+            "athena",
             "clickhouse",
             "druid",
             "feast",
