@@ -249,6 +249,16 @@ def send_lineage_to_datahub(
         + upstream_subdag_triggers
     )
 
+    job_doc = (
+        None 
+        or operator.doc 
+        or operator.doc_md 
+        or operator.doc_json 
+        or operator.doc_yaml 
+        or operator.doc_rst
+    )
+
+
     job_mce = models.MetadataChangeEventClass(
         proposedSnapshot=models.DataJobSnapshotClass(
             urn=job_urn,
@@ -256,7 +266,7 @@ def send_lineage_to_datahub(
                 models.DataJobInfoClass(
                     name=task.task_id,
                     type=models.AzkabanJobTypeClass.COMMAND,
-                    description=None,
+                    description=job_doc,
                     customProperties=job_property_bag,
                     externalUrl=job_url,
                 ),
