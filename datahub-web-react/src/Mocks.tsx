@@ -30,7 +30,7 @@ import { GetMlModelDocument } from './graphql/mlModel.generated';
 import { GetMlModelGroupDocument } from './graphql/mlModelGroup.generated';
 import { GetGlossaryTermDocument, GetGlossaryTermQuery } from './graphql/glossaryTerm.generated';
 import { GetEntityCountsDocument } from './graphql/app.generated';
-import { GetMeDocument } from './graphql/me.generated';
+import { GetMeDocument, GetMeOnlyDocument } from './graphql/me.generated';
 import { ListRecommendationsDocument } from './graphql/recommendations.generated';
 
 const user1 = {
@@ -300,20 +300,25 @@ export const dataset3 = {
         owners: [
             {
                 owner: {
-                    ...user1,
+                    ...user2,
+                    __typename: 'CorpUser',
                 },
                 type: 'DATAOWNER',
+                __typename: 'Owner',
             },
             {
                 owner: {
-                    ...user2,
+                    ...user1,
+                    __typename: 'CorpUser',
                 },
                 type: 'DELEGATE',
+                __typename: 'Owner',
             },
         ],
         lastModified: {
             time: 0,
         },
+        __typename: 'Ownership',
     },
     globalTags: {
         __typename: 'GlobalTags',
@@ -450,6 +455,9 @@ export const dataset3 = {
     ],
     domain: null,
     container: null,
+    status: {
+        removed: false,
+    },
 } as Dataset;
 
 export const dataset4 = {
@@ -2778,6 +2786,26 @@ export const mocks = [
                             count: 670,
                         },
                     ],
+                },
+            },
+        },
+    },
+    {
+        // this mock can be shifted elsewhere in the doc. need to create new mock instead of recycling cos it needs to be specific to query else it doesnt work
+        request: {
+            query: GetMeOnlyDocument,
+            variables: {},
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                me: {
+                    __typename: 'AuthenticatedUser',
+                    corpUser: {
+                        type: EntityType.CorpUser,
+                        username: 'john',
+                        urn: 'urn:li:corpuser:3',
+                    },
                 },
             },
         },

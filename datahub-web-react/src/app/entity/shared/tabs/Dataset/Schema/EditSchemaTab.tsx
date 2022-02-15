@@ -11,13 +11,9 @@ export const EditSchemaTab = () => {
     const queryBase = useBaseEntity<GetDatasetQuery>()?.dataset?.ownership?.owners;
     const currUser = FindWhoAmI();
     const ownersArray =
-        queryBase
-            ?.map((x) =>
-                x?.type === 'DATAOWNER' && x?.owner?.type === EntityType.CorpUser
-                    ? x?.owner?.urn.split(':').slice(-1)
-                    : '',
-            )
-            .flat() || [];
+        queryBase?.map((x) =>
+            x?.type === 'DATAOWNER' && x?.owner?.type === EntityType.CorpUser ? x?.owner?.username : '',
+        ) || [];
     // console.log(`ownersArray is ${ownersArray} and I am ${currUser}`);
     if (ownersArray.includes(currUser)) {
         return (
