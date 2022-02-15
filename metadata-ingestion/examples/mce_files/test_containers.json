@@ -1,0 +1,122 @@
+[
+  {
+    "auditHeader":null,
+    "entityType":"container",
+    "entityUrn": "urn:li:container:DATABASE",
+    "changeType":"UPSERT",
+    "aspectName":"containerProperties",
+    "aspect":{
+      "value":"{\"name\": \"datahub_db\", \"description\": \"The Root DataHub DB\" }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"container",
+    "entityUrn": "urn:li:container:DATABASE",
+    "changeType":"UPSERT",
+    "aspectName":"subTypes",
+    "aspect":{
+      "value":"{\"typeNames\": [ \"Database\" ] }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"container",
+    "entityUrn": "urn:li:container:DATABASE",
+    "changeType":"UPSERT",
+    "aspectName":"dataPlatformInstance",
+    "aspect":{
+      "value":"{\"platform\": \"urn:li:dataPlatform:mysql\" }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"container",
+    "entityUrn": "urn:li:container:SCHEMA",
+    "changeType":"UPSERT",
+    "aspectName":"containerProperties",
+    "aspect":{
+      "value":"{\"name\": \"datahub_schema\", \"description\": \"The Root DataHub Schema\" }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"container",
+    "entityUrn": "urn:li:container:SCHEMA",
+    "changeType":"UPSERT",
+    "aspectName":"subTypes",
+    "aspect":{
+      "value":"{\"typeNames\": [ \"Schema\" ] }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"container",
+    "entityUrn": "urn:li:container:SCHEMA",
+    "changeType":"UPSERT",
+    "aspectName":"dataPlatformInstance",
+    "aspect":{
+      "value":"{\"platform\": \"urn:li:dataPlatform:mysql\" }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"container",
+    "entityUrn": "urn:li:container:SCHEMA",
+    "changeType":"UPSERT",
+    "aspectName":"container",
+    "aspect":{
+      "value":"{\"container\": \"urn:li:container:DATABASE\" }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datahub.metadata_aspect_v2,PROD)",
+    "changeType":"UPSERT",
+    "aspectName":"container",
+    "aspect":{
+      "value":"{\"container\": \"urn:li:container:SCHEMA\" }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datahub.metadata_aspect,PROD)",
+    "changeType":"UPSERT",
+    "aspectName":"container",
+    "aspect":{
+      "value":"{\"container\": \"urn:li:container:SCHEMA\" }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datahub.metadata_aspect_v3,PROD)",
+    "changeType":"UPSERT",
+    "aspectName":"container",
+    "aspect":{
+      "value":"{\"container\": \"urn:li:container:SCHEMA\" }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  }
+]

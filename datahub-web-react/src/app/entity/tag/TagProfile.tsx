@@ -11,6 +11,7 @@ import { navigateToSearchUrl } from '../../search/utils/navigateToSearchUrl';
 import { Message } from '../../shared/Message';
 import { AvatarsGroup } from '../../shared/avatar';
 import { useEntityRegistry } from '../../useEntityRegistry';
+import { decodeUrn } from '../shared/utils';
 
 const PageContainer = styled.div`
     padding: 32px 100px;
@@ -79,7 +80,7 @@ type TagPageParams = {
  */
 export default function TagProfile() {
     const { urn: encodedUrn } = useParams<TagPageParams>();
-    const urn = decodeURIComponent(encodedUrn);
+    const urn = decodeUrn(encodedUrn);
 
     const { loading, error, data } = useGetTagQuery({ variables: { urn } });
     const entityRegistry = useEntityRegistry();

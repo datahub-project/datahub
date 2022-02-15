@@ -62,18 +62,13 @@ module.exports = {
       "docs/saas",
       "releases",
     ],
-    "Getting Started": [
-      "docs/quickstart",
-      "docs/cli",
-      "metadata-ingestion/README",
-      "docs/debugging",
-    ],
+    "Getting Started": ["docs/quickstart", "docs/cli", "docs/debugging"],
     "Metadata Ingestion": [
       // add a custom label since the default is 'Metadata Ingestion'
       // note that we also have to add the path to this file in sidebarsjs_hardcoded_titles in generateDocsDir.ts
       {
         type: "doc",
-        label: "Quickstart",
+        label: "Introduction",
         id: "metadata-ingestion/README",
       },
       {
@@ -112,6 +107,7 @@ module.exports = {
           "metadata-ingestion/adding-source",
           "docs/how/add-custom-ingestion-source",
           "docs/how/add-custom-data-platform",
+          "docs/platform-instances",
           "docs/how/add-user-data",
         ],
       },
@@ -194,11 +190,12 @@ module.exports = {
         ],
       },
     ],
-    "Usage Guides": ["docs/policies"],
+    "Usage Guides": ["docs/policies", "docs/domains", "docs/ui-ingestion"],
     "Developer Guides": [
       // TODO: the titles of these should not be in question form in the sidebar
       "docs/developers",
       "docs/docker/development",
+      "docs/how/backup-datahub",
       {
         type: "doc",
         label: "Ingesting files from S3",

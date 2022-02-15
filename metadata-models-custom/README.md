@@ -56,7 +56,41 @@ This will deposit an artifact called `metadata-models-custom-<version>.zip` unde
 ../gradlew -PprojVersion=0.0.1 install
 ```
 
-This will unpack the artifact and deposit it under `~/.datahub/plugins/models/<registry-name>/<registry-version>/`. 
+This will unpack the artifact and deposit it under `~/.datahub/plugins/models/<registry-name>/<registry-version>/`.
+
+#### Deploying to a remote Kubernetes server
+
+Deploying your customized jar to a remote Kubernetes server requires that you take the output zip 
+(generated from `../gradlew modelArtifact` under `build/dist`) and place the unzipped contents in the volumes mount for the GMS pod on the remote server.
+First you will need to push the files into a configmap using kubectl:
+```
+kubectl create configmap custom-model --from-file=<<path-to-file>> -n <<namespace>>
+```
+Then you need to set the volumes for GMS (refer to how jmx exporter configmap is added here:
+https://github.com/acryldata/datahub-helm/blob/master/charts/datahub/subcharts/datahub-gms/templates/deployment.yaml#L40)
+This tells GMS that we will be pulling this configmap in. You can do this by setting `datahub-gms.extraVolumes` in `values.yaml`
+which gets appended to the deployment without having to change the helm chart.
+
+Finally you need to mount the volume into the container’s local directory by setting volumeMounts. 
+Refer to how the kafka certs are mounted onto a local path here:
+https://github.com/acryldata/datahub-helm/blob/master/charts/datahub/subcharts/datahub-gms/templates/deployment.yaml#L182
+You can do this by setting the datahub-gms.extraVolumeMounts in `values.yaml`
+
+at the end your values.yaml should have something like:
+```
+datahub-gms:
+  ...
+  extraVolumes:
+    - name: custom-model
+      configMap:
+        name: custom-model ## should match configmap name above
+  extraVolumeMounts:
+    - name: custom-model-dir
+      mountPath: /etc/plugins/models/<registry-name>/<registry-version>
+```
+
+The mountPath can be configured using `ENTITY_REGISTRY_PLUGIN_PATH` and defaults to `/etc/datahub/plugins/models`.
+
 
 ### Check if your model got loaded successfully 
 

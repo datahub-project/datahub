@@ -62,7 +62,8 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
         DATASET_KEY_ASPECT_NAME,
         DATASET_PROPERTIES_ASPECT_NAME,
         EDITABLE_DATASET_PROPERTIES_ASPECT_NAME,
-        DATASET_DEPRECATION_ASPECT_NAME,
+        DATASET_DEPRECATION_ASPECT_NAME, // This aspect is deprecated.
+        DEPRECATION_ASPECT_NAME,
         DATASET_UPSTREAM_LINEAGE_ASPECT_NAME,
         UPSTREAM_LINEAGE_ASPECT_NAME,
         EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
@@ -71,7 +72,9 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
         INSTITUTIONAL_MEMORY_ASPECT_NAME,
         GLOBAL_TAGS_ASPECT_NAME,
         GLOSSARY_TERMS_ASPECT_NAME,
-        STATUS_ASPECT_NAME
+        STATUS_ASPECT_NAME,
+        CONTAINER_ASPECT_NAME,
+        DOMAINS_ASPECT_NAME
     );
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("origin", "platform");

@@ -17,6 +17,10 @@ This plugin extracts the following:
 - Table metadata, such as owner, description and parameters
 - Jobs and their component transformations, data sources, and data sinks
 
+| Capability | Status | Details | 
+| -----------| ------ | ---- |
+| Platform Instance | 🛑 | [link](../../docs/platform-instances.md) |
+
 ## Quickstart recipe
 
 Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
@@ -33,6 +37,37 @@ source:
 sink:
   # sink configs
 ```
+
+## IAM permissions
+For ingesting datasets, the following IAM permissions are required:
+```json
+{
+    "Effect": "Allow",
+    "Action": [
+        "glue:GetDatabases",
+        "glue:GetTables"
+    ],
+    "Resource": [
+        "arn:aws:glue:$region-id:$account-id:catalog",
+        "arn:aws:glue:$region-id:$account-id:database/*",
+        "arn:aws:glue:$region-id:$account-id:table/*"
+    ]
+}
+```
+
+For ingesting jobs (`extract_transforms: True`), the following additional permissions are required:
+```json
+{
+    "Effect": "Allow",
+    "Action": [
+        "glue:GetDataflowGraph",
+        "glue:GetJobs",
+    ],
+    "Resource": "*"
+}
+```
+
+plus `s3:GetObject` for the job script locations.
 
 ## Config details
 
@@ -57,6 +92,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `ignore_unsupported_connectors` |          | `True`       | Whether to ignore unsupported connectors. If disabled, an error will be raised.    |
 | `emit_s3_lineage`               |          | `True`       | Whether to emit S3-to-Glue lineage.                                                |
 | `glue_s3_lineage_direction`     |          | `upstream`   | If `upstream`, S3 is upstream to Glue. If `downstream` S3 is downstream to Glue.   |
+| `extract_owners`                |          | `True`       | When enabled, extracts ownership from Glue directly and overwrites existing owners. When disabled, ownership is left empty for datasets.                                                      |
 
 ## Compatibility
 

@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.dataflow.mappers;
 
+import com.linkedin.common.Deprecation;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
@@ -10,7 +11,10 @@ import com.linkedin.datahub.graphql.generated.DataFlow;
 import com.linkedin.datahub.graphql.generated.DataFlowEditableProperties;
 import com.linkedin.datahub.graphql.generated.DataFlowInfo;
 import com.linkedin.datahub.graphql.generated.DataFlowProperties;
+import com.linkedin.datahub.graphql.generated.DataPlatform;
+import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
@@ -19,8 +23,11 @@ import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.datajob.EditableDataFlowProperties;
+import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.key.DataFlowKey;
+import com.linkedin.metadata.key.DataPlatformKey;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import javax.annotation.Nonnull;
 
 import static com.linkedin.metadata.Constants.*;
@@ -47,6 +54,11 @@ public class DataFlowMapper implements ModelMapper<EntityResponse, DataFlow> {
                 result.setOrchestrator(gmsKey.getOrchestrator());
                 result.setFlowId(gmsKey.getFlowId());
                 result.setCluster(gmsKey.getCluster());
+                result.setPlatform(DataPlatform.builder()
+                    .setType(EntityType.DATA_PLATFORM)
+                    .setUrn(EntityKeyUtils
+                        .convertEntityKeyToUrn(new DataPlatformKey()
+                            .setPlatformName(gmsKey.getOrchestrator()), DATA_PLATFORM_ENTITY_NAME).toString()).build());
             } else if (DATA_FLOW_INFO_ASPECT_NAME.equals(name)) {
                 final com.linkedin.datajob.DataFlowInfo gmsDataFlowInfo = new com.linkedin.datajob.DataFlowInfo(data);
                 result.setInfo(mapDataFlowInfo(gmsDataFlowInfo));
@@ -68,6 +80,16 @@ public class DataFlowMapper implements ModelMapper<EntityResponse, DataFlow> {
                 result.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(data)));
             } else if (GLOSSARY_TERMS_ASPECT_NAME.equals(name)) {
                 result.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(data)));
+            } else if (DOMAINS_ASPECT_NAME.equals(name)) {
+                final Domains domains = new Domains(data);
+                // Currently we only take the first domain if it exists.
+                if (domains.getDomains().size() > 0) {
+                    result.setDomain(Domain.builder()
+                        .setType(EntityType.DOMAIN)
+                        .setUrn(domains.getDomains().get(0).toString()).build());
+                }
+            } else if (DEPRECATION_ASPECT_NAME.equals(name)) {
+                result.setDeprecation(DeprecationMapper.map(new Deprecation(data)));
             }
         });
 

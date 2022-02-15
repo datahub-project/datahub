@@ -1,16 +1,20 @@
 package com.linkedin.datahub.graphql.types.dataset.mappers;
 
+import com.linkedin.common.Deprecation;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.data.DataMap;
+import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.DatasetEditableProperties;
+import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FabricType;
+import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
@@ -22,6 +26,7 @@ import com.linkedin.dataset.DatasetDeprecation;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.EditableDatasetProperties;
 import com.linkedin.dataset.ViewProperties;
+import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.schema.EditableSchemaMetadata;
@@ -108,6 +113,28 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
                 result.setEditableSchemaMetadata(EditableSchemaMetadataMapper.map(new EditableSchemaMetadata(data)));
             } else if (GLOSSARY_TERMS_ASPECT_NAME.equals(name)) {
                 result.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(data)));
+            } else if (CONTAINER_ASPECT_NAME.equals(name)) {
+                final com.linkedin.container.Container gmsContainer = new com.linkedin.container.Container(data);
+                result.setContainer(Container
+                    .builder()
+                    .setType(EntityType.CONTAINER)
+                    .setUrn(gmsContainer.getContainer().toString())
+                    .build());
+            } else if (DOMAINS_ASPECT_NAME.equals(name)) {
+                final Domains domains = new Domains(data);
+                // Currently we only take the first domain if it exists.
+                if (domains.getDomains().size() > 0) {
+                    result.setDomain(Domain.builder()
+                        .setType(EntityType.DOMAIN)
+                        .setUrn(domains.getDomains().get(0).toString()).build());
+                }
+            } else if (DEPRECATION_ASPECT_NAME.equals(name)) {
+                if (result.getDeprecation() == null) {
+                    // If deprecation has not already been populated by the legacy
+                    // 'datasetDeprecation' aspect, set it. If it's already been set,
+                    // use the new Deprecation aspect.
+                    result.setDeprecation(DeprecationMapper.map(new Deprecation(data)));
+                }
             }
         });
         return result;

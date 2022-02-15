@@ -9,6 +9,7 @@ import sqlalchemy.dialects.postgresql as custom_types
 # https://geoalchemy-2.readthedocs.io/en/latest/core_tutorial.html#reflecting-tables.
 from geoalchemy2 import Geometry  # noqa: F401
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.sql.sql_common import (
     BasicSQLAlchemyConfig,
     SQLAlchemySource,
@@ -29,6 +30,7 @@ register_custom_type(custom_types.HSTORE, MapTypeClass)
 class PostgresConfig(BasicSQLAlchemyConfig):
     # defaults
     scheme = "postgresql+psycopg2"
+    schema_pattern = AllowDenyPattern(deny=["information_schema"])
 
     def get_identifier(self: BasicSQLAlchemyConfig, schema: str, table: str) -> str:
         regular = f"{schema}.{table}"

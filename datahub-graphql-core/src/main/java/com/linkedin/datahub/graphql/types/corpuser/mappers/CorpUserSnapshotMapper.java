@@ -38,7 +38,7 @@ public class CorpUserSnapshotMapper implements ModelMapper<CorpUserSnapshot, Cor
                 result.setProperties(CorpUserPropertiesMapper.map(CorpUserInfo.class.cast(aspect)));
                 result.setInfo(CorpUserInfoMapper.map(CorpUserInfo.class.cast(aspect)));
             } else if (aspect instanceof CorpUserEditableInfo) {
-                result.setEditableInfo(CorpUserEditableInfoMapper.map(CorpUserEditableInfo.class.cast(aspect)));
+                result.setEditableProperties(CorpUserEditableInfoMapper.map(CorpUserEditableInfo.class.cast(aspect)));
             } else if (aspect instanceof GlobalTags) {
                 result.setGlobalTags(GlobalTagsMapper.map(GlobalTags.class.cast(aspect)));
             } else if (aspect instanceof CorpUserStatus) {

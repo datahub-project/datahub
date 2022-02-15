@@ -18,6 +18,7 @@ import { useEntityRegistry } from '../../../../useEntityRegistry';
 import LineageExplorer from '../../../../lineage/LineageExplorer';
 import CompactContext from '../../../../shared/CompactContext';
 import DynamicTab from '../../tabs/Entity/weaklyTypedAspects/DynamicTab';
+import analytics, { EventType } from '../../../../analytics';
 
 type Props<T, U> = {
     urn: string;
@@ -47,7 +48,6 @@ const ContentContainer = styled.div`
     display: flex;
     height: auto;
     min-height: 100%;
-    max-height: calc(100vh - 108px);
     align-items: stretch;
     flex: 1;
 `;
@@ -125,6 +125,12 @@ export const EntityProfile = <T, U>({
             tabParams?: Record<string, any>;
             method?: 'push' | 'replace';
         }) => {
+            analytics.event({
+                type: EventType.EntitySectionViewEvent,
+                entityType,
+                entityUrn: urn,
+                section: tabName.toLowerCase(),
+            });
             history[method](getEntityPath(entityType, urn, entityRegistry, false, tabName, tabParams));
         },
         [history, entityType, urn, entityRegistry],
@@ -233,7 +239,9 @@ export const EntityProfile = <T, U>({
                                             selectedTab={routedTab}
                                         />
                                     </Header>
-                                    <TabContent>{routedTab && <routedTab.component />}</TabContent>
+                                    <TabContent>
+                                        {routedTab && <routedTab.component properties={routedTab.properties} />}
+                                    </TabContent>
                                 </HeaderAndTabsFlex>
                             </HeaderAndTabs>
                             <Sidebar>

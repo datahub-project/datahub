@@ -6,6 +6,8 @@ For context on getting started with ingestion, check out our [metadata ingestion
 
 To install this plugin, run `pip install 'acryl-datahub[athena]'`.
 
+Athena source only works with python 3.7+.
+
 ## Capabilities
 
 This plugin extracts the following:
@@ -13,6 +15,10 @@ This plugin extracts the following:
 - Metadata for databases, schemas, and tables
 - Column types associated with each table
 - Table, row, and column statistics via optional [SQL profiling](./sql_profiles.md)
+
+| Capability | Status | Details | 
+| -----------| ------ | ---- |
+| Platform Instance | ✔️ | [link](../../docs/platform-instances.md) |
 
 ## Quickstart recipe
 
@@ -54,7 +60,8 @@ As a SQL-based service, the Athena integration is also supported by our SQL prof
 | `aws_region`                | ✅       |              | AWS region code.                                                                                                                                                                                           |
 | `s3_staging_dir`            | ✅       |              | Of format `"s3://<bucket-name>/prefix/"`. The `s3_staging_dir` parameter is needed because Athena always writes query results to S3. <br />See https://docs.aws.amazon.com/athena/latest/ug/querying.html. |
 | `work_group`                | ✅       |              | Name of Athena workgroup. <br />See https://docs.aws.amazon.com/athena/latest/ug/manage-queries-control-costs-with-workgroups.html.                                                                        |
-| `env`                       |          | `"PROD"`     | Environment to use in namespace when constructing URNs.                                                                                                                                                    |
+| `env`                       |          | `"PROD"`     | Environment to use in namespace when constructing URNs.                                                                                                                                          |
+| `platform_instance`         |          | None             | The Platform instance to use while constructing URNs.         |
 | `options.<option>`          |          |              | Any options specified here will be passed to SQLAlchemy's `create_engine` as kwargs.<br />See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details.                    |
 | `table_pattern.allow`       |          |              | List of regex patterns for tables to include in ingestion.                                                                                                                                                 |
 | `table_pattern.deny`        |          |              | List of regex patterns for tables to exclude from ingestion.                                                                                                                                               |
