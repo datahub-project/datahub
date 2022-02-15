@@ -35,7 +35,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.aws.aws_common import make_s3_urn
+from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.ingestion.source.data_lake.config import DataLakeSourceConfig
 from datahub.ingestion.source.data_lake.profiling import _SingleTableProfiler
 from datahub.ingestion.source.data_lake.report import DataLakeSourceReport

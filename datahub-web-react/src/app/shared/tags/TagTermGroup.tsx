@@ -117,7 +117,7 @@ export default function TagTermGroup({
         const termToRemove = editableGlossaryTerms?.terms?.find((term) => term.term.urn === urnToRemove);
         Modal.confirm({
             title: `Do you want to remove ${termToRemove?.term.name} term?`,
-            content: `Are you sure you want to remove the ${termToRemove?.term.name} tag?`,
+            content: `Are you sure you want to remove the ${termToRemove?.term.name} term?`,
             onOk() {
                 if (entityUrn) {
                     removeTermMutation({
@@ -159,8 +159,8 @@ export default function TagTermGroup({
             {uneditableGlossaryTerms?.terms?.map((term) => (
                 <TagLink to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)} key={term.term.urn}>
                     <Tag closable={false}>
+                        <BookOutlined style={{ marginRight: '3%' }} />
                         {term.term.name}
-                        <BookOutlined style={{ marginLeft: '2%' }} />
                     </Tag>
                 </TagLink>
             ))}
@@ -173,8 +173,8 @@ export default function TagTermGroup({
                             removeTerm(term.term.urn);
                         }}
                     >
+                        <BookOutlined style={{ marginRight: '3%' }} />
                         {term.term.name}
-                        <BookOutlined style={{ marginLeft: '2%' }} />
                     </Tag>
                 </TagLink>
             ))}
@@ -229,7 +229,7 @@ export default function TagTermGroup({
                     {...buttonProps}
                 >
                     <PlusOutlined />
-                    Add Tag
+                    <span>Add Tag</span>
                 </NoElementButton>
             )}
             {canAddTerm &&
@@ -243,7 +243,7 @@ export default function TagTermGroup({
                         {...buttonProps}
                     >
                         <PlusOutlined />
-                        Add Term
+                        <span>Add Term</span>
                     </NoElementButton>
                 )}
             {showAddModal && !!entityUrn && !!entityType && (

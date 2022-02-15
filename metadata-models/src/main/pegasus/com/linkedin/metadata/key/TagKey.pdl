@@ -8,12 +8,13 @@ namespace com.linkedin.metadata.key
 }
 record TagKey {
   /**
-  * The unique tag name
+  * The tag name, which serves as a unique id
   */
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
     "enableAutocomplete": true,
-    "boostScore": 10.0
+    "boostScore": 10.0,
+    "fieldName": "id"
   }
   name: string
 }

@@ -1,0 +1,35 @@
+namespace com.linkedin.assertion
+
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.ExternalReference
+
+/**
+ * Information about an assertion
+ */
+@Aspect = {
+  "name": "assertionInfo"
+}
+record AssertionInfo includes CustomProperties, ExternalReference {
+    /**
+    * Type of assertion. Assertion types can evolve to span Datasets, Flows (Pipelines), Models, Features etc.
+    */
+    type: enum AssertionType {
+      // When present, then DatasetAssertionInfo elements are filled out
+      DATASET
+    }
+
+    /**
+    * Dataset Assertion information when type is DATASET
+    */
+    datasetAssertion: optional DatasetAssertionInfo
+
+    /*
+    * Logic for the assertion as expressed in the native assertion language. Code fragments, query strings, etc.
+    */
+    assertionLogic: optional string
+
+    /**
+    * Parameters required for the assertion. e.g. min_value, max_value, value, columns
+    */
+    parameters: optional map[string, string]
+}
