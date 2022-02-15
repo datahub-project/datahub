@@ -17,6 +17,7 @@ import com.linkedin.datahub.graphql.generated.ChartQuery;
 import com.linkedin.datahub.graphql.generated.ChartQueryType;
 import com.linkedin.datahub.graphql.generated.ChartType;
 import com.linkedin.datahub.graphql.generated.Container;
+import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -34,6 +35,8 @@ import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.ChartKey;
+import com.linkedin.metadata.key.DataPlatformKey;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
@@ -81,6 +84,11 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
         final ChartKey gmsKey = new ChartKey(dataMap);
         chart.setChartId(gmsKey.getChartId());
         chart.setTool(gmsKey.getDashboardTool());
+        chart.setPlatform(DataPlatform.builder()
+            .setType(EntityType.DATA_PLATFORM)
+            .setUrn(EntityKeyUtils
+                .convertEntityKeyToUrn(new DataPlatformKey()
+                    .setPlatformName(gmsKey.getDashboardTool()), DATA_PLATFORM_ENTITY_NAME).toString()).build());
     }
 
     private void mapChartInfo(@Nonnull Chart chart, @Nonnull DataMap dataMap) {

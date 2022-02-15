@@ -15,6 +15,7 @@ import com.linkedin.datahub.graphql.generated.Dashboard;
 import com.linkedin.datahub.graphql.generated.DashboardEditableProperties;
 import com.linkedin.datahub.graphql.generated.DashboardInfo;
 import com.linkedin.datahub.graphql.generated.DashboardProperties;
+import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
@@ -31,6 +32,8 @@ import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.DashboardKey;
+import com.linkedin.metadata.key.DataPlatformKey;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
@@ -75,6 +78,11 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
         final DashboardKey gmsKey = new DashboardKey(dataMap);
         dashboard.setDashboardId(gmsKey.getDashboardId());
         dashboard.setTool(gmsKey.getDashboardTool());
+        dashboard.setPlatform(DataPlatform.builder()
+            .setType(EntityType.DATA_PLATFORM)
+            .setUrn(EntityKeyUtils
+                .convertEntityKeyToUrn(new DataPlatformKey()
+                    .setPlatformName(gmsKey.getDashboardTool()), DATA_PLATFORM_ENTITY_NAME).toString()).build());
     }
 
     private void mapDashboardInfo(@Nonnull Dashboard dashboard, @Nonnull DataMap dataMap) {
