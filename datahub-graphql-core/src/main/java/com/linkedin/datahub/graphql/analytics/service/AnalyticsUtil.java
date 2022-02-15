@@ -17,6 +17,7 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.DatasetKey;
+import com.linkedin.metadata.key.GlossaryTermKey;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Map;
@@ -122,7 +123,16 @@ public class AnalyticsUtil {
     if (envelopedDatasetKey == null) {
       return Optional.empty();
     }
-    DatasetKey dataPlatformInfo = new DatasetKey(envelopedDatasetKey.getValue().data());
-    return Optional.of(dataPlatformInfo.getName());
+    DatasetKey datasetKey = new DatasetKey(envelopedDatasetKey.getValue().data());
+    return Optional.of(datasetKey.getName());
+  }
+
+  public static Optional<String> getTermName(EntityResponse entityResponse) {
+    EnvelopedAspect envelopedDatasetKey = entityResponse.getAspects().get(Constants.GLOSSARY_TERM_KEY_ASPECT_NAME);
+    if (envelopedDatasetKey == null) {
+      return Optional.empty();
+    }
+    GlossaryTermKey glossaryTermKey = new GlossaryTermKey(envelopedDatasetKey.getValue().data());
+    return Optional.of(glossaryTermKey.getName());
   }
 }

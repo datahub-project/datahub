@@ -128,7 +128,7 @@ public class GeneralAnalyticsService {
 
   public List<NamedBar> getBarChart(String indexName, Optional<DateRange> dateRange, List<String> dimensions,
       // Length 1 or 2
-      Map<String, List<String>> filters, Optional<String> uniqueOn) {
+      Map<String, List<String>> filters, Optional<String> uniqueOn, boolean showMissing) {
     log.debug(
         String.format("Invoked getBarChart with indexName: %s, dateRange: %s, dimensions: %s,", indexName, dateRange,
             dimensions) + String.format("filters: %s, uniqueOn: %s", filters, uniqueOn));
@@ -136,10 +136,17 @@ public class GeneralAnalyticsService {
     assert (dimensions.size() == 1 || dimensions.size() == 2);
     AggregationBuilder filteredAgg = getFilteredAggregation(filters, ImmutableMap.of(), dateRange);
 
-    AggregationBuilder termAgg = AggregationBuilders.terms(DIMENSION).field(dimensions.get(0)).missing(NA);
+    TermsAggregationBuilder termAgg = AggregationBuilders.terms(DIMENSION).field(dimensions.get(0));
+    if (showMissing) {
+      termAgg.missing(NA);
+    }
+
     if (dimensions.size() == 2) {
-      AggregationBuilder secondTermAgg =
-          AggregationBuilders.terms(SECOND_DIMENSION).field(dimensions.get(1)).missing(NA);
+      TermsAggregationBuilder secondTermAgg =
+          AggregationBuilders.terms(SECOND_DIMENSION).field(dimensions.get(1));
+      if (showMissing) {
+        secondTermAgg.missing(NA);
+      }
       uniqueOn.ifPresent(s -> secondTermAgg.subAggregation(getUniqueQuery(s)));
       termAgg.subAggregation(secondTermAgg);
     } else {

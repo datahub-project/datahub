@@ -112,7 +112,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     final List<NamedBar> sectionViewsPerEntityType =
         _generalAnalyticsService.getBarChart(_generalAnalyticsService.getUsageIndexName(),
             Optional.of(lastWeekDateRange), ImmutableList.of("entityType.keyword", "section.keyword"),
-            ImmutableMap.of("type", ImmutableList.of("EntitySectionViewEvent")), Optional.empty());
+            ImmutableMap.of("type", ImmutableList.of("EntitySectionViewEvent")), Optional.empty(), true);
     charts.add(BarChart.builder().setTitle(sectionViewsTitle).setBars(sectionViewsPerEntityType).build());
 
     // Chart 5: Bar Graph Chart
@@ -120,7 +120,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     final List<NamedBar> eventsByEventType =
         _generalAnalyticsService.getBarChart(_generalAnalyticsService.getUsageIndexName(),
             Optional.of(lastWeekDateRange), ImmutableList.of("entityType.keyword", "actionType.keyword"),
-            ImmutableMap.of("type", ImmutableList.of("EntityActionEvent")), Optional.empty());
+            ImmutableMap.of("type", ImmutableList.of("EntityActionEvent")), Optional.empty(), true);
     charts.add(BarChart.builder().setTitle(actionsByTypeTitle).setBars(eventsByEventType).build());
 
     // Chart 6: Table Chart
@@ -151,7 +151,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     // Chart 1: Entities per domain
     final List<NamedBar> entitiesPerDomain =
         _generalAnalyticsService.getBarChart(_generalAnalyticsService.getAllEntityIndexName(), Optional.empty(),
-            ImmutableList.of("domains.keyword"), Collections.emptyMap(), Optional.empty());
+            ImmutableList.of("domains.keyword"), Collections.emptyMap(), Optional.empty(), false);
     AnalyticsUtil.hydrateDisplayNameForBarChart(_entityClient, entitiesPerDomain, Constants.DOMAIN_ENTITY_NAME,
         ImmutableSet.of(Constants.DOMAIN_PROPERTIES_ASPECT_NAME), AnalyticsUtil::getDomainName, authentication);
     if (nonEmpty(entitiesPerDomain)) {
@@ -161,11 +161,21 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     // Chart 2: Entities per platform
     final List<NamedBar> entitiesPerPlatform =
         _generalAnalyticsService.getBarChart(_generalAnalyticsService.getAllEntityIndexName(), Optional.empty(),
-            ImmutableList.of("platform.keyword"), Collections.emptyMap(), Optional.empty());
+            ImmutableList.of("platform.keyword"), Collections.emptyMap(), Optional.empty(), false);
     AnalyticsUtil.hydrateDisplayNameForBarChart(_entityClient, entitiesPerPlatform, Constants.DATA_PLATFORM_ENTITY_NAME,
         ImmutableSet.of(Constants.DATA_PLATFORM_INFO_ASPECT_NAME), AnalyticsUtil::getPlatformName, authentication);
     if (nonEmpty(entitiesPerPlatform)) {
       charts.add(BarChart.builder().setTitle("Entities per Platform").setBars(entitiesPerPlatform).build());
+    }
+
+    // Chart 3: Entities per term
+    final List<NamedBar> entitiesPerTerm =
+        _generalAnalyticsService.getBarChart(_generalAnalyticsService.getAllEntityIndexName(), Optional.empty(),
+            ImmutableList.of("glossaryTerms.keyword"), Collections.emptyMap(), Optional.empty(), false);
+    AnalyticsUtil.hydrateDisplayNameForBarChart(_entityClient, entitiesPerTerm, Constants.GLOSSARY_TERM_ENTITY_NAME,
+        ImmutableSet.of(Constants.GLOSSARY_TERM_KEY_ASPECT_NAME), AnalyticsUtil::getTermName, authentication);
+    if (nonEmpty(entitiesPerTerm)) {
+      charts.add(BarChart.builder().setTitle("Entities per Term").setBars(entitiesPerTerm).build());
     }
 
     return charts;

@@ -76,16 +76,27 @@ public final class GetMetadataAnalyticsResolver implements DataFetcher<List<Anal
         aggregationMetadataList.stream().filter(metadata -> metadata.getName().equals("platform")).findFirst();
 
     if (platformAggregation.isPresent()) {
-      List<NamedBar> platformChart = buildPlatformChart(platformAggregation.get());
+      List<NamedBar> platformChart = buildBarChart(platformAggregation.get());
       AnalyticsUtil.hydrateDisplayNameForBarChart(_entityClient, platformChart, Constants.DATA_PLATFORM_ENTITY_NAME,
           ImmutableSet.of(Constants.DATA_PLATFORM_INFO_ASPECT_NAME), AnalyticsUtil::getPlatformName, authentication);
       charts.add(BarChart.builder().setTitle("Entities by Platform").setBars(platformChart).build());
     }
+
+    Optional<AggregationMetadata> termAggregation =
+        aggregationMetadataList.stream().filter(metadata -> metadata.getName().equals("glossaryTerms")).findFirst();
+
+    if (termAggregation.isPresent()) {
+      List<NamedBar> termChart = buildBarChart(termAggregation.get());
+      AnalyticsUtil.hydrateDisplayNameForBarChart(_entityClient, termChart, Constants.GLOSSARY_TERM_ENTITY_NAME,
+          ImmutableSet.of(Constants.GLOSSARY_TERM_KEY_ASPECT_NAME), AnalyticsUtil::getTermName, authentication);
+      charts.add(BarChart.builder().setTitle("Entities by Platform").setBars(termChart).build());
+    }
+
     return charts;
   }
 
-  private List<NamedBar> buildPlatformChart(AggregationMetadata platformAggregation) {
-    return platformAggregation.getAggregations()
+  private List<NamedBar> buildBarChart(AggregationMetadata aggregation) {
+    return aggregation.getAggregations()
         .entrySet()
         .stream()
         .sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))

@@ -147,15 +147,15 @@ export const AnalyticsPage = () => {
                 {metadataAnalyticsError && (
                     <Alert type="error" message={metadataAnalyticsError?.message || 'Charts failed to load'} />
                 )}
-                {domain === '' && query === '' ? (
-                    <MetadataAnalyticsPlaceholder>
-                        Please specify domain or query to get granular results
-                    </MetadataAnalyticsPlaceholder>
-                ) : (
-                    metadataAnalyticsData?.getMetadataAnalyticsCharts?.map((chartGroup) => (
-                        <ChartGroup chartGroup={chartGroup} />
-                    ))
-                )}
+                {domain === '' && query === ''
+                    ? !chartLoading && (
+                          <MetadataAnalyticsPlaceholder>
+                              Please specify domain or query to get granular results
+                          </MetadataAnalyticsPlaceholder>
+                      )
+                    : metadataAnalyticsData?.getMetadataAnalyticsCharts?.map((chartGroup) => (
+                          <ChartGroup chartGroup={chartGroup} />
+                      ))}
             </>
         </SearchablePage>
     );
