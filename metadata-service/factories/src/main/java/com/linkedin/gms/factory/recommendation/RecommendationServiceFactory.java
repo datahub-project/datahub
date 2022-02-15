@@ -8,13 +8,7 @@ import com.linkedin.gms.factory.recommendation.candidatesource.TopPlatformsCandi
 import com.linkedin.gms.factory.recommendation.candidatesource.TopTagsCandidateSourceFactory;
 import com.linkedin.gms.factory.recommendation.candidatesource.TopTermsCandidateSourceFactory;
 import com.linkedin.metadata.recommendation.RecommendationsService;
-import com.linkedin.metadata.recommendation.candidatesource.DomainsCandidateSource;
-import com.linkedin.metadata.recommendation.candidatesource.MostPopularSource;
-import com.linkedin.metadata.recommendation.candidatesource.RecentlyViewedSource;
-import com.linkedin.metadata.recommendation.candidatesource.RecommendationSource;
-import com.linkedin.metadata.recommendation.candidatesource.TopPlatformsSource;
-import com.linkedin.metadata.recommendation.candidatesource.TopTagsSource;
-import com.linkedin.metadata.recommendation.candidatesource.TopTermsSource;
+import com.linkedin.metadata.recommendation.candidatesource.*;
 import com.linkedin.metadata.recommendation.ranker.SimpleRecommendationRanker;
 import java.util.List;
 import javax.annotation.Nonnull;
@@ -40,7 +34,7 @@ public class RecommendationServiceFactory {
 
   @Autowired
   @Qualifier("highUsageCandidateSource")
-  private MostPopularSource _mostPopularCandidateSource;
+  private MostPopularSourceOffline _mostPopularCandidateSource;
 
   @Autowired
   @Qualifier("topTagsCandidateSource")

@@ -15,6 +15,7 @@ dependencies {
    
     implementation project(':metadata-models')
     implementation project(':entity-registry')
+    implementation project(':metadata-events:mxe-utils-avro-1.7')
     shadow externalDependency.httpAsyncClient // we want our clients to provide this
     implementation externalDependency.jacksonDataBind 
     compileOnly externalDependency.lombok

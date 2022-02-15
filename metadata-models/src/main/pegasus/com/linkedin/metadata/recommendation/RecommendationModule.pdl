@@ -1,5 +1,8 @@
 namespace com.linkedin.metadata.recommendation
 
+@Aspect = {
+   "name": "recommendationModule"
+}
 record RecommendationModule {
   /**
    * Title of the module to display
