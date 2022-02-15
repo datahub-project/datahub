@@ -3,6 +3,7 @@ repoVisibility: public_0C3F0CE3E6E6448FAD341E7BFA50FCD333E06A20CFF05FCACE61154DD
 leakDetectionExemptions:
   - ruleId: 'cert_1'
     filePaths:
+      - '/datahub-web-react/src/app/ingest/source/conf/bigquery/bigquery.ts'
       - '/metadata-ingestion/examples/recipes/bigquery_to_datahub.yml'
       - '/metadata-ingestion/source_docs/bigquery.md'
     text: 'PRIVATE KEY'
