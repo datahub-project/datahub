@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { message, Button, Input, Modal, Typography, Form } from 'antd';
 import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
 
 type Props = {
     visible: boolean;
     onClose: () => void;
-    onCreate: () => void;
+    onSave: () => void;
     data: {
         name: string | undefined;
         title: string | undefined;
@@ -20,30 +20,18 @@ type Props = {
 /** Regex Validations */
 export const validUserName = new RegExp('^[a-zA-Z ]*$');
 
-export default function UserEditProfileModal({ visible, onClose, onCreate, data }: Props) {
+export default function UserEditProfileModal({ visible, onClose, onSave, data }: Props) {
     const [updateCorpUserPropertiesMutation] = useUpdateCorpUserPropertiesMutation();
     const [form] = Form.useForm();
 
-    const [userName, setUserName] = useState<string | undefined>('');
-    const [userTitle, setUserTitle] = useState<string | undefined>('');
-    const [userImageURL, setImageURL] = useState<string | undefined>('');
-    const [userTeam, setUserTeam] = useState<string | undefined>('');
-    const [userEmail, setUserEmail] = useState<string | undefined>('');
-    const [userSlack, setUserSlack] = useState<string | undefined>('');
-    const [userPhoneNumber, setUserPhoneNumber] = useState<string | undefined>('');
+    const [userName, setUserName] = useState<string | undefined>(data.name);
+    const [userTitle, setUserTitle] = useState<string | undefined>(data.title);
+    const [userImageURL, setImageURL] = useState<string | undefined>(data.image);
+    const [userTeam, setUserTeam] = useState<string | undefined>(data.team);
+    const [userEmail, setUserEmail] = useState<string | undefined>(data.email);
+    const [userSlack, setUserSlack] = useState<string | undefined>(data.slack);
+    const [userPhoneNumber, setUserPhoneNumber] = useState<string | undefined>(data.phone);
     const [buttonDisabled, setButtonDisabled] = useState(true);
-
-    useEffect(() => {
-        if (data) {
-            setUserName(data.name);
-            setUserTitle(data.title);
-            setImageURL(data.image);
-            setUserTeam(data.team);
-            setUserEmail(data.email);
-            setUserSlack(data.slack);
-            setUserPhoneNumber(data.phone);
-        }
-    }, [data]);
 
     // save changes function
     const onCreateGroup = () => {
@@ -70,7 +58,8 @@ export default function UserEditProfileModal({ visible, onClose, onCreate, data 
                     content: `Changes saved.`,
                     duration: 3,
                 });
-                onCreate();
+                onSave(); // call the refetch function once save
+                // clear the values from edit profile form
                 setUserName('');
                 setUserTitle('');
                 setImageURL('');
@@ -80,15 +69,13 @@ export default function UserEditProfileModal({ visible, onClose, onCreate, data 
                 setUserPhoneNumber('');
             });
         onClose();
-        onCreate();
+        onSave();
     };
 
     // userFieldValidation before submitting the changes.
     const userFieldValidations = () => {
-        if ((userName !== '' || data.name) && !buttonDisabled) {
-            return false;
-        }
-        return true;
+        if (buttonDisabled) return true;
+        return false;
     };
 
     return (
@@ -109,15 +96,7 @@ export default function UserEditProfileModal({ visible, onClose, onCreate, data 
         >
             <Form
                 form={form}
-                initialValues={{
-                    name: data.name,
-                    title: data.title,
-                    image: data.image,
-                    team: data.team,
-                    email: data.email,
-                    slack: data.slack,
-                    phone: data.phone,
-                }}
+                initialValues={{ ...data }}
                 autoComplete="off"
                 layout="vertical"
                 onFieldsChange={() => setButtonDisabled(form.getFieldsError().some((field) => field.errors.length > 0))}

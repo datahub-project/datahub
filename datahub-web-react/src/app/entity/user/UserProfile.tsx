@@ -79,6 +79,14 @@ const UserSidebarSubSection = styled.div`
         -webkit-box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.75);
     }
 `;
+const NotProvidedText = styled.div`
+    &:after {
+        content: 'not provided';
+        color: #b7b7b7;
+        font-style: italic;
+        font-weight: 100;
+    }
+`;
 const UserName = styled.div`
     font-size: 20px;
     line-height: 28px;
@@ -193,7 +201,7 @@ export default function UserProfile() {
         query: `owners:${username}`,
     });
 
-    const [groupSectionScroll, showGroupSectionScroll] = useState(false);
+    const [groupSectionExpanded, setGroupSectionExpanded] = useState(false);
     const [editProfileModal, setEditProfileModal] = useState(false);
     /* eslint-disable @typescript-eslint/no-unused-vars */
     const [editableAboutMeText, setEditableAboutMeText] = useState<string | undefined>('');
@@ -287,23 +295,27 @@ export default function UserProfile() {
                                     name={data?.corpUser?.info?.fullName || undefined}
                                     style={{ marginTop: '14px' }}
                                 />
-                                <UserName>{data?.corpUser?.info?.fullName || 'NA'}</UserName>
-                                <UserRole>{data?.corpUser?.info?.title || 'NA'}</UserRole>
-                                <UserTeam>{data?.corpUser?.editableProperties?.teams?.join(',') || 'NA'}</UserTeam>
+                                <UserName>{data?.corpUser?.info?.fullName || <NotProvidedText />}</UserName>
+                                <UserRole>{data?.corpUser?.info?.title || <NotProvidedText />}</UserRole>
+                                <UserTeam>
+                                    {data?.corpUser?.editableProperties?.teams?.join(',') || <NotProvidedText />}
+                                </UserTeam>
                                 <Divider className="divider-infoSection" />
                                 <UserSocialDetails>
                                     <Space>
-                                        <MailOutlined /> {data?.corpUser?.info?.email || 'NA'}
+                                        <MailOutlined /> {data?.corpUser?.info?.email || <NotProvidedText />}
                                     </Space>
                                 </UserSocialDetails>
                                 <UserSocialDetails>
                                     <Space>
-                                        <SlackOutlined /> {data?.corpUser?.editableProperties?.slack || 'NA'}
+                                        <SlackOutlined />
+                                        {data?.corpUser?.editableProperties?.slack || <NotProvidedText />}
                                     </Space>
                                 </UserSocialDetails>
                                 <UserSocialDetails>
                                     <Space>
-                                        <PhoneOutlined /> {data?.corpUser?.editableProperties?.phone || 'NA'}
+                                        <PhoneOutlined />
+                                        {data?.corpUser?.editableProperties?.phone || <NotProvidedText />}
                                     </Space>
                                 </UserSocialDetails>
                                 <Divider className="divider-aboutSection" />
@@ -314,7 +326,7 @@ export default function UserProfile() {
                                             editable={{ onChange: aboutMeTextChangeFunction }}
                                             ellipsis={{ rows: 2, expandable: true, symbol: 'Read more' }}
                                         >
-                                            {data?.corpUser?.editableProperties?.aboutMe || 'NA'}
+                                            {data?.corpUser?.editableProperties?.aboutMe || <NotProvidedText />}
                                         </Paragraph>
                                     </AboutSectionText>
                                 </AboutSection>
@@ -323,9 +335,9 @@ export default function UserProfile() {
                                     Groups
                                     <TagsSection>
                                         {groupsDetails?.relationships.length === 0 && (
-                                            <NoDataFound>No Groups found</NoDataFound>
+                                            <NoDataFound>No Groups</NoDataFound>
                                         )}
-                                        {!groupSectionScroll &&
+                                        {!groupSectionExpanded &&
                                             groupsDetails?.relationships.slice(0, 2).map((item) => {
                                                 return (
                                                     <Link
@@ -336,30 +348,34 @@ export default function UserProfile() {
                                                     >
                                                         <Tags>
                                                             <Tag>
-                                                                {item.entity.info.displayName
-                                                                    ? item.entity.info.displayName
-                                                                    : 'NA'}
+                                                                {item.entity.info.displayName ? (
+                                                                    item.entity.info.displayName
+                                                                ) : (
+                                                                    <NotProvidedText />
+                                                                )}
                                                             </Tag>
                                                         </Tags>
                                                     </Link>
                                                 );
                                             })}
-                                        {groupSectionScroll &&
+                                        {groupSectionExpanded &&
                                             groupsDetails?.relationships.length > 2 &&
                                             groupsDetails?.relationships.map((item) => {
                                                 return (
                                                     <Tags>
                                                         <Tag>
-                                                            {item.entity.info.displayName
-                                                                ? item.entity.info.displayName
-                                                                : 'NA'}
+                                                            {item.entity.info.displayName ? (
+                                                                item.entity.info.displayName
+                                                            ) : (
+                                                                <NotProvidedText />
+                                                            )}
                                                         </Tag>
                                                     </Tags>
                                                 );
                                             })}
-                                        {!groupSectionScroll && groupsDetails?.relationships.length > 2 && (
+                                        {!groupSectionExpanded && groupsDetails?.relationships.length > 2 && (
                                             <GroupsSeeMoreText
-                                                onClick={() => showGroupSectionScroll(!groupSectionScroll)}
+                                                onClick={() => setGroupSectionExpanded(!groupSectionExpanded)}
                                             >
                                                 {`+${groupsDetails?.relationships.length - 2} more`}
                                             </GroupsSeeMoreText>
@@ -384,7 +400,7 @@ export default function UserProfile() {
                 <UserEditProfileModal
                     visible={editProfileModal}
                     onClose={() => setEditProfileModal(false)}
-                    onCreate={() => {
+                    onSave={() => {
                         refetch();
                     }}
                     data={getEditModalData()}

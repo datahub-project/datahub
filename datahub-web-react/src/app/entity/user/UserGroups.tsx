@@ -103,7 +103,7 @@ export default function UserGroups({ urn, initialRelationships, pageSize }: Prop
                                         <Row className="description-row">
                                             <GroupDescription>
                                                 <Tooltip title={item.info?.description}>
-                                                    {`${item.info?.description}`}
+                                                    {item.info?.description}
                                                 </Tooltip>
                                             </GroupDescription>
                                         </Row>
