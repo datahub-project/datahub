@@ -32,11 +32,11 @@ test_make_dataset_urns_params: Dict[
 ] = {
     "athena": (
         ("athena", "ATABLE", "MY_INSTANCE", "PROD"),
-        "urn:li:dataset:(urn:li:dataPlatform:athena,my_instance.atable,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:athena,MY_INSTANCE.atable,PROD)",
     ),
     "bigquery": (
         ("bigquery", "ATable", "MY_INSTANCE", "PROD"),
-        "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_instance.atable,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,MY_INSTANCE.atable,PROD)",
     ),
     "bigquery_no_instance": (
         ("bigquery", "ATable", None, "PROD"),
@@ -44,43 +44,43 @@ test_make_dataset_urns_params: Dict[
     ),
     "druid": (
         ("druid", "AtaBLE", "MY_INSTANCE", "PROD"),
-        "urn:li:dataset:(urn:li:dataPlatform:druid,my_instance.atable,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:druid,MY_INSTANCE.atable,PROD)",
     ),
     "hive": (
         ("hive", "ataBLE", "MY_INSTANCE", "PROD"),
-        "urn:li:dataset:(urn:li:dataPlatform:hive,my_instance.atable,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:hive,MY_INSTANCE.atable,PROD)",
     ),
     "mariadb": (
         ("mariadb", "aTAble", "MY_INSTANCE", "PROD"),
-        "urn:li:dataset:(urn:li:dataPlatform:mariadb,my_instance.atable,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:mariadb,MY_INSTANCE.atable,PROD)",
     ),
     "mssql": (
         ("mssql", "aTAblE", "MY_INSTANCE", "PROD"),
-        "urn:li:dataset:(urn:li:dataPlatform:mssql,my_instance.atable,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,MY_INSTANCE.atable,PROD)",
     ),
     "mysql": (
         ("mysql", "aTABlE", "MY_INSTANCE", "PROD"),
-        "urn:li:dataset:(urn:li:dataPlatform:mysql,my_instance.atable,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:mysql,MY_INSTANCE.atable,PROD)",
     ),
     "oracle": (
         ("oracle", "AtAbLe", "MY_INSTANCE", "PROD"),
-        "urn:li:dataset:(urn:li:dataPlatform:oracle,my_instance.atable,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,MY_INSTANCE.atable,PROD)",
     ),
     "postgres": (
         ("postgres", "AtAbLE", "MY_INSTANCE", "PROD"),
-        "urn:li:dataset:(urn:li:dataPlatform:postgres,my_instance.atable,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,MY_INSTANCE.atable,PROD)",
     ),
     "redshift": (
         ("redshift", "atAbLE", "MY_INSTANCE", "PROD"),
-        "urn:li:dataset:(urn:li:dataPlatform:redshift,my_instance.atable,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:redshift,MY_INSTANCE.atable,PROD)",
     ),
     "snowflake": (
         ("snowflake", "atABle", "MY_INSTANCE", "PROD"),
-        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_instance.atable,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,MY_INSTANCE.atable,PROD)",
     ),
     "trino": (
         ("trino", "AtaBle", "MY_INSTANCE", "PROD"),
-        "urn:li:dataset:(urn:li:dataPlatform:trino,my_instance.atable,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:trino,MY_INSTANCE.atable,PROD)",
     ),
     "kafka_no_lower_casing": (
         ("kafka", "MyKafkaTopic", "MY_INSTANCE", "PROD"),

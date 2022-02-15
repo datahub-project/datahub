@@ -91,7 +91,6 @@ def make_dataset_urn_with_platform_instance(
         # Use lower-case name for all SQL style datasets
         if platform in SQL_STYLE_PLATFORMS:
             name = name.lower()
-            platform_instance = platform_instance.lower()
 
         return f"urn:li:dataset:({make_data_platform_urn(platform)},{platform_instance}.{name},{env})"
     else:
