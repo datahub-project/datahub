@@ -258,7 +258,6 @@ def send_lineage_to_datahub(
         or operator.doc_rst
     )
 
-
     job_mce = models.MetadataChangeEventClass(
         proposedSnapshot=models.DataJobSnapshotClass(
             urn=job_urn,
