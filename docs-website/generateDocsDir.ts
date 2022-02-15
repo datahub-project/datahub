@@ -58,10 +58,25 @@ function accounted_for_in_sidebar(filepath: string): boolean {
 }
 
 function list_markdown_files(): string[] {
-  const all_markdown_files = execSync("cd .. && git ls-files . | grep '.md$'")
+  let all_markdown_files = execSync("git ls-files --full-name .. | grep '.md$'")
     .toString()
     .trim()
     .split("\n");
+  if (!process.env.CI) {
+    // If not in CI, we also include "untracked" files.
+    const untracked_files = execSync(
+      "(git ls-files --full-name --others --exclude-standard .. | grep '.md$') || true"
+    )
+      .toString()
+      .trim()
+      .split("\n")
+      .filter((filepath) => filepath);
+
+    if (untracked_files.length > 0) {
+      console.log(`Including untracked files in docs list: ${untracked_files}`);
+      all_markdown_files = [...all_markdown_files, ...untracked_files];
+    }
+  }
 
   const filter_patterns = [
     // We don't need our issue and pull request templates.
@@ -70,9 +85,9 @@ function list_markdown_files(): string[] {
     /^docs-website\//,
     // Don't want hosted docs for these.
     /^contrib\//,
-    // Keep main docs for kubernetes, but skip the inner docs
+    // Keep main docs for kubernetes, but skip the inner docs.
     /^datahub-kubernetes\//,
-    /^datahub-web\//,
+    // Various other docs/directories to ignore.
     /^metadata-ingestion-examples\//,
     /^docker\/(?!README|datahub-upgrade|airflow\/local_airflow)/, // Drop all but a few docker docs.
     /^docs\/rfc\/templates\/000-template\.md$/,
@@ -101,6 +116,10 @@ const hardcoded_slugs = {
 };
 
 function get_slug(filepath: string): string {
+  // The slug is the URL path to the page.
+  // In the actual site, all slugs are prefixed with /docs.
+  // There's no need to do this cleanup, but it does make the URLs a bit more aesthetic.
+
   if (filepath in hardcoded_slugs) {
     return hardcoded_slugs[filepath];
   }
@@ -256,6 +275,7 @@ function new_url(original: string, filepath: string): string {
       ".sh",
       ".env",
       ".sql",
+      // Using startsWith since some URLs will be .ext#LINENO
     ].some((ext) => suffix.startsWith(ext))
   ) {
     // A reference to a file or directory in the Github repo.
@@ -340,6 +360,12 @@ function markdown_sanitize_and_linkify(content: string): string {
   content = content.replace(
     /#(\d+)\b/g,
     "[#$1](https://github.com/linkedin/datahub/pull/$1)"
+  );
+
+  // Prettify bare links to PRs.
+  content = content.replace(
+    /(\s+)(https:\/\/github\.com\/linkedin\/datahub\/pull\/(\d+))(\s+|$)/g,
+    "$1[#$3]($2)$4"
   );
 
   return content;
