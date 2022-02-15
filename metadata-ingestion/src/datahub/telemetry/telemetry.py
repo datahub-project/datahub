@@ -159,7 +159,7 @@ class Telemetry:
                 headers={
                     "user-agent": f"datahub {datahub_package.nice_version_name()}"
                 },
-                timouet=TIMEOUT,
+                timeout=TIMEOUT,
             )
         except Exception as e:
 
