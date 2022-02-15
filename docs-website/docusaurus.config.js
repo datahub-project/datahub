@@ -109,10 +109,6 @@ module.exports = {
               label: "Features",
               to: "docs/features",
             },
-            {
-              label: "FAQs",
-              to: "docs/faq",
-            },
           ],
         },
         {
