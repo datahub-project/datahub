@@ -423,7 +423,7 @@ class BigQueryUsageConfig(DatasetSourceConfigBase, BaseUsageConfig):
     query_log_delay: Optional[pydantic.PositiveInt] = None
     max_query_duration: timedelta = timedelta(minutes=15)
     credential: Optional[BigQueryCredential]
-    credentials_path: Optional[str] = None
+    credentials_path: Optional[str]
 
     @pydantic.root_validator()
     def validate_config(cls, values: Dict[str, Any]) -> Dict[str, Any]:
