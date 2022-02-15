@@ -16,7 +16,7 @@ type Props = {
 
 export const AnalyticsChart = ({ chartData, width, height }: Props) => {
     let chartSection: React.ReactNode = null;
-    const isTable = chartData.__typename === 'TableChart';
+    // const isTable = chartData.__typename === 'TableChart';
 
     switch (chartData.__typename) {
         case 'TimeSeriesChart':
@@ -33,7 +33,7 @@ export const AnalyticsChart = ({ chartData, width, height }: Props) => {
     }
 
     return (
-        <ChartCard shouldScroll={isTable}>
+        <ChartCard shouldScroll>
             <ChartContainer>
                 <div>
                     <Typography.Title level={5}>{chartData.title}</Typography.Title>
