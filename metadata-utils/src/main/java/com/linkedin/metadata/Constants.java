@@ -22,13 +22,21 @@ public class Constants {
   public static final String DASHBOARD_ENTITY_NAME = "dashboard";
   public static final String DATA_FLOW_ENTITY_NAME = "dataFlow";
   public static final String DATA_JOB_ENTITY_NAME = "dataJob";
-  public static final String CONTAINER_ENTITY_NAME = "container";
-  public static final String GLOSSARY_TERM_ENTITY_NAME = "glossaryTerm";
   public static final String DATA_PLATFORM_ENTITY_NAME = "dataPlatform";
+  public static final String GLOSSARY_TERM_ENTITY_NAME = "glossaryTerm";
+  public static final String ML_FEATURE_ENTITY_NAME = "mlFeature";
+  public static final String ML_FEATURE_TABLE_ENTITY_NAME = "mlFeatureTable";
+  public static final String ML_MODEL_ENTITY_NAME = "mlModel";
+  public static final String ML_MODEL_GROUP_ENTITY_NAME = "mlModelGroup";
+  public static final String ML_PRIMARY_KEY_ENTITY_NAME = "mlPrimaryKey";
+  public static final String POLICY_ENTITY_NAME = "dataHubPolicy";
+  public static final String TAG_ENTITY_NAME = "tag";
+  public static final String CONTAINER_ENTITY_NAME = "container";
   public static final String DOMAIN_ENTITY_NAME = "domain";
   public static final String INGESTION_SOURCE_ENTITY_NAME = "dataHubIngestionSource";
   public static final String SECRETS_ENTITY_NAME = "dataHubSecret";
   public static final String EXECUTION_REQUEST_ENTITY_NAME = "dataHubExecutionRequest";
+
 
   /**
    * Aspects
@@ -48,6 +56,8 @@ public class Constants {
   public static final String CORP_USER_KEY_ASPECT_NAME = "corpUserKey";
   public static final String CORP_USER_EDITABLE_INFO_NAME = "corpUserEditableInfo";
   public static final String GROUP_MEMBERSHIP_ASPECT_NAME = "groupMembership";
+  public static final String CORP_USER_EDITABLE_INFO_ASPECT_NAME = "corpUserEditableInfo";
+  public static final String CORP_USER_INFO_ASPECT_NAME = "corpUserInfo";
   public static final String CORP_USER_STATUS_ASPECT_NAME = "corpUserStatus";
 
   // Group
@@ -86,6 +96,47 @@ public class Constants {
   public static final String DATA_JOB_INFO_ASPECT_NAME = "dataJobInfo";
   public static final String DATA_JOB_INPUT_OUTPUT_ASPECT_NAME = "dataJobInputOutput";
   public static final String EDITABLE_DATA_JOB_PROPERTIES_ASPECT_NAME = "editableDataJobProperties";
+
+  // DataPlatform
+  public static final String DATA_PLATFORM_KEY_ASPECT_NAME = "dataPlatformKey";
+  public static final String DATA_PLATFORM_INFO_ASPECT_NAME = "dataPlatformInfo";
+
+  // ML Feature
+  public static final String ML_FEATURE_KEY_ASPECT_NAME = "mlFeatureKey";
+  public static final String ML_FEATURE_PROPERTIES_ASPECT_NAME = "mlFeatureProperties";
+
+  // ML Feature Table
+  public static final String ML_FEATURE_TABLE_KEY_ASPECT_NAME = "mlFeatureTableKey";
+  public static final String ML_FEATURE_TABLE_PROPERTIES_ASPECT_NAME = "mlFeatureTableProperties";
+
+  //ML Model
+  public static final String ML_MODEL_KEY_ASPECT_NAME = "mlModelKey";
+  public static final String ML_MODEL_PROPERTIES_ASPECT_NAME = "mlModelProperties";
+  public static final String INTENDED_USE_ASPECT_NAME = "intendedUse";
+  public static final String ML_MODEL_FACTOR_PROMPTS_ASPECT_NAME = "mlModelFactorPrompts";
+  public static final String METRICS_ASPECT_NAME = "metrics";
+  public static final String EVALUATION_DATA_ASPECT_NAME = "evaluationData";
+  public static final String TRAINING_DATA_ASPECT_NAME = "trainingData";
+  public static final String QUANTITATIVE_ANALYSES_ASPECT_NAME = "quantitativeAnalyses";
+  public static final String ETHICAL_CONSIDERATIONS_ASPECT_NAME = "ethicalConsiderations";
+  public static final String CAVEATS_AND_RECOMMENDATIONS_ASPECT_NAME = "caveatsAndRecommendations";
+  public static final String SOURCE_CODE_ASPECT_NAME = "sourceCode";
+  public static final String COST_ASPECT_NAME = "cost";
+
+  // ML Model Group
+  public static final String ML_MODEL_GROUP_KEY_ASPECT_NAME = "mlModelGroupKey";
+  public static final String ML_MODEL_GROUP_PROPERTIES_ASPECT_NAME = "mlModelGroupProperties";
+
+  // ML Primary Key
+  public static final String ML_PRIMARY_KEY_KEY_ASPECT_NAME = "mlPrimaryKeyKey";
+  public static final String ML_PRIMARY_KEY_PROPERTIES_ASPECT_NAME = "mlPrimaryKeyProperties";
+
+  // Policy
+  public static final String DATAHUB_POLICY_INFO_ASPECT_NAME = "dataHubPolicyInfo";
+
+  //Tag
+  public static final String TAG_KEY_ASPECT_NAME = "tagKey";
+  public static final String TAG_PROPERTIES_ASPECT_NAME = "tagProperties";
 
   // Container
   public static final String CONTAINER_KEY_ASPECT_NAME = "containerKey";

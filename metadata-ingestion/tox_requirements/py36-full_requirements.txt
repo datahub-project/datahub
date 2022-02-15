@@ -219,6 +219,7 @@ pyparsing==2.4.7
 pyrsistent==0.16.1
 pyspark==3.0.3
 pytest==6.2.5
+pytest-asyncio==0.16.0
 pytest-cov==3.0.0
 pytest-docker==0.10.3
 python-daemon==2.3.0

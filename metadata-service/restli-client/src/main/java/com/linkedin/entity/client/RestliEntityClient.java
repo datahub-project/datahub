@@ -1,6 +1,7 @@
 package com.linkedin.entity.client;
 
 import com.datahub.authentication.Authentication;
+import com.datahub.util.RecordUtils;
 import com.linkedin.common.client.BaseClient;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
@@ -34,7 +35,6 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
-import com.datahub.util.RecordUtils;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
@@ -62,7 +62,7 @@ import javax.mail.MethodNotSupportedException;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
+import static com.linkedin.metadata.search.utils.QueryUtils.*;
 
 
 @Slf4j
@@ -134,7 +134,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    */
   @Nonnull
   public Map<Urn, EntityResponse> batchGetV2(@Nonnull String entityName, @Nonnull final Set<Urn> urns,
-      @Nullable final Set<String> aspectNames, @Nonnull final Authentication authentication) throws Exception {
+      @Nullable final Set<String> aspectNames, @Nonnull final Authentication authentication) throws RemoteInvocationException, URISyntaxException {
 
     final EntitiesV2BatchGetRequestBuilder requestBuilder = ENTITIES_V2_REQUEST_BUILDERS.batchGet()
         .aspectsParam(aspectNames)
