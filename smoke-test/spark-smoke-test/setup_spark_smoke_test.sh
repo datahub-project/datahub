@@ -1,8 +1,12 @@
-#datahub docker quickstart
+#!/bin/bash
+
+pip install -r requirements.txt
 
 echo "--------------------------------------------------------------------"
 echo "Building java test framework"
 echo "--------------------------------------------------------------------"
+
+
 cd test-spark-lineage
 ./gradlew build
 cd ..
