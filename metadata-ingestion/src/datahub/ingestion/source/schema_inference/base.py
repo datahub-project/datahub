@@ -9,8 +9,7 @@ class SchemaInferenceBase:
     Base class for file schema inference.
     """
 
-    @staticmethod
-    def infer_schema(file: TextIOWrapper) -> List[SchemaField]:
+    def infer_schema(self, file: TextIOWrapper) -> List[SchemaField]:
         """
         Infer schema from file.
         """

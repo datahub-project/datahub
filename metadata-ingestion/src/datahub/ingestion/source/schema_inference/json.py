@@ -28,8 +28,7 @@ _field_type_mapping: Dict[Union[Type, str], Type] = {
 
 
 class JsonInferrer(SchemaInferenceBase):
-    @staticmethod
-    def infer_schema(file: TextIOWrapper) -> List[SchemaField]:
+    def infer_schema(self, file: TextIOWrapper) -> List[SchemaField]:
 
         datastore = ujson.load(file)
 

@@ -42,8 +42,7 @@ from datahub.ingestion.extractor import schema_util
 
 
 class AvroInferrer(SchemaInferenceBase):
-    @staticmethod
-    def infer_schema(file: TextIOWrapper) -> List[SchemaField]:
+    def infer_schema(self, file: TextIOWrapper) -> List[SchemaField]:
         
         reader = DataFileReader(file, DatumReader())
         

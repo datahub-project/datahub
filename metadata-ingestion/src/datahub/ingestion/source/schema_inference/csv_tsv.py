@@ -60,8 +60,7 @@ def infer_schema_general(table: Table) -> List[SchemaField]:
 
 
 class CsvInferrer(SchemaInferenceBase):
-    @staticmethod
-    def infer_schema(file: TextIOWrapper) -> List[SchemaField]:
+    def infer_schema(self, file: TextIOWrapper) -> List[SchemaField]:
         # infer schema of a csv file without reading the whole file
         table = Table(file, format="csv")
 
@@ -69,8 +68,7 @@ class CsvInferrer(SchemaInferenceBase):
 
 
 class TsvInferrer(SchemaInferenceBase):
-    @staticmethod
-    def infer_schema(file: TextIOWrapper) -> List[SchemaField]:
+    def infer_schema(self, file: TextIOWrapper) -> List[SchemaField]:
         # infer schema of a tsv file without reading the whole file
         table = Table(file, format="tsv")
 

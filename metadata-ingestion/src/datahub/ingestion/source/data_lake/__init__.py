@@ -331,15 +331,15 @@ class DataLakeSource(Source):
 
         try:
             if file_path.endswith(".parquet"):
-                fields = parquet.ParquetInferrer.infer_schema(file)
+                fields = parquet.ParquetInferrer().infer_schema(file)
             elif file_path.endswith(".csv"):
-                fields = csv_tsv.CsvInferrer.infer_schema(file)
+                fields = csv_tsv.CsvInferrer().infer_schema(file)
             elif file_path.endswith(".tsv"):
-                fields = csv_tsv.TsvInferrer.infer_schema(file)
+                fields = csv_tsv.TsvInferrer().infer_schema(file)
             elif file_path.endswith(".json"):
-                fields = json.JsonInferrer.infer_schema(file)
+                fields = json.JsonInferrer().infer_schema(file)
             elif file_path.endswith(".avro"):
-                fields = avro.AvroInferrer.infer_schema(file)
+                fields = avro.AvroInferrer().infer_schema(file)
             else:
                 self.report.report_warning(
                     file_path, f"file {file_path} has unsupported extension"
