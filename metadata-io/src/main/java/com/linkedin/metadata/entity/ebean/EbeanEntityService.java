@@ -223,7 +223,7 @@ public class EbeanEntityService extends EntityService {
       List<EnvelopedAspect> aspects = urnToAspects.getOrDefault(urn.toString(), Collections.emptyList());
       EnvelopedAspect keyAspect = getKeyEnvelopedAspect(urn);
       // Add key aspect if it does not exist in the returned aspects
-      if (aspects.isEmpty() || !aspectNames.contains(keyAspect.getName())) {
+      if (aspects.isEmpty() || aspects.stream().noneMatch(aspect -> keyAspect.getName().equals(aspect.getName()))) {
         result.put(urn, ImmutableList.<EnvelopedAspect>builder().addAll(aspects).add(keyAspect).build());
       } else {
         result.put(urn, aspects);
