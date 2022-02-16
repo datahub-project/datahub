@@ -1,7 +1,7 @@
 // import * as React from 'react';
-import {gql, useQuery} from '@apollo/client';
-import {GetMeOnlyDocument} from '../../../graphql/me.generated';
-import {GetDatasetQuery} from '../../../graphql/dataset.generated';
+import { gql, useQuery } from '@apollo/client';
+import { GetMeOnlyDocument } from '../../../graphql/me.generated';
+import { GetDatasetQuery } from '../../../graphql/dataset.generated';
 
 export function FindWhoAmI() {
     const { loading, data } = useQuery(GetMeOnlyDocument);
@@ -18,7 +18,6 @@ export function checkOwnerShip(data: GetDatasetQuery): boolean {
         ) || [];
 
     return ownersArray.includes(currUser);
-
 }
 
 export function FindMyUrn() {
