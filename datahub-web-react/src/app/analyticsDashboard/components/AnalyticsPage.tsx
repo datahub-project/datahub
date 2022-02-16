@@ -18,7 +18,7 @@ const HighlightGroup = styled.div`
     align-items: space-between;
     justify-content: center;
     padding-top: 20px;
-    margin-bottom: -20px;
+    margin-bottom: 10px;
 `;
 
 const MetadataAnalyticsInput = styled.div`

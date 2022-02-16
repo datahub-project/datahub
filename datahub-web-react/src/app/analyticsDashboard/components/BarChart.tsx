@@ -107,7 +107,13 @@ export const BarChart = ({ chartData, width, height }: Props) => {
                                             fill={bar.color}
                                         >
                                             <title>
-                                                ({barStack.index}, {bar.key}, {bar.bar[1] - bar.bar[0]})
+                                                {barStacks.length === 1
+                                                    ? `${transformedChartData[bar.index].name}, ${
+                                                          bar.bar[1] - bar.bar[0]
+                                                      }`
+                                                    : `${transformedChartData[bar.index].name}, ${bar.key}, ${
+                                                          bar.bar[1] - bar.bar[0]
+                                                      }`}
                                             </title>
                                         </rect>
                                     )),

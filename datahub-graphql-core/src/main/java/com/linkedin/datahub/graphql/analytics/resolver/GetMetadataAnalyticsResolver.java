@@ -45,9 +45,17 @@ public final class GetMetadataAnalyticsResolver implements DataFetcher<List<Anal
     final Authentication authentication = ResolverUtils.getAuthentication(environment);
     final MetadataAnalyticsInput input = bindArgument(environment.getArgument("input"), MetadataAnalyticsInput.class);
     final AnalyticsChartGroup group = new AnalyticsChartGroup();
-    group.setTitle("");
+    if (isEmpty(input)) {
+      group.setTitle("Data Landscape Summary");
+    } else {
+      group.setTitle("");
+    }
     group.setCharts(getCharts(input, authentication));
     return ImmutableList.of(group);
+  }
+
+  private boolean isEmpty(MetadataAnalyticsInput input) {
+    return input.getEntityType() == null && input.getDomain() == null && input.getQuery() == null;
   }
 
   private List<AnalyticsChart> getCharts(MetadataAnalyticsInput input, Authentication authentication) throws Exception {
