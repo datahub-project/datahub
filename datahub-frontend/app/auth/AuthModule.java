@@ -107,7 +107,7 @@ public class AuthModule extends AbstractModule {
         }
         // logout
         final LogoutController logoutController = new LogoutController();
-        logoutController.setDefaultUrl("/");
+        logoutController.setDefaultUrl("/data-catalogue");
         bind(LogoutController.class).toInstance(logoutController);
     }
 
