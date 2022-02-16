@@ -43,10 +43,9 @@ export const RoutedTabs = ({ defaultPath, tabs, onTabChange, ...props }: Props) 
                 {...props}
             >
                 {tabs.map((tab) => {
-                    if (!tab.display?.enabled()) {
-                        return <TabPane tab={tab.name} key={tab.path.replace('/', '')} disabled />;
-                    }
-                    return <TabPane tab={tab.name} key={tab.path.replace('/', '')} />;
+                    return (
+                        <TabPane tab={tab.name} key={tab.path.replace('/', '')} disabled={!tab.display?.enabled()} />
+                    );
                 })}
             </Tabs>
             <Switch>

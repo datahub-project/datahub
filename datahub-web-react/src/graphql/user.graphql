@@ -19,6 +19,9 @@ query getUser($urn: String!, $groupsCount: Int!) {
             aboutMe
             teams
             skills
+            displayName
+            title
+            email
         }
         globalTags {
             ...globalTagsFields

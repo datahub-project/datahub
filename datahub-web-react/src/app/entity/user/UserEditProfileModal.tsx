@@ -2,50 +2,55 @@ import React, { useState } from 'react';
 import { message, Button, Input, Modal, Typography, Form } from 'antd';
 import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
 
+type PropsData = {
+    name: string | undefined;
+    title: string | undefined;
+    image: string | undefined;
+    team: string | undefined;
+    email: string | undefined;
+    slack: string | undefined;
+    phone: string | undefined;
+    urn: string | undefined;
+};
+
 type Props = {
     visible: boolean;
     onClose: () => void;
     onSave: () => void;
-    data: {
-        name: string | undefined;
-        title: string | undefined;
-        image: string | undefined;
-        team: string | undefined;
-        email: string | undefined;
-        slack: string | undefined;
-        phone: string | undefined;
-        urn: string | undefined;
-    };
+    editModalData: PropsData;
 };
 /** Regex Validations */
-export const validUserName = new RegExp('^[a-zA-Z ]*$');
+export const USER_NAME_REGEX = new RegExp('^[a-zA-Z ]*$');
 
-export default function UserEditProfileModal({ visible, onClose, onSave, data }: Props) {
+export default function UserEditProfileModal({ visible, onClose, onSave, editModalData }: Props) {
     const [updateCorpUserPropertiesMutation] = useUpdateCorpUserPropertiesMutation();
     const [form] = Form.useForm();
 
-    const [userName, setUserName] = useState<string | undefined>(data.name);
-    const [userTitle, setUserTitle] = useState<string | undefined>(data.title);
-    const [userImageURL, setImageURL] = useState<string | undefined>(data.image);
-    const [userTeam, setUserTeam] = useState<string | undefined>(data.team);
-    const [userEmail, setUserEmail] = useState<string | undefined>(data.email);
-    const [userSlack, setUserSlack] = useState<string | undefined>(data.slack);
-    const [userPhoneNumber, setUserPhoneNumber] = useState<string | undefined>(data.phone);
-    const [buttonDisabled, setButtonDisabled] = useState(true);
+    const [saveButtonEnabled, setSaveButtonEnabled] = useState(true);
+    const [data, setData] = useState<PropsData>({
+        name: editModalData.name,
+        title: editModalData.title,
+        image: editModalData.image,
+        team: editModalData.team,
+        email: editModalData.email,
+        slack: editModalData.slack,
+        phone: editModalData.phone,
+        urn: editModalData.urn,
+    });
 
     // save changes function
-    const onCreateGroup = () => {
+    const onSaveChanges = () => {
         updateCorpUserPropertiesMutation({
             variables: {
-                urn: data?.urn || '',
+                urn: editModalData?.urn || '',
                 input: {
-                    displayName: userName,
-                    title: userTitle,
-                    pictureLink: userImageURL,
-                    teams: userTeam?.split(','),
-                    email: userEmail,
-                    slack: userSlack,
-                    phone: userPhoneNumber,
+                    displayName: data.name,
+                    title: data.title,
+                    pictureLink: data.image,
+                    teams: data.team?.split(','),
+                    email: data.email,
+                    slack: data.slack,
+                    phone: data.phone,
                 },
             },
         })
@@ -60,22 +65,18 @@ export default function UserEditProfileModal({ visible, onClose, onSave, data }:
                 });
                 onSave(); // call the refetch function once save
                 // clear the values from edit profile form
-                setUserName('');
-                setUserTitle('');
-                setImageURL('');
-                setUserTeam('');
-                setUserEmail('');
-                setUserSlack('');
-                setUserPhoneNumber('');
+                setData({
+                    name: '',
+                    title: '',
+                    image: '',
+                    team: '',
+                    email: '',
+                    slack: '',
+                    phone: '',
+                    urn: '',
+                });
             });
         onClose();
-        onSave();
-    };
-
-    // userFieldValidation before submitting the changes.
-    const userFieldValidations = () => {
-        if (buttonDisabled) return true;
-        return false;
     };
 
     return (
@@ -88,7 +89,7 @@ export default function UserEditProfileModal({ visible, onClose, onSave, data }:
                     <Button onClick={onClose} type="text">
                         Cancel
                     </Button>
-                    <Button onClick={onCreateGroup} disabled={userFieldValidations()}>
+                    <Button onClick={onSaveChanges} disabled={saveButtonEnabled}>
                         Save Changes
                     </Button>
                 </>
@@ -96,10 +97,12 @@ export default function UserEditProfileModal({ visible, onClose, onSave, data }:
         >
             <Form
                 form={form}
-                initialValues={{ ...data }}
+                initialValues={{ ...editModalData }}
                 autoComplete="off"
                 layout="vertical"
-                onFieldsChange={() => setButtonDisabled(form.getFieldsError().some((field) => field.errors.length > 0))}
+                onFieldsChange={() =>
+                    setSaveButtonEnabled(form.getFieldsError().some((field) => field.errors.length > 0))
+                }
             >
                 <Form.Item
                     name="name"
@@ -107,21 +110,21 @@ export default function UserEditProfileModal({ visible, onClose, onSave, data }:
                     rules={[
                         {
                             required: true,
-                            message: 'Please enter the User name.',
+                            message: 'Enter a display name.',
                         },
                         { whitespace: true },
                         { min: 2, max: 50 },
                         {
-                            pattern: new RegExp('^[a-zA-Z ]*$'),
+                            pattern: USER_NAME_REGEX,
                             message: '',
                         },
                     ]}
                     hasFeedback
                 >
                     <Input
-                        placeholder="add name"
-                        value={userName}
-                        onChange={(event) => setUserName(event.target.value)}
+                        placeholder="John Smith"
+                        value={data.name}
+                        onChange={(event) => setData({ ...data, name: event.target.value })}
                     />
                 </Form.Item>
                 <Form.Item
@@ -131,9 +134,9 @@ export default function UserEditProfileModal({ visible, onClose, onSave, data }:
                     hasFeedback
                 >
                     <Input
-                        placeholder="add title/role"
-                        value={userTitle}
-                        onChange={(event) => setUserTitle(event.target.value)}
+                        placeholder="Data Analyst"
+                        value={data.title}
+                        onChange={(event) => setData({ ...data, title: event.target.value })}
                     />
                 </Form.Item>
                 <Form.Item
@@ -143,9 +146,9 @@ export default function UserEditProfileModal({ visible, onClose, onSave, data }:
                     hasFeedback
                 >
                     <Input
-                        placeholder="add image URL"
-                        value={userImageURL}
-                        onChange={(event) => setImageURL(event.target.value)}
+                        placeholder="https://www.example.com/photo.png"
+                        value={data.image}
+                        onChange={(event) => setData({ ...data, image: event.target.value })}
                     />
                 </Form.Item>
                 <Form.Item
@@ -154,9 +157,9 @@ export default function UserEditProfileModal({ visible, onClose, onSave, data }:
                     rules={[{ whitespace: true }, { min: 2, max: 50 }]}
                 >
                     <Input
-                        placeholder="add team name"
-                        value={userTeam}
-                        onChange={(event) => setUserTeam(event.target.value)}
+                        placeholder="Product Engineering"
+                        value={data.team}
+                        onChange={(event) => setData({ ...data, team: event.target.value })}
                     />
                 </Form.Item>
                 <Form.Item
@@ -165,7 +168,7 @@ export default function UserEditProfileModal({ visible, onClose, onSave, data }:
                     rules={[
                         {
                             required: true,
-                            message: 'Please enter your email',
+                            message: 'Enter your email',
                         },
                         {
                             type: 'email',
@@ -177,9 +180,9 @@ export default function UserEditProfileModal({ visible, onClose, onSave, data }:
                     hasFeedback
                 >
                     <Input
-                        placeholder="add email"
-                        value={userEmail}
-                        onChange={(event) => setUserEmail(event.target.value)}
+                        placeholder="john.smith@example.com"
+                        value={data.email}
+                        onChange={(event) => setData({ ...data, email: event.target.value })}
                     />
                 </Form.Item>
                 <Form.Item
@@ -189,9 +192,9 @@ export default function UserEditProfileModal({ visible, onClose, onSave, data }:
                     hasFeedback
                 >
                     <Input
-                        placeholder="add slack id"
-                        value={userSlack}
-                        onChange={(event) => setUserSlack(event.target.value)}
+                        placeholder="john_smith"
+                        value={data.slack}
+                        onChange={(event) => setData({ ...data, slack: event.target.value })}
                     />
                 </Form.Item>
                 <Form.Item
@@ -210,9 +213,9 @@ export default function UserEditProfileModal({ visible, onClose, onSave, data }:
                     hasFeedback
                 >
                     <Input
-                        placeholder="add phone number"
-                        value={userPhoneNumber}
-                        onChange={(event) => setUserPhoneNumber(event.target.value)}
+                        placeholder="444-999-9999"
+                        value={data.phone}
+                        onChange={(event) => setData({ ...data, phone: event.target.value })}
                     />
                 </Form.Item>
             </Form>

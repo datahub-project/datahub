@@ -25,10 +25,9 @@ export interface Props {
 
 export enum TabType {
     Assets = 'Assets',
-    Ownership = 'Ownership',
     Groups = 'Groups',
 }
-const ENABLED_TAB_TYPES = [TabType.Assets, TabType.Ownership, TabType.Groups];
+const ENABLED_TAB_TYPES = [TabType.Assets, TabType.Groups];
 
 const GROUP_PAGE_SIZE = 20;
 
@@ -36,11 +35,11 @@ const GROUP_PAGE_SIZE = 20;
  * Styled Components
  */
 const UserProfileWrapper = styled.div`
-    // padding: 0 20px;
     &&& .ant-tabs-nav {
         margin: 0;
     }
 `;
+
 const UserSidebar = styled.div`
     padding: 0 0 0 17px;
     text-align: center;
@@ -64,6 +63,7 @@ const UserSidebar = styled.div`
         margin: 23px 0px 11px 0;
     }
 `;
+
 const UserSidebarSubSection = styled.div`
     height: calc(100vh - 135px);
     overflow: auto;
@@ -79,31 +79,36 @@ const UserSidebarSubSection = styled.div`
         -webkit-box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.75);
     }
 `;
+
 const NotProvidedText = styled.div`
     &:after {
-        content: 'not provided';
+        content: 'None';
         color: #b7b7b7;
         font-style: italic;
         font-weight: 100;
     }
 `;
+
 const UserName = styled.div`
     font-size: 20px;
     line-height: 28px;
     color: #262626;
     margin: 13px 0 7px 0;
 `;
+
 const UserRole = styled.div`
     font-size: 14px;
     line-height: 22px;
     color: #595959;
     margin-bottom: 7px;
 `;
+
 const UserTeam = styled.div`
     font-size: 12px;
     line-height: 20px;
     color: #8c8c8c;
 `;
+
 const UserSocialDetails = styled.div`
     font-size: 12px;
     line-height: 20px;
@@ -111,8 +116,8 @@ const UserSocialDetails = styled.div`
     text-align: left;
     margin: 6px 0;
 `;
+
 const EditProfileButton = styled.div`
-    // margin-bottom: 24px;
     bottom: 24px;
     position: absolute;
     right: 27px;
@@ -129,6 +134,7 @@ const EditProfileButton = styled.div`
         color: #262626;
     }
 `;
+
 const AboutSection = styled.div`
     text-align: left;
     font-weight: bold;
@@ -136,6 +142,7 @@ const AboutSection = styled.div`
     line-height: 22px;
     color: #262626;
 `;
+
 const AboutSectionText = styled.div`
     font-size: 12px;
     font-weight: 100;
@@ -150,6 +157,7 @@ const AboutSectionText = styled.div`
         padding-top: 5px;
     }
 `;
+
 const GroupsSection = styled.div`
     text-align: left;
     font-weight: bold;
@@ -157,19 +165,23 @@ const GroupsSection = styled.div`
     line-height: 22px;
     color: #262626;
 `;
+
 const TagsSection = styled.div`
     height: calc(75vh - 460px);
     padding: 5px;
     // overflow: auto;
 `;
+
 const NoDataFound = styled.span`
     font-size: 12px;
     color: #262626;
     font-weight: 100;
 `;
+
 const Tags = styled.div`
     margin-top: 5px;
 `;
+
 const GroupsSeeMoreText = styled.span`
     font-weight: 500;
     font-size: 12px;
@@ -177,6 +189,7 @@ const GroupsSeeMoreText = styled.span`
     color: #1890ff;
     cursor: pointer;
 `;
+
 const Content = styled.div`
     color: #262626;
     height: calc(100vh - 60px);
@@ -202,13 +215,13 @@ export default function UserProfile() {
     });
 
     const [groupSectionExpanded, setGroupSectionExpanded] = useState(false);
-    const [editProfileModal, setEditProfileModal] = useState(false);
+    const [editProfileModal, showEditProfileModal] = useState(false);
     /* eslint-disable @typescript-eslint/no-unused-vars */
     const [editableAboutMeText, setEditableAboutMeText] = useState<string | undefined>('');
 
     const groupMemberRelationships = data?.corpUser?.relationships as EntityRelationshipsResult;
     const groupsDetails = data?.corpUser?.relationships as ExtendedEntityRelationshipsResult;
-    const profileSrc = data?.corpUser?.editableProperties?.pictureLink || undefined;
+    const photoUrl = data?.corpUser?.editableProperties?.pictureLink || undefined;
     const contentLoading =
         Object.keys(ownershipResult).some((type) => {
             return ownershipResult[type].loading;
@@ -244,22 +257,24 @@ export default function UserProfile() {
     const defaultTabPath = getTabs() && getTabs()?.length > 0 ? getTabs()[0].path : '';
     const onTabChange = () => null;
 
+    console.log('data', data);
+
     // EditProfile modal Constants
     const getEditModalData = () => {
         return {
             urn: data?.corpUser?.urn || undefined,
-            name: data?.corpUser?.info?.fullName || undefined,
-            title: data?.corpUser?.info?.title || undefined,
+            name: data?.corpUser?.editableProperties?.displayName || data?.corpUser?.info?.fullName || undefined,
+            title: data?.corpUser?.editableProperties?.title || data?.corpUser?.info?.title || undefined,
             team: data?.corpUser?.editableProperties?.teams?.join(',') || undefined,
-            email: data?.corpUser?.info?.email || undefined,
-            image: profileSrc,
+            email: data?.corpUser?.editableProperties?.email || data?.corpUser?.info?.email || undefined,
+            image: photoUrl,
             slack: data?.corpUser?.editableProperties?.slack || undefined,
             phone: data?.corpUser?.editableProperties?.phone || undefined,
         };
     };
 
-    // About Text Change
-    const aboutMeTextChangeFunction = (inputString) => {
+    // About Text save
+    const onSaveAboutMe = (inputString) => {
         setEditableAboutMeText(inputString);
         updateCorpUserPropertiesMutation({
             variables: {
@@ -291,19 +306,34 @@ export default function UserProfile() {
                             <UserSidebarSubSection>
                                 <CustomAvatar
                                     size={160}
-                                    photoUrl={profileSrc}
-                                    name={data?.corpUser?.info?.fullName || undefined}
+                                    photoUrl={photoUrl}
+                                    name={
+                                        data?.corpUser?.editableProperties?.displayName ||
+                                        data?.corpUser?.info?.displayName ||
+                                        data?.corpUser?.info?.fullName ||
+                                        data?.corpUser?.urn
+                                    }
                                     style={{ marginTop: '14px' }}
                                 />
-                                <UserName>{data?.corpUser?.info?.fullName || <NotProvidedText />}</UserName>
-                                <UserRole>{data?.corpUser?.info?.title || <NotProvidedText />}</UserRole>
+                                <UserName>
+                                    {data?.corpUser?.editableProperties?.displayName ||
+                                        data?.corpUser?.info?.fullName || <NotProvidedText />}
+                                </UserName>
+                                <UserRole>
+                                    {data?.corpUser?.editableProperties?.title || data?.corpUser?.info?.title || (
+                                        <NotProvidedText />
+                                    )}
+                                </UserRole>
                                 <UserTeam>
                                     {data?.corpUser?.editableProperties?.teams?.join(',') || <NotProvidedText />}
                                 </UserTeam>
                                 <Divider className="divider-infoSection" />
                                 <UserSocialDetails>
                                     <Space>
-                                        <MailOutlined /> {data?.corpUser?.info?.email || <NotProvidedText />}
+                                        <MailOutlined />
+                                        {data?.corpUser?.editableProperties?.email || data?.corpUser?.info?.email || (
+                                            <NotProvidedText />
+                                        )}
                                     </Space>
                                 </UserSocialDetails>
                                 <UserSocialDetails>
@@ -323,7 +353,7 @@ export default function UserProfile() {
                                     About
                                     <AboutSectionText>
                                         <Paragraph
-                                            editable={{ onChange: aboutMeTextChangeFunction }}
+                                            editable={{ onChange: onSaveAboutMe }}
                                             ellipsis={{ rows: 2, expandable: true, symbol: 'Read more' }}
                                         >
                                             {data?.corpUser?.editableProperties?.aboutMe || <NotProvidedText />}
@@ -384,7 +414,7 @@ export default function UserProfile() {
                                 </GroupsSection>
                             </UserSidebarSubSection>
                             <EditProfileButton>
-                                <Button icon={<EditOutlined />} onClick={() => setEditProfileModal(true)}>
+                                <Button icon={<EditOutlined />} onClick={() => showEditProfileModal(true)}>
                                     Edit Profile
                                 </Button>
                             </EditProfileButton>
@@ -399,11 +429,11 @@ export default function UserProfile() {
                 {/* Modal */}
                 <UserEditProfileModal
                     visible={editProfileModal}
-                    onClose={() => setEditProfileModal(false)}
+                    onClose={() => showEditProfileModal(false)}
                     onSave={() => {
                         refetch();
                     }}
-                    data={getEditModalData()}
+                    editModalData={getEditModalData()}
                 />
             </UserProfileWrapper>
         </>
