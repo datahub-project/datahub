@@ -14,8 +14,6 @@ jar.enabled = false // Since we only want to build shadow jars, disabling the re
 dependencies {
    
     implementation project(':metadata-models')
-    implementation project(':entity-registry')
-    implementation project(':metadata-events:mxe-utils-avro-1.7')
     shadow externalDependency.httpAsyncClient // we want our clients to provide this
     implementation externalDependency.jacksonDataBind 
     compileOnly externalDependency.lombok
@@ -112,28 +110,6 @@ shadowJar {
   relocate 'org.abego.treelayout', 'datahub.shaded.treelayout'
   relocate 'org.slf4j', 'datahub.shaded.slf4j'
   relocate 'javax.annotation', 'datahub.shaded.javax.annotation'
-  relocate 'com.google.thirdparty', 'datahub.shaded.com.google.thirdparty'
-  relocate 'lombok.eclipse.agent', 'datahub.shaded.lombok.eclipse.agent'
-  relocate 'lombok.launch', 'datahub.shaded.lombok.launch'
-  relocate 'com.zwitserloot.cmdreader', 'datahub.shaded.com.zwitserloot.cmdreader'
-  relocate 'Class50.lombok', 'datahub.shaded.Class50.lombok'
-  relocate 'org.objectweb', 'datahub.shaded.org.objectweb'
-  relocate 'javax.mail', 'datahub.shaded.javax.mail'
-  relocate 'lombok', 'datahub.shaded.lombok'
-  relocate 'com.sun.codemodel', 'datahub.shaded.com.sun.codemodel'
-  relocate 'javax.activation', 'datahub.shaded.javax.activation'
-  relocate 'com.sun.activation.', 'datahub.shaded.com.sun.activation'
-  relocate 'com.sun.mail', 'datahub.shaded.com.sun.mail'
-  relocate 'javax.servlet', 'datahub.shaded.javax.servlet'
-  relocate 'org.codehaus.plexus', 'datahub.shaded.org.codehaus.plexus'
-  relocate 'org.yaml.snakeyaml', 'datahub.shaded.org.yaml.snakeyaml'
-  relocate 'org.checkerframework', 'datahub.shaded.org.checkerframework'
-  relocate 'org.apache.maven.repository', 'datahub.shaded.org.apache.maven.repository'
-  relocate 'org.apache.maven.artifact', 'datahub.shaded.org.apache.maven.artifact'
-  relocate 'com.google.errorprone.annotations', 'datahub.shaded.com.google.errorprone.annotations'
-  relocate 'com.google.j2objc.annotations', 'datahub.shaded.com.google.j2objc.annotations'
-  relocate 'org.codehaus.mojo', 'datahub.shaded.org.codehaus.mojo'
-  relocate 'secondaryLoading.SCL.lombok', 'datahub.shaded.secondaryLoading.SCL.lombok'
   finalizedBy checkShadowJar
 }
 
