@@ -18,7 +18,7 @@ class SchemaDescription(BasicSchemaDescription):
     nullable: bool  # if field is ever missing
 
 
-def is_nullable_doc(doc: Dict[str, Any], field_path: Tuple) -> bool:
+def is_field_nullable(doc: Dict[str, Any], field_path: Tuple) -> bool:
     """
     Check if a nested field is nullable in a document from a collection.
 
@@ -29,6 +29,9 @@ def is_nullable_doc(doc: Dict[str, Any], field_path: Tuple) -> bool:
         field_path:
             path to nested field to check, ex. ('first_field', 'nested_child', '2nd_nested_child')
     """
+
+    if not field_path:
+        return True
 
     field = field_path[0]
 
@@ -49,7 +52,7 @@ def is_nullable_doc(doc: Dict[str, Any], field_path: Tuple) -> bool:
 
         # if dictionary, check additional level of nesting
         if isinstance(value, dict):
-            return is_nullable_doc(doc[field], remaining_fields)
+            return is_field_nullable(doc[field], remaining_fields)
 
         # if list, check if any member is missing field
         if isinstance(value, list):
@@ -58,7 +61,7 @@ def is_nullable_doc(doc: Dict[str, Any], field_path: Tuple) -> bool:
             if len(value) == 0:
                 return True
 
-            return any(is_nullable_doc(x, remaining_fields) for x in doc[field])
+            return any(is_field_nullable(x, remaining_fields) for x in doc[field])
 
         # any other types to check?
         # raise ValueError("Nested type not 'list' or 'dict' encountered")
@@ -81,7 +84,7 @@ def is_nullable_collection(
             path to nested field to check, ex. ('first_field', 'nested_child', '2nd_nested_child')
     """
 
-    return any(is_nullable_doc(doc, field_path) for doc in collection)
+    return any(is_field_nullable(doc, field_path) for doc in collection)
 
 
 def construct_schema(

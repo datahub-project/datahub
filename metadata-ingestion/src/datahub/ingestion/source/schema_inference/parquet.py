@@ -1,5 +1,5 @@
 from io import TextIOWrapper
-from typing import List
+from typing import Any, Callable, Dict, List, Type
 
 import pyarrow
 import pyarrow.parquet
@@ -21,7 +21,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 
 # see https://arrow.apache.org/docs/python/api/datatypes.html#type-checking
-pyarrow_type_map = {
+pyarrow_type_map: Dict[Callable[[Any], bool], Type] = {
     pyarrow.types.is_boolean: BooleanTypeClass,
     pyarrow.types.is_integer: NumberTypeClass,
     pyarrow.types.is_signed_integer: NumberTypeClass,
@@ -65,7 +65,7 @@ pyarrow_type_map = {
 }
 
 
-def map_pyarrow_type(pyarrow_type):
+def map_pyarrow_type(pyarrow_type: Type) -> Type:
 
     for checker, mapped_type in pyarrow_type_map.items():
 

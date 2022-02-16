@@ -314,7 +314,7 @@ class DataLakeSource(Source):
             customProperties={},
         )
         dataset_snapshot.aspects.append(dataset_properties)
-        
+
         if file_path.startswith("s3a://"):
             if self.source_config.aws_config is None:
                 raise ValueError("AWS config is required for S3 file sources")

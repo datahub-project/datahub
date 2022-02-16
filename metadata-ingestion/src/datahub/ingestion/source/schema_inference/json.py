@@ -14,6 +14,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaField,
     SchemaFieldDataType,
     StringTypeClass,
+    UnionTypeClass,
 )
 
 _field_type_mapping: Dict[Union[Type, str], Type] = {
@@ -24,6 +25,7 @@ _field_type_mapping: Dict[Union[Type, str], Type] = {
     float: NumberTypeClass,
     str: StringTypeClass,
     dict: RecordTypeClass,
+    "mixed": UnionTypeClass,
 }
 
 
@@ -37,7 +39,7 @@ class JsonInferrer(SchemaInferenceBase):
 
         schema = construct_schema(datastore, delimiter=".")
 
-        fields = []
+        fields: List[SchemaField] = []
 
         for schema_field in sorted(schema.values(), key=lambda x: x["delimited_name"]):
             mapped_type = _field_type_mapping.get(schema_field["type"], NullTypeClass)

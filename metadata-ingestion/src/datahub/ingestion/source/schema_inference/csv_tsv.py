@@ -1,5 +1,5 @@
 from io import TextIOWrapper
-from typing import List
+from typing import Dict, List, Type
 
 from tableschema import Table
 
@@ -19,7 +19,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 
 # see https://github.com/frictionlessdata/tableschema-py/blob/main/tableschema/schema.py#L545
-tableschema_type_map = {
+tableschema_type_map: Dict[str, Type] = {
     "duration": TimeTypeClass,
     "geojson": RecordTypeClass,
     "geopoint": RecordTypeClass,
@@ -38,7 +38,7 @@ tableschema_type_map = {
 MAX_ROWS = 100
 
 
-def infer_schema_general(table: Table) -> List[SchemaField]:
+def get_table_schema_fields(table: Table) -> List[SchemaField]:
     table.infer(limit=MAX_ROWS)
 
     fields = []
@@ -64,7 +64,7 @@ class CsvInferrer(SchemaInferenceBase):
         # infer schema of a csv file without reading the whole file
         table = Table(file, format="csv")
 
-        return infer_schema_general(table)
+        return get_table_schema_fields(table)
 
 
 class TsvInferrer(SchemaInferenceBase):
@@ -72,4 +72,4 @@ class TsvInferrer(SchemaInferenceBase):
         # infer schema of a tsv file without reading the whole file
         table = Table(file, format="tsv")
 
-        return infer_schema_general(table)
+        return get_table_schema_fields(table)
