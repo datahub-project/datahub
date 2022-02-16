@@ -10,8 +10,7 @@ import requests
 import uvicorn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import \
-    DatasetSnapshot
+from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import ChangeTypeClass
 from fastapi import FastAPI
@@ -19,26 +18,35 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 
-from ingest_api.helper.mce_convenience import (authenticate_action,
-                                               create_new_schema_mce,
-                                               derive_platform_name,
-                                               generate_json_output_mce,
-                                               generate_json_output_mcp,
-                                               get_sys_time,
-                                               make_browsepath_mce,
-                                               make_dataset_description_mce,
-                                               make_dataset_urn,
-                                               make_ownership_mce,
-                                               make_platform, make_profile_mcp,
-                                               make_schema_mce,
-                                               make_status_mce, make_user_urn,
-                                               update_field_param_class,
-                                               verify_token)
-from ingest_api.helper.models import (add_sample_params, browsepath_params,
-                                      create_dataset_params,
-                                      dataset_status_params,
-                                      delete_sample_params, determine_type,
-                                      prop_params, schema_params)
+from ingest_api.helper.mce_convenience import (
+    authenticate_action,
+    create_new_schema_mce,
+    derive_platform_name,
+    generate_json_output_mce,
+    generate_json_output_mcp,
+    get_sys_time,
+    make_browsepath_mce,
+    make_dataset_description_mce,
+    make_dataset_urn,
+    make_ownership_mce,
+    make_platform,
+    make_profile_mcp,
+    make_schema_mce,
+    make_status_mce,
+    make_user_urn,
+    update_field_param_class,
+    verify_token,
+)
+from ingest_api.helper.models import (
+    add_sample_params,
+    browsepath_params,
+    create_dataset_params,
+    dataset_status_params,
+    delete_sample_params,
+    determine_type,
+    prop_params,
+    schema_params,
+)
 
 CLI_MODE = False if environ.get("RUNNING_IN_DOCKER") else True
 
@@ -416,7 +424,8 @@ async def create_item(item: create_dataset_params) -> None:
         datasetName = make_dataset_urn(item.dataset_type, item.dataset_name)
         platformName = make_platform(item.dataset_type)
         item.browsepathList = [
-            item + "/" for item in item.browsepathList if not item.endswith("//")
+            item + "/" if not item.endswith("/") else item
+            for item in item.browsepathList
         ]
         # this line is in case the endpoint is called by API and not UI,
         # which will enforce ending with /.
