@@ -17,7 +17,7 @@ import { EMPTY_MESSAGES } from '../../entity/shared/constants';
 import { AddOwnerModal } from '../../entity/shared/containers/profile/sidebar/Ownership/AddOwnerModal';
 import MarkdownViewer from '../../entity/shared/components/legacy/MarkdownViewer';
 import StripMarkdownText, { removeMarkdown } from '../../entity/shared/components/styled/StripMarkdownText';
-import EditDescriptionModal from './EditDescriptionModal';
+import UpdateDescriptionModal from '../../entity/shared/components/legacy/DescriptionModal';
 import analytics from '../../analytics/analytics';
 import { EntityActionType, EventType } from '../../analytics/event';
 
@@ -211,12 +211,12 @@ export const TagProfileDrawer = ({ closeTagProfileDrawer, tagProfileDrawerVisibl
     const onCloseEditModal = () => setShowEditModal(false);
 
     // Update Description
-    const updateDescriptionValue = (value: string) => {
-        setUpdatedDescription(value);
+    const updateDescriptionValue = (desc: string) => {
+        setUpdatedDescription(desc);
         return updateDescription({
             variables: {
                 input: {
-                    description: value,
+                    description: desc,
                     resourceUrn: urn,
                 },
             },
@@ -224,10 +224,10 @@ export const TagProfileDrawer = ({ closeTagProfileDrawer, tagProfileDrawerVisibl
     };
 
     // Handle save button click on Edit description Modal
-    const handleSaveDescription = async (value: string) => {
+    const handleSaveDescription = async (desc: string) => {
         message.loading({ content: 'Saving...' });
         try {
-            await updateDescriptionValue(value);
+            await updateDescriptionValue(desc);
             message.destroy();
             message.success({ content: 'Description Updated', duration: 2 });
             analytics.event({
@@ -329,14 +329,11 @@ export const TagProfileDrawer = ({ closeTagProfileDrawer, tagProfileDrawerVisibl
                     {/* Edit Description Modal */}
                     {showEditModal && (
                         <div>
-                            <EditDescriptionModal
-                                title={updatedDescription ? 'Update description' : 'Add description'}
+                            <UpdateDescriptionModal
+                                title={updatedDescription.length > 0 ? 'Update description' : 'Add description'}
                                 description={updatedDescription}
                                 onClose={onCloseEditModal}
-                                onSubmit={(value: string) => {
-                                    handleSaveDescription(value.trim());
-                                }}
-                                isAddDesc={!updatedDescription}
+                                onSubmit={handleSaveDescription}
                             />
                         </div>
                     )}
