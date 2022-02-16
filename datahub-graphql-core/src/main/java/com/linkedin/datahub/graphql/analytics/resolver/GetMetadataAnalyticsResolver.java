@@ -64,13 +64,23 @@ public final class GetMetadataAnalyticsResolver implements DataFetcher<List<Anal
     }
 
     Filter filter = null;
-    if (!StringUtils.isEmpty(input.getDomain())) {
+    if (!StringUtils.isEmpty(input.getDomain()) && !input.getDomain().equals("ALL")) {
       filter = QueryUtils.newFilter("domains.keyword", input.getDomain());
     }
 
     SearchResult searchResult = _entityClient.searchAcrossEntities(entities, query, filter, 0, 0, authentication);
 
     List<AggregationMetadata> aggregationMetadataList = searchResult.getMetadata().getAggregations();
+
+    Optional<AggregationMetadata> domainAggregation =
+        aggregationMetadataList.stream().filter(metadata -> metadata.getName().equals("domains")).findFirst();
+
+    if (StringUtils.isEmpty(input.getDomain()) && domainAggregation.isPresent()) {
+      List<NamedBar> domainChart = buildBarChart(domainAggregation.get());
+      AnalyticsUtil.hydrateDisplayNameForBarChart(_entityClient, domainChart, Constants.DOMAIN_ENTITY_NAME,
+          ImmutableSet.of(Constants.DOMAIN_PROPERTIES_ASPECT_NAME), AnalyticsUtil::getDomainName, authentication);
+      charts.add(BarChart.builder().setTitle("Entities by Domain").setBars(domainChart).build());
+    }
 
     Optional<AggregationMetadata> platformAggregation =
         aggregationMetadataList.stream().filter(metadata -> metadata.getName().equals("platform")).findFirst();

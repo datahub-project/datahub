@@ -2,7 +2,7 @@ package com.linkedin.datahub.graphql.analytics.resolver;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.linkedin.datahub.graphql.analytics.service.GeneralAnalyticsService;
+import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
 import com.linkedin.datahub.graphql.generated.DateRange;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Highlight;
@@ -22,7 +22,7 @@ import org.joda.time.DateTime;
 @RequiredArgsConstructor
 public final class GetHighlightsResolver implements DataFetcher<List<Highlight>> {
 
-  private final GeneralAnalyticsService _generalAnalyticsService;
+  private final AnalyticsService _analyticsService;
 
   @Override
   public final List<Highlight> get(DataFetchingEnvironment environment) throws Exception {
@@ -47,11 +47,11 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
     String eventType = "SearchEvent";
 
     int weeklyActiveUsers =
-        _generalAnalyticsService.getHighlights(_generalAnalyticsService.getUsageIndexName(), Optional.of(dateRange),
+        _analyticsService.getHighlights(_analyticsService.getUsageIndexName(), Optional.of(dateRange),
             ImmutableMap.of(), ImmutableMap.of(), Optional.of("browserId"));
 
     int weeklyActiveUsersLastWeek =
-        _generalAnalyticsService.getHighlights(_generalAnalyticsService.getUsageIndexName(), Optional.of(dateRangeLastWeek),
+        _analyticsService.getHighlights(_analyticsService.getUsageIndexName(), Optional.of(dateRangeLastWeek),
             ImmutableMap.of(), ImmutableMap.of(), Optional.of("browserId"));
 
     String bodyText = "";
@@ -78,7 +78,7 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
   }
 
   private Optional<Highlight> getEntityMetadataStats(String title, EntityType entityType) {
-    String index = _generalAnalyticsService.getEntityIndexName(entityType);
+    String index = _analyticsService.getEntityIndexName(entityType);
     int numEntities = getNumEntitiesFiltered(index, ImmutableMap.of());
     // If there are no entities for the type, do not show the highlight
     if (numEntities == 0) {
@@ -104,7 +104,7 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
   }
 
   private int getNumEntitiesFiltered(String index, Map<String, List<String>> filters) {
-    return _generalAnalyticsService.getHighlights(index, Optional.empty(), filters,
+    return _analyticsService.getHighlights(index, Optional.empty(), filters,
         ImmutableMap.of("removed", ImmutableList.of("true")), Optional.empty());
   }
 }

@@ -5,7 +5,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsUtil;
-import com.linkedin.datahub.graphql.analytics.service.GeneralAnalyticsService;
+import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
 import com.linkedin.datahub.graphql.generated.AnalyticsChart;
 import com.linkedin.datahub.graphql.generated.AnalyticsChartGroup;
 import com.linkedin.datahub.graphql.generated.BarChart;
@@ -38,18 +38,15 @@ import org.joda.time.DateTime;
 @RequiredArgsConstructor
 public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartGroup>> {
 
-  private final GeneralAnalyticsService _generalAnalyticsService;
+  private final AnalyticsService _analyticsService;
   private final EntityClient _entityClient;
 
   @Override
   public final List<AnalyticsChartGroup> get(DataFetchingEnvironment environment) throws Exception {
     Authentication authentication = ResolverUtils.getAuthentication(environment);
     return ImmutableList.of(AnalyticsChartGroup.builder()
-        .setTitle("Product Analytics")
+        .setTitle("DataHub Usage Analytics")
         .setCharts(getProductAnalyticsCharts(authentication))
-        .build(), AnalyticsChartGroup.builder()
-        .setTitle("Metadata Analytics")
-        .setCharts(getGlobalMetadataAnalyticsCharts(authentication))
         .build());
   }
 
@@ -72,7 +69,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     DateInterval weeklyInterval = DateInterval.WEEK;
 
     final List<NamedLine> wauTimeseries =
-        _generalAnalyticsService.getTimeseriesChart(_generalAnalyticsService.getUsageIndexName(), twoMonthsDateRange,
+        _analyticsService.getTimeseriesChart(_analyticsService.getUsageIndexName(), twoMonthsDateRange,
             weeklyInterval, Optional.empty(), ImmutableMap.of(), Optional.of("browserId"));
     charts.add(TimeSeriesChart.builder()
         .setTitle(wauTitle)
@@ -87,7 +84,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     String searchEventType = "SearchEvent";
 
     final List<NamedLine> searchesTimeseries =
-        _generalAnalyticsService.getTimeseriesChart(_generalAnalyticsService.getUsageIndexName(), lastWeekDateRange,
+        _analyticsService.getTimeseriesChart(_analyticsService.getUsageIndexName(), lastWeekDateRange,
             dailyInterval, Optional.empty(), ImmutableMap.of("type", ImmutableList.of(searchEventType)),
             Optional.empty());
     charts.add(TimeSeriesChart.builder()
@@ -102,7 +99,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     final List<String> columns = ImmutableList.of("Query", "Count");
 
     final List<Row> topSearchQueries =
-        _generalAnalyticsService.getTopNTableChart(_generalAnalyticsService.getUsageIndexName(),
+        _analyticsService.getTopNTableChart(_analyticsService.getUsageIndexName(),
             Optional.of(lastWeekDateRange), "query.keyword", ImmutableMap.of("type", ImmutableList.of(searchEventType)),
             Optional.empty(), 10, AnalyticsUtil::buildCellWithSearchLandingPage);
     charts.add(TableChart.builder().setTitle(topSearchTitle).setColumns(columns).setRows(topSearchQueries).build());
@@ -110,7 +107,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     // Chart 4: Bar Graph Chart
     final String sectionViewsTitle = "Section Views across Entity Types";
     final List<NamedBar> sectionViewsPerEntityType =
-        _generalAnalyticsService.getBarChart(_generalAnalyticsService.getUsageIndexName(),
+        _analyticsService.getBarChart(_analyticsService.getUsageIndexName(),
             Optional.of(lastWeekDateRange), ImmutableList.of("entityType.keyword", "section.keyword"),
             ImmutableMap.of("type", ImmutableList.of("EntitySectionViewEvent")), Optional.empty(), true);
     charts.add(BarChart.builder().setTitle(sectionViewsTitle).setBars(sectionViewsPerEntityType).build());
@@ -118,7 +115,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     // Chart 5: Bar Graph Chart
     final String actionsByTypeTitle = "Actions by Entity Type";
     final List<NamedBar> eventsByEventType =
-        _generalAnalyticsService.getBarChart(_generalAnalyticsService.getUsageIndexName(),
+        _analyticsService.getBarChart(_analyticsService.getUsageIndexName(),
             Optional.of(lastWeekDateRange), ImmutableList.of("entityType.keyword", "actionType.keyword"),
             ImmutableMap.of("type", ImmutableList.of("EntityActionEvent")), Optional.empty(), true);
     charts.add(BarChart.builder().setTitle(actionsByTypeTitle).setBars(eventsByEventType).build());
@@ -128,7 +125,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     final List<String> columns5 = ImmutableList.of("Dataset", "#Views");
 
     final List<Row> topViewedDatasets =
-        _generalAnalyticsService.getTopNTableChart(_generalAnalyticsService.getUsageIndexName(),
+        _analyticsService.getTopNTableChart(_analyticsService.getUsageIndexName(),
             Optional.of(lastWeekDateRange), "entityUrn.keyword",
             ImmutableMap.of("type", ImmutableList.of("EntityViewEvent"), "entityType.keyword",
                 ImmutableList.of(EntityType.DATASET.name())), Optional.empty(), 10,
@@ -136,47 +133,6 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     AnalyticsUtil.hydrateDisplayNameForTable(_entityClient, topViewedDatasets, Constants.DATASET_ENTITY_NAME,
         ImmutableSet.of(Constants.DATASET_KEY_ASPECT_NAME), AnalyticsUtil::getDatasetName, authentication);
     charts.add(TableChart.builder().setTitle(topViewedTitle).setColumns(columns5).setRows(topViewedDatasets).build());
-
-    return charts;
-  }
-
-  private boolean nonEmpty(List<NamedBar> barChart) {
-    return !barChart.isEmpty() && (barChart.size() != 1 || !barChart.get(0)
-        .getName()
-        .equals(GeneralAnalyticsService.NA));
-  }
-
-  private List<AnalyticsChart> getGlobalMetadataAnalyticsCharts(Authentication authentication) throws Exception {
-    final List<AnalyticsChart> charts = new ArrayList<>();
-    // Chart 1: Entities per domain
-    final List<NamedBar> entitiesPerDomain =
-        _generalAnalyticsService.getBarChart(_generalAnalyticsService.getAllEntityIndexName(), Optional.empty(),
-            ImmutableList.of("domains.keyword"), Collections.emptyMap(), Optional.empty(), false);
-    AnalyticsUtil.hydrateDisplayNameForBarChart(_entityClient, entitiesPerDomain, Constants.DOMAIN_ENTITY_NAME,
-        ImmutableSet.of(Constants.DOMAIN_PROPERTIES_ASPECT_NAME), AnalyticsUtil::getDomainName, authentication);
-    if (nonEmpty(entitiesPerDomain)) {
-      charts.add(BarChart.builder().setTitle("Entities per Domain").setBars(entitiesPerDomain).build());
-    }
-
-    // Chart 2: Entities per platform
-    final List<NamedBar> entitiesPerPlatform =
-        _generalAnalyticsService.getBarChart(_generalAnalyticsService.getAllEntityIndexName(), Optional.empty(),
-            ImmutableList.of("platform.keyword"), Collections.emptyMap(), Optional.empty(), false);
-    AnalyticsUtil.hydrateDisplayNameForBarChart(_entityClient, entitiesPerPlatform, Constants.DATA_PLATFORM_ENTITY_NAME,
-        ImmutableSet.of(Constants.DATA_PLATFORM_INFO_ASPECT_NAME), AnalyticsUtil::getPlatformName, authentication);
-    if (nonEmpty(entitiesPerPlatform)) {
-      charts.add(BarChart.builder().setTitle("Entities per Platform").setBars(entitiesPerPlatform).build());
-    }
-
-    // Chart 3: Entities per term
-    final List<NamedBar> entitiesPerTerm =
-        _generalAnalyticsService.getBarChart(_generalAnalyticsService.getAllEntityIndexName(), Optional.empty(),
-            ImmutableList.of("glossaryTerms.keyword"), Collections.emptyMap(), Optional.empty(), false);
-    AnalyticsUtil.hydrateDisplayNameForBarChart(_entityClient, entitiesPerTerm, Constants.GLOSSARY_TERM_ENTITY_NAME,
-        ImmutableSet.of(Constants.GLOSSARY_TERM_KEY_ASPECT_NAME), AnalyticsUtil::getTermName, authentication);
-    if (nonEmpty(entitiesPerTerm)) {
-      charts.add(BarChart.builder().setTitle("Entities per Term").setBars(entitiesPerTerm).build());
-    }
 
     return charts;
   }

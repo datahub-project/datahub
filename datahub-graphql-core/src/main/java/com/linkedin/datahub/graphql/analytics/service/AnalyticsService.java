@@ -44,7 +44,7 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 
 @Slf4j
 @RequiredArgsConstructor
-public class GeneralAnalyticsService {
+public class AnalyticsService {
 
   private final RestHighLevelClient _elasticClient;
   private final IndexConvention _indexConvention;
