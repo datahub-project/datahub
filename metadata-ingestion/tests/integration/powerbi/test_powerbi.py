@@ -111,7 +111,8 @@ def test_powerbi_ingest(pytestconfig, tmp_path, mock_time):
                 "sink": {
                     "type": "file",
                     "config": {
-                        "filename": f"{tmp_path}/powerbi_mces.json",
+                        #"filename": f"{tmp_path}/powerbi_mces.json",
+                        "filename": "/tmp/powerbi_mces5.json",
                     },
                 },
             }
