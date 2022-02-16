@@ -29,9 +29,11 @@ const GroupsViewWrapper = styled.div`
         transform: translateX(-50%);
     }
 `;
+
 const GroupItemColumn = styled(Col)`
     padding: 10px;
 `;
+
 const GroupItem = styled.div`
     border: 1px solid #d9d9d9;
     padding: 10px;
@@ -45,12 +47,14 @@ const GroupItem = styled.div`
         padding: 2px 13px;
     }
 `;
+
 const GroupTitle = styled.span`
     font-size: 14px;
     line-height: 22px;
     font-weight: bold;
     color: #262626;
 `;
+
 const GroupMember = styled.span`
     font-weight: 500;
     font-size: 12px;
@@ -58,6 +62,7 @@ const GroupMember = styled.span`
     color: #8c8c8c;
     padding-left: 7px;
 `;
+
 const GroupDescription = styled.span`
     font-weight: 500;
     font-size: 12px;
@@ -94,7 +99,7 @@ export default function UserGroups({ urn, initialRelationships, pageSize }: Prop
                                 <Link to={entityRegistry.getEntityUrl(EntityType.CorpGroup, item.urn)}>
                                     <GroupItem>
                                         <Row className="title-row">
-                                            <GroupTitle>{item.info?.displayName || 'NA'}</GroupTitle>
+                                            <GroupTitle>{item.info?.displayName || item.name}</GroupTitle>
                                             <GroupMember>
                                                 {item.relationships?.total}
                                                 {item.relationships?.total === 1 ? ' member' : ' members'}

@@ -257,8 +257,6 @@ export default function UserProfile() {
     const defaultTabPath = getTabs() && getTabs()?.length > 0 ? getTabs()[0].path : '';
     const onTabChange = () => null;
 
-    console.log('data', data);
-
     // EditProfile modal Constants
     const getEditModalData = () => {
         return {
@@ -378,9 +376,7 @@ export default function UserProfile() {
                                                     >
                                                         <Tags>
                                                             <Tag>
-                                                                {item.entity.info.displayName ? (
-                                                                    item.entity.info.displayName
-                                                                ) : (
+                                                                {item.entity.info.displayName || item.entity.name || (
                                                                     <NotProvidedText />
                                                                 )}
                                                             </Tag>
@@ -394,9 +390,7 @@ export default function UserProfile() {
                                                 return (
                                                     <Tags>
                                                         <Tag>
-                                                            {item.entity.info.displayName ? (
-                                                                item.entity.info.displayName
-                                                            ) : (
+                                                            {item.entity.info.displayName || item.entity.name || (
                                                                 <NotProvidedText />
                                                             )}
                                                         </Tag>
