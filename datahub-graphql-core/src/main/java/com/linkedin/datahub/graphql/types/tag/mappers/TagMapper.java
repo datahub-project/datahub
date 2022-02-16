@@ -8,7 +8,6 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Tag;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
-import com.linkedin.datahub.graphql.types.glossary.GlossaryTermUtils;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
