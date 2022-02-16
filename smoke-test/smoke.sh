@@ -25,4 +25,24 @@ datahub docker quickstart \
 
 (cd tests/cypress ; yarn install)
 
+cd spark-smoke-test/docker
+
+#build spark cluster images
+./build_images.sh 
+
+echo "--------------------------------------------------------------------"
+echo "Bringing up spark cluster"
+echo "--------------------------------------------------------------------"
+
+#bring up spark cluster
+docker-compose -f spark-docker-compose.yml up -d
+
+echo "--------------------------------------------------------------------"
+echo "Executing spark-submit jobs"
+echo "--------------------------------------------------------------------"
+#Execute spark-submit jobs
+docker run --network datahub_network spark-submit
+
+cd ../../
+
 pytest -vv --continue-on-collection-errors --junit-xml=junit.smoke.xml
