@@ -71,6 +71,6 @@ entities:
       - dataHubExecutionRequestSignal
       - dataHubExecutionRequestResult
   - name: recommendationModule
-    keyAspect: recommendatinoModuleKey
+    keyAspect: recommendationModuleKey
     aspects:
       - recommendationModule
