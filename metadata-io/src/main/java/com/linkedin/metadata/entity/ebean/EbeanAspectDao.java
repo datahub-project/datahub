@@ -565,4 +565,15 @@ public class EbeanAspectDao {
     listResultMetadata.setExtraInfos(new ExtraInfoArray(extraInfos));
     return listResultMetadata;
   }
+
+  public List<EbeanAspectV2> getAspectsInRange(Urn urn, Set<String> aspectNames, long startTimeMillis, long endTimeMillis) {
+    List<EbeanAspectV2> aspectV2s = _server.find(EbeanAspectV2.class)
+        .select("*")
+        .where()
+        .eq(EbeanAspectV2.URN_COLUMN, urn.toString())
+        .in(EbeanAspectV2.ASPECT_COLUMN, aspectNames)
+        .inRange("createdOn", new Timestamp(startTimeMillis), new Timestamp(endTimeMillis))
+        .findList();
+    return aspectV2s;
+  }
 }

@@ -27,6 +27,7 @@ from datahub.metadata.schema_classes import (
     OwnershipSourceClass,
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
+    SchemaFieldKeyClass,
     TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
@@ -79,6 +80,16 @@ def make_dataset_urn_with_platform_instance(
 def make_schema_field_urn(parent_urn: str, field_path: str) -> str:
     assert parent_urn.startswith("urn:li:"), "Schema field's parent must be an urn"
     return f"urn:li:schemaField:({parent_urn},{field_path})"
+
+
+def schema_field_urn_to_key(schema_field_urn: str) -> Optional[SchemaFieldKeyClass]:
+    pattern = r"urn:li:schemaField:\((.*),(.*)\)"
+    results = re.search(pattern, schema_field_urn)
+    if results is not None:
+        dataset_urn: str = results.group(1)
+        field_path: str = results.group(2)
+        return SchemaFieldKeyClass(parent=dataset_urn, fieldPath=field_path)
+    return None
 
 
 def dataset_urn_to_key(dataset_urn: str) -> Optional[DatasetKeyClass]:
