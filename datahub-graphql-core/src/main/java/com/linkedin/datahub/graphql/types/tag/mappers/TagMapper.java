@@ -36,13 +36,20 @@ public class TagMapper implements ModelMapper<EntityResponse, Tag> {
         final Tag result = new Tag();
         result.setUrn(entityResponse.getUrn().toString());
         result.setType(EntityType.TAG);
+
+        final String legacyName = entityResponse.getUrn().getId();
+        result.setName(legacyName);
+
         EnvelopedAspectMap aspectMap = entityResponse.getAspects();
         MappingHelper<Tag> mappingHelper = new MappingHelper<>(aspectMap, result);
         mappingHelper.mapToResult(TAG_KEY_ASPECT_NAME, this::mapTagKey);
-        mappingHelper.mapToResult(TAG_PROPERTIES_ASPECT_NAME, (tag, dataMap) ->
-            tag.setDescription(new TagProperties(dataMap).getDescription()));
+        mappingHelper.mapToResult(TAG_PROPERTIES_ASPECT_NAME, this::mapTagProperties);
         mappingHelper.mapToResult(OWNERSHIP_ASPECT_NAME, (tag, dataMap) ->
             tag.setOwnership(OwnershipMapper.map(new Ownership(dataMap))));
+
+        if (result.getProperties() != null && result.getProperties().getName() == null) {
+            result.getProperties().setName(legacyName);
+        }
 
         return mappingHelper.getResult();
     }
