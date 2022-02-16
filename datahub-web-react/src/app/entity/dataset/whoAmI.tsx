@@ -1,22 +1,29 @@
 // import * as React from 'react';
 import { gql, useQuery } from '@apollo/client';
-// import { useGetAccessTokenLazyQuery } from '../../../graphql/auth.generated';
-// import { GetDatasetOwnersGqlDocument } from '../../../graphql/dataset.generated';
 import { GetMeOnlyDocument } from '../../../graphql/me.generated';
-// import { AccessTokenDuration, AccessTokenType } from '../../../types.generated';
+import { GetDatasetQuery } from '../../../graphql/dataset.generated';
 
 export function FindWhoAmI() {
     const { loading, data } = useQuery(GetMeOnlyDocument);
     if (loading) return 'loading..';
-    const ans = data.me.corpUser.username;
-    return ans;
+    return data.me.corpUser.username;
+}
+
+export function checkOwnership(data: GetDatasetQuery): boolean {
+    const currUser = FindWhoAmI();
+    const ownership = data?.dataset?.ownership?.owners;
+    const ownersArray =
+        ownership?.map((x) =>
+            x?.type === 'DATAOWNER' && x?.owner?.__typename === 'CorpUser' ? x?.owner?.username : '',
+        ) || [];
+
+    return ownersArray.includes(currUser);
 }
 
 export function FindMyUrn() {
     const { loading, data } = useQuery(GetMeOnlyDocument);
     if (loading) return '';
-    const ans = data.me.corpUser.urn;
-    return ans;
+    return data.me.corpUser.urn;
 }
 
 export function GetMyToken(userUrn: string) {
