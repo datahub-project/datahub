@@ -41,7 +41,7 @@ describe('EntityProfile Edit', () => {
 
                                         const ownersArray =
                                             ownership?.map((x) =>
-                                                x?.type === 'DATAOWNER' && x?.owner?.type === EntityType.CorpUser
+                                                x?.type === 'DATAOWNER' && x?.owner?.__typename === 'CorpUser'
                                                     ? x?.owner?.username
                                                     : '',
                                             ) || [];
@@ -100,7 +100,7 @@ describe('EntityProfile Edit', () => {
                                         const ownership = _dataset?.dataset?.ownership?.owners;
                                         const ownersArray =
                                             ownership?.map((x) =>
-                                                x?.type === 'DATAOWNER' && x?.owner?.type === EntityType.CorpUser
+                                                x?.type === 'DATAOWNER' && x?.owner?.__typename === 'CorpUser'
                                                     ? x?.owner?.username
                                                     : '',
                                             ) || [];
@@ -162,7 +162,7 @@ describe('EntityProfile Edit', () => {
                                         const ownership = _dataset?.dataset?.ownership?.owners;
                                         const ownersArray =
                                             ownership?.map((x) =>
-                                                x?.type === 'DATAOWNER' && x?.owner?.type === EntityType.CorpUser
+                                                x?.type === 'DATAOWNER' && x?.owner?.__typename === 'CorpUser'
                                                     ? x?.owner?.username
                                                     : '',
                                             ) || [];

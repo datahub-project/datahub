@@ -2,8 +2,6 @@
 import { Divider } from 'antd';
 import React from 'react';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
-import { EntityType } from '../../../../../../types.generated';
-// import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
 import { FindWhoAmI } from '../../../../dataset/whoAmI';
 import { useBaseEntity } from '../../../EntityContext';
 import { EditBrowsePathTable } from '../BrowsePath/EditBrowsePathTable';
@@ -14,7 +12,7 @@ export const AdminTab = () => {
     const currUser = FindWhoAmI();
     const ownersArray =
         queryBase?.map((x) =>
-            x?.type === 'DATAOWNER' && x?.owner?.type === EntityType.CorpUser ? x?.owner?.username : '',
+            x?.type === 'DATAOWNER' && x?.owner?.__typename === 'CorpUser' ? x?.owner?.username : '',
         ) || [];
     // console.log(`ownersArray is ${ownersArray} and I am ${currUser}`);
     if (ownersArray.includes(currUser)) {
