@@ -1,22 +1,32 @@
 describe('mutations', () => {
+  before(() => {
+    // warm up elastic by issuing a `*` search
+    cy.visit('http://localhost:9002/search?query=%2A');
+    cy.wait(5000);
+  });
+
   it('can create and add a tag to dataset and visit new tag page', () => {
     cy.deleteUrn('urn:li:tag:CypressTestAddTag')
     cy.login();
     cy.visit('/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)');
     cy.contains('cypress_logging_events');
-    cy.log('add tag now');
-    cy.contains('Add Tag').should('be.visible').click();
+
+    cy.contains('Add Tag').click({force:true});
 
     cy.focused().type('CypressTestAddTag');
 
-    cy.contains('Create CypressTestAddTag').should('be.visible').click();
+    cy.contains('Create CypressTestAddTag').click({force:true});
 
     cy.get('textarea').type('CypressTestAddTag Test Description');
 
-    cy.contains(/Create$/).should('be.visible').click();
-    cy.log('look for tags now');
+    cy.contains(/Create$/).click({force:true});
+
+    // wait a breath for elasticsearch to index the tag being applied to the dataset- if we navigate too quick ES
+    // wont know and we'll see applied to 0 entities
+    cy.wait(2000);
+
     // go to tag page
-    cy.get('a[href="/tag/urn:li:tag:CypressTestAddTag"]').should('be.visible').click();
+    cy.get('a[href="/tag/urn:li:tag:CypressTestAddTag"]').click();
 
     // title of tag page
     cy.contains('CypressTestAddTag');
@@ -25,14 +35,13 @@ describe('mutations', () => {
     cy.contains('CypressTestAddTag Test Description');
 
     // used by panel - click to search
-    cy.contains('1 Datasets').should('be.visible').click();
+    cy.contains('1 Datasets').click();
 
     // verify dataset shows up in search now
-    cy.contains('of 1 result').should('be.visible').click();
-    cy.contains('cypress_logging_events').should('be.visible').click();
-    cy.log('remove tag now');
+    cy.contains('of 1 result').click();
+    cy.contains('cypress_logging_events').click();
     cy.get('a[href="/tag/urn:li:tag:CypressTestAddTag"]').within(() => cy.get('span[aria-label=close]').click());
-    cy.contains('Yes').should('be.visible').click();
+    cy.contains('Yes').click();
 
     cy.get('a[href="/tag/urn:li:tag:CypressTestAddTag"]').should('not.exist');
 
