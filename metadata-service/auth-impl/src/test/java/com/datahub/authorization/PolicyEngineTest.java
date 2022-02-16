@@ -8,33 +8,31 @@ import com.linkedin.common.OwnerArray;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.OwnershipType;
 import com.linkedin.common.UrnArray;
-import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
-import com.linkedin.entity.Entity;
+import com.linkedin.entity.Aspect;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.OwnershipClient;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.identity.GroupMembership;
-import com.linkedin.metadata.aspect.Aspect;
-import com.linkedin.metadata.aspect.CorpUserAspect;
-import com.linkedin.metadata.aspect.CorpUserAspectArray;
-import com.linkedin.metadata.aspect.VersionedAspect;
-import com.linkedin.metadata.snapshot.CorpUserSnapshot;
-import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.DataHubResourceFilter;
+import java.net.URISyntaxException;
 import java.util.Collections;
+import java.util.Map;
 import java.util.Optional;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import static org.mockito.Mockito.*;
-import static org.testng.Assert.*;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.authorization.PoliciesConfig.*;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
 
 
 public class PolicyEngineTest {
@@ -43,12 +41,15 @@ public class PolicyEngineTest {
   private static final String UNAUTHORIZED_PRINCIPAL = "urn:li:corpuser:unauthorized";
 
   private static final String AUTHORIZED_GROUP = "urn:li:corpGroup:authorizedGroup";
-  private static final String UNAUTHORIZED_GROUP = "urn:li:corpGroup:unauthorizedGroup";
 
   private static final String RESOURCE_URN = "urn:li:dataset:test";
 
   private EntityClient _entityClient;
   private PolicyEngine _policyEngine;
+
+  private Urn authorizedUserUrn;
+  private Urn unauthorizedUserUrn;
+  private Urn resourceUrn;
 
   @BeforeMethod
   public void setupTest() throws Exception {
@@ -56,25 +57,34 @@ public class PolicyEngineTest {
     _policyEngine = new PolicyEngine(Mockito.mock(Authentication.class), _entityClient, new OwnershipClient(_entityClient));
 
     // Init mocks.
-    final CorpUserSnapshot authorizedUser = createDataHubSnapshot();
-    final CorpUserSnapshot unauthorizedUser = createUnauthorizedUserSnapshot();
+    EntityResponse authorizedEntityResponse = createAuthorizedEntityResponse();
+    authorizedUserUrn = Urn.createFromString(AUTHORIZED_PRINCIPAL);
+    authorizedEntityResponse.setUrn(authorizedUserUrn);
+    Map<Urn, EntityResponse> authorizedEntityResponseMap = Collections.singletonMap(authorizedUserUrn, authorizedEntityResponse);
+    when(_entityClient.batchGetV2(eq(CORP_USER_ENTITY_NAME), eq(Collections.singleton(authorizedUserUrn)),
+        eq(null), any())).thenReturn(authorizedEntityResponseMap);
 
-    when(_entityClient.get(eq(Urn.createFromString(AUTHORIZED_PRINCIPAL)), any())).thenReturn(
-        new Entity().setValue(Snapshot.create(authorizedUser))
-    );
+    EntityResponse unauthorizedEntityResponse = createUnauthorizedEntityResponse();
+    unauthorizedUserUrn = Urn.createFromString(UNAUTHORIZED_PRINCIPAL);
+    unauthorizedEntityResponse.setUrn(unauthorizedUserUrn);
+    Map<Urn, EntityResponse> unauthorizedEntityResponseMap = Collections.singletonMap(unauthorizedUserUrn, unauthorizedEntityResponse);
+    when(_entityClient.batchGetV2(eq(CORP_USER_ENTITY_NAME), eq(Collections.singleton(unauthorizedUserUrn)),
+        eq(null), any())).thenReturn(unauthorizedEntityResponseMap);
 
-    when(_entityClient.get(eq(Urn.createFromString(UNAUTHORIZED_PRINCIPAL)), any())).thenReturn(
-        new Entity().setValue(Snapshot.create(unauthorizedUser))
-    );
-
-    final Ownership ownershipAspect = createOwnershipAspect(true, true);
-    when(_entityClient.getAspect(eq(RESOURCE_URN), eq(OWNERSHIP_ASPECT_NAME), eq(ASPECT_LATEST_VERSION), any())).thenReturn(
-        new VersionedAspect().setAspect(Aspect.create(ownershipAspect))
-    );
+    EntityResponse entityResponse = new EntityResponse();
+    EnvelopedAspectMap envelopedAspectMap = new EnvelopedAspectMap();
+    envelopedAspectMap.put(OWNERSHIP_ASPECT_NAME, new EnvelopedAspect()
+        .setValue(new com.linkedin.entity.Aspect(createOwnershipAspect(true, true).data())));
+    entityResponse.setAspects(envelopedAspectMap);
+    resourceUrn = Urn.createFromString(RESOURCE_URN);
+    Map<Urn, EntityResponse> mockMap = mock(Map.class);
+    when(_entityClient.batchGetV2(any(), eq(Collections.singleton(resourceUrn)),
+        eq(Collections.singleton(OWNERSHIP_ASPECT_NAME)), any())).thenReturn(mockMap);
+    when(mockMap.get(eq(resourceUrn))).thenReturn(entityResponse);
   }
 
   @Test
-  public void testEvaluatePolicyInactivePolicyState() throws Exception {
+  public void testEvaluatePolicyInactivePolicyState() {
 
     final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
     dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
@@ -142,9 +152,8 @@ public class PolicyEngineTest {
     assertFalse(result.isGranted());
 
     // Verify no network calls
-    verify(_entityClient, times(0)).getAspect(
+    verify(_entityClient, times(0)).batchGetV2(
         any(), any(), any(), any());
-    verify(_entityClient, times(0)).get(eq(Urn.createFromString(AUTHORIZED_PRINCIPAL)), any());
   }
 
   @Test
@@ -172,9 +181,8 @@ public class PolicyEngineTest {
     assertTrue(result.isGranted());
 
     // Verify no network calls
-    verify(_entityClient, times(0)).getAspect(
+    verify(_entityClient, times(0)).batchGetV2(
         any(), any(), any(), any());
-    verify(_entityClient, times(0)).get(eq(Urn.createFromString(AUTHORIZED_PRINCIPAL)), any());
   }
 
   @Test
@@ -215,8 +223,7 @@ public class PolicyEngineTest {
     assertTrue(result1.isGranted());
 
     // Verify we are not making any network calls for these predicates.
-    verify(_entityClient, times(0)).getAspect(any(), any(), any(), any());
-    verify(_entityClient, times(0)).get(any(), any());
+    verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
   }
 
   @Test
@@ -258,8 +265,7 @@ public class PolicyEngineTest {
     assertFalse(result2.isGranted());
 
     // Verify we are not making any network calls for these predicates.
-    verify(_entityClient, times(0)).getAspect(any(), any(), any(), any());
-    verify(_entityClient, times(0)).get(any(), any());
+    verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
   }
 
   @Test
@@ -299,8 +305,8 @@ public class PolicyEngineTest {
     assertTrue(result1.isGranted());
 
     // Verify we are only calling for group during these requests.
-    verify(_entityClient, times(0)).getAspect(any(), any(), any(), any());
-    verify(_entityClient, times(1)).get(eq(Urn.createFromString(AUTHORIZED_PRINCIPAL)), any());
+    verify(_entityClient, times(1)).batchGetV2(eq(CORP_USER_ENTITY_NAME),
+        eq(Collections.singleton(authorizedUserUrn)), eq(null), any());
   }
 
   @Test
@@ -341,8 +347,8 @@ public class PolicyEngineTest {
     assertFalse(result2.isGranted());
 
     // Verify we are only calling for group during these requests.
-    verify(_entityClient, times(0)).getAspect(any(), any(), any(), any());
-    verify(_entityClient, times(1)).get(eq(Urn.createFromString(UNAUTHORIZED_PRINCIPAL)), any());
+    verify(_entityClient, times(1)).batchGetV2(eq(CORP_USER_ENTITY_NAME),
+        eq(Collections.singleton(unauthorizedUserUrn)), eq(null), any());
   }
 
   @Test
@@ -391,9 +397,7 @@ public class PolicyEngineTest {
     assertTrue(result2.isGranted());
 
     // Verify no network calls
-    verify(_entityClient, times(0)).getAspect(any(), any(), any(), any());
-    verify(_entityClient, times(0)).get(eq(Urn.createFromString(AUTHORIZED_PRINCIPAL)), any());
-    verify(_entityClient, times(0)).get(eq(Urn.createFromString(UNAUTHORIZED_PRINCIPAL)), any());
+    verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
   }
 
   @Test
@@ -442,9 +446,10 @@ public class PolicyEngineTest {
     assertTrue(result2.isGranted());
 
     // Verify we are only calling for group during these requests.
-    verify(_entityClient, times(0)).getAspect(any(), any(), any(), any());
-    verify(_entityClient, times(1)).get(eq(Urn.createFromString(AUTHORIZED_PRINCIPAL)), any());
-    verify(_entityClient, times(1)).get(eq(Urn.createFromString(UNAUTHORIZED_PRINCIPAL)), any());
+    verify(_entityClient, times(1)).batchGetV2(eq(CORP_USER_ENTITY_NAME),
+        eq(Collections.singleton(authorizedUserUrn)), eq(null), any());
+    verify(_entityClient, times(1)).batchGetV2(eq(CORP_USER_ENTITY_NAME),
+        eq(Collections.singleton(unauthorizedUserUrn)), eq(null), any());
   }
 
   @Test
@@ -481,12 +486,17 @@ public class PolicyEngineTest {
     assertTrue(result1.isGranted());
 
     // Verify we are calling for the resource ownership aspect
-    verify(_entityClient, times(1)).getAspect(
-        eq(RESOURCE_URN),
-        eq(OWNERSHIP_ASPECT_NAME),
-        eq(ASPECT_LATEST_VERSION), any());
+    verify(_entityClient, times(1)).batchGetV2(
+        any(),
+        eq(Collections.singleton(resourceUrn)),
+        eq(Collections.singleton(OWNERSHIP_ASPECT_NAME)),
+        any());
     // Ensure no calls for group membership.
-    verify(_entityClient, times(0)).get(eq(Urn.createFromString(AUTHORIZED_PRINCIPAL)), any());
+    verify(_entityClient, times(0)).batchGetV2(
+        eq(CORP_USER_ENTITY_NAME),
+        eq(Collections.singleton(authorizedUserUrn)),
+        eq(null),
+        any());
   }
 
   @Test
@@ -512,10 +522,15 @@ public class PolicyEngineTest {
     dataHubPolicyInfo.setResources(resourceFilter);
 
     // Overwrite the Ownership of the Resource to only include a single group.
-    final Ownership ownershipAspect = createOwnershipAspect(false, true);
-    when(_entityClient.getAspect(eq(RESOURCE_URN), eq(OWNERSHIP_ASPECT_NAME), eq(ASPECT_LATEST_VERSION), any())).thenReturn(
-        new VersionedAspect().setAspect(Aspect.create(ownershipAspect))
-    );
+    EntityResponse entityResponse = new EntityResponse();
+    EnvelopedAspectMap envelopedAspectMap = new EnvelopedAspectMap();
+    envelopedAspectMap.put(OWNERSHIP_ASPECT_NAME, new EnvelopedAspect()
+        .setValue(new com.linkedin.entity.Aspect(createOwnershipAspect(false, true).data())));
+    entityResponse.setAspects(envelopedAspectMap);
+    Map<Urn, EntityResponse> mockMap = mock(Map.class);
+    when(_entityClient.batchGetV2(any(), eq(Collections.singleton(resourceUrn)),
+        eq(Collections.singleton(OWNERSHIP_ASPECT_NAME)), any())).thenReturn(mockMap);
+    when(mockMap.get(any(Urn.class))).thenReturn(entityResponse);
 
     // Assert authorized user can edit entity tags, because he is a user owner.
     PolicyEngine.PolicyEvaluationResult result1 = _policyEngine.evaluatePolicy(
@@ -529,12 +544,14 @@ public class PolicyEngineTest {
     assertTrue(result1.isGranted());
 
     // Verify we are calling for the resource ownership aspect
-    verify(_entityClient, times(1)).getAspect(
-        eq(RESOURCE_URN),
-        eq(OWNERSHIP_ASPECT_NAME),
-        eq(ASPECT_LATEST_VERSION), any());
+    verify(_entityClient, times(1)).batchGetV2(
+        any(),
+        eq(Collections.singleton(resourceUrn)),
+        eq(Collections.singleton(OWNERSHIP_ASPECT_NAME)),
+        any());
     // Ensure that caching of groups is working with 1 call to entity client for each principal.
-    verify(_entityClient, times(1)).get(eq(Urn.createFromString(AUTHORIZED_PRINCIPAL)), any());
+    verify(_entityClient, times(1)).batchGetV2(eq(CORP_USER_ENTITY_NAME),
+        eq(Collections.singleton(authorizedUserUrn)), eq(null), any());
   }
 
   @Test
@@ -571,12 +588,14 @@ public class PolicyEngineTest {
     assertFalse(result2.isGranted());
 
     // Verify we are calling for the resource ownership aspect
-    verify(_entityClient, times(1)).getAspect(
-        eq(RESOURCE_URN),
-        eq(OWNERSHIP_ASPECT_NAME),
-        eq(ASPECT_LATEST_VERSION), any());
+    verify(_entityClient, times(1)).batchGetV2(
+        any(),
+        eq(Collections.singleton(resourceUrn)),
+        eq(Collections.singleton(OWNERSHIP_ASPECT_NAME)),
+        any());
     // Ensure that caching of groups is working with 1 call to entity client for each principal.
-    verify(_entityClient, times(1)).get(eq(Urn.createFromString(UNAUTHORIZED_PRINCIPAL)), any());
+    verify(_entityClient, times(1)).batchGetV2(eq(CORP_USER_ENTITY_NAME),
+        eq(Collections.singleton(unauthorizedUserUrn)), eq(null), any());
   }
 
   @Test
@@ -612,8 +631,7 @@ public class PolicyEngineTest {
     assertTrue(result.isGranted());
 
     // Verify no network calls
-    verify(_entityClient, times(0)).getAspect(any(), any(), any(), any());
-    verify(_entityClient, times(0)).get(eq(Urn.createFromString(AUTHORIZED_PRINCIPAL)), any());
+    verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
   }
 
   @Test
@@ -649,8 +667,7 @@ public class PolicyEngineTest {
     assertFalse(result.isGranted());
 
     // Verify no network calls
-    verify(_entityClient, times(0)).getAspect(any(), any(), any(), any());
-    verify(_entityClient, times(0)).get(eq(Urn.createFromString(AUTHORIZED_PRINCIPAL)), any());
+    verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
   }
 
   @Test
@@ -690,8 +707,7 @@ public class PolicyEngineTest {
     assertTrue(result.isGranted());
 
     // Verify no network calls
-    verify(_entityClient, times(0)).getAspect(any(), any(), any(), any());
-    verify(_entityClient, times(0)).get(eq(Urn.createFromString(AUTHORIZED_PRINCIPAL)), any());
+    verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
   }
 
   @Test
@@ -731,8 +747,7 @@ public class PolicyEngineTest {
     assertFalse(result.isGranted());
 
     // Verify no network calls
-    verify(_entityClient, times(0)).getAspect(any(), any(), any(), any());
-    verify(_entityClient, times(0)).get(eq(Urn.createFromString(AUTHORIZED_PRINCIPAL)), any());
+    verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
   }
 
   @Test
@@ -796,8 +811,9 @@ public class PolicyEngineTest {
     ));
 
     // Verify aspect client called, entity client not called.
-    verify(_entityClient, times(1)).getAspect(any(), any(), any(), any());
-    verify(_entityClient, times(0)).get(eq(Urn.createFromString(AUTHORIZED_PRINCIPAL)), any());
+    verify(_entityClient, times(1)).batchGetV2(any(), any(), any(), any());
+    verify(_entityClient, times(0)).batchGetV2(eq(CORP_USER_ENTITY_NAME),
+        eq(Collections.singleton(authorizedUserUrn)), eq(null), any());
   }
 
   @Test
@@ -851,58 +867,7 @@ public class PolicyEngineTest {
     assertEquals(actors.getGroups(), Collections.emptyList());
 
     // Verify no network calls
-    verify(_entityClient, times(0)).getAspect(any(), any(), any(), any());
-    verify(_entityClient, times(0)).get(eq(Urn.createFromString(AUTHORIZED_PRINCIPAL)), any());
-  }
-
-  private CorpUserSnapshot createDataHubSnapshot() throws Exception {
-    final CorpUserSnapshot snapshot = new CorpUserSnapshot();
-    snapshot.setUrn(CorpuserUrn.createFromString(AUTHORIZED_PRINCIPAL));
-
-    final CorpUserAspectArray aspects = new CorpUserAspectArray();
-
-    final CorpUserInfo userInfo = new CorpUserInfo();
-    userInfo.setActive(true);
-    userInfo.setFullName("Data Hub");
-    userInfo.setFirstName("Data");
-    userInfo.setLastName("Hub");
-    userInfo.setEmail("datahub@gmail.com");
-    userInfo.setTitle("Admin");
-    aspects.add(CorpUserAspect.create(userInfo));
-
-    final GroupMembership groupsAspect = new GroupMembership();
-    final UrnArray groups = new UrnArray();
-    groups.add(Urn.createFromString("urn:li:corpGroup:authorizedGroup"));
-    groupsAspect.setGroups(groups);
-    aspects.add(CorpUserAspect.create(groupsAspect));
-
-    snapshot.setAspects(aspects);
-    return snapshot;
-  }
-
-  private CorpUserSnapshot createUnauthorizedUserSnapshot() throws Exception {
-    final CorpUserSnapshot snapshot = new CorpUserSnapshot();
-    snapshot.setUrn(CorpuserUrn.createFromString(UNAUTHORIZED_PRINCIPAL));
-
-    final CorpUserAspectArray aspects = new CorpUserAspectArray();
-
-    final CorpUserInfo userInfo = new CorpUserInfo();
-    userInfo.setActive(true);
-    userInfo.setFullName("Unauthorized User");
-    userInfo.setFirstName("Unauthorized");
-    userInfo.setLastName("User");
-    userInfo.setEmail("Unauth");
-    userInfo.setTitle("Engineer");
-    aspects.add(CorpUserAspect.create(userInfo));
-
-    final GroupMembership groupsAspect = new GroupMembership();
-    final UrnArray groups = new UrnArray();
-    groups.add(Urn.createFromString("urn:li:corpGroup:unauthorizedGroup"));
-    groupsAspect.setGroups(groups);
-    aspects.add(CorpUserAspect.create(groupsAspect));
-
-    snapshot.setAspects(aspects);
-    return snapshot;
+    verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
   }
 
   private Ownership createOwnershipAspect(final Boolean addUserOwner, final Boolean addGroupOwner) throws Exception {
@@ -926,5 +891,51 @@ public class PolicyEngineTest {
     ownershipAspect.setOwners(owners);
     ownershipAspect.setLastModified(new AuditStamp().setTime(0).setActor(Urn.createFromString("urn:li:corpuser:foo")));
     return ownershipAspect;
+  }
+
+  private EntityResponse createAuthorizedEntityResponse() throws URISyntaxException {
+    final EntityResponse entityResponse = new EntityResponse();
+    final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
+
+    final CorpUserInfo userInfo = new CorpUserInfo();
+    userInfo.setActive(true);
+    userInfo.setFullName("Data Hub");
+    userInfo.setFirstName("Data");
+    userInfo.setLastName("Hub");
+    userInfo.setEmail("datahub@gmail.com");
+    userInfo.setTitle("Admin");
+    aspectMap.put(CORP_USER_INFO_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(userInfo.data())));
+
+    final GroupMembership groupsAspect = new GroupMembership();
+    final UrnArray groups = new UrnArray();
+    groups.add(Urn.createFromString("urn:li:corpGroup:authorizedGroup"));
+    groupsAspect.setGroups(groups);
+    aspectMap.put(GROUP_MEMBERSHIP_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(groupsAspect.data())));
+
+    entityResponse.setAspects(aspectMap);
+    return entityResponse;
+  }
+
+  private EntityResponse createUnauthorizedEntityResponse() throws URISyntaxException {
+    final EntityResponse entityResponse = new EntityResponse();
+    final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
+
+    final CorpUserInfo userInfo = new CorpUserInfo();
+    userInfo.setActive(true);
+    userInfo.setFullName("Unauthorized User");
+    userInfo.setFirstName("Unauthorized");
+    userInfo.setLastName("User");
+    userInfo.setEmail("Unauth");
+    userInfo.setTitle("Engineer");
+    aspectMap.put(CORP_USER_INFO_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(userInfo.data())));
+
+    final GroupMembership groupsAspect = new GroupMembership();
+    final UrnArray groups = new UrnArray();
+    groups.add(Urn.createFromString("urn:li:corpGroup:unauthorizedGroup"));
+    groupsAspect.setGroups(groups);
+    aspectMap.put(GROUP_MEMBERSHIP_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(groupsAspect.data())));
+
+    entityResponse.setAspects(aspectMap);
+    return entityResponse;
   }
 }

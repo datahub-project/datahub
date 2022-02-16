@@ -7,37 +7,42 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.generated.DataFlowUpdateInput;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipUpdateMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UpdateMappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.InputModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.TagAssociationUpdateMapper;
 import com.linkedin.datajob.EditableDataFlowProperties;
-
-import com.linkedin.metadata.aspect.DataFlowAspect;
-import com.linkedin.metadata.aspect.DataFlowAspectArray;
-import com.linkedin.metadata.snapshot.DataFlowSnapshot;
-import javax.annotation.Nonnull;
+import com.linkedin.mxe.MetadataChangeProposal;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 
-public class DataFlowUpdateInputSnapshotMapper implements InputModelMapper<DataFlowUpdateInput, DataFlowSnapshot, Urn> {
-  public static final DataFlowUpdateInputSnapshotMapper INSTANCE = new DataFlowUpdateInputSnapshotMapper();
+import static com.linkedin.metadata.Constants.*;
 
-  public static DataFlowSnapshot map(@Nonnull final DataFlowUpdateInput dataFlowUpdateInput,
+
+public class DataFlowUpdateInputMapper implements InputModelMapper<DataFlowUpdateInput,
+    Collection<MetadataChangeProposal>, Urn> {
+  public static final DataFlowUpdateInputMapper INSTANCE = new DataFlowUpdateInputMapper();
+
+  public static Collection<MetadataChangeProposal> map(@Nonnull final DataFlowUpdateInput dataFlowUpdateInput,
       @Nonnull final Urn actor) {
     return INSTANCE.apply(dataFlowUpdateInput, actor);
   }
 
   @Override
-  public DataFlowSnapshot apply(
+  public Collection<MetadataChangeProposal> apply(
       @Nonnull final DataFlowUpdateInput dataFlowUpdateInput,
       @Nonnull final Urn actor) {
-    final DataFlowSnapshot result = new DataFlowSnapshot();
+    final Collection<MetadataChangeProposal> proposals = new ArrayList<>(3);
     final AuditStamp auditStamp = new AuditStamp();
     auditStamp.setActor(actor, SetMode.IGNORE_NULL);
     auditStamp.setTime(System.currentTimeMillis());
-
-    final DataFlowAspectArray aspects = new DataFlowAspectArray();
+    final UpdateMappingHelper updateMappingHelper = new UpdateMappingHelper(DATA_FLOW_ENTITY_NAME);
 
     if (dataFlowUpdateInput.getOwnership() != null) {
-      aspects.add(DataFlowAspect.create(OwnershipUpdateMapper.map(dataFlowUpdateInput.getOwnership(), actor)));
+      proposals.add(
+          updateMappingHelper.aspectToProposal(OwnershipUpdateMapper.map(dataFlowUpdateInput.getOwnership(), actor),
+              OWNERSHIP_ASPECT_NAME));
     }
 
     if (dataFlowUpdateInput.getTags() != null || dataFlowUpdateInput.getGlobalTags() != null) {
@@ -57,7 +62,7 @@ public class DataFlowUpdateInputSnapshotMapper implements InputModelMapper<DataF
             )
         );
       }
-      aspects.add(DataFlowAspect.create(globalTags));
+      proposals.add(updateMappingHelper.aspectToProposal(globalTags, GLOBAL_TAGS_ASPECT_NAME));
     }
 
     if (dataFlowUpdateInput.getEditableProperties() != null) {
@@ -65,11 +70,10 @@ public class DataFlowUpdateInputSnapshotMapper implements InputModelMapper<DataF
       editableDataFlowProperties.setDescription(dataFlowUpdateInput.getEditableProperties().getDescription());
       editableDataFlowProperties.setCreated(auditStamp);
       editableDataFlowProperties.setLastModified(auditStamp);
-      aspects.add(DataFlowAspect.create(editableDataFlowProperties));
+      proposals.add(updateMappingHelper.aspectToProposal(editableDataFlowProperties,
+          EDITABLE_DATA_FLOW_PROPERTIES_ASPECT_NAME));
     }
 
-    result.setAspects(aspects);
-
-    return result;
+    return proposals;
   }
 }
