@@ -9,7 +9,7 @@ export function FindWhoAmI() {
     return data.me.corpUser.username;
 }
 
-export function checkOwnerShip(data: GetDatasetQuery): boolean {
+export function checkOwnership(data: GetDatasetQuery): boolean {
     const currUser = FindWhoAmI();
     const ownership = data?.dataset?.ownership?.owners;
     const ownersArray =

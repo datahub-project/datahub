@@ -1,12 +1,12 @@
 import React from 'react';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
-import { checkOwnerShip } from '../../../../dataset/whoAmI';
+import { checkOwnership } from '../../../../dataset/whoAmI';
 import { useBaseEntity } from '../../../EntityContext';
 import { EditSchemaTableEditable } from './EditSchemaTableEditable';
 
 export const EditSchemaTab = () => {
     const dataset = useBaseEntity<GetDatasetQuery>();
-    if (checkOwnerShip(dataset)) {
+    if (checkOwnership(dataset)) {
         return (
             <>
                 <EditSchemaTableEditable />

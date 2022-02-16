@@ -13,7 +13,7 @@ import {
 import { EntityType } from '../../../../../../types.generated';
 import { SidebarAboutSection } from '../sidebar/SidebarAboutSection';
 import { EditSchemaTab } from '../../../tabs/Dataset/Schema/EditSchemaTab';
-import { checkOwnerShip } from '../../../../dataset/whoAmI';
+import { checkOwnership } from '../../../../dataset/whoAmI';
 import { EditPropertiesTab } from '../../../tabs/Dataset/Schema/EditPropertiesTab';
 import { AdminTab } from '../../../tabs/Dataset/Schema/AdminTab';
 
@@ -34,7 +34,7 @@ describe('EntityProfile Edit', () => {
                                 component: EditSchemaTab,
                                 display: {
                                     visible: (_, _dataset: GetDatasetQuery) => {
-                                        return checkOwnerShip(_dataset);
+                                        return checkOwnership(_dataset);
                                     },
                                     enabled: (_, _dataset: GetDatasetQuery) => {
                                         return true;
@@ -77,7 +77,7 @@ describe('EntityProfile Edit', () => {
                                 component: EditPropertiesTab,
                                 display: {
                                     visible: (_, _dataset: GetDatasetQuery) => {
-                                        return checkOwnerShip(_dataset);
+                                        return checkOwnership(_dataset);
                                     },
                                     enabled: (_, _dataset: GetDatasetQuery) => {
                                         return true;
@@ -127,7 +127,7 @@ describe('EntityProfile Edit', () => {
                                 component: AdminTab,
                                 display: {
                                     visible: (_, _dataset: GetDatasetQuery) => {
-                                        return checkOwnerShip(_dataset);
+                                        return checkOwnership(_dataset);
                                     },
                                     enabled: (_, _dataset: GetDatasetQuery) => {
                                         return true;
