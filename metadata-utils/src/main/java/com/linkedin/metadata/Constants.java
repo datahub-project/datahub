@@ -134,7 +134,7 @@ public class Constants {
   // Policy
   public static final String DATAHUB_POLICY_INFO_ASPECT_NAME = "dataHubPolicyInfo";
 
-  //Tag
+  // Tag
   public static final String TAG_KEY_ASPECT_NAME = "tagKey";
   public static final String TAG_PROPERTIES_ASPECT_NAME = "tagProperties";
 
