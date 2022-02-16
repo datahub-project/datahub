@@ -39,8 +39,7 @@ MAX_ROWS = 100
 
 
 def infer_schema_general(table: Table) -> List[SchemaField]:
-    table.read(keyed=True, limit=MAX_ROWS)
-    table.infer()
+    table.infer(limit=MAX_ROWS)
 
     fields = []
 
@@ -64,7 +63,6 @@ class CsvInferrer(SchemaInferenceBase):
     @staticmethod
     def infer_schema(file: TextIOWrapper) -> List[SchemaField]:
         # infer schema of a csv file without reading the whole file
-
         table = Table(file, format="csv")
 
         return infer_schema_general(table)
@@ -74,7 +72,6 @@ class TsvInferrer(SchemaInferenceBase):
     @staticmethod
     def infer_schema(file: TextIOWrapper) -> List[SchemaField]:
         # infer schema of a tsv file without reading the whole file
-
         table = Table(file, format="tsv")
 
         return infer_schema_general(table)

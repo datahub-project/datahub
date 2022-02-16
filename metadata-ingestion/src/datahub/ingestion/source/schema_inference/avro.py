@@ -38,49 +38,15 @@ avro_type_map = {
     "fixed": StringTypeClass,
 }
 
+from datahub.ingestion.extractor import schema_util
+
 
 class AvroInferrer(SchemaInferenceBase):
     @staticmethod
     def infer_schema(file: TextIOWrapper) -> List[SchemaField]:
-
+        
         reader = DataFileReader(file, DatumReader())
-        schema = ujson.loads(reader.schema)
-
-        fields = []
-
-        for field in schema["fields"]:
-            name = field["name"]
-            avro_type = field["type"]
-
-            mapped_type: Type = NullTypeClass
-            type_args = None
-            nullable = False
-
-            if isinstance(avro_type, str):
-                mapped_type = avro_type_map.get(avro_type, NullTypeClass)
-
-            elif isinstance(avro_type, list) and len(avro_type) > 1:
-
-                if "null" in avro_type and len(avro_type) == 2:
-                    avro_type.remove("null")
-                    nullable = True
-                    mapped_type = avro_type_map.get(avro_type[0], NullTypeClass)
-                else:
-
-                    mapped_type = UnionTypeClass
-                    type_args = avro_type
-
-            else:
-                mapped_type = NullTypeClass
-
-            field = SchemaField(
-                fieldPath=name,
-                type=SchemaFieldDataType(mapped_type(type_args)),
-                nativeDataType=str(avro_type),
-                recursive=False,
-                nullable=nullable,
-            )
-
-            fields.append(field)
-
-        return fields
+        
+        schema = schema_util.avro_schema_to_mce_fields(reader.schema)
+        
+        return schema
