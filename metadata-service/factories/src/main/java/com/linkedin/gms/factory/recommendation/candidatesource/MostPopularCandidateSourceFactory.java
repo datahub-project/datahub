@@ -15,7 +15,7 @@ import org.springframework.context.annotation.Import;
 
 @Configuration
 @Import({RestHighLevelClientFactory.class, IndexConventionFactory.class})
-public class HighUsageCandidateSourceFactory {
+public class MostPopularCandidateSourceFactory {
   @Autowired
   @Qualifier("elasticSearchRestHighLevelClient")
   private RestHighLevelClient searchClient;
@@ -24,7 +24,7 @@ public class HighUsageCandidateSourceFactory {
   @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN)
   private IndexConvention indexConvention;
 
-  @Bean(name = "highUsageCandidateSource")
+  @Bean(name = "mostPopularCandidateSource")
   @Nonnull
   protected MostPopularSource getInstance() {
     return new MostPopularSource(searchClient, indexConvention);

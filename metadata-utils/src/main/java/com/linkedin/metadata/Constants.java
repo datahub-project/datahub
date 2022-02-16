@@ -28,6 +28,7 @@ public class Constants {
   public static final String GLOSSARY_TERM_ENTITY_NAME = "glossaryTerm";
   public static final String DATA_PLATFORM_ENTITY_NAME = "dataPlatform";
   public static final String DOMAIN_ENTITY_NAME = "domain";
+  public static final String RECOMMENDATION_MODULE_ENTITY_NAME = "recommendationModule";
   public static final String INGESTION_SOURCE_ENTITY_NAME = "dataHubIngestionSource";
   public static final String SECRETS_ENTITY_NAME = "dataHubSecret";
   public static final String EXECUTION_REQUEST_ENTITY_NAME = "dataHubExecutionRequest";
@@ -104,6 +105,9 @@ public class Constants {
   public static final String DOMAIN_KEY_ASPECT_NAME = "domainKey";
   public static final String DOMAIN_PROPERTIES_ASPECT_NAME = "domainProperties";
   public static final String DOMAINS_ASPECT_NAME = "domains";
+
+  // Recommendation module
+  public static final String RECOMMENDATION_MODULE_ASPECT_NAME = "recommendationModule";
 
   // DataHub Ingestion Source
   public static final String INGESTION_INFO_ASPECT_NAME = "dataHubIngestionSourceInfo";
