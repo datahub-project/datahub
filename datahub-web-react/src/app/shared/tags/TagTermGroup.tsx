@@ -159,8 +159,8 @@ export default function TagTermGroup({
             {uneditableGlossaryTerms?.terms?.map((term) => (
                 <TagLink to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)} key={term.term.urn}>
                     <Tag closable={false}>
+                        <BookOutlined style={{ marginRight: '3%' }} />
                         {term.term.name}
-                        <BookOutlined style={{ marginLeft: '2%' }} />
                     </Tag>
                 </TagLink>
             ))}
@@ -173,8 +173,8 @@ export default function TagTermGroup({
                             removeTerm(term.term.urn);
                         }}
                     >
+                        <BookOutlined style={{ marginRight: '3%' }} />
                         {term.term.name}
-                        <BookOutlined style={{ marginLeft: '2%' }} />
                     </Tag>
                 </TagLink>
             ))}

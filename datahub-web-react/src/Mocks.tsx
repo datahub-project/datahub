@@ -705,8 +705,17 @@ const glossaryTerm1 = {
             time: 0,
         },
     },
+    glossaryTermInfo: {
+        name: 'Another glossary term',
+        description: 'New glossary term',
+        definition: 'New glossary term',
+        termSource: 'termSource',
+        sourceRef: 'sourceRef',
+        sourceURI: 'sourceURI',
+    },
     properties: {
         name: 'Another glossary term',
+        description: 'New glossary term',
         definition: 'New glossary term',
         description: 'New glossary term',
         termSource: 'termSource',
@@ -721,7 +730,7 @@ const glossaryTerm2 = {
     name: 'glossaryterm1',
     hierarchicalName: 'example.glossaryterm1',
     ownership: null,
-    properties: {
+    glossaryTermInfo: {
         name: 'glossaryterm1',
         description: 'is A relation glossary term 1',
         definition: 'is A relation glossary term 1',
@@ -737,6 +746,23 @@ const glossaryTerm2 = {
             },
         ],
         __typename: 'GlossaryTermInfo',
+    },
+    properties: {
+        name: 'glossaryterm1',
+        description: 'is A relation glossary term 1',
+        definition: 'is A relation glossary term 1',
+        termSource: 'INTERNAL',
+        sourceRef: 'TERM_SOURCE_SAXO',
+        sourceUrl: '',
+        rawSchema: 'sample proto schema',
+        customProperties: [
+            {
+                key: 'keyProperty',
+                value: 'valueProperty',
+                __typename: 'StringMapEntry',
+            },
+        ],
+        __typename: 'GlossaryTermProperties',
     },
     isRealtedTerms: {
         start: 0,
@@ -791,6 +817,23 @@ const glossaryTerm3 = {
             },
         ],
         __typename: 'GlossaryTermInfo',
+    },
+    properties: {
+        name: 'glossaryterm2',
+        description: 'has A relation glossary term 2',
+        definition: 'has A relation glossary term 2',
+        termSource: 'INTERNAL',
+        sourceRef: 'TERM_SOURCE_SAXO',
+        sourceUrl: '',
+        rawSchema: 'sample proto schema',
+        customProperties: [
+            {
+                key: 'keyProperty',
+                value: 'valueProperty',
+                __typename: 'StringMapEntry',
+            },
+        ],
+        __typename: 'GlossaryTermProperties',
     },
     glossaryRelatedTerms: {
         isRelatedTerms: null,

@@ -8,7 +8,7 @@ import java.util.concurrent.CompletableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 /**
  * Generic GraphQL resolver responsible for performing updates against particular types.
@@ -20,9 +20,9 @@ public class MutableTypeResolver<I, T> implements DataFetcher<CompletableFuture<
 
     private static final Logger _logger = LoggerFactory.getLogger(MutableTypeResolver.class.getName());
 
-    private final MutableType<I> _mutableType;
+    private final MutableType<I, T> _mutableType;
 
-    public MutableTypeResolver(final MutableType<I> mutableType) {
+    public MutableTypeResolver(final MutableType<I, T> mutableType) {
         _mutableType = mutableType;
     }
 
@@ -37,8 +37,8 @@ public class MutableTypeResolver<I, T> implements DataFetcher<CompletableFuture<
             } catch (AuthorizationException e) {
                 throw e;
             } catch (Exception e) {
-                _logger.error(String.format("Failed to perform update against input %s", input.toString()) + " " + e.getMessage());
-                throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
+                _logger.error(String.format("Failed to perform update against input %s", input) + " " + e.getMessage());
+                throw new RuntimeException(String.format("Failed to perform update against input %s", input), e);
             }
         });
     }

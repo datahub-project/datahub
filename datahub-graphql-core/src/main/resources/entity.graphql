@@ -858,7 +858,7 @@ type GlossaryTermInfo {
     """
     The name of the Glossary Term
     """
-    name: String!
+    name: String
 
     """
     Description of the glossary term
@@ -903,7 +903,7 @@ type GlossaryTermProperties {
     """
     The name of the Glossary Term
     """
-    name: String!
+    name: String
 
     """
     Description of the glossary term
@@ -2248,6 +2248,16 @@ Additional read write info about a user
 """
 type CorpUserEditableInfo {
     """
+    Display name to show on DataHub
+    """
+    displayName: String
+
+    """
+    Title to show on DataHub
+    """
+    title: String
+
+    """
     About me section of the user
     """
     aboutMe: String
@@ -2272,6 +2282,16 @@ type CorpUserEditableInfo {
 Additional read write properties about a user
 """
 type CorpUserEditableProperties {
+    """
+    Display name to show on DataHub
+    """
+    displayName: String
+
+    """
+    Title to show on DataHub
+    """
+    title: String
+
     """
     About me section of the user
     """
@@ -2313,6 +2333,16 @@ type CorpUserEditableProperties {
 Arguments provided to update a CorpUser Entity
 """
 input CorpUserUpdateInput {
+    """
+    Display name to show on DataHub
+    """
+    displayName: String
+
+    """
+    Title to show on DataHub
+    """
+    title: String
+
     """
     About me section of the user
     """
@@ -2545,6 +2575,26 @@ type EditableTagProperties {
   A description of the Tag
   """
   description: String
+}
+
+"""
+Properties for a DataHub Tag
+"""
+type TagProperties {
+  """
+  A display name for the Tag
+  """
+  name: String
+
+  """
+  A description of the Tag
+  """
+  description: String
+
+  """
+  An optional RGB hex code for a Tag color, e.g. #FFFFFF
+  """
+  colorHex: String
 }
 
 """

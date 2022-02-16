@@ -185,6 +185,7 @@ fragment entityPreview on Entity {
     }
     ... on GlossaryTerm {
         name
+        hierarchicalName
         properties {
             name
             termDescription: description
