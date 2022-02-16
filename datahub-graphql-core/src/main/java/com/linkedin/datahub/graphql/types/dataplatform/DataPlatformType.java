@@ -1,21 +1,22 @@
 package com.linkedin.datahub.graphql.types.dataplatform;
 
 import com.linkedin.common.urn.Urn;
-
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.types.EntityType;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
-import com.linkedin.datahub.graphql.types.dataplatform.mappers.DataPlatformSnapshotMapper;
-
+import com.linkedin.datahub.graphql.types.EntityType;
+import com.linkedin.datahub.graphql.types.dataplatform.mappers.DataPlatformMapper;
+import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.extractor.AspectExtractor;
 import graphql.execution.DataFetcherResult;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.stream.Collectors;
+
+import static com.linkedin.metadata.Constants.*;
+
 
 public class DataPlatformType implements EntityType<DataPlatform> {
 
@@ -34,23 +35,14 @@ public class DataPlatformType implements EntityType<DataPlatform> {
     public List<DataFetcherResult<DataPlatform>> batchLoad(final List<String> urns, final QueryContext context) {
 
         final List<Urn> dataPlatformUrns = urns.stream()
-            .map(urnStr -> {
-                try {
-                    return Urn.createFromString(urnStr);
-                } catch (URISyntaxException e) {
-                    throw new RuntimeException(String.format("Failed to retrieve entity with urn %s", urnStr));
-                }
-            })
+            .map(UrnUtils::getUrn)
             .collect(Collectors.toList());
 
         try {
-            final Map<Urn, com.linkedin.entity.Entity> dataPlatformMap = _entityClient.batchGet(dataPlatformUrns
-                .stream()
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet()),
-            context.getAuthentication());
+            final Map<Urn, EntityResponse> dataPlatformMap = _entityClient.batchGetV2(
+                DATA_PLATFORM_ENTITY_NAME, new HashSet<>(dataPlatformUrns), null, context.getAuthentication());
 
-            final List<com.linkedin.entity.Entity> gmsResults = new ArrayList<>();
+            final List<EntityResponse> gmsResults = new ArrayList<>();
             for (Urn urn : dataPlatformUrns) {
                 gmsResults.add(dataPlatformMap.getOrDefault(urn, null));
             }
@@ -58,9 +50,7 @@ public class DataPlatformType implements EntityType<DataPlatform> {
             return gmsResults.stream()
                 .map(gmsPlatform -> gmsPlatform == null ? null
                     : DataFetcherResult.<DataPlatform>newResult()
-                        .data(DataPlatformSnapshotMapper.map(gmsPlatform.getValue().getDataPlatformSnapshot()))
-                        .localContext(AspectExtractor.extractAspects(
-                            gmsPlatform.getValue().getDataPlatformSnapshot()))
+                        .data(DataPlatformMapper.map(gmsPlatform))
                         .build())
                 .collect(Collectors.toList());
         } catch (Exception e) {

@@ -73,7 +73,7 @@ For general pointers on writing and running a recipe, see our [main recipe guide
 source:
   type: data-lake
   config:
-    env: "prod"
+    env: "PROD"
     platform: "local-data-lake"
     base_path: "/path/to/data/folder"
     profiling:
