@@ -22,7 +22,10 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps, DataPlatformInstance
+from datahub.metadata.com.linkedin.pegasus2avro.common import (
+    ChangeAuditStamps,
+    DataPlatformInstance,
+)
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     ChangeTypeClass,
@@ -603,18 +606,6 @@ class PowerBiAPI:
                 "createdFrom": PowerBiAPI.Tile.CreatedFrom.UNKNOWN,
             }
 
-            if (
-                tile_instance.get("datasetId") is None
-                and tile_instance.get("reportId") is None
-            ):
-                # It is mandatory for tile to have either reportId or datasetId
-                # Need to raise valueError
-                message = "Tile {}(id={}) created from is unknown".format(
-                    tile_instance.get("title"), tile_instance.get("id")
-                )
-                LOGGER.warning(message)
-                return report_fields
-
             report_fields["dataset"] = (
                 workspace.datasets[tile_instance.get("datasetId")]
                 if tile_instance.get("datasetId") is not None
@@ -631,12 +622,20 @@ class PowerBiAPI:
 
             # Tile is either created from report or dataset or from custom visualization
             report_fields["createdFrom"] = PowerBiAPI.Tile.CreatedFrom.UNKNOWN
-            if tile_instance.get("reportId") is not None:
+            if report_fields["report"] is not None:
                 report_fields["createdFrom"] = PowerBiAPI.Tile.CreatedFrom.REPORT
-            elif tile_instance.get("datasetId") is not None:
+            elif report_fields["dataset"] is not None:
                 report_fields["createdFrom"] = PowerBiAPI.Tile.CreatedFrom.DATASET
             else:
                 report_fields["createdFrom"] = PowerBiAPI.Tile.CreatedFrom.VISUALIZATION
+
+            LOGGER.info(
+                "Tile {}({}) is created from {}".format(
+                    tile_instance.get("title"),
+                    tile_instance.get("id"),
+                    report_fields["createdFrom"],
+                )
+            )
 
             return report_fields
 
@@ -978,15 +977,6 @@ class Mapper:
                 env=self.__config.environment,
             )
 
-            # Create DataPlatform 
-            data_platform_instance = DataPlatformInstance(platform=self.__config.platform_urn)
-            data_platform_mcp = self.new_mcp(
-                entity_type=Constant.DATASET,
-                entity_urn=ds_urn,
-                aspect_name=Constant.DATAPLATFORM_INSTANCE,
-                aspect=data_platform_instance,
-            )
-
             LOGGER.info("{}={}".format(Constant.Dataset_URN, ds_urn))
             # Create datasetProperties mcp
             ds_properties = DatasetPropertiesClass(
@@ -1008,22 +998,7 @@ class Mapper:
                 aspect=StatusClass(removed=False),
             )
 
-            # Dataset key
-            name = "{}/{}".format(dataset.id, table.name)
-            ds_key_instance = DatasetKeyClass(
-                platform=ds_urn,
-                name=Constant.DATASET_ID.format(name),
-                origin=self.__config.environment,
-            )
-
-            dskey_mcp = self.new_mcp(
-                entity_type=Constant.DATASET,
-                entity_urn=ds_urn,
-                aspect_name=Constant.DATASET_KEY,
-                aspect=ds_key_instance,
-            )
-
-            dataset_mcps.extend([data_platform_mcp, info_mcp, status_mcp, dskey_mcp])
+            dataset_mcps.extend([info_mcp, status_mcp])
 
         return dataset_mcps
 
