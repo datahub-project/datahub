@@ -160,7 +160,7 @@ export default function TagTermGroup({
                 <TagLink to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)} key={term.term.urn}>
                     <Tag closable={false}>
                         <BookOutlined style={{ marginRight: '3%' }} />
-                        {term.term.name}
+                        {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
                     </Tag>
                 </TagLink>
             ))}
@@ -174,7 +174,7 @@ export default function TagTermGroup({
                         }}
                     >
                         <BookOutlined style={{ marginRight: '3%' }} />
-                        {term.term.name}
+                        {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
                     </Tag>
                 </TagLink>
             ))}
@@ -185,7 +185,7 @@ export default function TagTermGroup({
                 return (
                     <TagLink to={entityRegistry.getEntityUrl(EntityType.Tag, tag.tag.urn)} key={tag.tag.urn}>
                         <StyledTag $colorHash={tag.tag.urn} closable={false}>
-                            {tag.tag.name}
+                            {entityRegistry.getDisplayName(EntityType.Tag, tag.tag)}
                         </StyledTag>
                     </TagLink>
                 );

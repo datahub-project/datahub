@@ -77,7 +77,7 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, Bro
 
         try {
             final Map<Urn, EntityResponse> glossaryTermMap = _entityClient.batchGetV2(GLOSSARY_TERM_ENTITY_NAME,
-                new HashSet<>(glossaryTermUrns), null, context.getAuthentication());
+                new HashSet<>(glossaryTermUrns), ASPECTS_TO_RESOLVE, context.getAuthentication());
 
             final List<EntityResponse> gmsResults = new ArrayList<>();
             for (Urn urn : glossaryTermUrns) {

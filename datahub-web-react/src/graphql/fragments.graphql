@@ -12,6 +12,7 @@ fragment glossaryTerms on GlossaryTerms {
     terms {
         term {
             urn
+            name
             properties {
                 name
             }
