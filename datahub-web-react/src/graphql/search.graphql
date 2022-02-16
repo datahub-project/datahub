@@ -221,7 +221,7 @@ fragment searchResults on SearchResults {
                 hierarchicalName
                 properties {
                     name
-                    termDescription: description
+                    description
                     termSource
                     sourceRef
                     sourceUrl

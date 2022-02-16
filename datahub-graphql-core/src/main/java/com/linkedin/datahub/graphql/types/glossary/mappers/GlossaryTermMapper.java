@@ -44,6 +44,8 @@ public class GlossaryTermMapper implements ModelMapper<EntityResponse, GlossaryT
       MappingHelper<GlossaryTerm> mappingHelper = new MappingHelper<>(aspectMap, result);
       mappingHelper.mapToResult(GLOSSARY_TERM_KEY_ASPECT_NAME, this::mapGlossaryTermKey);
       mappingHelper.mapToResult(GLOSSARY_TERM_INFO_ASPECT_NAME, (glossaryTerm, dataMap) ->
+          glossaryTerm.setGlossaryTermInfo(GlossaryTermInfoMapper.map(new GlossaryTermInfo(dataMap))));
+      mappingHelper.mapToResult(GLOSSARY_TERM_INFO_ASPECT_NAME, (glossaryTerm, dataMap) ->
           glossaryTerm.setProperties(GlossaryTermPropertiesMapper.map(new GlossaryTermInfo(dataMap))));
       mappingHelper.mapToResult(OWNERSHIP_ASPECT_NAME, (glossaryTerm, dataMap) ->
           glossaryTerm.setOwnership(OwnershipMapper.map(new Ownership(dataMap))));
@@ -51,10 +53,10 @@ public class GlossaryTermMapper implements ModelMapper<EntityResponse, GlossaryT
         glossaryTerm.setDeprecation(DeprecationMapper.map(new Deprecation(dataMap))));
 
       // If there's no name property, resort to the legacy name computation.
-      if (result.getGlossaryTermInfo().getName() == null) {
+      if (result.getGlossaryTermInfo() != null && result.getGlossaryTermInfo().getName() == null) {
         result.getGlossaryTermInfo().setName(legacyName);
       }
-      if (result.getProperties().getName() == null) {
+      if (result.getProperties() != null && result.getProperties().getName() == null) {
         result.getProperties().setName(legacyName);
       }
       return mappingHelper.getResult();

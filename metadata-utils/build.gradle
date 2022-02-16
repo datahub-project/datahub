@@ -12,6 +12,8 @@ dependencies {
   compile spec.product.pegasus.restliClient
   compile spec.product.pegasus.restliCommon
   compile spec.product.pegasus.restliServer
+  annotationProcessor externalDependency.lombok
+
 
   compile project(':li-utils')
   compile project(':entity-registry')
@@ -19,8 +21,6 @@ dependencies {
   compile project(':metadata-events:mxe-utils-avro-1.7')
 
   compileOnly externalDependency.lombok
-
-  annotationProcessor externalDependency.lombok
 
   testCompile project(':test-models')
 
@@ -32,5 +32,4 @@ dependencies {
         because("previous versions are vulnerable to CVE-2021-45105")
     }
   }
-  
 }

@@ -107,7 +107,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
     getOverridePropertiesFromEntity = (glossaryTerm?: GlossaryTerm | null): GenericEntityProperties => {
         // if dataset has subTypes filled out, pick the most specific subtype and return it
         return {
-            customProperties: glossaryTerm?.glossaryTermInfo?.customProperties,
+            customProperties: glossaryTerm?.properties?.customProperties,
         };
     };
 
@@ -119,7 +119,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
         return (
             <Preview
                 urn={data?.urn}
-                name={data?.properties?.name || ''}
+                name={this.displayName(data)}
                 description={data?.properties?.description || ''}
                 owners={data?.ownership?.owners}
             />
@@ -127,7 +127,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
     };
 
     displayName = (data: GlossaryTerm) => {
-        return data.name;
+        return data.properties?.name || data.name || data.urn;
     };
 
     platformLogoUrl = (_: GlossaryTerm) => {

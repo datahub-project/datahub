@@ -36,7 +36,6 @@ public class Constants {
   public static final String INGESTION_SOURCE_ENTITY_NAME = "dataHubIngestionSource";
   public static final String SECRETS_ENTITY_NAME = "dataHubSecret";
   public static final String EXECUTION_REQUEST_ENTITY_NAME = "dataHubExecutionRequest";
-  public static final String TAG_ENTITY_NAME = "tag";
 
 
 
@@ -136,7 +135,7 @@ public class Constants {
   // Policy
   public static final String DATAHUB_POLICY_INFO_ASPECT_NAME = "dataHubPolicyInfo";
 
-  //Tag
+  // Tag
   public static final String TAG_KEY_ASPECT_NAME = "tagKey";
   public static final String TAG_PROPERTIES_ASPECT_NAME = "tagProperties";
 
@@ -150,9 +149,6 @@ public class Constants {
   public static final String GLOSSARY_TERM_KEY_ASPECT_NAME = "glossaryTermKey";
   public static final String GLOSSARY_TERM_INFO_ASPECT_NAME = "glossaryTermInfo";
   public static final String GLOSSARY_RELATED_TERM_ASPECT_NAME = "glossaryRelatedTerms";
-
-  // Tag
-  public static final String TAG_PROPERTIES_ASPECT_NAME = "tagProperties";
 
   // Domain
   public static final String DOMAIN_KEY_ASPECT_NAME = "domainKey";

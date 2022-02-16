@@ -76,7 +76,7 @@ query getBrowseResults($input: BrowseInput!) {
                 }
                 properties {
                     name
-                    termDescription: description
+                    description
                     definition
                     termSource
                     sourceRef

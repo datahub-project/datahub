@@ -188,7 +188,7 @@ fragment entityPreview on Entity {
         hierarchicalName
         properties {
             name
-            termDescription: description
+            description
             termSource
             sourceRef
             sourceUrl

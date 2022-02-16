@@ -863,7 +863,7 @@ type GlossaryTermInfo {
     """
     Description of the glossary term
     """
-    description: String!
+    description: String
 
     """
     Definition of the glossary term. Deprecated - Use 'description' instead.
@@ -903,12 +903,12 @@ type GlossaryTermProperties {
     """
     The name of the Glossary Term
     """
-    name: String
+    name: String!
 
     """
     Description of the glossary term
     """
-    description: String!
+    description: String
 
     """
     Definition of the glossary term. Deprecated - Use 'description' instead.
@@ -2584,27 +2584,7 @@ type TagProperties {
   """
   A display name for the Tag
   """
-  name: String
-
-  """
-  A description of the Tag
-  """
-  description: String
-
-  """
-  An optional RGB hex code for a Tag color, e.g. #FFFFFF
-  """
-  colorHex: String
-}
-
-"""
-Properties for a DataHub Tag
-"""
-type TagProperties {
-  """
-  A display name for the Tag
-  """
-  name: String
+  name: String!
 
   """
   A description of the Tag

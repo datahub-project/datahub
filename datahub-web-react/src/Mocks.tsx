@@ -717,7 +717,6 @@ const glossaryTerm1 = {
         name: 'Another glossary term',
         description: 'New glossary term',
         definition: 'New glossary term',
-        description: 'New glossary term',
         termSource: 'termSource',
         sourceRef: 'sourceRef',
         sourceURI: 'sourceURI',
