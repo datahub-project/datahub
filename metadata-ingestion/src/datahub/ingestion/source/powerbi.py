@@ -14,7 +14,6 @@ from xmlrpc.client import Boolean
 
 import msal
 import requests
-from numpy import void
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration import ConfigModel
@@ -97,6 +96,7 @@ class PowerBiAPIConfig(ConfigModel):
     client_secret: str
     tenant_id: str
     workspace_id: str
+    environment: str
     scope: str = "https://analysis.windows.net/powerbi/api/.default"
     base_url: str = "https://api.powerbi.com/v1.0/myorg/groups"
     admin_base_url = "https://api.powerbi.com/v1.0/myorg/admin"
@@ -110,7 +110,6 @@ class PowerBiDashboardSourceConfig(PowerBiAPIConfig):
     platform_name: str = "powerbi"
     dashboard_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     chart_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    env: str = builder.DEFAULT_ENV
 
 
 class PowerBiAPI:
@@ -146,8 +145,7 @@ class PowerBiAPI:
         """
 
         class Relational(Enum):
-            POSTGRE_SQL = "PostgreSQL"
-            SQL = "SQL"
+            POSTGRE_SQL = "PostgreSql"
             ORACLE = "Oracle"
 
         @dataclass
@@ -268,6 +266,7 @@ class PowerBiAPI:
         webUrl: str
         isReadOnly: Any
         workspace_id: str
+        workspace_name: str
         tiles: List[Any]
         users: List[Any]
 
@@ -429,7 +428,7 @@ class PowerBiAPI:
             workspace_id=dashboard.workspace_id, entity="dashboards", id=dashboard.id
         )
 
-    def get_dashboards(self, workspace_id: str) -> Set[Dashboard]:
+    def get_dashboards(self, workspace: Workspace) -> Set[Dashboard]:
         """
         Get the list of dashboard from PowerBi for the given workspace identifier
 
@@ -438,7 +437,7 @@ class PowerBiAPI:
         dashboard_list_endpoint: str = PowerBiAPI.API_ENDPOINTS[Constant.DASHBOARD_LIST]
         # Replace place holders
         dashboard_list_endpoint = dashboard_list_endpoint.format(
-            POWERBI_BASE_URL=self.__config.base_url, WORKSPACE_ID=workspace_id
+            POWERBI_BASE_URL=self.__config.base_url, WORKSPACE_ID=workspace.id
         )
         # Hit PowerBi
         LOGGER.info("Request to URL={}".format(dashboard_list_endpoint))
@@ -450,7 +449,7 @@ class PowerBiAPI:
         # Check if we got response from PowerBi
         if response.status_code != 200:
             LOGGER.warning("Failed to fetch dashboard list from power-bi for")
-            LOGGER.warning("{}={}".format(Constant.WorkspaceId, workspace_id))
+            LOGGER.warning("{}={}".format(Constant.WorkspaceId, workspace.id))
             raise ConnectionError(
                 "Failed to fetch the dashboard list from the power-bi"
             )
@@ -466,7 +465,8 @@ class PowerBiAPI:
                     displayName=instance.get("displayName"),
                     embedUrl=instance.get("embedUrl"),
                     webUrl=instance.get("webUrl"),
-                    workspace_id=workspace_id,
+                    workspace_id=workspace.id,
+                    workspace_name=workspace.name,
                     tiles=[],
                     users=[],
                 )
@@ -547,20 +547,21 @@ class PowerBiAPI:
             LOGGER.warning("{}={}".format(Constant.DatasetId, dataset.id))
             raise ConnectionError(message)
 
-        response_list = response.json()
-        if len(response_list) == 0:
+        res = response.json()
+        value = res["value"]
+        if len(value) == 0:
             LOGGER.info(
-                "datasource not found for dataset {}({})".format(
+                "datasource is not found for dataset {}({})".format(
                     dataset.name, dataset.id
                 )
             )
             return None
         # Consider only zero index datasource
-        datasource_dict = response_list[0]
+        datasource_dict = value[0]
 
         # Create datasource instance with basic detail available
         datasource = PowerBiAPI.DataSource(
-            id=datasource_dict["id"],
+            id=datasource_dict["datasourceId"],
             type=datasource_dict["datasourceType"],
             server=None,
             database=None,
@@ -576,6 +577,8 @@ class PowerBiAPI:
             datasource.server = datasource_dict["connectionDetails"]["server"]
         except ValueError:
             datasource.metadata = PowerBiAPI.DataSource.MetaData(is_relational=False)
+
+        LOGGER.info(datasource)
 
         return datasource
 
@@ -699,7 +702,7 @@ class PowerBiAPI:
                 headers={Constant.Authorization: self.get_access_token()},
             )
 
-            if res.status_code != 200:
+            if res.status_code not in (200, 202):
                 message = "API({}) return error code {} for workpace id({})".format(
                     scan_create_endpoint, res.status_code, workspace_id
                 )
@@ -791,11 +794,11 @@ class PowerBiAPI:
 
             return res.json()["workspaces"][0]
 
-        def json_to_dataset_map(scan_result: Any) -> dict:
+        def json_to_dataset_map(scan_result: dict) -> dict:
             """
             Filter out "dataset" from scan_result and return PowerBiAPI.Dataset instance set
             """
-            datasets: List[Dict] = scan_result.get["datasets"]
+            datasets: Optional[Any] = scan_result.get("datasets")
             dataset_map: dict = {}
 
             if datasets is None or len(datasets) == 0:
@@ -817,25 +820,34 @@ class PowerBiAPI:
                 # set dataset's DataSource
                 dataset_instance.datasource = self.get_data_source(dataset_instance)
                 # Set table only if the datasource is relational and dataset is not created from custom SQL i.e Value.NativeQuery(
-                if dataset_instance.datasource.metadata.is_relational is True:
-                    if (
-                        "Value.NativeQuery("
-                        not in dataset_dict["source"][0]["expression"]
-                    ):
-                        LOGGER.info(
-                            "Processing tables attribute for dataset {}({})".format(
-                                dataset_instance.name, dataset_instance.id
-                            )
+                # There are dataset which doesn't have DataSource
+                if (
+                    dataset_instance.datasource
+                    and dataset_instance.datasource.metadata.is_relational is True
+                ):
+                    LOGGER.info(
+                        "Processing tables attribute for dataset {}({})".format(
+                            dataset_instance.name, dataset_instance.id
                         )
-                        for table in dataset_dict["tables"]:
-                            # PowerBi table name contains schema name and table name. Format is <SchemaName> <TableName>
-                            schema_and_name = table["name"].split(" ")
-                            dataset_instance.tables.append(
-                                PowerBiAPI.Dataset.Table(
-                                    schema_name=schema_and_name[0],
-                                    name=schema_and_name[1],
+                    )
+
+                    for table in dataset_dict["tables"]:
+                        if "Value.NativeQuery(" in table["source"][0]["expression"]:
+                            LOGGER.warning(
+                                "Table {} is created from Custom SQL. Ignoring in processing".format(
+                                    table["name"]
                                 )
                             )
+                            continue
+
+                        # PowerBi table name contains schema name and table name. Format is <SchemaName> <TableName>
+                        schema_and_name = table["name"].split(" ")
+                        dataset_instance.tables.append(
+                            PowerBiAPI.Dataset.Table(
+                                schema_name=schema_and_name[0],
+                                name=schema_and_name[1],
+                            )
+                        )
 
             return dataset_map
 
@@ -865,7 +877,7 @@ class PowerBiAPI:
             dashboards=set([]),
         )
         # Get workspace dashboards
-        workspace.dashboards = self.get_dashboards(workspace.id)
+        workspace.dashboards = self.get_dashboards(workspace)
         workspace.datasets = json_to_dataset_map(scan_result)
         init_dashboard_tiles(workspace)
 
@@ -936,7 +948,10 @@ class Mapper:
             return dataset_mcps
 
         # We are only suporting relation PowerBi DataSources
-        if dataset.datasource.metadata.is_relational is False:
+        if (
+            dataset.datasource is None
+            or dataset.datasource.metadata.is_relational is False
+        ):
             LOGGER.warning(
                 "Dataset {}({}) is not created from relational datasource".format(
                     dataset.name, dataset.id
@@ -953,14 +968,18 @@ class Mapper:
         for table in dataset.tables:
             # Create an URN for dataset
             ds_urn = builder.make_dataset_urn(
-                dataset.datasource.type,
-                "datasets.{}.{}.{}".format(
+                platform=self.__config.platform_name,
+                name="{}.{}.{}".format(
                     dataset.datasource.database, table.schema_name, table.name
                 ),
+                env=self.__config.environment,
             )
+
             LOGGER.info("{}={}".format(Constant.Dataset_URN, ds_urn))
             # Create datasetProperties mcp
-            ds_properties = DatasetPropertiesClass(description=table.name)
+            ds_properties = DatasetPropertiesClass(
+                description=table.name, externalUrl=dataset.webUrl
+            )
 
             info_mcp = self.new_mcp(
                 entity_type=Constant.DATASET,
@@ -978,10 +997,11 @@ class Mapper:
             )
 
             # Dataset key
+            name = "{}-{}".format(table.name, dataset.id)
             ds_key_instance = DatasetKeyClass(
                 platform=ds_urn,
-                name=Constant.DATASET_ID.format(dataset.id),
-                origin=builder.DEFAULT_ENV,
+                name=Constant.DATASET_ID.format(name),
+                origin=self.__config.environment,
             )
 
             dskey_mcp = self.new_mcp(
@@ -1090,7 +1110,7 @@ class Mapper:
         def chart_custom_properties(dashboard: PowerBiAPI.Dashboard) -> dict:
             return {
                 "chartCount": str(len(dashboard.tiles)),
-                "workspaceId": str(self.__config.workspace_id),
+                "workspaceName": dashboard.workspace_name,
             }
 
         # DashboardInfo mcp
@@ -1355,8 +1375,6 @@ class PowerBiDashboardSource(Source):
                 self.reporter.report_workunit(workunit)
                 # Return workunit to Datahub Ingestion framework
                 yield workunit
-
-        print("Mohd-8")
 
     def get_report(self) -> SourceReport:
         return self.reporter
