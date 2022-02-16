@@ -106,6 +106,7 @@ public class IngestionSchedulerTest {
         Mockito.mock(IngestionConfiguration.class),
         1,
         1200);
+    _ingestionScheduler.init();
     Thread.sleep(2000); // Sleep so the runnable can execute. (not ideal)
   }
 

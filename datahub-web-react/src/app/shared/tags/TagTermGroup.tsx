@@ -2,7 +2,7 @@ import { Modal, Tag, Typography, Button, message, Tooltip } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { BookOutlined, PlusOutlined } from '@ant-design/icons';
+import { BookOutlined, ClockCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import {
     Domain,
@@ -55,8 +55,9 @@ const NoElementButton = styled(Button)`
     }
 `;
 
-const ProposedTag = styled(Tag)`
+const ProposedTerm = styled(Tag)`
     opacity: 0.7;
+    border-style: dashed;
 `;
 
 export default function TagTermGroup({
@@ -135,7 +136,7 @@ export default function TagTermGroup({
         const termToRemove = editableGlossaryTerms?.terms?.find((term) => term.term.urn === urnToRemove);
         Modal.confirm({
             title: `Do you want to remove ${termToRemove?.term.name} term?`,
-            content: `Are you sure you want to remove the ${termToRemove?.term.name} tag?`,
+            content: `Are you sure you want to remove the ${termToRemove?.term.name} term?`,
             onOk() {
                 if (entityUrn) {
                     removeTermMutation({
@@ -177,8 +178,8 @@ export default function TagTermGroup({
             {uneditableGlossaryTerms?.terms?.map((term) => (
                 <TagLink to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)} key={term.term.urn}>
                     <Tag closable={false}>
+                        <BookOutlined style={{ marginRight: '3%' }} />
                         {term.term.name}
-                        <BookOutlined style={{ marginLeft: '2%' }} />
                     </Tag>
                 </TagLink>
             ))}
@@ -191,8 +192,8 @@ export default function TagTermGroup({
                             removeTerm(term.term.urn);
                         }}
                     >
+                        <BookOutlined style={{ marginRight: '3%' }} />
                         {term.term.name}
-                        <BookOutlined style={{ marginLeft: '2%' }} />
                     </Tag>
                 </TagLink>
             ))}
@@ -204,10 +205,14 @@ export default function TagTermGroup({
                     key={actionRequest.params?.glossaryTermProposal?.glossaryTerm.urn}
                 >
                     <Tooltip overlay="Pending approval from owners">
-                        <ProposedTag closable={false}>
+                        <ProposedTerm
+                            closable={false}
+                            data-testid={`proposed-term-${actionRequest.params?.glossaryTermProposal?.glossaryTerm.name}`}
+                        >
+                            <BookOutlined style={{ marginRight: '3%' }} />
                             {actionRequest.params?.glossaryTermProposal?.glossaryTerm.name}
-                            <BookOutlined style={{ marginLeft: '2%' }} />
-                        </ProposedTag>
+                            <ClockCircleOutlined style={{ color: 'orange', marginLeft: '3%' }} />
+                        </ProposedTerm>
                     </Tooltip>
                 </TagLink>
             ))}
@@ -250,8 +255,13 @@ export default function TagTermGroup({
                     key={actionRequest?.params?.tagProposal?.tag?.urn}
                 >
                     <Tooltip overlay="Pending approval from owners">
-                        <StyledTag disabled $colorHash={actionRequest?.params?.tagProposal?.tag?.urn}>
+                        <StyledTag
+                            data-testid={`proposed-tag-${actionRequest?.params?.tagProposal?.tag?.name}`}
+                            disabled
+                            $colorHash={actionRequest?.params?.tagProposal?.tag?.urn}
+                        >
                             {actionRequest?.params?.tagProposal?.tag?.name}
+                            <ClockCircleOutlined style={{ color: 'orange', marginLeft: '3%' }} />
                         </StyledTag>
                     </Tooltip>
                 </TagLink>
@@ -276,7 +286,7 @@ export default function TagTermGroup({
                     {...buttonProps}
                 >
                     <PlusOutlined />
-                    Add Tag
+                    <span>Add Tag</span>
                 </NoElementButton>
             )}
             {canAddTerm &&
@@ -290,7 +300,7 @@ export default function TagTermGroup({
                         {...buttonProps}
                     >
                         <PlusOutlined />
-                        Add Term
+                        <span>Add Term</span>
                     </NoElementButton>
                 )}
             {showAddModal && !!entityUrn && !!entityType && (
@@ -302,7 +312,7 @@ export default function TagTermGroup({
                     onClose={() => {
                         onOpenModal?.();
                         setShowAddModal(false);
-                        refetch?.();
+                        setTimeout(() => refetch?.(), 2000);
                     }}
                     entityUrn={entityUrn}
                     entityType={entityType}

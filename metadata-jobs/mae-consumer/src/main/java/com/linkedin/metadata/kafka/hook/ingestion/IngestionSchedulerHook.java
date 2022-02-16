@@ -45,6 +45,11 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
   }
 
   @Override
+  public void init() {
+    _scheduler.init();
+  }
+
+  @Override
   public void invoke(@Nonnull MetadataChangeLog event) {
     if (isEligibleForProcessing(event)) {
 

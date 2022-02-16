@@ -12,6 +12,7 @@ import com.linkedin.metadata.models.TimeseriesFieldSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.timeseries.AggregationSpec;
 import com.linkedin.timeseries.GenericTable;
@@ -175,6 +176,10 @@ public class ESAggregatedStatsDAO {
     if (fieldPath.equals(ES_FIELD_URN)) {
       return DataSchema.Type.STRING;
     }
+    if (fieldPath.equals(MappingsBuilder.EVENT_GRANULARITY)) {
+      return DataSchema.Type.RECORD;
+    }
+    
     String[] memberParts = fieldPath.split("\\.");
     if (memberParts.length == 1) {
       // Search in the timeseriesFieldSpecs.
@@ -189,6 +194,16 @@ public class ESAggregatedStatsDAO {
         return timeseriesFieldCollectionSpec.getPegasusSchema().getType();
       }
     } else if (memberParts.length == 2) {
+      // Check if partitionSpec
+      if (memberParts[0].equals(MappingsBuilder.PARTITION_SPEC)) {
+        if (memberParts[1].equals(MappingsBuilder.PARTITION_SPEC_PARTITION) || memberParts[1].equals(
+            MappingsBuilder.PARTITION_SPEC_TIME_PARTITION)) {
+          return DataSchema.Type.STRING;
+        } else {
+          throw new IllegalArgumentException("Unknown partitionSpec member" + memberParts[1]);
+        }
+      }
+
       // This is either a collection key/stat.
       TimeseriesFieldCollectionSpec timeseriesFieldCollectionSpec =
           aspectSpec.getTimeseriesFieldCollectionSpecMap().get(memberParts[0]);

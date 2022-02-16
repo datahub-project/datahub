@@ -21,43 +21,45 @@ export default function useTagsAndTermsRenderer(
         );
 
         return (
-            <TagTermGroup
-                uneditableTags={options.showTags ? tags : null}
-                editableTags={options.showTags ? relevantEditableFieldInfo?.globalTags : null}
-                uneditableGlossaryTerms={options.showTerms ? record.glossaryTerms : null}
-                editableGlossaryTerms={options.showTerms ? relevantEditableFieldInfo?.glossaryTerms : null}
-                canRemove
-                buttonProps={{ size: 'small' }}
-                canAddTag={tagHoveredIndex === `${record.fieldPath}-${rowIndex}` && options.showTags}
-                canAddTerm={tagHoveredIndex === `${record.fieldPath}-${rowIndex}` && options.showTerms}
-                onOpenModal={() => setTagHoveredIndex(undefined)}
-                entityUrn={urn}
-                entityType={EntityType.Dataset}
-                entitySubresource={record.fieldPath}
-                refetch={refetch}
-                proposedGlossaryTerms={
-                    options.showTerms
-                        ? findFieldPathProposal(
-                              // eslint-disable-next-line
-                              // @ts-ignore
-                              // eslint-disable-next-line
-                              baseEntity?.['dataset']?.['termProposals'] || [],
-                              record.fieldPath,
-                          )
-                        : []
-                }
-                proposedTags={
-                    options.showTags
-                        ? findFieldPathProposal(
-                              // eslint-disable-next-line
-                              // @ts-ignore
-                              // eslint-disable-next-line
-                              baseEntity?.['dataset']?.['tagProposals'] || [],
-                              record.fieldPath,
-                          )
-                        : []
-                }
-            />
+            <div data-testid={`schema-field-${record.fieldPath}-${options.showTags ? 'tags' : 'terms'}`}>
+                <TagTermGroup
+                    uneditableTags={options.showTags ? tags : null}
+                    editableTags={options.showTags ? relevantEditableFieldInfo?.globalTags : null}
+                    uneditableGlossaryTerms={options.showTerms ? record.glossaryTerms : null}
+                    editableGlossaryTerms={options.showTerms ? relevantEditableFieldInfo?.glossaryTerms : null}
+                    canRemove
+                    buttonProps={{ size: 'small' }}
+                    canAddTag={tagHoveredIndex === `${record.fieldPath}-${rowIndex}` && options.showTags}
+                    canAddTerm={tagHoveredIndex === `${record.fieldPath}-${rowIndex}` && options.showTerms}
+                    onOpenModal={() => setTagHoveredIndex(undefined)}
+                    entityUrn={urn}
+                    entityType={EntityType.Dataset}
+                    entitySubresource={record.fieldPath}
+                    refetch={refetch}
+                    proposedGlossaryTerms={
+                        options.showTerms
+                            ? findFieldPathProposal(
+                                  // eslint-disable-next-line
+                                  // @ts-ignore
+                                  // eslint-disable-next-line
+                                  baseEntity?.['dataset']?.['termProposals'] || [],
+                                  record.fieldPath,
+                              )
+                            : []
+                    }
+                    proposedTags={
+                        options.showTags
+                            ? findFieldPathProposal(
+                                  // eslint-disable-next-line
+                                  // @ts-ignore
+                                  // eslint-disable-next-line
+                                  baseEntity?.['dataset']?.['tagProposals'] || [],
+                                  record.fieldPath,
+                              )
+                            : []
+                    }
+                />
+            </div>
         );
     };
     return tagAndTermRender;

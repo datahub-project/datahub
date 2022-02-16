@@ -1,0 +1,163 @@
+[
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot": {
+        "urn": "urn:li:tag:TagToPropose",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.tag.TagProperties": {
+              "name": "TagToPropose",
+              "description": "Here's a tag to propose"
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER",
+                  "source": null
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              }
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER",
+                  "source": null
+                },
+                {
+                  "owner": "urn:li:corpuser:admin",
+                  "type": "DATAOWNER",
+                  "source": null
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "SampleHiveSchema",
+              "platform": "urn:li:dataPlatform:hive",
+              "version": 0,
+              "created": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "deleted": null,
+              "dataset": null,
+              "cluster": null,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.KafkaSchema": {
+                  "documentSchema": "{\"type\":\"record\",\"name\":\"SampleHiveSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample Hive dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}"
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "field_foo",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Foo field description"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false,
+                  "isPartOfKey": true
+                },
+                {
+                  "fieldPath": "field_bar",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Bar field description"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "boolean",
+                  "recursive": false
+                }
+              ],
+              "primaryKeys": null,
+              "foreignKeysSpecs": null
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
+        "urn": "urn:li:glossaryTerm:CypressNode.TermToPropose",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
+              "definition": "a term to be proposed",
+              "parentNode": "urn:li:glossaryNode:CypressNode",
+              "sourceRef": "FIBO",
+              "termSource": "EXTERNAL",
+              "sourceUrl": "https://spec.edmcouncil.org/fibo/ontology/FBC/FunctionalEntities/FinancialServicesEntities/BankingProduct",
+              "customProperties": {
+                "FQDN": "SavingAccount"
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [{
+                "owner": "urn:li:corpuser:jdoe",
+                "type": "DATAOWNER"
+              }],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  }
+]

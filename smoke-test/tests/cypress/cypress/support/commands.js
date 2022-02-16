@@ -12,8 +12,8 @@
 // -- This is a parent command --
 Cypress.Commands.add('login', () => {
     cy.request('POST', '/logIn', {
-        username: 'datahub',
-        password: 'datahub',
+        username: 'admin',
+        password: 'mypass',
     })
 })
 

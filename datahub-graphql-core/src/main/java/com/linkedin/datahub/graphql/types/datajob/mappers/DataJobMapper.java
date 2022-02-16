@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.datajob.mappers;
 
 import com.google.common.collect.ImmutableList;
+import com.linkedin.common.Deprecation;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
@@ -16,6 +17,7 @@ import com.linkedin.datahub.graphql.generated.DataJobProperties;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
@@ -85,6 +87,8 @@ public class DataJobMapper implements ModelMapper<EntityResponse, DataJob> {
                         .setType(EntityType.DOMAIN)
                         .setUrn(domains.getDomains().get(0).toString()).build());
                 }
+            } else if (DEPRECATION_ASPECT_NAME.equals(name)) {
+                result.setDeprecation(DeprecationMapper.map(new Deprecation(data)));
             }
         });
 

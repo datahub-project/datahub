@@ -11,6 +11,9 @@ entities:
       - domains
       - schemaMetadata
       - status
+      - container
+      - assertionRunEvent
+      - deprecation
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     keyAspect: dataHubPolicyKey
@@ -22,18 +25,24 @@ entities:
       - datahubIngestionRunSummary
       - datahubIngestionCheckpoint
       - domains
+      - deprecation
   - name: dataFlow
     keyAspect: dataFlowKey
     aspects:
       - domains
+      - deprecation
   - name: chart
     keyAspect: chartKey
     aspects:
       - domains
+      - container
+      - deprecation
   - name: dashboard
     keyAspect: dashboardKey
     aspects:
       - domains
+      - container
+      - deprecation
   - name: corpuser
     doc: CorpUser represents an identity of a person (or an account) in the enterprise.
     keyAspect: corpUserKey
@@ -41,14 +50,28 @@ entities:
       - corpUserInfo
       - corpUserEditableInfo
       - corpUserStatus
-  - name: constraint
-    keyAspect: constraintKey
+  - name: container
+    doc: A container of related data assets.
+    keyAspect: containerKey
     aspects:
-      - constraintInfo
+      - containerProperties
+      - editableContainerProperties
+      - dataPlatformInstance
+      - subTypes
+      - ownership
+      - container
+      - globalTags
+      - glossaryTerms
+      - institutionalMemory
+      - browsePaths # unclear if this will be used
+      - status
+      - domains
+      - deprecation
   - name: glossaryTerm
     keyAspect: glossaryTermKey
     aspects:
       - schemaMetadata
+      - deprecation
   - name: domain
     doc: A data domain within an organization.
     keyAspect: domainKey
@@ -70,6 +93,18 @@ entities:
       - dataHubExecutionRequestInput
       - dataHubExecutionRequestSignal
       - dataHubExecutionRequestResult
+  - name: assertion
+    doc: Assertion represents a data quality rule applied on one or more dataset.
+    keyAspect: assertionKey
+    aspects:
+      - assertionInfo
+      - dataPlatformInstance
+
+## Not in OSS
+  - name: constraint
+    keyAspect: constraintKey
+    aspects:
+      - constraintInfo
   - name: recommendationModule
     keyAspect: recommendationModuleKey
     aspects:

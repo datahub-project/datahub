@@ -183,14 +183,15 @@ def show(run_id: str) -> None:
 
 @ingest.command()
 @click.option("--run-id", required=True, type=str)
+@click.option("-f", "--force", required=False, is_flag=True)
 @click.option("--dry-run", "-n", required=False, is_flag=True, default=False)
 @telemetry.with_telemetry
-def rollback(run_id: str, dry_run: bool) -> None:
+def rollback(run_id: str, force: bool, dry_run: bool) -> None:
     """Rollback a provided ingestion run to datahub"""
 
     cli_utils.test_connectivity_complain_exit("ingest")
 
-    if not dry_run:
+    if not force and not dry_run:
         click.confirm(
             "This will permanently delete data from DataHub. Do you want to continue?",
             abort=True,

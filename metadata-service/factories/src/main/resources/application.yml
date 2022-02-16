@@ -138,3 +138,8 @@ neo4j:
   maxConnectionLifetimeInSeconds: ${NEO4j_MAX_CONNECTION_LIFETIME_IN_SECONDS:3600}
   maxTransactionRetryTime: ${NEO4J_MAX_TRANSACTION_RETRY_TIME_IN_SECONDS:30}
   connectionLivenessCheckTimeout: ${NEO4J_CONNECTION_LIVENESS_CHECK_TIMEOUT_IN_SECONDS:-1}
+
+spring:
+  mvc:
+    servlet:
+      path: /openapi

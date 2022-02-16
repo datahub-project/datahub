@@ -224,5 +224,81 @@
       "type":"PLATFORM",
       "editable":true
     }
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:8",
+    "info": {
+      "actors":{
+        "resourceOwners":false,
+        "allUsers":false,
+        "allGroups":false,
+        "users":[
+          "urn:li:corpuser:admin"
+        ]
+      },
+      "privileges":[
+        "EDIT_ENTITY"
+      ],
+      "displayName":"Root User - Edit All Containers",
+      "resources":{
+        "type":"container",
+        "allResources":true
+      },
+      "description":"Grants full edit privileges for Containers to root 'datahub' root user.",
+      "state":"ACTIVE",
+      "type":"METADATA",
+      "editable":false
+    }
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:ApproveProposals",
+    "info": {
+      "actors": {
+        "resourceOwners": false,
+        "allUsers": false,
+        "allGroups": false,
+        "users": [
+          "urn:li:corpuser:admin"
+        ]
+      },
+      "privileges": [
+        "MANAGE_ENTITY_TAGS",
+        "MANAGE_ENTITY_GLOSSARY_TERMS"
+      ],
+      "displayName": "Admin - Can Manage Proposals",
+      "resources":{
+        "type":"dataset",
+        "allResources":true
+      },
+      "description": "Grants privileges to manage terms to admin.",
+      "state": "ACTIVE",
+      "type": "METADATA",
+      "editable": false
+    }
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:9",
+    "info": {
+      "actors":{
+        "resourceOwners":false,
+        "allUsers":false,
+        "allGroups":false,
+        "users":[
+          "urn:li:corpuser:datahub"
+        ]
+      },
+      "privileges":[
+        "EDIT_ENTITY"
+      ],
+      "displayName":"Root User - Edit All Glossary Terms",
+      "resources":{
+        "type":"glossaryTerm",
+        "allResources":true
+      },
+      "description":"Grants full edit privileges for Glossary Terms to root 'datahub' root user.",
+      "state":"ACTIVE",
+      "type":"METADATA",
+      "editable":false
+    }
   }
 ]
