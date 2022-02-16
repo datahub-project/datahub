@@ -1,12 +1,14 @@
 package com.linkedin.datahub.graphql.types.glossary.mappers;
 
 import com.linkedin.common.Deprecation;
+import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.GlossaryTerm;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermUtils;
@@ -51,6 +53,8 @@ public class GlossaryTermMapper implements ModelMapper<EntityResponse, GlossaryT
           glossaryTerm.setOwnership(OwnershipMapper.map(new Ownership(dataMap))));
       mappingHelper.mapToResult(DEPRECATION_ASPECT_NAME, (glossaryTerm, dataMap) ->
         glossaryTerm.setDeprecation(DeprecationMapper.map(new Deprecation(dataMap))));
+      mappingHelper.mapToResult(INSTITUTIONAL_MEMORY_ASPECT_NAME, (dataset, dataMap) ->
+          dataset.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap))));
 
       // If there's no name property, resort to the legacy name computation.
       if (result.getGlossaryTermInfo() != null && result.getGlossaryTermInfo().getName() == null) {
