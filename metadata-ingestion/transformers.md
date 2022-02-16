@@ -1,4 +1,4 @@
-# Using transformers
+# Transformers
 
 ## What’s a transformer?
 
@@ -268,6 +268,19 @@ class MyPropertiesResolver(AddDatasetPropertiesResolverBase):
         properties= {'my_custom_property': 'property value'}
         logging.info(f"Adding properties: {properties} to dataset: {current.urn}.")
         return properties
+```
+
+There also exists `simple_add_dataset_properties` transformer for directly assigning properties from the configuration.
+`properties` field is a dictionary of string values. Note in case of any key collision, the value in the config will
+overwrite the previous value.
+
+```yaml
+transformers:
+  - type: "simple_add_dataset_properties"
+    config:
+      properties:
+        prop1: value1
+        prop2: value2
 ```
 
 ## Writing a custom transformer from scratch

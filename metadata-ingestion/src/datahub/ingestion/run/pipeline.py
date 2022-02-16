@@ -2,6 +2,7 @@ import datetime
 import itertools
 import logging
 import uuid
+from math import log10
 from typing import Any, Dict, Iterable, List, Optional
 
 import click
@@ -12,15 +13,20 @@ from datahub.configuration.common import (
     DynamicTypedConfig,
     PipelineExecutionError,
 )
+from datahub.ingestion.api.committable import CommitPolicy
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import Sink, WriteCallback
 from datahub.ingestion.api.source import Extractor, Source
 from datahub.ingestion.api.transform import Transformer
 from datahub.ingestion.extractor.extractor_registry import extractor_registry
 from datahub.ingestion.graph.client import DatahubClientConfig
+from datahub.ingestion.reporting.reporting_provider_registry import (
+    reporting_provider_registry,
+)
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
 from datahub.ingestion.transformer.transform_registry import transform_registry
+from datahub.telemetry import telemetry
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +43,7 @@ class PipelineConfig(ConfigModel):
     source: SourceConfig
     sink: DynamicTypedConfig
     transformers: Optional[List[DynamicTypedConfig]]
+    reporting: Optional[List[DynamicTypedConfig]] = None
     run_id: str = "__DEFAULT_RUN_ID"
     datahub_api: Optional[DatahubClientConfig] = None
     pipeline_name: Optional[str] = None
@@ -125,6 +132,7 @@ class Pipeline:
         self.extractor_class = extractor_registry.get(self.config.source.extractor)
 
         self._configure_transforms()
+        self._configure_reporting()
 
     def _configure_transforms(self) -> None:
         self.transformers = []
@@ -140,6 +148,25 @@ class Pipeline:
                     f"Transformer type:{transformer_type},{transformer_class} configured"
                 )
 
+    def _configure_reporting(self) -> None:
+        if self.config.reporting is None:
+            return
+
+        for reporter in self.config.reporting:
+            reporter_type = reporter.type
+            reporter_class = reporting_provider_registry.get(reporter_type)
+            reporter_config_dict = reporter.dict().get("config", {})
+            self.ctx.register_reporter(
+                reporter_class.create(
+                    config_dict=reporter_config_dict,
+                    ctx=self.ctx,
+                    name=reporter_class.__name__,
+                )
+            )
+            logger.debug(
+                f"Transformer type:{reporter_type},{reporter_class} configured"
+            )
+
     @classmethod
     def create(
         cls, config_dict: dict, dry_run: bool = False, preview_mode: bool = False
@@ -148,6 +175,7 @@ class Pipeline:
         return cls(config, dry_run=dry_run, preview_mode=preview_mode)
 
     def run(self) -> None:
+
         callback = LoggingCallback()
         extractor: Extractor = self.extractor_class()
         for wu in itertools.islice(
@@ -166,17 +194,9 @@ class Pipeline:
             extractor.close()
             if not self.dry_run:
                 self.sink.handle_work_unit_end(wu)
+        self.source.close()
         self.sink.close()
-
-        # Temporary hack to prevent committing state if there are failures during the pipeline run.
-        try:
-            self.raise_from_status()
-        except Exception:
-            logger.warning(
-                "Pipeline failed. Not closing the source to prevent bad commits."
-            )
-        else:
-            self.source.close()
+        self.process_commits()
 
     def transform(self, records: Iterable[RecordEnvelope]) -> Iterable[RecordEnvelope]:
         """
@@ -188,6 +208,46 @@ class Pipeline:
             records = transformer.transform(records)
 
         return records
+
+    def process_commits(self) -> None:
+        """
+        Evaluates the commit_policy for each committable in the context and triggers the commit operation
+        on the committable if its required commit policies are satisfied.
+        """
+        has_errors: bool = (
+            True
+            if self.source.get_report().failures or self.sink.get_report().failures
+            else False
+        )
+        has_warnings: bool = (
+            True
+            if self.source.get_report().warnings or self.sink.get_report().warnings
+            else False
+        )
+        for name, committable in self.ctx.get_committables():
+            commit_policy: CommitPolicy = committable.commit_policy
+
+            logger.info(
+                f"Processing commit request for {name}. Commit policy = {commit_policy},"
+                f" has_errors={has_errors}, has_warnings={has_warnings}"
+            )
+
+            if (
+                commit_policy == CommitPolicy.ON_NO_ERRORS_AND_NO_WARNINGS
+                and (has_errors or has_warnings)
+            ) or (commit_policy == CommitPolicy.ON_NO_ERRORS and has_errors):
+                logger.warning(
+                    f"Skipping commit request for {name} since policy requirements are not met."
+                )
+                continue
+
+            try:
+                committable.commit()
+            except Exception as e:
+                logger.error(f"Failed to commit changes for {name}.", e)
+                raise e
+            else:
+                logger.info(f"Successfully committed changes for {name}.")
 
     def raise_from_status(self, raise_warnings: bool = False) -> None:
         if self.source.get_report().failures:
@@ -202,6 +262,20 @@ class Pipeline:
             raise PipelineExecutionError(
                 "Source reported warnings", self.source.get_report()
             )
+
+    def log_ingestion_stats(self) -> None:
+
+        telemetry.telemetry_instance.ping(
+            "ingest", "source_type", self.config.source.type
+        )
+        telemetry.telemetry_instance.ping("ingest", "sink_type", self.config.sink.type)
+        telemetry.telemetry_instance.ping(
+            "ingest",
+            "records_written",
+            # bucket by taking floor of log of the number of records written
+            # report the bucket as a label so the count is not collapsed
+            str(10 ** int(log10(self.sink.get_report().records_written + 1))),
+        )
 
     def pretty_print_summary(self, warnings_as_failure: bool = False) -> int:
         click.echo()

@@ -19,23 +19,12 @@ import { SidebarTagsSection } from '../shared/containers/profile/sidebar/Sidebar
 import { SidebarStatsSection } from '../shared/containers/profile/sidebar/Dataset/StatsSidebarSection';
 import StatsTab from '../shared/tabs/Dataset/Stats/StatsTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
-import { EditSchemaTab } from '../shared/tabs/Dataset/Schema/EditSchemaTab';
-import { AdminTab } from '../shared/tabs/Dataset/Schema/AdminTab';
-import { EditPropertiesTab } from '../shared/tabs/Dataset/Schema/EditPropertiesTab';
-import { capitalizeFirstLetter } from '../../shared/capitalizeFirstLetter';
+import { capitalizeFirstLetter } from '../../shared/textUtil';
 import ViewDefinitionTab from '../shared/tabs/Dataset/View/ViewDefinitionTab';
 import { SidebarViewDefinitionSection } from '../shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection';
 import { SidebarRecommendationsSection } from '../shared/containers/profile/sidebar/Recommendations/SidebarRecommendationsSection';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { FindWhoAmI } from './whoAmI';
-import { EditSampleTab } from '../shared/tabs/Dataset/Schema/EditSampleTab';
-// import { useGetMeQuery } from '../../../graphql/me.generated';
-
-// function FindWhoAmI() {
-//     const { data } = useGetMeQuery();
-//     const whoami = data?.me?.corpUser?.username;
-//     return whoami;
-// }
+import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -63,7 +52,7 @@ export class DatasetEntity implements Entity<Dataset> {
         }
 
         return (
-            <DatabaseFilled
+            <DatabaseOutlined
                 style={{
                     fontSize,
                     color: '#BFBFBF',
@@ -142,111 +131,8 @@ export class DatasetEntity implements Entity<Dataset> {
                         visible: (_, _1) => true,
                         enabled: (_, dataset: GetDatasetQuery) =>
                             (dataset?.dataset?.datasetProfiles?.length || 0) > 0 ||
-                            (dataset?.dataset?.usageStats?.buckets?.length || 0) > 0,
-                    },
-                },
-                {
-                    name: 'Edit Schema',
-                    component: EditSchemaTab,
-                    display: {
-                        visible: (_, _dataset: GetDatasetQuery) => {
-                            const currUser = FindWhoAmI();
-                            const ownership = _dataset?.dataset?.ownership?.owners;
-                            const ownersArray =
-                                ownership
-                                    ?.map((x) =>
-                                        x?.type === 'DATAOWNER' && x?.owner?.type === EntityType.CorpUser
-                                            ? x?.owner?.urn.split(':').slice(-1)
-                                            : '',
-                                    )
-                                    .flat() || [];
-                            // console.log(`ownersArray is ${ownersArray} and I am ${currUser}`);
-                            if (ownersArray.includes(currUser)) {
-                                return true;
-                            }
-                            return false;
-                        },
-                        enabled: (_, _dataset: GetDatasetQuery) => {
-                            return true;
-                        },
-                    },
-                },
-                {
-                    name: 'Edit Properties',
-                    component: EditPropertiesTab,
-                    display: {
-                        visible: (_, _dataset: GetDatasetQuery) => {
-                            const currUser = FindWhoAmI();
-                            const ownership = _dataset?.dataset?.ownership?.owners;
-                            const ownersArray =
-                                ownership
-                                    ?.map((x) =>
-                                        x?.type === 'DATAOWNER' && x?.owner?.type === EntityType.CorpUser
-                                            ? x?.owner?.urn.split(':').slice(-1)
-                                            : '',
-                                    )
-                                    .flat() || [];
-                            // console.log(`ownersArray is ${ownersArray} and I am ${currUser}`);
-                            if (ownersArray.includes(currUser)) {
-                                return true;
-                            }
-                            return false;
-                        },
-                        enabled: (_, _dataset: GetDatasetQuery) => {
-                            return true;
-                        },
-                    },
-                },
-                {
-                    name: 'Edit Samples',
-                    component: EditSampleTab,
-                    display: {
-                        visible: (_, _dataset: GetDatasetQuery) => {
-                            const currUser = FindWhoAmI();
-                            const ownership = _dataset?.dataset?.ownership?.owners;
-                            const ownersArray =
-                                ownership
-                                    ?.map((x) =>
-                                        x?.type === 'DATAOWNER' && x?.owner?.type === EntityType.CorpUser
-                                            ? x?.owner?.urn.split(':').slice(-1)
-                                            : '',
-                                    )
-                                    .flat() || [];
-                            console.log(`ownersArray is ${ownersArray} and I am ${currUser}`);
-                            if (ownersArray.includes(currUser)) {
-                                return true;
-                            }
-                            return false;
-                        },
-                        enabled: (_, _dataset: GetDatasetQuery) => {
-                            return true;
-                        },
-                    },
-                },
-                {
-                    name: 'Dataset Admin',
-                    component: AdminTab,
-                    display: {
-                        visible: (_, _dataset: GetDatasetQuery) => {
-                            const currUser = FindWhoAmI();
-                            const ownership = _dataset?.dataset?.ownership?.owners;
-                            const ownersArray =
-                                ownership
-                                    ?.map((x) =>
-                                        x?.type === 'DATAOWNER' && x?.owner?.type === EntityType.CorpUser
-                                            ? x?.owner?.urn.split(':').slice(-1)
-                                            : '',
-                                    )
-                                    .flat() || [];
-                            // console.log(`ownersArray is ${ownersArray} and I am ${currUser}`);
-                            if (ownersArray.includes(currUser)) {
-                                return true;
-                            }
-                            return false;
-                        },
-                        enabled: (_, _dataset: GetDatasetQuery) => {
-                            return true;
-                        },
+                            (dataset?.dataset?.usageStats?.buckets?.length || 0) > 0 ||
+                            (dataset?.dataset?.operations?.length || 0) > 0,
                     },
                 },
             ]}
@@ -280,6 +166,9 @@ export class DatasetEntity implements Entity<Dataset> {
                     component: SidebarOwnerSection,
                 },
                 {
+                    component: SidebarDomainSection,
+                },
+                {
                     component: SidebarRecommendationsSection,
                 },
             ]}
@@ -303,11 +192,13 @@ export class DatasetEntity implements Entity<Dataset> {
                 origin={data.origin}
                 subtype={data.subTypes?.typeNames?.[0]}
                 description={data.editableProperties?.description || data.properties?.description}
-                platformName={data.platform.displayName || data.platform.name}
-                platformLogo={data.platform.info?.logoUrl}
+                platformName={data.platform.properties?.displayName || data.platform.name}
+                platformLogo={data.platform.properties?.logoUrl}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
                 glossaryTerms={data.glossaryTerms}
+                domain={data.domain}
+                container={data.container}
             />
         );
     };
@@ -320,12 +211,14 @@ export class DatasetEntity implements Entity<Dataset> {
                 name={data.name}
                 origin={data.origin}
                 description={data.editableProperties?.description || data.properties?.description}
-                platformName={data.platform.name}
-                platformLogo={data.platform.info?.logoUrl}
+                platformName={data.platform.properties?.displayName || data.platform.name}
+                platformLogo={data.platform.properties?.logoUrl}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
+                domain={data.domain}
                 glossaryTerms={data.glossaryTerms}
                 subtype={data.subTypes?.typeNames?.[0]}
+                container={data.container}
                 snippet={
                     // Add match highlights only if all the matched fields are in the FIELDS_TO_HIGHLIGHT
                     result.matchedFields.length > 0 &&
@@ -361,7 +254,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 outgoingRelationships: entity?.['outgoing'],
                 direction: RelationshipDirection.Outgoing,
             }),
-            icon: entity?.platform?.info?.logoUrl || undefined,
+            icon: entity?.platform?.properties?.logoUrl || undefined,
             platform: entity?.platform?.name,
         };
     };
@@ -371,7 +264,7 @@ export class DatasetEntity implements Entity<Dataset> {
     };
 
     platformLogoUrl = (data: Dataset) => {
-        return data.platform.info?.logoUrl || undefined;
+        return data.platform.properties?.logoUrl || undefined;
     };
 
     getGenericEntityProperties = (data: Dataset) => {

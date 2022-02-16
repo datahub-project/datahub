@@ -1,0 +1,4 @@
+namespace com.linkedin.common
+
+@java.class = "java.net.URI"
+typeref Uri = string

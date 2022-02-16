@@ -29,6 +29,7 @@ from looker_sdk.sdk.api31.models import (
     Query,
     User,
 )
+from pydantic import validator
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration import ConfigModel
@@ -92,16 +93,25 @@ class LookerAPI:
 
 
 class LookerDashboardSourceConfig(LookerAPIConfig, LookerCommonConfig):
-    platform_name: str = "looker"
     actor: Optional[str]
     dashboard_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     chart_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     include_deleted: bool = False
-    env: str = builder.DEFAULT_ENV
     extract_owners: bool = True
     strip_user_ids_from_email: bool = False
     skip_personal_folders: bool = False
     max_threads: int = os.cpu_count() or 40
+    external_base_url: Optional[str]
+
+    @validator("external_base_url", pre=True, always=True)
+    def external_url_defaults_to_api_config_base_url(
+        cls, v: Optional[str], *, values: Dict[str, Any], **kwargs: Dict[str, Any]
+    ) -> str:
+        return v or values["base_url"]
+
+    @validator("platform_instance")
+    def platform_instance_not_supported(cls, v: str) -> str:
+        raise ConfigurationError("Looker Source doesn't support platform instances")
 
 
 @dataclass
@@ -526,13 +536,12 @@ class LookerDashboardSource(Source):
         )
 
         chart_type = self._get_chart_type(dashboard_element)
-
         chart_info = ChartInfoClass(
             type=chart_type,
             description=dashboard_element.description or "",
             title=dashboard_element.title or "",
             lastModified=ChangeAuditStamps(),
-            chartUrl=dashboard_element.url(self.source_config.base_url),
+            chartUrl=dashboard_element.url(self.source_config.external_base_url or ""),
             inputs=dashboard_element.get_view_urns(self.source_config),
             customProperties={
                 "upstream_fields": ",".join(
@@ -618,7 +627,7 @@ class LookerDashboardSource(Source):
             title=looker_dashboard.title,
             charts=[mce.proposedSnapshot.urn for mce in chart_mces],
             lastModified=ChangeAuditStamps(),
-            dashboardUrl=looker_dashboard.url(self.source_config.base_url),
+            dashboardUrl=looker_dashboard.url(self.source_config.external_base_url),
         )
 
         dashboard_snapshot.aspects.append(dashboard_info)

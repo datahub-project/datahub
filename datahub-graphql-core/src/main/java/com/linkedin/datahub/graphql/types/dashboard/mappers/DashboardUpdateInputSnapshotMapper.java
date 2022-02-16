@@ -1,8 +1,8 @@
 package com.linkedin.datahub.graphql.types.dashboard.mappers;
 
+import com.datahub.util.ModelUtils;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
-
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.dashboard.EditableDashboardProperties;
@@ -13,7 +13,6 @@ import com.linkedin.datahub.graphql.types.mappers.InputModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.TagAssociationUpdateMapper;
 import com.linkedin.metadata.aspect.DashboardAspect;
 import com.linkedin.metadata.aspect.DashboardAspectArray;
-import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.snapshot.DashboardSnapshot;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;

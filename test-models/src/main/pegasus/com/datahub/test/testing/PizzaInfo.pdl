@@ -1,0 +1,22 @@
+namespace com.datahub.test.testing
+
+
+/**
+ * Test aspect that represnts basic information for a pizza Pizza.
+ */
+record PizzaInfo {
+  /**
+   * Size of the pizza.
+   */
+  size: optional PizzaSize
+
+  /**
+   * Toppings on the pizza.
+   */
+  toppings: optional array[string]
+
+  /**
+   * The shop that made this pizza.
+   */
+  madeBy: optional string
+}

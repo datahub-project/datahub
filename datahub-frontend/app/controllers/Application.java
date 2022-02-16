@@ -144,6 +144,7 @@ public class Application extends Controller {
   @Nonnull
   public Result appConfig() {
     final ObjectNode config = Json.newObject();
+    config.put("application", "datahub-frontend");
     config.put("appVersion", _config.getString("app.version"));
     config.put("isInternal", _config.getBoolean("linkedin.internal"));
     config.put("shouldShowDatasetLineage", _config.getBoolean("linkedin.show.dataset.lineage"));

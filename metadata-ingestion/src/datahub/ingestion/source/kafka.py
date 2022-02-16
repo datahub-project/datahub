@@ -1,7 +1,8 @@
+import json
 import logging
 from dataclasses import dataclass, field
 from hashlib import md5
-from typing import Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional
 
 import confluent_kafka
 from confluent_kafka.schema_registry.schema_registry_client import (
@@ -12,7 +13,8 @@ from confluent_kafka.schema_registry.schema_registry_client import (
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
-from datahub.emitter.mce_builder import DEFAULT_ENV
+from datahub.emitter.mce_builder import DEFAULT_ENV, make_dataset_urn, make_domain_urn
+from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -35,6 +37,7 @@ class KafkaSourceConfig(ConfigModel):
     # TODO: inline the connection config
     connection: KafkaConsumerConnectionConfig = KafkaConsumerConnectionConfig()
     topic_patterns: AllowDenyPattern = AllowDenyPattern(allow=[".*"], deny=["^_.*"])
+    domain: Dict[str, AllowDenyPattern] = dict()
 
 
 @dataclass
@@ -84,20 +87,71 @@ class KafkaSource(Source):
             self.report.report_topic_scanned(t)
 
             if self.source_config.topic_patterns.allowed(t):
-                mce = self._extract_record(t)
-                wu = MetadataWorkUnit(id=f"kafka-{t}", mce=mce)
-                self.report.report_workunit(wu)
-                yield wu
+                yield from self._extract_record(t)
             else:
                 self.report.report_dropped(t)
 
-    def _extract_record(self, topic: str) -> MetadataChangeEvent:
+    @staticmethod
+    def _compact_schema(schema_str: str) -> str:
+        # Eliminate all white-spaces for a compact representation.
+        return json.dumps(json.loads(schema_str), separators=(",", ":"))
+
+    def get_schema_str_replace_confluent_ref_avro(
+        self, schema: Schema, schema_seen: Optional[set] = None
+    ) -> str:
+        if not schema.references:
+            return self._compact_schema(schema.schema_str)
+
+        if schema_seen is None:
+            schema_seen = set()
+        schema_str = self._compact_schema(schema.schema_str)
+        for schema_ref in schema.references:
+            ref_subject = schema_ref["subject"]
+            if ref_subject in schema_seen:
+                continue
+            reference_schema = self.schema_registry_client.get_latest_version(
+                ref_subject
+            )
+            schema_seen.add(ref_subject)
+            logger.debug(
+                f"ref for {ref_subject} is {reference_schema.schema.schema_str}"
+            )
+            # Replace only external type references with the reference schema recursively.
+            # NOTE: The type pattern is dependent on _compact_schema.
+            avro_type_kwd = '"type"'
+            ref_name = schema_ref["name"]
+            # Try by name first
+            pattern_to_replace = f'{avro_type_kwd}:"{ref_name}"'
+            if pattern_to_replace not in schema_str:
+                # Try by subject
+                pattern_to_replace = f'{avro_type_kwd}:"{ref_subject}"'
+                if pattern_to_replace not in schema_str:
+                    logger.warning(
+                        f"Not match for external schema type: {{name:{ref_name}, subject:{ref_subject}}} in schema:{schema_str}"
+                    )
+                else:
+                    logger.debug(
+                        f"External schema matches by subject, {pattern_to_replace}"
+                    )
+            else:
+                logger.debug(f"External schema matches by name, {pattern_to_replace}")
+            schema_str = schema_str.replace(
+                pattern_to_replace,
+                f"{avro_type_kwd}:{self.get_schema_str_replace_confluent_ref_avro(reference_schema.schema, schema_seen)}",
+            )
+        return schema_str
+
+    def _extract_record(self, topic: str) -> Iterable[MetadataWorkUnit]:
         logger.debug(f"topic = {topic}")
         platform = "kafka"
         dataset_name = topic
 
+        dataset_urn = make_dataset_urn(
+            platform=platform, name=dataset_name, env=self.source_config.env
+        )
+
         dataset_snapshot = DatasetSnapshot(
-            urn=f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{self.source_config.env})",
+            urn=dataset_urn,
             aspects=[],  # we append to this list later on
         )
         dataset_snapshot.aspects.append(Status(removed=False))
@@ -114,8 +168,9 @@ class KafkaSource(Source):
         # Parse the schema
         fields: List[SchemaField] = []
         if schema and schema.schema_type == "AVRO":
+            cleaned_str = self.get_schema_str_replace_confluent_ref_avro(schema)
             # "value.id" or "value.[type=string]id"
-            fields = schema_util.avro_schema_to_mce_fields(schema.schema_str)
+            fields = schema_util.avro_schema_to_mce_fields(cleaned_str)
         elif schema is not None:
             self.report.report_warning(
                 topic,
@@ -136,8 +191,9 @@ class KafkaSource(Source):
         # Parse the key schema
         key_fields: List[SchemaField] = []
         if key_schema and key_schema.schema_type == "AVRO":
+            cleaned_key_str = self.get_schema_str_replace_confluent_ref_avro(key_schema)
             key_fields = schema_util.avro_schema_to_mce_fields(
-                key_schema.schema_str, is_key_schema=True
+                cleaned_key_str, is_key_schema=True
             )
         elif key_schema is not None:
             self.report.report_warning(
@@ -177,8 +233,26 @@ class KafkaSource(Source):
         )
         dataset_snapshot.aspects.append(browse_path)
 
-        metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        return metadata_record
+        mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+        wu = MetadataWorkUnit(id=f"kafka-{topic}", mce=mce)
+        self.report.report_workunit(wu)
+        yield wu
+
+        domain_urn: Optional[str] = None
+
+        for domain, pattern in self.source_config.domain.items():
+            if pattern.allowed(dataset_name):
+                domain_urn = make_domain_urn(domain)
+
+        if domain_urn:
+            wus = add_domain_to_entity_wu(
+                entity_type="dataset",
+                entity_urn=dataset_urn,
+                domain_urn=domain_urn,
+            )
+            for wu in wus:
+                self.report.report_workunit(wu)
+                yield wu
 
     def get_report(self):
         return self.report

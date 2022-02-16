@@ -20,6 +20,11 @@ Current limitations:
   - JDBC and Debezium source connectors
   - BigQuery sink connector
 
+| Capability | Status | Details | 
+| -----------| ------ | ---- |
+| Platform Instance | ✔️ | [link](../../docs/platform-instances.md) |
+
+
 ## Quickstart recipe
 
 Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
@@ -37,6 +42,9 @@ source:
       - provider: env
         path_key: MYSQL_CONNECTION_URL
         value: jdbc:mysql://test_mysql:3306/librarydb
+    # Optional mapping of platform types to instance ids
+    platform_instance_map: # optional
+      mysql: test_mysql    # optional
 
     # Credentials
     username: admin
@@ -62,6 +70,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `connector_patterns.allow` |          |                            | List of regex patterns for connectors to exclude from ingestion. |
 | `connector_pattern.ignoreCase`  |     | `True`      | Whether to ignore case sensitivity during pattern matching.            |
 | `env`                      |          | `"PROD"`                   | Environment to use in namespace when constructing URNs. |
+| `platform_instance_map` |     |     | Platform instance mapping to use when constructing URNs. e.g.`platform_instance_map: { "hive": "warehouse" }` |
 
 ## Compatibility
 

@@ -30,7 +30,7 @@ import { GetMlModelDocument } from './graphql/mlModel.generated';
 import { GetMlModelGroupDocument } from './graphql/mlModelGroup.generated';
 import { GetGlossaryTermDocument, GetGlossaryTermQuery } from './graphql/glossaryTerm.generated';
 import { GetEntityCountsDocument } from './graphql/app.generated';
-import { GetMeDocument } from './graphql/me.generated';
+import { GetMeDocument, GetMeOnlyDocument } from './graphql/me.generated';
 import { ListRecommendationsDocument } from './graphql/recommendations.generated';
 
 const user1 = {
@@ -93,6 +93,18 @@ const user2 = {
     },
 };
 
+const dataPlatform = {
+    urn: 'urn:li:dataPlatform:hdfs',
+    name: 'HDFS',
+    type: EntityType.DataPlatform,
+    properties: {
+        displayName: 'HDFS',
+        type: PlatformType.FileSystem,
+        datasetNameDelimiter: '.',
+        logoUrl: '',
+    },
+};
+
 const dataset1 = {
     urn: 'urn:li:dataset:1',
     type: EntityType.Dataset,
@@ -100,7 +112,7 @@ const dataset1 = {
         urn: 'urn:li:dataPlatform:hdfs',
         name: 'HDFS',
         type: EntityType.DataPlatform,
-        info: {
+        properties: {
             displayName: 'HDFS',
             type: PlatformType.FileSystem,
             datasetNameDelimiter: '.',
@@ -176,6 +188,8 @@ const dataset1 = {
             ],
         },
     ],
+    domain: null,
+    container: null,
 };
 
 const dataset2 = {
@@ -246,6 +260,8 @@ const dataset2 = {
             ],
         },
     ],
+    domain: null,
+    container: null,
 };
 
 export const dataset3 = {
@@ -284,20 +300,25 @@ export const dataset3 = {
         owners: [
             {
                 owner: {
-                    ...user1,
+                    ...user2,
+                    __typename: 'CorpUser',
                 },
                 type: 'DATAOWNER',
+                __typename: 'Owner',
             },
             {
                 owner: {
-                    ...user2,
+                    ...user1,
+                    __typename: 'CorpUser',
                 },
                 type: 'DELEGATE',
+                __typename: 'Owner',
             },
         ],
         lastModified: {
             time: 0,
         },
+        __typename: 'Ownership',
     },
     globalTags: {
         __typename: 'GlobalTags',
@@ -396,6 +417,7 @@ export const dataset3 = {
     editableSchemaMetadata: null,
     deprecation: null,
     usageStats: null,
+    operations: null,
     datasetProfiles: [
         {
             rowCount: 10,
@@ -431,6 +453,8 @@ export const dataset3 = {
             },
         },
     ],
+    domain: null,
+    container: null,
     status: {
         removed: false,
     },
@@ -858,6 +882,10 @@ export const dataFlow1 = {
             },
         ],
     },
+    platform: {
+        ...dataPlatform,
+    },
+    domain: null,
 } as DataFlow;
 
 export const dataJob1 = {
@@ -925,6 +953,7 @@ export const dataJob1 = {
             },
         ],
     },
+    domain: null,
 } as DataJob;
 
 export const dataJob2 = {
@@ -978,6 +1007,7 @@ export const dataJob2 = {
             },
         ],
     },
+    domain: null,
 } as DataJob;
 
 export const dataJob3 = {
@@ -1031,6 +1061,7 @@ export const dataJob3 = {
             },
         ],
     },
+    domain: null,
 } as DataJob;
 
 export const mlModel = {
@@ -1177,9 +1208,14 @@ export const recommendationModules = [
                 entity: {
                     urn: 'urn:li:dataPlatform:snowflake',
                     type: EntityType.DataPlatform,
-                    info: {
+                    name: 'snowflake',
+                    properties: {
                         displayName: 'Snowflake',
+                        datasetNameDelimiter: '.',
+                        logoUrl: null,
                     },
+                    displayName: null,
+                    info: null,
                 },
                 params: {
                     contentParams: {
@@ -2636,7 +2672,7 @@ export const mocks = [
                     requestContext: {
                         scenario: ScenarioType.Home,
                     },
-                    limit: 5,
+                    limit: 10,
                 },
             },
         },
@@ -2750,6 +2786,26 @@ export const mocks = [
                             count: 670,
                         },
                     ],
+                },
+            },
+        },
+    },
+    {
+        // this mock can be shifted elsewhere in the doc. need to create new mock instead of recycling cos it needs to be specific to query else it doesnt work
+        request: {
+            query: GetMeOnlyDocument,
+            variables: {},
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                me: {
+                    __typename: 'AuthenticatedUser',
+                    corpUser: {
+                        type: EntityType.CorpUser,
+                        username: 'john',
+                        urn: 'urn:li:corpuser:3',
+                    },
                 },
             },
         },

@@ -19,4 +19,4 @@ source:
 sink:
   type: "datahub-rest"
   config:
-    server: "https://autotrader.acryl.io/gms"
+    server: "http://localhost:8080"

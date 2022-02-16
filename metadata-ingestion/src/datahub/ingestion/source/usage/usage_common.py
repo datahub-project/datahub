@@ -6,6 +6,7 @@ from typing import Callable, Counter, Generic, List, Optional, TypeVar
 import pydantic
 
 import datahub.emitter.mce_builder as builder
+from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import (
     BaseTimeWindowConfig,
     BucketDuration,
@@ -27,6 +28,7 @@ ResourceType = TypeVar("ResourceType")
 class GenericAggregatedDataset(Generic[ResourceType]):
     bucket_start_time: datetime
     resource: ResourceType
+    user_email_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
 
     readCount: int = 0
     queryCount: int = 0
@@ -40,10 +42,18 @@ class GenericAggregatedDataset(Generic[ResourceType]):
     query_trimmer_string: str = " ..."
 
     def add_read_entry(
-        self, user_email: str, query: Optional[str], fields: List[str]
+        self,
+        user_email: str,
+        query: Optional[str],
+        fields: List[str],
     ) -> None:
+
+        if not self.user_email_pattern.allowed(user_email):
+            return
+
         self.readCount += 1
         self.userFreq[user_email] += 1
+
         if query:
             self.queryCount += 1
             self.queryFreq[query] += 1
@@ -112,6 +122,8 @@ class GenericAggregatedDataset(Generic[ResourceType]):
 
 class BaseUsageConfig(BaseTimeWindowConfig):
     top_n_queries: pydantic.PositiveInt = 10
+    user_email_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    include_operational_stats: bool = True
 
     @pydantic.validator("top_n_queries")
     def ensure_top_n_queries_is_not_too_big(cls, v: int) -> int:

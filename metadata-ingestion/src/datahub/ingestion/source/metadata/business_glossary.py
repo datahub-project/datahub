@@ -52,8 +52,8 @@ class DefaultConfig(ConfigModel):
     """Holds defaults for populating fields in glossary terms"""
 
     source: str
-    url: str
     owners: Owners
+    url: Optional[str] = None
     source_type: Optional[str] = "INTERNAL"
 
 
@@ -132,10 +132,7 @@ def get_mces(
 
 
 def get_mce_from_snapshot(snapshot: Any) -> models.MetadataChangeEventClass:
-    return models.MetadataChangeEventClass(
-        proposedSnapshot=snapshot,
-        systemMetadata=models.SystemMetadataClass(runId="test-glossary"),
-    )
+    return models.MetadataChangeEventClass(proposedSnapshot=snapshot)
 
 
 def get_mces_from_node(

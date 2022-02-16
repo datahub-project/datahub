@@ -1,0 +1,48 @@
+<svg id="e2d48uIsWUR1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+    viewBox="0 0 180 180" shape-rendering="geometricPrecision" text-rendering="geometricPrecision">
+    <defs>
+        <linearGradient id="e2d48uIsWUR3-stroke" x1="0.5" y1="0" x2="0.5" y2="1" spreadMethod="pad"
+            gradientUnits="objectBoundingBox" gradientTransform="translate(0 0)">
+            <stop id="e2d48uIsWUR3-stroke-0" offset="0%" stop-color="#f84e63" />
+            <stop id="e2d48uIsWUR3-stroke-1" offset="100%" stop-color="#dd3163" />
+        </linearGradient>
+        <linearGradient id="e2d48uIsWUR5-stroke" x1="0.5" y1="0" x2="0.5" y2="1" spreadMethod="pad"
+            gradientUnits="objectBoundingBox" gradientTransform="translate(0 0)">
+            <stop id="e2d48uIsWUR5-stroke-0" offset="0%" stop-color="#1890ff" />
+            <stop id="e2d48uIsWUR5-stroke-1" offset="100%" stop-color="#18b5ff" />
+        </linearGradient>
+        <linearGradient id="e2d48uIsWUR9-stroke" x1="0.5" y1="0" x2="0.5" y2="1" spreadMethod="pad"
+            gradientUnits="objectBoundingBox" gradientTransform="translate(0 0)">
+            <stop id="e2d48uIsWUR9-stroke-0" offset="0%" stop-color="#efb700" />
+            <stop id="e2d48uIsWUR9-stroke-1" offset="100%" stop-color="#efb200" />
+        </linearGradient>
+    </defs>
+    <g>
+        <ellipse rx="60" ry="60" transform="matrix(0-1 1 0 90 90)" fill="none" stroke="url(#e2d48uIsWUR5-stroke)"
+            stroke-width="8" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="226.2" />
+        <ellipse rx="10" ry="10" transform="translate(160 50)" fill="#18b4ff" stroke-width="0" />
+        <line x1="-70" y1="40" x2="70" y2="-40" transform="translate(90 90)" fill="none" stroke="#18b4ff"
+            stroke-width="8" stroke-linecap="round" stroke-linejoin="round" stroke-dashoffset="180"
+            stroke-dasharray="161" />
+        <animateTransform attributeName="transform" type="rotate" values="0 90 90; -30 90 90; 0 90 90" keyTimes="0; 0.1; 1" dur="6s"
+            repeatCount="indefinite" />
+    </g>
+    <g>
+        <ellipse rx="30" ry="30" transform="translate(90 90)" fill="none" stroke="url(#e2d48uIsWUR3-stroke)"
+            stroke-width="8" stroke-linecap="round" stroke-linejoin="round" stroke-dashoffset="47.13"
+            stroke-dasharray="94.25" />
+        <animateTransform attributeName="transform" type="rotate" from="360 90 90" to="0 90 90" dur="1s"
+            repeatCount="indefinite" />
+    </g>
+    <g>
+        <ellipse rx="45" ry="45" transform="matrix(0-1 1 0 90 90),rotate(160)" fill="none"
+            stroke="url(#e2d48uIsWUR9-stroke)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"
+            stroke-dasharray="169.65" />
+        <ellipse rx="10" ry="10" transform="translate(20 130)" fill="#efb400" stroke-width="0" />
+        <line x1="-70" y1="40" x2="70" y2="-40" transform="translate(90 90)" fill="none" stroke="#efb200"
+            stroke-width="8" stroke-linecap="round" stroke-linejoin="round" stroke-dashoffset="130"
+            stroke-dasharray="161" />
+        <animateTransform attributeName="transform" type="rotate" values="-10 90 90; 80 90 90; -10 90 90" calcMode="spline" keySplines="0.25 0.1 0.25 1.0; 0.25 0.1 0.25 1.0" dur="2s"
+            repeatCount="indefinite" />
+    </g>
+</svg>

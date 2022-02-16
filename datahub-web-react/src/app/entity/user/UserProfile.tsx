@@ -10,6 +10,7 @@ import { LegacyEntityProfile } from '../../shared/LegacyEntityProfile';
 import { CorpUser, EntityType, SearchResult, EntityRelationshipsResult } from '../../../types.generated';
 import UserGroups from './UserGroups';
 import { useEntityRegistry } from '../../useEntityRegistry';
+import { decodeUrn } from '../shared/utils';
 
 const messageStyle = { marginTop: '10%' };
 
@@ -25,7 +26,8 @@ const GROUP_PAGE_SIZE = 20;
  * Responsible for reading & writing users.
  */
 export default function UserProfile() {
-    const { urn } = useUserParams();
+    const { urn: encodedUrn } = useUserParams();
+    const urn = decodeUrn(encodedUrn);
     const { loading, error, data } = useGetUserQuery({ variables: { urn, groupsCount: GROUP_PAGE_SIZE } });
     const entityRegistry = useEntityRegistry();
     const username = data?.corpUser?.username;

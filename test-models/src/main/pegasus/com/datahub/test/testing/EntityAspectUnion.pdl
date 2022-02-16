@@ -1,0 +1,6 @@
+namespace com.datahub.test.testing
+
+/**
+ * For unit tests
+ */
+typeref EntityAspectUnion = union[AspectFoo, AspectBar]
