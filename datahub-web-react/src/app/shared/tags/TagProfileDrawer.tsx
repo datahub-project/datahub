@@ -18,6 +18,8 @@ import { AddOwnerModal } from '../../entity/shared/containers/profile/sidebar/Ow
 import MarkdownViewer from '../../entity/shared/components/legacy/MarkdownViewer';
 import StripMarkdownText, { removeMarkdown } from '../../entity/shared/components/styled/StripMarkdownText';
 import EditDescriptionModal from './EditDescriptionModal';
+import analytics from '../../analytics/analytics';
+import { EntityActionType, EventType } from '../../analytics/event';
 
 type Props = {
     closeTagProfileDrawer?: () => void;
@@ -80,14 +82,7 @@ const EditIcon = styled(EditOutlined)`
     cursor: pointer;
 `;
 
-const EditDescriptionText = styled(Typography.Text)`
-    &&& {
-        font-size: 13px;
-        font-weight: 500;
-    }
-`;
-
-const HeaderLayout = styled.div`
+const DetailsLayout = styled.div`
     display: flex;
     justify-content: space-between;
 `;
@@ -147,9 +142,11 @@ export const TagProfileDrawer = ({ closeTagProfileDrawer, tagProfileDrawerVisibl
 
     useEffect(() => {
         setUpdatedDescription(description);
-        // Manual Color Set-Up, Need to set once it will come from backend
+    }, [description]);
+
+    useEffect(() => {
         setColorValue(hexColor);
-    }, [description, hexColor]);
+    }, [hexColor]);
 
     const allSearchResultsByType = useGetAllEntitySearchResults({
         query: entityAndSchemaQuery,
@@ -208,7 +205,6 @@ export const TagProfileDrawer = ({ closeTagProfileDrawer, tagProfileDrawerVisibl
     const EditButton = (
         <>
             <EditIcon twoToneColor="#52c41a" onClick={() => setShowEditModal(true)} />
-            <EditDescriptionText> Edit Description</EditDescriptionText>
         </>
     );
 
@@ -234,6 +230,12 @@ export const TagProfileDrawer = ({ closeTagProfileDrawer, tagProfileDrawerVisibl
             await updateDescriptionValue(value);
             message.destroy();
             message.success({ content: 'Description Updated', duration: 2 });
+            analytics.event({
+                type: EventType.EntityActionEvent,
+                actionType: EntityActionType.UpdateDescription,
+                entityType: EntityType.Tag,
+                entityUrn: urn,
+            });
             onCloseEditModal();
         } catch (e: unknown) {
             message.destroy();
@@ -340,7 +342,7 @@ export const TagProfileDrawer = ({ closeTagProfileDrawer, tagProfileDrawerVisibl
                     )}
                     <Divider />
                     {/* Tag Charts, Datasets and Owners */}
-                    <HeaderLayout>
+                    <DetailsLayout>
                         <StatsBox>
                             <StatsLabel>Applied to</StatsLabel>
                             {statsLoading && (
@@ -406,10 +408,11 @@ export const TagProfileDrawer = ({ closeTagProfileDrawer, tagProfileDrawerVisibl
                                         setShowAddModal(false);
                                     }}
                                     urn={urn}
+                                    entityType={EntityType.Tag}
                                 />
                             </div>
                         </div>
-                    </HeaderLayout>
+                    </DetailsLayout>
                 </>
             </Drawer>
         </>

@@ -6,7 +6,6 @@ import { useAddOwnerMutation } from '../../../../../../../graphql/mutations.gene
 import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
 import { CorpUser, EntityType, OwnerEntityType, SearchResult } from '../../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import { useEntityData } from '../../../../EntityContext';
 import { CustomAvatar } from '../../../../../../shared/avatar';
 import analytics, { EventType, EntityActionType } from '../../../../../../analytics';
 
@@ -14,7 +13,8 @@ type Props = {
     visible: boolean;
     onClose: () => void;
     refetch?: () => Promise<any>;
-    urn?: string;
+    urn: string;
+    entityType: EntityType;
 };
 
 const SearchResultContainer = styled.div`
@@ -40,9 +40,8 @@ type SelectedActor = {
     urn: string;
 };
 
-export const AddOwnerModal = ({ visible, onClose, refetch, urn }: Props) => {
+export const AddOwnerModal = ({ visible, onClose, refetch, urn, entityType }: Props) => {
     const entityRegistry = useEntityRegistry();
-    const { entityType } = useEntityData();
     const [selectedActor, setSelectedActor] = useState<SelectedActor | undefined>(undefined);
     const [userSearch, { data: userSearchData }] = useGetSearchResultsLazyQuery();
     const [groupSearch, { data: groupSearchData }] = useGetSearchResultsLazyQuery();
@@ -66,7 +65,7 @@ export const AddOwnerModal = ({ visible, onClose, refetch, urn }: Props) => {
                 variables: {
                     input: {
                         ownerUrn: selectedActor.urn,
-                        resourceUrn: urn || '',
+                        resourceUrn: urn,
                         ownerEntityType,
                     },
                 },
@@ -76,7 +75,7 @@ export const AddOwnerModal = ({ visible, onClose, refetch, urn }: Props) => {
                 type: EventType.EntityActionEvent,
                 actionType: EntityActionType.UpdateOwnership,
                 entityType,
-                entityUrn: urn || '',
+                entityUrn: urn,
             });
         } catch (e: unknown) {
             message.destroy();
