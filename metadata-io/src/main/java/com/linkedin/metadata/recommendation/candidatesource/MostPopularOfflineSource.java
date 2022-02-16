@@ -62,6 +62,10 @@ public class MostPopularOfflineSource implements RecommendationSource {
       return Collections.emptyList();
     }
 
+    if (moduleAspect == null) {
+      return Collections.emptyList();
+    }
+    
     RecommendationModule module = new RecommendationModule(moduleAspect.getValue().data());
     return module.getContent();
   }
