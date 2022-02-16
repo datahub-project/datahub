@@ -541,7 +541,6 @@ class GlueSource(Source):
 
     def gen_database_containers(self, database: str) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(database)
-
         database_container_key = self.gen_database_key(database)
         container_workunits = gen_containers(
             container_key=database_container_key,
