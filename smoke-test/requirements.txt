@@ -1,4 +1,4 @@
 pytest>=6.2
 pytest-dependency>=0.5.1
 psutil
-acryl-datahub[datahub-rest,snowflake]==0.8.25.2
+-e ../metadata-ingestion[datahub-rest,datahub-kafka,mysql]
