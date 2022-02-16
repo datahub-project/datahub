@@ -17,6 +17,7 @@ module.exports = {
     webpack: {
         plugins: {
             add: [
+                // Self host images by copying them to the build directory
                 new CopyWebpackPlugin({
                     patterns: [{ from: 'src/images', to: 'platforms' }],
                 }),
