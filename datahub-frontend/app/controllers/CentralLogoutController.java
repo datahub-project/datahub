@@ -14,7 +14,7 @@ import java.util.concurrent.ExecutionException;
  */
 @Slf4j
 public class CentralLogoutController extends LogoutController {
-  private static final String DEFAULT_BASE_URL_PATH = "/login";
+  private static final String DEFAULT_BASE_URL_PATH = "/data-catalogue/login";
   private static Boolean _isOidcEnabled = false;
 
   @Inject
