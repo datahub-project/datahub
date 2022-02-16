@@ -3,17 +3,21 @@ package com.linkedin.datahub.graphql.types.glossary.mappers;
 import com.linkedin.common.Deprecation;
 import com.linkedin.common.Ownership;
 import com.linkedin.data.DataMap;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.GlossaryTerm;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermUtils;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.metadata.key.GlossaryTermKey;
-import com.linkedin.entity.EntityResponse;
-import static com.linkedin.metadata.Constants.*;
 import javax.annotation.Nonnull;
+
+import static com.linkedin.metadata.Constants.*;
 
 
 /**
@@ -31,29 +35,26 @@ public class GlossaryTermMapper implements ModelMapper<EntityResponse, GlossaryT
 
     @Override
     public GlossaryTerm apply(@Nonnull final EntityResponse entityResponse) {
-        final GlossaryTerm result = new GlossaryTerm();
+        GlossaryTerm result = new GlossaryTerm();
         result.setUrn(entityResponse.getUrn().toString());
         result.setType(EntityType.GLOSSARY_TERM);
 
-        entityResponse.getAspects().forEach((name, aspect) -> {
-            DataMap data = aspect.getValue().data();
-            if (GLOSSARY_TERM_KEY_ASPECT_NAME.equals(name)) {
-                final GlossaryTermKey gmsKey = new GlossaryTermKey(data);
-                // Construct the legacy name from the URN itself.
-                final String legacyName = GlossaryTermUtils.getGlossaryTermName(entityResponse.getUrn().getId());
-                result.setName(legacyName);
-                result.setHierarchicalName(gmsKey.getName());
-            } else if (GLOSSARY_TERM_INFO_ASPECT_NAME.equals(name)) {
-                // Set deprecation info field.
-                result.setGlossaryTermInfo(GlossaryTermInfoMapper.map(new GlossaryTermInfo(data)));
-                // Set new properties field.
-                result.setProperties(GlossaryTermPropertiesMapper.map(new GlossaryTermInfo(data)));
-            } else if (OWNERSHIP_ASPECT_NAME.equals(name)) {
-                result.setOwnership(OwnershipMapper.map(new Ownership(data)));
-            } else if (DEPRECATION_ASPECT_NAME.equals(name)) {
-                result.setDeprecation(DeprecationMapper.map(new Deprecation(data)));
-            }
-        });
-        return result;
+        EnvelopedAspectMap aspectMap = entityResponse.getAspects();
+        MappingHelper<GlossaryTerm> mappingHelper = new MappingHelper<>(aspectMap, result);
+        mappingHelper.mapToResult(GLOSSARY_TERM_KEY_ASPECT_NAME, this::mapGlossaryTermKey);
+        mappingHelper.mapToResult(GLOSSARY_TERM_INFO_ASPECT_NAME, (glossaryTerm, dataMap) ->
+            glossaryTerm.setGlossaryTermInfo(GlossaryTermInfoMapper.map(new GlossaryTermInfo(dataMap))));
+        mappingHelper.mapToResult(OWNERSHIP_ASPECT_NAME, (glossaryTerm, dataMap) ->
+            glossaryTerm.setOwnership(OwnershipMapper.map(new Ownership(dataMap))));
+      mappingHelper.mapToResult(DEPRECATION_ASPECT_NAME, (glossaryTerm, dataMap) ->
+          glossaryTerm.setDeprecation(DeprecationMapper.map(new Deprecation(dataMap))));
+
+        return mappingHelper.getResult();
+    }
+
+    private void mapGlossaryTermKey(@Nonnull GlossaryTerm glossaryTerm, @Nonnull DataMap dataMap) {
+        GlossaryTermKey glossaryTermKey = new GlossaryTermKey(dataMap);
+        glossaryTerm.setName(GlossaryTermUtils.getGlossaryTermName(glossaryTermKey.getName()));
+        glossaryTerm.setHierarchicalName(glossaryTermKey.getName());
     }
 }

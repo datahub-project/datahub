@@ -1,5 +1,6 @@
 package com.linkedin.metadata.entity.ebean;
 
+import com.datahub.util.RecordUtils;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -15,7 +16,6 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
-import com.datahub.util.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.RollbackResult;
@@ -33,8 +33,8 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
-import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -49,12 +49,9 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
-import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
-import static com.linkedin.metadata.entity.ebean.EbeanUtils.parseSystemMetadata;
-import static com.linkedin.metadata.entity.ebean.EbeanUtils.toAspectRecord;
-import static com.linkedin.metadata.entity.ebean.EbeanUtils.toJsonAspect;
-import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.entity.ebean.EbeanUtils.*;
+import static com.linkedin.metadata.utils.PegasusUtils.*;
 
 
 /**
@@ -200,9 +197,10 @@ public class EbeanEntityService extends EntityService {
 
   @Override
   public Map<Urn, List<EnvelopedAspect>> getLatestEnvelopedAspects(
+      // TODO: entityName is unused, can we remove this as a param?
       @Nonnull String entityName,
       @Nonnull Set<Urn> urns,
-      @Nonnull Set<String> aspectNames) throws Exception {
+      @Nonnull Set<String> aspectNames) throws URISyntaxException {
 
     final Set<EbeanAspectV2.PrimaryKey> dbKeys = urns.stream()
         .map(urn -> aspectNames.stream()
@@ -236,6 +234,7 @@ public class EbeanEntityService extends EntityService {
 
   @Override
   public EnvelopedAspect getEnvelopedAspect(
+      // TODO: entityName is only used for a debug statement, can we remove this as a param?
       @Nonnull String entityName,
       @Nonnull Urn urn,
       @Nonnull String aspectName,
@@ -686,7 +685,7 @@ public class EbeanEntityService extends EntityService {
     return result;
   }
 
-  private Map<EbeanAspectV2.PrimaryKey, EnvelopedAspect> getEnvelopedAspects(final Set<EbeanAspectV2.PrimaryKey> dbKeys) throws Exception {
+  private Map<EbeanAspectV2.PrimaryKey, EnvelopedAspect> getEnvelopedAspects(final Set<EbeanAspectV2.PrimaryKey> dbKeys) throws URISyntaxException {
     final Map<EbeanAspectV2.PrimaryKey, EnvelopedAspect> result = new HashMap<>();
     final Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> dbEntries = _entityDao.batchGet(dbKeys);
 
@@ -715,7 +714,7 @@ public class EbeanEntityService extends EntityService {
     return result;
   }
 
-  private EnvelopedAspect getKeyEnvelopedAspect(final Urn urn) throws Exception {
+  private EnvelopedAspect getKeyEnvelopedAspect(final Urn urn) throws URISyntaxException {
     final EntitySpec spec = getEntityRegistry().getEntitySpec(urnToEntityName(urn));
     final AspectSpec keySpec = spec.getKeyAspectSpec();
     final RecordDataSchema keySchema = keySpec.getPegasusSchema();
