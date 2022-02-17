@@ -371,6 +371,25 @@ fragment searchResults on SearchResults {
                         name
                     }
                 }
+                ... on CorpUser {
+                    urn
+                    username
+                    properties {
+                        displayName
+                        fullName
+                    }
+                    editableProperties {
+                        displayName
+                        pictureLink
+                    }
+                }
+                ... on CorpGroup {
+                    urn
+                    name
+                    properties {
+                        displayName
+                    }
+                }
             }
         }
     }
