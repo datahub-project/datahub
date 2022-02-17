@@ -67,7 +67,7 @@ public class AuthenticatorChain {
     }
     // No authentication resolved. Return null.
     if (!authenticationFailures.isEmpty()) {
-      log.error("Authentication chain failed to resolve a valid authentication. Errors: {}", authenticationFailures);
+      log.warn("Authentication chain failed to resolve a valid authentication. Errors: {}", authenticationFailures);
     }
     return null;
   }
