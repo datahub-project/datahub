@@ -5,7 +5,6 @@ from datahub.utilities.urns.urn import Urn
 
 
 class TestUrn(unittest.TestCase):
-
     def test_parse_urn(self) -> None:
         simple_urn_str = "urn:li:dataPlatform:abc"
         urn = Urn.create_from_string(simple_urn_str)

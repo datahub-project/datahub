@@ -8,6 +8,7 @@ class Urn:
     URNs are Globally Unique Identifiers (GUID) used to represent an entity.
     It will be in format of urn:<domain>:<type>:<id>
     """
+
     URN_PREFIX: str = "urn"
     # all the Datahub urn use li domain for now.
     LI_DOMAIN: str = "li"
@@ -16,7 +17,9 @@ class Urn:
     _domain: str
     _entity_id: List[str]
 
-    def __init__(self, entity_type: str, entity_id: List[str], urn_domain: str = LI_DOMAIN):
+    def __init__(
+        self, entity_type: str, entity_id: List[str], urn_domain: str = LI_DOMAIN
+    ):
         if len(entity_id) == 0:
             raise InvalidUrnError("Empty entity id.")
         self._validate_entity_type(entity_type)
@@ -36,13 +39,9 @@ class Urn:
 
         # expect urn string in format of urn:<domain>:<type>:<id>
         cls.validate(urn_str)
-        parts: List[str] = urn_str.split(':', 3)
+        parts: List[str] = urn_str.split(":", 3)
 
-        return cls(
-            parts[2],
-            cls._get_entity_id_from_str(parts[3]),
-            parts[1]
-        )
+        return cls(parts[2], cls._get_entity_id_from_str(parts[3]), parts[1])
 
     @classmethod
     def validate(cls, urn_str: str) -> None:
@@ -51,22 +50,26 @@ class Urn:
         :param urn_str: to be validated urn string
         :raises InvalidUrnError if the string representation is in invalid format
         """
-        parts: List[str] = urn_str.split(':', 3)
+        parts: List[str] = urn_str.split(":", 3)
         if len(parts) != 4:
-            raise InvalidUrnError(f"Invalid urn string: {urn_str}. "
-                                  f"Expect 4 parts from urn string but found {len(parts)}")
+            raise InvalidUrnError(
+                f"Invalid urn string: {urn_str}. Expect 4 parts from urn string but found {len(parts)}"
+            )
 
         if "" in parts:
-            raise InvalidUrnError(f"Invalid urn string: {urn_str}. "
-                                  f"There should not be empty parts in urn string.")
+            raise InvalidUrnError(
+                f"Invalid urn string: {urn_str}. There should not be empty parts in urn string."
+            )
 
         if parts[0] != Urn.URN_PREFIX:
-            raise InvalidUrnError(f"Invalid urn string: {urn_str}. "
-                                  f"Expect urn starting with \"urn\" but found {parts[0]}")
+            raise InvalidUrnError(
+                f'Invalid urn string: {urn_str}. Expect urn starting with "urn" but found {parts[0]}'
+            )
 
         if "" in cls._get_entity_id_from_str(parts[3]):
-            raise InvalidUrnError(f"Invalid entity id in urn string: {urn_str}. "
-                                  f"There should not be empty parts in entity id.")
+            raise InvalidUrnError(
+                f"Invalid entity id in urn string: {urn_str}. There should not be empty parts in entity id."
+            )
 
         cls._validate_entity_type(parts[2])
         cls._validate_entity_id(cls._get_entity_id_from_str(parts[3]))
@@ -104,7 +107,7 @@ class Urn:
     def __str__(self) -> str:
         return f"{self.URN_PREFIX}:{self._domain}:{self._entity_type}:{self._entity_id_to_string()}"
 
-    def _entity_id_to_string(self):
+    def _entity_id_to_string(self) -> str:
         if len(self._entity_id) == 1:
             return self._entity_id[0]
         result = ""
@@ -112,13 +115,15 @@ class Urn:
             result = result + part + ","
         return f"({result[:-1]})"
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash((self._domain, self._entity_type) + tuple(self._entity_id))
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, Urn):
             return False
 
-        return self._entity_id == other._entity_id \
-               and self._domain == other._domain \
-               and self._entity_type == other._entity_type
+        return (
+            self._entity_id == other._entity_id
+            and self._domain == other._domain
+            and self._entity_type == other._entity_type
+        )

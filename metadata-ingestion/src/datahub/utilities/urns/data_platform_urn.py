@@ -8,7 +8,8 @@ class DataPlatformUrn(Urn):
     """
     expected dataset urn format: urn:li:dataPlatform:<platform_name>. example: "urn:li:dataPlatform:hive"
     """
-    ENTITY_TYPE: str = 'dataPlatform'
+
+    ENTITY_TYPE: str = "dataPlatform"
 
     def __init__(self, entity_type: str, entity_id: List[str], domain: str = "li"):
         super().__init__(entity_type, entity_id, domain)
@@ -25,4 +26,6 @@ class DataPlatformUrn(Urn):
     @staticmethod
     def _validate_entity_type(entity_type: str) -> None:
         if entity_type != DataPlatformUrn.ENTITY_TYPE:
-            raise InvalidUrnError(f"Entity type should be {DataPlatformUrn.ENTITY_TYPE} but found {entity_type}")
+            raise InvalidUrnError(
+                f"Entity type should be {DataPlatformUrn.ENTITY_TYPE} but found {entity_type}"
+            )

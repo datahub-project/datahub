@@ -10,7 +10,8 @@ class DatasetUrn(Urn):
     expected dataset urn format: urn:li:dataset:(<platform_urn_str>,<table_name>,env). example:
     urn:li:dataset:(urn:li:dataPlatform:hive,member,prod)
     """
-    ENTITY_TYPE: str = 'dataset'
+
+    ENTITY_TYPE: str = "dataset"
 
     def __init__(self, entity_type: str, entity_id: List[str], domain: str = "li"):
         super().__init__(entity_type, entity_id, domain)
@@ -45,20 +46,30 @@ class DatasetUrn(Urn):
         return self.get_entity_id()[2]
 
     @classmethod
-    def create_from_ids(cls, platform_id: str, table_name: str, env: str) -> "DatasetUrn":
-        entity_id: List[str] = [str(DataPlatformUrn.create_from_id(platform_id)), table_name, env]
+    def create_from_ids(
+        cls, platform_id: str, table_name: str, env: str
+    ) -> "DatasetUrn":
+        entity_id: List[str] = [
+            str(DataPlatformUrn.create_from_id(platform_id)),
+            table_name,
+            env,
+        ]
         return cls(DatasetUrn.ENTITY_TYPE, entity_id)
 
     @staticmethod
     def _validate_entity_type(entity_type: str) -> None:
         if entity_type != DatasetUrn.ENTITY_TYPE:
-            raise InvalidUrnError(f"Entity type should be {DatasetUrn.ENTITY_TYPE} but found {entity_type}")
+            raise InvalidUrnError(
+                f"Entity type should be {DatasetUrn.ENTITY_TYPE} but found {entity_type}"
+            )
 
     @staticmethod
     def _validate_entity_id(entity_id: List[str]) -> None:
         # expected entity id format (<platform_urn>,<table_name>,<env>)
         if len(entity_id) != 3:
-            raise InvalidUrnError(f"Expect 3 parts in the entity id but found {entity_id}")
+            raise InvalidUrnError(
+                f"Expect 3 parts in the entity id but found {entity_id}"
+            )
 
         platform_urn_str = entity_id[0]
 
