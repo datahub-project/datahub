@@ -108,6 +108,8 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `domain.domain_urn.deny`                     |          |                          | List of regex patterns for topics to not assign domain_urn. There can be multiple domain key specified.                                                                                                                                                                              |
 | `domain.domain_urn.ignoreCase`               |          | `True`                   | Whether to ignore case sensitivity during pattern matching.There can be multiple domain key specified.                                                                                                                                                                               |
 | `platform_instance`         |          | None             | The Platform instance to use while constructing URNs.         |
+| `ignore_warnings_on_schema_type`         |          | `False`             | Set to `True` to disable warnings reported for non-AVRO value or key schemas.         |
+| `ignore_warnings_on_missing_schema`         |          | `False`             | Set to `True` to disable warnings produced by missing value schemas.         |
 
 
 The options in the consumer config and schema registry config are passed to the Kafka DeserializingConsumer and SchemaRegistryClient respectively.

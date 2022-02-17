@@ -299,7 +299,7 @@ class KafkaSource(StatefulIngestionSourceBase):
                     topic,
                     message,
                 )
-            
+
         schema_metadata: Optional[SchemaMetadata] = None
         schema: Optional[Schema] = None
         try:
