@@ -573,7 +573,7 @@ class GlueSource(Source):
         return DatabaseKey(
             database=database,
             platform=self.platform,
-            instance=self.env,
+            instance=self.source_config.platform_instance or "",
         )
 
     def gen_database_containers(self, database: str) -> Iterable[MetadataWorkUnit]:
