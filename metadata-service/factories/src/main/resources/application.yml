@@ -59,6 +59,10 @@ graphService:
 searchService:
   resultBatchSize: ${SEARCH_SERVICE_BATCH_SIZE:100}
 
+recommendationService:
+  mostPopular:
+    source: ${RECOMMENDATION_MOST_POPULAR_CANDIDATE_SOURCE:MostPopularSource}
+
 configEntityRegistry:
   # TODO: Change to read from resources on classpath.
   path: ${ENTITY_REGISTRY_CONFIG_PATH:../../metadata-models/src/main/resources/entity-registry.yml}

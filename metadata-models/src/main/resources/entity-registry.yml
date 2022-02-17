@@ -105,3 +105,7 @@ entities:
     keyAspect: constraintKey
     aspects:
       - constraintInfo
+  - name: recommendationModule
+    keyAspect: recommendationModuleKey
+    aspects:
+      - recommendationModule
