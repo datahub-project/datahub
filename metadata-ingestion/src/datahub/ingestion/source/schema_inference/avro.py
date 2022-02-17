@@ -14,6 +14,6 @@ class AvroInferrer(SchemaInferenceBase):
 
         reader = DataFileReader(file, DatumReader())
 
-        schema = schema_util.avro_schema_to_mce_fields(reader.schema)
+        fields = schema_util.avro_schema_to_mce_fields(reader.schema)
 
-        return schema
+        return fields
