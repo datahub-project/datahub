@@ -196,7 +196,7 @@ export default function TagTermGroup({
                 if (maxShow && renderedTags > maxShow) return null;
                 return (
                     <TagLink to={entityRegistry.getEntityUrl(EntityType.Tag, tag.tag.urn)} key={tag.tag.urn}>
-                        <StyledTag $colorHash={tag.tag.urn} closable={false}>
+                        <StyledTag $colorHash={tag.tag.properties?.colorHex} closable={false}>
                             {tag.tag.name}
                         </StyledTag>
                     </TagLink>
@@ -204,13 +204,14 @@ export default function TagTermGroup({
             })}
             {/* editable tags may be provided by ingestion pipelines or the UI */}
             {editableTags?.tags?.map((tag) => {
+                console.log('tag.tag.properties?.colorHex::', tag.tag.properties?.colorHex);
                 renderedTags += 1;
                 if (maxShow && renderedTags > maxShow) return null;
                 return (
                     <StyledTag
                         style={{ cursor: 'pointer' }}
                         onClick={() => showTagProfileDrawer(tag.tag.urn)}
-                        $colorHash={tag.tag.urn}
+                        $colorHash={tag.tag.properties?.colorHex}
                         closable={canRemove}
                         onClose={(e) => {
                             e.preventDefault();

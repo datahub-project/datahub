@@ -3,46 +3,72 @@ import { Alert, Drawer, Button, Typography, Divider, Space, message } from 'antd
 import styled from 'styled-components';
 import { grey } from '@ant-design/colors';
 import { useHistory } from 'react-router';
-import { EditOutlined, PlusOutlined } from '@ant-design/icons';
+import { PlusOutlined } from '@ant-design/icons';
 import { ChromePicker } from 'react-color';
+import { ApolloError } from '@apollo/client';
 
 import { useGetTagWithColorQuery } from '../../../graphql/tag.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { EntityType } from '../../../types.generated';
-import { useGetAllEntitySearchResults } from '../../../utils/customGraphQL/useGetAllEntitySearchResults';
+import { EntityType, FacetMetadata, Maybe, Scalars } from '../../../types.generated';
 import { navigateToSearchUrl } from '../../search/utils/navigateToSearchUrl';
 import { useSetTagColorMutation, useUpdateDescriptionMutation } from '../../../graphql/mutations.generated';
 import { ExpandedOwner } from '../../entity/shared/components/styled/ExpandedOwner';
 import { EMPTY_MESSAGES } from '../../entity/shared/constants';
 import { AddOwnerModal } from '../../entity/shared/containers/profile/sidebar/Ownership/AddOwnerModal';
-import MarkdownViewer from '../../entity/shared/components/legacy/MarkdownViewer';
-import StripMarkdownText, { removeMarkdown } from '../../entity/shared/components/styled/StripMarkdownText';
-import UpdateDescriptionModal from '../../entity/shared/components/legacy/DescriptionModal';
 import analytics from '../../analytics/analytics';
 import { EntityActionType, EventType } from '../../analytics/event';
+import { SearchResultInterface, GetSearchResultsParams } from '../../entity/shared/components/styled/search/types';
+import { useGetSearchResultsForMultipleQuery } from '../../../graphql/search.generated';
+
+function useWrappedSearchResults(params: GetSearchResultsParams) {
+    const { data, loading, error } = useGetSearchResultsForMultipleQuery(params);
+    return { data: data?.searchAcrossEntities, loading, error };
+}
+
+const { Paragraph } = Typography;
+
+type SearchResultsInterface = {
+    /** The offset of the result set */
+    start: Scalars['Int'];
+    /** The number of entities included in the result set */
+    count: Scalars['Int'];
+    /** The total number of search results matching the query and filters */
+    total: Scalars['Int'];
+    /** The search result entities */
+    searchResults: Array<SearchResultInterface>;
+    /** Candidate facet aggregations used for search filtering */
+    facets?: Maybe<Array<FacetMetadata>>;
+};
 
 type Props = {
     closeTagProfileDrawer?: () => void;
     tagProfileDrawerVisible?: boolean;
     urn: string;
+    useGetSearchResults?: (params: GetSearchResultsParams) => {
+        data: SearchResultsInterface | undefined | null;
+        loading: boolean;
+        error: ApolloError | undefined;
+    };
 };
 
 const TitleLabel = styled(Typography.Text)`
     &&& {
         color: ${grey[2]};
-        font-size: 13px;
+        font-size: 12px;
         display: block;
+        line-height: 20px;
+        font-weight: 700;
     }
 `;
 
 const TitleText = styled(Typography.Text)`
     &&& {
-        color: rgba(0, 0, 0, 0.85);
-        font-weight: 600;
-        font-size: 21px;
-        line-height: 1.35;
+        color: ${grey[10]};
+        font-weight: 700;
+        font-size: 20px;
+        line-height: 28px;
         display: inline-block;
-        margin-left: 5px;
+        margin: 0px 7px;
     }
 `;
 
@@ -53,8 +79,8 @@ const ColorPicker = styled.div`
 `;
 
 const ColorPickerButton = styled.div`
-    width: 20px;
-    height: 20px;
+    width: 16px;
+    height: 16px;
     border: none;
     border-radius: 50%;
 `;
@@ -64,22 +90,13 @@ const ColorPickerPopOver = styled.div`
     z-index: 100;
 `;
 
-const NoDescriptionText = styled(Typography.Text)`
-    &&& {
-        font-size: 13px;
-        font-weight: 500;
+export const EmptyValue = styled.div`
+    &:after {
+        content: 'No Description';
+        color: #b7b7b7;
         font-style: italic;
-        display: block;
+        font-weight: 100;
     }
-`;
-
-const DescriptionText = styled(MarkdownViewer)`
-    padding-right: 8px;
-    display: block;
-`;
-
-const EditIcon = styled(EditOutlined)`
-    cursor: pointer;
 `;
 
 const DetailsLayout = styled.div`
@@ -94,9 +111,19 @@ const StatsBox = styled.div`
 
 const StatsLabel = styled(Typography.Text)`
     &&& {
-        font-size: 13px;
-        font-weight: 600;
+        color: ${grey[10]};
+        font-size: 14px;
+        font-weight: 700;
+        line-height: 28px;
     }
+`;
+
+const StatsButton = styled(Button)`
+    padding: 0px 0px;
+    margin-top: 0px;
+    font-weight: 700;
+    font-size: 12px;
+    line-height: 20px;
 `;
 
 const EmptyStatsText = styled(Typography.Text)`
@@ -104,41 +131,27 @@ const EmptyStatsText = styled(Typography.Text)`
     font-style: italic;
 `;
 
-const StatsButton = styled(Button)`
-    padding: 5.6px 0px;
-    margin-top: -4px;
-`;
-
-const ExpandedActions = styled.div`
-    height: 10px;
-`;
-
-const ReadLessText = styled(Typography.Link)`
-    margin-right: 4px;
-`;
-
-const ABBREVIATED_LIMIT = 80;
-
-export const TagProfileDrawer = ({ closeTagProfileDrawer, tagProfileDrawerVisible, urn }: Props) => {
+export const TagProfileDrawer = ({
+    closeTagProfileDrawer,
+    tagProfileDrawerVisible,
+    urn,
+    useGetSearchResults = useWrappedSearchResults,
+}: Props) => {
     const { loading, error, data, refetch } = useGetTagWithColorQuery({ variables: { urn } });
-    const entityRegistry = useEntityRegistry();
     const history = useHistory();
     const [updateDescription] = useUpdateDescriptionMutation();
     const [setTagColorMutation] = useSetTagColorMutation();
-
     const entityAndSchemaQuery = `tags:"${data?.tag?.properties?.name}" OR fieldTags:"${data?.tag?.properties?.name}" OR editedFieldTags:"${data?.tag?.properties?.name}"`;
+    const entityRegistry = useEntityRegistry();
     const entityQuery = `tags:"${data?.tag?.properties?.name}"`;
-    const ownersEmpty = !data?.tag?.ownership?.owners?.length;
-    const description = data?.tag?.properties?.description || '';
-    const hexColor = data?.tag?.properties?.colorHex || '';
 
-    const [showAddModal, setShowAddModal] = useState(false);
-    const [showEditModal, setShowEditModal] = useState(false);
+    const description = data?.tag?.properties?.description || '';
     const [updatedDescription, setUpdatedDescription] = useState('');
-    const overLimit = removeMarkdown(updatedDescription).length > 80;
-    const [expanded, setExpanded] = useState(!overLimit);
+    const hexColor = data?.tag?.properties?.colorHex || '';
     const [displayColorPicker, setDisplayColorPicker] = useState(false);
     const [colorValue, setColorValue] = useState('');
+    const ownersEmpty = !data?.tag?.ownership?.owners?.length;
+    const [showAddModal, setShowAddModal] = useState(false);
 
     useEffect(() => {
         setUpdatedDescription(description);
@@ -148,29 +161,22 @@ export const TagProfileDrawer = ({ closeTagProfileDrawer, tagProfileDrawerVisibl
         setColorValue(hexColor);
     }, [hexColor]);
 
-    const allSearchResultsByType = useGetAllEntitySearchResults({
-        query: entityAndSchemaQuery,
-        start: 0,
-        count: 1,
-        filters: [],
+    const { data: facetData, loading: facetLoading } = useGetSearchResults({
+        variables: {
+            input: {
+                query: entityAndSchemaQuery,
+                start: 0,
+                count: 1,
+                filters: [],
+            },
+        },
     });
 
-    const statsLoading = Object.keys(allSearchResultsByType).some((type) => {
-        return allSearchResultsByType[type].loading;
-    });
+    const facets = facetData?.facets?.filter((facet) => facet?.field === 'entity') || [];
+    const aggregations = facets && facets[0]?.aggregations;
 
-    const someStats =
-        !statsLoading &&
-        Object.keys(allSearchResultsByType).some((type) => {
-            return allSearchResultsByType[type]?.data?.search.total > 0;
-        });
-
-    if (error || (!loading && !error && !data)) {
-        return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
-    }
-
-    // Handle Color Picker Change
-    const closePicker = async () => {
+    // Save Color Change
+    const saveColor = async () => {
         if (displayColorPicker) {
             message.loading({ content: 'Saving...' });
             try {
@@ -195,20 +201,12 @@ export const TagProfileDrawer = ({ closeTagProfileDrawer, tagProfileDrawerVisibl
 
     const handlePickerClick = () => {
         setDisplayColorPicker(!displayColorPicker);
-        closePicker();
+        saveColor();
     };
 
     const handleColorChange = (color: any) => {
         setColorValue(color?.hex);
     };
-
-    const EditButton = (
-        <>
-            <EditIcon twoToneColor="#52c41a" onClick={() => setShowEditModal(true)} />
-        </>
-    );
-
-    const onCloseEditModal = () => setShowEditModal(false);
 
     // Update Description
     const updateDescriptionValue = (desc: string) => {
@@ -223,7 +221,7 @@ export const TagProfileDrawer = ({ closeTagProfileDrawer, tagProfileDrawerVisibl
         });
     };
 
-    // Handle save button click on Edit description Modal
+    // Save the description
     const handleSaveDescription = async (desc: string) => {
         message.loading({ content: 'Saving...' });
         try {
@@ -236,7 +234,6 @@ export const TagProfileDrawer = ({ closeTagProfileDrawer, tagProfileDrawerVisibl
                 entityType: EntityType.Tag,
                 entityUrn: urn,
             });
-            onCloseEditModal();
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
@@ -246,11 +243,16 @@ export const TagProfileDrawer = ({ closeTagProfileDrawer, tagProfileDrawerVisibl
         refetch?.();
     };
 
+    if (error || (!loading && !error && !data)) {
+        return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
+    }
+
     return (
         <>
             <Drawer
                 width={500}
                 placement="right"
+                maskClosable={false}
                 closable={false}
                 onClose={closeTagProfileDrawer}
                 visible={tagProfileDrawerVisible}
@@ -278,94 +280,41 @@ export const TagProfileDrawer = ({ closeTagProfileDrawer, tagProfileDrawerVisibl
                     </div>
                     <Divider />
                     {/* Tag Description */}
-                    {description.length === 0 ? (
-                        <>
-                            <NoDescriptionText>No Description</NoDescriptionText>
-                            {EditButton}
-                        </>
-                    ) : (
-                        <>
-                            {expanded ? (
-                                <>
-                                    {updatedDescription && <DescriptionText source={updatedDescription} />}
-                                    {updatedDescription && (
-                                        <ExpandedActions>
-                                            {overLimit && (
-                                                <ReadLessText
-                                                    onClick={() => {
-                                                        setExpanded(false);
-                                                    }}
-                                                >
-                                                    Read Less
-                                                </ReadLessText>
-                                            )}
-                                            {EditButton}
-                                        </ExpandedActions>
-                                    )}
-                                </>
-                            ) : (
-                                <>
-                                    <StripMarkdownText
-                                        limit={ABBREVIATED_LIMIT}
-                                        readMore={
-                                            <>
-                                                <Typography.Link
-                                                    onClick={() => {
-                                                        setExpanded(true);
-                                                    }}
-                                                >
-                                                    Read More
-                                                </Typography.Link>
-                                            </>
-                                        }
-                                        suffix={EditButton}
-                                    >
-                                        {updatedDescription}
-                                    </StripMarkdownText>
-                                </>
-                            )}
-                        </>
-                    )}
-                    {/* Edit Description Modal */}
-                    {showEditModal && (
-                        <div>
-                            <UpdateDescriptionModal
-                                title={updatedDescription.length > 0 ? 'Update description' : 'Add description'}
-                                description={updatedDescription}
-                                onClose={onCloseEditModal}
-                                onSubmit={handleSaveDescription}
-                            />
-                        </div>
-                    )}
+                    <Paragraph
+                        editable={{ onChange: handleSaveDescription }}
+                        ellipsis={{ rows: 2, expandable: true, symbol: 'Read more' }}
+                    >
+                        {updatedDescription || <EmptyValue />}
+                    </Paragraph>
                     <Divider />
                     {/* Tag Charts, Datasets and Owners */}
                     <DetailsLayout>
                         <StatsBox>
                             <StatsLabel>Applied to</StatsLabel>
-                            {statsLoading && (
+                            {facetLoading && (
                                 <div>
                                     <EmptyStatsText>Loading...</EmptyStatsText>
                                 </div>
                             )}
-                            {!statsLoading && !someStats && (
+                            {!facetLoading && aggregations.length === 0 && (
                                 <div>
                                     <EmptyStatsText>No entities</EmptyStatsText>
                                 </div>
                             )}
-                            {!statsLoading &&
-                                someStats &&
-                                Object.keys(allSearchResultsByType).map((type) => {
-                                    if (allSearchResultsByType[type]?.data?.search.total === 0) {
+                            {!facetLoading &&
+                                aggregations &&
+                                aggregations.map((aggregation) => {
+                                    if (aggregation?.count === 0) {
                                         return null;
                                     }
                                     return (
-                                        <div key={type}>
+                                        <div key={aggregation?.value}>
                                             <StatsButton
                                                 onClick={() =>
                                                     navigateToSearchUrl({
-                                                        type: type as EntityType,
+                                                        type: aggregation?.value as EntityType,
                                                         query:
-                                                            type === EntityType.Dataset
+                                                            aggregation?.value === EntityType.Dataset
                                                                 ? entityAndSchemaQuery
                                                                 : entityQuery,
                                                         history,
@@ -373,9 +322,10 @@ export const TagProfileDrawer = ({ closeTagProfileDrawer, tagProfileDrawerVisibl
                                                 }
                                                 type="link"
                                             >
-                                                <span data-testid={`stats-${type}`}>
-                                                    {allSearchResultsByType[type]?.data?.search.total}{' '}
-                                                    {entityRegistry.getCollectionName(type as EntityType)} &gt;
+                                                <span data-testid={`stats-${aggregation?.value}`}>
+                                                    {aggregation?.count}{' '}
+                                                    {entityRegistry.getCollectionName(aggregation?.value as EntityType)}{' '}
+                                                    &gt;
                                                 </span>
                                             </StatsButton>
                                         </div>

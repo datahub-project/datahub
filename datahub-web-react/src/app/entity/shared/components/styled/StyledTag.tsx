@@ -6,7 +6,7 @@ const generateColor = new ColorHash({
     saturation: 0.9,
 });
 
-export const StyledTag = styled(Tag)<{ $colorHash?: string }>`
+export const StyledTag = styled(Tag)<{ $colorHash?: string | null }>`
     ${(props) =>
         props.$colorHash &&
         css`

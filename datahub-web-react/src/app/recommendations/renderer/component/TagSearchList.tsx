@@ -54,7 +54,7 @@ export const TagSearchList = ({ content, onClick }: Props) => {
             {tags.map((tag, index) => (
                 <TagContainer>
                     <TagButton type="link" key={tag.urn} onClick={() => onClickTag(tag, index)}>
-                        <StyledTag $colorHash={tag.urn} closable={false}>
+                        <StyledTag $colorHash={tag.properties?.colorHex} closable={false}>
                             {tag.name}
                         </StyledTag>
                     </TagButton>

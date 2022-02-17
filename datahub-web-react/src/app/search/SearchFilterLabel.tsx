@@ -51,7 +51,7 @@ export const SearchFilterLabel = ({ aggregation, field }: Props) => {
         const tag = aggregation.entity as TagType;
         return (
             <>
-                <StyledTag $colorHash={tag.urn}>{tag.name}</StyledTag>({countText})
+                <StyledTag $colorHash={tag.properties?.colorHex}>{tag.name}</StyledTag>({countText})
             </>
         );
     }
