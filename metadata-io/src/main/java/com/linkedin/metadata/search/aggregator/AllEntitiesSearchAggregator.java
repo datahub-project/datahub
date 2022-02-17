@@ -56,6 +56,7 @@ public class AllEntitiesSearchAggregator {
       "tags",
       "glossaryTerms",
       "container",
+      "owners",
       "origin");
 
   public AllEntitiesSearchAggregator(EntityRegistry entityRegistry, EntitySearchService entitySearchService,
