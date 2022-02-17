@@ -1,43 +1,47 @@
 package com.linkedin.datahub.graphql.types.chart.mappers;
 
+import com.linkedin.chart.EditableChartProperties;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.chart.EditableChartProperties;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.generated.ChartUpdateInput;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipUpdateMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UpdateMappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.InputModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.TagAssociationUpdateMapper;
-import com.linkedin.metadata.aspect.ChartAspect;
-import com.linkedin.metadata.aspect.ChartAspectArray;
-import com.linkedin.metadata.snapshot.ChartSnapshot;
-
-import javax.annotation.Nonnull;
+import com.linkedin.mxe.MetadataChangeProposal;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 
-public class ChartUpdateInputSnapshotMapper implements InputModelMapper<ChartUpdateInput, ChartSnapshot, Urn> {
+import static com.linkedin.metadata.Constants.*;
 
-    public static final ChartUpdateInputSnapshotMapper INSTANCE = new ChartUpdateInputSnapshotMapper();
 
-    public static ChartSnapshot map(@Nonnull final ChartUpdateInput chartUpdateInput,
+public class ChartUpdateInputMapper implements InputModelMapper<ChartUpdateInput, Collection<MetadataChangeProposal>, Urn> {
+
+    public static final ChartUpdateInputMapper INSTANCE = new ChartUpdateInputMapper();
+
+    public static Collection<MetadataChangeProposal> map(@Nonnull final ChartUpdateInput chartUpdateInput,
                                     @Nonnull final Urn actor) {
         return INSTANCE.apply(chartUpdateInput, actor);
     }
 
     @Override
-    public ChartSnapshot apply(@Nonnull final ChartUpdateInput chartUpdateInput,
+    public Collection<MetadataChangeProposal> apply(@Nonnull final ChartUpdateInput chartUpdateInput,
                                @Nonnull final Urn actor) {
-        final ChartSnapshot result = new ChartSnapshot();
+        final Collection<MetadataChangeProposal> proposals = new ArrayList<>(3);
         final AuditStamp auditStamp = new AuditStamp();
         auditStamp.setActor(actor, SetMode.IGNORE_NULL);
         auditStamp.setTime(System.currentTimeMillis());
-
-        final ChartAspectArray aspects = new ChartAspectArray();
+        final UpdateMappingHelper updateMappingHelper = new UpdateMappingHelper(CHART_ENTITY_NAME);
 
         if (chartUpdateInput.getOwnership() != null) {
-            aspects.add(ChartAspect.create(OwnershipUpdateMapper.map(chartUpdateInput.getOwnership(), actor)));
+            proposals.add(updateMappingHelper
+                .aspectToProposal(OwnershipUpdateMapper.map(chartUpdateInput.getOwnership(), actor),
+                    OWNERSHIP_ASPECT_NAME));
         }
 
         if (chartUpdateInput.getTags() != null || chartUpdateInput.getGlobalTags() != null) {
@@ -61,7 +65,7 @@ public class ChartUpdateInputSnapshotMapper implements InputModelMapper<ChartUpd
                     )
                 );
             }
-            aspects.add(ChartAspect.create(globalTags));
+            proposals.add(updateMappingHelper.aspectToProposal(globalTags, GLOBAL_TAGS_ASPECT_NAME));
         }
 
         if (chartUpdateInput.getEditableProperties() != null) {
@@ -71,12 +75,10 @@ public class ChartUpdateInputSnapshotMapper implements InputModelMapper<ChartUpd
                 editableChartProperties.setCreated(auditStamp);
             }
             editableChartProperties.setLastModified(auditStamp);
-            aspects.add(ChartAspect.create(editableChartProperties));
+            proposals.add(updateMappingHelper.aspectToProposal(editableChartProperties, EDITABLE_CHART_PROPERTIES_ASPECT_NAME));
         }
 
-        result.setAspects(aspects);
-
-        return result;
+        return proposals;
     }
 
 }

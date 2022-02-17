@@ -7,6 +7,7 @@ import { EntityType, SearchResult } from '../../../../../../../types.generated';
 import { useSetDomainMutation } from '../../../../../../../graphql/mutations.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { useEntityData } from '../../../../EntityContext';
+import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
 
 type Props = {
     visible: boolean;
@@ -44,9 +45,6 @@ export const SetDomainModal = ({ visible, onClose, refetch }: Props) => {
     const [domainSearch, { data: domainSearchData }] = useGetSearchResultsLazyQuery();
     const domainSearchResults = domainSearchData?.search?.searchResults || [];
     const [setDomainMutation] = useSetDomainMutation();
-
-    console.log('Re rendering');
-    console.log(domainSearchResults);
 
     const inputEl = useRef(null);
 
@@ -104,6 +102,11 @@ export const SetDomainModal = ({ visible, onClose, refetch }: Props) => {
         }
     };
 
+    // Handle the Enter press
+    useEnterKeyListener({
+        querySelectorToExecuteClick: '#setDomainButton',
+    });
+
     const renderSearchResult = (result: SearchResult) => {
         const displayName = entityRegistry.getDisplayName(result.entity.type, result.entity);
         return (
@@ -136,7 +139,7 @@ export const SetDomainModal = ({ visible, onClose, refetch }: Props) => {
                     <Button onClick={onClose} type="text">
                         Cancel
                     </Button>
-                    <Button disabled={selectedDomain === undefined} onClick={onOk}>
+                    <Button id="setDomainButton" disabled={selectedDomain === undefined} onClick={onOk}>
                         Add
                     </Button>
                 </>
@@ -145,6 +148,7 @@ export const SetDomainModal = ({ visible, onClose, refetch }: Props) => {
             <Form component={false}>
                 <Form.Item>
                     <Select
+                        autoFocus
                         value={selectValue}
                         mode="multiple"
                         ref={inputEl}
@@ -156,7 +160,6 @@ export const SetDomainModal = ({ visible, onClose, refetch }: Props) => {
                         tagRender={(tagProps) => <Tag>{tagProps.value}</Tag>}
                     >
                         {domainSearchResults.map((result) => {
-                            console.log(result);
                             return (
                                 <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
                             );

@@ -17,11 +17,12 @@ various levels:
 ## What type of retention policies are supported?
 
 We support 3 types of retention policies for aspects:
-Policy | Versions Kept |
---- | --- |
-Indefinite | All versions
-Version-based | Latest *N* versions
-Time-based |  Versions ingested in last *N* seconds
+
+|     Policy    |            Versions Kept            |
+|:-------------:|:-----------------------------------:|
+| Indefinite    | All versions                        |
+| Version-based | Latest *N* versions                   |
+| Time-based    | Versions ingested in last *N* seconds |
 
 **Note:** The latest version (version 0) is never deleted. This ensures core functionality of DataHub is not impacted while applying retention.
 

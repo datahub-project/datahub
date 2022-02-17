@@ -81,6 +81,19 @@ task yarnLint(type: YarnTask, dependsOn: [yarnInstall]) {
   outputs.cacheIf { true }
 }
 
+task yarnLintFix(type: YarnTask, dependsOn: [yarnInstall]) {
+  inputs.files(projectMdFiles)
+  args = ['run', 'lint-fix']
+  outputs.dir("dist")
+  // tell gradle to apply the build cache
+  outputs.cacheIf { true }
+}
+
+task serve(type: YarnTask, dependsOn: [yarnInstall] ) {
+  args = ['run', 'serve']
+}
+
+
 task yarnBuild(type: YarnTask, dependsOn: [yarnLint, yarnGenerate]) {
   inputs.files(projectMdFiles)
   inputs.file("package.json").withPathSensitivity(PathSensitivity.RELATIVE)

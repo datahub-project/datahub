@@ -61,8 +61,8 @@ export const SearchFilterLabel = ({ aggregation, field }: Props) => {
         return (
             <>
                 <Tag closable={false}>
+                    <BookOutlined style={{ marginRight: '3%' }} />
                     {term.name}
-                    <BookOutlined style={{ marginLeft: '2%' }} />
                 </Tag>
                 ({countText})
             </>

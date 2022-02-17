@@ -585,7 +585,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         schema_container_key = self.gen_schema_key(db_name, schema)
 
-        database_container_key = self.gen_database_key(database=db_name)
+        database_container_key: Optional[PlatformKey] = None
+        if db_name is not None:
+            database_container_key = self.gen_database_key(database=db_name)
 
         container_workunits = gen_containers(
             schema_container_key,
@@ -625,8 +627,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                     self.report.report_dropped(f"{schema}.*")
                     continue
 
-                if db_name:
-                    yield from self.gen_schema_containers(schema, db_name)
+                yield from self.gen_schema_containers(schema, db_name)
 
                 if sql_config.include_tables:
                     yield from self.loop_tables(inspector, schema, sql_config)
@@ -763,28 +764,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
             columns = self._get_columns(dataset_name, inspector, schema, table)
 
-            try:
-                # SQLALchemy stubs are incomplete and missing this method.
-                # PR: https://github.com/dropbox/sqlalchemy-stubs/pull/223.
-                table_info: dict = inspector.get_table_comment(table, schema)  # type: ignore
-            except NotImplementedError:
-                description: Optional[str] = None
-                properties: Dict[str, str] = {}
-            except ProgrammingError as pe:
-                # Snowflake needs schema names quoted when fetching table comments.
-                logger.debug(
-                    f"Encountered ProgrammingError. Retrying with quoted schema name for schema {schema} and table {table}",
-                    pe,
-                )
-                description = None
-                properties = {}
-                table_info: dict = inspector.get_table_comment(table, f'"{schema}"')  # type: ignore
-            else:
-                description = table_info["text"]
-
-                # The "properties" field is a non-standard addition to SQLAlchemy's interface.
-                properties = table_info.get("properties", {})
-
             dataset_urn = make_dataset_urn_with_platform_instance(
                 self.platform,
                 dataset_name,
@@ -805,6 +784,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                         BaseSQLAlchemyCheckpointState, cur_checkpoint.state
                     )
                     checkpoint_state.add_table_urn(dataset_urn)
+
+            description, properties = self.get_table_properties(
+                inspector, schema, table
+            )
 
             if description is not None or properties:
                 dataset_properties = DatasetPropertiesClass(
@@ -850,6 +833,32 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 entity_type="dataset",
                 sql_config=sql_config,
             )
+
+    def get_table_properties(
+        self, inspector: Inspector, schema: str, table: str
+    ) -> Tuple[Optional[str], Optional[Dict[str, str]]]:
+        try:
+            # SQLALchemy stubs are incomplete and missing this method.
+            # PR: https://github.com/dropbox/sqlalchemy-stubs/pull/223.
+            table_info: dict = inspector.get_table_comment(table, schema)  # type: ignore
+        except NotImplementedError:
+            description: Optional[str] = None
+            properties: Dict[str, str] = {}
+        except ProgrammingError as pe:
+            # Snowflake needs schema names quoted when fetching table comments.
+            logger.debug(
+                f"Encountered ProgrammingError. Retrying with quoted schema name for schema {schema} and table {table}",
+                pe,
+            )
+            description = None
+            properties = {}
+            table_info: dict = inspector.get_table_comment(table, f'"{schema}"')  # type: ignore
+        else:
+            description = table_info["text"]
+
+            # The "properties" field is a non-standard addition to SQLAlchemy's interface.
+            properties = table_info.get("properties", {})
+        return description, properties
 
     def get_dataplatform_instance_aspect(
         self, dataset_urn: str

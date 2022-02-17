@@ -107,7 +107,8 @@ plugins: Dict[str, Set[str]] = {
         "apache-airflow >= 1.10.2",
     },
     # Source plugins
-    "athena": sql_common | {"PyAthena[SQLAlchemy]"},
+    # PyAthena is pinned with exact version because we use private method in PyAthena
+    "athena": sql_common | {"PyAthena[SQLAlchemy]==2.4.1"},
     "azure-ad": set(),
     "bigquery": sql_common | bigquery_common | {"pybigquery >= 0.6.0"},
     "bigquery-usage": bigquery_common | {"cachetools"},
@@ -191,8 +192,10 @@ base_dev_requirements = {
     "flake8>=3.8.3",
     "flake8-tidy-imports>=4.3.0",
     "isort>=5.7.0",
-    # Waiting for https://github.com/samuelcolvin/pydantic/pull/3175 before allowing mypy 0.920.
-    "mypy>=0.901,<0.920",
+    "mypy>=0.920",
+    # pydantic 1.8.2 is incompatible with mypy 0.910.
+    # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
+    "pydantic>=1.9.0",
     "pytest>=6.2.2",
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
@@ -245,18 +248,23 @@ dev_requirements = {
     "apache-airflow[snowflake]>=2.0.2",  # snowflake is used in example dags
     "snowflake-sqlalchemy<=1.2.4",  # make constraint consistent with extras
 }
-dev_requirements_airflow_1 = {
-    *base_dev_requirements,
+dev_requirements_airflow_1_base = {
     "apache-airflow==1.10.15",
     "apache-airflow-backport-providers-snowflake",
     "snowflake-sqlalchemy<=1.2.4",  # make constraint consistent with extras
     "WTForms==2.3.3",  # make constraint consistent with extras
+}
+dev_requirements_airflow_1 = {
+    *base_dev_requirements,
+    *dev_requirements_airflow_1_base,
 }
 
 full_test_dev_requirements = {
     *list(
         dependency
         for plugin in [
+            # Only include Athena for Python 3.7 or newer.
+            *(["athena"] if is_py37_or_newer else []),
             "druid",
             "feast",
             "hive",
@@ -398,6 +406,7 @@ setuptools.setup(
             )
         ),
         "dev": list(dev_requirements),
+        "dev-airflow1-base": list(dev_requirements_airflow_1_base),
         "dev-airflow1": list(dev_requirements_airflow_1),
         "integration-tests": list(full_test_dev_requirements),
     },
