@@ -4,38 +4,70 @@ query isAnalyticsEnabled {
 
 query getAnalyticsCharts {
     getAnalyticsCharts {
+        groupId
         title
         charts {
-            ... on TimeSeriesChart {
-                title
-                lines {
-                    name
-                    data {
-                        x
-                        y
-                    }
-                }
-                dateRange {
-                    start
-                    end
-                }
-                interval
+            ...analyticsChart
+        }
+    }
+}
+
+query getMetadataAnalyticsCharts($input: MetadataAnalyticsInput!) {
+    getMetadataAnalyticsCharts(input: $input) {
+        groupId
+        title
+        charts {
+            ...analyticsChart
+        }
+    }
+}
+
+fragment analyticsChart on AnalyticsChart {
+    ... on TimeSeriesChart {
+        title
+        lines {
+            name
+            data {
+                x
+                y
             }
-            ... on BarChart {
-                title
-                bars {
-                    name
-                    segments {
-                        label
-                        value
-                    }
-                }
+        }
+        dateRange {
+            start
+            end
+        }
+        interval
+    }
+    ... on BarChart {
+        title
+        bars {
+            name
+            segments {
+                label
+                value
             }
-            ... on TableChart {
-                title
-                columns
-                rows {
-                    values
+        }
+    }
+    ... on TableChart {
+        title
+        columns
+        rows {
+            values
+            cells {
+                value
+                linkParams {
+                    searchParams {
+                        types
+                        query
+                        filters {
+                            field
+                            value
+                        }
+                    }
+                    entityProfileParams {
+                        urn
+                        type
+                    }
                 }
             }
         }
