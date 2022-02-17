@@ -41,4 +41,23 @@ describe('search', () => {
 	// table description
 	cy.contains('table containing all the users created on a single day');
   });
+
+  it('can search and get glossary term facets with proper labels', () => {
+    cy.login();
+    cy.visit('/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)');
+    cy.contains('cypress_logging_events');
+
+    cy.contains('Add Term').click();
+
+    cy.focused().type('CypressTermLabeled');
+
+    cy.get('.ant-select-item-option-content').within(() => cy.contains('CypressNode.CypressTermLabeled').click({force: true}));
+
+    cy.get('[data-testid="add-tag-term-from-modal-btn"]').click({force: true});
+    cy.get('[data-testid="add-tag-term-from-modal-btn"]').should('not.exist');
+
+    cy.contains('CypressTermLabeled');
+    cy.visit('http://localhost:9002/search?query=cypress')
+    cy.contains('CypressTermlabeled')
+  });
 })
