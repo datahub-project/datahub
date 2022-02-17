@@ -2,12 +2,12 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:57aba13b10c1691508600999cd411c25",
+    "entityUrn": "urn:li:container:5c9faca60223215dd4a55bc23490f0ba",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-      "value": "{\"customProperties\": {\"platform\": \"trino\", \"instance\": \"PROD\", \"database\": \"library_catalog\"}, \"name\": \"library_catalog\"}",
+      "value": "{\"customProperties\": {\"platform\": \"trino\", \"database\": \"library_catalog\"}, \"name\": \"library_catalog\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -21,26 +21,7 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:57aba13b10c1691508600999cd411c25",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-      "value": "{\"platform\": \"urn:li:dataPlatform:trino\"}",
-      "contentType": "application/json"
-    },
-    "systemMetadata": {
-      "lastObserved": 1632398400000,
-      "runId": "trino-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
-    }
-  },
-  {
-    "auditHeader": null,
-    "entityType": "container",
-    "entityUrn": "urn:li:container:57aba13b10c1691508600999cd411c25",
+    "entityUrn": "urn:li:container:5c9faca60223215dd4a55bc23490f0ba",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -59,12 +40,12 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:8568c0971ce28c183fde0dff7f88e617",
+    "entityUrn": "urn:li:container:2aea0448929baa6c73cee3834074f196",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-      "value": "{\"customProperties\": {\"platform\": \"trino\", \"instance\": \"PROD\", \"database\": \"library_catalog\", \"schema\": \"librarydb\"}, \"name\": \"librarydb\"}",
+      "value": "{\"customProperties\": {\"platform\": \"trino\", \"database\": \"library_catalog\", \"schema\": \"librarydb\"}, \"name\": \"librarydb\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -78,26 +59,7 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:8568c0971ce28c183fde0dff7f88e617",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-      "value": "{\"platform\": \"urn:li:dataPlatform:trino\"}",
-      "contentType": "application/json"
-    },
-    "systemMetadata": {
-      "lastObserved": 1632398400000,
-      "runId": "trino-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
-    }
-  },
-  {
-    "auditHeader": null,
-    "entityType": "container",
-    "entityUrn": "urn:li:container:8568c0971ce28c183fde0dff7f88e617",
+    "entityUrn": "urn:li:container:2aea0448929baa6c73cee3834074f196",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -116,12 +78,12 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:8568c0971ce28c183fde0dff7f88e617",
+    "entityUrn": "urn:li:container:2aea0448929baa6c73cee3834074f196",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:57aba13b10c1691508600999cd411c25\"}",
+      "value": "{\"container\": \"urn:li:container:5c9faca60223215dd4a55bc23490f0ba\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -140,7 +102,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:8568c0971ce28c183fde0dff7f88e617\"}",
+      "value": "{\"container\": \"urn:li:container:2aea0448929baa6c73cee3834074f196\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -317,7 +279,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:8568c0971ce28c183fde0dff7f88e617\"}",
+      "value": "{\"container\": \"urn:li:container:2aea0448929baa6c73cee3834074f196\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -458,7 +420,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:8568c0971ce28c183fde0dff7f88e617\"}",
+      "value": "{\"container\": \"urn:li:container:2aea0448929baa6c73cee3834074f196\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -565,7 +527,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:8568c0971ce28c183fde0dff7f88e617\"}",
+      "value": "{\"container\": \"urn:li:container:2aea0448929baa6c73cee3834074f196\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {

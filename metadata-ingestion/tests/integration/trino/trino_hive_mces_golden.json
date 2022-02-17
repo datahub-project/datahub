@@ -2,12 +2,12 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7",
+    "entityUrn": "urn:li:container:9178e668559c5bd02628404522271670",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-      "value": "{\"customProperties\": {\"platform\": \"trino\", \"instance\": \"PROD\", \"database\": \"hivedb\"}, \"name\": \"hivedb\"}",
+      "value": "{\"customProperties\": {\"platform\": \"trino\", \"database\": \"hivedb\"}, \"name\": \"hivedb\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -21,26 +21,7 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-      "value": "{\"platform\": \"urn:li:dataPlatform:trino\"}",
-      "contentType": "application/json"
-    },
-    "systemMetadata": {
-      "lastObserved": 1632398400000,
-      "runId": "trino-hive-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
-    }
-  },
-  {
-    "auditHeader": null,
-    "entityType": "container",
-    "entityUrn": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7",
+    "entityUrn": "urn:li:container:9178e668559c5bd02628404522271670",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -59,12 +40,12 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84",
+    "entityUrn": "urn:li:container:5954737a5eb17f0af92654a8bbbf918c",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-      "value": "{\"customProperties\": {\"platform\": \"trino\", \"instance\": \"PROD\", \"database\": \"hivedb\", \"schema\": \"db1\"}, \"name\": \"db1\"}",
+      "value": "{\"customProperties\": {\"platform\": \"trino\", \"database\": \"hivedb\", \"schema\": \"db1\"}, \"name\": \"db1\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -78,26 +59,7 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-      "value": "{\"platform\": \"urn:li:dataPlatform:trino\"}",
-      "contentType": "application/json"
-    },
-    "systemMetadata": {
-      "lastObserved": 1632398400000,
-      "runId": "trino-hive-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
-    }
-  },
-  {
-    "auditHeader": null,
-    "entityType": "container",
-    "entityUrn": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84",
+    "entityUrn": "urn:li:container:5954737a5eb17f0af92654a8bbbf918c",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -116,12 +78,12 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84",
+    "entityUrn": "urn:li:container:5954737a5eb17f0af92654a8bbbf918c",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7\"}",
+      "value": "{\"container\": \"urn:li:container:9178e668559c5bd02628404522271670\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -140,7 +102,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84\"}",
+      "value": "{\"container\": \"urn:li:container:5954737a5eb17f0af92654a8bbbf918c\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -172,7 +134,7 @@
                 "numrows": "1",
                 "rawdatasize": "32",
                 "totalsize": "33",
-                "transient_lastddltime": "1643991015"
+                "transient_lastddltime": "1645133485"
               },
               "externalUrl": null,
               "description": "This table has array of structs",
@@ -303,7 +265,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84\"}",
+      "value": "{\"container\": \"urn:li:container:5954737a5eb17f0af92654a8bbbf918c\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -333,7 +295,7 @@
                 "numrows": "0",
                 "rawdatasize": "0",
                 "totalsize": "0",
-                "transient_lastddltime": "1643991018"
+                "transient_lastddltime": "1645133488"
               },
               "externalUrl": null,
               "description": null,
@@ -429,7 +391,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84\"}",
+      "value": "{\"container\": \"urn:li:container:5954737a5eb17f0af92654a8bbbf918c\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -459,7 +421,7 @@
                 "numrows": "0",
                 "rawdatasize": "0",
                 "totalsize": "0",
-                "transient_lastddltime": "1643991017"
+                "transient_lastddltime": "1645133488"
               },
               "externalUrl": null,
               "description": null,
@@ -620,7 +582,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84\"}",
+      "value": "{\"container\": \"urn:li:container:5954737a5eb17f0af92654a8bbbf918c\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -645,7 +607,7 @@
           {
             "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
               "customProperties": {
-                "transient_lastddltime": "1643991008"
+                "transient_lastddltime": "1645133480"
               },
               "externalUrl": null,
               "description": null,
@@ -755,7 +717,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84\"}",
+      "value": "{\"container\": \"urn:li:container:5954737a5eb17f0af92654a8bbbf918c\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -785,7 +747,7 @@
                 "numrows": "0",
                 "rawdatasize": "0",
                 "totalsize": "0",
-                "transient_lastddltime": "1643991011"
+                "transient_lastddltime": "1645133482"
               },
               "externalUrl": null,
               "description": null,
@@ -914,7 +876,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84\"}",
+      "value": "{\"container\": \"urn:li:container:5954737a5eb17f0af92654a8bbbf918c\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -941,7 +903,7 @@
               "customProperties": {
                 "numfiles": "0",
                 "totalsize": "0",
-                "transient_lastddltime": "1643991017"
+                "transient_lastddltime": "1645133488"
               },
               "externalUrl": null,
               "description": null,
@@ -1070,7 +1032,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84\"}",
+      "value": "{\"container\": \"urn:li:container:5954737a5eb17f0af92654a8bbbf918c\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1100,7 +1062,7 @@
                 "numrows": "0",
                 "rawdatasize": "0",
                 "totalsize": "0",
-                "transient_lastddltime": "1643991011"
+                "transient_lastddltime": "1645133482"
               },
               "externalUrl": null,
               "description": null,
@@ -1193,7 +1155,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84\"}",
+      "value": "{\"container\": \"urn:li:container:5954737a5eb17f0af92654a8bbbf918c\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1223,7 +1185,7 @@
                 "numrows": "0",
                 "rawdatasize": "0",
                 "totalsize": "0",
-                "transient_lastddltime": "1643991018"
+                "transient_lastddltime": "1645133488"
               },
               "externalUrl": null,
               "description": null,
@@ -1420,7 +1382,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84\"}",
+      "value": "{\"container\": \"urn:li:container:5954737a5eb17f0af92654a8bbbf918c\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1445,7 +1407,7 @@
           {
             "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
               "customProperties": {
-                "transient_lastddltime": "1643991017",
+                "transient_lastddltime": "1645133488",
                 "view_definition": "SELECT \"property_id\", \"service\"\nFROM \"db1\".\"array_struct_test\"",
                 "is_view": "True"
               },
