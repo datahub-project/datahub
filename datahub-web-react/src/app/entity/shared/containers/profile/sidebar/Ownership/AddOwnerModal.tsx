@@ -177,7 +177,6 @@ export const AddOwnerModal = ({ visible, onClose, refetch }: Props) => {
     useEnterKeyListener({
         querySelectorToExecuteClick: '#addOwnerButton',
     });
-    console.log(combinedSearchResults);
     return (
         <Modal
             title="Add owner"
