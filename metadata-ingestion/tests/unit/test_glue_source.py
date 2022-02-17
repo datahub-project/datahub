@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from typing import Dict, Optional, Tuple, Type
 
 import pytest
@@ -17,6 +18,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_column
 from tests.test_helpers import mce_helpers
+from tests.test_helpers.type_helpers import PytestConfig
 from tests.unit.test_glue_source_stubs import (
     get_databases_response,
     get_dataflow_graph_response_1,
@@ -79,8 +81,12 @@ def test_column_type(hive_column_type: str, expected_type: Type) -> None:
 )
 @freeze_time(FROZEN_TIME)
 def test_glue_ingest(
-    tmp_path, pytestconfig, platform_instance, mce_file, mce_golden_file
-):
+    tmp_path: Path,
+    pytestconfig: PytestConfig,
+    platform_instance: str,
+    mce_file: str,
+    mce_golden_file: str,
+) -> None:
 
     glue_source_instance = glue_source(platform_instance=platform_instance)
 

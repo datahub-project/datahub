@@ -759,9 +759,9 @@ def mock_get_object_response(raw_body: str) -> Dict[str, Any]:
     return {"Body": raw_stream}
 
 
-def get_object_response_1():
+def get_object_response_1() -> Dict[str, Any]:
     return mock_get_object_response(get_object_body_1)
 
 
-def get_object_response_2():
+def get_object_response_2() -> Dict[str, Any]:
     return mock_get_object_response(get_object_body_2)

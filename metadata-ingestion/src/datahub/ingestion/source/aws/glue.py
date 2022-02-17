@@ -46,8 +46,9 @@ from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_col
 
 logger = logging.getLogger(__name__)
 
-VALID_PLATFORMS = ["glue", "athena"]
+
 DEFAULT_PLATFORM = "glue"
+VALID_PLATFORMS = [DEFAULT_PLATFORM, "athena"]
 
 
 class GlueSourceConfig(AwsSourceConfig, PlatformSourceConfigBase):
@@ -92,11 +93,6 @@ class GlueSourceConfig(AwsSourceConfig, PlatformSourceConfigBase):
             raise ConfigurationError(
                 f"'platform' can only take following values: {VALID_PLATFORMS}"
             )
-
-    @validator("platform_instance")
-    def platform_instance_validator(cls, v):
-        # TODO: is there any restriction on platform_instance values?
-        return v
 
 
 @dataclass
