@@ -72,10 +72,10 @@ export const SideBarSubSection = styled.div`
     &::-webkit-scrollbar {
         height: 12px;
         width: 1px;
-        background: #f1f1f1;
+        background: #d6d6d6;
     }
     &::-webkit-scrollbar-thumb {
-        background: #c3c3c3;
+        background: #d6d6d6;
         -webkit-border-radius: 1ex;
         -webkit-box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.75);
     }
@@ -202,9 +202,8 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
     const [groupSectionExpanded, setGroupSectionExpanded] = useState(false);
     const [editProfileModal, showEditProfileModal] = useState(false);
     /* eslint-disable @typescript-eslint/no-unused-vars */
-    const [editableAboutMeText, setEditableAboutMeText] = useState<string | undefined>('');
     const me = useGetAuthenticatedUser();
-    const showEditProfileButton = me?.corpUser?.urn === urn;
+    const isProfileOwner = me?.corpUser?.urn === urn;
 
     const getEditModalData = {
         urn,
@@ -219,7 +218,6 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
 
     // About Text save
     const onSaveAboutMe = (inputString) => {
-        setEditableAboutMeText(inputString);
         updateCorpUserPropertiesMutation({
             variables: {
                 urn: urn || '',
@@ -243,7 +241,7 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
     return (
         <>
             <SideBar>
-                <SideBarSubSection className={showEditProfileButton ? '' : 'fullView'}>
+                <SideBarSubSection className={isProfileOwner ? '' : 'fullView'}>
                     <CustomAvatar size={160} photoUrl={photoUrl} name={avatarName} style={AVATAR_STYLE} />
                     <Name>{name || <EmptyValue />}</Name>
                     <Role>{role || <EmptyValue />}</Role>
@@ -272,7 +270,7 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
                         About
                         <AboutSectionText>
                             <Paragraph
-                                editable={{ onChange: onSaveAboutMe }}
+                                editable={isProfileOwner ? { onChange: onSaveAboutMe } : false}
                                 ellipsis={{ rows: 2, expandable: true, symbol: 'Read more' }}
                             >
                                 {aboutText || <EmptyValue />}
@@ -283,7 +281,7 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
                     <GroupsSection>
                         Groups
                         <TagsSection>
-                            {groupsDetails?.relationships.length === 0 && <NoDataFound>No Groups</NoDataFound>}
+                            {groupsDetails?.relationships.length === 0 && <EmptyValue />}
                             {!groupSectionExpanded &&
                                 groupsDetails?.relationships.slice(0, 2).map((item) => {
                                     return (
@@ -315,7 +313,7 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
                         </TagsSection>
                     </GroupsSection>
                 </SideBarSubSection>
-                {showEditProfileButton && (
+                {isProfileOwner && (
                     <EditProfileButton>
                         <Button icon={<EditOutlined />} onClick={() => showEditProfileModal(true)}>
                             Edit Profile

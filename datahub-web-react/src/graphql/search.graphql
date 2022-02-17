@@ -70,7 +70,9 @@ fragment searchResults on SearchResults {
                     lastName
                     fullName
                 }
-                editableInfo {
+                editableProperties {
+                    displayName
+                    title
                     pictureLink
                 }
             }
