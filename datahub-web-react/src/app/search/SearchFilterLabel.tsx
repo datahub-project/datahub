@@ -62,7 +62,7 @@ export const SearchFilterLabel = ({ aggregation, field }: Props) => {
             <>
                 <Tag closable={false}>
                     <BookOutlined style={{ marginRight: '3%' }} />
-                    {term.properties?.name}
+                    {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term)}
                 </Tag>
                 ({countText})
             </>
