@@ -131,6 +131,20 @@ const EmptyStatsText = styled(Typography.Text)`
     font-style: italic;
 `;
 
+const OwnerButtonEmptyTitle = styled.span`
+    font-weight: 700;
+    font-size: 12px;
+    line-height: 20px;
+    color: ${grey[10]};
+`;
+
+const OwnerButtonTitle = styled.span`
+    font-weight: 500;
+    font-size: 12px;
+    line-height: 20px;
+    color: ${grey[10]};
+`;
+
 export const TagProfileDrawer = ({
     closeTagProfileDrawer,
     tagProfileDrawerVisible,
@@ -344,7 +358,12 @@ export const TagProfileDrawer = ({
                                     </Typography.Paragraph>
                                 )}
                                 <Button type={ownersEmpty ? 'default' : 'text'} onClick={() => setShowAddModal(true)}>
-                                    <PlusOutlined /> Add Owner
+                                    <PlusOutlined />
+                                    {ownersEmpty ? (
+                                        <OwnerButtonEmptyTitle>Add Owner</OwnerButtonEmptyTitle>
+                                    ) : (
+                                        <OwnerButtonTitle>Add Owner</OwnerButtonTitle>
+                                    )}
                                 </Button>
                             </div>
                             <div>
