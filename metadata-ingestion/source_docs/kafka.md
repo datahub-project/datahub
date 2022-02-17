@@ -15,8 +15,11 @@ This plugin extracts the following:
 
 | Capability        | Status | Details                                  | 
 |-------------------|--------|------------------------------------------|
-| Platform Instance | 🛑     | [link](../../docs/platform-instances.md) |
+| Platform Instance | ✔️ | [link](../../docs/platform-instances.md) |
 | Data Domains      | ✔️     | [link](../../docs/domains.md)            |
+| Stateful Ingestion | ✔️ | [link](./stateful_ingestion.md)
+
+Stateful Ingestion is available only when a Platform Instance is assigned to this source.
 
 ## Quickstart recipe
 
@@ -104,6 +107,8 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `domain.domain_urn.allow`                    |          |                          | List of regex patterns for topics to set domain_urn domain key. There can be multiple domain key specified.                                                                                                                                                                          |
 | `domain.domain_urn.deny`                     |          |                          | List of regex patterns for topics to not assign domain_urn. There can be multiple domain key specified.                                                                                                                                                                              |
 | `domain.domain_urn.ignoreCase`               |          | `True`                   | Whether to ignore case sensitivity during pattern matching.There can be multiple domain key specified.                                                                                                                                                                               |
+| `platform_instance`         |          | None             | The Platform instance to use while constructing URNs.         |
+
 
 The options in the consumer config and schema registry config are passed to the Kafka DeserializingConsumer and SchemaRegistryClient respectively.
 

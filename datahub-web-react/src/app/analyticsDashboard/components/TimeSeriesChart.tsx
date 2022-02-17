@@ -1,11 +1,11 @@
 import React, { useMemo } from 'react';
 import { XYChart, LineSeries, CrossHair, XAxis, YAxis } from '@data-ui/xy-chart';
 import { scaleOrdinal } from '@vx/scale';
-
 import { TimeSeriesChart as TimeSeriesChartType, NumericDataPoint, NamedLine } from '../../../types.generated';
 import { lineColors } from './lineColors';
 import Legend from './Legend';
 import { INTERVAL_TO_SECONDS } from '../../shared/time/timeUtils';
+import { formatNumber } from '../../shared/formatNumber';
 
 type Props = {
     chartData: TimeSeriesChartType;
@@ -22,7 +22,7 @@ type Props = {
     insertBlankPoints?: boolean;
 };
 
-const MARGIN_SIZE = 32;
+const MARGIN_SIZE = 40;
 
 function insertBlankAt(ts: number, newLine: Array<NumericDataPoint>) {
     const dateString = new Date(ts).toString();
@@ -109,7 +109,10 @@ export const TimeSeriesChart = ({ chartData, width, height, hideLegend, style, i
                 snapTooltipToDataX={false}
             >
                 <XAxis axisStyles={{ stroke: style && style.axisColor, strokeWidth: style && style.axisWidth }} />
-                <YAxis axisStyles={{ stroke: style && style.axisColor, strokeWidth: style && style.axisWidth }} />
+                <YAxis
+                    axisStyles={{ stroke: style && style.axisColor, strokeWidth: style && style.axisWidth }}
+                    tickFormat={(tick) => formatNumber(tick)}
+                />
                 {lines.map((line, i) => (
                     <LineSeries
                         showPoints

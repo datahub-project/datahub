@@ -73,7 +73,7 @@ describe('mutations', () => {
   it('can add and remove terms from a dataset field', () => {
     cy.login();
     // make space for the glossary term column
-    cy.viewport(1300, 800)
+    cy.viewport(2000, 800)
     cy.visit('/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)');
     cy.get('[data-testid="schema-field-event_name-terms"]').trigger('mouseover', {force: true});
     cy.get('[data-testid="schema-field-event_name-terms"]').within(() => cy.contains('Add Term').click())
