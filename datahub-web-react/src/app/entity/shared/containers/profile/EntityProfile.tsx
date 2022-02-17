@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
 import { Alert, Divider } from 'antd';
+import SplitPane from 'react-split-pane';
 import { MutationHookOptions, MutationTuple, QueryHookOptions, QueryResult } from '@apollo/client/react/types/types';
 import styled from 'styled-components';
 import { useHistory } from 'react-router';
@@ -68,7 +69,6 @@ const HeaderAndTabsFlex = styled.div`
 const Sidebar = styled.div`
     overflow: auto;
     flex-basis: 30%;
-    border-left: 1px solid ${ANTD_GRAY[4.5]};
     padding-left: 20px;
     padding-right: 20px;
 `;
@@ -83,6 +83,14 @@ const TabContent = styled.div`
     flex: 1;
     overflow: auto;
 `;
+
+const resizerStyles = {
+    background: '#E9E9E9',
+    width: '2px',
+    cursor: 'col-resize',
+    margin: '0 5px',
+    height: '100%',
+};
 
 const defaultTabDisplayConfig = {
     visible: (_, _1) => true,
@@ -229,7 +237,13 @@ export const EntityProfile = <T, U>({
                     {isLineageMode ? (
                         <LineageExplorer type={entityType} urn={urn} />
                     ) : (
-                        <>
+                        <SplitPane
+                            split="vertical"
+                            minSize={window.innerWidth - 550}
+                            maxSize={window.innerWidth - 300}
+                            defaultSize={window.innerWidth - 550}
+                            resizerStyle={resizerStyles}
+                        >
                             <HeaderAndTabs>
                                 <HeaderAndTabsFlex>
                                     <Header>
@@ -247,7 +261,7 @@ export const EntityProfile = <T, U>({
                             <Sidebar>
                                 <EntitySidebar sidebarSections={sideBarSectionsWithDefaults} />
                             </Sidebar>
-                        </>
+                        </SplitPane>
                     )}
                 </ContentContainer>
             </>
