@@ -52,7 +52,7 @@ public class AllEntitiesSearchAggregator {
       "entity",
       "typeNames",
       "platform",
-      "domain",
+      "domains",
       "tags",
       "glossaryTerms",
       "container",
