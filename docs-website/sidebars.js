@@ -15,10 +15,7 @@ function list_ids_in_directory(directory, hardcoded_labels) {
     } else {
       if (name.endsWith(".md")) {
         const slug = name.replace(/\.md$/, "");
-        let id = `${directory}/${slug}`;
-        if (id.match(/\/\d+-.+/)) {
-          id = id.replace(/\/\d+-/, "/");
-        }
+        const id = `${directory}/${slug}`;
 
         if (id in hardcoded_labels) {
           label = hardcoded_labels[id];
@@ -62,18 +59,13 @@ module.exports = {
       "docs/saas",
       "releases",
     ],
-    "Getting Started": [
-      "docs/quickstart",
-      "docs/cli",
-      "metadata-ingestion/README",
-      "docs/debugging",
-    ],
+    "Getting Started": ["docs/quickstart", "docs/cli", "docs/debugging"],
     "Metadata Ingestion": [
       // add a custom label since the default is 'Metadata Ingestion'
       // note that we also have to add the path to this file in sidebarsjs_hardcoded_titles in generateDocsDir.ts
       {
         type: "doc",
-        label: "Quickstart",
+        label: "Introduction",
         id: "metadata-ingestion/README",
       },
       {
@@ -200,6 +192,7 @@ module.exports = {
       // TODO: the titles of these should not be in question form in the sidebar
       "docs/developers",
       "docs/docker/development",
+      "docs/how/backup-datahub",
       {
         type: "doc",
         label: "Ingesting files from S3",

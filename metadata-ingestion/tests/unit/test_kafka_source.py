@@ -1,14 +1,21 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
+import pytest
 from confluent_kafka.schema_registry.schema_registry_client import (
     RegisteredSchema,
     Schema,
 )
 
+from datahub.configuration.common import ConfigurationError
+from datahub.emitter.mce_builder import (
+    make_dataplatform_instance_urn,
+    make_dataset_urn_with_platform_instance,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.kafka import KafkaSource
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.metadata.schema_classes import BrowsePathsClass, DataPlatformInstanceClass
 
 
 class KafkaSourceTest(unittest.TestCase):
@@ -174,6 +181,59 @@ class KafkaSourceTest(unittest.TestCase):
         assert len(workunits) == 2
 
     @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
+    def test_kafka_source_workunits_with_platform_instance(self, mock_kafka):
+
+        PLATFORM_INSTANCE = "kafka_cluster"
+        PLATFORM = "kafka"
+        TOPIC_NAME = "test"
+
+        mock_kafka_instance = mock_kafka.return_value
+        mock_cluster_metadata = MagicMock()
+        mock_cluster_metadata.topics = [TOPIC_NAME]
+        mock_kafka_instance.list_topics.return_value = mock_cluster_metadata
+
+        ctx = PipelineContext(run_id="test1")
+        kafka_source = KafkaSource.create(
+            {
+                "connection": {"bootstrap": "localhost:9092"},
+                "platform_instance": PLATFORM_INSTANCE,
+            },
+            ctx,
+        )
+        workunits = [w for w in kafka_source.get_workunits()]
+
+        # We should only have 1 topic
+        assert len(workunits) == 1
+        proposed_snap = workunits[0].metadata.proposedSnapshot
+        assert proposed_snap.urn == make_dataset_urn_with_platform_instance(
+            platform=PLATFORM,
+            name=TOPIC_NAME,
+            platform_instance=PLATFORM_INSTANCE,
+            env="PROD",
+        )
+
+        # DataPlatform aspect should be present when platform_instance is configured
+        data_platform_aspects = [
+            asp
+            for asp in proposed_snap.aspects
+            if type(asp) == DataPlatformInstanceClass
+        ]
+        assert len(data_platform_aspects) == 1
+        assert data_platform_aspects[0].instance == make_dataplatform_instance_urn(
+            PLATFORM, PLATFORM_INSTANCE
+        )
+
+        # The default browse path should include the platform_instance value
+        browse_path_aspects = [
+            asp for asp in proposed_snap.aspects if type(asp) == BrowsePathsClass
+        ]
+        assert len(browse_path_aspects) == 1
+        assert (
+            f"/prod/{PLATFORM}/{PLATFORM_INSTANCE}/{TOPIC_NAME}"
+            in browse_path_aspects[0].paths
+        )
+
+    @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
     def test_close(self, mock_kafka):
         mock_kafka_instance = mock_kafka.return_value
         ctx = PipelineContext(run_id="test")
@@ -186,3 +246,31 @@ class KafkaSourceTest(unittest.TestCase):
         )
         kafka_source.close()
         assert mock_kafka_instance.close.call_count == 1
+
+    def test_kafka_source_stateful_ingestion_requires_platform_instance(
+        self,
+    ):
+        class StatefulProviderMock:
+            def __init__(self, config, ctx):
+                self.ctx = ctx
+                self.config = config
+
+            def is_stateful_ingestion_configured(self):
+                return self.config.stateful_ingestion.enabled
+
+        kafka_source_patcher = unittest.mock.patch.object(
+            KafkaSource, "__bases__", (StatefulProviderMock,)
+        )
+
+        ctx = PipelineContext(run_id="test", pipeline_name="test")
+        with pytest.raises(ConfigurationError):
+            with kafka_source_patcher:
+                # prevent delattr on __bases__ on context __exit__
+                kafka_source_patcher.is_local = True
+                KafkaSource.create(
+                    {
+                        "stateful_ingestion": {"enabled": "true"},
+                        "connection": {"bootstrap": "localhost:9092"},
+                    },
+                    ctx,
+                )

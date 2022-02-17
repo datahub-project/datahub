@@ -5,38 +5,37 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.generated.EntityType;
-import com.linkedin.datahub.graphql.types.BrowsableEntityType;
-import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.BrowsePath;
 import com.linkedin.datahub.graphql.generated.BrowseResults;
-import com.linkedin.datahub.graphql.generated.GlossaryTerm;
+import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
+import com.linkedin.datahub.graphql.generated.GlossaryTerm;
 import com.linkedin.datahub.graphql.generated.SearchResults;
+import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
+import com.linkedin.datahub.graphql.types.BrowsableEntityType;
+import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
-import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
-import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.search.SearchResult;
-
 import graphql.execution.DataFetcherResult;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
-import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
+import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.metadata.Constants.*;
 
 public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, BrowsableEntityType<GlossaryTerm> {
@@ -47,9 +46,11 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, Bro
         GLOSSARY_TERM_KEY_ASPECT_NAME,
         GLOSSARY_TERM_INFO_ASPECT_NAME,
         GLOSSARY_RELATED_TERM_ASPECT_NAME,
+        INSTITUTIONAL_MEMORY_ASPECT_NAME,
         OWNERSHIP_ASPECT_NAME,
         STATUS_ASPECT_NAME,
-        BROWSE_PATHS_ASPECT_NAME
+        BROWSE_PATHS_ASPECT_NAME,
+        DEPRECATION_ASPECT_NAME
     );
 
     private final EntityClient _entityClient;
@@ -70,16 +71,13 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, Bro
 
     @Override
     public List<DataFetcherResult<GlossaryTerm>> batchLoad(final List<String> urns, final QueryContext context) {
-        final Set<Urn> glossaryTermUrns = new HashSet<>(
-            urns.stream()
+        final List<Urn> glossaryTermUrns = urns.stream()
                 .map(UrnUtils::getUrn)
-                .collect(Collectors.toList())
-            );
+                .collect(Collectors.toList());
+
         try {
-            final Map<Urn, EntityResponse> glossaryTermMap = _entityClient.batchGetV2(
-                    GLOSSARY_TERM_ENTITY_NAME,
-                    glossaryTermUrns, ASPECTS_TO_RESOLVE,
-                    context.getAuthentication());;
+            final Map<Urn, EntityResponse> glossaryTermMap = _entityClient.batchGetV2(GLOSSARY_TERM_ENTITY_NAME,
+                new HashSet<>(glossaryTermUrns), ASPECTS_TO_RESOLVE, context.getAuthentication());
 
             final List<EntityResponse> gmsResults = new ArrayList<>();
             for (Urn urn : glossaryTermUrns) {

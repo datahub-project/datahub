@@ -159,8 +159,8 @@ export default function TagTermGroup({
             {uneditableGlossaryTerms?.terms?.map((term) => (
                 <TagLink to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)} key={term.term.urn}>
                     <Tag closable={false}>
-                        {term.term.name}
-                        <BookOutlined style={{ marginLeft: '2%' }} />
+                        <BookOutlined style={{ marginRight: '3%' }} />
+                        {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
                     </Tag>
                 </TagLink>
             ))}
@@ -173,8 +173,8 @@ export default function TagTermGroup({
                             removeTerm(term.term.urn);
                         }}
                     >
-                        {term.term.name}
-                        <BookOutlined style={{ marginLeft: '2%' }} />
+                        <BookOutlined style={{ marginRight: '3%' }} />
+                        {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
                     </Tag>
                 </TagLink>
             ))}
@@ -185,7 +185,7 @@ export default function TagTermGroup({
                 return (
                     <TagLink to={entityRegistry.getEntityUrl(EntityType.Tag, tag.tag.urn)} key={tag.tag.urn}>
                         <StyledTag $colorHash={tag.tag.urn} closable={false}>
-                            {tag.tag.name}
+                            {entityRegistry.getDisplayName(EntityType.Tag, tag.tag)}
                         </StyledTag>
                     </TagLink>
                 );
@@ -229,7 +229,7 @@ export default function TagTermGroup({
                     {...buttonProps}
                 >
                     <PlusOutlined />
-                    Add Tag
+                    <span>Add Tag</span>
                 </NoElementButton>
             )}
             {canAddTerm &&
@@ -243,7 +243,7 @@ export default function TagTermGroup({
                         {...buttonProps}
                     >
                         <PlusOutlined />
-                        Add Term
+                        <span>Add Term</span>
                     </NoElementButton>
                 )}
             {showAddModal && !!entityUrn && !!entityType && (

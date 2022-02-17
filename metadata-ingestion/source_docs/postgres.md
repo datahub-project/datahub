@@ -16,10 +16,10 @@ This plugin extracts the following:
 - database_alias (optional) can be used to change the name of database to be ingested
 - Table, row, and column statistics via optional [SQL profiling](./sql_profiles.md)
 
-| Capability        | Status | Details                                  | 
-|-------------------|--------|------------------------------------------|
-| Data Containers   | ✔️     |                                          |
-| Data Domains      | ✔️     | [link](../../docs/domains.md)            |
+| Capability      | Status | Details                       |
+| --------------- | ------ | ----------------------------- |
+| Data Containers | ✔️     |                               |
+| Data Domains    | ✔️     | [link](../../docs/domains.md) |
 
 ## Quickstart recipe
 
@@ -53,10 +53,10 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 As a SQL-based service, the Athena integration is also supported by our SQL profiler. See [here](./sql_profiles.md) for more details on configuration.
 
 | Field                          | Required | Default  | Description                                                                                                                                                                             |
-|--------------------------------|----------|----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ------------------------------ | -------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `username`                     |          |          | PostgreSQL username.                                                                                                                                                                    |
 | `password`                     |          |          | PostgreSQL password.                                                                                                                                                                    |
-| `host_port`                    | ✅        |          | PostgreSQL host URL.                                                                                                                                                                    |
+| `host_port`                    | ✅       |          | PostgreSQL host URL.                                                                                                                                                                    |
 | `database`                     |          |          | PostgreSQL database.                                                                                                                                                                    |
 | `database_alias`               |          |          | Alias to apply to database when ingesting.                                                                                                                                              |
 | `env`                          |          | `"PROD"` | Environment to use in namespace when constructing URNs.                                                                                                                                 |

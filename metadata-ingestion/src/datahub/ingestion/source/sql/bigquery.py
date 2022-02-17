@@ -69,6 +69,10 @@ AND
         protoPayload.serviceData.jobCompletedEvent.job.jobStatus.state="DONE"
         AND NOT
         protoPayload.serviceData.jobCompletedEvent.job.jobStatus.error.code:*
+        AND
+        protoPayload.serviceData.jobCompletedEvent.job.jobConfiguration.query.destinationTable.datasetId !~ "^_.*"
+        AND
+        protoPayload.serviceData.jobCompletedEvent.job.jobStatistics.referencedTables:*
     )
 )
 AND
@@ -95,7 +99,7 @@ on
 where
     is_partitioning_column = 'YES'
     -- Filter out special partitions (https://cloud.google.com/bigquery/docs/partitioned-tables#date_timestamp_partitioned_tables)
-    and p.partition_id not in ('__NULL__', '__UNPARTITIONED__')
+    and p.partition_id not in ('__NULL__', '__UNPARTITIONED__', '__STREAMING_UNPARTITIONED__')
     and STORAGE_TIER='ACTIVE'
     and p.table_name= '{table}'
 group by
@@ -313,6 +317,7 @@ class BigQuerySource(SQLAlchemySource):
                 )
 
     def _compute_bigquery_lineage_via_gcp_logging(self) -> None:
+        logger.info("Populating lineage info via GCP audit logs")
         try:
             _clients: List[GCPLoggingClient] = self._make_bigquery_client()
             log_entries: Iterable[AuditLogEntry] = self._get_bigquery_log_entries(
@@ -329,6 +334,7 @@ class BigQuerySource(SQLAlchemySource):
             )
 
     def _compute_bigquery_lineage_via_exported_bigquery_audit_metadata(self) -> None:
+        logger.info("Populating lineage info via exported GCP audit logs")
         try:
             _client: BigQueryClient = BigQueryClient(project=self.config.project_id)
             exported_bigquery_audit_metadata: Iterable[
@@ -370,12 +376,20 @@ class BigQuerySource(SQLAlchemySource):
             ),
         )
 
-        logger.debug("Start loading log entries from BigQuery")
+        assert self.config.log_page_size is not None
+
+        logger.info("Start loading log entries from BigQuery")
         for client in clients:
-            yield from client.list_entries(
+            entries = client.list_entries(
                 filter_=filter, page_size=self.config.log_page_size
             )
-        logger.debug("finished loading log entries from BigQuery")
+            item = 0
+            for entry in entries:
+                item = item + 1
+                if item % self.config.log_page_size == 0:
+                    logger.info(f"Read {item} entry from log entries")
+                yield entry
+        logger.info(f"Finished loading {item} log entries from BigQuery")
 
     def _get_exported_bigquery_audit_metadata(
         self, bigquery_client: BigQueryClient
@@ -391,7 +405,7 @@ class BigQuerySource(SQLAlchemySource):
         ).strftime(BQ_DATETIME_FORMAT)
 
         for dataset in self.config.bigquery_audit_metadata_datasets:
-            logger.debug(
+            logger.info(
                 f"Start loading log entries from BigQueryAuditMetadata in {dataset}"
             )
 
@@ -418,7 +432,7 @@ class BigQuerySource(SQLAlchemySource):
                 ).format(start_time=start_time, end_time=end_time)
             query_job = bigquery_client.query(query)
 
-            logger.debug(
+            logger.info(
                 f"Finished loading log entries from BigQueryAuditMetadata in {dataset}"
             )
 
@@ -429,11 +443,15 @@ class BigQuerySource(SQLAlchemySource):
     def _parse_bigquery_log_entries(
         self, entries: Iterable[AuditLogEntry]
     ) -> Iterable[QueryEvent]:
+        num_total_log_entries: int = 0
+        num_parsed_log_entires: int = 0
         for entry in entries:
+            num_total_log_entries += 1
             event: Optional[QueryEvent] = None
             try:
                 if QueryEvent.can_parse_entry(entry):
                     event = QueryEvent.from_entry(entry)
+                    num_parsed_log_entires += 1
                 else:
                     raise RuntimeError("Unable to parse log entry as QueryEvent.")
             except Exception as e:
@@ -444,6 +462,10 @@ class BigQuerySource(SQLAlchemySource):
                 logger.error("Unable to parse GCP log entry.", e)
             if event is not None:
                 yield event
+        logger.info(
+            f"Parsing BigQuery log entries: Number of log entries scanned={num_total_log_entries}, "
+            f"number of log entries successfully parsed={num_parsed_log_entires}"
+        )
 
     def _parse_exported_bigquery_audit_metadata(
         self, audit_metadata_rows: Iterable[BigQueryAuditMetadata]
@@ -470,18 +492,29 @@ class BigQuerySource(SQLAlchemySource):
 
     def _create_lineage_map(self, entries: Iterable[QueryEvent]) -> Dict[str, Set[str]]:
         lineage_map: Dict[str, Set[str]] = collections.defaultdict(set)
+        num_entries: int = 0
+        num_skipped_entries: int = 0
         for e in entries:
+            num_entries += 1
             if (
                 e.destinationTable is None
                 or e.destinationTable.is_anonymous()
                 or not e.referencedTables
             ):
+                num_skipped_entries += 1
                 continue
+            entry_consumed: bool = False
             for ref_table in e.referencedTables:
                 destination_table_str = str(e.destinationTable.remove_extras())
                 ref_table_str = str(ref_table.remove_extras())
                 if ref_table_str != destination_table_str:
                     lineage_map[destination_table_str].add(ref_table_str)
+                    entry_consumed = True
+            if not entry_consumed:
+                num_skipped_entries += 1
+        logger.info(
+            f"Creating lineage map: total number of entries={num_entries}, number skipped={num_skipped_entries}."
+        )
         return lineage_map
 
     def get_latest_partition(
@@ -542,7 +575,7 @@ class BigQuerySource(SQLAlchemySource):
             return True
 
     def generate_partition_profiler_query(
-        self, schema: str, table: str
+        self, schema: str, table: str, partition_datetime: Optional[datetime.datetime]
     ) -> Tuple[Optional[str], Optional[str]]:
         """
         Method returns partition id if table is partitioned or sharded and generate custom partition query for
@@ -553,12 +586,13 @@ class BigQuerySource(SQLAlchemySource):
         partition = self.get_latest_partition(schema, table)
         if partition:
             partition_ts: Union[datetime.datetime, datetime.date]
-
+            if not partition_datetime:
+                partition_datetime = parser.parse(partition.partition_id)
             logger.debug(f"{table} is partitioned and partition column is {partition}")
             if partition.data_type in ("TIMESTAMP", "DATETIME"):
-                partition_ts = parser.parse(partition.partition_id)
+                partition_ts = partition_datetime
             elif partition.data_type == "DATE":
-                partition_ts = parser.parse(partition.partition_id).date()
+                partition_ts = partition_datetime.date()
             else:
                 logger.warning(f"Not supported partition type {partition.data_type}")
                 return None, None

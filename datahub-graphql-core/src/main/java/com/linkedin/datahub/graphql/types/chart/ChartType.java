@@ -1,7 +1,6 @@
 package com.linkedin.datahub.graphql.types.chart;
 
 import com.google.common.collect.ImmutableList;
-
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.ChartUrn;
 import com.linkedin.common.urn.CorpuserUrn;
@@ -12,10 +11,6 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
-import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.BrowsePath;
@@ -30,34 +25,36 @@ import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.MutableType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.chart.mappers.ChartMapper;
-import com.linkedin.datahub.graphql.types.chart.mappers.ChartUpdateInputSnapshotMapper;
+import com.linkedin.datahub.graphql.types.chart.mappers.ChartUpdateInputMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.metadata.snapshot.ChartSnapshot;
-import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
-
 import graphql.execution.DataFetcherResult;
-import java.util.HashSet;
-import java.util.Set;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
-import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
+import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.metadata.Constants.*;
 
 
-public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityType<Chart>, MutableType<ChartUpdateInput> {
+public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityType<Chart>, MutableType<ChartUpdateInput, Chart> {
 
     private static final Set<String> ASPECTS_TO_RESOLVE = ImmutableSet.of(
         CHART_KEY_ASPECT_NAME,
@@ -70,7 +67,8 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
         GLOSSARY_TERMS_ASPECT_NAME,
         STATUS_ASPECT_NAME,
         CONTAINER_ASPECT_NAME,
-        DOMAINS_ASPECT_NAME
+        DOMAINS_ASPECT_NAME,
+        DEPRECATION_ASPECT_NAME
     );
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("access", "queryType", "tool", "type");
 
@@ -103,7 +101,7 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
         try {
             final Map<Urn, EntityResponse> chartMap =
                 _entityClient.batchGetV2(
-                    Constants.CHART_ENTITY_NAME,
+                    CHART_ENTITY_NAME,
                     new HashSet<>(urns),
                     ASPECTS_TO_RESOLVE,
                     context.getAuthentication());
@@ -192,12 +190,11 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
     public Chart update(@Nonnull String urn, @Nonnull ChartUpdateInput input, @Nonnull QueryContext context) throws Exception {
         if (isAuthorized(urn, input, context)) {
             final CorpuserUrn actor = CorpuserUrn.createFromString(context.getAuthentication().getActor().toUrnStr());
-            final ChartSnapshot chartSnapshot = ChartUpdateInputSnapshotMapper.map(input, actor);
-            chartSnapshot.setUrn(ChartUrn.createFromString(urn));
-            final Snapshot snapshot = Snapshot.create(chartSnapshot);
+            final Collection<MetadataChangeProposal> proposals = ChartUpdateInputMapper.map(input, actor);
+            proposals.forEach(proposal -> proposal.setEntityUrn(UrnUtils.getUrn(urn)));
 
             try {
-                _entityClient.update(new com.linkedin.entity.Entity().setValue(snapshot), context.getAuthentication());
+                _entityClient.batchIngestProposals(proposals, context.getAuthentication());
             } catch (RemoteInvocationException e) {
                 throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
             }

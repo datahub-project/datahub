@@ -4,10 +4,12 @@ import com.linkedin.common.Urn
 
 /**
  * Dataset deprecation status
+ * Deprecated! This aspect is deprecated in favor of the more-general-purpose 'Deprecation' aspect.
  */
 @Aspect = {
   "name": "datasetDeprecation"
 }
+@Deprecated
 record DatasetDeprecation {
 
   /**

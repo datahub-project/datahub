@@ -218,11 +218,14 @@ fragment searchResults on SearchResults {
             }
             ... on GlossaryTerm {
                 name
-                glossaryTermInfo {
-                    definition
+                hierarchicalName
+                properties {
+                    name
+                    description
                     termSource
                     sourceRef
                     sourceUrl
+                    rawSchema
                     customProperties {
                         key
                         value
@@ -344,7 +347,9 @@ fragment searchResults on SearchResults {
                     description
                 }
                 ... on GlossaryTerm {
-                    name
+                    properties {
+                        name
+                    }
                 }
                 ... on DataPlatform {
                     ...platformFields

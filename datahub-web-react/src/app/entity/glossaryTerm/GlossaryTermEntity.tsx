@@ -11,8 +11,9 @@ import { SchemaTab } from '../shared/tabs/Dataset/Schema/SchemaTab';
 import GlossaryRelatedEntity from './profile/GlossaryRelatedEntity';
 import GlossayRelatedTerms from './profile/GlossaryRelatedTerms';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
-import GlossarySidebarAboutSection from './profile/GlossarySidebarAboutSection';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
+import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
 
 /**
  * Definition of the DataHub Dataset entity.
@@ -61,6 +62,14 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                 useEntityQuery={useGetGlossaryTermQuery as any}
                 tabs={[
                     {
+                        name: 'Related Entities',
+                        component: GlossaryRelatedEntity,
+                    },
+                    {
+                        name: 'Documentation',
+                        component: DocumentationTab,
+                    },
+                    {
                         name: 'Schema',
                         component: SchemaTab,
                         properties: {
@@ -74,10 +83,6 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                         },
                     },
                     {
-                        name: 'Related Entities',
-                        component: GlossaryRelatedEntity,
-                    },
-                    {
                         name: 'Related Terms',
                         component: GlossayRelatedTerms,
                     },
@@ -88,7 +93,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                 ]}
                 sidebarSections={[
                     {
-                        component: GlossarySidebarAboutSection,
+                        component: SidebarAboutSection,
                     },
                     {
                         component: SidebarOwnerSection,
@@ -102,7 +107,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
     getOverridePropertiesFromEntity = (glossaryTerm?: GlossaryTerm | null): GenericEntityProperties => {
         // if dataset has subTypes filled out, pick the most specific subtype and return it
         return {
-            customProperties: glossaryTerm?.glossaryTermInfo?.customProperties,
+            customProperties: glossaryTerm?.properties?.customProperties,
         };
     };
 
@@ -114,15 +119,15 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
         return (
             <Preview
                 urn={data?.urn}
-                name={data?.name}
-                definition={data?.glossaryTermInfo?.definition}
+                name={this.displayName(data)}
+                description={data?.properties?.description || ''}
                 owners={data?.ownership?.owners}
             />
         );
     };
 
     displayName = (data: GlossaryTerm) => {
-        return data.name;
+        return data.properties?.name || data.name || data.urn;
     };
 
     platformLogoUrl = (_: GlossaryTerm) => {

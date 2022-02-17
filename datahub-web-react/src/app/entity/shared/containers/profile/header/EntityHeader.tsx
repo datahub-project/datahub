@@ -123,12 +123,14 @@ export const EntityHeader = () => {
         <HeaderContainer>
             <MainHeaderContent>
                 <PlatformContent>
-                    <LogoContainer>
-                        {(!!platformLogoUrl && (
-                            <PreviewImage preview={false} src={platformLogoUrl} alt={platformName} />
-                        )) ||
-                            entityLogoComponent}
-                    </LogoContainer>
+                    {platformName && (
+                        <LogoContainer>
+                            {(!!platformLogoUrl && (
+                                <PreviewImage preview={false} src={platformLogoUrl} alt={platformName} />
+                            )) ||
+                                entityLogoComponent}
+                        </LogoContainer>
+                    )}
                     <PlatformText>{platformName}</PlatformText>
                     {(platformLogoUrl || platformName) && <PlatformDivider />}
                     {typeIcon && <TypeIcon>{typeIcon}</TypeIcon>}
