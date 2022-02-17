@@ -7,6 +7,7 @@ import pydantic
 
 # This import verifies that the dependencies are available.
 import snowflake.sqlalchemy  # noqa: F401
+import sqlalchemy.engine
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from snowflake.connector.network import (
@@ -71,6 +72,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
     warehouse: Optional[str]
     role: Optional[str]
     include_table_lineage: Optional[bool] = True
+    include_view_lineage: Optional[bool] = True
 
     connect_args: Optional[dict]
 
@@ -101,6 +103,14 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
                     )
             logger.info(f"using authenticator type '{v}'")
         return valid_auth_types.get(v)
+
+    @pydantic.validator("include_view_lineage")
+    def validate_include_view_lineage(cls, v, values):
+        if not values.get("include_table_lineage") and v:
+            raise ValueError(
+                "include_table_lineage must be True for include_view_lineage to be set."
+            )
+        return v
 
     def get_sql_alchemy_url(self, database=None):
         return make_sqlalchemy_uri(
@@ -214,8 +224,84 @@ class SnowflakeSource(SQLAlchemySource):
         regular = super().get_identifier(schema=schema, entity=entity, **kwargs)
         return f"{self.current_database.lower()}.{regular}"
 
-    def _populate_view_lineage(self) -> None:
-        # NOTE: This single query captures both the upstream and downstream table lineage for views.
+    def _populate_view_upstream_lineage(self, engine: sqlalchemy.engine.Engine) -> None:
+        # NOTE: This query captures only the upstream lineage of a view.
+        # For more details see https://docs.snowflake.com/en/sql-reference/account-usage/access_history.html#usage-notes for current limitations on capturing the lineage for views.
+        view_upstream_lineage_query: str = """
+WITH view_upstream_lineage_history AS (
+  SELECT
+    vu.value : "objectName" AS view_name,
+    vu.value : "objectDomain" AS view_domain,
+    vu.value : "columns" AS view_columns,
+    r.value : "objectName" AS upstream_table_name,
+    r.value : "objectDomain" AS upstream_table_domain,
+    r.value : "columns" AS upstream_table_columns,
+    t.query_start_time AS query_start_time
+  FROM
+    (
+      SELECT
+        *
+      FROM
+        snowflake.account_usage.access_history
+    ) t,
+    lateral flatten(input => t.DIRECT_OBJECTS_ACCESSED) vu,
+    lateral flatten(input => t.BASE_OBJECTS_ACCESSED) r
+  WHERE
+    vu.value : "objectId" IS NOT NULL
+    AND r.value : "objectId" IS NOT NULL
+    AND t.query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
+    AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3)
+)
+SELECT
+  view_name,
+  view_columns,
+  upstream_table_name,
+  upstream_table_domain,
+  upstream_table_columns
+FROM
+  view_upstream_lineage_history
+WHERE
+  view_domain in ('View', 'Materialized view')
+  AND view_name != upstream_table_name
+  QUALIFY ROW_NUMBER() OVER (
+    PARTITION BY view_name,
+    upstream_table_name
+    ORDER BY
+      query_start_time DESC
+  ) = 1
+        """.format(
+            start_time_millis=int(self.config.start_time.timestamp() * 1000),
+            end_time_millis=int(self.config.end_time.timestamp() * 1000),
+        )
+
+        assert self._lineage_map is not None
+
+        try:
+            for db_row in engine.execute(view_upstream_lineage_query):
+                # Process UpstreamTable->View edge.
+
+                view_name: str = db_row[0].lower().replace('"', "")
+                upstream_table: str = db_row[2].lower().replace('"', "")
+                # key is the downstream view name
+                self._lineage_map[view_name].append(
+                    # (<upstream_table_name>, <json_list_of_upstream_table_columns>, <json_list_of_downstream_view_columns>)
+                    (upstream_table, db_row[4], db_row[1])
+                )
+                logger.debug(
+                    f"Table->View: Lineage[{view_name}]:{self._lineage_map[view_name]}, upstream_domain={db_row[3]}"
+                )
+        except Exception as e:
+            logger.warning(
+                f"Extracting the upstream view lineage from Snowflake failed."
+                f"Please check your permissions. Continuing...\nError was {e}."
+            )
+
+    def _populate_view_downstream_lineage(
+        self, engine: sqlalchemy.engine.Engine
+    ) -> None:
+        # NOTE: This query captures both the upstream and downstream table lineage for views.
+        # We need this query to populate the downstream lineage of a view,
+        # as well as to delete the false direct edges between the upstream and downstream tables of a view.
         # See https://docs.snowflake.com/en/sql-reference/account-usage/access_history.html#usage-notes for current limitations on capturing the lineage for views.
         # Eg: For viewA->viewB->ViewC->TableD, snowflake does not yet log intermediate view logs, resulting in only the viewA->TableD edge.
         view_lineage_query: str = """
@@ -276,33 +362,25 @@ WHERE
             end_time_millis=int(self.config.end_time.timestamp() * 1000),
         )
 
-        url = self.config.get_sql_alchemy_url()
-        logger.debug(f"sql_alchemy_url={url}")
-        engine = create_engine(url, **self.config.options)
         assert self._lineage_map is not None
+
         try:
             for db_row in engine.execute(view_lineage_query):
-                # We get two edges here. (1) UpstreamTable->View (2) View->DownstreamTable. Add both to the self._lineage_map.
+                # We get two edges here.
+                # (1) False UpstreamTable->Downstream table that will be deleted.
+                # (2) View->DownstreamTable that will be added.
 
                 view_name: str = db_row[0].lower().replace('"', "")
                 upstream_table: str = db_row[2].lower().replace('"', "")
                 downstream_table: str = db_row[5].lower().replace('"', "")
-                # Delete direct edges between upstream_table and downstream_table
+                # (1) Delete false direct edge between upstream_table and downstream_table
                 self._lineage_map[downstream_table] = [
                     entry
                     for entry in self._lineage_map[downstream_table]
                     if entry[0] != upstream_table
                 ]
-                # (1) key is the downstream view name
-                self._lineage_map[view_name].append(
-                    # (<upstream_table_name>, <json_list_of_upstream_table_columns>, <json_list_of_downstream_view_columns>)
-                    (upstream_table, db_row[4], db_row[1])
-                )
-                logger.debug(
-                    f"Table->View: Lineage[{view_name}]:{self._lineage_map[view_name]}, upstream_domain={db_row[3]}"
-                )
 
-                # (2) key is the down-stream table name
+                # (2) Add view->downstream table lineage.
                 self._lineage_map[downstream_table].append(
                     # (<upstream_view_name>, <json_list_of_upstream_view_columns>, <json_list_of_downstream_columns>)
                     (view_name, db_row[1], db_row[7])
@@ -314,8 +392,17 @@ WHERE
         except Exception as e:
             logger.warning(
                 f"Extracting the view lineage from Snowflake failed."
-                f"Please check your premissions. Continuing...\nError was {e}."
+                f"Please check your permissions. Continuing...\nError was {e}."
             )
+
+    def _populate_view_lineage(self) -> None:
+        if not self.config.include_view_lineage:
+            return
+        url = self.config.get_sql_alchemy_url()
+        logger.debug(f"sql_alchemy_url={url}")
+        engine = create_engine(url, **self.config.options)
+        self._populate_view_upstream_lineage(engine)
+        self._populate_view_downstream_lineage(engine)
 
     def _populate_external_lineage(self) -> None:
         url = self.config.get_sql_alchemy_url()
@@ -549,7 +636,10 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
             not self.config.database_pattern.allowed(dataset_params[0])
             or not self.config.schema_pattern.allowed(dataset_params[1])
             or not self.config.table_pattern.allowed(dataset_params[2])
-            or not self.config.view_pattern.allowed(dataset_params[2])
+            or (
+                self.config.include_view_lineage
+                and not self.config.view_pattern.allowed(dataset_params[2])
+            )
         ):
             return False
         return True
