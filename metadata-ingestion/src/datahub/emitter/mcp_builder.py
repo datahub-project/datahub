@@ -3,7 +3,10 @@ import hashlib
 import json
 from typing import Any, Iterable, List, Optional, TypeVar, Union
 
-from datahub.emitter.mce_builder import make_container_urn, make_data_platform_urn
+from datahub.emitter.mce_builder import (
+    make_container_urn,
+    make_dataplatform_instance_urn,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import DataPlatformInstance
@@ -100,20 +103,21 @@ def gen_containers(
     wu = MetadataWorkUnit(id=f"container-info-{name}-{container_urn}", mcp=mcp)
     yield wu
 
-    mcp = MetadataChangeProposalWrapper(
-        entityType="container",
-        changeType=ChangeTypeClass.UPSERT,
-        entityUrn=f"{container_urn}",
-        # entityKeyAspect=ContainerKeyClass(guid=schema_container_key.guid()),
-        aspectName="dataPlatformInstance",
-        aspect=DataPlatformInstance(
-            platform=f"{make_data_platform_urn(container_key.platform)}"
-        ),
-    )
-    wu = MetadataWorkUnit(
-        id=f"container-platforminstance-{name}-{container_urn}", mcp=mcp
-    )
-    yield wu
+    if container_key.instance:
+        mcp = MetadataChangeProposalWrapper(
+            entityType="container",
+            changeType=ChangeTypeClass.UPSERT,
+            entityUrn=f"{container_urn}",
+            # entityKeyAspect=ContainerKeyClass(guid=schema_container_key.guid()),
+            aspectName="dataPlatformInstance",
+            aspect=DataPlatformInstance(
+                platform=f"{make_dataplatform_instance_urn(container_key.platform, container_key.instance)}"
+            ),
+        )
+        wu = MetadataWorkUnit(
+            id=f"container-platforminstance-{name}-{container_urn}", mcp=mcp
+        )
+        yield wu
 
     # Set subtype
     subtype_mcp = MetadataChangeProposalWrapper(

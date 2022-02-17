@@ -18,19 +18,6 @@
     "entityUrn": "urn:li:container:9d886605e90cf7f36a21437113dcb82a",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-      "value": "{\"platform\": \"urn:li:dataPlatform:glue\"}",
-      "contentType": "application/json"
-    },
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "entityType": "container",
-    "entityUrn": "urn:li:container:9d886605e90cf7f36a21437113dcb82a",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
       "value": "{\"typeNames\": [\"Database\"]}",
@@ -290,19 +277,6 @@
     "aspectName": "containerProperties",
     "aspect": {
       "value": "{\"customProperties\": {\"platform\": \"glue\", \"database\": \"test-database\"}, \"name\": \"test-database\"}",
-      "contentType": "application/json"
-    },
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "entityType": "container",
-    "entityUrn": "urn:li:container:db56f9cccad12a624dd082c839b2445b",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-      "value": "{\"platform\": \"urn:li:dataPlatform:glue\"}",
       "contentType": "application/json"
     },
     "systemMetadata": null
