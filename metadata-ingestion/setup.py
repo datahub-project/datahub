@@ -102,7 +102,8 @@ plugins: Dict[str, Set[str]] = {
         "apache-airflow >= 1.10.2",
     },
     # Source plugins
-    "athena": sql_common | {"PyAthena[SQLAlchemy]"},
+    # PyAthena is pinned with exact version because we use private method in PyAthena
+    "athena": sql_common | {"PyAthena[SQLAlchemy]==2.4.1"},
     "azure-ad": set(),
     "bigquery": sql_common | bigquery_common | {"pybigquery >= 0.6.0"},
     "bigquery-usage": bigquery_common | {"cachetools"},
@@ -189,6 +190,7 @@ base_dev_requirements = {
     # Waiting for https://github.com/samuelcolvin/pydantic/pull/3175 before allowing mypy 0.920.
     "mypy>=0.901,<0.920",
     "pytest>=6.2.2",
+    "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
     "pytest-docker>=0.10.3",
     "tox",
@@ -251,6 +253,7 @@ full_test_dev_requirements = {
     *list(
         dependency
         for plugin in [
+            "athena",
             "druid",
             "feast",
             "hive",

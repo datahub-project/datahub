@@ -194,6 +194,7 @@ py==1.11.0
 py4j==0.10.9
 pyasn1==0.4.8
 pyasn1-modules==0.2.8
+PyAthena[SQLAlchemy]==2.4.1
 pybigquery==0.10.2
 pycodestyle==2.8.0
 pycparser==2.21
@@ -215,6 +216,7 @@ pyparsing==2.4.7
 pyrsistent==0.18.1
 pyspark==3.0.3
 pytest==6.2.5
+pytest-asyncio==0.16.0
 pytest-cov==3.0.0
 pytest-docker==0.10.3
 python-daemon==2.3.0

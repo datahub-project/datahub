@@ -3,6 +3,7 @@ import pathlib
 from unittest.mock import Mock, patch
 
 import jsonpickle
+import pytest
 from freezegun import freeze_time
 from okta.models import Group, User
 
@@ -135,6 +136,7 @@ def test_okta_source_ingestion_disabled(pytestconfig, tmp_path):
 
 
 @freeze_time(FROZEN_TIME)
+@pytest.mark.asyncio
 def test_okta_source_include_deprovisioned_suspended_users(pytestconfig, tmp_path):
 
     test_resources_dir: pathlib.Path = pytestconfig.rootpath / "tests/integration/okta"
@@ -185,6 +187,7 @@ def test_okta_source_include_deprovisioned_suspended_users(pytestconfig, tmp_pat
 
 
 @freeze_time(FROZEN_TIME)
+@pytest.mark.asyncio
 def test_okta_source_custom_user_name_regex(pytestconfig, tmp_path):
 
     test_resources_dir: pathlib.Path = pytestconfig.rootpath / "tests/integration/okta"
