@@ -66,6 +66,7 @@ export const SearchFilterLabel = ({ aggregation, field }: Props) => {
         return (
             <>
                 <CustomAvatar
+                    size={18}
                     name={displayName}
                     photoUrl={user.editableProperties?.pictureLink || undefined}
                     useDefaultAvatar={false}
