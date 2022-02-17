@@ -75,7 +75,7 @@ import com.linkedin.datahub.graphql.resolvers.ingest.source.GetIngestionSourceRe
 import com.linkedin.datahub.graphql.resolvers.ingest.source.ListIngestionSourcesResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.source.UpsertIngestionSourceResolver;
 import com.linkedin.datahub.graphql.resolvers.load.AspectResolver;
-import com.linkedin.datahub.graphql.resolvers.load.AssertionRunEventsResolver;
+import com.linkedin.datahub.graphql.resolvers.load.AssertionRunEventResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityRelationshipsResultResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
@@ -127,7 +127,7 @@ import com.linkedin.datahub.graphql.types.dataflow.DataFlowType;
 import com.linkedin.datahub.graphql.types.datajob.DataJobType;
 import com.linkedin.datahub.graphql.types.dataplatform.DataPlatformType;
 import com.linkedin.datahub.graphql.types.dataset.DatasetType;
-import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetAssertionMapper;
+import com.linkedin.datahub.graphql.types.dataset.mappers.AssertionRunEventMapper;
 import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetProfileMapper;
 import com.linkedin.datahub.graphql.types.domain.DomainType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
@@ -1119,11 +1119,11 @@ public class GmsGraphQLEngine {
                 new EntityRelationshipsResultResolver(graphClient)
             ))
             .dataFetcher("runEvents", new AuthenticatedResolver<>(
-                new AssertionRunEventsResolver(
+                new AssertionRunEventResolver(
                     this.entityClient,
-                    "dataset",
+                    "assertion",
                     "assertionRunEvent",
-                    DatasetAssertionMapper::map
+                    AssertionRunEventMapper::map
                 )
             ))
         );

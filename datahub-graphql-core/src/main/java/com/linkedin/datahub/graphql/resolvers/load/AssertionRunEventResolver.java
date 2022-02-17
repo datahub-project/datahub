@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.resolvers.load;
 
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
-import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.TimeSeriesAspect;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
@@ -35,14 +34,14 @@ import java.util.stream.Collectors;
  * be invoked for each {@link EnvelopedAspect} received from the GMS getTimeSeriesAspectValues API.
  *
  */
-public class AssertionRunEventsResolver implements DataFetcher<CompletableFuture<List<TimeSeriesAspect>>> {
+public class AssertionRunEventResolver implements DataFetcher<CompletableFuture<List<TimeSeriesAspect>>> {
 
   private final EntityClient _client;
   private final String _entityName;
   private final String _aspectName;
   private final Function<EnvelopedAspect, TimeSeriesAspect> _aspectMapper;
 
-  public AssertionRunEventsResolver(final EntityClient client, final String entityName, final String aspectName,
+  public AssertionRunEventResolver(final EntityClient client, final String entityName, final String aspectName,
       final Function<EnvelopedAspect, TimeSeriesAspect> aspectMapper) {
     _client = client;
     _entityName = entityName;
@@ -56,26 +55,21 @@ public class AssertionRunEventsResolver implements DataFetcher<CompletableFuture
 
       final QueryContext context = environment.getContext();
 
-      // Fetch the urn, assuming the parent has an urn field and is of dataset type.
-      // Else there must be an argument named asserteeUrn
+      // Fetch the urn, assuming the parent entity has an urn field and is of assertion type.
       final Entity parentEntity = (Entity) environment.getSource();
-
-      final String maybeAsserteeUrn = environment.getArgumentOrDefault("asserteeUrn", null);
-      final String urn = parentEntity.getType() == EntityType.DATASET ? parentEntity.getUrn() : maybeAsserteeUrn;
+      final String urn = parentEntity.getUrn();
       assert (urn != null);
       final Long maybeStartTimeMillis = environment.getArgumentOrDefault("startTimeMillis", null);
       final Long maybeEndTimeMillis = environment.getArgumentOrDefault("endTimeMillis", null);
       // Max number of aspects to return.
       final Integer maybeLimit = environment.getArgumentOrDefault("limit", null);
-      final String maybeAssertionUrn = parentEntity.getType() == EntityType.ASSERTION ? parentEntity.getUrn()
-          : environment.getArgumentOrDefault("assertionUrn", null);
+      final String maybeAsserteeUrn = environment.getArgumentOrDefault("asserteeUrn", null);
 
       Filter maybeFilter = null;
       List<Criterion> criteria = new ArrayList<>();
 
-      if (maybeAssertionUrn != null) {
-        criteria.add(
-            new Criterion().setField("assertionUrn").setCondition(Condition.EQUAL).setValue(maybeAssertionUrn));
+      if (maybeAsserteeUrn != null) {
+        criteria.add(new Criterion().setField("asserteeUrn").setCondition(Condition.EQUAL).setValue(maybeAsserteeUrn));
       }
       if (!criteria.isEmpty()) {
         maybeFilter = new Filter().setOr(

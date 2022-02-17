@@ -206,11 +206,11 @@ def test_DatahubValidationAction_basic(
             mock.call(
                 mock.ANY,
                 MetadataChangeProposalWrapper(
-                    entityType="dataset",
+                    entityType="assertion",
                     changeType="UPSERT",
-                    entityUrn="urn:li:dataset:(urn:li:dataPlatform:postgres,test.public.foo2,PROD)",
+                    entityUrn="urn:li:assertion:f0f6f56e3b1b5a029e261af0390a9fc4",
                     entityKeyAspect=None,
-                    aspectName="assertionResult",
+                    aspectName="assertionRunEvent",
                     aspect=AssertionRunEventClass(
                         timestampMillis=1640701702000,
                         runId="2021-12-28T14:28:22Z",

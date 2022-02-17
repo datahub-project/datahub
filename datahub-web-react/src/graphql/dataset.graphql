@@ -150,117 +150,8 @@ fragment viewProperties on Dataset {
     }
 }
 
-query getDatasetWithAssertions($urn: String!) {
+query getDatasetAssertions($urn: String!) {
     dataset(urn: $urn) {
-        ...nonRecursiveDatasetFields
-        schemaMetadata(version: 0) {
-            ...schemaMetadataFields
-        }
-        previousSchemaMetadata: schemaMetadata(version: -1) {
-            ...schemaMetadataFields
-        }
-        editableSchemaMetadata {
-            editableSchemaFieldInfo {
-                fieldPath
-                description
-                globalTags {
-                    ...globalTagsFields
-                }
-                glossaryTerms {
-                    ...glossaryTerms
-                }
-            }
-        }
-        deprecation {
-            actor
-            deprecated
-            note
-            decommissionTime
-        }
-        globalTags {
-            ...globalTagsFields
-        }
-        glossaryTerms {
-            ...glossaryTerms
-        }
-        subTypes {
-            typeNames
-        }
-        domain {
-            ...entityDomain
-        }
-        container {
-            ...entityContainer
-        }
-        usageStats(resource: $urn, range: MONTH) {
-            buckets {
-                bucket
-                duration
-                resource
-                metrics {
-                    uniqueUserCount
-                    totalSqlQueries
-                    topSqlQueries
-                }
-            }
-            aggregations {
-                uniqueUserCount
-                totalSqlQueries
-                users {
-                    user {
-                        urn
-                        username
-                    }
-                    count
-                    userEmail
-                }
-                fields {
-                    fieldName
-                    count
-                }
-            }
-        }
-        datasetProfiles(limit: 1) {
-            rowCount
-            columnCount
-            timestampMillis
-            fieldProfiles {
-                fieldPath
-                uniqueCount
-                uniqueProportion
-                nullCount
-                nullProportion
-                min
-                max
-                mean
-                median
-                stdev
-                sampleValues
-            }
-        }
-        operations(limit: 1) {
-            timestampMillis
-        }
-        incoming: relationships(
-            input: { types: ["DownstreamOf", "Consumes", "Produces"], direction: INCOMING, start: 0, count: 100 }
-        ) {
-            ...fullRelationshipResults
-        }
-        outgoing: relationships(
-            input: { types: ["DownstreamOf", "Consumes", "Produces"], direction: OUTGOING, start: 0, count: 100 }
-        ) {
-            ...fullRelationshipResults
-        }
-        ...viewProperties
-        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
-            aspectName
-            payload
-            renderSpec {
-                displayType
-                displayName
-                key
-            }
-        }
         assertions: relationships(
             input: { types: ["Asserts"], direction: INCOMING, start: 0, count: 100 }
         ) {
@@ -307,6 +198,7 @@ query getDatasetWithAssertions($urn: String!) {
                         runEvents(asserteeUrn: $urn, limit: 1) {
                             timestampMillis
                             assertionUrn
+                            status
                             result {
                                 type
                                 actualAggValue
@@ -332,12 +224,13 @@ query getDatasetWithAssertions($urn: String!) {
 }
 
 
-query getDataAssertions($urn: String!,$assertionUrn: String!, $limit: Int, $startTime: Long, $endTime: Long) {
+query getAssertionRuns($urn: String!,$assertionUrn: String!, $limit: Int, $startTime: Long, $endTime: Long) {
     assertion(urn: $assertionUrn) {
         urn
         runEvents(asserteeUrn: $urn, limit: $limit, startTimeMillis: $startTime, endTimeMillis: $endTime) {
             timestampMillis
             assertionUrn
+            status
             result {
                 type
                 actualAggValue

@@ -69,8 +69,8 @@ def create_test_data(test_file):
     ]
     # The assertion run event attached to the dataset
     mcp2 = MetadataChangeProposalWrapper(
-        entityType="dataset",
-        entityUrn=dataset_urn,
+        entityType="assertion",
+        entityUrn=assertion_urn,
         changeType="UPSERT",
         aspectName="assertionRunEvent",
         aspect=AssertionRunEventClass(
@@ -93,8 +93,8 @@ def create_test_data(test_file):
     )
 
     mcp3 = MetadataChangeProposalWrapper(
-        entityType="dataset",
-        entityUrn=dataset_urn,
+        entityType="assertion",
+        entityUrn=assertion_urn,
         changeType="UPSERT",
         aspectName="assertionRunEvent",
         aspect=AssertionRunEventClass(
@@ -117,8 +117,8 @@ def create_test_data(test_file):
     )
     # Result of evaluating this assertion on the whole dataset
     mcp4 = MetadataChangeProposalWrapper(
-        entityType="dataset",
-        entityUrn=dataset_urn,
+        entityType="assertion",
+        entityUrn=assertion_urn,
         changeType="UPSERT",
         aspectName="assertionRunEvent",
         aspect=AssertionRunEventClass(
@@ -141,8 +141,8 @@ def create_test_data(test_file):
     )
 
     mcp5 = MetadataChangeProposalWrapper(
-        entityType="dataset",
-        entityUrn=dataset_urn,
+        entityType="assertion",
+        entityUrn=assertion_urn,
         changeType="UPSERT",
         aspectName="assertionRunEvent",
         aspect=AssertionRunEventClass(
@@ -164,8 +164,8 @@ def create_test_data(test_file):
         ),
     )
     mcp6 = MetadataChangeProposalWrapper(
-        entityType="dataset",
-        entityUrn=dataset_urn,
+        entityType="assertion",
+        entityUrn=assertion_urn,
         changeType="UPSERT",
         aspectName="assertionRunEvent",
         aspect=AssertionRunEventClass(
@@ -189,8 +189,8 @@ def create_test_data(test_file):
 
     # Result of evaluating this assertion on the whole dataset
     mcp7 = MetadataChangeProposalWrapper(
-        entityType="dataset",
-        entityUrn=dataset_urn,
+        entityType="assertion",
+        entityUrn=assertion_urn,
         changeType="UPSERT",
         aspectName="assertionRunEvent",
         aspect=AssertionRunEventClass(
@@ -261,14 +261,14 @@ def test_gms_get_latest_assertions_results_by_partition():
     # show me latest assertion run events grouped-by date, partition, assertionId
     query = json.dumps(
         {
-            "entityName": "dataset",
+            "entityName": "assertion",
             "aspectName": "assertionRunEvent",
             "filter": {
                 "or": [
                     {
                         "and": [
                             {
-                                "field": "urn",
+                                "field": "asserteeUrn",
                                 "value": urn,
                                 "condition": "EQUAL",
                             }

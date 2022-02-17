@@ -4171,6 +4171,12 @@ type DatasetFieldProfile {
 Information about the partition being profiled
 """
 type PartitionSpec {
+
+  """
+  The partition type
+  """
+  type: PartitionType!
+
   """
   The partition identifier
   """
@@ -4180,6 +4186,13 @@ type PartitionSpec {
   The optional time window partition information
   """
   timePartition: TimeWindow
+}
+
+enum PartitionType {
+
+    FULL_TABLE,
+    QUERY,
+    PARTITION
 }
 
 """
@@ -4311,6 +4324,11 @@ type AssertionRunEvent implements TimeSeriesAspect {
   assertionUrn: String!
 
   """
+  Urn of entity on which the assertion is applicable
+  """
+  asserteeUrn: String!
+
+  """
   Native (platform-specific) identifier for this run
   """
   runId: String!
@@ -4323,7 +4341,12 @@ type AssertionRunEvent implements TimeSeriesAspect {
   """
   Specification of the batch which this run is evaluating
   """
-  batchSpec: BatchSpec  
+  batchSpec: BatchSpec
+
+  """
+  Information about the partition that was evaluated
+  """
+  partitionSpec: PartitionSpec
 
   """
   Runtime parameters of evaluation

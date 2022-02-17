@@ -15,6 +15,7 @@ from great_expectations.data_asset.data_asset import DataAsset
 from great_expectations.data_context.data_context import DataContext
 from great_expectations.data_context.types.resource_identifiers import (
     ExpectationSuiteIdentifier,
+    GeCloudIdentifier,
     ValidationResultIdentifier,
 )
 from great_expectations.execution_engine.sqlalchemy_execution_engine import (
@@ -81,7 +82,9 @@ class DatahubValidationAction(ValidationAction):
     def _run(
         self,
         validation_result_suite: ExpectationSuiteValidationResult,
-        validation_result_suite_identifier: ValidationResultIdentifier,
+        validation_result_suite_identifier: Union[
+            ValidationResultIdentifier, GeCloudIdentifier
+        ],
         data_asset: Union[Validator, DataAsset, Batch],
         payload: Any = None,
         expectation_suite_identifier: Optional[ExpectationSuiteIdentifier] = None,
@@ -99,10 +102,26 @@ class DatahubValidationAction(ValidationAction):
                 extra_headers=self.extra_headers,
             )
 
-            # Returns datasets and corresponding batch requests
-            datasets = self.get_dataset_partitions(
-                validation_result_suite_identifier.batch_identifier, data_asset
+            expectation_suite_name = validation_result_suite.meta.get(
+                "expectation_suite_name"
             )
+            run_id = validation_result_suite.meta.get("run_id")
+            if hasattr(data_asset, "active_batch_id"):
+                batch_identifier = data_asset.active_batch_id
+            else:
+                batch_identifier = data_asset.batch_id
+
+            if isinstance(
+                validation_result_suite_identifier, ValidationResultIdentifier
+            ):
+                expectation_suite_name = (
+                    validation_result_suite_identifier.expectation_suite_identifier.expectation_suite_name
+                )
+                run_id = validation_result_suite_identifier.run_id
+                batch_identifier = validation_result_suite_identifier.batch_identifier
+
+            # Returns datasets and corresponding batch requests
+            datasets = self.get_dataset_partitions(batch_identifier, data_asset)
 
             if len(datasets) == 0 or datasets[0]["dataset_urn"] is None:
                 logger.info("Metadata not sent to datahub.")
@@ -111,7 +130,8 @@ class DatahubValidationAction(ValidationAction):
             # Returns assertion info and assertion results
             assertions = self.get_assertions_withresults(
                 validation_result_suite,
-                validation_result_suite_identifier,
+                expectation_suite_name,
+                run_id,
                 payload,
                 datasets,
             )
@@ -139,14 +159,14 @@ class DatahubValidationAction(ValidationAction):
 
                 for assertionResult in assertion["assertionResults"]:
                     dataset_assertionResult_mcp = MetadataChangeProposalWrapper(
-                        entityType="dataset",
+                        entityType="assertion",
                         changeType=ChangeType.UPSERT,
-                        entityUrn=assertionResult.asserteeUrn,
+                        entityUrn=assertionResult.assertionUrn,
                         aspectName="assertionRunEvent",
                         aspect=assertionResult,
                     )
 
-                    # Emit BatchAssertion Result! (timseries aspect)
+                    # Emit Result! (timseries aspect)
                     emitter.emit_mcp(dataset_assertionResult_mcp)
 
             result = "Datahub notification succeeded"
@@ -163,7 +183,8 @@ class DatahubValidationAction(ValidationAction):
     def get_assertions_withresults(
         self,
         validation_result_suite,
-        validation_result_suite_identifier,
+        expectation_suite_name,
+        run_id,
         payload,
         datasets,
     ):
@@ -205,7 +226,7 @@ class DatahubValidationAction(ValidationAction):
             assertionInfo.datasetAssertion.fields = assertion_fields  # type:ignore
 
             assertionInfo.customProperties = {
-                "expectation_suite_name": validation_result_suite_identifier.expectation_suite_identifier.expectation_suite_name
+                "expectation_suite_name": expectation_suite_name
             }
 
             assertionUrn = builder.make_assertion_urn(
@@ -213,9 +234,7 @@ class DatahubValidationAction(ValidationAction):
                     {**assertionInfo.to_obj(), **dataPlatformInstance.to_obj()}
                 )
             )
-            run_time = validation_result_suite_identifier.run_id.run_time.astimezone(
-                timezone.utc
-            )
+            run_time = run_id.run_time.astimezone(timezone.utc)
             assertionResults = []
             for dset in datasets:
                 nativeResults = {
