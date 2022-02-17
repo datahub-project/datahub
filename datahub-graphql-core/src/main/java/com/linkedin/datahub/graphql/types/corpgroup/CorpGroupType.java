@@ -1,7 +1,7 @@
 package com.linkedin.datahub.graphql.types.corpgroup;
 
-import com.linkedin.common.urn.CorpGroupUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.CorpGroup;
@@ -11,25 +11,26 @@ import com.linkedin.datahub.graphql.generated.FieldSortInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.generated.Sort;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
-import com.linkedin.datahub.graphql.types.corpgroup.mappers.CorpGroupSnapshotMapper;
+import com.linkedin.datahub.graphql.types.corpgroup.mappers.CorpGroupMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
-import com.linkedin.entity.Entity;
+import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchResult;
-
 import graphql.execution.DataFetcherResult;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
+import static com.linkedin.metadata.Constants.*;
+
 
 public class CorpGroupType implements SearchableEntityType<CorpGroup> {
 
@@ -52,21 +53,21 @@ public class CorpGroupType implements SearchableEntityType<CorpGroup> {
     @Override
     public List<DataFetcherResult<CorpGroup>> batchLoad(final List<String> urns, final QueryContext context) {
         try {
-            final List<CorpGroupUrn> corpGroupUrns = urns
+            final List<Urn> corpGroupUrns = urns
                     .stream()
-                    .map(this::getCorpGroupUrn)
+                    .map(UrnUtils::getUrn)
                     .collect(Collectors.toList());
 
-            final Map<Urn, Entity> corpGroupMap = _entityClient
-                    .batchGet(new HashSet<>(corpGroupUrns), context.getAuthentication());
+            final Map<Urn, EntityResponse> corpGroupMap = _entityClient.batchGetV2(CORP_GROUP_ENTITY_NAME,
+                new HashSet<>(corpGroupUrns), null, context.getAuthentication());
 
-            final List<Entity> results = new ArrayList<>();
-            for (CorpGroupUrn urn : corpGroupUrns) {
+            final List<EntityResponse> results = new ArrayList<>();
+            for (Urn urn : corpGroupUrns) {
                 results.add(corpGroupMap.getOrDefault(urn, null));
             }
             return results.stream()
                     .map(gmsCorpGroup -> gmsCorpGroup == null ? null
-                        : DataFetcherResult.<CorpGroup>newResult().data(CorpGroupSnapshotMapper.map(gmsCorpGroup.getValue().getCorpGroupSnapshot())).build())
+                        : DataFetcherResult.<CorpGroup>newResult().data(CorpGroupMapper.map(gmsCorpGroup)).build())
                     .collect(Collectors.toList());
         } catch (Exception e) {
             throw new RuntimeException("Failed to batch load CorpGroup", e);
@@ -96,13 +97,5 @@ public class CorpGroupType implements SearchableEntityType<CorpGroup> {
         final AutoCompleteResult result = _entityClient.autoComplete("corpGroup", query, Collections.emptyMap(), limit,
             context.getAuthentication());
         return AutoCompleteResultsMapper.map(result);
-    }
-
-    private CorpGroupUrn getCorpGroupUrn(final String urnStr) {
-        try {
-            return CorpGroupUrn.createFromString(urnStr);
-        } catch (URISyntaxException e) {
-            throw new RuntimeException(String.format("Failed to retrieve CorpGroup with urn %s, invalid urn", urnStr));
-        }
     }
 }

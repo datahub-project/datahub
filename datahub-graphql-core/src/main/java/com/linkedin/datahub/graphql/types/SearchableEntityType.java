@@ -12,13 +12,18 @@ import javax.annotation.Nullable;
 import java.util.List;
 
 /**
+ * Deprecated - this is no longer used in favor of the search and searchAcrossEntities GraphQL resolver.
+ *
  *  Extension of {@link EntityType} containing methods required for 'search' functionality.
  *
  * @param <T>: The GraphQL object type corresponding to the entity, must extend the `Entity` interface.
  */
+@Deprecated
 public interface SearchableEntityType<T extends Entity> extends EntityType<T> {
 
     /**
+     * Deprecated - this is no longer used in favor of the search and searchAcrossEntities GraphQL resolver.
+     *
      * Retrieves {@link SearchResults} corresponding to a given query string, list of filters, start index, & count.
      *
      * @param query query text
@@ -27,6 +32,7 @@ public interface SearchableEntityType<T extends Entity> extends EntityType<T> {
      * @param count the number of results to retrieve
      * @param context the {@link QueryContext} corresponding to the request.
      */
+    @Deprecated
     SearchResults search(@Nonnull String query,
                          @Nullable List<FacetFilterInput> filters,
                          @Nullable FieldSortInput sort,

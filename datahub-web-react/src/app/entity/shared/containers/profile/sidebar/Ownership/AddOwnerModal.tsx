@@ -8,6 +8,8 @@ import { CorpUser, EntityType, OwnerEntityType, SearchResult } from '../../../..
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { useEntityData } from '../../../../EntityContext';
 import { CustomAvatar } from '../../../../../../shared/avatar';
+import analytics, { EventType, EntityActionType } from '../../../../../../analytics';
+import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
 
 type Props = {
     visible: boolean;
@@ -40,7 +42,7 @@ type SelectedActor = {
 
 export const AddOwnerModal = ({ visible, onClose, refetch }: Props) => {
     const entityRegistry = useEntityRegistry();
-    const { urn } = useEntityData();
+    const { urn, entityType } = useEntityData();
     const [selectedActor, setSelectedActor] = useState<SelectedActor | undefined>(undefined);
     const [userSearch, { data: userSearchData }] = useGetSearchResultsLazyQuery();
     const [groupSearch, { data: groupSearchData }] = useGetSearchResultsLazyQuery();
@@ -70,6 +72,12 @@ export const AddOwnerModal = ({ visible, onClose, refetch }: Props) => {
                 },
             });
             message.success({ content: 'Owner Added', duration: 2 });
+            analytics.event({
+                type: EventType.EntityActionEvent,
+                actionType: EntityActionType.UpdateOwnership,
+                entityType,
+                entityUrn: urn,
+            });
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
@@ -165,6 +173,11 @@ export const AddOwnerModal = ({ visible, onClose, refetch }: Props) => {
 
     const selectValue = (selectedActor && [selectedActor.displayName]) || [];
 
+    // Handle the Enter press
+    useEnterKeyListener({
+        querySelectorToExecuteClick: '#addOwnerButton',
+    });
+
     return (
         <Modal
             title="Add owner"
@@ -175,7 +188,7 @@ export const AddOwnerModal = ({ visible, onClose, refetch }: Props) => {
                     <Button onClick={onClose} type="text">
                         Cancel
                     </Button>
-                    <Button disabled={selectedActor === undefined} onClick={onOk}>
+                    <Button id="addOwnerButton" disabled={selectedActor === undefined} onClick={onOk}>
                         Add
                     </Button>
                 </>
@@ -184,6 +197,7 @@ export const AddOwnerModal = ({ visible, onClose, refetch }: Props) => {
             <Form component={false}>
                 <Form.Item>
                     <Select
+                        autoFocus
                         value={selectValue}
                         mode="multiple"
                         ref={inputEl}

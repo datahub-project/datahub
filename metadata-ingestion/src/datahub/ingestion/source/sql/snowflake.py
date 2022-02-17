@@ -7,6 +7,13 @@ import pydantic
 
 # This import verifies that the dependencies are available.
 import snowflake.sqlalchemy  # noqa: F401
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import serialization
+from snowflake.connector.network import (
+    DEFAULT_AUTHENTICATOR,
+    EXTERNAL_BROWSER_AUTHENTICATOR,
+    KEY_PAIR_AUTHENTICATOR,
+)
 from snowflake.sqlalchemy import custom_types, snowdialect
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
@@ -17,6 +24,7 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.ingestion.source.sql.sql_common import (
     RecordTypeClass,
     SQLAlchemyConfig,
@@ -54,10 +62,45 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
 
     username: Optional[str] = None
     password: Optional[pydantic.SecretStr] = pydantic.Field(default=None, exclude=True)
+    private_key_path: Optional[str]
+    private_key_password: Optional[pydantic.SecretStr] = pydantic.Field(
+        default=None, exclude=True
+    )
+    authentication_type: Optional[str] = "DEFAULT_AUTHENTICATOR"
     host_port: str
     warehouse: Optional[str]
     role: Optional[str]
     include_table_lineage: Optional[bool] = True
+
+    connect_args: Optional[dict]
+
+    @pydantic.validator("authentication_type", always=True)
+    def authenticator_type_is_valid(cls, v, values, **kwargs):
+        valid_auth_types = {
+            "DEFAULT_AUTHENTICATOR": DEFAULT_AUTHENTICATOR,
+            "EXTERNAL_BROWSER_AUTHENTICATOR": EXTERNAL_BROWSER_AUTHENTICATOR,
+            "KEY_PAIR_AUTHENTICATOR": KEY_PAIR_AUTHENTICATOR,
+        }
+        if v not in valid_auth_types.keys():
+            raise ValueError(
+                f"unsupported authenticator type '{v}' was provided,"
+                f" use one of {list(valid_auth_types.keys())}"
+            )
+        else:
+            if v == "KEY_PAIR_AUTHENTICATOR":
+                # If we are using key pair auth, we need the private key path and password to be set
+                if values.get("private_key_path") is None:
+                    raise ValueError(
+                        f"'private_key_path' was none "
+                        f"but should be set when using {v} authentication"
+                    )
+                if values.get("private_key_password") is None:
+                    raise ValueError(
+                        f"'private_key_password' was none "
+                        f"but should be set when using {v} authentication"
+                    )
+            logger.info(f"using authenticator type '{v}'")
+        return valid_auth_types.get(v)
 
     def get_sql_alchemy_url(self, database=None):
         return make_sqlalchemy_uri(
@@ -70,6 +113,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
                 # Drop the options if value is None.
                 key: value
                 for (key, value) in {
+                    "authenticator": self.authentication_type,
                     "warehouse": self.warehouse,
                     "role": self.role,
                     "application": APPLICATION_NAME,
@@ -77,6 +121,29 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
                 if value
             },
         )
+
+    def get_sql_alchemy_connect_args(self) -> dict:
+        if self.authentication_type != KEY_PAIR_AUTHENTICATOR:
+            return {}
+        if self.connect_args is None:
+            if self.private_key_path is None:
+                raise ValueError("missing required private key path to read key from")
+            if self.private_key_password is None:
+                raise ValueError("missing required private key password")
+            with open(self.private_key_path, "rb") as key:
+                p_key = serialization.load_pem_private_key(
+                    key.read(),
+                    password=self.private_key_password.get_secret_value().encode(),
+                    backend=default_backend(),
+                )
+
+            pkb = p_key.private_bytes(
+                encoding=serialization.Encoding.DER,
+                format=serialization.PrivateFormat.PKCS8,
+                encryption_algorithm=serialization.NoEncryption(),
+            )
+            self.connect_args = {"private_key": pkb}
+        return self.connect_args
 
 
 class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
@@ -97,6 +164,9 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
     def get_sql_alchemy_url(self, database: str = None) -> str:
         return super().get_sql_alchemy_url(database=database)
 
+    def get_sql_alchemy_connect_args(self) -> dict:
+        return super().get_sql_alchemy_connect_args()
+
 
 class SnowflakeSource(SQLAlchemySource):
     config: SnowflakeConfig
@@ -105,6 +175,7 @@ class SnowflakeSource(SQLAlchemySource):
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "snowflake")
         self._lineage_map: Optional[Dict[str, List[Tuple[str, str, str]]]] = None
+        self._external_lineage_map: Optional[Dict[str, List[str]]] = None
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -114,7 +185,12 @@ class SnowflakeSource(SQLAlchemySource):
     def get_inspectors(self) -> Iterable[Inspector]:
         url = self.config.get_sql_alchemy_url(database=None)
         logger.debug(f"sql_alchemy_url={url}")
-        db_listing_engine = create_engine(url, **self.config.options)
+
+        db_listing_engine = create_engine(
+            url,
+            connect_args=self.config.get_sql_alchemy_connect_args(),
+            **self.config.options,
+        )
 
         for db_row in db_listing_engine.execute(text("SHOW DATABASES")):
             db = db_row.name
@@ -123,7 +199,9 @@ class SnowflakeSource(SQLAlchemySource):
                 # they are isolated from each other.
                 self.current_database = db
                 engine = create_engine(
-                    self.config.get_sql_alchemy_url(database=db), **self.config.options
+                    self.config.get_sql_alchemy_url(database=db),
+                    connect_args=self.config.get_sql_alchemy_connect_args(),
+                    **self.config.options,
                 )
 
                 with engine.connect() as conn:
@@ -136,10 +214,55 @@ class SnowflakeSource(SQLAlchemySource):
         regular = super().get_identifier(schema=schema, entity=entity, **kwargs)
         return f"{self.current_database.lower()}.{regular}"
 
-    def _populate_lineage(self) -> None:
+    def _populate_external_lineage(self) -> None:
         url = self.config.get_sql_alchemy_url()
         logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(url, **self.config.options)
+        query: str = """
+WITH external_table_lineage_history AS (
+    SELECT
+        r.value:"locations" as upstream_locations,
+        w.value:"objectName" AS downstream_table_name,
+        w.value:"objectDomain" AS downstream_table_domain,
+        w.value:"columns" AS downstream_table_columns,
+        t.query_start_time AS query_start_time
+    FROM
+        (SELECT * from snowflake.account_usage.access_history) t,
+        lateral flatten(input => t.BASE_OBJECTS_ACCESSED) r,
+        lateral flatten(input => t.OBJECTS_MODIFIED) w
+    WHERE r.value:"locations" IS NOT NULL
+    AND w.value:"objectId" IS NOT NULL
+    AND t.query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
+    AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3))
+SELECT upstream_locations, downstream_table_name, downstream_table_columns
+FROM external_table_lineage_history
+WHERE downstream_table_domain = 'Table'
+QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name ORDER BY query_start_time DESC) = 1
+       """.format(
+            start_time_millis=int(self.config.start_time.timestamp() * 1000),
+            end_time_millis=int(self.config.end_time.timestamp() * 1000),
+        )
+        self._external_lineage_map = {}
+        try:
+            for db_row in engine.execute(query):
+                # key is the down-stream table name
+                key: str = db_row[1].lower().replace('"', "")
+                self._external_lineage_map[key] = json.loads(db_row[0])
+                logger.debug(f"Lineage[{key}]:{self._external_lineage_map[key]}")
+        except Exception as e:
+            logger.warning(
+                f"Extracting lineage from Snowflake failed."
+                f"Please check your premissions. Continuing...\nError was {e}."
+            )
+
+    def _populate_lineage(self) -> None:
+        url = self.config.get_sql_alchemy_url()
+        logger.debug(f"sql_alchemy_url={url}")
+        engine = create_engine(
+            url,
+            connect_args=self.config.get_sql_alchemy_connect_args(),
+            **self.config.options,
+        )
         query: str = """
 WITH table_lineage_history AS (
     SELECT
@@ -192,10 +315,14 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
 
         if self._lineage_map is None:
             self._populate_lineage()
+        if self._external_lineage_map is None:
+            self._populate_external_lineage()
         assert self._lineage_map is not None
+        assert self._external_lineage_map is not None
         dataset_name = dataset_key.name
-        lineage = self._lineage_map.get(f"{dataset_name}", None)
-        if lineage is None:
+        lineage = self._lineage_map.get(f"{dataset_name}", [])
+        external_lineage = self._external_lineage_map.get(f"{dataset_name}", [])
+        if not (lineage or external_lineage):
             logger.debug(f"No lineage found for {dataset_name}")
             return None
         upstream_tables: List[UpstreamClass] = []
@@ -206,8 +333,11 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
             if not self._is_dataset_allowed(upstream_table_name):
                 continue
             upstream_table = UpstreamClass(
-                dataset=builder.make_dataset_urn(
-                    self.platform, upstream_table_name, self.config.env
+                dataset=builder.make_dataset_urn_with_platform_instance(
+                    self.platform,
+                    upstream_table_name,
+                    self.config.platform_instance,
+                    self.config.env,
                 ),
                 type=DatasetLineageTypeClass.TRANSFORMED,
             )
@@ -231,6 +361,16 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
             )
             column_lineage[column_lineage_key] = column_lineage_value
             logger.debug(f"{column_lineage_key}:{column_lineage_value}")
+
+        for external_lineage_entry in external_lineage:
+            # For now, populate only for S3
+            if external_lineage_entry.startswith("s3://"):
+                external_upstream_table = UpstreamClass(
+                    dataset=make_s3_urn(external_lineage_entry, self.config.env),
+                    type=DatasetLineageTypeClass.COPY,
+                )
+                upstream_tables.append(external_upstream_table)
+
         if upstream_tables:
             return UpstreamLineage(upstreams=upstream_tables), column_lineage
         return None

@@ -88,7 +88,7 @@ export const HomePageRecommendations = ({ userUrn }: Props) => {
                 requestContext: {
                     scenario,
                 },
-                limit: 5,
+                limit: 10,
             },
         },
         fetchPolicy: 'no-cache',

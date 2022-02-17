@@ -1,5 +1,7 @@
 package com.datahub.authorization;
 
+import com.datahub.authentication.Actor;
+import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -11,34 +13,34 @@ import com.linkedin.common.OwnershipType;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
-import com.linkedin.entity.Entity;
+import com.linkedin.entity.Aspect;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.OwnershipClient;
-import com.linkedin.metadata.aspect.Aspect;
-import com.linkedin.metadata.aspect.DataHubPolicyAspect;
-import com.linkedin.metadata.aspect.DataHubPolicyAspectArray;
-import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.query.ListUrnsResult;
-import com.linkedin.metadata.snapshot.DataHubPolicySnapshot;
-import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.DataHubResourceFilter;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import static org.mockito.Mockito.*;
-import static org.testng.Assert.*;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.authorization.PoliciesConfig.*;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
 
 
 public class AuthorizationManagerTest {
+
+  public static final String DATAHUB_SYSTEM_CLIENT_ID = "__datahub_system";
 
   private EntityClient _entityClient;
   private AuthorizationManager _authorizationManager;
@@ -50,19 +52,13 @@ public class AuthorizationManagerTest {
     // Init mocks.
     final Urn activePolicyUrn = Urn.createFromString("urn:li:dataHubPolicy:0");
     final DataHubPolicyInfo activePolicy = createDataHubPolicyInfo(true, ImmutableList.of("EDIT_ENTITY_TAGS"));
-    final DataHubPolicySnapshot activePolicySnapshot = new DataHubPolicySnapshot();
-    activePolicySnapshot.setUrn(activePolicyUrn);
-    activePolicySnapshot.setAspects(new DataHubPolicyAspectArray(ImmutableList.of(
-        DataHubPolicyAspect.create(activePolicy)
-    )));
+    final EnvelopedAspectMap activeAspectMap = new EnvelopedAspectMap();
+    activeAspectMap.put(DATAHUB_POLICY_INFO_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(activePolicy.data())));
 
     final Urn inactivePolicyUrn = Urn.createFromString("urn:li:dataHubPolicy:1");
     final DataHubPolicyInfo inactivePolicy = createDataHubPolicyInfo(false, ImmutableList.of("EDIT_ENTITY_OWNERS"));
-    final DataHubPolicySnapshot inactivePolicySnapshot = new DataHubPolicySnapshot();
-    inactivePolicySnapshot.setUrn(inactivePolicyUrn);
-    inactivePolicySnapshot.setAspects(new DataHubPolicyAspectArray(ImmutableList.of(
-        DataHubPolicyAspect.create(inactivePolicy)
-    )));
+    final EnvelopedAspectMap inactiveAspectMap = new EnvelopedAspectMap();
+    inactiveAspectMap.put(DATAHUB_POLICY_INFO_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(inactivePolicy.data())));
 
     final ListUrnsResult listUrnsResult = new ListUrnsResult();
     listUrnsResult.setStart(0);
@@ -74,22 +70,33 @@ public class AuthorizationManagerTest {
     listUrnsResult.setEntities(policyUrns);
 
     when(_entityClient.listUrns(eq("dataHubPolicy"), eq(0), anyInt(), any())).thenReturn(listUrnsResult);
-    when(_entityClient.batchGet(eq(new HashSet<>(listUrnsResult.getEntities())), any())).thenReturn(
+    when(_entityClient.batchGetV2(eq(POLICY_ENTITY_NAME),
+        eq(new HashSet<>(listUrnsResult.getEntities())), eq(null), any())).thenReturn(
         ImmutableMap.of(
-            activePolicyUrn, new Entity().setValue(Snapshot.create(activePolicySnapshot)),
-            inactivePolicyUrn, new Entity().setValue(Snapshot.create(inactivePolicySnapshot))
+            activePolicyUrn, new EntityResponse().setUrn(activePolicyUrn).setAspects(activeAspectMap),
+            inactivePolicyUrn, new EntityResponse().setUrn(inactivePolicyUrn).setAspects(inactiveAspectMap)
         )
     );
 
     final List<Urn> userUrns = ImmutableList.of(Urn.createFromString("urn:li:corpuser:user3"), Urn.createFromString("urn:li:corpuser:user4"));
     final List<Urn> groupUrns = ImmutableList.of(Urn.createFromString("urn:li:corpGroup:group3"), Urn.createFromString("urn:li:corpGroup:group4"));
-    final Ownership ownershipAspect = createOwnershipAspect(userUrns, groupUrns);
-    when(_entityClient.getAspect(any(), eq(OWNERSHIP_ASPECT_NAME), eq(ASPECT_LATEST_VERSION), any())).thenReturn(
-        new VersionedAspect().setAspect(Aspect.create(ownershipAspect))
+    EntityResponse entityResponse = new EntityResponse();
+    EnvelopedAspectMap envelopedAspectMap = new EnvelopedAspectMap();
+    envelopedAspectMap.put(OWNERSHIP_ASPECT_NAME, new EnvelopedAspect()
+        .setValue(new com.linkedin.entity.Aspect(createOwnershipAspect(userUrns, groupUrns).data())));
+    entityResponse.setAspects(envelopedAspectMap);
+    Map<Urn, EntityResponse> mockMap = mock(Map.class);
+    when(_entityClient.batchGetV2(any(), any(), eq(Collections.singleton(OWNERSHIP_ASPECT_NAME)), any()))
+        .thenReturn(mockMap);
+    when(mockMap.get(any(Urn.class))).thenReturn(entityResponse);
+
+    final Authentication systemAuthentication = new Authentication(
+        new Actor(ActorType.USER, DATAHUB_SYSTEM_CLIENT_ID),
+        ""
     );
 
     _authorizationManager = new AuthorizationManager(
-        Mockito.mock(Authentication.class),
+        systemAuthentication,
         _entityClient,
         new OwnershipClient(_entityClient),
         10,
@@ -98,6 +105,22 @@ public class AuthorizationManagerTest {
     );
     _authorizationManager.invalidateCache();
     Thread.sleep(500); // Sleep so the runnable can execute. (not ideal)
+  }
+
+  @Test
+  public void testSystemAuthentication() throws Exception {
+
+    // Validate that the System Actor is authorized, even if there is no policy.
+
+    ResourceSpec resourceSpec = new ResourceSpec("dataset", "urn:li:dataset:test");
+
+    AuthorizationRequest request = new AuthorizationRequest(
+        new Actor(ActorType.USER, DATAHUB_SYSTEM_CLIENT_ID).toUrnStr(),
+        "EDIT_ENTITY_TAGS",
+        Optional.of(resourceSpec)
+    );
+
+    assertEquals(_authorizationManager.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
   }
 
   @Test
@@ -168,7 +191,8 @@ public class AuthorizationManagerTest {
     emptyUrnsResult.setEntities(new UrnArray(Collections.emptyList()));
 
     when(_entityClient.listUrns(eq("dataHubPolicy"), eq(0), anyInt(), any())).thenReturn(emptyUrnsResult);
-    when(_entityClient.batchGet(eq(new HashSet<>(emptyUrnsResult.getEntities())), any())).thenReturn(
+    when(_entityClient.batchGetV2(eq(POLICY_ENTITY_NAME), eq(new HashSet<>(emptyUrnsResult.getEntities())),
+        eq(null), any())).thenReturn(
         Collections.emptyMap()
     );
 

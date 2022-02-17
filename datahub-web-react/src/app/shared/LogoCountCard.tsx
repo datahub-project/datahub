@@ -1,11 +1,12 @@
 import React from 'react';
-import { Image, Typography } from 'antd';
+import { Image, Typography, Button } from 'antd';
 import styled from 'styled-components';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { formatNumber } from './formatNumber';
 
-const Container = styled.div`
-    margin-right: 24px;
+const Container = styled(Button)`
+    margin-right: 12px;
+    margin-left: 12px;
     margin-bottom: 12px;
     width: 160px;
     height: 140px;
@@ -44,11 +45,12 @@ type Props = {
     logoComponent?: React.ReactNode;
     name: string;
     count?: number;
+    onClick?: () => void;
 };
 
-export const LogoCountCard = ({ logoUrl, logoComponent, name, count }: Props) => {
+export const LogoCountCard = ({ logoUrl, logoComponent, name, count, onClick }: Props) => {
     return (
-        <Container>
+        <Container type="link" onClick={onClick}>
             <LogoContainer>
                 {(logoUrl && <PlatformLogo preview={false} src={logoUrl} alt={name} />) || logoComponent}
             </LogoContainer>

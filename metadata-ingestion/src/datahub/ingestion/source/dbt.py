@@ -20,6 +20,7 @@ from datahub.ingestion.source.sql.sql_types import (
     BIGQUERY_TYPES_MAP,
     POSTGRES_TYPES_MAP,
     SNOWFLAKE_TYPES_MAP,
+    SPARK_SQL_TYPES_MAP,
     resolve_postgres_modified_type,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
@@ -39,6 +40,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     MySqlDDL,
     NullTypeClass,
     NumberTypeClass,
+    RecordType,
     SchemaField,
     SchemaFieldDataType,
     SchemaMetadata,
@@ -119,7 +121,7 @@ class DBTColumn:
 
 @dataclass
 class DBTNode:
-    database: str
+    database: Optional[str]
     schema: str
     name: str  # name, identifier
     comment: str
@@ -362,12 +364,16 @@ def loadManifestAndCatalog(
     )
 
 
-def get_db_fqn(database: str, schema: str, name: str) -> str:
-    return f"{database}.{schema}.{name}".replace('"', "")
+def get_db_fqn(database: Optional[str], schema: str, name: str) -> str:
+    if database is not None:
+        fqn = f"{database}.{schema}.{name}"
+    else:
+        fqn = f"{schema}.{name}"
+    return fqn.replace('"', "")
 
 
 def get_urn_from_dbtNode(
-    database: str, schema: str, name: str, target_platform: str, env: str
+    database: Optional[str], schema: str, name: str, target_platform: str, env: str
 ) -> str:
     db_fqn = get_db_fqn(database, schema, name)
     return f"urn:li:dataset:(urn:li:dataPlatform:{target_platform},{db_fqn},{env})"
@@ -473,9 +479,11 @@ _field_type_mapping = {
     "timestamp without time zone": DateTypeClass,
     "integer": NumberTypeClass,
     "float8": NumberTypeClass,
+    "struct": RecordType,
     **POSTGRES_TYPES_MAP,
     **SNOWFLAKE_TYPES_MAP,
     **BIGQUERY_TYPES_MAP,
+    **SPARK_SQL_TYPES_MAP,
 }
 
 

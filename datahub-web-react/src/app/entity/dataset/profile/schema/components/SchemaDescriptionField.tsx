@@ -8,6 +8,9 @@ import { UpdateDatasetMutation } from '../../../../../../graphql/dataset.generat
 import UpdateDescriptionModal from '../../../../shared/components/legacy/DescriptionModal';
 import StripMarkdownText, { removeMarkdown } from '../../../../shared/components/styled/StripMarkdownText';
 import MarkdownViewer from '../../../../shared/components/legacy/MarkdownViewer';
+import SchemaEditableContext from '../../../../../shared/SchemaEditableContext';
+import { useEntityData } from '../../../../shared/EntityContext';
+import analytics, { EventType, EntityActionType } from '../../../../../analytics';
 
 const EditIcon = styled(EditOutlined)`
     cursor: pointer;
@@ -77,24 +80,27 @@ type Props = {
     onUpdate: (
         description: string,
     ) => Promise<FetchResult<UpdateDatasetMutation, Record<string, any>, Record<string, any>> | void>;
-    editable?: boolean;
     isEdited?: boolean;
 };
 
 const ABBREVIATED_LIMIT = 80;
 
-export default function DescriptionField({
-    description,
-    onUpdate,
-    editable = true,
-    isEdited = false,
-    original,
-}: Props) {
+export default function DescriptionField({ description, onUpdate, isEdited = false, original }: Props) {
     const [showAddModal, setShowAddModal] = useState(false);
     const overLimit = removeMarkdown(description).length > 80;
     const [expanded, setExpanded] = useState(!overLimit);
-
+    const isSchemaEditable = React.useContext(SchemaEditableContext);
     const onCloseModal = () => setShowAddModal(false);
+    const { urn, entityType } = useEntityData();
+
+    const sendAnalytics = () => {
+        analytics.event({
+            type: EventType.EntityActionEvent,
+            actionType: EntityActionType.UpdateSchemaDescription,
+            entityType,
+            entityUrn: urn,
+        });
+    };
 
     const onUpdateModal = async (desc: string | null) => {
         message.loading({ content: 'Updating...' });
@@ -102,6 +108,7 @@ export default function DescriptionField({
             await onUpdate(desc || '');
             message.destroy();
             message.success({ content: 'Updated!', duration: 2 });
+            sendAnalytics();
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) message.error({ content: `Update Failed! \n ${e.message || ''}`, duration: 2 });
@@ -110,10 +117,12 @@ export default function DescriptionField({
     };
 
     const EditButton =
-        (editable && description && <EditIcon twoToneColor="#52c41a" onClick={() => setShowAddModal(true)} />) ||
+        (isSchemaEditable && description && (
+            <EditIcon twoToneColor="#52c41a" onClick={() => setShowAddModal(true)} />
+        )) ||
         undefined;
 
-    const showAddDescription = editable && !description;
+    const showAddDescription = isSchemaEditable && !description;
 
     return (
         <DescriptionContainer>
@@ -156,7 +165,7 @@ export default function DescriptionField({
                     </StripMarkdownText>
                 </>
             )}
-            {editable && isEdited && <EditedLabel>(edited)</EditedLabel>}
+            {isSchemaEditable && isEdited && <EditedLabel>(edited)</EditedLabel>}
             {showAddModal && (
                 <div>
                     <UpdateDescriptionModal

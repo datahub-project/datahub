@@ -6,11 +6,7 @@ fragment entityPreview on Entity {
         origin
         uri
         platform {
-            name
-            info {
-                displayName
-                logoUrl
-            }
+            ...platformFields
         }
         editableProperties {
             description
@@ -35,6 +31,9 @@ fragment entityPreview on Entity {
         subTypes {
             typeNames
         }
+        domain {
+            ...entityDomain
+        }
     }
     ... on CorpUser {
         username
@@ -56,28 +55,8 @@ fragment entityPreview on Entity {
             displayName
             description
         }
-        relationships(input: { types: ["IsMemberOfGroup"], direction: INCOMING }) {
-            relationships {
-                type
-                direction
-                entity {
-                    urn
-                    type
-                    ... on CorpUser {
-                        username
-                        info {
-                            active
-                            displayName
-                            title
-                            firstName
-                            lastName
-                        }
-                        editableInfo {
-                            pictureLink
-                        }
-                    }
-                }
-            }
+        memberCount: relationships(input: { types: ["IsMemberOfGroup"], direction: INCOMING, start: 0, count: 1 }) {
+            total
         }
     }
     ... on Dashboard {
@@ -105,6 +84,12 @@ fragment entityPreview on Entity {
         }
         editableProperties {
             description
+        }
+        platform {
+            ...platformFields
+        }
+        domain {
+            ...entityDomain
         }
     }
     ... on Chart {
@@ -134,6 +119,12 @@ fragment entityPreview on Entity {
         editableProperties {
             description
         }
+        platform {
+            ...platformFields
+        }
+        domain {
+            ...entityDomain
+        }
     }
     ... on DataFlow {
         urn
@@ -157,6 +148,12 @@ fragment entityPreview on Entity {
         }
         editableProperties {
             description
+        }
+        platform {
+            ...platformFields
+        }
+        domain {
+            ...entityDomain
         }
     }
     ... on DataJob {
@@ -182,14 +179,20 @@ fragment entityPreview on Entity {
         editableProperties {
             description
         }
+        domain {
+            ...entityDomain
+        }
     }
     ... on GlossaryTerm {
         name
-        glossaryTermInfo {
-            definition
+        hierarchicalName
+        properties {
+            name
+            description
             termSource
             sourceRef
             sourceUrl
+            rawSchema
             customProperties {
                 key
                 value
@@ -213,6 +216,9 @@ fragment entityPreview on Entity {
         ownership {
             ...ownershipFields
         }
+        platform {
+            ...platformFields
+        }
     }
     ... on MLModel {
         name
@@ -222,11 +228,7 @@ fragment entityPreview on Entity {
             ...ownershipFields
         }
         platform {
-            name
-            info {
-                displayName
-                logoUrl
-            }
+            ...platformFields
         }
     }
     ... on MLModelGroup {
@@ -237,11 +239,7 @@ fragment entityPreview on Entity {
             ...ownershipFields
         }
         platform {
-            name
-            info {
-                displayName
-                logoUrl
-            }
+            ...platformFields
         }
     }
     ... on Tag {
@@ -249,10 +247,15 @@ fragment entityPreview on Entity {
         description
     }
     ... on DataPlatform {
-        name
-        info {
-            displayName
-            logoUrl
+        ...nonConflictingPlatformFields
+    }
+    ... on Domain {
+        urn
+        properties {
+            name
         }
+    }
+    ... on Container {
+        ...entityContainer
     }
 }

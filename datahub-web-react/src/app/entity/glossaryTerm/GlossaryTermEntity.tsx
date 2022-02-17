@@ -3,8 +3,17 @@ import { BookFilled, BookOutlined } from '@ant-design/icons';
 import { EntityType, GlossaryTerm, SearchResult } from '../../../types.generated';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
-import GlossaryTermProfile from './profile/GlossaryTermProfile';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
+import { EntityProfile } from '../shared/containers/profile/EntityProfile';
+import { GetGlossaryTermQuery, useGetGlossaryTermQuery } from '../../../graphql/glossaryTerm.generated';
+import { GenericEntityProperties } from '../shared/types';
+import { SchemaTab } from '../shared/tabs/Dataset/Schema/SchemaTab';
+import GlossaryRelatedEntity from './profile/GlossaryRelatedEntity';
+import GlossayRelatedTerms from './profile/GlossaryRelatedTerms';
+import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
+import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
+import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
 
 /**
  * Definition of the DataHub Dataset entity.
@@ -45,7 +54,62 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
 
     getEntityName = () => 'Glossary Term';
 
-    renderProfile: (urn: string) => JSX.Element = (_) => <GlossaryTermProfile />;
+    renderProfile = (urn) => {
+        return (
+            <EntityProfile
+                urn={urn}
+                entityType={EntityType.GlossaryTerm}
+                useEntityQuery={useGetGlossaryTermQuery as any}
+                tabs={[
+                    {
+                        name: 'Related Entities',
+                        component: GlossaryRelatedEntity,
+                    },
+                    {
+                        name: 'Documentation',
+                        component: DocumentationTab,
+                    },
+                    {
+                        name: 'Schema',
+                        component: SchemaTab,
+                        properties: {
+                            editMode: false,
+                        },
+                        display: {
+                            visible: (_, glossaryTerm: GetGlossaryTermQuery) =>
+                                glossaryTerm?.glossaryTerm?.schemaMetadata !== null,
+                            enabled: (_, glossaryTerm: GetGlossaryTermQuery) =>
+                                glossaryTerm?.glossaryTerm?.schemaMetadata !== null,
+                        },
+                    },
+                    {
+                        name: 'Related Terms',
+                        component: GlossayRelatedTerms,
+                    },
+                    {
+                        name: 'Properties',
+                        component: PropertiesTab,
+                    },
+                ]}
+                sidebarSections={[
+                    {
+                        component: SidebarAboutSection,
+                    },
+                    {
+                        component: SidebarOwnerSection,
+                    },
+                ]}
+                getOverrideProperties={this.getOverridePropertiesFromEntity}
+            />
+        );
+    };
+
+    getOverridePropertiesFromEntity = (glossaryTerm?: GlossaryTerm | null): GenericEntityProperties => {
+        // if dataset has subTypes filled out, pick the most specific subtype and return it
+        return {
+            customProperties: glossaryTerm?.properties?.customProperties,
+        };
+    };
 
     renderSearch = (result: SearchResult) => {
         return this.renderPreview(PreviewType.SEARCH, result.entity as GlossaryTerm);
@@ -55,15 +119,15 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
         return (
             <Preview
                 urn={data?.urn}
-                name={data?.name}
-                definition={data?.glossaryTermInfo?.definition}
+                name={this.displayName(data)}
+                description={data?.properties?.description || ''}
                 owners={data?.ownership?.owners}
             />
         );
     };
 
     displayName = (data: GlossaryTerm) => {
-        return data.name;
+        return data.properties?.name || data.name || data.urn;
     };
 
     platformLogoUrl = (_: GlossaryTerm) => {

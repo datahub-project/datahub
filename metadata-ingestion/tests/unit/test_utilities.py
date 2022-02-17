@@ -3,7 +3,6 @@ import sys
 import pytest
 
 from datahub.utilities.delayed_iter import delayed_iter
-from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.sql_parser import MetadataSQLSQLParser, SqlLineageSQLParser
 
 
@@ -38,16 +37,6 @@ def test_delayed_iter():
         ("add", 1),
         ("remove", 0),
         ("remove", 1),
-    ]
-
-
-def test_groupby_unsorted():
-    grouped = groupby_unsorted("ABCAC", key=lambda x: x)
-
-    assert list(grouped) == [
-        ("A", ["A", "A"]),
-        ("B", ["B"]),
-        ("C", ["C", "C"]),
     ]
 
 
@@ -247,6 +236,44 @@ date :: date) <= 7
     columns_list = SqlLineageSQLParser(sql_query).get_columns()
     columns_list.sort()
     assert columns_list == ["c", "date", "e", "u", "x"]
+
+
+@pytest.mark.integration
+@pytest.mark.skipif(
+    sys.version_info < (3, 7), reason="The LookML source requires Python 3.7+"
+)
+def test_metadatasql_sql_parser_get_tables_from_templated_query():
+    sql_query = """
+        SELECT
+          country,
+          city,
+          timestamp,
+          measurement
+        FROM
+          ${my_view.SQL_TABLE_NAME} AS my_view
+"""
+    tables_list = MetadataSQLSQLParser(sql_query).get_tables()
+    tables_list.sort()
+    assert tables_list == ["my_view.SQL_TABLE_NAME"]
+
+
+@pytest.mark.integration
+@pytest.mark.skipif(
+    sys.version_info < (3, 7), reason="The LookML source requires Python 3.7+"
+)
+def test_sqllineage_sql_parser_get_tables_from_templated_query():
+    sql_query = """
+        SELECT
+          country,
+          city,
+          timestamp,
+          measurement
+        FROM
+          ${my_view.SQL_TABLE_NAME} AS my_view
+"""
+    tables_list = SqlLineageSQLParser(sql_query).get_tables()
+    tables_list.sort()
+    assert tables_list == ["my_view.SQL_TABLE_NAME"]
 
 
 @pytest.mark.integration

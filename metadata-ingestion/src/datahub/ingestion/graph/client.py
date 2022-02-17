@@ -2,13 +2,13 @@ import json
 import logging
 import urllib.parse
 from json.decoder import JSONDecodeError
-from typing import Any, Dict, List, Optional, Type, TypeVar
+from typing import Any, Dict, List, Optional, Type
 
-from avrogen.dict_wrapper import DictWrapper
 from requests.adapters import Response
 from requests.models import HTTPError
 
 from datahub.configuration.common import ConfigModel, OperationalError
+from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import (
     DatasetUsageStatisticsClass,
@@ -16,9 +16,6 @@ from datahub.metadata.schema_classes import (
     GlossaryTermsClass,
     OwnershipClass,
 )
-
-# This bound isn't tight, but it's better than nothing.
-Aspect = TypeVar("Aspect", bound=DictWrapper)
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +26,8 @@ class DatahubClientConfig(ConfigModel):
     server: str = "http://localhost:8080"
     token: Optional[str]
     timeout_sec: Optional[int]
+    retry_status_codes: Optional[List[int]]
+    retry_max_times: Optional[int]
     extra_headers: Optional[Dict[str, str]]
     ca_certificate_path: Optional[str]
     max_threads: int = 1
@@ -42,6 +41,8 @@ class DataHubGraph(DatahubRestEmitter):
             token=self.config.token,
             connect_timeout_sec=self.config.timeout_sec,  # reuse timeout_sec for connect timeout
             read_timeout_sec=self.config.timeout_sec,
+            retry_status_codes=self.config.retry_status_codes,
+            retry_max_times=self.config.retry_max_times,
             extra_headers=self.config.extra_headers,
             ca_certificate_path=self.config.ca_certificate_path,
         )

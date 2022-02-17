@@ -1,39 +1,104 @@
+plugins {
+    id("com.palantir.git-version") apply false
+}
 apply plugin: 'java'
 apply plugin: 'com.github.johnrengelman.shadow'
-apply plugin: 'maven'
 apply plugin: 'signing'
+apply plugin: 'io.codearte.nexus-staging'
+apply plugin: 'maven-publish'
 apply plugin: 'jacoco'
+import org.apache.tools.ant.filters.ReplaceTokens
+
+jar.enabled = false // Since we only want to build shadow jars, disabling the regular jar creation
+
+//to rename artifacts for publish 
+project.archivesBaseName = 'datahub-'+project.name
+
+//mark implementaion dependencies which needs to excluded along with transitive dependencies from shadowjar
+//functionality is exactly same as "implementation" 
+configurations {
+    provided
+    implementation.extendsFrom provided 
+}
+
+def detailedVersionString = "0.0.0-unknown-SNAPSHOT"
+def snapshotVersion = false
+if (project.hasProperty("releaseVersion")) {
+  version = releaseVersion
+  detailedVersionString = releaseVersion
+} else {
+  try {
+      // apply this plugin in a try-catch block so that we can handle cases without .git directory
+      apply plugin: "com.palantir.git-version"
+      println("In else section")
+      def details = versionDetails()
+      detailedVersionString = gitVersion()
+      version = details.lastTag
+      version = version.startsWith("v")? version.substring(1): version
+      def suffix = details.isCleanTag? "": "-SNAPSHOT"
+      snapshotVersion = ! details.isCleanTag
+    }
+    catch (Exception e) {
+          e.printStackTrace()
+          // last fall back
+          version = detailedVersionString
+      }
+  }
+    // trim version if it is of size 4 to size 3
+    def versionParts = version.tokenize(".")
+    if (versionParts.size() > 3) {
+      // at-least 4 part version
+      // we check if the 4th part is a .0 in which case we want to create a release
+      if (versionParts[3] != '0') {
+        snapshotVersion = true
+      }
+      versionParts = versionParts[0..2]
+      version = versionParts[0..2].join('.')
+    }
+
+    if (snapshotVersion) {
+        if (versionParts[versionParts.size()-1].isInteger()) {
+          version = versionParts[0..versionParts.size()-2].join('.') + '.' + (versionParts[versionParts.size()-1].toInteger()+1).toString() + "-SNAPSHOT"
+        } else {
+          // we are unable to part the last token as an integer, so we just append SNAPSHOT to this version
+          version = versionParts[0..versionParts.size()-1].join('.') + '-SNAPSHOT'
+      }
+    }
+ 
+    processResources {
+      filter(ReplaceTokens, tokens:[fullVersion: detailedVersionString])
+    }
 
 dependencies {
 
   //Needed for tie breaking of guava version need for spark and wiremock
-  compile(externalDependency.hadoopMapreduceClient) {
+  provided(externalDependency.hadoopMapreduceClient) {
     force = true
   }
 
-  compile(externalDependency.hadoopCommon) {
+  provided(externalDependency.hadoopCommon) {
     force = true
   } // required for org.apache.hadoop.util.StopWatch  
 
-  compile(externalDependency.commonsIo) {
+  provided(externalDependency.commonsIo) {
     force = true
   } // required for org.apache.commons.io.Charsets that is used internally
   
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
-
-  implementation(project(':metadata-integration:java:datahub-client')) {
-      exclude group: "org.antlr"
-      exclude group: "com.google.guava" // causes issues with Guava Stopwatch constructor
-      exclude group: "com.fasterxml.jackson.core"
-  }
   
-  implementation(externalDependency.sparkSql){
-    exclude group: "org.apache.hadoop"
-  } 
-  implementation(externalDependency.sparkHive){
-    exclude group: "org.apache.hadoop"
-  } 
+  implementation externalDependency.typesafeConfig
+
+  implementation project(path: ':metadata-integration:java:datahub-client', configuration: 'shadow')
+
+
+  provided(externalDependency.sparkSql)
+  provided(externalDependency.sparkHive)
+
+  // Tests need a concrete log4j available. Providing it here
+  testImplementation 'org.apache.logging.log4j:log4j-api:2.17.1'
+  testImplementation 'org.apache.logging.log4j:log4j-core:2.17.1'
+  
   
   testImplementation(externalDependency.postgresql){
     exclude group: "com.fasterxml.jackson.core"
@@ -48,20 +113,46 @@ dependencies {
     exclude group: "com.fasterxml.jackson.core"
   } // older version to allow older guava
   
-  testImplementation(externalDependency.testContainersPostgresql)	  // older version to allow older jackson
+  testImplementation(externalDependency.testContainersPostgresql)
 }
 
-
+task checkShadowJar(type: Exec) { 
+   commandLine 'sh', '-c', 'scripts/check_jar.sh'
+}
 
 shadowJar {
   zip64=true	
   classifier=''
+  mergeServiceFiles()
+  
+  def exclude_modules = project
+            .configurations
+            .provided
+            .resolvedConfiguration
+            .getLenientConfiguration()
+            .getAllModuleDependencies()
+            .collect {
+                it.name
+            }
   dependencies {
-    exclude(dependency("org.apache.hadoop::"))
-    exclude(dependency("org.apache.spark::"))
-    exclude(dependency(externalDependency.commonsIo))
+   
+    exclude(dependency {
+            exclude_modules.contains(it.name)
+        })
+    
   }
+  
+  relocate 'org.apache.http','datahub.spark2.shaded.http'
+  relocate 'org.apache.commons.codec', 'datahub.spark2.shaded.o.a.c.codec'
+  relocate 'mozilla', 'datahub.spark2.shaded.mozilla'
+  relocate 'com.typesafe','datahub.spark2.shaded.typesafe'
+  finalizedBy checkShadowJar
 }
+
+checkShadowJar {
+   dependsOn shadowJar
+}
+
 
 jacocoTestReport {
     dependsOn test // tests are required to run before generating the report
@@ -76,7 +167,7 @@ assemble {
     dependsOn shadowJar
 }
 
-task sourceJar(type: Jar) {
+task sourcesJar(type: Jar) {
     classifier 'sources'
     from sourceSets.main.allJava
 }
@@ -86,63 +177,71 @@ task javadocJar(type: Jar, dependsOn: javadoc) {
     from javadoc.destinationDir
 }
 
-artifacts {
-    archives shadowJar
+publishing {
+  publications {
+    shadow(MavenPublication) {
+      publication -> project.shadow.component(publication)
+      pom {
+        name = 'Datahub Spark Lineage'
+        group = 'io.acryl'
+        artifactId = 'datahub-spark-lineage'
+        description = 'Library to push data lineage from spark to datahub'
+        url = 'https://datahubproject.io'
+        artifacts = [ shadowJar, javadocJar, sourcesJar ]
+
+        scm {
+          connection = 'scm:git:git://github.com/linkedin/datahub.git'
+          developerConnection = 'scm:git:ssh://github.com:linkedin/datahub.git'
+          url = 'https://github.com/linkedin/datahub.git'
+        }
+
+        licenses {
+          license {
+            name = 'The Apache License, Version 2.0'
+            url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+          }
+        }
+
+        developers {
+          developer {
+            id = 'datahub'
+            name = 'Datahub'
+            email = 'datahub@acryl.io'
+          }
+        }
+      }
+    }
+  }
+
+  repositories {
+    maven {
+      def releasesRepoUrl = "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
+      def snapshotsRepoUrl = "https://s01.oss.sonatype.org/content/repositories/snapshots/"
+      def ossrhUsername = System.getenv('RELEASE_USERNAME')
+      def ossrhPassword = System.getenv('RELEASE_PASSWORD')
+      credentials {
+        username ossrhUsername
+        password ossrhPassword
+      }
+      url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+    }
+  }
 }
 
-// uploadArchives {
-//   repositories {
-//     mavenDeployer {
-//       def ossrhUsername = System.getenv('RELEASE_USERNAME')
-//       def ossrhPassword = System.getenv('RELEASE_PASSWORD')
-//       beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
 
-//       repository(url: "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/") {
-//         authentication(userName: ossrhUsername, password: ossrhPassword)
-//       }
+signing {
+    def signingKey = findProperty("signingKey")
+    def signingPassword = System.getenv("SIGNING_PASSWORD")
+    useInMemoryPgpKeys(signingKey, signingPassword)
+    sign publishing.publications.shadow
+}
 
-//       snapshotRepository(url: "https://s01.oss.sonatype.org/content/repositories/snapshots/") {
-//         authentication(userName: ossrhUsername, password: ossrhPassword)
-//       }
-
-//       pom.project {
-//           //No need to specify name here. Name is always picked up from project name
-//         //name 'spark-lineage'
-//         packaging 'jar'
-//         // optionally artifactId can be defined here
-//         description 'Library to push data lineage from spark to datahub'
-//         url 'https://datahubproject.io'
-
-//         scm {
-//           connection 'scm:git:git://github.com/linkedin/datahub.git'
-//           developerConnection 'scm:git:ssh://github.com:linkedin/datahub.git'
-//           url 'https://github.com/linkedin/datahub.git'
-//         }
-
-//         licenses {
-//           license {
-//             name 'The Apache License, Version 2.0'
-//             url 'http://www.apache.org/licenses/LICENSE-2.0.txt'
-//           }
-//         }
-
-//         developers {
-//           developer {
-//             id 'datahub'
-//             name 'datahub'
-//             
-//           }
-//         }
-//       }
-//     }
-//   }
-// }
+nexusStaging {
+    serverUrl = "https://s01.oss.sonatype.org/service/local/" //required only for projects registered in Sonatype after 2021-02-24
+    username = System.getenv("NEXUS_USERNAME")
+    password = System.getenv("NEXUS_PASSWORD")
+}
 
 
-// signing {
-//     def signingKey = findProperty("signingKey")
-//     def signingPassword = findProperty("signingPassword")
-//     useInMemoryPgpKeys(signingKey, signingPassword)
-//     sign configurations.archives
-// }
+
 

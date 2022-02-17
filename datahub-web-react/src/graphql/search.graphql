@@ -28,10 +28,7 @@ fragment searchResults on SearchResults {
                 origin
                 uri
                 platform {
-                    name
-                    info {
-                        logoUrl
-                    }
+                    ...platformFields
                 }
                 editableProperties {
                     description
@@ -56,6 +53,12 @@ fragment searchResults on SearchResults {
                 subTypes {
                     typeNames
                 }
+                domain {
+                    ...entityDomain
+                }
+                container {
+                    ...entityContainer
+                }
             }
             ... on CorpUser {
                 username
@@ -77,28 +80,10 @@ fragment searchResults on SearchResults {
                     displayName
                     description
                 }
-                relationships(input: { types: ["IsMemberOfGroup"], direction: INCOMING }) {
-                    relationships {
-                        type
-                        direction
-                        entity {
-                            urn
-                            type
-                            ... on CorpUser {
-                                username
-                                info {
-                                    active
-                                    displayName
-                                    title
-                                    firstName
-                                    lastName
-                                }
-                                editableInfo {
-                                    pictureLink
-                                }
-                            }
-                        }
-                    }
+                memberCount: relationships(
+                    input: { types: ["IsMemberOfGroup"], direction: INCOMING, start: 0, count: 1 }
+                ) {
+                    total
                 }
             }
             ... on Dashboard {
@@ -126,6 +111,15 @@ fragment searchResults on SearchResults {
                 }
                 editableProperties {
                     description
+                }
+                platform {
+                    ...platformFields
+                }
+                domain {
+                    ...entityDomain
+                }
+                container {
+                    ...entityContainer
                 }
             }
             ... on Chart {
@@ -155,6 +149,15 @@ fragment searchResults on SearchResults {
                 editableProperties {
                     description
                 }
+                platform {
+                    ...platformFields
+                }
+                domain {
+                    ...entityDomain
+                }
+                container {
+                    ...entityContainer
+                }
             }
             ... on DataFlow {
                 urn
@@ -178,6 +181,12 @@ fragment searchResults on SearchResults {
                 }
                 editableProperties {
                     description
+                }
+                platform {
+                    ...platformFields
+                }
+                domain {
+                    ...entityDomain
                 }
             }
             ... on DataJob {
@@ -203,18 +212,68 @@ fragment searchResults on SearchResults {
                 editableProperties {
                     description
                 }
+                domain {
+                    ...entityDomain
+                }
             }
             ... on GlossaryTerm {
                 name
-                glossaryTermInfo {
-                    definition
+                hierarchicalName
+                properties {
+                    name
+                    description
                     termSource
                     sourceRef
                     sourceUrl
+                    rawSchema
                     customProperties {
                         key
                         value
                     }
+                }
+            }
+            ... on Domain {
+                urn
+                properties {
+                    name
+                    description
+                }
+                ownership {
+                    ...ownershipFields
+                }
+            }
+            ... on Container {
+                urn
+                properties {
+                    name
+                    description
+                }
+                platform {
+                    ...platformFields
+                }
+                editableProperties {
+                    description
+                }
+                ownership {
+                    ...ownershipFields
+                }
+                tags {
+                    ...globalTagsFields
+                }
+                institutionalMemory {
+                    ...institutionalMemoryFields
+                }
+                glossaryTerms {
+                    ...glossaryTerms
+                }
+                subTypes {
+                    typeNames
+                }
+                entities(input: {}) {
+                    total
+                }
+                container {
+                    ...entityContainer
                 }
             }
             ... on MLFeatureTable {
@@ -234,6 +293,9 @@ fragment searchResults on SearchResults {
                 ownership {
                     ...ownershipFields
                 }
+                platform {
+                    ...platformFields
+                }
             }
             ... on MLModel {
                 name
@@ -243,10 +305,7 @@ fragment searchResults on SearchResults {
                     ...ownershipFields
                 }
                 platform {
-                    name
-                    info {
-                        logoUrl
-                    }
+                    ...platformFields
                 }
             }
             ... on MLModelGroup {
@@ -257,10 +316,7 @@ fragment searchResults on SearchResults {
                     ...ownershipFields
                 }
                 platform {
-                    name
-                    info {
-                        logoUrl
-                    }
+                    ...platformFields
                 }
             }
             ... on Tag {
@@ -291,14 +347,26 @@ fragment searchResults on SearchResults {
                     description
                 }
                 ... on GlossaryTerm {
-                    name
+                    properties {
+                        name
+                    }
                 }
                 ... on DataPlatform {
-                    name
-                    displayName
-                    info {
-                        displayName
-                        logoUrl
+                    ...platformFields
+                }
+                ... on Domain {
+                    urn
+                    properties {
+                        name
+                    }
+                }
+                ... on Container {
+                    urn
+                    platform {
+                        ...platformFields
+                    }
+                    properties {
+                        name
                     }
                 }
             }

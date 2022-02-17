@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.PluginEntityRegistryLoader;
 import com.linkedin.metadata.models.registry.config.EntityRegistryLoadResult;
+import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.util.Pair;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -22,6 +23,7 @@ import org.springframework.web.context.support.WebApplicationContextUtils;
 // Return a 200 for health checks
 
 public class Config extends HttpServlet {
+
   Map<String, Object> config = new HashMap<String, Object>() {{
     put("noCode", "true");
     put("retention", "true");
@@ -47,8 +49,20 @@ public class Config extends HttpServlet {
     return patchDiagnostics;
   }
 
+  private GitVersion getGitVersion(ServletContext servletContext) {
+    WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(servletContext);
+    return (GitVersion) ctx.getBean("gitVersion");
+  }
+
   @Override
   protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+    config.put("noCode", "true");
+
+    GitVersion version = getGitVersion(req.getServletContext());
+    Map<String, Object> versionConfig = new HashMap<>();
+    versionConfig.put("linkedin/datahub", version.toConfig());
+    config.put("versions", versionConfig);
+
     resp.setContentType("application/json");
     PrintWriter out = resp.getWriter();
 

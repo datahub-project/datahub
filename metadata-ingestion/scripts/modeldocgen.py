@@ -231,7 +231,9 @@ def make_entity_docs(entity_display_name: str, graph: RelationshipGraph) -> str:
         if adjacency.self_loop:
             relationships_section += f"\n### Self\nThese are the relationships to itself, stored in this entity's aspects"
         for relnship in adjacency.self_loop:
-            relationships_section += f"\n- {relnship.name} ({relnship.doc[1:] if relnship.doc else ''})"
+            relationships_section += (
+                f"\n- {relnship.name} ({relnship.doc[1:] if relnship.doc else ''})"
+            )
 
         if adjacency.outgoing:
             relationships_section += f"\n### Outgoing\nThese are the relationships stored in this entity's aspects"
@@ -274,9 +276,7 @@ def generate_stitched_record(relnships_graph: RelationshipGraph) -> List[Any]:
             if aspect_name not in aspect_registry:
                 print(f"Did not find aspect name: {aspect_name} in aspect_registry")
                 continue
-            import pdb
 
-            # breakpoint()
             # all aspects should have a schema
             aspect_schema = aspect_registry[aspect_name].schema
             assert aspect_schema
@@ -292,7 +292,7 @@ def generate_stitched_record(relnships_graph: RelationshipGraph) -> List[Any]:
             field_objects = []
             for f in entity_fields:
                 field = avro.schema.Field(
-                    type_=f["type"],
+                    type=f["type"],
                     name=f["name"],
                     has_default=False,
                 )
@@ -327,7 +327,8 @@ def generate_stitched_record(relnships_graph: RelationshipGraph) -> List[Any]:
             for f_field in schema_fields:
                 if f_field.jsonProps:
                     import pdb
-                    #breakpoint()
+
+                    # breakpoint()
                     json_dict = json.loads(f_field.jsonProps)
                     if "Aspect" in json_dict:
                         aspect_info = json_dict["Aspect"]
@@ -440,7 +441,6 @@ def generate_stitched_record(relnships_graph: RelationshipGraph) -> List[Any]:
 
         mce = MetadataChangeEventClass(
             proposedSnapshot=d,
-            systemMetadata=SystemMetadataClass(runId="test-metamodel"),
         )
         events.append(mce)
 
@@ -484,7 +484,7 @@ def generate(
     server: Optional[str],
     file: Optional[str],
     dot: Optional[str],
-    png: Optional[str]
+    png: Optional[str],
 ) -> None:
     logger.info(f"server = {server}")
     logger.info(f"file = {file}")
@@ -498,7 +498,7 @@ def generate(
         else:
             # schema file
             load_schema_file(schema_file)
-            
+
     relationship_graph = RelationshipGraph()
     events = generate_stitched_record(relationship_graph)
 
@@ -574,8 +574,11 @@ def generate(
             try:
                 graph.write_png(png)
             except Exception as e:
-                logger.error("Failed to create png file. Do you have graphviz installed?")
+                logger.error(
+                    "Failed to create png file. Do you have graphviz installed?"
+                )
                 raise e
+
 
 if __name__ == "__main__":
     logger.setLevel("INFO")
