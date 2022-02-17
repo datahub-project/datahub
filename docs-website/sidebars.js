@@ -15,10 +15,7 @@ function list_ids_in_directory(directory, hardcoded_labels) {
     } else {
       if (name.endsWith(".md")) {
         const slug = name.replace(/\.md$/, "");
-        let id = `${directory}/${slug}`;
-        if (id.match(/\/\d+-.+/)) {
-          id = id.replace(/\/\d+-/, "/");
-        }
+        const id = `${directory}/${slug}`;
 
         if (id in hardcoded_labels) {
           label = hardcoded_labels[id];
