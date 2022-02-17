@@ -90,7 +90,11 @@ def gen_containers(
         # entityKeyAspect=ContainerKeyClass(guid=schema_container_key.guid()),
         aspectName="containerProperties",
         aspect=ContainerProperties(
-            name=name, customProperties=dataclasses.asdict(container_key)
+            name=name,
+            customProperties=dataclasses.asdict(
+                container_key,
+                dict_factory=lambda x: {k: v for (k, v) in x if v is not None},
+            ),
         ),
     )
     wu = MetadataWorkUnit(id=f"container-info-{name}-{container_urn}", mcp=mcp)

@@ -7,7 +7,7 @@
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-      "value": "{\"customProperties\": {\"platform\": \"glue\", \"instance\": \"\", \"database\": \"flights-database\"}, \"name\": \"flights-database\"}",
+      "value": "{\"customProperties\": {\"platform\": \"glue\", \"database\": \"flights-database\"}, \"name\": \"flights-database\"}",
       "contentType": "application/json"
     },
     "systemMetadata": null
@@ -289,7 +289,7 @@
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-      "value": "{\"customProperties\": {\"platform\": \"glue\", \"instance\": \"\", \"database\": \"test-database\"}, \"name\": \"test-database\"}",
+      "value": "{\"customProperties\": {\"platform\": \"glue\", \"database\": \"test-database\"}, \"name\": \"test-database\"}",
       "contentType": "application/json"
     },
     "systemMetadata": null
