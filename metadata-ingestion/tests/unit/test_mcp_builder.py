@@ -4,11 +4,11 @@ from datahub.emitter.mce_builder import datahub_guid
 
 def test_guid_generator():
     key = builder.SchemaKey(
-        database="test", schema="Test", platform="mysql", instance="PROD"
+        database="test", schema="Test", platform="mysql", instance="some_mysql"
     )
 
     guid = key.guid()
-    assert guid == "f5268c71373b9100d50c1299861cfb3f"
+    assert guid == "cc05baee5809b42df29c8e550c12b153"
 
 
 def test_guid_generator_with_empty_instance():
@@ -22,7 +22,7 @@ def test_guid_generator_with_empty_instance():
 
 def test_guid_generators():
     key = builder.SchemaKey(
-        database="test", schema="Test", platform="mysql", instance="PROD"
+        database="test", schema="Test", platform="mysql", instance="some_mysql"
     )
     guid_datahub = datahub_guid(key.__dict__)
 

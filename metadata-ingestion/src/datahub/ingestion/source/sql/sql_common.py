@@ -555,14 +555,14 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             database=db_name,
             schema=schema,
             platform=self.platform,
-            instance=self.config.env,
+            instance=self.config.platform_instance,
         )
 
     def gen_database_key(self, database: str) -> PlatformKey:
         return DatabaseKey(
             database=database,
             platform=self.platform,
-            instance=self.config.env,
+            instance=self.config.platform_instance,
         )
 
     def gen_database_containers(self, database: str) -> Iterable[MetadataWorkUnit]:

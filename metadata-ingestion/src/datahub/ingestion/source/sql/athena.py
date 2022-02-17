@@ -105,7 +105,9 @@ class AthenaSource(SQLAlchemySource):
 
     def gen_schema_key(self, db_name: str, schema: str) -> DatabaseKey:
         return DatabaseKey(
-            platform=self.platform, instance=self.config.env, database=schema
+            platform=self.platform,
+            instance=self.config.platform_instance,
+            database=schema,
         )
 
     def gen_schema_containers(
