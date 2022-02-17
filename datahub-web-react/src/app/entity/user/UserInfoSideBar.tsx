@@ -1,27 +1,39 @@
-import { Divider, message, Space, Button, Tag, Typography, Alert } from 'antd';
+import { Divider, message, Space, Button, Tag, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { EditOutlined, MailOutlined, PhoneOutlined, SlackOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
-import useUserParams from '../../shared/entitySearch/routingUtils/useUserParams';
-import { useGetUserQuery, useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
+import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
 import { EntityType } from '../../../types.generated';
-import { Message } from '../../shared/Message';
 
 import UserEditProfileModal from './UserEditProfileModal';
 import { ExtendedEntityRelationshipsResult } from './type';
 import CustomAvatar from '../../shared/avatar/CustomAvatar';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { decodeUrn } from '../shared/utils';
+import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
 
 const { Paragraph } = Typography;
 
-export interface Props {
-    onTabChange: (selectedTab: string) => void;
-}
+type SideBarData = {
+    photoUrl: string | undefined;
+    avatarName: string | undefined;
+    name: string | undefined;
+    role: string | undefined;
+    team: string | undefined;
+    email: string | undefined;
+    slack: string | undefined;
+    phone: string | undefined;
+    aboutText: string | undefined;
+    groupsDetails: ExtendedEntityRelationshipsResult;
+    urn: string | undefined;
+};
 
-const MESSAGE_STYLE = { marginTop: '10%' };
-const GROUP_PAGE_SIZE = 20;
+type Props = {
+    sideBarData: SideBarData;
+    refetch: () => void;
+};
+
+const AVATAR_STYLE = { marginTop: '14px' };
 
 /**
  * Styled Components
@@ -54,6 +66,9 @@ export const SideBarSubSection = styled.div`
     height: calc(100vh - 135px);
     overflow: auto;
     padding-right: 18px;
+    &.fullView {
+        height: calc(100vh - 70px);
+    }
     &::-webkit-scrollbar {
         height: 12px;
         width: 1px;
@@ -155,7 +170,6 @@ export const GroupsSection = styled.div`
 export const TagsSection = styled.div`
     height: calc(75vh - 460px);
     padding: 5px;
-    // overflow: auto;
 `;
 
 export const NoDataFound = styled.span`
@@ -179,37 +193,28 @@ export const GroupsSeeMoreText = styled.span`
 /**
  * Responsible for reading & writing users.
  */
-export default function UserInfoSideBar() {
-    const { urn: encodedUrn } = useUserParams();
-    const urn = decodeUrn(encodedUrn);
+export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
+    const { name, aboutText, avatarName, email, groupsDetails, phone, photoUrl, role, slack, team, urn } = sideBarData;
+
     const [updateCorpUserPropertiesMutation] = useUpdateCorpUserPropertiesMutation();
-    const { loading, error, data, refetch } = useGetUserQuery({ variables: { urn, groupsCount: GROUP_PAGE_SIZE } });
     const entityRegistry = useEntityRegistry();
 
     const [groupSectionExpanded, setGroupSectionExpanded] = useState(false);
     const [editProfileModal, showEditProfileModal] = useState(false);
     /* eslint-disable @typescript-eslint/no-unused-vars */
     const [editableAboutMeText, setEditableAboutMeText] = useState<string | undefined>('');
+    const me = useGetAuthenticatedUser();
+    const showEditProfileButton = me?.corpUser?.urn === urn;
 
-    const groupsDetails = data?.corpUser?.relationships as ExtendedEntityRelationshipsResult;
-    const photoUrl = data?.corpUser?.editableProperties?.pictureLink || undefined;
-
-    if (error || (!loading && !error && !data)) {
-        return <Alert type="error" message={error?.message || 'Profile data failed to load'} />;
-    }
-
-    // EditProfile modal Constants
-    const getEditModalData = () => {
-        return {
-            urn: data?.corpUser?.urn || undefined,
-            name: data?.corpUser?.editableProperties?.displayName || data?.corpUser?.info?.fullName || undefined,
-            title: data?.corpUser?.editableProperties?.title || data?.corpUser?.info?.title || undefined,
-            team: data?.corpUser?.editableProperties?.teams?.join(',') || undefined,
-            email: data?.corpUser?.editableProperties?.email || data?.corpUser?.info?.email || undefined,
-            image: photoUrl,
-            slack: data?.corpUser?.editableProperties?.slack || undefined,
-            phone: data?.corpUser?.editableProperties?.phone || undefined,
-        };
+    const getEditModalData = {
+        urn,
+        name,
+        title: role,
+        team,
+        email,
+        image: photoUrl,
+        slack,
+        phone,
     };
 
     // About Text save
@@ -217,7 +222,7 @@ export default function UserInfoSideBar() {
         setEditableAboutMeText(inputString);
         updateCorpUserPropertiesMutation({
             variables: {
-                urn: data?.corpUser?.urn || '',
+                urn: urn || '',
                 input: {
                     aboutMe: inputString,
                 },
@@ -237,46 +242,29 @@ export default function UserInfoSideBar() {
     };
     return (
         <>
-            {loading && <Message type="loading" content="Loading..." style={MESSAGE_STYLE} />}
             <SideBar>
-                <SideBarSubSection>
-                    <CustomAvatar
-                        size={160}
-                        photoUrl={photoUrl}
-                        name={
-                            data?.corpUser?.editableProperties?.displayName ||
-                            data?.corpUser?.info?.displayName ||
-                            data?.corpUser?.info?.fullName ||
-                            data?.corpUser?.urn
-                        }
-                        style={{ marginTop: '14px' }}
-                    />
-                    <Name>
-                        {data?.corpUser?.editableProperties?.displayName || data?.corpUser?.info?.fullName || (
-                            <EmptyValue />
-                        )}
-                    </Name>
-                    <Role>
-                        {data?.corpUser?.editableProperties?.title || data?.corpUser?.info?.title || <EmptyValue />}
-                    </Role>
-                    <Team>{data?.corpUser?.editableProperties?.teams?.join(',') || <EmptyValue />}</Team>
+                <SideBarSubSection className={showEditProfileButton ? '' : 'fullView'}>
+                    <CustomAvatar size={160} photoUrl={photoUrl} name={avatarName} style={AVATAR_STYLE} />
+                    <Name>{name || <EmptyValue />}</Name>
+                    <Role>{role || <EmptyValue />}</Role>
+                    <Team>{team || <EmptyValue />}</Team>
                     <Divider className="divider-infoSection" />
                     <SocialDetails>
                         <Space>
                             <MailOutlined />
-                            {data?.corpUser?.editableProperties?.email || data?.corpUser?.info?.email || <EmptyValue />}
+                            {email || <EmptyValue />}
                         </Space>
                     </SocialDetails>
                     <SocialDetails>
                         <Space>
                             <SlackOutlined />
-                            {data?.corpUser?.editableProperties?.slack || <EmptyValue />}
+                            {slack || <EmptyValue />}
                         </Space>
                     </SocialDetails>
                     <SocialDetails>
                         <Space>
                             <PhoneOutlined />
-                            {data?.corpUser?.editableProperties?.phone || <EmptyValue />}
+                            {phone || <EmptyValue />}
                         </Space>
                     </SocialDetails>
                     <Divider className="divider-aboutSection" />
@@ -287,7 +275,7 @@ export default function UserInfoSideBar() {
                                 editable={{ onChange: onSaveAboutMe }}
                                 ellipsis={{ rows: 2, expandable: true, symbol: 'Read more' }}
                             >
-                                {data?.corpUser?.editableProperties?.aboutMe || <EmptyValue />}
+                                {aboutText || <EmptyValue />}
                             </Paragraph>
                         </AboutSectionText>
                     </AboutSection>
@@ -327,11 +315,13 @@ export default function UserInfoSideBar() {
                         </TagsSection>
                     </GroupsSection>
                 </SideBarSubSection>
-                <EditProfileButton>
-                    <Button icon={<EditOutlined />} onClick={() => showEditProfileModal(true)}>
-                        Edit Profile
-                    </Button>
-                </EditProfileButton>
+                {showEditProfileButton && (
+                    <EditProfileButton>
+                        <Button icon={<EditOutlined />} onClick={() => showEditProfileModal(true)}>
+                            Edit Profile
+                        </Button>
+                    </EditProfileButton>
+                )}
             </SideBar>
             {/* Modal */}
             <UserEditProfileModal
@@ -340,7 +330,7 @@ export default function UserInfoSideBar() {
                 onSave={() => {
                     refetch();
                 }}
-                editModalData={getEditModalData()}
+                editModalData={getEditModalData}
             />
         </>
     );

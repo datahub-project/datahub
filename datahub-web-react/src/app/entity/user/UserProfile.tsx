@@ -44,6 +44,15 @@ const Content = styled.div`
     }
 `;
 
+export const EmptyValue = styled.div`
+    &:after {
+        content: 'None';
+        color: #b7b7b7;
+        font-style: italic;
+        font-weight: 100;
+    }
+`;
+
 /**
  * Responsible for reading & writing users.
  */
@@ -51,7 +60,7 @@ export default function UserProfile() {
     const { urn: encodedUrn } = useUserParams();
     const urn = decodeUrn(encodedUrn);
 
-    const { loading, error, data } = useGetUserQuery({ variables: { urn, groupsCount: GROUP_PAGE_SIZE } });
+    const { loading, error, data, refetch } = useGetUserQuery({ variables: { urn, groupsCount: GROUP_PAGE_SIZE } });
 
     const username = data?.corpUser?.username;
     const ownershipResult = useGetAllEntitySearchResults({
@@ -96,13 +105,31 @@ export default function UserProfile() {
     const defaultTabPath = getTabs() && getTabs()?.length > 0 ? getTabs()[0].path : '';
     const onTabChange = () => null;
 
+    // Side bar data
+    const sideBarData = {
+        photoUrl: data?.corpUser?.editableProperties?.pictureLink || undefined,
+        avatarName:
+            data?.corpUser?.editableProperties?.displayName ||
+            data?.corpUser?.info?.displayName ||
+            data?.corpUser?.info?.fullName ||
+            data?.corpUser?.urn,
+        name: data?.corpUser?.editableProperties?.displayName || data?.corpUser?.info?.fullName || undefined,
+        role: data?.corpUser?.editableProperties?.title || data?.corpUser?.info?.title || undefined,
+        team: data?.corpUser?.editableProperties?.teams?.join(',') || undefined,
+        email: data?.corpUser?.editableProperties?.email || data?.corpUser?.info?.email || undefined,
+        slack: data?.corpUser?.editableProperties?.slack || undefined,
+        phone: data?.corpUser?.editableProperties?.phone || undefined,
+        aboutText: data?.corpUser?.editableProperties?.aboutMe || undefined,
+        groupsDetails: data?.corpUser?.relationships as ExtendedEntityRelationshipsResult,
+        urn,
+    };
     return (
         <>
             {contentLoading && <Message type="loading" content="Loading..." style={MESSAGE_STYLE} />}
             <UserProfileWrapper>
                 <Row>
                     <Col xl={5} lg={5} md={5} sm={24} xs={24}>
-                        <UserInfoSideBar />
+                        <UserInfoSideBar sideBarData={sideBarData} refetch={refetch} />
                     </Col>
                     <Col xl={19} lg={19} md={19} sm={24} xs={24} style={{ borderLeft: '1px solid #E9E9E9' }}>
                         <Content>
