@@ -74,6 +74,7 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
     getEntityMetadataStats("Charts", EntityType.CHART).ifPresent(highlights::add);
     getEntityMetadataStats("Pipelines", EntityType.DATA_FLOW).ifPresent(highlights::add);
     getEntityMetadataStats("Tasks", EntityType.DATA_JOB).ifPresent(highlights::add);
+    getEntityMetadataStats("Domains", EntityType.DOMAIN).ifPresent(highlights::add);
     return highlights;
   }
 
@@ -88,17 +89,24 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
     int numEntitiesWithTags = getNumEntitiesFiltered(index, ImmutableMap.of("hasTags", ImmutableList.of("true")));
     int numEntitiesWithDescription =
         getNumEntitiesFiltered(index, ImmutableMap.of("hasDescription", ImmutableList.of("true")));
-    int numEntitiesWithDomains = getNumEntitiesFiltered(index, ImmutableMap.of("hasDomain", ImmutableList.of("true")));
 
     String bodyText = "";
     if (numEntities > 0) {
       double percentWithOwners = 100.0 * numEntitiesWithOwners / numEntities;
       double percentWithTags = 100.0 * numEntitiesWithTags / numEntities;
       double percentWithDescription = 100.0 * numEntitiesWithDescription / numEntities;
-      double percentWithDomains = 100.0 * numEntitiesWithDomains / numEntities;
-      bodyText =
-          String.format("%.2f%% have owners, %.2f%% have tags, %.2f%% have description, %.2f%% have domain assigned!",
-              percentWithOwners, percentWithTags, percentWithDescription, percentWithDomains);
+      if (entityType == EntityType.DOMAIN) {
+        // Don't show percent with domain when asking for stats regarding domains
+        bodyText = String.format("%.2f%% have owners, %.2f%% have tags, %.2f%% have description!", percentWithOwners,
+            percentWithTags, percentWithDescription);
+      } else {
+        int numEntitiesWithDomains =
+            getNumEntitiesFiltered(index, ImmutableMap.of("hasDomain", ImmutableList.of("true")));
+        double percentWithDomains = 100.0 * numEntitiesWithDomains / numEntities;
+        bodyText =
+            String.format("%.2f%% have owners, %.2f%% have tags, %.2f%% have description, %.2f%% have domain assigned!",
+                percentWithOwners, percentWithTags, percentWithDescription, percentWithDomains);
+      }
     }
     return Optional.of(Highlight.builder().setTitle(title).setValue(numEntities).setBody(bodyText).build());
   }

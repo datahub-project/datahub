@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.analytics.service;
 
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.generated.BarSegment;
 import com.linkedin.datahub.graphql.generated.Cell;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityProfileParams;
@@ -57,7 +58,7 @@ public class AnalyticsUtil {
     return result;
   }
 
-  public static void hydrateDisplayNameForBarChart(EntityClient entityClient, List<NamedBar> bars, String entityName,
+  public static void hydrateDisplayNameForBars(EntityClient entityClient, List<NamedBar> bars, String entityName,
       Set<String> aspectNames, Function<EntityResponse, Optional<String>> extractDisplayName,
       Authentication authentication) throws Exception {
     Map<String, String> urnToDisplayName =
@@ -65,6 +66,17 @@ public class AnalyticsUtil {
             aspectNames, extractDisplayName, authentication);
     // For each urn, try to find it's name, use the urn if not found
     bars.forEach(namedBar -> namedBar.setName(urnToDisplayName.getOrDefault(namedBar.getName(), namedBar.getName())));
+  }
+
+  public static void hydrateDisplayNameForSegments(EntityClient entityClient, List<NamedBar> bars, String entityName,
+      Set<String> aspectNames, Function<EntityResponse, Optional<String>> extractDisplayName,
+      Authentication authentication) throws Exception {
+    Map<String, String> urnToDisplayName = getUrnToDisplayName(entityClient,
+        bars.stream().flatMap(bar -> bar.getSegments().stream().map(BarSegment::getLabel)).collect(Collectors.toList()),
+        entityName, aspectNames, extractDisplayName, authentication);
+    // For each urn, try to find it's name, use the urn if not found
+    bars.forEach(namedBar -> namedBar.getSegments()
+        .forEach(segment -> segment.setLabel(urnToDisplayName.getOrDefault(segment.getLabel(), segment.getLabel()))));
   }
 
   public static void hydrateDisplayNameForTable(EntityClient entityClient, List<Row> rows, String entityName,

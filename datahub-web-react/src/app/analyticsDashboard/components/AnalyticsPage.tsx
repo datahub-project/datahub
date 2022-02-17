@@ -70,19 +70,6 @@ export const AnalyticsPage = () => {
     const onDomainChange = (inputDomain) => setDomain(inputDomain);
     const onStagedQueryChange = (inputQuery) => setStagedQuery(inputQuery);
     const {
-        loading: globalMetadataAnalyticsLoading,
-        error: globalMetadataAnalyticsError,
-        data: globalMetadataAnalyticsData,
-    } = useGetMetadataAnalyticsChartsQuery({
-        variables: {
-            input: {
-                entityType: null,
-                domain: null,
-                query: null,
-            },
-        },
-    });
-    const {
         loading: metadataAnalyticsLoading,
         error: metadataAnalyticsError,
         data: metadataAnalyticsData,
@@ -111,22 +98,22 @@ export const AnalyticsPage = () => {
                 ))}
             </HighlightGroup>
             <>
-                {globalMetadataAnalyticsLoading && (
-                    <Message type="loading" content="Loading Charts..." style={{ marginTop: '10%' }} />
-                )}
-                {globalMetadataAnalyticsError && (
+                {chartLoading && <Message type="loading" content="Loading Charts..." style={{ marginTop: '10%' }} />}
+                {chartError && (
                     <Alert type="error" message={metadataAnalyticsError?.message || 'Charts failed to load'} />
                 )}
-                {globalMetadataAnalyticsData?.getMetadataAnalyticsCharts?.map((chartGroup) => (
-                    <ChartGroup chartGroup={chartGroup} />
-                ))}
+                {chartData?.getAnalyticsCharts
+                    ?.filter((chartGroup) => chartGroup.groupId === 'GlobalMetadataAnalytics')
+                    .map((chartGroup) => (
+                        <ChartGroup chartGroup={chartGroup} />
+                    ))}
             </>
             <>
                 {domainLoading && <Message type="loading" content="Loading Domains..." style={{ marginTop: '10%' }} />}
                 {domainError && (
                     <Alert type="error" message={metadataAnalyticsError?.message || 'Domains failed to load'} />
                 )}
-                {!globalMetadataAnalyticsLoading && (
+                {!chartLoading && (
                     <>
                         <Divider />
                         <MetadataAnalyticsInput>
@@ -170,7 +157,7 @@ export const AnalyticsPage = () => {
                     <Alert type="error" message={metadataAnalyticsError?.message || 'Charts failed to load'} />
                 )}
                 {domain === '' && query === ''
-                    ? !globalMetadataAnalyticsLoading && (
+                    ? !chartLoading && (
                           <MetadataAnalyticsPlaceholder>
                               Please specify domain or query to get granular results
                           </MetadataAnalyticsPlaceholder>
@@ -182,13 +169,15 @@ export const AnalyticsPage = () => {
             <>
                 {chartLoading && <Message type="loading" content="Loading Charts..." style={{ marginTop: '10%' }} />}
                 {chartError && <Alert type="error" message={chartError?.message || 'Charts failed to load'} />}
-                {!globalMetadataAnalyticsLoading &&
-                    chartData?.getAnalyticsCharts?.map((chartGroup) => (
-                        <>
-                            <Divider />
-                            <ChartGroup chartGroup={chartGroup} />
-                        </>
-                    ))}
+                {!chartLoading &&
+                    chartData?.getAnalyticsCharts
+                        ?.filter((chartGroup) => chartGroup.groupId === 'DataHubUsageAnalytics')
+                        .map((chartGroup) => (
+                            <>
+                                <Divider />
+                                <ChartGroup chartGroup={chartGroup} />
+                            </>
+                        ))}
             </>
         </SearchablePage>
     );

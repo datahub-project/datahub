@@ -53,6 +53,7 @@ union AnalyticsChart = TimeSeriesChart | BarChart | TableChart
 For consumption by UI only
 """
 type AnalyticsChartGroup {
+    groupId: String!
     title: String!
     charts: [AnalyticsChart!]!
 }

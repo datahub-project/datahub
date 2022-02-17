@@ -45,17 +45,10 @@ public final class GetMetadataAnalyticsResolver implements DataFetcher<List<Anal
     final Authentication authentication = ResolverUtils.getAuthentication(environment);
     final MetadataAnalyticsInput input = bindArgument(environment.getArgument("input"), MetadataAnalyticsInput.class);
     final AnalyticsChartGroup group = new AnalyticsChartGroup();
-    if (isEmpty(input)) {
-      group.setTitle("Data Landscape Summary");
-    } else {
-      group.setTitle("");
-    }
+    group.setGroupId("FilteredMetadataAnalytics");
+    group.setTitle("");
     group.setCharts(getCharts(input, authentication));
     return ImmutableList.of(group);
-  }
-
-  private boolean isEmpty(MetadataAnalyticsInput input) {
-    return input.getEntityType() == null && input.getDomain() == null && input.getQuery() == null;
   }
 
   private List<AnalyticsChart> getCharts(MetadataAnalyticsInput input, Authentication authentication) throws Exception {
@@ -85,7 +78,7 @@ public final class GetMetadataAnalyticsResolver implements DataFetcher<List<Anal
 
     if (StringUtils.isEmpty(input.getDomain()) && domainAggregation.isPresent()) {
       List<NamedBar> domainChart = buildBarChart(domainAggregation.get());
-      AnalyticsUtil.hydrateDisplayNameForBarChart(_entityClient, domainChart, Constants.DOMAIN_ENTITY_NAME,
+      AnalyticsUtil.hydrateDisplayNameForBars(_entityClient, domainChart, Constants.DOMAIN_ENTITY_NAME,
           ImmutableSet.of(Constants.DOMAIN_PROPERTIES_ASPECT_NAME), AnalyticsUtil::getDomainName, authentication);
       charts.add(BarChart.builder().setTitle("Entities by Domain").setBars(domainChart).build());
     }
@@ -95,7 +88,7 @@ public final class GetMetadataAnalyticsResolver implements DataFetcher<List<Anal
 
     if (platformAggregation.isPresent()) {
       List<NamedBar> platformChart = buildBarChart(platformAggregation.get());
-      AnalyticsUtil.hydrateDisplayNameForBarChart(_entityClient, platformChart, Constants.DATA_PLATFORM_ENTITY_NAME,
+      AnalyticsUtil.hydrateDisplayNameForBars(_entityClient, platformChart, Constants.DATA_PLATFORM_ENTITY_NAME,
           ImmutableSet.of(Constants.DATA_PLATFORM_INFO_ASPECT_NAME), AnalyticsUtil::getPlatformName, authentication);
       charts.add(BarChart.builder().setTitle("Entities by Platform").setBars(platformChart).build());
     }
@@ -105,9 +98,19 @@ public final class GetMetadataAnalyticsResolver implements DataFetcher<List<Anal
 
     if (termAggregation.isPresent()) {
       List<NamedBar> termChart = buildBarChart(termAggregation.get());
-      AnalyticsUtil.hydrateDisplayNameForBarChart(_entityClient, termChart, Constants.GLOSSARY_TERM_ENTITY_NAME,
+      AnalyticsUtil.hydrateDisplayNameForBars(_entityClient, termChart, Constants.GLOSSARY_TERM_ENTITY_NAME,
           ImmutableSet.of(Constants.GLOSSARY_TERM_KEY_ASPECT_NAME), AnalyticsUtil::getTermName, authentication);
       charts.add(BarChart.builder().setTitle("Entities by Term").setBars(termChart).build());
+    }
+
+    Optional<AggregationMetadata> envAggregation =
+        aggregationMetadataList.stream().filter(metadata -> metadata.getName().equals("origin")).findFirst();
+
+    if (envAggregation.isPresent()) {
+      List<NamedBar> termChart = buildBarChart(envAggregation.get());
+      if (termChart.size() > 1) {
+        charts.add(BarChart.builder().setTitle("Entities by Environment").setBars(termChart).build());
+      }
     }
 
     return charts;

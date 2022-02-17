@@ -4,6 +4,7 @@ query isAnalyticsEnabled {
 
 query getAnalyticsCharts {
     getAnalyticsCharts {
+        groupId
         title
         charts {
             ...analyticsChart
@@ -11,9 +12,9 @@ query getAnalyticsCharts {
     }
 }
 
-
 query getMetadataAnalyticsCharts($input: MetadataAnalyticsInput!) {
     getMetadataAnalyticsCharts(input: $input) {
+        groupId
         title
         charts {
             ...analyticsChart
