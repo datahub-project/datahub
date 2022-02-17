@@ -5,7 +5,9 @@ from hashlib import md5
 from typing import Dict, Iterable, List, Optional, cast
 
 import confluent_kafka
+from confluent_kafka.schema_registry import SchemaRegistryError
 from confluent_kafka.schema_registry.schema_registry_client import (
+    RegisteredSchema,
     Schema,
     SchemaRegistryClient,
 )
@@ -70,6 +72,8 @@ class KafkaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigBase):
     domain: Dict[str, AllowDenyPattern] = dict()
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[KafkaSourceStatefulIngestionConfig] = None
+    ignore_warnings_on_schema_type: bool = False
+    ignore_warnings_on_missing_schema: bool = False
 
 
 @dataclass
@@ -282,31 +286,38 @@ class KafkaSource(StatefulIngestionSourceBase):
                 )
             )
 
-    def _extract_record(self, topic: str) -> Iterable[MetadataWorkUnit]:  # noqa: C901
-        logger.debug(f"topic = {topic}")
-        dataset_name = topic
-
-        platform_urn = make_data_platform_urn(self.platform)
-        dataset_urn = make_dataset_urn_with_platform_instance(
-            platform=self.platform,
-            name=dataset_name,
-            platform_instance=self.source_config.platform_instance,
-            env=self.source_config.env,
-        )
-        dataset_snapshot = DatasetSnapshot(
-            urn=dataset_urn,
-            aspects=[],  # we append to this list later on
-        )
-        dataset_snapshot.aspects.append(Status(removed=False))
-        # Fetch schema from the registry.
+    def _extract_schema_metadata(
+        self, topic: str, platform_urn: str
+    ) -> Optional[SchemaMetadata]:
+        def report_schema_type_warnings(schema: Schema) -> None:
+            message = f"Parsing kafka schema type {schema.schema_type} is currently not implemented"
+            if self.source_config.ignore_warnings_on_schema_type:
+                # log debug schema not supported
+                logger.debug(message)
+            else:
+                self.report.report_warning(
+                    topic,
+                    message,
+                )
+            
+        schema_metadata: Optional[SchemaMetadata] = None
         schema: Optional[Schema] = None
         try:
-            registered_schema = self.schema_registry_client.get_latest_version(
-                topic + "-value"
+            registered_schema: RegisteredSchema = (
+                self.schema_registry_client.get_latest_version(topic + "-value")
             )
             schema = registered_schema.schema
         except Exception as e:
-            self.report.report_warning(topic, f"failed to get value schema: {e}")
+            if (
+                # this always works because of short-circuit and evaluation
+                type(e) is SchemaRegistryError
+                and e.http_status_code == 404
+                and self.source_config.ignore_warnings_on_missing_schema
+            ):
+                # do not report warnings because it is okay to not have value schemas
+                logger.debug(f"{topic}: no value schema found. {e}")
+            else:
+                self.report.report_warning(topic, f"failed to get value schema: {e}")
 
         # Parse the schema
         fields: List[SchemaField] = []
@@ -315,10 +326,8 @@ class KafkaSource(StatefulIngestionSourceBase):
             # "value.id" or "value.[type=string]id"
             fields = schema_util.avro_schema_to_mce_fields(cleaned_str)
         elif schema is not None:
-            self.report.report_warning(
-                topic,
-                f"Parsing kafka schema type {schema.schema_type} is currently not implemented",
-            )
+            report_schema_type_warnings(schema)
+
         # Fetch key schema from the registry
         key_schema: Optional[Schema] = None
         try:
@@ -339,10 +348,7 @@ class KafkaSource(StatefulIngestionSourceBase):
                 cleaned_key_str, is_key_schema=True
             )
         elif key_schema is not None:
-            self.report.report_warning(
-                topic,
-                f"Parsing kafka schema type {key_schema.schema_type} is currently not implemented",
-            )
+            report_schema_type_warnings(schema)
 
         key_schema_str: Optional[str] = None
         if schema is not None or key_schema is not None:
@@ -369,6 +375,29 @@ class KafkaSource(StatefulIngestionSourceBase):
                 ),
                 fields=key_fields + fields,
             )
+        return schema_metadata
+
+    def _extract_record(self, topic: str) -> Iterable[MetadataWorkUnit]:
+        logger.debug(f"topic = {topic}")
+        dataset_name = topic
+
+        platform_urn = make_data_platform_urn(self.platform)
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=dataset_name,
+            platform_instance=self.source_config.platform_instance,
+            env=self.source_config.env,
+        )
+        dataset_snapshot = DatasetSnapshot(
+            urn=dataset_urn,
+            aspects=[],  # we append to this list later on
+        )
+        dataset_snapshot.aspects.append(Status(removed=False))
+        # Fetch schema from the registry.
+        schema_metadata: Optional[SchemaMetadata] = self._extract_schema_metadata(
+            topic, platform_urn
+        )
+        if schema_metadata:
             dataset_snapshot.aspects.append(schema_metadata)
 
         browse_path = BrowsePathsClass(
