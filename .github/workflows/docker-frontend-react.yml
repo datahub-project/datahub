@@ -2,7 +2,7 @@ name: datahub-frontend-react docker
 on:
   push:
     branches:
-      - dl--add-regeneron-analytics
+      - acryl-main
     paths-ignore:
       - 'docs/**'
       - '**.md'
@@ -32,7 +32,7 @@ jobs:
         run: |
           echo "GITHUB_REF: $GITHUB_REF"
           SHORT_SHA=$(git rev-parse --short "$GITHUB_SHA")
-          TAG=$(echo ${GITHUB_REF} | sed -e "s,refs/heads/dl--add-regeneron-analytics,regeneron-analytics\,${SHORT_SHA},g" -e 's,refs/tags/,,g' -e 's,refs/pull/\([0-9]*\).*,pr\1,g')
+          TAG=$(echo ${GITHUB_REF} | sed -e "s,refs/heads/acryl-main,head\,${SHORT_SHA},g" -e 's,refs/tags/,,g' -e 's,refs/pull/\([0-9]*\).*,pr\1,g')
           echo "tag=$TAG"
           echo "::set-output name=tag::$TAG"
       - name: Check whether publishing enabled
