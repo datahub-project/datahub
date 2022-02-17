@@ -106,6 +106,9 @@ public class Constants {
   public static final String DOMAIN_PROPERTIES_ASPECT_NAME = "domainProperties";
   public static final String DOMAINS_ASPECT_NAME = "domains";
 
+  // Data Platform
+  public static final String DATA_PLATFORM_INFO_ASPECT_NAME = "dataPlatformInfo";
+
   // Recommendation module
   public static final String RECOMMENDATION_MODULE_ASPECT_NAME = "recommendationModule";
 
