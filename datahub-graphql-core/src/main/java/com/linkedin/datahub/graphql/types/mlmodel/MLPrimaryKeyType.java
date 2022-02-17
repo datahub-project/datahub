@@ -2,31 +2,33 @@ package com.linkedin.datahub.graphql.types.mlmodel;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
-import com.linkedin.datahub.graphql.generated.EntityType;
-import com.linkedin.datahub.graphql.generated.SearchResults;
-import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
+import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.generated.FacetFilterInput;
+import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
+import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
-import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLPrimaryKeySnapshotMapper;
-import com.linkedin.entity.Entity;
+import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLPrimaryKeyMapper;
+import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.execution.DataFetcherResult;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
+import static com.linkedin.metadata.Constants.*;
+
 
 public class MLPrimaryKeyType implements SearchableEntityType<MLPrimaryKey> {
 
@@ -48,26 +50,24 @@ public class MLPrimaryKeyType implements SearchableEntityType<MLPrimaryKey> {
     }
 
     @Override
-    public List<DataFetcherResult<MLPrimaryKey>> batchLoad(final List<String> urns, final QueryContext context) throws Exception {
+    public List<DataFetcherResult<MLPrimaryKey>> batchLoad(final List<String> urns, @Nonnull final QueryContext context)
+        throws Exception {
         final List<Urn> mlPrimaryKeyUrns = urns.stream()
-            .map(MLModelUtils::getUrn)
+            .map(UrnUtils::getUrn)
             .collect(Collectors.toList());
 
         try {
-            final Map<Urn, Entity> mlPrimaryKeyMap = _entityClient.batchGet(mlPrimaryKeyUrns
-                .stream()
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet()),
-            context.getAuthentication());
+            final Map<Urn, EntityResponse> mlPrimaryKeyMap = _entityClient.batchGetV2(ML_PRIMARY_KEY_ENTITY_NAME,
+                new HashSet<>(mlPrimaryKeyUrns), null, context.getAuthentication());
 
-            final List<Entity> gmsResults = mlPrimaryKeyUrns.stream()
-                .map(primaryKeyUrn -> mlPrimaryKeyMap.getOrDefault(primaryKeyUrn, null)).collect(Collectors.toList());
+            final List<EntityResponse> gmsResults = mlPrimaryKeyUrns.stream()
+                .map(primaryKeyUrn -> mlPrimaryKeyMap.getOrDefault(primaryKeyUrn, null))
+                .collect(Collectors.toList());
 
             return gmsResults.stream()
                 .map(gmsMlPrimaryKey -> gmsMlPrimaryKey == null ? null
                     : DataFetcherResult.<MLPrimaryKey>newResult()
-                        .data(MLPrimaryKeySnapshotMapper.map(gmsMlPrimaryKey.getValue().getMLPrimaryKeySnapshot()))
-                        .localContext(AspectExtractor.extractAspects(gmsMlPrimaryKey.getValue().getMLPrimaryKeySnapshot()))
+                        .data(MLPrimaryKeyMapper.map(gmsMlPrimaryKey))
                         .build())
                 .collect(Collectors.toList());
         } catch (Exception e) {

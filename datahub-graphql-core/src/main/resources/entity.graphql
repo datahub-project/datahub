@@ -803,6 +803,11 @@ type GlossaryTerm implements Entity {
     ownership: Ownership
 
     """
+    References to internal resources related to the Glossary Term
+    """
+    institutionalMemory: InstitutionalMemory
+
+    """
     A standard Entity Type
     """
     type: EntityType!
@@ -818,7 +823,7 @@ type GlossaryTerm implements Entity {
     hierarchicalName: String!
 
     """
-    Additional read only properties associated with the Glossary Term
+    Additional properties associated with the Glossary Term
     """
     properties: GlossaryTermProperties
 
@@ -858,7 +863,7 @@ type GlossaryTermInfo {
     """
     Description of the glossary term
     """
-    description: String!
+    description: String
 
     """
     Definition of the glossary term. Deprecated - Use 'description' instead.
@@ -898,12 +903,12 @@ type GlossaryTermProperties {
     """
     The name of the Glossary Term
     """
-    name: String
+    name: String!
 
     """
     Description of the glossary term
     """
-    description: String!
+    description: String
 
     """
     Definition of the glossary term. Deprecated - Use 'description' instead.
@@ -2579,7 +2584,7 @@ type TagProperties {
   """
   A display name for the Tag
   """
-  name: String
+  name: String!
 
   """
   A description of the Tag

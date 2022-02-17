@@ -7,40 +7,42 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.generated.DataJobUpdateInput;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipUpdateMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UpdateMappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.InputModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.TagAssociationUpdateMapper;
 import com.linkedin.datajob.EditableDataJobProperties;
-
-import com.linkedin.metadata.aspect.DataJobAspect;
-import com.linkedin.metadata.aspect.DataJobAspectArray;
-import com.linkedin.metadata.snapshot.DataJobSnapshot;
+import com.linkedin.mxe.MetadataChangeProposal;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
+import static com.linkedin.metadata.Constants.*;
 
-public class DataJobUpdateInputSnapshotMapper implements InputModelMapper<DataJobUpdateInput, DataJobSnapshot, Urn> {
-    public static final DataJobUpdateInputSnapshotMapper INSTANCE = new DataJobUpdateInputSnapshotMapper();
 
-    public static DataJobSnapshot map(
+public class DataJobUpdateInputMapper implements InputModelMapper<DataJobUpdateInput, Collection<MetadataChangeProposal>, Urn> {
+    public static final DataJobUpdateInputMapper INSTANCE = new DataJobUpdateInputMapper();
+
+    public static Collection<MetadataChangeProposal> map(
         @Nonnull final DataJobUpdateInput dataJobUpdateInput,
         @Nonnull final Urn actor) {
         return INSTANCE.apply(dataJobUpdateInput, actor);
     }
 
     @Override
-    public DataJobSnapshot apply(
+    public Collection<MetadataChangeProposal> apply(
         @Nonnull final DataJobUpdateInput dataJobUpdateInput,
         @Nonnull final Urn actor) {
-        final DataJobSnapshot result = new DataJobSnapshot();
+        final Collection<MetadataChangeProposal> proposals = new ArrayList<>(3);
+        final UpdateMappingHelper updateMappingHelper = new UpdateMappingHelper(DATA_JOB_ENTITY_NAME);
 
         final AuditStamp auditStamp = new AuditStamp();
         auditStamp.setActor(actor, SetMode.IGNORE_NULL);
         auditStamp.setTime(System.currentTimeMillis());
 
-        final DataJobAspectArray aspects = new DataJobAspectArray();
-
         if (dataJobUpdateInput.getOwnership() != null) {
-            aspects.add(DataJobAspect.create(OwnershipUpdateMapper.map(dataJobUpdateInput.getOwnership(), actor)));
+            proposals.add(updateMappingHelper.aspectToProposal(
+                OwnershipUpdateMapper.map(dataJobUpdateInput.getOwnership(), actor), OWNERSHIP_ASPECT_NAME));
         }
 
         if (dataJobUpdateInput.getTags() != null || dataJobUpdateInput.getGlobalTags() != null) {
@@ -60,7 +62,7 @@ public class DataJobUpdateInputSnapshotMapper implements InputModelMapper<DataJo
                     )
                 );
             }
-            aspects.add(DataJobAspect.create(globalTags));
+            proposals.add(updateMappingHelper.aspectToProposal(globalTags, GLOBAL_TAGS_ASPECT_NAME));
         }
 
         if (dataJobUpdateInput.getEditableProperties() != null) {
@@ -68,11 +70,10 @@ public class DataJobUpdateInputSnapshotMapper implements InputModelMapper<DataJo
             editableDataJobProperties.setDescription(dataJobUpdateInput.getEditableProperties().getDescription());
             editableDataJobProperties.setCreated(auditStamp);
             editableDataJobProperties.setLastModified(auditStamp);
-            aspects.add(DataJobAspect.create(editableDataJobProperties));
+            proposals.add(updateMappingHelper.aspectToProposal(editableDataJobProperties,
+                EDITABLE_DATA_JOB_PROPERTIES_ASPECT_NAME));
         }
 
-        result.setAspects(aspects);
-
-        return result;
+        return proposals;
     }
 }
