@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.generated.SubResourceType;
 import com.linkedin.domain.DomainProperties;
 import com.linkedin.glossary.GlossaryTermInfo;
+import com.linkedin.identity.CorpGroupEditableInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
@@ -97,6 +98,19 @@ public class DescriptionUtils {
     persistAspect(resourceUrn, Constants.TAG_PROPERTIES_ASPECT_NAME, tagProperties, actor, entityService);
   }
 
+  public static void updateCorpGroupDescription(
+      String newDescription,
+      Urn resourceUrn,
+      Urn actor,
+      EntityService entityService
+  ) {
+    CorpGroupEditableInfo corpGroupEditableInfo =
+        (CorpGroupEditableInfo) getAspectFromEntity(
+            resourceUrn.toString(), Constants.CORP_GROUP_EDITABLE_INFO_ASPECT_NAME, entityService, new EditableContainerProperties());
+    corpGroupEditableInfo.setDescription(newDescription);
+    persistAspect(resourceUrn, Constants.CORP_GROUP_EDITABLE_INFO_ASPECT_NAME, corpGroupEditableInfo, actor, entityService);
+  }
+
   public static void updateGlossaryTermDescription(
       String newDescription,
       Urn resourceUrn,
@@ -157,6 +171,16 @@ public class DescriptionUtils {
   ) {
     if (!entityService.exists(resourceUrn)) {
       throw new IllegalArgumentException(String.format("Failed to update %s. %s does not exist.", resourceUrn, resourceUrn));
+    }
+    return true;
+  }
+
+  public static Boolean validateCorpGroupInput(
+      Urn corpUserUrn,
+      EntityService entityService
+  ) {
+    if (!entityService.exists(corpUserUrn)) {
+      throw new IllegalArgumentException(String.format("Failed to update %s. %s does not exist.", corpUserUrn, corpUserUrn));
     }
     return true;
   }

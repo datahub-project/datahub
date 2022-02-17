@@ -1,4 +1,4 @@
-package com.linkedin.datahub.graphql.resolvers.group;
+package com.linkedin.datahub.graphql.resolvers.user;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
