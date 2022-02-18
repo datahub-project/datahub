@@ -61,7 +61,14 @@ export class UserEntity implements Entity<CorpUser> {
     };
 
     displayName = (data: CorpUser) => {
-        return data.editableProperties?.displayName || data.info?.displayName || data.info?.fullName || data.username;
+        return (
+            data.editableProperties?.displayName ||
+            data.properties?.displayName ||
+            data.properties?.fullName ||
+            data.info?.displayName || // Deprecated info field
+            data.info?.fullName || // Deprecated info field
+            data.username
+        );
     };
 
     getGenericEntityProperties = (user: CorpUser) => {
