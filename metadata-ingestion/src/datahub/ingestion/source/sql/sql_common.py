@@ -969,13 +969,14 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 continue
 
             try:
-                yield from self._process_view(dataset_name, inspector, schema, sql_config, view)
+                yield from self._process_view(
+                    dataset_name, inspector, schema, sql_config, view
+                )
             except Exception as e:
                 logger.warning(
                     f"Unable to ingest view {schema}.{view} due to an exception.\n {traceback.format_exc()}"
                 )
                 self.report.report_warning(f"{schema}.{view}", f"Ingestion error: {e}")
-
 
     def _process_view(self, dataset_name, inspector, schema, sql_config, view):
         try:
