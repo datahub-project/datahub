@@ -13,6 +13,9 @@ fragment glossaryTerms on GlossaryTerms {
         term {
             urn
             name
+            properties {
+                name
+            }
         }
     }
 }

@@ -4,18 +4,19 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.common.Owner;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.OwnershipClient;
 import com.linkedin.identity.GroupMembership;
-import com.linkedin.metadata.aspect.CorpUserAspect;
 import com.linkedin.metadata.authorization.PoliciesConfig;
-import com.linkedin.metadata.snapshot.CorpUserSnapshot;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.DataHubResourceFilter;
 import com.linkedin.r2.RemoteInvocationException;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -108,10 +109,10 @@ public class PolicyEngine {
       }
 
       // 1. Populate actors listed on the policy directly.
-      if (actorFilter.hasUsers()) {
+      if (actorFilter.getUsers() != null) {
         users.addAll(actorFilter.getUsers());
       }
-      if (actorFilter.hasGroups()) {
+      if (actorFilter.getGroups() != null) {
         groups.addAll(actorFilter.getGroups());
       }
 
@@ -174,11 +175,11 @@ public class PolicyEngine {
       return false;
     }
     final ResourceSpec resourceSpec = requestResource.get();
-    final boolean resourceTypesMatch = policyResourceFilter.hasType() && policyResourceFilter.getType().equals(resourceSpec.getType());
+    final boolean resourceTypesMatch = policyResourceFilter.getType() != null
+        && policyResourceFilter.getType().equals(resourceSpec.getType());
     final boolean resourceIdentityMatch =
         policyResourceFilter.isAllResources()
-            || (policyResourceFilter.hasResources() && Objects.requireNonNull(policyResourceFilter.getResources())
-        .stream()
+            || (policyResourceFilter.getResources() != null && policyResourceFilter.getResources().stream()
         .anyMatch(resource -> resource.equals(resourceSpec.getResource())));
     // If the resource's type and identity match, then the resource matches the policy.
     return resourceTypesMatch && resourceIdentityMatch;
@@ -286,15 +287,14 @@ public class PolicyEngine {
   // TODO: Optimization - Cache the group membership. Refresh periodically.
   private Optional<GroupMembership> resolveGroupMembership(final Urn actor) {
     try {
-      final CorpUserSnapshot corpUser = _entityClient.get(actor, _systemAuthentication).getValue().getCorpUserSnapshot();
-      for (CorpUserAspect aspect : corpUser.getAspects()) {
-        if (aspect.isGroupMembership()) {
-          // Found group membership.
-          return Optional.of(aspect.getGroupMembership());
-        }
+      final EntityResponse corpUser = _entityClient.batchGetV2(CORP_USER_ENTITY_NAME, Collections.singleton(actor),
+          null, _systemAuthentication).get(actor);
+      final EnvelopedAspectMap aspectMap = corpUser.getAspects();
+      if (aspectMap.containsKey(GROUP_MEMBERSHIP_ASPECT_NAME)) {
+        return Optional.of(new GroupMembership(aspectMap.get(GROUP_MEMBERSHIP_ASPECT_NAME).getValue().data()));
       }
 
-    } catch (RemoteInvocationException e) {
+    } catch (RemoteInvocationException | URISyntaxException e) {
       throw new RuntimeException(String.format("Failed to fetch corpUser for urn %s", actor), e);
     }
     return Optional.empty();

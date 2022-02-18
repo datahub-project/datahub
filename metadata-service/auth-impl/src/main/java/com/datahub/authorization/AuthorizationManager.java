@@ -3,16 +3,16 @@ package com.datahub.authorization;
 import com.datahub.authentication.Authentication;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.entity.Entity;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.OwnershipClient;
-import com.linkedin.metadata.aspect.DataHubPolicyAspect;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.query.ListUrnsResult;
-import com.linkedin.metadata.snapshot.DataHubPolicySnapshot;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.r2.RemoteInvocationException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -21,9 +21,9 @@ import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
+import static com.linkedin.metadata.Constants.*;
 
 /**
  * The Authorizer is a singleton class responsible for authorizing
@@ -170,8 +170,6 @@ public class AuthorizationManager implements Authorizer {
   @VisibleForTesting
   static class PolicyRefreshRunnable implements Runnable {
 
-    private static final String POLICY_ENTITY_NAME = "dataHubPolicy";
-
     private final Authentication _systemAuthentication;
     private final EntityClient _entityClient;
     private final Map<String, List<DataHubPolicyInfo>> _policyCache;
@@ -199,13 +197,10 @@ public class AuthorizationManager implements Authorizer {
           try {
             log.debug(String.format("Batch fetching policies. start: %s, count: %s ", start, count));
             final ListUrnsResult policyUrns = _entityClient.listUrns(POLICY_ENTITY_NAME, start, count, _systemAuthentication);
-            final Map<Urn, Entity> policyEntities = _entityClient.batchGet(new HashSet<>(policyUrns.getEntities()), _systemAuthentication);
+            final Map<Urn, EntityResponse> policyEntities = _entityClient.batchGetV2(POLICY_ENTITY_NAME,
+                new HashSet<>(policyUrns.getEntities()), null, _systemAuthentication);
 
-            addPoliciesToCache(newCache, policyEntities
-                .values()
-                .stream()
-                .map(entity -> entity.getValue().getDataHubPolicySnapshot())
-                .collect(Collectors.toList()));
+            addPoliciesToCache(newCache, policyEntities.values());
 
             total = policyUrns.getTotal();
             start = start + count;
@@ -225,21 +220,20 @@ public class AuthorizationManager implements Authorizer {
       }
     }
 
-    private void addPoliciesToCache(final Map<String, List<DataHubPolicyInfo>> cache, final List<DataHubPolicySnapshot> snapshots) {
-      for (final DataHubPolicySnapshot snapshot : snapshots) {
-        addPolicyToCache(cache, snapshot);
+    private void addPoliciesToCache(final Map<String, List<DataHubPolicyInfo>> cache,
+        final Collection<EntityResponse> entityResponses) {
+      for (final EntityResponse entityResponse : entityResponses) {
+        addPolicyToCache(cache, entityResponse);
       }
     }
 
-    private void addPolicyToCache(final Map<String, List<DataHubPolicyInfo>> cache, final DataHubPolicySnapshot snapshot) {
-      for (DataHubPolicyAspect aspect : snapshot.getAspects()) {
-        if (aspect.isDataHubPolicyInfo()) {
-          addPolicyToCache(cache, aspect.getDataHubPolicyInfo());
-          return;
-        }
+    private void addPolicyToCache(final Map<String, List<DataHubPolicyInfo>> cache, final EntityResponse entityResponse) {
+      EnvelopedAspectMap aspectMap = entityResponse.getAspects();
+      if (!aspectMap.containsKey(DATAHUB_POLICY_INFO_ASPECT_NAME)) {
+        throw new IllegalArgumentException(
+            String.format("Failed to find DataHubPolicyInfo aspect in DataHubPolicy data %s. Invalid state.", aspectMap));
       }
-      throw new IllegalArgumentException(
-          String.format("Failed to find DataHubPolicyInfo aspect in DataHubPolicySnapshot data %s. Invalid state.", snapshot.data()));
+      addPolicyToCache(cache, new DataHubPolicyInfo(aspectMap.get(DATAHUB_POLICY_INFO_ASPECT_NAME).getValue().data()));
     }
 
     private void addPolicyToCache(final Map<String, List<DataHubPolicyInfo>> cache, final DataHubPolicyInfo policy) {

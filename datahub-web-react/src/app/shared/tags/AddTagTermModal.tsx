@@ -18,6 +18,7 @@ import { IconStyleType } from '../../entity/Entity';
 import { useAddTagMutation, useAddTermMutation } from '../../../graphql/mutations.generated';
 import { useProposeTagMutation, useProposeTermMutation } from '../../../graphql/proposals.generated';
 import analytics, { EventType, EntityActionType } from '../../analytics';
+import { useEnterKeyListener } from '../useEnterKeyListener';
 
 type AddTagModalProps = {
     globalTags?: GlobalTags | null;
@@ -236,6 +237,11 @@ export default function AddTagTermModal({
             });
     };
 
+    // Handle the Enter press
+    useEnterKeyListener({
+        querySelectorToExecuteClick: '#addTagButton',
+    });
+
     if (showCreateModal) {
         return (
             <CreateTagModal
@@ -270,10 +276,10 @@ export default function AddTagTermModal({
                             Propose
                         </Button>
                         <Button
-                            type="primary"
+                            id="addTagButton"
+                            data-testid="add-tag-term-from-modal-btn"
                             onClick={() => onOk(false)}
                             disabled={selectedValue.length === 0 || disableAdd}
-                            data-testid="add-tag-term-from-modal-btn"
                         >
                             Add
                         </Button>
