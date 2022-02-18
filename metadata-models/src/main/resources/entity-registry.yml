@@ -1,6 +1,12 @@
 entities:
+  - name: dataPlatform
+    category: core
+    keyAspect: dataPlatformKey
+    aspects:
+      - dataPlatformInfo
   - name: dataset
     doc: Datasets represent logical or physical data assets stored or represented in various data platforms. Tables, Views, Streams are all instances of datasets.
+    category: core
     keyAspect: datasetKey
     aspects:
       - viewProperties
@@ -16,6 +22,7 @@ entities:
       - deprecation
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
+    category: internal
     keyAspect: dataHubPolicyKey
     aspects:
       - dataHubPolicyInfo
@@ -27,6 +34,7 @@ entities:
       - domains
       - deprecation
   - name: dataFlow
+    category: core
     keyAspect: dataFlowKey
     aspects:
       - domains
@@ -50,6 +58,25 @@ entities:
       - corpUserInfo
       - corpUserEditableInfo
       - corpUserStatus
+      - groupMembership
+      - globalTags
+      - status
+  - name: corpGroup
+    doc: CorpGroup represents an identity of a group of users in the enterprise.
+    keyAspect: corpGroupKey
+    aspects:
+      - corpGroupInfo
+      - corpGroupEditableInfo
+      - globalTags
+      - ownership
+      - status
+  - name: domain
+    doc: A data domain within an organization.
+    keyAspect: domainKey
+    aspects:
+      - domainProperties
+      - institutionalMemory
+      - ownership
   - name: container
     doc: A container of related data assets.
     keyAspect: containerKey
@@ -80,22 +107,24 @@ entities:
       - schemaMetadata
       - ownership
       - deprecation
-  - name: domain
-    doc: A data domain within an organization.
-    keyAspect: domainKey
+  - name: glossaryNode
+    keyAspect: glossaryNodeKey
     aspects:
-      - domainProperties
-      - institutionalMemory
+      - glossaryNodeInfo
       - ownership
+      - status
   - name: dataHubIngestionSource
+    category: internal
     keyAspect: dataHubIngestionSourceKey
     aspects:
       - dataHubIngestionSourceInfo
   - name: dataHubSecret
+    category: internal
     keyAspect: dataHubSecretKey
     aspects:
       - dataHubSecretValue
   - name: dataHubExecutionRequest
+    category: internal
     keyAspect: dataHubExecutionRequestKey
     aspects:
       - dataHubExecutionRequestInput
@@ -103,13 +132,13 @@ entities:
       - dataHubExecutionRequestResult
   - name: assertion
     doc: Assertion represents a data quality rule applied on one or more dataset.
+    category: core
     keyAspect: assertionKey
     aspects:
       - assertionInfo
       - dataPlatformInstance
-  - name: corpGroup
-    doc: CorpGroup represents an identity of a group of users in the enterprise.
-    keyAspect: corpGroupKey
+  - name: dataHubRetention
+    category: internal
+    keyAspect: dataHubRetentionKey
     aspects:
-      - corpGroupEditableInfo
-      - ownership
+      - dataHubRetentionConfig
