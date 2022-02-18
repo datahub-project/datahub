@@ -47,14 +47,16 @@ spark = SparkSession.builder()
         .enableHiveSupport()
         .getOrCreate();
  ```
- 
-### Enable https and authentication token
-Add below config in spark config
 
-```
-spark.datahub.rest.server                   https://<server URL>
-spark.datahub.rest.token                    <token>
-```
+### Configuration details
+
+| Field                                           | Required | Default | Description                                                             |
+|-------------------------------------------------|----------|---------|-------------------------------------------------------------------------|
+| spark.jars.packages                             | ✅        |         | Set with latest/required version  io.acryl:datahub-spark-lineage:0.8.23 |
+| spark.extraListeners                            | ✅        |         | datahub.spark.DatahubSparkListener                                      |
+| spark.datahub.rest.server                       | ✅        |         | Datahub server url  eg:http://localhost:8080                            |
+| spark.datahub.rest.token                        |          |         | Authentication token. Set server url with https                         |
+| spark.datahub.metadata.dataset.env              |          | PROD    | [Supported values](https://datahubproject.io/docs/graphql/enums#fabrictype). In all other cases, will fallback to PROD           |
 
 ## What to Expect: The Metadata Model
 
