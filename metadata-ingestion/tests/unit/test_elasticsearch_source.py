@@ -28,7 +28,7 @@ def assret_field_paths_match(
     assert_field_paths_are_unique(fields)
     
 def assert_host_scheme() -> None:
-    """ ensure we handle different styles of host_port specification """
+    """ensure we handle different styles of host_port specification"""
     host = "localhost:9200,http://localhost:9200,https://localhost:9200"
     config = ElasticsearchSourceConfig()
     got = config.host_colon_port_comma(host)
