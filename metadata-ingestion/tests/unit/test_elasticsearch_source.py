@@ -26,6 +26,14 @@ def assret_field_paths_match(
     for f, efp in zip(fields, expected_field_paths):
         assert f.fieldPath == efp
     assert_field_paths_are_unique(fields)
+    
+def assert_host_scheme() -> None:
+    """ ensure we handle different styles of host_port specification """
+    host = "localhost:9200,http://localhost:9200,https://localhost:9200"
+    config = ElasticsearchSourceConfig()
+    got = config.host_colon_port_comma(host)
+    expected = host
+    assert got == expected
 
 
 # NOTE: Currently this is the list of all elastic indices that datahub uses for reasonable coverage.
