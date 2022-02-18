@@ -1074,6 +1074,137 @@ def test_add_remove_members_from_group(frontend_session):
 
 
 @pytest.mark.dependency(
+    depends=["test_healthchecks", "test_run_ingestion"]
+)
+def test_update_corp_group_properties(frontend_session):
+
+    group_urn = "urn:li:corpGroup:bfoo"
+
+    # Update Corp Group Description
+    json = {
+        "query": """mutation updateCorpGroupProperties($urn: String!, $input: UpdateCorpGroupPropertiesInput!) {\n
+            updateCorpGroupProperties(urn: $urn, input: $input) }""",
+        "variables": {
+          "urn": group_urn,
+          "input": {
+            "description": "My new description",
+            "slack": "test_group_slack",
+            "email": "test_group_email@email.com"
+          },
+        },
+    }
+
+    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
+    response.raise_for_status()
+
+    # Sleep for edge store to be updated. Not ideal!
+    time.sleep(1)
+
+    # Verify the description has been updated
+    json = {
+        "query": """query corpGroup($urn: String!) {\n
+            corpGroup(urn: $urn) {\n
+                urn\n
+                editableProperties {\n
+                    description\n
+                    slack\n
+                    email\n
+                }\n
+            }\n
+        }""",
+        "variables": {"urn": group_urn},
+    }
+    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["corpGroup"]
+    assert res_data["data"]["corpGroup"]["editableProperties"]
+    assert res_data["data"]["corpGroup"]["editableProperties"] == {
+      "description": "My test description",
+      "slack": "test_group_slack",
+      "email": "test_group_email@email.com"
+    }
+
+    # Reset the editable properties
+    json = {
+        "query": """mutation updateCorpGroupProperties($urn: String!, $input: UpdateCorpGroupPropertiesInput!) {\n
+            updateCorpGroupProperties(urn: $urn, input: $input) }""",
+        "variables": {
+          "urn": group_urn,
+          "input": {
+            "description": "",
+            "slack": "",
+            "email": ""
+          },
+        },
+    }
+
+    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
+    response.raise_for_status()
+
+@pytest.mark.dependency(
+    depends=["test_healthchecks", "test_run_ingestion"]
+)
+def test_update_corp_group_description(frontend_session):
+
+    group_urn = "urn:li:corpGroup:bfoo"
+
+    # Update Corp Group Description
+    json = {
+        "query": """mutation updateDescription($input: DescriptionUpdateInput!) {\n
+            updateDescription(input: $input) }""",
+        "variables": {
+          "input": {
+            "description": "My new description",
+            "resourceUrn": group_urn
+          },
+        },
+    }
+
+    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
+    response.raise_for_status()
+
+    # Verify the description has been updated
+    json = {
+        "query": """query corpGroup($urn: String!) {\n
+            corpGroup(urn: $urn) {\n
+                urn\n
+                editableProperties {\n
+                    description\n
+                }\n
+            }\n
+        }""",
+        "variables": {"urn": group_urn},
+    }
+    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["corpGroup"]
+    assert res_data["data"]["corpGroup"]["editableProperties"]
+    assert res_data["data"]["corpGroup"]["editableProperties"]["description"] == "My test description"
+
+    # Reset Corp Group Description
+    json = {
+        "query": """mutation updateDescription($input: DescriptionUpdateInput!) {\n
+            updateDescription(input: $input) }""",
+        "variables": {
+          "input": {
+            "description": "",
+            "resourceUrn": group_urn
+          },
+        },
+    }
+
+    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
+    response.raise_for_status()
+
+@pytest.mark.dependency(
     depends=[
         "test_healthchecks",
         "test_run_ingestion",
