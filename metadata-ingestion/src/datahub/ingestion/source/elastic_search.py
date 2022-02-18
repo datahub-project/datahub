@@ -165,7 +165,7 @@ class ElasticsearchSourceReport(SourceReport):
 
 
 class ElasticsearchSourceConfig(DatasetSourceConfigBase):
-    host: str = "localhost:9092"
+    host: str = "localhost:9200"
     username: str = ""
     password: str = ""
     index_pattern: AllowDenyPattern = AllowDenyPattern(
@@ -185,7 +185,7 @@ class ElasticsearchSourceConfig(DatasetSourceConfigBase):
                 # This regex is quite loose. Many invalid hostnames or IPs will slip through,
                 # but it serves as a good first line of validation. We defer to Kafka for the
                 # remaining validation.
-                r"^[\w\-\.\:]+$",
+                r"^(http|https)[\w\-\.\://]+$",
                 host,
             ), f"host contains bad characters, found {host}"
             if port is not None:
