@@ -242,7 +242,7 @@ export const HomePageHeader = () => {
                                         onClick={() =>
                                             navigateToSearchUrl({
                                                 type: undefined,
-                                                query: suggestion,
+                                                query: `"${suggestion}"`,
                                                 history,
                                             })
                                         }
