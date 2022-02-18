@@ -22,7 +22,7 @@ public class CorpGroupEditablePropertiesMapper implements ModelMapper<com.linked
   @Override
   public CorpGroupEditableProperties apply(@Nonnull final com.linkedin.identity.CorpGroupEditableInfo corpGroupEditableInfo) {
     final CorpGroupEditableProperties result = new CorpGroupEditableProperties();
-    result.setDescription(corpGroupEditableInfo.getEmail(GetMode.DEFAULT));
+    result.setDescription(corpGroupEditableInfo.getDescription(GetMode.DEFAULT));
     result.setSlack(corpGroupEditableInfo.getSlack(GetMode.DEFAULT));
     result.setEmail(corpGroupEditableInfo.getEmail(GetMode.DEFAULT));
     return result;

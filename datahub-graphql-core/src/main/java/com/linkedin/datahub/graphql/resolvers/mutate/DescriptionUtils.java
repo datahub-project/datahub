@@ -106,7 +106,7 @@ public class DescriptionUtils {
   ) {
     CorpGroupEditableInfo corpGroupEditableInfo =
         (CorpGroupEditableInfo) getAspectFromEntity(
-            resourceUrn.toString(), Constants.CORP_GROUP_EDITABLE_INFO_ASPECT_NAME, entityService, new EditableContainerProperties());
+            resourceUrn.toString(), Constants.CORP_GROUP_EDITABLE_INFO_ASPECT_NAME, entityService, new CorpGroupEditableInfo());
     corpGroupEditableInfo.setDescription(newDescription);
     persistAspect(resourceUrn, Constants.CORP_GROUP_EDITABLE_INFO_ASPECT_NAME, corpGroupEditableInfo, actor, entityService);
   }

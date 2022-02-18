@@ -1148,7 +1148,7 @@ def test_update_corp_group_properties(frontend_session):
     response.raise_for_status()
 
 @pytest.mark.dependency(
-    depends=["test_healthchecks", "test_run_ingestion"]
+    depends=["test_healthchecks", "test_run_ingestion", "test_update_corp_group_properties"]
 )
 def test_update_corp_group_description(frontend_session):
 
