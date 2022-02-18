@@ -288,7 +288,7 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
                                         <Link to={entityRegistry.getEntityUrl(EntityType.CorpGroup, item.entity.urn)}>
                                             <Tags>
                                                 <Tag>
-                                                    {item.entity.info.displayName || item.entity.name || <EmptyValue />}
+                                                    {entityRegistry.getDisplayName(EntityType.CorpGroup, item.entity)}
                                                 </Tag>
                                             </Tags>
                                         </Link>
@@ -298,11 +298,13 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
                                 groupsDetails?.relationships.length > 2 &&
                                 groupsDetails?.relationships.map((item) => {
                                     return (
-                                        <Tags>
-                                            <Tag>
-                                                {item.entity.info.displayName || item.entity.name || <EmptyValue />}
-                                            </Tag>
-                                        </Tags>
+                                        <Link to={entityRegistry.getEntityUrl(EntityType.CorpGroup, item.entity.urn)}>
+                                            <Tags>
+                                                <Tag>
+                                                    {entityRegistry.getDisplayName(EntityType.CorpGroup, item.entity)}
+                                                </Tag>
+                                            </Tags>
+                                        </Link>
                                     );
                                 })}
                             {!groupSectionExpanded && groupsDetails?.relationships.length > 2 && (
