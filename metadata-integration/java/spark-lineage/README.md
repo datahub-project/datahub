@@ -48,6 +48,7 @@ spark = SparkSession.builder()
         .getOrCreate();
  ```
 
+### Configuration details
 
 | Field                                           | Required | Default | Description                                                             |
 |-------------------------------------------------|----------|---------|-------------------------------------------------------------------------|
@@ -55,28 +56,7 @@ spark = SparkSession.builder()
 | spark.extraListeners                            | ✅        |         | datahub.spark.DatahubSparkListener                                      |
 | spark.datahub.rest.server                       | ✅        |         | Datahub server url  eg:http://localhost:8080                            |
 | spark.datahub.rest.token                        |          |         | Authentication token. Set server url with https                         |
-| spark.datahub.metadata.dataset.env              |          | PROD    | Support values here. In all other cases will fallback to PROD           |
-| spark.datahub.metadata.dataset.platformInstance |          |         |                                                                         |
-
-
-
-### Enable https and authentication token (optional)
-Add below config in spark config
-
-```
-spark.datahub.rest.server                   https://<server URL>
-spark.datahub.rest.token                    <token>
-```
-### Custom env for datasets (optional)
-
-All datasets are created with default "PROD" env.
-Below config can be used to set custom env.
-Supported ENVs: DEV, TEST, QA, UAT, EI, STG, NON_PROD, PROD, CORP
-If env is set to anything else, it will default to PROD
-
-```
-spark.datahub.metadata.dataset.env         PROD
-```
+| spark.datahub.metadata.dataset.env              |          | PROD    | [Supported values](https://datahubproject.io/docs/graphql/enums#fabrictype). In all other cases, will fallback to PROD           |
 
 ## What to Expect: The Metadata Model
 
