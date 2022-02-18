@@ -40,8 +40,8 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 
 | Field         | Required | Default | Description                                |
 | ------------- | -------- | ------- | ------------------------------------------ |
-| `path`        | `yes`    |         | Path to Feast repository.                  |
-| `environment` | `no`     | `PROD`  | Environment to use when constructing URNs. |
+| `path`        | ✅       |         | Path to Feast repository.                  |
+| `environment` |          | `PROD`  | Environment to use when constructing URNs. |
 
 ## Compatibility
 
