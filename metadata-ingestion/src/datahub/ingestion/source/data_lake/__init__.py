@@ -36,7 +36,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.aws.s3_util import make_s3_urn
+from datahub.ingestion.source.aws.s3_util import is_s3_uri, make_s3_urn, strip_s3_prefix
 from datahub.ingestion.source.data_lake.config import DataLakeSourceConfig
 from datahub.ingestion.source.data_lake.profiling import _SingleTableProfiler
 from datahub.ingestion.source.data_lake.report import DataLakeSourceReport
@@ -301,7 +301,7 @@ class DataLakeSource(Source):
         dataset_name = os.path.basename(file_path)
 
         # if no path spec is provided and the file is in S3, then use the S3 path to construct an URN
-        if self.source_config.platform == "s3" and self.source_config.path_spec is None:
+        if is_s3_uri(file_path) and self.source_config.path_spec is None:
             dataset_urn = make_s3_urn(file_path, self.source_config.env)
 
         dataset_snapshot = DatasetSnapshot(
@@ -352,7 +352,6 @@ class DataLakeSource(Source):
             file.close()
 
         fields = sorted(fields, key=lambda f: f.fieldPath)
-
         schema_metadata = SchemaMetadata(
             schemaName=dataset_name,
             platform=data_platform_urn,
@@ -475,15 +474,9 @@ class DataLakeSource(Source):
         s3_prefixes = ["s3://", "s3n://", "s3a://"]
 
         # check if file is an s3 object
-        if any(
-            self.source_config.base_path.startswith(s3_prefix)
-            for s3_prefix in s3_prefixes
-        ):
+        if is_s3_uri(self.source_config.base_path):
 
-            for s3_prefix in s3_prefixes:
-                if self.source_config.base_path.startswith(s3_prefix):
-                    plain_base_path = self.source_config.base_path[len(s3_prefix) :]
-                    break
+            plain_base_path = strip_s3_prefix(self.source_config.base_path)
 
             # append a trailing slash if it's not there so prefix filtering works
             if not plain_base_path.endswith("/"):

@@ -1,12 +1,27 @@
 from typing import Optional
 
+S3_PREFIXES = ["s3://", "s3n://", "s3a://"]
+
+
+def is_s3_uri(uri: str) -> bool:
+    return any(uri.startswith(prefix) for prefix in S3_PREFIXES)
+
+
+def strip_s3_prefix(s3_uri: str) -> str:
+    # remove S3 prefix (s3://)
+    for s3_prefix in S3_PREFIXES:
+        if s3_uri.startswith(s3_prefix):
+            plain_base_path = s3_uri[len(s3_prefix) :]
+            return plain_base_path
+
+    raise ValueError(
+        f"Not an S3 URI. Must start with one of the following prefixes: {str(S3_PREFIXES)}"
+    )
+
 
 def make_s3_urn(s3_uri: str, env: str, suffix: Optional[str] = None) -> str:
 
-    if not s3_uri.startswith("s3://"):
-        raise ValueError("S3 URIs should begin with 's3://'")
-    # remove S3 prefix (s3://)
-    s3_name = s3_uri[5:]
+    s3_name = strip_s3_prefix(s3_uri)
 
     if s3_name.endswith("/"):
         s3_name = s3_name[:-1]
