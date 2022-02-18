@@ -19,7 +19,7 @@ from typing import (
 from urllib.parse import quote_plus
 
 import pydantic
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, dialects, inspect
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.sql import sqltypes as types
@@ -278,6 +278,20 @@ _field_type_mapping: Dict[Type[types.TypeEngine], Type] = {
     types.DATETIME: TimeTypeClass,
     types.TIMESTAMP: TimeTypeClass,
     types.JSON: RecordTypeClass,
+    dialects.postgresql.base.BYTEA: BytesTypeClass,
+    dialects.postgresql.base.DOUBLE_PRECISION: NumberTypeClass,
+    dialects.postgresql.base.INET: StringTypeClass,
+    dialects.postgresql.base.MACADDR: StringTypeClass,
+    dialects.postgresql.base.MONEY: NumberTypeClass,
+    dialects.postgresql.base.OID: StringTypeClass,
+    dialects.postgresql.base.REGCLASS: BytesTypeClass,
+    dialects.postgresql.base.TIMESTAMP: TimeTypeClass,
+    dialects.postgresql.base.TIME: TimeTypeClass,
+    dialects.postgresql.base.INTERVAL: TimeTypeClass,
+    dialects.postgresql.base.BIT: BytesTypeClass,
+    dialects.postgresql.base.UUID: StringTypeClass,
+    dialects.postgresql.base.TSVECTOR: BytesTypeClass,
+    dialects.postgresql.base.ENUM: EnumTypeClass,
     # When SQLAlchemy is unable to map a type into its internal hierarchy, it
     # assigns the NullType by default. We want to carry this warning through.
     types.NullType: NullTypeClass,
