@@ -49,7 +49,7 @@ def assert_field_types_match(
 
 
 def test_infer_schema_csv():
-    with tempfile.TemporaryFile() as file:
+    with tempfile.TemporaryFile(mode="w+b") as file:
         test_table.to_csv(file, index=False, header=True)
         file.seek(0)
 
@@ -61,7 +61,7 @@ def test_infer_schema_csv():
 
 
 def test_infer_schema_tsv():
-    with tempfile.TemporaryFile() as file:
+    with tempfile.TemporaryFile(mode="w+b") as file:
         test_table.to_csv(file, index=False, header=True, sep="\t")
         file.seek(0)
 
@@ -73,7 +73,7 @@ def test_infer_schema_tsv():
 
 
 def test_infer_schema_json():
-    with tempfile.TemporaryFile() as file:
+    with tempfile.TemporaryFile(mode="w+b") as file:
         test_table.to_json(file, orient="records")
         file.seek(0)
 
@@ -85,7 +85,7 @@ def test_infer_schema_json():
 
 
 def test_infer_schema_parquet():
-    with tempfile.TemporaryFile() as file:
+    with tempfile.TemporaryFile(mode="w+b") as file:
         test_table.to_parquet(file)
         file.seek(0)
 
@@ -97,7 +97,7 @@ def test_infer_schema_parquet():
 
 
 def test_infer_schema_avro():
-    with tempfile.TemporaryFile() as file:
+    with tempfile.TemporaryFile(mode="w+b") as file:
         schema = avro_schema.parse(
             ujson.dumps(
                 {
