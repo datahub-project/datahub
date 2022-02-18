@@ -38,7 +38,10 @@ public class OwnershipClient {
           OWNERSHIP_ASPECT_NAME,
           ASPECT_LATEST_VERSION,
           null);
-      return aspect.getAspect().getOwnership();
+      if (aspect != null && aspect.hasAspect()) {
+        return aspect.getAspect().getOwnership();
+      }
+      return null;
     } catch (RestLiServiceException e) {
       if (HttpStatus.S_404_NOT_FOUND.equals(e.getStatus())) {
         // No aspect exists.
