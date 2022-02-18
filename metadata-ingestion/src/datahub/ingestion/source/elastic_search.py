@@ -183,9 +183,9 @@ class ElasticsearchSourceConfig(DatasetSourceConfigBase):
                 host = entry
             assert re.match(
                 # This regex is quite loose. Many invalid hostnames or IPs will slip through,
-                # but it serves as a good first line of validation. We defer to Kafka for the
+                # but it serves as a good first line of validation. We defer to Elastic for the
                 # remaining validation.
-                r"^(http|https)[\w\-\.\://]+$",
+                r"^[(http|https)://]*[\w\-\.\:]+[\/]*$",
                 host,
             ), f"host contains bad characters, found {host}"
             if port is not None:
