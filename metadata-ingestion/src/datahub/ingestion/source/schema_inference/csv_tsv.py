@@ -1,5 +1,4 @@
-from io import TextIOWrapper
-from typing import Dict, List, Type
+from typing import IO, Dict, List, Type
 
 from tableschema import Table
 
@@ -60,7 +59,7 @@ def get_table_schema_fields(table: Table) -> List[SchemaField]:
 
 
 class CsvInferrer(SchemaInferenceBase):
-    def infer_schema(self, file: TextIOWrapper) -> List[SchemaField]:
+    def infer_schema(self, file: IO[bytes]) -> List[SchemaField]:
         # infer schema of a csv file without reading the whole file
         table = Table(file, format="csv")
 
@@ -68,7 +67,7 @@ class CsvInferrer(SchemaInferenceBase):
 
 
 class TsvInferrer(SchemaInferenceBase):
-    def infer_schema(self, file: TextIOWrapper) -> List[SchemaField]:
+    def infer_schema(self, file: IO[bytes]) -> List[SchemaField]:
         # infer schema of a tsv file without reading the whole file
         table = Table(file, format="tsv")
 

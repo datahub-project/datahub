@@ -1,5 +1,4 @@
-from io import TextIOWrapper
-from typing import List
+from typing import IO, List
 
 from avro.datafile import DataFileReader
 from avro.io import DatumReader
@@ -10,7 +9,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 
 
 class AvroInferrer(SchemaInferenceBase):
-    def infer_schema(self, file: TextIOWrapper) -> List[SchemaField]:
+    def infer_schema(self, file: IO[bytes]) -> List[SchemaField]:
 
         reader = DataFileReader(file, DatumReader())
 

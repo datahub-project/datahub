@@ -1,5 +1,4 @@
-from io import TextIOWrapper
-from typing import Dict, List, Type, Union
+from typing import IO, Dict, List, Type, Union
 
 import ujson
 
@@ -30,7 +29,7 @@ _field_type_mapping: Dict[Union[Type, str], Type] = {
 
 
 class JsonInferrer(SchemaInferenceBase):
-    def infer_schema(self, file: TextIOWrapper) -> List[SchemaField]:
+    def infer_schema(self, file: IO[bytes]) -> List[SchemaField]:
 
         datastore = ujson.load(file)
 

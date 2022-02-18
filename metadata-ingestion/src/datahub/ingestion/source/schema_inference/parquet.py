@@ -1,5 +1,4 @@
-from io import TextIOWrapper
-from typing import Any, Callable, Dict, List, Type
+from typing import IO, Any, Callable, Dict, List, Type
 
 import pyarrow
 import pyarrow.parquet
@@ -76,7 +75,7 @@ def map_pyarrow_type(pyarrow_type: Type) -> Type:
 
 
 class ParquetInferrer(SchemaInferenceBase):
-    def infer_schema(self, file: TextIOWrapper) -> List[SchemaField]:
+    def infer_schema(self, file: IO[bytes]) -> List[SchemaField]:
         # infer schema of a parquet file without reading the whole file
 
         # read the first line of the file
