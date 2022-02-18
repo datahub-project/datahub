@@ -155,7 +155,7 @@ plugins: Dict[str, Set[str]] = {
     "trino": sql_common | {"trino"},
     "starburst-trino-usage": sql_common | {"trino"},
     "nifi": {"requests"},
-    "powerbi": microsoft_common
+    "powerbi": {"orderedset"} | microsoft_common
 }
 
 all_exclude_plugins: Set[str] = {

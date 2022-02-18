@@ -14,6 +14,7 @@ from xmlrpc.client import Boolean
 
 import msal
 import requests
+from orderedset import OrderedSet
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration import ConfigModel
@@ -97,11 +98,22 @@ class Constant:
 
 
 class PowerBiAPIConfig(ConfigModel):
-    client_id: str
-    client_secret: str
+    # Organsation Identifier
     tenant_id: str
+    # PowerBi workspace identifier
     workspace_id: str
-    environment: str
+    # Current working environment. Possible values are DEV, QA, STAGE, PROD
+    # It is used in generating dataset URN
+    env: str
+    # Dataset type mapping
+    dataset_type_mapping: Dict[str, str]
+    # Azure app client identifier
+    client_id: str
+    # Azure app client secret
+    client_secret: str
+    # timeout for meta-data scanning
+    scan_timeout: int = 60
+
     scope: str = "https://analysis.windows.net/powerbi/api/.default"
     base_url: str = "https://api.powerbi.com/v1.0/myorg/groups"
     admin_base_url = "https://api.powerbi.com/v1.0/myorg/admin"
@@ -141,7 +153,7 @@ class PowerBiAPI:
         id: str
         name: str
         state: str
-        dashboards: Set[Any]
+        dashboards: List[Any]
         datasets: Dict
 
     @dataclass
@@ -149,10 +161,6 @@ class PowerBiAPI:
         """
         PowerBi
         """
-
-        class Relational(Enum):
-            POSTGRE_SQL = "PostgreSql"
-            ORACLE = "Oracle"
 
         @dataclass
         class MetaData:
@@ -190,7 +198,7 @@ class PowerBiAPI:
 
         id: str
         name: str
-        webUrl: str
+        webUrl: Optional[str]
         workspace_id: str
         datasource: Any
         # Table in datasets
@@ -434,7 +442,7 @@ class PowerBiAPI:
             workspace_id=dashboard.workspace_id, entity="dashboards", id=dashboard.id
         )
 
-    def get_dashboards(self, workspace: Workspace) -> Set[Dashboard]:
+    def get_dashboards(self, workspace: Workspace) -> List[Dashboard]:
         """
         Get the list of dashboard from PowerBi for the given workspace identifier
 
@@ -463,23 +471,21 @@ class PowerBiAPI:
         dashboards_dict: List[Any] = response.json()[Constant.VALUE]
 
         # Iterate through response and create a list of PowerBiAPI.Dashboard
-        dashboards: Set[PowerBiAPI.Dashboard] = set(
-            [
-                PowerBiAPI.Dashboard(
-                    id=instance.get("id"),
-                    isReadOnly=instance.get("isReadOnly"),
-                    displayName=instance.get("displayName"),
-                    embedUrl=instance.get("embedUrl"),
-                    webUrl=instance.get("webUrl"),
-                    workspace_id=workspace.id,
-                    workspace_name=workspace.name,
-                    tiles=[],
-                    users=[],
-                )
-                for instance in dashboards_dict
-                if instance is not None
-            ]
-        )
+        dashboards: List[PowerBiAPI.Dashboard] = [
+            PowerBiAPI.Dashboard(
+                id=instance.get("id"),
+                isReadOnly=instance.get("isReadOnly"),
+                displayName=instance.get("displayName"),
+                embedUrl=instance.get("embedUrl"),
+                webUrl=instance.get("webUrl"),
+                workspace_id=workspace.id,
+                workspace_name=workspace.name,
+                tiles=[],
+                users=[],
+            )
+            for instance in dashboards_dict
+            if instance is not None
+        ]
 
         return dashboards
 
@@ -517,10 +523,13 @@ class PowerBiAPI:
 
         response_dict = response.json()
 
+        # PowerBi Always return the webURL, in-case if it is None then setting complete webURL to None instead of None/details
         return PowerBiAPI.Dataset(
             id=response_dict.get("id"),
             name=response_dict.get("name"),
-            webUrl=response_dict.get("webUrl"),
+            webUrl="{}/details".format(response_dict.get("webUrl"))
+            if response_dict.get("webUrl") is not None
+            else None,
             workspace_id=workspace_id,
             tables=[],
             datasource=None,
@@ -574,17 +583,14 @@ class PowerBiAPI:
             metadata=None,
         )
 
-        # Check if datasource is relational as per our relation type
-        try:
-            PowerBiAPI.DataSource.Relational(datasource_dict["datasourceType"])
-            datasource.metadata = PowerBiAPI.DataSource.MetaData(is_relational=True)
+        # Check if datasource is relational as per our relation mapping
+        if self.__config.dataset_type_mapping.get(datasource.type) is not None:
             # Now set the database detail as it is relational data source
+            datasource.metadata = PowerBiAPI.DataSource.MetaData(is_relational=True)
             datasource.database = datasource_dict["connectionDetails"]["database"]
             datasource.server = datasource_dict["connectionDetails"]["server"]
-        except ValueError:
+        else:
             datasource.metadata = PowerBiAPI.DataSource.MetaData(is_relational=False)
-
-        LOGGER.info(datasource)
 
         return datasource
 
@@ -717,20 +723,20 @@ class PowerBiAPI:
             LOGGER.info("Scan id({})".format(id))
             return id
 
-        def wait_for_scan_to_complete(scan_id: str, duration: int = 60) -> Boolean:
+        def wait_for_scan_to_complete(scan_id: str, timeout: int) -> Boolean:
             """
             Poll the PowerBi service for workspace scan to complete
             """
             minimum_sleep = 3
-            if duration < minimum_sleep:
+            if timeout < minimum_sleep:
                 LOGGER.info(
-                    "Setting duration to minimum_sleep time {} seconds".format(
+                    "Setting timeout to minimum_sleep time {} seconds".format(
                         minimum_sleep
                     )
                 )
-                duration = minimum_sleep
+                timeout = minimum_sleep
 
-            max_trial = int(duration / minimum_sleep)
+            max_trial = int(timeout / minimum_sleep)
             LOGGER.info("Max trial {}".format(max_trial))
             scan_get_endpoint = PowerBiAPI.API_ENDPOINTS[Constant.SCAN_GET]
             scan_get_endpoint = scan_get_endpoint.format(
@@ -864,9 +870,14 @@ class PowerBiAPI:
         LOGGER.info("Hitting URL={}".format(scan_create_endpoint))
         scan_id = create_scan_job()
         LOGGER.info("Waiting for scan to complete")
-        if wait_for_scan_to_complete(scan_id=scan_id) is False:
+        if (
+            wait_for_scan_to_complete(
+                scan_id=scan_id, timeout=self.__config.scan_timeout
+            )
+            is False
+        ):
             raise ValueError(
-                "Workspace detail is not available. Please increase duration to wait."
+                "Workspace detail is not available. Please increase scan_timeout to wait."
             )
 
         # Scan is complete lets take the result
@@ -876,7 +887,7 @@ class PowerBiAPI:
             name=scan_result["name"],
             state=scan_result["state"],
             datasets={},
-            dashboards=set([]),
+            dashboards=[],
         )
         # Get workspace dashboards
         workspace.dashboards = self.get_dashboards(workspace)
@@ -970,18 +981,15 @@ class Mapper:
         for table in dataset.tables:
             # Create an URN for dataset
             ds_urn = builder.make_dataset_urn(
-                platform=self.__config.platform_name,
+                platform=self.__config.dataset_type_mapping[dataset.datasource.type],
                 name="{}.{}.{}".format(
                     dataset.datasource.database, table.schema_name, table.name
                 ),
-                env=self.__config.environment,
+                env=self.__config.env,
             )
-
             LOGGER.info("{}={}".format(Constant.Dataset_URN, ds_urn))
             # Create datasetProperties mcp
-            ds_properties = DatasetPropertiesClass(
-                description=table.name, externalUrl=dataset.webUrl
-            )
+            ds_properties = DatasetPropertiesClass(description=table.name)
 
             info_mcp = self.new_mcp(
                 entity_type=Constant.DATASET,
@@ -1019,19 +1027,25 @@ class Mapper:
         ds_input: List[str] = self.to_urn_set(ds_mcps)
 
         def tile_custom_properties(tile: PowerBiAPI.Tile) -> dict:
-            return {
-                "datasetId": str(tile.dataset.id) if tile.dataset else "",
-                "reportId": str(tile.report.id) if tile.report else "",
+            custom_properties = {
+                "datasetId": tile.dataset.id if tile.dataset else "",
+                "reportId": tile.report.id if tile.report else "",
+                "datasetWebUrl": tile.dataset.webUrl
+                if tile.dataset is not None
+                else "",
                 "createdFrom": tile.createdFrom.value,
             }
 
+            return custom_properties
+
         # Create chartInfo mcp
+        # Set chartUrl only if tile is created from Report
         chart_info_instance = ChartInfoClass(
             title=tile.title or "",
             description=tile.title or "",
             lastModified=ChangeAuditStamps(),
             inputs=ds_input,
-            chartUrl=tile.embedUrl,
+            externalUrl=tile.report.webUrl if tile.report else None,
             customProperties={**tile_custom_properties(tile)},
         )
 
@@ -1068,7 +1082,7 @@ class Mapper:
     # written in this style to fix linter error
     def to_urn_set(self, mcps: List[MetadataChangeProposalWrapper]) -> List[str]:
         return list(
-            set(
+            OrderedSet(
                 [
                     mcp.entityUrn
                     for mcp in mcps
@@ -1098,6 +1112,7 @@ class Mapper:
             return {
                 "chartCount": str(len(dashboard.tiles)),
                 "workspaceName": dashboard.workspace_name,
+                "workspaceId": dashboard.id,
             }
 
         # DashboardInfo mcp
@@ -1286,7 +1301,7 @@ class Mapper:
         # Convert MCP to work_units
         work_units = map(self.__to_work_unit, mcps)
         # Return set of work_unit
-        return set([wu for wu in work_units if wu is not None])
+        return OrderedSet([wu for wu in work_units if wu is not None])
 
 
 @dataclass

@@ -1,89 +1,13 @@
 [
     {
         "auditHeader": null,
-        "entityType": "corpuser",
-        "entityUrn": "urn:li:corpuser:users.User2@foo.com",
-        "entityKeyAspect": null,
-        "changeType": "UPSERT",
-        "aspectName": "corpUserInfo",
-        "aspect": {
-            "value": "{\"active\": true, \"displayName\": \"User2\", \"email\": \"User2@foo.com\", \"title\": \"User2\"}",
-            "contentType": "application/json"
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "powerbi-test",
-            "registryName": null,
-            "registryVersion": null,
-            "properties": null
-        }
-    },
-    {
-        "auditHeader": null,
         "entityType": "dataset",
-        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library_db.public.issue_history,DEV)",
-        "entityKeyAspect": null,
-        "changeType": "UPSERT",
-        "aspectName": "status",
-        "aspect": {
-            "value": "{\"removed\": false}",
-            "contentType": "application/json"
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "powerbi-test",
-            "registryName": null,
-            "registryVersion": null,
-            "properties": null
-        }
-    },
-    {
-        "auditHeader": null,
-        "entityType": "corpuser",
-        "entityUrn": "urn:li:corpuser:users.User1@foo.com",
-        "entityKeyAspect": null,
-        "changeType": "UPSERT",
-        "aspectName": "status",
-        "aspect": {
-            "value": "{\"removed\": false}",
-            "contentType": "application/json"
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "powerbi-test",
-            "registryName": null,
-            "registryVersion": null,
-            "properties": null
-        }
-    },
-    {
-        "auditHeader": null,
-        "entityType": "dashboard",
-        "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)",
-        "entityKeyAspect": null,
-        "changeType": "UPSERT",
-        "aspectName": "dashboardInfo",
-        "aspect": {
-            "value": "{\"customProperties\": {\"chartCount\": \"1\", \"workspaceName\": \"foo\"}, \"title\": \"test_dashboard\", \"description\": \"test_dashboard\", \"charts\": [\"urn:li:chart:(powerbi,charts.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0)\"], \"lastModified\": {\"created\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}}, \"dashboardUrl\": \"https://localhost/dashboards/web/1\"}",
-            "contentType": "application/json"
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "powerbi-test",
-            "registryName": null,
-            "registryVersion": null,
-            "properties": null
-        }
-    },
-    {
-        "auditHeader": null,
-        "entityType": "dataset",
-        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library_db.public.issue_history,DEV)",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,library_db.public.issue_book,DEV)",
         "entityKeyAspect": null,
         "changeType": "UPSERT",
         "aspectName": "datasetProperties",
         "aspect": {
-            "value": "{\"customProperties\": {}, \"externalUrl\": \"http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445\", \"description\": \"issue_history\", \"tags\": []}",
+            "value": "{\"customProperties\": {}, \"description\": \"issue_book\", \"tags\": []}",
             "contentType": "application/json"
         },
         "systemMetadata": {
@@ -97,7 +21,83 @@
     {
         "auditHeader": null,
         "entityType": "dataset",
-        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library_db.public.member,DEV)",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,library_db.public.issue_book,DEV)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "status",
+        "aspect": {
+            "value": "{\"removed\": false}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "powerbi-test",
+            "registryName": null,
+            "registryVersion": null,
+            "properties": null
+        }
+    },
+    {
+        "auditHeader": null,
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,library_db.public.member,DEV)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "datasetProperties",
+        "aspect": {
+            "value": "{\"customProperties\": {}, \"description\": \"member\", \"tags\": []}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "powerbi-test",
+            "registryName": null,
+            "registryVersion": null,
+            "properties": null
+        }
+    },
+    {
+        "auditHeader": null,
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,library_db.public.member,DEV)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "status",
+        "aspect": {
+            "value": "{\"removed\": false}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "powerbi-test",
+            "registryName": null,
+            "registryVersion": null,
+            "properties": null
+        }
+    },
+    {
+        "auditHeader": null,
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,library_db.public.issue_history,DEV)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "datasetProperties",
+        "aspect": {
+            "value": "{\"customProperties\": {}, \"description\": \"issue_history\", \"tags\": []}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "powerbi-test",
+            "registryName": null,
+            "registryVersion": null,
+            "properties": null
+        }
+    },
+    {
+        "auditHeader": null,
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,library_db.public.issue_history,DEV)",
         "entityKeyAspect": null,
         "changeType": "UPSERT",
         "aspectName": "status",
@@ -138,9 +138,66 @@
         "entityUrn": "urn:li:corpuser:users.User1@foo.com",
         "entityKeyAspect": null,
         "changeType": "UPSERT",
+        "aspectName": "status",
+        "aspect": {
+            "value": "{\"removed\": false}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "powerbi-test",
+            "registryName": null,
+            "registryVersion": null,
+            "properties": null
+        }
+    },
+    {
+        "auditHeader": null,
+        "entityType": "corpuser",
+        "entityUrn": "urn:li:corpuser:users.User1@foo.com",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
         "aspectName": "corpUserKey",
         "aspect": {
             "value": "{\"username\": \"User1@foo.com\"}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "powerbi-test",
+            "registryName": null,
+            "registryVersion": null,
+            "properties": null
+        }
+    },
+    {
+        "auditHeader": null,
+        "entityType": "corpuser",
+        "entityUrn": "urn:li:corpuser:users.User2@foo.com",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "corpUserInfo",
+        "aspect": {
+            "value": "{\"active\": true, \"displayName\": \"User2\", \"email\": \"User2@foo.com\", \"title\": \"User2\"}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "powerbi-test",
+            "registryName": null,
+            "registryVersion": null,
+            "properties": null
+        }
+    },
+    {
+        "auditHeader": null,
+        "entityType": "corpuser",
+        "entityUrn": "urn:li:corpuser:users.User2@foo.com",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "status",
+        "aspect": {
+            "value": "{\"removed\": false}",
             "contentType": "application/json"
         },
         "systemMetadata": {
@@ -172,32 +229,13 @@
     },
     {
         "auditHeader": null,
-        "entityType": "dashboard",
-        "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)",
+        "entityType": "chart",
+        "entityUrn": "urn:li:chart:(powerbi,charts.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0)",
         "entityKeyAspect": null,
         "changeType": "UPSERT",
-        "aspectName": "dashboardKey",
+        "aspectName": "chartInfo",
         "aspect": {
-            "value": "{\"dashboardTool\": \"powerbi\", \"dashboardId\": \"powerbi.linkedin.com/dashboards/7D668CAD-7FFC-4505-9215-655BCA5BEBAE\"}",
-            "contentType": "application/json"
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "powerbi-test",
-            "registryName": null,
-            "registryVersion": null,
-            "properties": null
-        }
-    },
-    {
-        "auditHeader": null,
-        "entityType": "dataset",
-        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library_db.public.issue_book,DEV)",
-        "entityKeyAspect": null,
-        "changeType": "UPSERT",
-        "aspectName": "status",
-        "aspect": {
-            "value": "{\"removed\": false}",
+            "value": "{\"customProperties\": {\"datasetId\": \"05169CD2-E713-41E6-9600-1D8066D95445\", \"reportId\": \"\", \"datasetWebUrl\": \"http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445\", \"createdFrom\": \"Dataset\"}, \"title\": \"test_tiles\", \"description\": \"test_tiles\", \"lastModified\": {\"created\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}}, \"inputs\": [{\"string\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,library_db.public.issue_book,DEV)\"}, {\"string\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,library_db.public.member,DEV)\"}, {\"string\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,library_db.public.issue_history,DEV)\"}]}",
             "contentType": "application/json"
         },
         "systemMetadata": {
@@ -214,9 +252,9 @@
         "entityUrn": "urn:li:chart:(powerbi,charts.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0)",
         "entityKeyAspect": null,
         "changeType": "UPSERT",
-        "aspectName": "chartInfo",
+        "aspectName": "status",
         "aspect": {
-            "value": "{\"customProperties\": {\"datasetId\": \"05169CD2-E713-41E6-9600-1D8066D95445\", \"reportId\": \"\", \"createdFrom\": \"Dataset\"}, \"title\": \"test_tiles\", \"description\": \"test_tiles\", \"lastModified\": {\"created\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}}, \"chartUrl\": \"https://localhost/tiles/embed/1\", \"inputs\": [{\"string\": \"urn:li:dataset:(urn:li:dataPlatform:powerbi,library_db.public.member,DEV)\"}, {\"string\": \"urn:li:dataset:(urn:li:dataPlatform:powerbi,library_db.public.issue_book,DEV)\"}, {\"string\": \"urn:li:dataset:(urn:li:dataPlatform:powerbi,library_db.public.issue_history,DEV)\"}]}",
+            "value": "{\"removed\": false}",
             "contentType": "application/json"
         },
         "systemMetadata": {
@@ -271,9 +309,9 @@
         "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)",
         "entityKeyAspect": null,
         "changeType": "UPSERT",
-        "aspectName": "ownership",
+        "aspectName": "dashboardInfo",
         "aspect": {
-            "value": "{\"owners\": [{\"owner\": \"urn:li:corpuser:users.User2@foo.com\", \"type\": \"CONSUMER\"}, {\"owner\": \"urn:li:corpuser:users.User1@foo.com\", \"type\": \"CONSUMER\"}], \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}}",
+            "value": "{\"customProperties\": {\"chartCount\": \"1\", \"workspaceName\": \"foo\", \"workspaceId\": \"7D668CAD-7FFC-4505-9215-655BCA5BEBAE\"}, \"title\": \"test_dashboard\", \"description\": \"test_dashboard\", \"charts\": [\"urn:li:chart:(powerbi,charts.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0)\"], \"lastModified\": {\"created\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}}, \"dashboardUrl\": \"https://localhost/dashboards/web/1\"}",
             "contentType": "application/json"
         },
         "systemMetadata": {
@@ -305,13 +343,13 @@
     },
     {
         "auditHeader": null,
-        "entityType": "dataset",
-        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library_db.public.issue_book,DEV)",
+        "entityType": "dashboard",
+        "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)",
         "entityKeyAspect": null,
         "changeType": "UPSERT",
-        "aspectName": "datasetProperties",
+        "aspectName": "dashboardKey",
         "aspect": {
-            "value": "{\"customProperties\": {}, \"externalUrl\": \"http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445\", \"description\": \"issue_book\", \"tags\": []}",
+            "value": "{\"dashboardTool\": \"powerbi\", \"dashboardId\": \"powerbi.linkedin.com/dashboards/7D668CAD-7FFC-4505-9215-655BCA5BEBAE\"}",
             "contentType": "application/json"
         },
         "systemMetadata": {
@@ -324,51 +362,13 @@
     },
     {
         "auditHeader": null,
-        "entityType": "dataset",
-        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library_db.public.member,DEV)",
+        "entityType": "dashboard",
+        "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)",
         "entityKeyAspect": null,
         "changeType": "UPSERT",
-        "aspectName": "datasetProperties",
+        "aspectName": "ownership",
         "aspect": {
-            "value": "{\"customProperties\": {}, \"externalUrl\": \"http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445\", \"description\": \"member\", \"tags\": []}",
-            "contentType": "application/json"
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "powerbi-test",
-            "registryName": null,
-            "registryVersion": null,
-            "properties": null
-        }
-    },
-    {
-        "auditHeader": null,
-        "entityType": "corpuser",
-        "entityUrn": "urn:li:corpuser:users.User2@foo.com",
-        "entityKeyAspect": null,
-        "changeType": "UPSERT",
-        "aspectName": "status",
-        "aspect": {
-            "value": "{\"removed\": false}",
-            "contentType": "application/json"
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "powerbi-test",
-            "registryName": null,
-            "registryVersion": null,
-            "properties": null
-        }
-    },
-    {
-        "auditHeader": null,
-        "entityType": "chart",
-        "entityUrn": "urn:li:chart:(powerbi,charts.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0)",
-        "entityKeyAspect": null,
-        "changeType": "UPSERT",
-        "aspectName": "status",
-        "aspect": {
-            "value": "{\"removed\": false}",
+            "value": "{\"owners\": [{\"owner\": \"urn:li:corpuser:users.User1@foo.com\", \"type\": \"CONSUMER\"}, {\"owner\": \"urn:li:corpuser:users.User2@foo.com\", \"type\": \"CONSUMER\"}], \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}}",
             "contentType": "application/json"
         },
         "systemMetadata": {

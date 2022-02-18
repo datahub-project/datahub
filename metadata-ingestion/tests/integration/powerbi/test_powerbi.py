@@ -14,6 +14,7 @@ POWERBI_API = "datahub.ingestion.source.powerbi.PowerBiAPI"
 @freeze_time(FROZEN_TIME)
 def test_powerbi_ingest(pytestconfig, tmp_path, mock_time):
     mocked_client = mock.MagicMock()
+    # Set the datasource mapping dictionary
     with mock.patch(POWERBI_API) as mock_sdk:
         mock_sdk.return_value = mocked_client
         # Mock the PowerBi Dashboard API response
@@ -22,55 +23,53 @@ def test_powerbi_ingest(pytestconfig, tmp_path, mock_time):
             name="demo-workspace",
             state="Active",
             datasets={},
-            dashboards=set(
-                [
-                    PowerBiAPI.Dashboard(
-                        id="7D668CAD-7FFC-4505-9215-655BCA5BEBAE",
-                        displayName="test_dashboard",
-                        isReadOnly=True,
-                        embedUrl="https://localhost/dashboards/embed/1",
-                        webUrl="https://localhost/dashboards/web/1",
-                        workspace_id="4A378B07-FAA2-4EA2-9383-CBA91AD9681C",
-                        workspace_name="foo",
-                        users=[],
-                        tiles=[
-                            PowerBiAPI.Tile(
-                                id="B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0",
-                                title="test_tiles",
-                                embedUrl="https://localhost/tiles/embed/1",
-                                createdFrom=PowerBiAPI.Tile.CreatedFrom.DATASET,
-                                report=None,
-                                dataset=PowerBiAPI.Dataset(
-                                    id="05169CD2-E713-41E6-9600-1D8066D95445",
-                                    name="library-dataset",
-                                    workspace_id="64ED5CAD-7C10-4684-8180-826122881108",
-                                    webUrl="http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445",
-                                    tables=[
-                                        PowerBiAPI.Dataset.Table(
-                                            name="issue_book", schema_name="public"
-                                        ),
-                                        PowerBiAPI.Dataset.Table(
-                                            name="member", schema_name="public"
-                                        ),
-                                        PowerBiAPI.Dataset.Table(
-                                            name="issue_history", schema_name="public"
-                                        ),
-                                    ],
-                                    datasource=PowerBiAPI.DataSource(
-                                        id="DCE90B40-84D6-467A-9A5C-648E830E72D3",
-                                        database="library_db",
-                                        type="PostgreSql",
-                                        server="gs-library.postgres.database.azure.com",
-                                        metadata=PowerBiAPI.DataSource.MetaData(
-                                            is_relational=True
-                                        ),
+            dashboards=[
+                PowerBiAPI.Dashboard(
+                    id="7D668CAD-7FFC-4505-9215-655BCA5BEBAE",
+                    displayName="test_dashboard",
+                    isReadOnly=True,
+                    embedUrl="https://localhost/dashboards/embed/1",
+                    webUrl="https://localhost/dashboards/web/1",
+                    workspace_id="4A378B07-FAA2-4EA2-9383-CBA91AD9681C",
+                    workspace_name="foo",
+                    users=[],
+                    tiles=[
+                        PowerBiAPI.Tile(
+                            id="B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0",
+                            title="test_tiles",
+                            embedUrl="https://localhost/tiles/embed/1",
+                            createdFrom=PowerBiAPI.Tile.CreatedFrom.DATASET,
+                            report=None,
+                            dataset=PowerBiAPI.Dataset(
+                                id="05169CD2-E713-41E6-9600-1D8066D95445",
+                                name="library-dataset",
+                                workspace_id="64ED5CAD-7C10-4684-8180-826122881108",
+                                webUrl="http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445",
+                                tables=[
+                                    PowerBiAPI.Dataset.Table(
+                                        name="issue_book", schema_name="public"
+                                    ),
+                                    PowerBiAPI.Dataset.Table(
+                                        name="member", schema_name="public"
+                                    ),
+                                    PowerBiAPI.Dataset.Table(
+                                        name="issue_history", schema_name="public"
+                                    ),
+                                ],
+                                datasource=PowerBiAPI.DataSource(
+                                    id="DCE90B40-84D6-467A-9A5C-648E830E72D3",
+                                    database="library_db",
+                                    type="PostgreSql",
+                                    server="gs-library.postgres.database.azure.com",
+                                    metadata=PowerBiAPI.DataSource.MetaData(
+                                        is_relational=True
                                     ),
                                 ),
-                            )
-                        ],
-                    )
-                ]
-            ),
+                            ),
+                        )
+                    ],
+                )
+            ],
         )
 
         # Mock the PowerBi User API response
@@ -105,18 +104,23 @@ def test_powerbi_ingest(pytestconfig, tmp_path, mock_time):
                         "client_secret": "bar",
                         "tenant_id": "0B0C960B-FCDF-4D0F-8C45-2E03BB59DDEB",
                         "workspace_id": "64ED5CAD-7C10-4684-8180-826122881108",
-                        "environment": "DEV",
+                        "dataset_type_mapping": {
+                            "PostgreSql": "postgres",
+                            "Oracle": "oracle",
+                        },
+                        "env": "DEV",
                     },
                 },
                 "sink": {
                     "type": "file",
                     "config": {
                         "filename": f"{tmp_path}/powerbi_mces.json",
-                        #"filename": "/tmp/powerbi_mces7.json"
+                        #"filename": f"/tmp/powerbi1.json",
                     },
                 },
             }
         )
+
         pipeline.run()
         pipeline.raise_from_status()
         mce_out_file = "golden_test_ingest.json"
