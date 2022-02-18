@@ -52,7 +52,7 @@ _field_type_mapping: Dict[ValueType, str] = {
     ValueType.FLOAT_LIST: MLFeatureDataType.SEQUENCE,
     ValueType.BOOL_LIST: MLFeatureDataType.SEQUENCE,
     ValueType.UNIX_TIMESTAMP_LIST: MLFeatureDataType.SEQUENCE,
-    ValueType.NULL: MLFeatureDataType.USELESS,
+    ValueType.NULL: MLFeatureDataType.UNKNOWN,
 }
 
 
@@ -202,10 +202,7 @@ class FeastRepositorySource(Source):
             feature_sources = self._get_data_sources(project, feature_view)
         elif isinstance(feature_view, OnDemandFeatureView):
             if feature_view.input_request_data_sources is not None:
-                for (
-                    _,
-                    request_source,
-                ) in feature_view.input_request_data_sources.items():
+                for request_source in feature_view.input_request_data_sources.values():
                     source_platform, source_name = self._get_data_source_details(
                         request_source
                     )
@@ -219,7 +216,7 @@ class FeastRepositorySource(Source):
                     )
 
             if feature_view.input_feature_views is not None:
-                for _, feature_view_source in feature_view.input_feature_views.items():
+                for feature_view_source in feature_view.input_feature_views.values():
                     feature_sources.extend(
                         self._get_data_sources(project, feature_view_source)
                     )
