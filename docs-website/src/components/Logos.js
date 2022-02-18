@@ -24,7 +24,7 @@ const companiesByIndustry = [
       {
         name: "ThoughtWorks",
         imageUrl: "/img/logos/companies/thoughtworks.png",
-        size: "large",
+        size: "default",
       },
       {
         name: "Expedia Group",
@@ -34,7 +34,7 @@ const companiesByIndustry = [
       {
         name: "Typeform",
         imageUrl: "/img/logos/companies/typeform.svg",
-        size: "default",
+        size: "small",
       },
       {
         name: "Peloton",
@@ -74,7 +74,7 @@ const companiesByIndustry = [
       {
         name: "Stash",
         imageUrl: "/img/logos/companies/stash.svg",
-        size: "default",
+        size: "large",
       },
     ],
   },
@@ -114,7 +114,7 @@ const companiesByIndustry = [
       {
         name: "DFDS",
         imageUrl: "/img/logos/companies/dfds.png",
-        size: "default",
+        size: "large",
       },
       {
         name: "Moloco",
@@ -124,7 +124,7 @@ const companiesByIndustry = [
       {
         name: "Optum",
         imageUrl: "/img/logos/companies/optum.jpg",
-        size: "default",
+        size: "large",
       },
     ],
   },
