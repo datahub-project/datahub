@@ -281,12 +281,10 @@ export default function AddTagTermModal({
                             onClick={() => onOk(false)}
                             disabled={selectedValue.length === 0 || disableAdd}
                         >
-                        Add
+                            Add
                         </Button>
                     </div>
                 </AddFooter>
-
-                </>
             }
         >
             <TagSelect
