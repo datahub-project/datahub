@@ -86,10 +86,10 @@ const TabContent = styled.div`
 
 const resizerStyles = {
     background: '#E9E9E9',
-    width: '2px',
+    width: '1px',
     cursor: 'col-resize',
     margin: '0 5px',
-    height: '100%',
+    height: 'auto',
 };
 
 const defaultTabDisplayConfig = {
@@ -239,10 +239,14 @@ export const EntityProfile = <T, U>({
                     ) : (
                         <SplitPane
                             split="vertical"
-                            minSize={window.innerWidth - 550}
-                            maxSize={window.innerWidth - 300}
-                            defaultSize={window.innerWidth - 550}
+                            minSize={window.innerWidth - 400}
+                            maxSize={window.innerWidth - 250}
+                            defaultSize={window.innerWidth - 400}
                             resizerStyle={resizerStyles}
+                            style={{
+                                height: 'auto',
+                                overflow: 'auto',
+                            }}
                         >
                             <HeaderAndTabs>
                                 <HeaderAndTabsFlex>

@@ -177,7 +177,6 @@ export const AddOwnerModal = ({ visible, onClose, refetch }: Props) => {
     useEnterKeyListener({
         querySelectorToExecuteClick: '#addOwnerButton',
     });
-
     return (
         <Modal
             title="Add owner"
@@ -198,6 +197,7 @@ export const AddOwnerModal = ({ visible, onClose, refetch }: Props) => {
                 <Form.Item>
                     <Select
                         autoFocus
+                        filterOption={false}
                         value={selectValue}
                         mode="multiple"
                         ref={inputEl}
