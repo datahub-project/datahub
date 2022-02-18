@@ -66,11 +66,19 @@ entities:
       - browsePaths # unclear if this will be used
       - status
       - domains
+  - name: tag
+    keyAspect: tagKey
+    aspects:
+      - tagProperties
+      - ownership
       - deprecation
   - name: glossaryTerm
     keyAspect: glossaryTermKey
     aspects:
+      - glossaryTermInfo
+      - institutionalMemory
       - schemaMetadata
+      - ownership
       - deprecation
   - name: domain
     doc: A data domain within an organization.

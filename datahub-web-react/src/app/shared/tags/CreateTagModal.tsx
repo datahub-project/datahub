@@ -5,6 +5,7 @@ import styled from 'styled-components';
 import { useUpdateTagMutation } from '../../../graphql/tag.generated';
 import { useAddTagMutation } from '../../../graphql/mutations.generated';
 import { SubResourceType } from '../../../types.generated';
+import { useEnterKeyListener } from '../useEnterKeyListener';
 
 type CreateTagModalProps = {
     visible: boolean;
@@ -71,6 +72,11 @@ export default function CreateTagModal({
             });
     };
 
+    // Handle the Enter press
+    useEnterKeyListener({
+        querySelectorToExecuteClick: '#createTagButton',
+    });
+
     return (
         <Modal
             title={`Create ${tagName}`}
@@ -81,7 +87,7 @@ export default function CreateTagModal({
                     <Button onClick={onBack} type="text">
                         Back
                     </Button>
-                    <Button onClick={onOk} disabled={disableCreate}>
+                    <Button id="createTagButton" onClick={onOk} disabled={disableCreate}>
                         Create
                     </Button>
                 </>
