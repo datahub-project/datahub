@@ -7,6 +7,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.identity.CorpGroupEditableInfo;
 import com.linkedin.identity.CorpGroupInfo;
 import com.linkedin.metadata.key.CorpGroupKey;
 import javax.annotation.Nonnull;
@@ -36,7 +37,7 @@ public class CorpGroupMapper implements ModelMapper<EntityResponse, CorpGroup> {
         MappingHelper<CorpGroup> mappingHelper = new MappingHelper<>(aspectMap, result);
         mappingHelper.mapToResult(CORP_GROUP_KEY_ASPECT_NAME, this::mapCorpGroupKey);
         mappingHelper.mapToResult(CORP_GROUP_INFO_ASPECT_NAME, this::mapCorpGroupInfo);
-
+        mappingHelper.mapToResult(CORP_GROUP_EDITABLE_INFO_ASPECT_NAME, this::mapCorpGroupEditableInfo);
         return mappingHelper.getResult();
     }
 
@@ -49,5 +50,9 @@ public class CorpGroupMapper implements ModelMapper<EntityResponse, CorpGroup> {
         CorpGroupInfo corpGroupInfo = new CorpGroupInfo(dataMap);
         corpGroup.setProperties(CorpGroupPropertiesMapper.map(corpGroupInfo));
         corpGroup.setInfo(CorpGroupInfoMapper.map(corpGroupInfo));
+    }
+
+    private void mapCorpGroupEditableInfo(@Nonnull CorpGroup corpGroup, @Nonnull DataMap dataMap) {
+        corpGroup.setEditableProperties(CorpGroupEditablePropertiesMapper.map(new CorpGroupEditableInfo(dataMap)));
     }
 }
