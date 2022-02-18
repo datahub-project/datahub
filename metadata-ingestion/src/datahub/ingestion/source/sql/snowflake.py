@@ -496,7 +496,7 @@ WITH table_lineage_history AS (
     AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3))
 SELECT upstream_table_name, downstream_table_name, upstream_table_columns, downstream_table_columns
 FROM table_lineage_history
-WHERE upstream_table_domain = 'Table' and downstream_table_domain = 'Table'
+WHERE upstream_table_domain in ('Table', 'External table') and downstream_table_domain = 'Table'
 QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_name ORDER BY query_start_time DESC) = 1        """.format(
             start_time_millis=int(self.config.start_time.timestamp() * 1000),
             end_time_millis=int(self.config.end_time.timestamp() * 1000),
