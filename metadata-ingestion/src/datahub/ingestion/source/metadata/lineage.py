@@ -1,13 +1,12 @@
 import logging
-from dataclasses import dataclass, field
 from typing import Iterable, List, Optional, Union
 
-from pydantic import validator
-
 import datahub.metadata.schema_classes as models
+from dataclasses import dataclass, field
 from datahub.cli.cli_utils import get_aspects_for_entity
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import ConfigModel, ConfigurationError, VersionedConfig
 from datahub.configuration.config_loader import load_config_file
+from datahub.configuration.source_common import EnvBasedSourceConfigBase
 from datahub.emitter.mce_builder import (
     get_sys_time,
     make_dataset_urn_with_platform_instance,
@@ -15,6 +14,7 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
+from pydantic import validator
 
 logger = logging.getLogger(__name__)
 
@@ -23,12 +23,18 @@ auditStamp = models.AuditStampClass(
 )
 
 
-class EntityConfig(ConfigModel):
+class EntityConfig(EnvBasedSourceConfigBase):
     name: str
     type: str
-    env: str
     platform: str
     platform_instance: Optional[str]
+
+    @validator("type")
+    def type_must_be_supported(cls, v: str) -> str:
+        allowed_types = ['dataset']
+        if v not in allowed_types:
+            raise ConfigurationError(f"Type must be one of {allowed_types}, {v} is not yet supported.")
+        return v
 
 
 class EntityNodeConfig(ConfigModel):
@@ -45,17 +51,13 @@ class LineageFileSourceConfig(ConfigModel):
     preserve_upstream: bool = True
 
 
-class DefaultConfig(ConfigModel):
-    version: str = "1"
+class LineageConfig(VersionedConfig):
+    lineage: List[EntityNodeConfig]
 
     @validator("version")
     def version_must_be_1(cls, v):
         if v != "1":
             raise ValueError("Only version 1 is supported")
-
-
-class LineageConfig(DefaultConfig):
-    lineage: List[EntityNodeConfig]
 
 
 @dataclass
@@ -64,7 +66,7 @@ class LineageFileSource(Source):
     report: SourceReport = field(default_factory=SourceReport)
 
     @classmethod
-    def create(cls, config_dict, ctx):
+    def create(cls, config_dict, ctx) -> "LineageFileSource":
         config = LineageFileSourceConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
@@ -76,7 +78,7 @@ class LineageFileSource(Source):
 
     @staticmethod
     def get_lineage_metadata_change_event_proposal(
-        entities: List[EntityNodeConfig], preserve_upstream: bool
+            entities: List[EntityNodeConfig], preserve_upstream: bool
     ) -> Iterable[MetadataChangeProposalWrapper]:
         """
         Builds a list of events to be emitted to datahub by going through each entity and its upstream nodes
@@ -97,6 +99,7 @@ class LineageFileSource(Source):
                     env=entity_config.env,
                     platform_instance=entity_config.platform_instance,
                 )
+            logger.warning(f"Entity type: {entity_config.type} is not supported!")
             return None
 
         # loop through all the entities
@@ -160,10 +163,8 @@ class LineageFileSource(Source):
         preserve_upstream = self.config.preserve_upstream
         logger.debug(lineage_config)
         logger.info(f"preserve_upstream is set to {self.config.preserve_upstream}")
-        for (
-            metadata_change_event_proposal
-        ) in self.get_lineage_metadata_change_event_proposal(
-            lineage, preserve_upstream
+        for metadata_change_event_proposal in self.get_lineage_metadata_change_event_proposal(
+                lineage, preserve_upstream
         ):
             work_unit = MetadataWorkUnit(
                 f"lineage-{metadata_change_event_proposal.entityUrn}",
