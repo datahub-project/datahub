@@ -14,14 +14,14 @@ import lombok.ToString;
 public class HdfsPathDataset implements SparkDataset {
   private final DatasetUrn urn;
 
-  public HdfsPathDataset(Path path) {
+  public HdfsPathDataset(Path path, FabricType fabricType) {
     // TODO check static partitions?
-    this(path.toUri().toString());
+    this(path.toUri().toString(), fabricType);
   }
 
-  public HdfsPathDataset(String pathUri) {
+  public HdfsPathDataset(String pathUri, FabricType fabricType) {
     // TODO check static partitions?
-    this.urn = new DatasetUrn(new DataPlatformUrn("hdfs"), pathUri, FabricType.PROD);
+    this.urn = new DatasetUrn(new DataPlatformUrn("hdfs"), pathUri, fabricType);
   }
 
   @Override

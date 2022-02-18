@@ -47,13 +47,35 @@ spark = SparkSession.builder()
         .enableHiveSupport()
         .getOrCreate();
  ```
- 
-### Enable https and authentication token
+
+
+| Field                                           | Required | Default | Description                                                             |
+|-------------------------------------------------|----------|---------|-------------------------------------------------------------------------|
+| spark.jars.packages                             | ✅        |         | Set with latest/required version  io.acryl:datahub-spark-lineage:0.8.23 |
+| spark.extraListeners                            | ✅        |         | datahub.spark.DatahubSparkListener                                      |
+| spark.datahub.rest.server                       | ✅        |         | Datahub server url  eg:http://localhost:8080                            |
+| spark.datahub.rest.token                        |          |         | Authentication token. Set server url with https                         |
+| spark.datahub.metadata.dataset.env              |          | PROD    | Support values here. In all other cases will fallback to PROD           |
+| spark.datahub.metadata.dataset.platformInstance |          |         |                                                                         |
+
+
+
+### Enable https and authentication token (optional)
 Add below config in spark config
 
 ```
 spark.datahub.rest.server                   https://<server URL>
 spark.datahub.rest.token                    <token>
+```
+### Custom env for datasets (optional)
+
+All datasets are created with default "PROD" env.
+Below config can be used to set custom env.
+Supported ENVs: DEV, TEST, QA, UAT, EI, STG, NON_PROD, PROD, CORP
+If env is set to anything else, it will default to PROD
+
+```
+spark.datahub.metadata.dataset.env         PROD
 ```
 
 ## What to Expect: The Metadata Model
