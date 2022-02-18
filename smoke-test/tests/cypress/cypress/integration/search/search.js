@@ -49,15 +49,15 @@ describe('search', () => {
 
     cy.contains('Add Term').click();
 
-    cy.focused().type('CypressTermLabeled');
+    cy.focused().type('CypressTerm');
 
-    cy.get('.ant-select-item-option-content').within(() => cy.contains('CypressNode.CypressTermLabeled').click({force: true}));
+    cy.get('.ant-select-item-option-content').within(() => cy.contains('CypressNode.CypressTerm').click({force: true}));
 
     cy.get('[data-testid="add-tag-term-from-modal-btn"]').click({force: true});
     cy.get('[data-testid="add-tag-term-from-modal-btn"]').should('not.exist');
 
-    cy.contains('CypressTermLabeled');
+    cy.contains('CypressTerm');
     cy.visit('http://localhost:9002/search?query=cypress')
-    cy.contains('CypressTermlabeled')
+    cy.contains('CypressTerm')
   });
 })
