@@ -78,7 +78,7 @@ def test_infer_schema_tsv():
 
 def test_infer_schema_json():
     with tempfile.TemporaryFile(mode="w+b") as file:
-        file.write(bytes(test_table.to_json(orient="records")), encoding="utf-8")
+        file.write(bytes(test_table.to_json(orient="records"), encoding="utf-8"))
         file.seek(0)
 
         fields = json.JsonInferrer().infer_schema(file)
