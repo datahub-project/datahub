@@ -393,10 +393,10 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
                 event_dict["query_start_time"]
             ).astimezone(tz=timezone.utc)
 
-            if not event_dict["email"] and self.config.email_domain:
-                if not event_dict["user_name"]:
+            if not event_dict["email"]:
+                if not self.config.email_domain:
                     logging.warning(
-                        f"The user_name is missing from {event_dict}. Skipping ...."
+                        f"The email is missing from {event_dict}, so an email_domain must be supplied to generate users. Skipping ...."
                     )
                     continue
 
