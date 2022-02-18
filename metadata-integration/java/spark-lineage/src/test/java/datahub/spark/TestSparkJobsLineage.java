@@ -147,6 +147,7 @@ public class TestSparkJobsLineage {
         .config("spark.extraListeners", "datahub.spark.DatahubSparkListener")
         .config("spark.datahub.lineage.consumerTypes", "accumulator")
         .config("spark.datahub.rest.server", "http://localhost:" + mockServer.getPort())
+        .config("spark.datahub.metadata.pipeline.platform_instance", "test_machine")
         .config("spark.sql.warehouse.dir", new File(WAREHOUSE_LOC).getAbsolutePath())
         .enableHiveSupport()
         .getOrCreate();
@@ -158,7 +159,7 @@ public class TestSparkJobsLineage {
     jdbcConnnProperties.put("password", db.getPassword());
 
     if (VERIFY_EXPECTED) {
-      verify(1);
+      verify(2);
       clear();
     }
   }

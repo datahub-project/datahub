@@ -58,6 +58,8 @@ public class DatahubSparkListener extends SparkListener {
   public static final String CONSUMER_TYPE_KEY = "spark.datahub.lineage.consumerTypes";
   public static final String DATAHUB_EMITTER = "mcpEmitter";
   public static final String  DATABRICKS_CLUSTER_KEY = "databricks.cluster";
+  public static final String PIPELINE_KEY = "metadata.pipeline"; 
+  public static final String PIPELINE_PLATFORM_INSTANCE_KEY = PIPELINE_KEY + ".platform_instance";
   
   private final Map<String, AppStartEvent> appDetails = new ConcurrentHashMap<>();
   private final Map<String, Map<Long, SQLQueryExecStartEvent>> appSqlDetails = new ConcurrentHashMap<>();
@@ -294,8 +296,9 @@ public class DatahubSparkListener extends SparkListener {
     Config datahubConfig = appConfig.get(appId);
     if (datahubConfig == null) {
       Config datahubConf = parseSparkConfig();
+      Config pipelineConfig = datahubConf.hasPath(PIPELINE_KEY) ? datahubConf.getConfig(PIPELINE_KEY) : com.typesafe.config.ConfigFactory.empty(); 
       AppStartEvent evt = new AppStartEvent(LineageUtils.getMaster(ctx), getPipelineName(ctx), appId, ctx.startTime(),
-          ctx.sparkUser());
+          ctx.sparkUser(), pipelineConfig);
       
       appEmitters.computeIfAbsent(appId, s -> new McpEmitter(datahubConf)).accept(evt);
       consumers().forEach(c -> c.accept(evt));
@@ -315,10 +318,16 @@ public class DatahubSparkListener extends SparkListener {
 
   private String getPipelineName(SparkContext cx) {
     Config datahubConfig = appConfig.computeIfAbsent(cx.applicationId(), s -> parseSparkConfig());
+    String name = "";
     if (datahubConfig.hasPath(DATABRICKS_CLUSTER_KEY)) {
-      return datahubConfig.getString(DATABRICKS_CLUSTER_KEY) + "_" + cx.applicationId();
+      name = datahubConfig.getString(DATABRICKS_CLUSTER_KEY) + "_" + cx.applicationId();
     }
-    return cx.appName();
+    name = cx.appName();
+    
+    if (datahubConfig.hasPath(PIPELINE_PLATFORM_INSTANCE_KEY)) {
+      name = datahubConfig.getString(PIPELINE_PLATFORM_INSTANCE_KEY) + "." + name;
+    }
+    return name;
   }
 
 
