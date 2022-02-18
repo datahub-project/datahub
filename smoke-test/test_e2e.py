@@ -1089,16 +1089,17 @@ def test_update_corp_group_properties(frontend_session):
           "input": {
             "description": "My new description",
             "slack": "test_group_slack",
-            "email": "test_group_email@email.com"
+            "email": "test_group_email@email.com",
           },
         },
     }
 
     response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
     response.raise_for_status()
-
-    # Sleep for edge store to be updated. Not ideal!
-    time.sleep(1)
+    res_data = response.json()
+    print(res_data)
+    assert "error" not in res_data
+    assert res_data["data"]["updateCorpGroupProperties"] is not None
 
     # Verify the description has been updated
     json = {
@@ -1119,6 +1120,7 @@ def test_update_corp_group_properties(frontend_session):
     res_data = response.json()
 
     assert res_data
+    assert "error" not in res_data
     assert res_data["data"]
     assert res_data["data"]["corpGroup"]
     assert res_data["data"]["corpGroup"]["editableProperties"]
@@ -1166,6 +1168,10 @@ def test_update_corp_group_description(frontend_session):
 
     response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
     response.raise_for_status()
+    res_data = response.json()
+    print(res_data)
+    assert "error" not in res_data
+    assert res_data["data"]["updateDescription"] is True
 
     # Verify the description has been updated
     json = {
@@ -1184,6 +1190,7 @@ def test_update_corp_group_description(frontend_session):
     res_data = response.json()
 
     assert res_data
+    assert "error" not in res_data
     assert res_data["data"]
     assert res_data["data"]["corpGroup"]
     assert res_data["data"]["corpGroup"]["editableProperties"]
@@ -1239,6 +1246,7 @@ def test_remove_user(frontend_session):
     res_data = response.json()
 
     assert res_data
+    assert "error" not in res_data
     assert res_data["data"]
     assert res_data["data"]["corpUser"]
     assert res_data["data"]["corpUser"]["properties"] is None

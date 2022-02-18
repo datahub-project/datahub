@@ -2408,6 +2408,11 @@ type CorpGroup implements Entity {
     properties: CorpGroupProperties
 
     """
+    Additional read write properties about the group
+    """
+    editableProperties: CorpGroupEditableProperties
+
+    """
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
