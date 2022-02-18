@@ -12,6 +12,10 @@ record CorpGroupEditableInfo {
   /**
    * A description of the group
    */
+   @Searchable = {
+     "fieldType": "TEXT",
+     "fieldName": "editedDescription",
+   }
   description: optional string
 
   /**
