@@ -1,5 +1,4 @@
 import os
-from typing import Optional
 
 S3_PREFIXES = ["s3://", "s3n://", "s3a://"]
 

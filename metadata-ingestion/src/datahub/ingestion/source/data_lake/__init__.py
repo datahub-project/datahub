@@ -478,8 +478,6 @@ class DataLakeSource(Source):
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
 
-        s3_prefixes = ["s3://", "s3n://", "s3a://"]
-
         # check if file is an s3 object
         if is_s3_uri(self.source_config.base_path):
 
