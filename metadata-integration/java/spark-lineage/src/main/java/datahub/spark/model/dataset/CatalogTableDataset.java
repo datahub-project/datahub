@@ -14,12 +14,12 @@ import lombok.ToString;
 public class CatalogTableDataset implements SparkDataset {
   private final DatasetUrn urn;
 
-  public CatalogTableDataset(CatalogTable table) {
-    this(table.qualifiedName());
+  public CatalogTableDataset(CatalogTable table, FabricType fabricType) {
+    this(table.qualifiedName(), fabricType);
   }
 
-  public CatalogTableDataset(String dsName) {
-    this.urn = new DatasetUrn(new DataPlatformUrn("hive"), dsName, FabricType.PROD);
+  public CatalogTableDataset(String dsName, FabricType fabricType) {
+    this.urn = new DatasetUrn(new DataPlatformUrn("hive"), dsName, fabricType);
   }
 
   @Override

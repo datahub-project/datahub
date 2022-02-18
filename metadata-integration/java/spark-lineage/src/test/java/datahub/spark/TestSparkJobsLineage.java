@@ -43,6 +43,8 @@ import org.mockserver.socket.PortFactory;
 import org.mockserver.verify.VerificationTimes;
 import org.testcontainers.containers.PostgreSQLContainer;
 
+import com.linkedin.common.FabricType;
+
 import static org.junit.Assert.*;
 import static org.mockserver.integration.ClientAndServer.*;
 import static org.mockserver.model.HttpRequest.*;
@@ -200,15 +202,15 @@ public class TestSparkJobsLineage {
   }
 
   private static HdfsPathDataset hdfsDs(String fileName) {
-    return new HdfsPathDataset("file:" + abs(DATA_DIR + "/" + fileName));
+    return new HdfsPathDataset("file:" + abs(DATA_DIR + "/" + fileName), FabricType.PROD);
   }
 
   private static JdbcDataset pgDs(String tbl) {
-    return new JdbcDataset(db.getJdbcUrl(), tbl);
+    return new JdbcDataset(db.getJdbcUrl(), tbl, FabricType.PROD);
   }
 
   private static CatalogTableDataset catTblDs(String tbl) {
-    return new CatalogTableDataset(tbl(tbl));
+    return new CatalogTableDataset(tbl(tbl), FabricType.PROD);
   }
 
   private static String tbl(String tbl) {

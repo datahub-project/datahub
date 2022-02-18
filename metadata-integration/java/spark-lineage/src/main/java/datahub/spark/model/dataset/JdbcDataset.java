@@ -12,8 +12,8 @@ import lombok.ToString;
 public class JdbcDataset implements SparkDataset {
   private final DatasetUrn urn;
 
-  public JdbcDataset(String url, String tbl) {
-    this.urn = new DatasetUrn(new DataPlatformUrn(platformName(url)), dsName(url, tbl), FabricType.PROD);
+  public JdbcDataset(String url, String tbl, FabricType fabricType) {
+    this.urn = new DatasetUrn(new DataPlatformUrn(platformName(url)), dsName(url, tbl), fabricType);
   }
 
   @Override

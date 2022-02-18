@@ -58,6 +58,7 @@ spark = SparkSession.builder()
 | spark.datahub.rest.token                        |          |         | Authentication token. Set server url with https                         |
 | spark.datahub.metadata.dataset.env              |          | PROD    | [Supported values](https://datahubproject.io/docs/graphql/enums#fabrictype). In all other cases, will fallback to PROD           |
 
+
 ## What to Expect: The Metadata Model
 
 As of current writing, the Spark agent produces metadata related to the Spark job, tasks and lineage edges to datasets.
