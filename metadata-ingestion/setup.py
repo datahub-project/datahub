@@ -111,7 +111,7 @@ plugins: Dict[str, Set[str]] = {
     "data-lake": {*aws_common, "pydeequ==1.0.1", "pyspark==3.0.3", "parse==1.19.0"},
     "dbt": {"requests"},
     "druid": sql_common | {"pydruid>=0.6.2"},
-    "elasticsearch": {"elasticsearch"},
+    "elasticsearch": {"elasticsearch<=8.0.0"},
     "feast": {"docker"},
     "glue": aws_common,
     "hive": sql_common
