@@ -1,3 +1,4 @@
+import os
 from typing import Optional
 
 S3_PREFIXES = ["s3://", "s3n://", "s3a://"]
@@ -19,14 +20,17 @@ def strip_s3_prefix(s3_uri: str) -> str:
     )
 
 
-def make_s3_urn(s3_uri: str, env: str, suffix: Optional[str] = None) -> str:
+def make_s3_urn(s3_uri: str, env: str) -> str:
 
     s3_name = strip_s3_prefix(s3_uri)
 
     if s3_name.endswith("/"):
         s3_name = s3_name[:-1]
 
-    if suffix is not None:
-        return f"urn:li:dataset:(urn:li:dataPlatform:s3,{s3_name}_{suffix},{env})"
+    name, extension = os.path.splitext(s3_name)
+    extension = extension[1:]  # remove the dot
+    
+    if extension != "":
+        return f"urn:li:dataset:(urn:li:dataPlatform:s3,{name}_{extension},{env})"
 
     return f"urn:li:dataset:(urn:li:dataPlatform:s3,{s3_name},{env})"
