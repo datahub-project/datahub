@@ -246,8 +246,8 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
                 <SideBarSubSection className={showEditProfileButton ? '' : 'fullView'}>
                     <CustomAvatar size={160} photoUrl={photoUrl} name={avatarName} style={AVATAR_STYLE} />
                     <Name>{name || <EmptyValue />}</Name>
-                    <Role>{role || <EmptyValue />}</Role>
-                    <Team>{team || <EmptyValue />}</Team>
+                    {role && <Role>{role}</Role>}
+                    {team && <Team>{team}</Team>}
                     <Divider className="divider-infoSection" />
                     <SocialDetails>
                         <Space>
