@@ -1087,7 +1087,7 @@ def test_update_corp_group_properties(frontend_session):
         "variables": {
           "urn": group_urn,
           "input": {
-            "description": "My new description",
+            "description": "My test description",
             "slack": "test_group_slack",
             "email": "test_group_email@email.com",
           },
@@ -1160,7 +1160,7 @@ def test_update_corp_group_description(frontend_session):
             updateDescription(input: $input) }""",
         "variables": {
           "input": {
-            "description": "My new description",
+            "description": "My test description",
             "resourceUrn": group_urn
           },
         },
