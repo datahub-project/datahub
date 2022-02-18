@@ -248,6 +248,12 @@ type EntityProfileParams {
   Urn of the entity being shown
   """
   urn: String!
+
+  """
+  Type of the enity being displayed
+  """
+  type: EntityType!
+
 }
 
 """
