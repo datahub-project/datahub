@@ -50,7 +50,7 @@ def assert_field_types_match(
 
 def test_infer_schema_csv():
     with tempfile.TemporaryFile(mode="w+b") as file:
-        test_table.to_csv(file, index=False, header=True)
+        file.write(bytes(test_table.to_csv(index=False, header=True), encoding="utf-8"))
         file.seek(0)
 
         fields = csv_tsv.CsvInferrer().infer_schema(file)
@@ -62,7 +62,11 @@ def test_infer_schema_csv():
 
 def test_infer_schema_tsv():
     with tempfile.TemporaryFile(mode="w+b") as file:
-        test_table.to_csv(file, index=False, header=True, sep="\t")
+        file.write(
+            bytes(
+                test_table.to_csv(index=False, header=True, sep="\t"), encoding="utf-8"
+            )
+        )
         file.seek(0)
 
         fields = csv_tsv.TsvInferrer().infer_schema(file)
@@ -74,7 +78,7 @@ def test_infer_schema_tsv():
 
 def test_infer_schema_json():
     with tempfile.TemporaryFile(mode="w+b") as file:
-        test_table.to_json(file, orient="records")
+        file.write(bytes(test_table.to_json(orient="records")), encoding="utf-8")
         file.seek(0)
 
         fields = json.JsonInferrer().infer_schema(file)
