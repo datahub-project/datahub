@@ -1,44 +1,13 @@
 import { GetDatasetDocument } from './graphql/dataset.generated';
 import { Dataset, EntityType, PlatformType, SchemaFieldDataType } from './types.generated';
-import { GetMeOnlyDocument } from './graphql/me.generated';
-// I had to make a new mock file cos the original mock file, ownership of dataset and the mock identity of the person visiting the schema pages is not the same
-// hence cannot test the edit schema functionality.
+import { GetMeDocument } from './graphql/me.generated';
 
-const user1 = {
-    username: '1',
-    urn: 'urn:li:corpuser:1',
-    type: EntityType.CorpUser,
-    info: {
-        email: 'sdas@domain.com',
-        active: true,
-        displayName: 'sdas',
-        title: 'Software Engineer',
-        firstName: 'Shirshanka',
-        lastName: 'Das',
-        fullName: 'Shirshanka Das',
-    },
-    editableInfo: {
-        pictureLink: 'https://crunchconf.com/img/2019/speakers/1559291783-ShirshankaDas.png',
-    },
-    globalTags: {
-        tags: [
-            {
-                tag: {
-                    type: EntityType.Tag,
-                    urn: 'urn:li:tag:abc-sample-tag',
-                    name: 'abc-sample-tag',
-                    description: 'sample tag',
-                },
-            },
-        ],
-    },
-};
-
-const user2 = {
+const user = {
     username: 'john',
     urn: 'urn:li:corpuser:3',
     type: EntityType.CorpUser,
     info: {
+        __typename: 'CorpUserInfo',
         email: 'john@domain.com',
         active: true,
         displayName: 'john',
@@ -49,6 +18,8 @@ const user2 = {
     },
     editableInfo: {
         pictureLink: null,
+        teams: null,
+        skills: null,
     },
     globalTags: {
         tags: [
@@ -80,9 +51,9 @@ export const dataset3 = {
         type: EntityType.DataPlatform,
     },
     platformNativeType: 'STREAM',
-    name: 'Yet Another Dataset2',
+    name: 'Yet Another Dataset',
     origin: 'PROD',
-    uri: 'www.google.comx',
+    uri: 'www.google.com',
     properties: {
         description: 'This and here we have yet another Dataset (YAN). Are there more?',
         origin: 'PROD',
@@ -100,19 +71,10 @@ export const dataset3 = {
         owners: [
             {
                 owner: {
-                    ...user1,
+                    ...user,
                     __typename: 'CorpUser',
                 },
                 type: 'DATAOWNER',
-                __typename: 'Owner',
-            },
-            {
-                owner: {
-                    ...user2,
-                    __typename: 'CorpUser',
-                },
-                type: 'DELEGATE',
-                __typename: 'Owner',
             },
         ],
         lastModified: {
@@ -217,6 +179,7 @@ export const dataset3 = {
     editableSchemaMetadata: null,
     deprecation: null,
     usageStats: null,
+    operations: null,
     datasetProfiles: [
         {
             rowCount: 10,
@@ -252,15 +215,17 @@ export const dataset3 = {
             },
         },
     ],
+    domain: null,
+    container: null,
     status: {
         removed: false,
     },
 } as Dataset;
 
 /*
-    Define mock data to be returned by Apollo MockProvider. 
+    Define mock data to be returned by Apollo MockProvider.
 */
-export const mocks2 = [
+export const editMocks = [
     {
         request: {
             query: GetDatasetDocument,
@@ -276,40 +241,23 @@ export const mocks2 = [
             },
         },
     },
-    // {
-    //     request: {
-    //         query: GetMeDocument,
-    //         variables: {},
-    //     },
-    //     result: {
-    //         data: {
-    //             __typename: 'Query',
-    //             me: {
-    //                 __typename: 'AuthenticatedUser',
-    //                 corpUser: { ...user2 },
-    //                 platformPrivileges: {
-    //                     viewAnalytics: true,
-    //                     managePolicies: true,
-    //                     manageIdentities: true,
-    //                 },
-    //             },
-    //         },
-    //     },
-    // },
-
     {
-        // this mock can be shifted elsewhere in the doc. need to create new mock instead of recycling cos it needs to be specific to query else it doesnt work
         request: {
-            query: GetMeOnlyDocument,
+            query: GetMeDocument,
             variables: {},
         },
         result: {
             data: {
-                __typename: 'Query',
                 me: {
-                    corpUser: {
-                        username: '1',
-                        urn: 'urn:li:corpuser:1',
+                    corpUser: { ...user },
+                    platformPrivileges: {
+                        viewAnalytics: true,
+                        managePolicies: true,
+                        manageIdentities: true,
+                        generatePersonalAccessTokens: true,
+                        manageIngestion: true,
+                        manageSecrets: true,
+                        manageDomains: true,
                     },
                 },
             },

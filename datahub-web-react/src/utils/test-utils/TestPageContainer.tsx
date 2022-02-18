@@ -46,10 +46,9 @@ export default ({ children, initialEntries }: Props) => {
     const entityRegistry = useMemo(() => getTestEntityRegistry(), []);
     Object.defineProperty(window.document, 'cookie', {
         writable: true,
-        value: `${CLIENT_AUTH_COOKIE}=urn:li:corpuser:2`,
+        value: `${CLIENT_AUTH_COOKIE}=urn:li:corpuser:test`,
     });
-    jest.mock('js-cookie', () => ({ get: () => 'urn:li:corpuser:2' }));
-
+    jest.mock('js-cookie', () => ({ get: () => 'urn:li:corpusertest' }));
     return (
         <ThemeProvider theme={defaultThemeConfig}>
             <MemoryRouter initialEntries={initialEntries}>
