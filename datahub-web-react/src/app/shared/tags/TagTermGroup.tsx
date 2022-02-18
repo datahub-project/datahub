@@ -204,7 +204,6 @@ export default function TagTermGroup({
             })}
             {/* editable tags may be provided by ingestion pipelines or the UI */}
             {editableTags?.tags?.map((tag) => {
-                console.log('tag.tag.properties?.colorHex::', tag.tag.properties?.colorHex);
                 renderedTags += 1;
                 if (maxShow && renderedTags > maxShow) return null;
                 return (

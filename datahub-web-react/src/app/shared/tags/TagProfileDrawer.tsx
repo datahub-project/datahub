@@ -1,31 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { Alert, Drawer, Button, Typography, Divider, Space, message } from 'antd';
-import styled from 'styled-components';
-import { grey } from '@ant-design/colors';
-import { useHistory } from 'react-router';
-import { PlusOutlined } from '@ant-design/icons';
-import { ChromePicker } from 'react-color';
+import { Alert, Drawer, Button, Space, message } from 'antd';
 import { ApolloError } from '@apollo/client';
+import { Link } from 'react-router-dom';
+import styled from 'styled-components';
 
-import { useGetTagWithColorQuery } from '../../../graphql/tag.generated';
-import { useEntityRegistry } from '../../useEntityRegistry';
+import { useGetTagQuery } from '../../../graphql/tag.generated';
 import { EntityType, FacetMetadata, Maybe, Scalars } from '../../../types.generated';
-import { navigateToSearchUrl } from '../../search/utils/navigateToSearchUrl';
 import { useSetTagColorMutation, useUpdateDescriptionMutation } from '../../../graphql/mutations.generated';
-import { ExpandedOwner } from '../../entity/shared/components/styled/ExpandedOwner';
-import { EMPTY_MESSAGES } from '../../entity/shared/constants';
-import { AddOwnerModal } from '../../entity/shared/containers/profile/sidebar/Ownership/AddOwnerModal';
 import analytics from '../../analytics/analytics';
 import { EntityActionType, EventType } from '../../analytics/event';
 import { SearchResultInterface, GetSearchResultsParams } from '../../entity/shared/components/styled/search/types';
 import { useGetSearchResultsForMultipleQuery } from '../../../graphql/search.generated';
+import { Message } from '../Message';
+import TagStyleEntity from '../TagStyleEntity';
 
 function useWrappedSearchResults(params: GetSearchResultsParams) {
     const { data, loading, error } = useGetSearchResultsForMultipleQuery(params);
     return { data: data?.searchAcrossEntities, loading, error };
 }
-
-const { Paragraph } = Typography;
 
 type SearchResultsInterface = {
     /** The offset of the result set */
@@ -51,98 +43,12 @@ type Props = {
     };
 };
 
-const TitleLabel = styled(Typography.Text)`
-    &&& {
-        color: ${grey[2]};
-        font-size: 12px;
-        display: block;
-        line-height: 20px;
-        font-weight: 700;
-    }
-`;
-
-const TitleText = styled(Typography.Text)`
-    &&& {
-        color: ${grey[10]};
-        font-weight: 700;
-        font-size: 20px;
-        line-height: 28px;
-        display: inline-block;
-        margin: 0px 7px;
-    }
-`;
-
-const ColorPicker = styled.div`
-    position: relative;
-    display: inline-block;
-    margin-top: 1em;
-`;
-
-const ColorPickerButton = styled.div`
-    width: 16px;
-    height: 16px;
-    border: none;
-    border-radius: 50%;
-`;
-
-const ColorPickerPopOver = styled.div`
-    position: absolute;
-    z-index: 100;
-`;
-
-export const EmptyValue = styled.div`
-    &:after {
-        content: 'No Description';
-        color: #b7b7b7;
-        font-style: italic;
-        font-weight: 100;
-    }
-`;
-
 const DetailsLayout = styled.div`
     display: flex;
     justify-content: space-between;
 `;
-
-const StatsBox = styled.div`
-    width: 180px;
-    justify-content: left;
-`;
-
-const StatsLabel = styled(Typography.Text)`
-    &&& {
-        color: ${grey[10]};
-        font-size: 14px;
-        font-weight: 700;
-        line-height: 28px;
-    }
-`;
-
-const StatsButton = styled(Button)`
-    padding: 0px 0px;
-    margin-top: 0px;
-    font-weight: 700;
-    font-size: 12px;
-    line-height: 20px;
-`;
-
-const EmptyStatsText = styled(Typography.Text)`
-    font-size: 15px;
-    font-style: italic;
-`;
-
-const OwnerButtonEmptyTitle = styled.span`
-    font-weight: 700;
-    font-size: 12px;
-    line-height: 20px;
-    color: ${grey[10]};
-`;
-
-const OwnerButtonTitle = styled.span`
-    font-weight: 500;
-    font-size: 12px;
-    line-height: 20px;
-    color: ${grey[10]};
+const LoadingMessage = styled(Message)`
+    margin-top: 10%;
 `;
 
 export const TagProfileDrawer = ({
@@ -151,12 +57,10 @@ export const TagProfileDrawer = ({
     urn,
     useGetSearchResults = useWrappedSearchResults,
 }: Props) => {
-    const { loading, error, data, refetch } = useGetTagWithColorQuery({ variables: { urn } });
-    const history = useHistory();
+    const { loading, error, data, refetch } = useGetTagQuery({ variables: { urn } });
     const [updateDescription] = useUpdateDescriptionMutation();
     const [setTagColorMutation] = useSetTagColorMutation();
     const entityAndSchemaQuery = `tags:"${data?.tag?.properties?.name}" OR fieldTags:"${data?.tag?.properties?.name}" OR editedFieldTags:"${data?.tag?.properties?.name}"`;
-    const entityRegistry = useEntityRegistry();
     const entityQuery = `tags:"${data?.tag?.properties?.name}"`;
 
     const description = data?.tag?.properties?.description || '';
@@ -260,7 +164,6 @@ export const TagProfileDrawer = ({
     if (error || (!loading && !error && !data)) {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
     }
-
     return (
         <>
             <Drawer
@@ -271,114 +174,38 @@ export const TagProfileDrawer = ({
                 onClose={closeTagProfileDrawer}
                 visible={tagProfileDrawerVisible}
                 footer={
-                    <Space>
-                        <Button type="text" onClick={closeTagProfileDrawer}>
-                            Close
-                        </Button>
-                    </Space>
+                    <DetailsLayout>
+                        <Space>
+                            <Button type="text" onClick={closeTagProfileDrawer}>
+                                Close
+                            </Button>
+                        </Space>
+                        <Space>
+                            <Link to={`/tag/${urn}`}>Tag Detail</Link>
+                        </Space>
+                    </DetailsLayout>
                 }
             >
                 <>
-                    {/* Tag Title */}
-                    <div>
-                        <TitleLabel>Tag</TitleLabel>
-                        <ColorPicker>
-                            <ColorPickerButton style={{ backgroundColor: colorValue }} onClick={handlePickerClick} />
-                        </ColorPicker>
-                        {displayColorPicker && (
-                            <ColorPickerPopOver>
-                                <ChromePicker color={colorValue} onChange={handleColorChange} />
-                            </ColorPickerPopOver>
-                        )}
-                        <TitleText>{data?.tag?.properties?.name}</TitleText>
-                    </div>
-                    <Divider />
-                    {/* Tag Description */}
-                    <Paragraph
-                        editable={{ onChange: handleSaveDescription }}
-                        ellipsis={{ rows: 2, expandable: true, symbol: 'Read more' }}
-                    >
-                        {updatedDescription || <EmptyValue />}
-                    </Paragraph>
-                    <Divider />
-                    {/* Tag Charts, Datasets and Owners */}
-                    <DetailsLayout>
-                        <StatsBox>
-                            <StatsLabel>Applied to</StatsLabel>
-                            {facetLoading && (
-                                <div>
-                                    <EmptyStatsText>Loading...</EmptyStatsText>
-                                </div>
-                            )}
-                            {!facetLoading && aggregations.length === 0 && (
-                                <div>
-                                    <EmptyStatsText>No entities</EmptyStatsText>
-                                </div>
-                            )}
-                            {!facetLoading &&
-                                aggregations &&
-                                aggregations.map((aggregation) => {
-                                    if (aggregation?.count === 0) {
-                                        return null;
-                                    }
-                                    return (
-                                        <div key={aggregation?.value}>
-                                            <StatsButton
-                                                onClick={() =>
-                                                    navigateToSearchUrl({
-                                                        type: aggregation?.value as EntityType,
-                                                        query:
-                                                            aggregation?.value === EntityType.Dataset
-                                                                ? entityAndSchemaQuery
-                                                                : entityQuery,
-                                                        history,
-                                                    })
-                                                }
-                                                type="link"
-                                            >
-                                                <span data-testid={`stats-${aggregation?.value}`}>
-                                                    {aggregation?.count}{' '}
-                                                    {entityRegistry.getCollectionName(aggregation?.value as EntityType)}{' '}
-                                                    &gt;
-                                                </span>
-                                            </StatsButton>
-                                        </div>
-                                    );
-                                })}
-                        </StatsBox>
-                        <div>
-                            <StatsLabel>Owners</StatsLabel>
-                            <div>
-                                {data?.tag?.ownership?.owners?.map((owner) => (
-                                    <ExpandedOwner entityUrn={urn} owner={owner} refetch={refetch} />
-                                ))}
-                                {ownersEmpty && (
-                                    <Typography.Paragraph type="secondary">
-                                        {EMPTY_MESSAGES.owners.title}. {EMPTY_MESSAGES.owners.description}
-                                    </Typography.Paragraph>
-                                )}
-                                <Button type={ownersEmpty ? 'default' : 'text'} onClick={() => setShowAddModal(true)}>
-                                    <PlusOutlined />
-                                    {ownersEmpty ? (
-                                        <OwnerButtonEmptyTitle>Add Owner</OwnerButtonEmptyTitle>
-                                    ) : (
-                                        <OwnerButtonTitle>Add Owner</OwnerButtonTitle>
-                                    )}
-                                </Button>
-                            </div>
-                            <div>
-                                <AddOwnerModal
-                                    visible={showAddModal}
-                                    refetch={refetch}
-                                    onClose={() => {
-                                        setShowAddModal(false);
-                                    }}
-                                    urn={urn}
-                                    entityType={EntityType.Tag}
-                                />
-                            </div>
-                        </div>
-                    </DetailsLayout>
+                    {loading && <LoadingMessage type="loading" content="Loading..." />}
+                    <TagStyleEntity
+                        urn={urn}
+                        data={data}
+                        refetch={refetch}
+                        colorValue={colorValue}
+                        handlePickerClick={handlePickerClick}
+                        displayColorPicker={displayColorPicker}
+                        handleColorChange={handleColorChange}
+                        updatedDescription={updatedDescription}
+                        handleSaveDescription={handleSaveDescription}
+                        facetLoading={facetLoading}
+                        aggregations={aggregations}
+                        entityAndSchemaQuery={entityAndSchemaQuery}
+                        entityQuery={entityQuery}
+                        ownersEmpty={ownersEmpty}
+                        setShowAddModal={setShowAddModal}
+                        showAddModal={showAddModal}
+                    />
                 </>
             </Drawer>
         </>

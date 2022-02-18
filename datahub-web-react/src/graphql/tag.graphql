@@ -3,6 +3,11 @@ query getTag($urn: String!) {
         urn
         name
         description
+        properties {
+          name
+          description
+          colorHex
+        }
         ownership {
             ...ownershipFields
         }
@@ -14,20 +19,6 @@ mutation updateTag($urn: String!, $input: TagUpdateInput!) {
         urn
         name
         description
-        ownership {
-            ...ownershipFields
-        }
-    }
-}
-
-query getTagWithColor($urn: String!) {
-    tag(urn: $urn) {
-        urn
-        properties {
-          name
-          description
-          colorHex
-        }
         ownership {
             ...ownershipFields
         }

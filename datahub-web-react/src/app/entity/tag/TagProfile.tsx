@@ -1,17 +1,19 @@
-import { grey } from '@ant-design/colors';
-import { Alert, Button, Card, Typography } from 'antd';
-import React from 'react';
-import { useHistory, useParams } from 'react-router';
+import React, { useEffect, useState } from 'react';
+import { useParams } from 'react-router';
+import { Alert, message } from 'antd';
 import styled from 'styled-components';
+import { ApolloError } from '@apollo/client';
 
 import { useGetTagQuery } from '../../../graphql/tag.generated';
-import { EntityType } from '../../../types.generated';
-import { useGetAllEntitySearchResults } from '../../../utils/customGraphQL/useGetAllEntitySearchResults';
-import { navigateToSearchUrl } from '../../search/utils/navigateToSearchUrl';
+import { EntityType, FacetMetadata, Maybe, Scalars } from '../../../types.generated';
 import { Message } from '../../shared/Message';
-import { AvatarsGroup } from '../../shared/avatar';
-import { useEntityRegistry } from '../../useEntityRegistry';
 import { decodeUrn } from '../shared/utils';
+import { useGetSearchResultsForMultipleQuery } from '../../../graphql/search.generated';
+import { GetSearchResultsParams, SearchResultInterface } from '../shared/components/styled/search/types';
+import { useSetTagColorMutation, useUpdateDescriptionMutation } from '../../../graphql/mutations.generated';
+import analytics from '../../analytics/analytics';
+import { EventType, EntityActionType } from '../../analytics';
+import TagStyleEntity from '../../shared/TagStyleEntity';
 
 const PageContainer = styled.div`
     padding: 32px 100px;
@@ -21,90 +23,145 @@ const LoadingMessage = styled(Message)`
     margin-top: 10%;
 `;
 
-const TitleLabel = styled(Typography.Text)`
-    &&& {
-        color: ${grey[2]};
-        font-size: 13px;
-    }
-`;
-
-const CreatedByLabel = styled(Typography.Text)`
-    &&& {
-        color: ${grey[2]};
-        font-size: 13px;
-    }
-`;
-
-const StatsLabel = styled(Typography.Text)`
-    &&& {
-        color: ${grey[2]};
-        font-size: 13px;
-    }
-`;
-
-const TitleText = styled(Typography.Title)`
-    &&& {
-        margin-top: 0px;
-    }
-`;
-
-const HeaderLayout = styled.div`
-    display: flex;
-    justify-content: space-between;
-`;
-
-const StatsBox = styled.div`
-    width: 180px;
-    justify-content: left;
-`;
-
-const StatText = styled(Typography.Text)`
-    font-size: 15px;
-`;
-
-const EmptyStatsText = styled(Typography.Text)`
-    font-size: 15px;
-    font-style: italic;
-`;
-
-const TagSearchButton = styled(Button)`
-    margin-left: -16px;
-`;
-
 type TagPageParams = {
     urn: string;
+};
+
+function useWrappedSearchResults(params: GetSearchResultsParams) {
+    const { data, loading, error } = useGetSearchResultsForMultipleQuery(params);
+    return { data: data?.searchAcrossEntities, loading, error };
+}
+
+type SearchResultsInterface = {
+    /** The offset of the result set */
+    start: Scalars['Int'];
+    /** The number of entities included in the result set */
+    count: Scalars['Int'];
+    /** The total number of search results matching the query and filters */
+    total: Scalars['Int'];
+    /** The search result entities */
+    searchResults: Array<SearchResultInterface>;
+    /** Candidate facet aggregations used for search filtering */
+    facets?: Maybe<Array<FacetMetadata>>;
+};
+
+type Props = {
+    useGetSearchResults?: (params: GetSearchResultsParams) => {
+        data: SearchResultsInterface | undefined | null;
+        loading: boolean;
+        error: ApolloError | undefined;
+    };
 };
 
 /**
  * Responsible for displaying metadata about a tag
  */
-export default function TagProfile() {
+export default function TagProfile({ useGetSearchResults = useWrappedSearchResults }: Props) {
     const { urn: encodedUrn } = useParams<TagPageParams>();
     const urn = decodeUrn(encodedUrn);
-
-    const { loading, error, data } = useGetTagQuery({ variables: { urn } });
-    const entityRegistry = useEntityRegistry();
-    const history = useHistory();
-
+    const { loading, error, data, refetch } = useGetTagQuery({ variables: { urn } });
+    const [updateDescription] = useUpdateDescriptionMutation();
+    const [setTagColorMutation] = useSetTagColorMutation();
     const entityAndSchemaQuery = `tags:"${data?.tag?.name}" OR fieldTags:"${data?.tag?.name}" OR editedFieldTags:"${data?.tag?.name}"`;
     const entityQuery = `tags:"${data?.tag?.name}"`;
 
-    const allSearchResultsByType = useGetAllEntitySearchResults({
-        query: entityAndSchemaQuery,
-        start: 0,
-        count: 1,
-        filters: [],
+    const description = data?.tag?.properties?.description || '';
+    const [updatedDescription, setUpdatedDescription] = useState('');
+    const hexColor = data?.tag?.properties?.colorHex || '';
+    const [displayColorPicker, setDisplayColorPicker] = useState(false);
+    const [colorValue, setColorValue] = useState('');
+    const ownersEmpty = !data?.tag?.ownership?.owners?.length;
+    const [showAddModal, setShowAddModal] = useState(false);
+
+    useEffect(() => {
+        setUpdatedDescription(description);
+    }, [description]);
+
+    useEffect(() => {
+        setColorValue(hexColor);
+    }, [hexColor]);
+
+    const { data: facetData, loading: facetLoading } = useGetSearchResults({
+        variables: {
+            input: {
+                query: entityAndSchemaQuery,
+                start: 0,
+                count: 1,
+                filters: [],
+            },
+        },
     });
 
-    const statsLoading = Object.keys(allSearchResultsByType).some((type) => {
-        return allSearchResultsByType[type].loading;
-    });
+    const facets = facetData?.facets?.filter((facet) => facet?.field === 'entity') || [];
+    const aggregations = facets && facets[0]?.aggregations;
 
-    const someStats =
-        !statsLoading &&
-        Object.keys(allSearchResultsByType).some((type) => {
-            return allSearchResultsByType[type]?.data?.search.total > 0;
+    // Save Color Change
+    const saveColor = async () => {
+        if (displayColorPicker) {
+            message.loading({ content: 'Saving...' });
+            try {
+                await setTagColorMutation({
+                    variables: {
+                        urn,
+                        colorHex: colorValue,
+                    },
+                });
+                message.destroy();
+                message.success({ content: 'Color Updated', duration: 2 });
+                setDisplayColorPicker(false);
+            } catch (e: unknown) {
+                message.destroy();
+                if (e instanceof Error) {
+                    message.error({ content: `Failed to update Color: \n ${e.message || ''}`, duration: 2 });
+                }
+            }
+            refetch?.();
+        }
+    };
+
+    const handlePickerClick = () => {
+        setDisplayColorPicker(!displayColorPicker);
+        saveColor();
+    };
+
+    const handleColorChange = (color: any) => {
+        setColorValue(color?.hex);
+    };
+
+    // Update Description
+    const updateDescriptionValue = (desc: string) => {
+        setUpdatedDescription(desc);
+        return updateDescription({
+            variables: {
+                input: {
+                    description: desc,
+                    resourceUrn: urn,
+                },
+            },
         });
+    };
+
+    // Save the description
+    const handleSaveDescription = async (desc: string) => {
+        message.loading({ content: 'Saving...' });
+        try {
+            await updateDescriptionValue(desc);
+            message.destroy();
+            message.success({ content: 'Description Updated', duration: 2 });
+            analytics.event({
+                type: EventType.EntityActionEvent,
+                actionType: EntityActionType.UpdateDescription,
+                entityType: EntityType.Tag,
+                entityUrn: urn,
+            });
+        } catch (e: unknown) {
+            message.destroy();
+            if (e instanceof Error) {
+                message.error({ content: `Failed to update description: \n ${e.message || ''}`, duration: 2 });
+            }
+        }
+        refetch?.();
+    };
 
     if (error || (!loading && !error && !data)) {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
@@ -113,72 +170,24 @@ export default function TagProfile() {
     return (
         <PageContainer>
             {loading && <LoadingMessage type="loading" content="Loading..." />}
-            <Card
-                title={
-                    <HeaderLayout>
-                        <div>
-                            <div>
-                                <TitleLabel>Tag</TitleLabel>
-                                <TitleText>{data?.tag?.name}</TitleText>
-                            </div>
-                            <div>
-                                <div>
-                                    <CreatedByLabel>Created by</CreatedByLabel>
-                                </div>
-                                <AvatarsGroup owners={data?.tag?.ownership?.owners} entityRegistry={entityRegistry} />
-                            </div>
-                        </div>
-                        <StatsBox>
-                            <StatsLabel>Applied to</StatsLabel>
-                            {statsLoading && (
-                                <div>
-                                    <EmptyStatsText>Loading...</EmptyStatsText>
-                                </div>
-                            )}
-                            {!statsLoading && !someStats && (
-                                <div>
-                                    <EmptyStatsText>No entities</EmptyStatsText>
-                                </div>
-                            )}
-                            {!statsLoading &&
-                                someStats &&
-                                Object.keys(allSearchResultsByType).map((type) => {
-                                    if (allSearchResultsByType[type]?.data?.search.total === 0) {
-                                        return null;
-                                    }
-                                    return (
-                                        <div key={type}>
-                                            <TagSearchButton
-                                                type="text"
-                                                key={type}
-                                                onClick={() =>
-                                                    navigateToSearchUrl({
-                                                        type: type as EntityType,
-                                                        query:
-                                                            type === EntityType.Dataset
-                                                                ? entityAndSchemaQuery
-                                                                : entityQuery,
-                                                        history,
-                                                    })
-                                                }
-                                            >
-                                                <StatText data-testid={`stats-${type}`}>
-                                                    {allSearchResultsByType[type]?.data?.search.total}{' '}
-                                                    {entityRegistry.getCollectionName(type as EntityType)}
-                                                </StatText>
-                                            </TagSearchButton>
-                                        </div>
-                                    );
-                                })}
-                        </StatsBox>
-                    </HeaderLayout>
-                }
-            >
-                <Typography.Paragraph strong style={{ color: grey[2], fontSize: 13 }}>
-                    Description
-                </Typography.Paragraph>
-                <Typography.Text>{data?.tag?.description}</Typography.Text>
-            </Card>
+            <TagStyleEntity
+                urn={urn}
+                data={data}
+                refetch={refetch}
+                colorValue={colorValue}
+                handlePickerClick={handlePickerClick}
+                displayColorPicker={displayColorPicker}
+                handleColorChange={(color: string) => handleColorChange(color)}
+                updatedDescription={updatedDescription}
+                handleSaveDescription={(desc: string) => handleSaveDescription(desc)}
+                facetLoading={facetLoading}
+                aggregations={aggregations}
+                entityAndSchemaQuery={entityAndSchemaQuery}
+                entityQuery={entityQuery}
+                ownersEmpty={ownersEmpty}
+                setShowAddModal={setShowAddModal}
+                showAddModal={showAddModal}
+            />
         </PageContainer>
     );
 }
