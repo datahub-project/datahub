@@ -1082,7 +1082,7 @@ def test_update_corp_group_properties(frontend_session):
 
     # Update Corp Group Description
     json = {
-        "query": """mutation updateCorpGroupProperties($urn: String!, $input: UpdateCorpGroupPropertiesInput!) {\n
+        "query": """mutation updateCorpGroupProperties($urn: String!, $input: CorpGroupUpdateInput!) {\n
             updateCorpGroupProperties(urn: $urn, input: $input) }""",
         "variables": {
           "urn": group_urn,
