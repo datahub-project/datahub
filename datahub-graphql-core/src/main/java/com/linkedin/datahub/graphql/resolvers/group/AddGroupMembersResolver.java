@@ -1,9 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.group;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
+import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
@@ -12,6 +15,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.GroupMembership;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.utils.GenericAspectUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
@@ -20,6 +24,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
+import static com.linkedin.datahub.graphql.resolvers.AuthUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
@@ -38,10 +43,10 @@ public class AddGroupMembersResolver implements DataFetcher<CompletableFuture<Bo
   @Override
   public CompletableFuture<Boolean> get(final DataFetchingEnvironment environment) throws Exception {
 
+    final AddGroupMembersInput input = bindArgument(environment.getArgument("input"), AddGroupMembersInput.class);
     final QueryContext context = environment.getContext();
 
-    if (AuthorizationUtils.canManageUsersAndGroups(context)) {
-      final AddGroupMembersInput input = bindArgument(environment.getArgument("input"), AddGroupMembersInput.class);
+    if (isAuthorized(input, context)) {
       final String groupUrnStr = input.getGroupUrn();
       final List<String> userUrnStrs = input.getUserUrns();
 
@@ -58,6 +63,20 @@ public class AddGroupMembersResolver implements DataFetcher<CompletableFuture<Bo
       .thenApply((ignored) -> Boolean.TRUE);
     }
     throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+  }
+
+  private boolean isAuthorized(AddGroupMembersInput input, QueryContext context) {
+    final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
+        ALL_PRIVILEGES_GROUP,
+        new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.EDIT_GROUP_MEMBERS_PRIVILEGE.getType()))
+    ));
+
+    return AuthorizationUtils.isAuthorized(
+        context.getAuthorizer(),
+        context.getActorUrn(),
+        CORP_GROUP_ENTITY_NAME,
+        input.getGroupUrn(),
+        orPrivilegeGroups);
   }
 
   private void addUserToGroup(final String userUrnStr, final String groupUrnStr, final QueryContext context) {

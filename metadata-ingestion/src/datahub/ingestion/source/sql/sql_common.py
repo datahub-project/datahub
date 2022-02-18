@@ -585,7 +585,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         schema_container_key = self.gen_schema_key(db_name, schema)
 
-        database_container_key = self.gen_database_key(database=db_name)
+        database_container_key: Optional[PlatformKey] = None
+        if db_name is not None:
+            database_container_key = self.gen_database_key(database=db_name)
 
         container_workunits = gen_containers(
             schema_container_key,
@@ -625,8 +627,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                     self.report.report_dropped(f"{schema}.*")
                     continue
 
-                if db_name:
-                    yield from self.gen_schema_containers(schema, db_name)
+                yield from self.gen_schema_containers(schema, db_name)
 
                 if sql_config.include_tables:
                     yield from self.loop_tables(inspector, schema, sql_config)

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import * as QueryString from 'query-string';
 import { useHistory, useLocation, useParams } from 'react-router';
 import { message } from 'antd';
+import styled from 'styled-components';
 import { ApolloError } from '@apollo/client';
 
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
@@ -14,6 +15,11 @@ import { EmbeddedListSearchResults } from './EmbeddedListSearchResults';
 import EmbeddedListSearchHeader from './EmbeddedListSearchHeader';
 import { useGetSearchResultsForMultipleQuery } from '../../../../../../graphql/search.generated';
 import { GetSearchResultsParams, SearchResultInterface } from './types';
+
+const Container = styled.div`
+    overflow: scroll;
+    height: 120;
+`;
 
 // this extracts the response from useGetSearchResultsForMultipleQuery into a common interface other search endpoints can also produce
 function useWrappedSearchResults(params: GetSearchResultsParams) {
@@ -134,7 +140,7 @@ export const EmbeddedListSearch = ({
     const filteredFilters = data?.facets?.filter((facet) => facet.field !== fixedFilter?.field) || [];
 
     return (
-        <>
+        <Container>
             {error && message.error(`Failed to complete search: ${error && error.message}`)}
             <EmbeddedListSearchHeader
                 onSearch={onSearch}
@@ -151,6 +157,6 @@ export const EmbeddedListSearch = ({
                 page={page}
                 showFilters={showFilters}
             />
-        </>
+        </Container>
     );
 };

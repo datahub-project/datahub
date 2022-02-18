@@ -13,6 +13,9 @@ fragment glossaryTerms on GlossaryTerms {
         term {
             urn
             name
+            properties {
+                name
+            }
         }
     }
 }
@@ -33,7 +36,9 @@ fragment ownershipFields on Ownership {
                     lastName
                     fullName
                 }
-                editableInfo {
+                editableProperties {
+                    displayName
+                    title
                     pictureLink
                 }
             }
