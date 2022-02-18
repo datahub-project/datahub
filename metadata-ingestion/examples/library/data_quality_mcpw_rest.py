@@ -29,7 +29,14 @@ def fldUrn(tbl: str, fld: str) -> str:
 
 
 def assertionUrn(info: AssertionInfo) -> str:
-    assertionId = builder.datahub_guid(info.to_obj())
+    assertionId = builder.datahub_guid(
+        {
+            "type": info.type,
+            "datasetAssertion": info.datasetAssertion.to_obj(),
+            "assertionLogic": info.assertionLogic,
+            "parameters": info.parameters,
+        }
+    )
     return builder.make_assertion_urn(assertionId)
 
 

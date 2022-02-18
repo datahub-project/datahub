@@ -168,7 +168,7 @@ def test_DatahubValidationAction_basic(
                 MetadataChangeProposalWrapper(
                     entityType="assertion",
                     changeType="UPSERT",
-                    entityUrn="urn:li:assertion:f0f6f56e3b1b5a029e261af0390a9fc4",
+                    entityUrn="urn:li:assertion:350d331f33e707d8638e70ea37aaef24",
                     aspectName="assertionInfo",
                     aspect=AssertionInfoClass(
                         type=AssertionTypeClass.DATASET,
@@ -196,7 +196,7 @@ def test_DatahubValidationAction_basic(
                 MetadataChangeProposalWrapper(
                     entityType="assertion",
                     changeType="UPSERT",
-                    entityUrn="urn:li:assertion:f0f6f56e3b1b5a029e261af0390a9fc4",
+                    entityUrn="urn:li:assertion:350d331f33e707d8638e70ea37aaef24",
                     aspectName="dataPlatformInstance",
                     aspect=DataPlatformInstanceClass(
                         platform="urn:li:dataPlatform:greatExpectations"
@@ -208,7 +208,7 @@ def test_DatahubValidationAction_basic(
                 MetadataChangeProposalWrapper(
                     entityType="assertion",
                     changeType="UPSERT",
-                    entityUrn="urn:li:assertion:f0f6f56e3b1b5a029e261af0390a9fc4",
+                    entityUrn="urn:li:assertion:350d331f33e707d8638e70ea37aaef24",
                     entityKeyAspect=None,
                     aspectName="assertionRunEvent",
                     aspect=AssertionRunEventClass(
@@ -219,8 +219,7 @@ def test_DatahubValidationAction_basic(
                             partition="FULL_TABLE_SNAPSHOT",
                             timePartition=None,
                         ),
-                        messageId="urn:li:assertion:f0f6f56e3b1b5a029e261af0390a9fc4",
-                        assertionUrn="urn:li:assertion:f0f6f56e3b1b5a029e261af0390a9fc4",
+                        assertionUrn="urn:li:assertion:350d331f33e707d8638e70ea37aaef24",
                         asserteeUrn="urn:li:dataset:(urn:li:dataPlatform:postgres,test.public.foo2,PROD)",
                         batchSpec=BatchSpecClass(
                             customProperties={"data_asset_name": "foo2"},

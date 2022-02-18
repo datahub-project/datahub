@@ -49,6 +49,9 @@ public class AssertionRunEventMapper
     if (gmsAssertionRunEvent.hasResult()) {
       assertionRunEvent.setResult(mapAssertionResult(gmsAssertionRunEvent.getResult()));
     }
+    if (gmsAssertionRunEvent.hasRuntimeContext()) {
+      assertionRunEvent.setRuntimeContext(StringMapMapper.map(gmsAssertionRunEvent.getRuntimeContext()));
+    }
 
     return assertionRunEvent;
   }

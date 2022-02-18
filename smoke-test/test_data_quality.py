@@ -4,6 +4,7 @@ import urllib
 
 import pytest
 import requests
+
 from datahub.cli.docker import check_local_docker_containers
 from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -23,7 +24,6 @@ from datahub.metadata.schema_classes import (AssertionInfoClass,
                                              DatasetColumnStdAggFuncClass,
                                              PartitionSpecClass,
                                              PartitionTypeClass)
-
 from tests.utils import ingest_file_via_rest
 
 GMS_ENDPOINT = "http://localhost:8080"

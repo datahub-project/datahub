@@ -75,7 +75,6 @@ import com.linkedin.datahub.graphql.resolvers.ingest.source.GetIngestionSourceRe
 import com.linkedin.datahub.graphql.resolvers.ingest.source.ListIngestionSourcesResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.source.UpsertIngestionSourceResolver;
 import com.linkedin.datahub.graphql.resolvers.load.AspectResolver;
-import com.linkedin.datahub.graphql.resolvers.load.AssertionRunEventResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityRelationshipsResultResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
@@ -1119,7 +1118,7 @@ public class GmsGraphQLEngine {
                 new EntityRelationshipsResultResolver(graphClient)
             ))
             .dataFetcher("runEvents", new AuthenticatedResolver<>(
-                new AssertionRunEventResolver(
+                new TimeSeriesAspectResolver(
                     this.entityClient,
                     "assertion",
                     "assertionRunEvent",

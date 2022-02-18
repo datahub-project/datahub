@@ -4233,11 +4233,10 @@ type Assertion implements EntityWithRelationships & Entity {
     info: AssertionInfo
 
     """
-    TODO Consider whether this query should be serviced by the dataset->datasetAssertions
     Assertion Events in descending order
     If no start or end time are provided, the most recent events will be returned
     """    
-    runEvents(asserteeUrn: String!, startTimeMillis: Long, endTimeMillis: Long, limit: Int): [AssertionRunEvent!]
+    runEvents(startTimeMillis: Long, endTimeMillis: Long, limit: Int): [AssertionRunEvent!]
 
     """
     Edges extending from this entity

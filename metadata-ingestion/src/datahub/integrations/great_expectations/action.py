@@ -31,9 +31,13 @@ from datahub.ingestion.source.sql.sql_common import get_platform_from_sqlalchemy
 from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
     AssertionInfo,
     AssertionResult,
+    AssertionResultType,
+    AssertionRunEvent,
+    AssertionRunStatus,
     AssertionStdOperator,
     AssertionType,
     BatchSpec,
+    DatasetAssertionInfo,
     DatasetAssertionScope,
     DatasetColumnAssertion,
     DatasetColumnStdAggFunc,
@@ -46,12 +50,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import DataPlatformInstan
 from datahub.metadata.com.linkedin.pegasus2avro.events.metadata import ChangeType
 from datahub.metadata.schema_classes import PartitionSpecClass, PartitionTypeClass
 from datahub.utilities.sql_parser import MetadataSQLSQLParser
-from src.datahub.metadata.com.linkedin.pegasus2avro.assertion import (
-    AssertionResultType,
-    AssertionRunEvent,
-    AssertionRunStatus,
-    DatasetAssertionInfo,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -231,7 +229,13 @@ class DatahubValidationAction(ValidationAction):
 
             assertionUrn = builder.make_assertion_urn(
                 builder.datahub_guid(
-                    {**assertionInfo.to_obj(), **dataPlatformInstance.to_obj()}
+                    {
+                        "platform": dataPlatformInstance.platform,
+                        "type": assertionInfo.type,
+                        "datasetAssertion": assertionInfo.datasetAssertion.to_obj(),  # type:ignore
+                        "assertionLogic": assertionInfo.assertionLogic,
+                        "parameters": assertionInfo.parameters,
+                    }
                 )
             )
             run_time = run_id.run_time.astimezone(timezone.utc)
@@ -248,11 +252,14 @@ class DatahubValidationAction(ValidationAction):
                     ]
                 }
                 actualAggValue = None
+
                 if result.get("observed_value") is not None:
                     if isinstance(result.get("observed_value"), (int, float)):
                         actualAggValue = result.get("observed_value")
                     else:
-                        nativeResults["observed_value"] = result.get("observed_value")
+                        nativeResults["observed_value"] = str(
+                            result.get("observed_value")
+                        )
 
                 # https://docs.greatexpectations.io/docs/reference/expectations/result_format/
                 assertionResult = AssertionRunEvent(
@@ -263,7 +270,7 @@ class DatahubValidationAction(ValidationAction):
                     result=AssertionResult(
                         type=AssertionResultType.SUCCESS
                         if success
-                        else AssertionResultType.FAIL,
+                        else AssertionResultType.FAILURE,
                         rowCount=result.get("element_count"),
                         missingCount=result.get("missing_count"),
                         unexpectedCount=result.get("unexpected_count"),
@@ -272,7 +279,6 @@ class DatahubValidationAction(ValidationAction):
                         nativeResults=nativeResults,
                     ),
                     batchSpec=dset["batchSpec"],
-                    messageId=assertionUrn,
                     status=AssertionRunStatus.COMPLETE,
                 )
                 if dset.get("partitionSpec") is not None:

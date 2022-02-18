@@ -58,61 +58,66 @@ public class AssertionMapper {
       assertionInfo.setParameters(StringMapMapper.map(gmsAssertionInfo.getParameters()));
     }
     if (gmsAssertionInfo.hasDatasetAssertion()) {
-      DatasetAssertionInfo datasetAssertion = new DatasetAssertionInfo();
-      datasetAssertion.setScope(
-          DatasetAssertionScope.valueOf(gmsAssertionInfo.getDatasetAssertion().getScope().name()));
-      if (gmsAssertionInfo.getDatasetAssertion().hasColumnAssertion()) {
-        DatasetColumnAssertion columnAssertion = new DatasetColumnAssertion();
-        columnAssertion.setStdOperator(AssertionStdOperator.valueOf(
-            gmsAssertionInfo.getDatasetAssertion().getColumnAssertion().getStdOperator().name()));
-        columnAssertion.setStdAggFunc(DatasetColumnStdAggFunc.valueOf(
-            gmsAssertionInfo.getDatasetAssertion().getColumnAssertion().getStdAggFunc().name()));
-        columnAssertion.setNativeOperator(
-            gmsAssertionInfo.getDatasetAssertion().getColumnAssertion().getNativeOperator());
-        columnAssertion.setNativeAggFunc(
-            gmsAssertionInfo.getDatasetAssertion().getColumnAssertion().getNativeAggFunc());
-        datasetAssertion.setColumnAssertion(columnAssertion);
-      }
-      if (gmsAssertionInfo.getDatasetAssertion().hasRowsAssertion()) {
-        DatasetRowsAssertion rowsAssertion = new DatasetRowsAssertion();
-        rowsAssertion.setStdOperator(AssertionStdOperator.valueOf(
-            gmsAssertionInfo.getDatasetAssertion().getRowsAssertion().getStdOperator().name()));
-        rowsAssertion.setStdAggFunc(DatasetRowsStdAggFunc.valueOf(
-            gmsAssertionInfo.getDatasetAssertion().getRowsAssertion().getStdAggFunc().name()));
-        rowsAssertion.setNativeOperator(gmsAssertionInfo.getDatasetAssertion().getRowsAssertion().getNativeOperator());
-        rowsAssertion.setNativeAggFunc(gmsAssertionInfo.getDatasetAssertion().getRowsAssertion().getNativeAggFunc());
-        datasetAssertion.setRowsAssertion(rowsAssertion);
-      }
-      if (gmsAssertionInfo.getDatasetAssertion().hasSchemaAssertion()) {
-        DatasetSchemaAssertion schemaAssertion = new DatasetSchemaAssertion();
-        schemaAssertion.setStdOperator(AssertionStdOperator.valueOf(
-            gmsAssertionInfo.getDatasetAssertion().getSchemaAssertion().getStdOperator().name()));
-        schemaAssertion.setStdAggFunc(DatasetSchemaStdAggFunc.valueOf(
-            gmsAssertionInfo.getDatasetAssertion().getSchemaAssertion().getStdAggFunc().name()));
-        schemaAssertion.setNativeOperator(
-            gmsAssertionInfo.getDatasetAssertion().getSchemaAssertion().getNativeOperator());
-        schemaAssertion.setNativeAggFunc(
-            gmsAssertionInfo.getDatasetAssertion().getSchemaAssertion().getNativeAggFunc());
-        datasetAssertion.setSchemaAssertion(schemaAssertion);
-      }
-      if (gmsAssertionInfo.getDatasetAssertion().hasDatasets()) {
-        datasetAssertion.setDatasets(gmsAssertionInfo.getDatasetAssertion()
-            .getDatasets()
-            .stream()
-            .map(urn -> urn.toString())
-            .collect(Collectors.toList()));
-      }
-      if (gmsAssertionInfo.getDatasetAssertion().hasFields()) {
-        datasetAssertion.setFields(gmsAssertionInfo.getDatasetAssertion()
-            .getFields()
-            .stream()
-            .map(urn -> urn.toString())
-            .collect(Collectors.toList()));
-      }
-      ;
+      DatasetAssertionInfo datasetAssertion = mapDatasetAssertionInfo(gmsAssertionInfo.getDatasetAssertion());
       assertionInfo.setDatasetAssertion(datasetAssertion);
     }
     return assertionInfo;
+  }
+
+  private static DatasetAssertionInfo mapDatasetAssertionInfo(
+      final com.linkedin.assertion.DatasetAssertionInfo gmsDatasetAssertion) {
+    DatasetAssertionInfo datasetAssertion = new DatasetAssertionInfo();
+    datasetAssertion.setScope(
+        DatasetAssertionScope.valueOf(gmsDatasetAssertion.getScope().name()));
+    if (gmsDatasetAssertion.hasColumnAssertion()) {
+      DatasetColumnAssertion columnAssertion = new DatasetColumnAssertion();
+      columnAssertion.setStdOperator(AssertionStdOperator.valueOf(
+          gmsDatasetAssertion.getColumnAssertion().getStdOperator().name()));
+      columnAssertion.setStdAggFunc(DatasetColumnStdAggFunc.valueOf(
+          gmsDatasetAssertion.getColumnAssertion().getStdAggFunc().name()));
+      columnAssertion.setNativeOperator(
+          gmsDatasetAssertion.getColumnAssertion().getNativeOperator());
+      columnAssertion.setNativeAggFunc(
+          gmsDatasetAssertion.getColumnAssertion().getNativeAggFunc());
+      datasetAssertion.setColumnAssertion(columnAssertion);
+    }
+    if (gmsDatasetAssertion.hasRowsAssertion()) {
+      DatasetRowsAssertion rowsAssertion = new DatasetRowsAssertion();
+      rowsAssertion.setStdOperator(AssertionStdOperator.valueOf(
+          gmsDatasetAssertion.getRowsAssertion().getStdOperator().name()));
+      rowsAssertion.setStdAggFunc(DatasetRowsStdAggFunc.valueOf(
+          gmsDatasetAssertion.getRowsAssertion().getStdAggFunc().name()));
+      rowsAssertion.setNativeOperator(gmsDatasetAssertion.getRowsAssertion().getNativeOperator());
+      rowsAssertion.setNativeAggFunc(gmsDatasetAssertion.getRowsAssertion().getNativeAggFunc());
+      datasetAssertion.setRowsAssertion(rowsAssertion);
+    }
+    if (gmsDatasetAssertion.hasSchemaAssertion()) {
+      DatasetSchemaAssertion schemaAssertion = new DatasetSchemaAssertion();
+      schemaAssertion.setStdOperator(AssertionStdOperator.valueOf(
+          gmsDatasetAssertion.getSchemaAssertion().getStdOperator().name()));
+      schemaAssertion.setStdAggFunc(DatasetSchemaStdAggFunc.valueOf(
+          gmsDatasetAssertion.getSchemaAssertion().getStdAggFunc().name()));
+      schemaAssertion.setNativeOperator(
+          gmsDatasetAssertion.getSchemaAssertion().getNativeOperator());
+      schemaAssertion.setNativeAggFunc(
+          gmsDatasetAssertion.getSchemaAssertion().getNativeAggFunc());
+      datasetAssertion.setSchemaAssertion(schemaAssertion);
+    }
+    if (gmsDatasetAssertion.hasDatasets()) {
+      datasetAssertion.setDatasets(gmsDatasetAssertion
+          .getDatasets()
+          .stream()
+          .map(urn -> urn.toString())
+          .collect(Collectors.toList()));
+    }
+    if (gmsDatasetAssertion.hasFields()) {
+      datasetAssertion.setFields(gmsDatasetAssertion
+          .getFields()
+          .stream()
+          .map(urn -> urn.toString())
+          .collect(Collectors.toList()));
+    }
+    return datasetAssertion;
   }
 
   private static DataPlatform mapPlatform(final DataPlatformInstance platformInstance) {
