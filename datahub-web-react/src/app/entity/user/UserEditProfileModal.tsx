@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { message, Button, Input, Modal, Typography, Form } from 'antd';
 import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
 
@@ -37,6 +37,10 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
         phone: editModalData.phone,
         urn: editModalData.urn,
     });
+
+    useEffect(() => {
+        setData({ ...editModalData });
+    }, [editModalData]);
 
     // save changes function
     const onSaveChanges = () => {

@@ -92,7 +92,7 @@ export default function UserGroups({ urn, initialRelationships, pageSize }: Prop
 
     return (
         <GroupsViewWrapper>
-            <Row justify="space-between">
+            <Row justify="start">
                 {userGroups &&
                     userGroups.map((item) => {
                         return (
