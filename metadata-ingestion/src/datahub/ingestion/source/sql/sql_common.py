@@ -780,7 +780,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         schema: str,
         table: str,
         sql_config: SQLAlchemyConfig,
-    ):
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         columns = self._get_columns(dataset_name, inspector, schema, table)
         dataset_urn = make_dataset_urn_with_platform_instance(
             self.platform,
@@ -970,7 +970,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
             try:
                 yield from self._process_view(
-                    dataset_name, inspector, schema, sql_config, view
+                    dataset_name=dataset_name,
+                    inspector=inspector,
+                    schema=schema,
+                    view=view,
+                    sql_config=sql_config,
                 )
             except Exception as e:
                 logger.warning(
@@ -978,7 +982,14 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 )
                 self.report.report_warning(f"{schema}.{view}", f"Ingestion error: {e}")
 
-    def _process_view(self, dataset_name, inspector, schema, sql_config, view):
+    def _process_view(
+        self,
+        dataset_name: str,
+        inspector: Inspector,
+        schema: str,
+        view: str,
+        sql_config: SQLAlchemyConfig,
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         try:
             columns = inspector.get_columns(view, schema)
         except KeyError:
