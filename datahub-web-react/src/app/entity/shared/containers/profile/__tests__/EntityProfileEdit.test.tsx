@@ -3,7 +3,6 @@ import { render, waitFor, screen } from '@testing-library/react';
 import { MockedProvider } from '@apollo/client/testing';
 import userEvent from '@testing-library/user-event';
 import TestPageContainer from '../../../../../../utils/test-utils/TestPageContainer';
-import { mocks } from '../../../../../../Mocks';
 import { EntityProfile } from '../EntityProfile';
 import {
     useGetDatasetQuery,
@@ -16,11 +15,12 @@ import { EditSchemaTab } from '../../../tabs/Dataset/Schema/EditSchemaTab';
 import { checkOwnership } from '../../../../dataset/whoAmI';
 import { EditPropertiesTab } from '../../../tabs/Dataset/Schema/EditPropertiesTab';
 import { AdminTab } from '../../../tabs/Dataset/Schema/AdminTab';
+import { editMocks } from '../../../../../../MocksCustom';
 
 describe('EntityProfile Edit', () => {
     it('Render edit tabs as authorised data owner', async () => {
         const { getByText } = render(
-            <MockedProvider mocks={mocks}>
+            <MockedProvider mocks={editMocks} addTypename={false}>
                 <TestPageContainer initialEntries={['/dataset/urn:li:dataset:3']}>
                     <EntityProfile
                         urn="urn:li:dataset:3"
@@ -63,7 +63,7 @@ describe('EntityProfile Edit', () => {
     });
     it('Render edit properties as authorised data owner', async () => {
         const { getByText } = render(
-            <MockedProvider mocks={mocks}>
+            <MockedProvider mocks={editMocks} addTypename={false}>
                 <TestPageContainer initialEntries={['/dataset/urn:li:dataset:3']}>
                     <EntityProfile
                         urn="urn:li:dataset:3"
@@ -113,7 +113,7 @@ describe('EntityProfile Edit', () => {
 
     it('Render dataset admin properties as authorised data owner', async () => {
         const { getByText } = render(
-            <MockedProvider mocks={mocks}>
+            <MockedProvider mocks={editMocks} addTypename={false}>
                 <TestPageContainer initialEntries={['/dataset/urn:li:dataset:3']}>
                     <EntityProfile
                         urn="urn:li:dataset:3"

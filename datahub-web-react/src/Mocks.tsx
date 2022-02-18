@@ -30,10 +30,11 @@ import { GetMlModelDocument } from './graphql/mlModel.generated';
 import { GetMlModelGroupDocument } from './graphql/mlModelGroup.generated';
 import { GetGlossaryTermDocument, GetGlossaryTermQuery } from './graphql/glossaryTerm.generated';
 import { GetEntityCountsDocument } from './graphql/app.generated';
-import { GetMeDocument, GetMeOnlyDocument } from './graphql/me.generated';
+import { GetMeDocument } from './graphql/me.generated';
 import { ListRecommendationsDocument } from './graphql/recommendations.generated';
 
 const user1 = {
+    __typename: 'CorpUser',
     username: 'sdas',
     urn: 'urn:li:corpuser:1',
     type: EntityType.CorpUser,
@@ -64,10 +65,12 @@ const user1 = {
 };
 
 const user2 = {
+    __typename: 'CorpUser',
     username: 'john',
     urn: 'urn:li:corpuser:3',
     type: EntityType.CorpUser,
     info: {
+        __typename: 'CorpUserInfo',
         email: 'john@domain.com',
         active: true,
         displayName: 'john',
@@ -77,7 +80,10 @@ const user2 = {
         fullName: 'John Joyce',
     },
     editableInfo: {
+        __typename: 'CorpUserEditableInfo',
         pictureLink: null,
+        teams: null,
+        skills: null,
     },
     globalTags: {
         tags: [
@@ -2645,26 +2651,6 @@ export const mocks = [
     },
     {
         request: {
-            query: GetMeDocument,
-            variables: {},
-        },
-        result: {
-            data: {
-                __typename: 'Query',
-                me: {
-                    __typename: 'AuthenticatedUser',
-                    corpUser: { ...user2 },
-                    platformPrivileges: {
-                        viewAnalytics: true,
-                        managePolicies: true,
-                        manageIdentities: true,
-                    },
-                },
-            },
-        },
-    },
-    {
-        request: {
             query: ListRecommendationsDocument,
             variables: {
                 input: {
@@ -2791,9 +2777,8 @@ export const mocks = [
         },
     },
     {
-        // this mock can be shifted elsewhere in the doc. need to create new mock instead of recycling cos it needs to be specific to query else it doesnt work
         request: {
-            query: GetMeOnlyDocument,
+            query: GetMeDocument,
             variables: {},
         },
         result: {
@@ -2801,10 +2786,16 @@ export const mocks = [
                 __typename: 'Query',
                 me: {
                     __typename: 'AuthenticatedUser',
-                    corpUser: {
-                        type: EntityType.CorpUser,
-                        username: 'john',
-                        urn: 'urn:li:corpuser:3',
+                    corpUser: { ...user2 },
+                    platformPrivileges: {
+                        __typename: 'PlatformPrivileges',
+                        viewAnalytics: true,
+                        managePolicies: true,
+                        manageIdentities: true,
+                        generatePersonalAccessTokens: true,
+                        manageIngestion: true,
+                        manageSecrets: true,
+                        manageDomains: true,
                     },
                 },
             },
