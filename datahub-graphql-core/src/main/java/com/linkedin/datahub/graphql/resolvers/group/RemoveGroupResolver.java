@@ -10,7 +10,7 @@ import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Resolver responsible for hard deleting a particular DataHub Corp User
+ * Resolver responsible for hard deleting a particular DataHub Corp Group
  */
 public class RemoveGroupResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
@@ -28,6 +28,7 @@ public class RemoveGroupResolver implements DataFetcher<CompletableFuture<Boolea
       final Urn urn = Urn.createFromString(groupUrn);
       return CompletableFuture.supplyAsync(() -> {
         try {
+          // TODO: Remove all dangling references to this group.
           _entityClient.deleteEntity(urn, context.getAuthentication());
           return true;
         } catch (Exception e) {
