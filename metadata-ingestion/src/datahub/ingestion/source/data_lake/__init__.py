@@ -368,10 +368,17 @@ class DataLakeSource(Source):
         self.report.report_workunit(wu)
         yield wu
 
-    def get_table_name(self, relative_path: str) -> str:
+    def get_table_name(self, relative_path: str, full_path: str) -> str:
 
         if self.source_config.path_spec is None:
-            return relative_path
+            name, extension = os.path.splitext(full_path)
+            split_name = name.replace("/", ".")
+
+            if extension != "":
+                extension = extension[1:]  # remove the dot
+                return f"{split_name}_{extension}"
+
+            return split_name
 
         def warn():
             self.report.report_warning(
@@ -402,7 +409,7 @@ class DataLakeSource(Source):
         self, full_path: str, relative_path: str
     ) -> Iterable[MetadataWorkUnit]:
 
-        table_name = self.get_table_name(relative_path)
+        table_name = self.get_table_name(relative_path, full_path)
 
         # yield the table schema first
         logger.debug(

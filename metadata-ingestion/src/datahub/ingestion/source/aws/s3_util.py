@@ -28,9 +28,9 @@ def make_s3_urn(s3_uri: str, env: str) -> str:
         s3_name = s3_name[:-1]
 
     name, extension = os.path.splitext(s3_name)
-    extension = extension[1:]  # remove the dot
 
     if extension != "":
+        extension = extension[1:]  # remove the dot
         return f"urn:li:dataset:(urn:li:dataPlatform:s3,{name}_{extension},{env})"
 
     return f"urn:li:dataset:(urn:li:dataPlatform:s3,{s3_name},{env})"
