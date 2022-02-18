@@ -50,15 +50,6 @@ entities:
       - corpUserInfo
       - corpUserEditableInfo
       - corpUserStatus
-  - name: corpGroup
-    doc: CorpGroup represents an identity of a group of users in the enterprise.
-    keyAspect: corpGroupKey
-    aspects:
-      - corpGroupInfo
-      - corpGroupEditableInfo
-      - globalTags
-      - ownership
-      - status
   - name: container
     doc: A container of related data assets.
     keyAspect: containerKey
@@ -116,3 +107,9 @@ entities:
     aspects:
       - assertionInfo
       - dataPlatformInstance
+  - name: corpGroup
+    doc: CorpGroup represents an identity of a group of users in the enterprise.
+    keyAspect: corpGroupKey
+    aspects:
+      - corpGroupEditableInfo
+      - ownership

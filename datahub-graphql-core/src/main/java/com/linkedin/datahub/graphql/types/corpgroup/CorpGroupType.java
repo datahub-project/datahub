@@ -118,13 +118,14 @@ public class CorpGroupType implements SearchableEntityType<CorpGroup>, MutableTy
             // Get existing editable info to merge with
             Urn groupUrn = Urn.createFromString(urn);
             Map<Urn, EntityResponse> gmsResponse =
-                _entityClient.batchGetV2(CORP_GROUP_ENTITY_NAME, ImmutableSet.of(groupUrn), ImmutableSet.of(Constants.CORP_USER_EDITABLE_INFO_NAME),
+                _entityClient.batchGetV2(CORP_GROUP_ENTITY_NAME, ImmutableSet.of(groupUrn), ImmutableSet.of(
+                    CORP_GROUP_EDITABLE_INFO_ASPECT_NAME),
                     context.getAuthentication());
 
             CorpGroupEditableInfo existingCorpGroupEditableInfo = null;
             if (gmsResponse.containsKey(groupUrn) && gmsResponse.get(groupUrn).getAspects().containsKey(CORP_GROUP_EDITABLE_INFO_ASPECT_NAME)) {
                 existingCorpGroupEditableInfo = new CorpGroupEditableInfo(gmsResponse.get(groupUrn).getAspects()
-                    .get(CORP_GROUP_EDITABLE_INFO_ASPECT_NAME).data());
+                    .get(CORP_GROUP_EDITABLE_INFO_ASPECT_NAME).getValue().data());
             }
 
             // Create the MCP

@@ -8,7 +8,6 @@ import com.linkedin.common.Url
 @Aspect = {
   "name": "corpGroupEditableInfo"
 }
-@Aspect.EntityUrns = [ "com.linkedin.common.CorpuserUrn" ]
 record CorpGroupEditableInfo {
   /**
    * A description of the group
