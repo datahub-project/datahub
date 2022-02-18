@@ -45,6 +45,10 @@ framework_common = {
     "tabulate",
     "progressbar2",
     "psutil>=5.8.0",
+    # Markupsafe breaking change broke Jinja and some other libs
+    # Pinning it to a version which works even though we are not using explicitly
+    # https://github.com/aws/aws-sam-cli/issues/3661
+    "markupsafe==2.0.1",
 }
 
 kafka_common = {
