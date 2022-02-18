@@ -372,13 +372,12 @@ class DataLakeSource(Source):
 
         if self.source_config.path_spec is None:
             name, extension = os.path.splitext(full_path)
-            split_name = name.replace("/", ".")
 
             if extension != "":
                 extension = extension[1:]  # remove the dot
-                return f"{split_name}_{extension}"
+                return f"{name}_{extension}"
 
-            return split_name
+            return name
 
         def warn():
             self.report.report_warning(
