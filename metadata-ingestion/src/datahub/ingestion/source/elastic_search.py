@@ -9,7 +9,7 @@ from typing import Any, Dict, Generator, Iterable, List, Optional, Type
 from elasticsearch import Elasticsearch
 from pydantic import validator
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.configuration.source_common import DatasetSourceConfigBase
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -177,19 +177,27 @@ class ElasticsearchSourceConfig(DatasetSourceConfigBase):
         for entry in host_val.split(","):
             # The port can be provided but is not required.
             port = None
+            for prefix in ["http://", "https://"]:
+                if entry.startswith(prefix):
+                    entry = entry[len(prefix) :]
+            for suffix in ["/"]:
+                if entry.endswith(suffix):
+                    entry = entry[: -len(suffix)]
+
             if ":" in entry:
                 (host, port) = entry.rsplit(":", 1)
             else:
                 host = entry
-            assert re.match(
+            if not re.match(
                 # This regex is quite loose. Many invalid hostnames or IPs will slip through,
                 # but it serves as a good first line of validation. We defer to Elastic for the
                 # remaining validation.
-                r"^[(http|https)://]*[\w\-\.\:]+[\/]*$",
+                r"^[\w\-\.]+$",
                 host,
-            ), f"host contains bad characters, found {host}"
-            if port is not None:
-                assert port.isdigit(), f"port must be all digits, found {port}"
+            ):
+                raise ConfigurationError(f"host contains bad characters, found {host}")
+            if port is not None and not port.isdigit():
+                raise ConfigurationError(f"port must be all digits, found {port}")
         return host_val
 
 
