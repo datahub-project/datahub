@@ -1,12 +1,16 @@
 package com.linkedin.datahub.graphql.types.corpuser;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.url.Url;
-import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
+import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.CorpUserUpdateInput;
@@ -23,12 +27,12 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpUserEditableInfo;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.utils.GenericAspectUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.execution.DataFetcherResult;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -106,37 +110,70 @@ public class CorpUserType implements SearchableEntityType<CorpUser>, MutableType
         return AutoCompleteResultsMapper.map(result);
     }
 
-    private CorpuserUrn getCorpUserUrn(final String urnStr) {
-        try {
-            return CorpuserUrn.createFromString(urnStr);
-        } catch (URISyntaxException e) {
-            throw new RuntimeException(String.format("Failed to retrieve user with urn %s, invalid urn", urnStr));
-        }
-    }
-
     public Class<CorpUserUpdateInput> inputClass() {
         return CorpUserUpdateInput.class;
     }
 
     @Override
     public CorpUser update(@Nonnull String urn, @Nonnull CorpUserUpdateInput input, @Nonnull QueryContext context) throws Exception {
-        final CorpuserUrn actor = CorpuserUrn.createFromString(context.getAuthentication().getActor().toUrnStr());
+        if (isAuthorizedToUpdate(urn, input, context)) {
+            // Get existing editable info to merge with
+            Optional<CorpUserEditableInfo> existingCorpUserEditableInfo =
+                _entityClient.getVersionedAspect(urn, Constants.CORP_USER_EDITABLE_INFO_NAME, 0L, CorpUserEditableInfo.class,
+                    context.getAuthentication());
 
-        // Get existing editable info to merge with
-        Optional<CorpUserEditableInfo> existingCorpUserEditableInfo =
-            _entityClient.getVersionedAspect(urn, Constants.CORP_USER_EDITABLE_INFO_NAME, 0L, CorpUserEditableInfo.class,
-                context.getAuthentication());
+            // Create the MCP
+            final MetadataChangeProposal proposal = new MetadataChangeProposal();
+            proposal.setEntityUrn(Urn.createFromString(urn));
+            proposal.setEntityType(Constants.CORP_USER_ENTITY_NAME);
+            proposal.setAspectName(Constants.CORP_USER_EDITABLE_INFO_NAME);
+            proposal.setAspect(GenericAspectUtils.serializeAspect(mapCorpUserEditableInfo(input, existingCorpUserEditableInfo)));
+            proposal.setChangeType(ChangeType.UPSERT);
+            _entityClient.ingestProposal(proposal, context.getAuthentication());
 
-        // Create the MCP
-        final MetadataChangeProposal proposal = new MetadataChangeProposal();
-        proposal.setEntityUrn(Urn.createFromString(urn));
-        proposal.setEntityType(Constants.CORP_USER_ENTITY_NAME);
-        proposal.setAspectName(Constants.CORP_USER_EDITABLE_INFO_NAME);
-        proposal.setAspect(GenericAspectUtils.serializeAspect(mapCorpUserEditableInfo(input, existingCorpUserEditableInfo)));
-        proposal.setChangeType(ChangeType.UPSERT);
-        _entityClient.ingestProposal(proposal, context.getAuthentication());
+            return load(urn, context).getData();
+        }
+        throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+    }
 
-        return load(urn, context).getData();
+    private boolean isAuthorizedToUpdate(String urn, CorpUserUpdateInput input, QueryContext context) {
+        // Decide whether the current principal should be allowed to update the Dataset.
+        final DisjunctivePrivilegeGroup orPrivilegeGroups = getAuthorizedPrivileges(input);
+
+        // Either the updating actor is the user, or the actor has privileges to update the user information.
+        return context.getActorUrn().equals(urn) || AuthorizationUtils.isAuthorized(
+            context.getAuthorizer(),
+            context.getAuthentication().getActor().toUrnStr(),
+            PoliciesConfig.CORP_GROUP_PRIVILEGES.getResourceType(),
+            urn,
+            orPrivilegeGroups);
+    }
+
+    private DisjunctivePrivilegeGroup getAuthorizedPrivileges(final CorpUserUpdateInput updateInput) {
+        final ConjunctivePrivilegeGroup allPrivilegesGroup = new ConjunctivePrivilegeGroup(ImmutableList.of(
+            PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()
+        ));
+
+        List<String> specificPrivileges = new ArrayList<>();
+        if (updateInput.getSlack() != null
+            || updateInput.getEmail() != null
+            || updateInput.getPhone() != null) {
+            specificPrivileges.add(PoliciesConfig.EDIT_CONTACT_INFO_PRIVILEGE.getType());
+        } else if (updateInput.getAboutMe() != null
+                || updateInput.getDisplayName() != null
+                || updateInput.getPictureLink() != null
+                || updateInput.getTeams() != null
+                || updateInput.getTitle() != null) {
+            specificPrivileges.add(PoliciesConfig.EDIT_USER_PROFILE_PRIVILEGE.getType());
+        }
+
+        final ConjunctivePrivilegeGroup specificPrivilegeGroup = new ConjunctivePrivilegeGroup(specificPrivileges);
+
+        // If you either have all entity privileges, or have the specific privileges required, you are authorized.
+        return new DisjunctivePrivilegeGroup(ImmutableList.of(
+            allPrivilegesGroup,
+            specificPrivilegeGroup
+        ));
     }
 
     private RecordTemplate mapCorpUserEditableInfo(CorpUserUpdateInput input, Optional<CorpUserEditableInfo> existing) {
@@ -159,6 +196,9 @@ public class CorpUserType implements SearchableEntityType<CorpUser>, MutableType
         if (input.getTeams() != null) {
             result.setTeams(new StringArray(input.getTeams()));
         }
+        if (input.getTitle() != null) {
+            result.setTitle(input.getTitle());
+        }
         if (input.getPhone() != null) {
             result.setPhone(input.getPhone());
         }
@@ -167,9 +207,6 @@ public class CorpUserType implements SearchableEntityType<CorpUser>, MutableType
         }
         if (input.getEmail() != null) {
             result.setEmail(input.getEmail());
-        }
-        if (input.getTitle() != null) {
-            result.setTitle(input.getTitle());
         }
 
         return result;

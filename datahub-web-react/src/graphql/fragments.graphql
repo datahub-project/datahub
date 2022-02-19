@@ -36,7 +36,9 @@ fragment ownershipFields on Ownership {
                     lastName
                     fullName
                 }
-                editableInfo {
+                editableProperties {
+                    displayName
+                    title
                     pictureLink
                 }
             }

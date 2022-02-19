@@ -3,8 +3,6 @@ import React from 'react';
 import styled from 'styled-components';
 import useUserParams from '../../shared/entitySearch/routingUtils/useUserParams';
 import { useGetUserQuery } from '../../../graphql/user.generated';
-import { useGetAllEntitySearchResults } from '../../../utils/customGraphQL/useGetAllEntitySearchResults';
-import { Message } from '../../shared/Message';
 import { EntityRelationshipsResult } from '../../../types.generated';
 import UserGroups from './UserGroups';
 import { RoutedTabs } from '../../shared/RoutedTabs';
@@ -24,7 +22,6 @@ export enum TabType {
 const ENABLED_TAB_TYPES = [TabType.Assets, TabType.Groups];
 
 const GROUP_PAGE_SIZE = 20;
-const MESSAGE_STYLE = { marginTop: '10%' };
 
 /**
  * Styled Components
@@ -62,18 +59,8 @@ export default function UserProfile() {
 
     const { loading, error, data, refetch } = useGetUserQuery({ variables: { urn, groupsCount: GROUP_PAGE_SIZE } });
 
-    const username = data?.corpUser?.username;
-    const ownershipResult = useGetAllEntitySearchResults({
-        query: `owners:${username}`,
-    });
-
     const groupMemberRelationships = data?.corpUser?.relationships as EntityRelationshipsResult;
     const groupsDetails = data?.corpUser?.relationships as ExtendedEntityRelationshipsResult;
-
-    const contentLoading =
-        Object.keys(ownershipResult).some((type) => {
-            return ownershipResult[type].loading;
-        }) || loading;
 
     if (error || (!loading && !error && !data)) {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
@@ -85,7 +72,7 @@ export default function UserProfile() {
             {
                 name: TabType.Assets,
                 path: TabType.Assets.toLocaleLowerCase(),
-                content: <UserAssets />,
+                content: <UserAssets urn={urn} />,
                 display: {
                     enabled: () => true,
                 },
@@ -125,7 +112,6 @@ export default function UserProfile() {
     };
     return (
         <>
-            {contentLoading && <Message type="loading" content="Loading..." style={MESSAGE_STYLE} />}
             <UserProfileWrapper>
                 <Row>
                     <Col xl={5} lg={5} md={5} sm={24} xs={24}>

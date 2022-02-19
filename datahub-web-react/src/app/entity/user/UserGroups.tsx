@@ -35,10 +35,11 @@ const GroupItemColumn = styled(Col)`
 `;
 
 const GroupItem = styled.div`
-    border: 1px solid #d9d9d9;
+    border: 1px solid #eaeaea;
     padding: 10px;
     min-height: 107px;
     max-height: 107px;
+    border-radius: 5px;
 
     .title-row {
         padding: 9px 11px 9px 11px;
@@ -91,7 +92,7 @@ export default function UserGroups({ urn, initialRelationships, pageSize }: Prop
 
     return (
         <GroupsViewWrapper>
-            <Row justify="space-between">
+            <Row justify="start">
                 {userGroups &&
                     userGroups.map((item) => {
                         return (
