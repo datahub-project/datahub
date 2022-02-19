@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Alert, Drawer, Button, Space, message } from 'antd';
 import { ApolloError } from '@apollo/client';
-import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+import { InfoCircleOutlined } from '@ant-design/icons';
 
 import { useGetTagQuery } from '../../../graphql/tag.generated';
 import { EntityType, FacetMetadata, Maybe, Scalars } from '../../../types.generated';
@@ -181,7 +181,9 @@ export const TagProfileDrawer = ({
                             </Button>
                         </Space>
                         <Space>
-                            <Link to={`/tag/${urn}`}>Tag Detail</Link>
+                            <Button href={`/tag/${urn}`}>
+                                <InfoCircleOutlined /> Tag Details
+                            </Button>
                         </Space>
                     </DetailsLayout>
                 }
