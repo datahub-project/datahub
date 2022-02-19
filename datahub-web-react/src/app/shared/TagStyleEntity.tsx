@@ -1,17 +1,41 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { grey } from '@ant-design/colors';
-import { Button, Divider, Typography } from 'antd';
+import { Alert, Button, Divider, message, Typography } from 'antd';
 import { useHistory } from 'react-router';
+import { ApolloError } from '@apollo/client';
 import styled from 'styled-components';
 import { ChromePicker } from 'react-color';
+
 import { PlusOutlined } from '@ant-design/icons';
-import { GetTagQuery } from '../../graphql/tag.generated';
-import { AggregationMetadata, EntityType } from '../../types.generated';
+import { useGetTagQuery } from '../../graphql/tag.generated';
+import { EntityType, FacetMetadata, Maybe, Scalars } from '../../types.generated';
 import { ExpandedOwner } from '../entity/shared/components/styled/ExpandedOwner';
 import { EMPTY_MESSAGES } from '../entity/shared/constants';
 import { AddOwnerModal } from '../entity/shared/containers/profile/sidebar/Ownership/AddOwnerModal';
 import { navigateToSearchUrl } from '../search/utils/navigateToSearchUrl';
 import { useEntityRegistry } from '../useEntityRegistry';
+import { useUpdateDescriptionMutation, useSetTagColorMutation } from '../../graphql/mutations.generated';
+import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.generated';
+import analytics, { EventType, EntityActionType } from '../analytics';
+import { GetSearchResultsParams, SearchResultInterface } from '../entity/shared/components/styled/search/types';
+
+function useWrappedSearchResults(params: GetSearchResultsParams) {
+    const { data, loading, error } = useGetSearchResultsForMultipleQuery(params);
+    return { data: data?.searchAcrossEntities, loading, error };
+}
+
+type SearchResultsInterface = {
+    /** The offset of the result set */
+    start: Scalars['Int'];
+    /** The number of entities included in the result set */
+    count: Scalars['Int'];
+    /** The total number of search results matching the query and filters */
+    total: Scalars['Int'];
+    /** The search result entities */
+    searchResults: Array<SearchResultInterface>;
+    /** Candidate facet aggregations used for search filtering */
+    facets?: Maybe<Array<FacetMetadata>>;
+};
 
 const TitleLabel = styled(Typography.Text)`
     &&& {
@@ -121,46 +145,126 @@ const { Paragraph } = Typography;
 
 type Props = {
     urn: string;
-    data: GetTagQuery | undefined;
-    refetch?: () => Promise<any>;
-    colorValue?: string;
-    handlePickerClick?: () => void;
-    displayColorPicker?: boolean;
-    handleColorChange?: (color: string) => void;
-    updatedDescription?: string;
-    handleSaveDescription?: (desc: string) => void;
-    facetLoading?: boolean;
-    aggregations: AggregationMetadata[];
-    entityAndSchemaQuery?: string;
-    entityQuery?: string;
-    ownersEmpty?: boolean;
-    setShowAddModal: (v: boolean) => void;
-    showAddModal: boolean;
+    useGetSearchResults?: (params: GetSearchResultsParams) => {
+        data: SearchResultsInterface | undefined | null;
+        loading: boolean;
+        error: ApolloError | undefined;
+    };
 };
 
 /**
  * Responsible for displaying metadata about a tag
  */
-export default function TagStyleEntity({
-    urn,
-    data,
-    refetch,
-    colorValue,
-    handlePickerClick,
-    displayColorPicker,
-    handleColorChange,
-    updatedDescription,
-    handleSaveDescription,
-    facetLoading,
-    aggregations,
-    entityAndSchemaQuery,
-    entityQuery,
-    ownersEmpty,
-    setShowAddModal,
-    showAddModal,
-}: Props) {
+export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSearchResults }: Props) {
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
+    const { loading, error, data, refetch } = useGetTagQuery({ variables: { urn } });
+    const [updateDescription] = useUpdateDescriptionMutation();
+    const [setTagColorMutation] = useSetTagColorMutation();
+    const entityAndSchemaQuery = `tags:"${data?.tag?.name}" OR fieldTags:"${data?.tag?.name}" OR editedFieldTags:"${data?.tag?.name}"`;
+    const entityQuery = `tags:"${data?.tag?.name}"`;
+
+    const description = data?.tag?.properties?.description || '';
+    const [updatedDescription, setUpdatedDescription] = useState('');
+    const hexColor = data?.tag?.properties?.colorHex || '';
+    const [displayColorPicker, setDisplayColorPicker] = useState(false);
+    const [colorValue, setColorValue] = useState('');
+    const ownersEmpty = !data?.tag?.ownership?.owners?.length;
+    const [showAddModal, setShowAddModal] = useState(false);
+
+    useEffect(() => {
+        setUpdatedDescription(description);
+    }, [description]);
+
+    useEffect(() => {
+        setColorValue(hexColor);
+    }, [hexColor]);
+
+    const { data: facetData, loading: facetLoading } = useGetSearchResults({
+        variables: {
+            input: {
+                query: entityAndSchemaQuery,
+                start: 0,
+                count: 1,
+                filters: [],
+            },
+        },
+    });
+
+    const facets = facetData?.facets?.filter((facet) => facet?.field === 'entity') || [];
+    const aggregations = facets && facets[0]?.aggregations;
+
+    // Save Color Change
+    const saveColor = async () => {
+        if (displayColorPicker) {
+            message.loading({ content: 'Saving...' });
+            try {
+                await setTagColorMutation({
+                    variables: {
+                        urn,
+                        colorHex: colorValue,
+                    },
+                });
+                message.destroy();
+                message.success({ content: 'Color Updated', duration: 2 });
+                setDisplayColorPicker(false);
+            } catch (e: unknown) {
+                message.destroy();
+                if (e instanceof Error) {
+                    message.error({ content: `Failed to update Color: \n ${e.message || ''}`, duration: 2 });
+                }
+            }
+            refetch?.();
+        }
+    };
+
+    const handlePickerClick = () => {
+        setDisplayColorPicker(!displayColorPicker);
+        saveColor();
+    };
+
+    const handleColorChange = (color: any) => {
+        setColorValue(color?.hex);
+    };
+
+    // Update Description
+    const updateDescriptionValue = (desc: string) => {
+        setUpdatedDescription(desc);
+        return updateDescription({
+            variables: {
+                input: {
+                    description: desc,
+                    resourceUrn: urn,
+                },
+            },
+        });
+    };
+
+    // Save the description
+    const handleSaveDescription = async (desc: string) => {
+        message.loading({ content: 'Saving...' });
+        try {
+            await updateDescriptionValue(desc);
+            message.destroy();
+            message.success({ content: 'Description Updated', duration: 2 });
+            analytics.event({
+                type: EventType.EntityActionEvent,
+                actionType: EntityActionType.UpdateDescription,
+                entityType: EntityType.Tag,
+                entityUrn: urn,
+            });
+        } catch (e: unknown) {
+            message.destroy();
+            if (e instanceof Error) {
+                message.error({ content: `Failed to update description: \n ${e.message || ''}`, duration: 2 });
+            }
+        }
+        refetch?.();
+    };
+
+    if (error || (!loading && !error && !data)) {
+        return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
+    }
 
     return (
         <>
