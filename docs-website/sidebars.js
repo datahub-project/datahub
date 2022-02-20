@@ -59,7 +59,12 @@ module.exports = {
       "docs/saas",
       "releases",
     ],
-    "Getting Started": ["docs/quickstart", "docs/cli", "docs/debugging"],
+    "Getting Started": [
+      "docs/quickstart",
+      "docs/cli",
+      "docs/debugging",
+      "docs/how/search",
+    ],
     "Metadata Ingestion": [
       // add a custom label since the default is 'Metadata Ingestion'
       // note that we also have to add the path to this file in sidebarsjs_hardcoded_titles in generateDocsDir.ts
