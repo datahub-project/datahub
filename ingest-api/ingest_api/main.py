@@ -10,52 +10,53 @@ import requests
 import uvicorn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
+from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import \
+    DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.schema_classes import ChangeTypeClass
+from datahub.metadata.schema_classes import (ChangeTypeClass,
+                                             SystemMetadataClass)
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 
-from ingest_api.helper.mce_convenience import (
-    authenticate_action,
-    create_new_schema_mce,
-    derive_platform_name,
-    generate_json_output_mce,
-    generate_json_output_mcp,
-    get_sys_time,
-    make_browsepath_mce,
-    make_dataset_description_mce,
-    make_dataset_urn,
-    make_ownership_mce,
-    make_platform,
-    make_profile_mcp,
-    make_schema_mce,
-    make_status_mce,
-    make_user_urn,
-    update_field_param_class,
-    verify_token,
-)
-from ingest_api.helper.models import (
-    add_sample_params,
-    browsepath_params,
-    create_dataset_params,
-    dataset_status_params,
-    delete_sample_params,
-    determine_type,
-    prop_params,
-    schema_params,
-)
+from ingest_api.helper.mce_convenience import (create_new_schema_mce,
+                                               derive_platform_name,
+                                               generate_json_output_mce,
+                                               generate_json_output_mcp,
+                                               get_sys_time,
+                                               make_browsepath_mce,
+                                               make_dataset_description_mce,
+                                               make_dataset_urn,
+                                               make_ownership_mce,
+                                               make_platform, make_profile_mcp,
+                                               make_schema_mce,
+                                               make_status_mce, make_user_urn,
+                                               update_field_param_class)
+from ingest_api.helper.models import (add_sample_params, browsepath_params,
+                                      create_dataset_params,
+                                      dataset_status_params,
+                                      delete_sample_params, determine_type,
+                                      prop_params, schema_params)
+from ingest_api.helper.security import authenticate_action, verify_token
+
+
+class MyFilter(object):
+    def __init__(self, level):
+        self.__level = level
+
+    def filter(self, logRecord):
+        return logRecord.levelno <= self.__level
+
 
 CLI_MODE = False if environ.get("RUNNING_IN_DOCKER") else True
 
 api_emitting_port = 8001
 rest_endpoint = "http://datahub-gms:8080" if not CLI_MODE else "http://localhost:8080"
 
-rootLogger = logging.getLogger("__name__")
+rootLogger = logging.getLogger("ingest")
 logformatter = logging.Formatter("%(asctime)s;%(levelname)s;%(funcName)s;%(message)s")
-rootLogger.setLevel(logging.DEBUG)
+rootLogger.setLevel(logging.INFO)
 
 streamLogger = logging.StreamHandler()
 streamLogger.setFormatter(logformatter)
@@ -73,7 +74,7 @@ if not CLI_MODE:
         "DATAHUB_FRONTEND",
         "ELASTIC_HOST",
     ]:
-        if not os.environment[env_var]:
+        if not os.environ[env_var]:
             raise Exception(
                 f"{env_var} is not defined \
                 to operate in Container mode"
@@ -83,20 +84,27 @@ if not CLI_MODE:
     if not os.path.exists("/var/log/ingest/json"):
         os.mkdir("/var/log/ingest/json")
     log_path = "/var/log/ingest/ingest_api.log"
+    log_path_simple = "/var/log/ingest/ingest_api_simple.log"
 else:
     os.environ["ELASTIC_HOST"] = "http://localhost:9200"
     if not os.path.exists("./logs/"):
         os.mkdir(f"{os.getcwd()}/logs/")
     log_path = f"{os.getcwd()}/logs/ingest_api.log"
-# I think its fine even if the json and log files get mixed
-# in the same folder when running locally
+    log_path_simple = f"{os.getcwd()}/logs/ingest_api_simple.log"
 
 log = TimedRotatingFileHandler(log_path, when="midnight", interval=1, backupCount=365)
-log.setLevel(logging.INFO)
+log.setLevel(logging.DEBUG)
 log.setFormatter(logformatter)
-
 rootLogger.addHandler(log)
-rootLogger.info("started!")
+
+log_simple = TimedRotatingFileHandler(
+    log_path_simple, when="midnight", interval=1, backupCount=365
+)
+log_simple.addFilter(MyFilter(logging.INFO))  # only capture INFO
+log_simple.setFormatter(logformatter)
+rootLogger.addHandler(log_simple)
+
+rootLogger.info("started ingest_api!")
 
 app = FastAPI(
     title="Datahub secret API",
@@ -144,6 +152,7 @@ async def hello_world() -> None:
     """
     # how to check that this dataset exist? - curl to GMS?
     # rootLogger.info("hello world is called")
+    rootLogger.info("/hello is called!")
     return JSONResponse(
         content={
             "message": "<b>Hello world</b>",
@@ -157,7 +166,8 @@ async def hello_world() -> None:
 @app.post("/update_browsepath")
 async def update_browsepath(item: browsepath_params):
 
-    rootLogger.info("update_browsepath_request_received {}".format(item))
+    rootLogger.info("update_browsepath_request_received from {}".format(item.requestor))
+    rootLogger.debug("update_browsepath_request_received {}".format(item))
     datasetName = item.dataset_name
     token = item.user_token
     user = item.requestor
@@ -171,7 +181,12 @@ async def update_browsepath(item: browsepath_params):
             all_paths.append(path + "dataset")
         browsepath_aspect = make_browsepath_mce(path=all_paths)
         dataset_snapshot.aspects.append(browsepath_aspect)
-        metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+        metadata_record = MetadataChangeEvent(
+            proposedSnapshot=dataset_snapshot,
+            systemMetadata=SystemMetadataClass(
+                runId=f"{datasetName}_browsepath_{str(int(time.time()))}"
+            ),
+        )
         response = emit_mce_respond(
             metadata_record=metadata_record,
             owner=item.requestor,
@@ -182,7 +197,7 @@ async def update_browsepath(item: browsepath_params):
             content=response.get("message", ""), status_code=response.get("status_code")
         )
     else:
-        rootLogger.error(
+        rootLogger.info(
             f"authentication failed for request\
             (update_browsepath) from {user}"
         )
@@ -192,7 +207,8 @@ async def update_browsepath(item: browsepath_params):
 @app.post("/update_samples")
 async def update_samples(item: add_sample_params):
 
-    rootLogger.info("update_sample_request_received {}".format(item))
+    rootLogger.info("update_sample_request_received from {}".format(item.requestor))
+    rootLogger.debug("update_sample_request_received {}".format(item))
     datasetName = item.dataset_name
     token = item.user_token
     user = item.requestor
@@ -212,7 +228,7 @@ async def update_samples(item: add_sample_params):
             content=response.get("message", ""), status_code=response.get("status_code")
         )
     else:
-        rootLogger.error(
+        rootLogger.info(
             f"authentication failed for request\
             (update_samples) from {user}"
         )
@@ -222,7 +238,8 @@ async def update_samples(item: add_sample_params):
 @app.post("/delete_samples")
 async def delete_samples(item: delete_sample_params):
 
-    rootLogger.info("delete_sample_request_received {}".format(item))
+    rootLogger.info("delete_sample_request_received from {}".format(item.requestor))
+    rootLogger.debug("delete_sample_request_received {}".format(item))
     datasetName = item.dataset_name
     token = item.user_token
     user = item.requestor
@@ -244,7 +261,7 @@ async def delete_samples(item: delete_sample_params):
         )
         return JSONResponse(content=response.text, status_code=response.status_code)
     else:
-        rootLogger.error(
+        rootLogger.info(
             f"authentication failed for request\
             (delete_sample) from {user}"
         )
@@ -254,7 +271,10 @@ async def delete_samples(item: delete_sample_params):
 @app.post("/update_schema")
 async def update_schema(item: schema_params):
 
-    rootLogger.info("update_dataset_schema_request_received {}".format(item))
+    rootLogger.info(
+        "update_dataset_schema_request_received from {}".format(item.requestor)
+    )
+    rootLogger.debug("update_dataset_schema_request_received {}".format(item))
     datasetName = item.dataset_name
     token = item.user_token
     user = item.requestor
@@ -278,7 +298,12 @@ async def update_schema(item: schema_params):
         )
         rootLogger.info(schemaMetadata_aspect)
         dataset_snapshot.aspects.append(schemaMetadata_aspect)
-        metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+        metadata_record = MetadataChangeEvent(
+            proposedSnapshot=dataset_snapshot,
+            systemMetadata=SystemMetadataClass(
+                runId=f"{datasetName}_schema_{str(int(time.time()))}"
+            ),
+        )
         response = emit_mce_respond(
             metadata_record=metadata_record,
             owner=item.requestor,
@@ -289,7 +314,7 @@ async def update_schema(item: schema_params):
             content=response.get("message", ""), status_code=response.get("status_code")
         )
     else:
-        rootLogger.error(
+        rootLogger.info(
             f"authentication failed for request\
             (update_schema) from {user}"
         )
@@ -305,7 +330,10 @@ async def update_prop(item: prop_params):
     # This will form DatasetProperty (Not EditableDatasetProperty)
     # platform info: needed for schema
 
-    rootLogger.info("update_dataset_property_request_received {}".format(item))
+    rootLogger.info(
+        "update_dataset_property_request_received from {}".format(item.requestor)
+    )
+    rootLogger.debug("update_dataset_property_request_received {}".format(item))
     datasetName = item.dataset_name
     token = item.user_token
     user = item.requestor
@@ -326,7 +354,12 @@ async def update_prop(item: prop_params):
             customProperties=all_properties,
         )
         dataset_snapshot.aspects.append(property_aspect)
-        metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+        metadata_record = MetadataChangeEvent(
+            proposedSnapshot=dataset_snapshot,
+            systemMetadata=SystemMetadataClass(
+                runId=f"{datasetName}_prop_{str(int(time.time()))}"
+            ),
+        )
         response = emit_mce_respond(
             metadata_record=metadata_record,
             owner=item.requestor,
@@ -337,7 +370,7 @@ async def update_prop(item: prop_params):
             content=response.get("message", ""), status_code=response.get("status_code")
         )
     else:
-        rootLogger.error(
+        rootLogger.info(
             f"authentication failed for request\
             (update_props) from {user}"
         )
@@ -362,7 +395,7 @@ def emit_mce_respond(
     else:
         generate_json_output_mce(metadata_record, "/var/log/ingest/json/")
     try:
-        rootLogger.info(metadata_record)
+        rootLogger.debug(metadata_record)
         emitter = DatahubRestEmitter(rest_endpoint, token=token)
         emitter.emit_mce(metadata_record)
         emitter._session.close()
@@ -390,7 +423,7 @@ def emit_mcp_respond(
     else:
         generate_json_output_mcp(metadata_record, "/var/log/ingest/json/")
     try:
-        rootLogger.info(metadata_record)
+        rootLogger.debug(metadata_record)
         emitter = DatahubRestEmitter(rest_endpoint, token=token)
         emitter.emit_mcp(metadata_record)
         emitter._session.close()
@@ -415,7 +448,8 @@ async def create_item(item: create_dataset_params) -> None:
     This endpoint is meant for manually defined or parsed file datasets.
     #todo - to revisit to see if refactoring is needed when make_json is up.
     """
-    rootLogger.info("make_dataset_request_received {}".format(item))
+    rootLogger.info("make_dataset_request_received from {}".format(item.requestor))
+    rootLogger.debug("make_dataset_request_received {}".format(item))
     item.dataset_type = determine_type(item.dataset_type)
     token = item.user_token
     user = item.dataset_owner
@@ -482,7 +516,12 @@ async def create_item(item: create_dataset_params) -> None:
                 fields=field_params,
             )
         )
-        metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+        metadata_record = MetadataChangeEvent(
+            proposedSnapshot=dataset_snapshot,
+            systemMetadata=SystemMetadataClass(
+                runId=f"{requestor}_make_{str(int(time.time()))}"
+            ),
+        )
         response = emit_mce_respond(
             metadata_record=metadata_record,
             owner=requestor,
@@ -493,6 +532,7 @@ async def create_item(item: create_dataset_params) -> None:
             content=response.get("message", ""), status_code=response.get("status_code")
         )
     else:
+        rootLogger.info("make_dataset request failed from {}".format(requestor))
         return JSONResponse(content="Authentication Failed", status_code=401)
 
 
@@ -503,7 +543,8 @@ async def delete_item(item: dataset_status_params) -> None:
     a database/ES chron job to remove the entries though, it only
     suppresses it from search and UI
     """
-    rootLogger.info("remove_dataset_request_received {}".format(item))
+    rootLogger.info("remove_dataset_request_received from {}".format(item.requestor))
+    rootLogger.debug("remove_dataset_request_received {}".format(item))
     datasetName = item.dataset_name
     token = item.user_token
     user = item.requestor
@@ -521,7 +562,7 @@ async def delete_item(item: dataset_status_params) -> None:
             content=response.get("message", ""), status_code=response.get("status_code")
         )
     else:
-        rootLogger.error(
+        rootLogger.info(
             f"authentication failed for request\
             (update_schema) from {user}"
         )
