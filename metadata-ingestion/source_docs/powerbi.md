@@ -44,7 +44,7 @@ source:
     client_id: foo
     # Azure AD App client secret 
     client_secret: bar 
-    # dataset_type_mapping is fixed mapping from Power BI datasources type to equivalent Datahub dataset
+    # dataset_type_mapping is fixed mapping of Power BI datasources type to equivalent Datahub "data platform" dataset
     dataset_type_mapping:
         PostgreSql: postgres
         Oracle: oracle
@@ -74,7 +74,7 @@ sink:
 | `Dataset, Datasource`     | `Dataset`   |
 | `Tile`                    | `Chart`     |
 
-
+s
 ## Compatibility
 
 Coming soon!
