@@ -18,6 +18,7 @@ const AvatarStyled = styled(Avatar)<{ size?: number; $backgroundColor: string }>
     .ant-avatar-string {
         text-align: center;
         top: 0px;
+        line-height: ${(props) => (props.size ? props.size : 24)}px;
     }
 `;
 
