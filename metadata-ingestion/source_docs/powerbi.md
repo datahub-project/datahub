@@ -56,8 +56,6 @@ sink:
 
 ## Config details
 
-Note that a `.` is used to denote nested fields in the YAML recipe.
-
 | Field                     | Required | Default                 | Description                                                                                                  |
 | ------------------------- | -------- | ----------------------- | ------------------------------------------------------------------------------------------------------------ |
 | `tenant_id`               | ✅       |                         | Power BI tenant identifier.                                                                                   |
