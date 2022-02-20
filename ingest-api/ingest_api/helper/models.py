@@ -1,7 +1,12 @@
 # flake8: noqa
+import logging
 from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, validator
+
+log = logging.getLogger("ingest")
+logformatter = logging.Formatter("%(asctime)s;%(levelname)s;%(funcName)s;%(message)s")
+log.setLevel(logging.DEBUG)
 
 
 class FieldParam(BaseModel):
@@ -139,4 +144,5 @@ def determine_type(type_input: Union[str, Dict[str, str]]) -> str:
     if type_input_str.lower() == "json":
         return "json"
     else:
-        return "undefined"
+        log.error(f"data type for request is {type_input}")
+        return "csv"
