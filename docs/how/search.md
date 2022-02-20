@@ -10,8 +10,8 @@ The following examples are in the format of *typical question* : ```what to key 
   
 I want to:  
 1. *Find a dataset with the word **mask** in it* :  
-```name: *mask*``` [Sample results](https://demo.datahubproject.io/search?page=1&query=name%3A%20%2Acounty)   
-This will return entities with mask in the name.  
+```name: *mask*``` [Sample results](https://demo.datahubproject.io/search?page=1&query=name%3A%20%2Amask%2A)   
+This will return entities with **mask** in the name.  
 Names tends to be connected by other symbols, hence the wildcard symbols before and after the word.  
 
 2. *Find a dataset with a property, encoding*  
@@ -27,7 +27,7 @@ fieldPaths is the name of the attribute that holds the column name in Datasets.
 Datasets has 2 attributes that contains field description. fieldDescription comes from the SchemaMetadata aspect, while editedFieldDescriptions comes from the EditableSchemaMetadata aspect. EditableSchemaMetadata holds information that comes from UI edits, while SchemaMetadata holds data from ingestion of the dataset.  
 
 ## Where to find more information?  
-[The link here] (https://demo.datahubproject.io/tag/urn:li:tag:Searchable) shows the current list of indexed fields for each entity inside Datahub, however, it does not tell you the specific attribute name to use for specialized searches. One way to do so is to inspect the ElasticSearch indices, for example:  
+The sample queries here are non exhaustive. [The link here] (https://demo.datahubproject.io/tag/urn:li:tag:Searchable) shows the current list of indexed fields for each entity inside Datahub, however, it does not tell you the specific attribute name to use for specialized searches. One way to do so is to inspect the ElasticSearch indices, for example:  
 ```curl http://localhost:9200/_cat/indices``` returns all the ES indices in the ElasticSearch container.  
 ```
 yellow open chartindex_v2_1643510690325                           bQO_RSiCSUiKJYsmJClsew 1 1   2 0   8.5kb   8.5kb
