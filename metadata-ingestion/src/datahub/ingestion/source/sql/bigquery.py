@@ -70,8 +70,6 @@ AND
         AND NOT
         protoPayload.serviceData.jobCompletedEvent.job.jobStatus.error.code:*
         AND
-        protoPayload.serviceData.jobCompletedEvent.job.jobConfiguration.query.destinationTable.datasetId !~ "^_.*"
-        AND
         protoPayload.serviceData.jobCompletedEvent.job.jobStatistics.referencedTables:*
     )
 )
@@ -495,12 +493,9 @@ class BigQuerySource(SQLAlchemySource):
         num_entries: int = 0
         num_skipped_entries: int = 0
         for e in entries:
+            logger.warning(f"Entry:{e}")
             num_entries += 1
-            if (
-                e.destinationTable is None
-                or e.destinationTable.is_anonymous()
-                or not e.referencedTables
-            ):
+            if e.destinationTable is None or not e.referencedTables:
                 num_skipped_entries += 1
                 continue
             entry_consumed: bool = False
@@ -673,6 +668,29 @@ WHERE
                         yield lineage_wu
                         self.report.report_workunit(lineage_wu)
 
+    def get_upstream_tables(
+        self, bq_table: str, tables_seen: List[str] = []
+    ) -> Set[BigQueryTableRef]:
+        upstreams: Set[BigQueryTableRef] = set()
+        assert self.lineage_metadata
+        for ref_table in self.lineage_metadata[str(bq_table)]:
+            upstream_table = BigQueryTableRef.from_string_name(ref_table)
+            if upstream_table.is_temporary_table():
+                # making sure we don't process a table twice and not get into a recurisve loop
+                if ref_table in tables_seen:
+                    logger.debug(
+                        f"Skipping table {ref_table} because it was seen already"
+                    )
+                    continue
+                tables_seen.append(ref_table)
+                if ref_table in self.lineage_metadata:
+                    upstreams = upstreams.union(
+                        self.get_upstream_tables(ref_table, tables_seen=tables_seen)
+                    )
+            else:
+                upstreams.add(upstream_table)
+        return upstreams
+
     def get_lineage_mcp(
         self, dataset_urn: str
     ) -> Optional[MetadataChangeProposalWrapper]:
@@ -687,8 +705,9 @@ WHERE
             upstream_list: List[UpstreamClass] = []
             # Sorting the list of upstream lineage events in order to avoid creating multiple aspects in backend
             # even if the lineage is same but the order is different.
-            for ref_table in sorted(self.lineage_metadata[str(bq_table)]):
-                upstream_table = BigQueryTableRef.from_string_name(ref_table)
+            for upstream_table in sorted(
+                self.get_upstream_tables(str(bq_table), tables_seen=[])
+            ):
                 upstream_table_class = UpstreamClass(
                     mce_builder.make_dataset_urn_with_platform_instance(
                         self.platform,
