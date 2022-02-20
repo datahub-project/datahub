@@ -40,7 +40,7 @@ As GraphQL:
 
 ```graphql 
 {
-  search(input: { type: "DATASET", query: "my sql dataset", start: 0, count: 10 }) {
+  search(input: { type: DATASET, query: "my sql dataset", start: 0, count: 10 }) {
     start
     count
     total

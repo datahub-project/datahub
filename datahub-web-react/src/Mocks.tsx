@@ -839,12 +839,16 @@ const glossaryTerm3 = {
         hasRelatedTerms: [
             {
                 urn: 'urn:li:glossaryTerm:example.glossaryterm3',
-                name: 'glossaryterm3',
+                properties: {
+                    name: 'glossaryterm3',
+                },
                 __typename: 'GlossaryTerm',
             },
             {
                 urn: 'urn:li:glossaryTerm:example.glossaryterm4',
-                name: 'glossaryterm4',
+                properties: {
+                    name: 'glossaryterm4',
+                },
                 __typename: 'GlossaryTerm',
             },
         ],
