@@ -1,36 +1,59 @@
-import { Alert } from 'antd';
+import { Alert, Col, Row } from 'antd';
 import React, { useMemo } from 'react';
-import GroupHeader from './GroupHeader';
+// import React from 'react';
+import styled from 'styled-components';
+// import GroupHeader from './GroupHeader';
 import { useGetGroupQuery } from '../../../graphql/group.generated';
 import { useGetAllEntitySearchResults } from '../../../utils/customGraphQL/useGetAllEntitySearchResults';
 import useUserParams from '../../shared/entitySearch/routingUtils/useUserParams';
 import { EntityRelationshipsResult, EntityType, SearchResult } from '../../../types.generated';
-import RelatedEntityResults from '../../shared/entitySearch/RelatedEntityResults';
+// import { EntityRelationshipsResult } from '../../../types.generated';
+// import RelatedEntityResults from '../../shared/entitySearch/RelatedEntityResults';
 import { Message } from '../../shared/Message';
-import GroupMembers from './GroupMembers';
-import { LegacyEntityProfile } from '../../shared/LegacyEntityProfile';
-import { useEntityRegistry } from '../../useEntityRegistry';
+// import GroupMembers from './GroupMembers';
+// import { LegacyEntityProfile } from '../../shared/LegacyEntityProfile';
+// import { useEntityRegistry } from '../../useEntityRegistry';
 import { decodeUrn } from '../shared/utils';
+// import { RoutedTabs } from '../../shared/RoutedTabs';
+import GroupInfoSidebar from './GroupInfoSideBar';
 
 const messageStyle = { marginTop: '10%' };
 
 export enum TabType {
-    Members = 'Members',
+    Members = 'Assets',
     Ownership = 'Ownership',
 }
 
-const ENABLED_TAB_TYPES = [TabType.Members, TabType.Ownership];
+// const ENABLED_TAB_TYPES = [TabType.Members, TabType.Ownership];
 
 const MEMBER_PAGE_SIZE = 20;
+
+/**
+ * Styled Components
+ */
+const GroupProfileWrapper = styled.div`
+    &&& .ant-tabs-nav {
+        margin: 0;
+    }
+`;
+
+const Content = styled.div`
+    color: #262626;
+    height: calc(100vh - 60px);
+
+    &&& .ant-tabs > .ant-tabs-nav .ant-tabs-nav-wrap {
+        padding-left: 15px;
+    }
+`;
 
 /**
  * Responsible for reading & writing groups.
  */
 export default function GroupProfile() {
-    const entityRegistry = useEntityRegistry();
+    // const entityRegistry = useEntityRegistry();
     const { urn: encodedUrn } = useUserParams();
     const urn = encodedUrn && decodeUrn(encodedUrn);
-    const { loading, error, data } = useGetGroupQuery({ variables: { urn, membersCount: MEMBER_PAGE_SIZE } });
+    const { loading, error, data, refetch } = useGetGroupQuery({ variables: { urn, membersCount: MEMBER_PAGE_SIZE } });
 
     const ownershipResult = useGetAllEntitySearchResults({
         query: `owners:${data?.corpGroup?.name}`,
@@ -62,45 +85,72 @@ export default function GroupProfile() {
 
     const groupMemberRelationships = data?.corpGroup?.relationships as EntityRelationshipsResult;
 
-    const getTabs = () => {
-        return [
-            {
-                name: TabType.Members,
-                path: TabType.Members.toLocaleLowerCase(),
-                content: (
-                    <GroupMembers
-                        urn={urn}
-                        initialRelationships={groupMemberRelationships}
-                        pageSize={MEMBER_PAGE_SIZE}
-                    />
-                ),
-            },
-            {
-                name: TabType.Ownership,
-                path: TabType.Ownership.toLocaleLowerCase(),
-                content: <RelatedEntityResults searchResult={ownershipForDetails} />,
-            },
-        ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
+    // const getTabs = () => {
+    //     return [
+    //         {
+    //             name: TabType.Members,
+    //             path: TabType.Members.toLocaleLowerCase(),
+    //             content: (
+    //                 <GroupMembers
+    //                     urn={urn}
+    //                     initialRelationships={groupMemberRelationships}
+    //                     pageSize={MEMBER_PAGE_SIZE}
+    //                 />
+    //             ),
+    //         },
+    //         {
+    //             name: TabType.Ownership,
+    //             path: TabType.Ownership.toLocaleLowerCase(),
+    //             content: <RelatedEntityResults searchResult={ownershipForDetails} />,
+    //         },
+    //     ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
+    // };
+
+    // const description = data?.corpGroup?.info?.description;
+
+    // Side bar data
+    const sideBarData = {
+        photoUrl: undefined,
+        avatarName: data?.corpGroup?.info?.displayName || data?.corpGroup?.name,
+        name: 'data?.corpGroup' || undefined,
+        role: 'data?.corpGroup' || undefined,
+        team: 'data?.corpGroup' || undefined,
+        email: 'data?.corpGroup' || undefined,
+        slack: 'data?.corpGroup' || undefined,
+        phone: 'data?.corpGroup' || undefined,
+        aboutText: data?.corpGroup?.info?.description || undefined,
+        groupMemberRelationships: groupMemberRelationships as EntityRelationshipsResult,
+        urn,
     };
-
-    const description = data?.corpGroup?.info?.description;
-
+    console.log('data', data, 'group member', groupMemberRelationships, 'owner', ownershipForDetails);
     return (
         <>
             {contentLoading && <Message type="loading" content="Loading..." style={messageStyle} />}
             {data && data?.corpGroup && (
-                <LegacyEntityProfile
-                    title=""
-                    tags={null}
-                    header={
-                        <GroupHeader
-                            name={entityRegistry.getDisplayName(EntityType.CorpGroup, data?.corpGroup)}
-                            description={description}
-                            email={data?.corpGroup?.info?.email}
-                        />
-                    }
-                    tabs={getTabs()}
-                />
+                // <LegacyEntityProfile
+                //     title=""
+                //     tags={null}
+                //     header={
+                //         <GroupHeader
+                //             name={entityRegistry.getDisplayName(EntityType.CorpGroup, data?.corpGroup)}
+                //             description={description}
+                //             email={data?.corpGroup?.info?.email}
+                //         />
+                //     }
+                //     tabs={getTabs()}
+                // />
+                <GroupProfileWrapper>
+                    <Row>
+                        <Col xl={5} lg={5} md={5} sm={24} xs={24}>
+                            <GroupInfoSidebar sideBarData={sideBarData} refetch={refetch} />
+                        </Col>
+                        <Col xl={19} lg={19} md={19} sm={24} xs={24} style={{ borderLeft: '1px solid #E9E9E9' }}>
+                            <Content>
+                                {/* <RoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} /> */}
+                            </Content>
+                        </Col>
+                    </Row>
+                </GroupProfileWrapper>
             )}
         </>
     );
