@@ -343,6 +343,9 @@ fragment searchResults on SearchResults {
                 ... on Tag {
                     name
                     description
+                    properties {
+                        colorHex
+                    }
                 }
                 ... on GlossaryTerm {
                     name
