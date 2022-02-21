@@ -250,10 +250,10 @@ def send_lineage_to_datahub(
     )
 
     job_doc = (
-        operator.doc 
-        or operator.doc_md 
-        or operator.doc_json 
-        or operator.doc_yaml 
+        operator.doc
+        or operator.doc_md
+        or operator.doc_json
+        or operator.doc_yaml
         or operator.doc_rst
     )
 
