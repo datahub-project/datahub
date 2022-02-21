@@ -20,11 +20,16 @@ import { SidebarStatsSection } from '../shared/containers/profile/sidebar/Datase
 import StatsTab from '../shared/tabs/Dataset/Stats/StatsTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { capitalizeFirstLetter } from '../../shared/textUtil';
+import { EditSchemaTab } from '../shared/tabs/Dataset/Schema/EditSchemaTab';
+import { AdminTab } from '../shared/tabs/Dataset/Schema/AdminTab';
+import { EditPropertiesTab } from '../shared/tabs/Dataset/Schema/EditPropertiesTab';
 import ViewDefinitionTab from '../shared/tabs/Dataset/View/ViewDefinitionTab';
 import { SidebarViewDefinitionSection } from '../shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection';
 import { SidebarRecommendationsSection } from '../shared/containers/profile/sidebar/Recommendations/SidebarRecommendationsSection';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { checkOwnership } from './whoAmI';
+import { EditSampleTab } from '../shared/tabs/Dataset/Schema/EditSampleTab';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -133,6 +138,54 @@ export class DatasetEntity implements Entity<Dataset> {
                             (dataset?.dataset?.datasetProfiles?.length || 0) > 0 ||
                             (dataset?.dataset?.usageStats?.buckets?.length || 0) > 0 ||
                             (dataset?.dataset?.operations?.length || 0) > 0,
+                    },
+                },
+                {
+                    name: 'Edit Schema',
+                    component: EditSchemaTab,
+                    display: {
+                        visible: (_, _dataset: GetDatasetQuery) => {
+                            return checkOwnership(_dataset);
+                        },
+                        enabled: (_, _dataset: GetDatasetQuery) => {
+                            return true;
+                        },
+                    },
+                },
+                {
+                    name: 'Edit Properties',
+                    component: EditPropertiesTab,
+                    display: {
+                        visible: (_, _dataset: GetDatasetQuery) => {
+                            return checkOwnership(_dataset);
+                        },
+                        enabled: (_, _dataset: GetDatasetQuery) => {
+                            return true;
+                        },
+                    },
+                },
+                {
+                    name: 'Edit Samples',
+                    component: EditSampleTab,
+                    display: {
+                        visible: (_, _dataset: GetDatasetQuery) => {
+                            return checkOwnership(_dataset);
+                        },
+                        enabled: (_, _dataset: GetDatasetQuery) => {
+                            return true;
+                        },
+                    },
+                },
+                {
+                    name: 'Dataset Admin',
+                    component: AdminTab,
+                    display: {
+                        visible: (_, _dataset: GetDatasetQuery) => {
+                            return checkOwnership(_dataset);
+                        },
+                        enabled: (_, _dataset: GetDatasetQuery) => {
+                            return true;
+                        },
                     },
                 },
             ]}

@@ -2,7 +2,7 @@ import { GetDatasetDocument } from './graphql/dataset.generated';
 import { Dataset, EntityType, PlatformType, SchemaFieldDataType } from './types.generated';
 import { GetMeDocument } from './graphql/me.generated';
 
-const user = {
+const user3 = {
     username: 'john',
     urn: 'urn:li:corpuser:3',
     type: EntityType.CorpUser,
@@ -71,7 +71,7 @@ export const dataset3 = {
         owners: [
             {
                 owner: {
-                    ...user,
+                    ...user3,
                     __typename: 'CorpUser',
                 },
                 type: 'DATAOWNER',
@@ -249,7 +249,7 @@ export const editMocks = [
         result: {
             data: {
                 me: {
-                    corpUser: { ...user },
+                    corpUser: { ...user3 },
                     platformPrivileges: {
                         viewAnalytics: true,
                         managePolicies: true,
