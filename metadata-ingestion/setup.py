@@ -45,6 +45,10 @@ framework_common = {
     "tabulate",
     "progressbar2",
     "psutil>=5.8.0",
+    # Markupsafe breaking change broke Jinja and some other libs
+    # Pinning it to a version which works even though we are not using explicitly
+    # https://github.com/aws/aws-sam-cli/issues/3661
+    "markupsafe==2.0.1",
 }
 
 kafka_common = {
@@ -107,11 +111,17 @@ plugins: Dict[str, Set[str]] = {
     "azure-ad": set(),
     "bigquery": sql_common | bigquery_common | {"pybigquery >= 0.6.0"},
     "bigquery-usage": bigquery_common | {"cachetools"},
+    "clickhouse": sql_common | {"clickhouse-sqlalchemy==0.1.8"},
+    "clickhouse-usage": sql_common | {"clickhouse-sqlalchemy==0.1.8"},
     "datahub-business-glossary": set(),
     "data-lake": {*aws_common, "pydeequ==1.0.1", "pyspark==3.0.3", "parse==1.19.0"},
     "dbt": {"requests"},
     "druid": sql_common | {"pydruid>=0.6.2"},
-    "elasticsearch": {"elasticsearch"},
+    # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
+    # UnsupportedProductError
+    # https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/release-notes.html#rn-7-14-0
+    # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
+    "elasticsearch": {"elasticsearch==7.13.4"},
     "feast": {"docker"},
     "glue": aws_common,
     "hive": sql_common
@@ -202,12 +212,14 @@ base_dev_requirements = {
     "jsonpickle",
     "build",
     "twine",
-    "pydot",
+    "packaging",
     *list(
         dependency
         for plugin in [
             "bigquery",
             "bigquery-usage",
+            "clickhouse",
+            "clickhouse-usage",
             "elasticsearch",
             "looker",
             "glue",
@@ -260,6 +272,7 @@ full_test_dev_requirements = {
         for plugin in [
             # Only include Athena for Python 3.7 or newer.
             *(["athena"] if is_py37_or_newer else []),
+            "clickhouse",
             "druid",
             "feast",
             "hive",
@@ -285,6 +298,8 @@ entry_points = {
         "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",
         "bigquery = datahub.ingestion.source.sql.bigquery:BigQuerySource",
         "bigquery-usage = datahub.ingestion.source.usage.bigquery_usage:BigQueryUsageSource",
+        "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
+        "clickhouse-usage = datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource",
         "data-lake = datahub.ingestion.source.data_lake:DataLakeSource",
         "dbt = datahub.ingestion.source.dbt:DBTSource",
         "druid = datahub.ingestion.source.sql.druid:DruidSource",

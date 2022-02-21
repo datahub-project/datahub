@@ -12,6 +12,9 @@ interface Props extends TabsProps {
         name: string;
         path: string;
         content: React.ReactNode;
+        display?: {
+            enabled: () => boolean;
+        };
     }>;
     onTabChange?: (selectedTab: string) => void;
 }
@@ -39,9 +42,11 @@ export const RoutedTabs = ({ defaultPath, tabs, onTabChange, ...props }: Props) 
                 onChange={(newPath) => history.push(`${url}/${newPath}`)}
                 {...props}
             >
-                {tabs.map((tab) => (
-                    <TabPane tab={tab.name} key={tab.path.replace('/', '')} />
-                ))}
+                {tabs.map((tab) => {
+                    return (
+                        <TabPane tab={tab.name} key={tab.path.replace('/', '')} disabled={!tab.display?.enabled()} />
+                    );
+                })}
             </Tabs>
             <Switch>
                 <Route exact path={path}>

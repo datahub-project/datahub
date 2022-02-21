@@ -1,0 +1,14 @@
+version: "2"
+services:
+  clickhouse:
+    image: yandex/clickhouse-server:22.1
+    container_name: "testclickhouse"
+    environment:
+      CLICKHOUSE_USER: clickhouseuser
+      CLICKHOUSE_PASSWORD: clickhousepass
+      CLICKHOUSE_DB: clickhousedb
+    ports:
+      - "58123:8123"
+      - "59000:9000"
+    volumes:
+      - ./setup:/docker-entrypoint-initdb.d
