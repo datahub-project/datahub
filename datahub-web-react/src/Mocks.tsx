@@ -34,7 +34,6 @@ import { GetMeDocument } from './graphql/me.generated';
 import { ListRecommendationsDocument } from './graphql/recommendations.generated';
 
 const user1 = {
-    __typename: 'CorpUser',
     username: 'sdas',
     urn: 'urn:li:corpuser:1',
     type: EntityType.CorpUser,
@@ -65,12 +64,10 @@ const user1 = {
 };
 
 const user2 = {
-    __typename: 'CorpUser',
     username: 'john',
     urn: 'urn:li:corpuser:3',
     type: EntityType.CorpUser,
     info: {
-        __typename: 'CorpUserInfo',
         email: 'john@domain.com',
         active: true,
         displayName: 'john',
@@ -80,10 +77,7 @@ const user2 = {
         fullName: 'John Joyce',
     },
     editableInfo: {
-        __typename: 'CorpUserEditableInfo',
         pictureLink: null,
-        teams: null,
-        skills: null,
     },
     globalTags: {
         tags: [
@@ -306,25 +300,20 @@ export const dataset3 = {
         owners: [
             {
                 owner: {
-                    ...user2,
-                    __typename: 'CorpUser',
+                    ...user1,
                 },
                 type: 'DATAOWNER',
-                __typename: 'Owner',
             },
             {
                 owner: {
-                    ...user1,
-                    __typename: 'CorpUser',
+                    ...user2,
                 },
                 type: 'DELEGATE',
-                __typename: 'Owner',
             },
         ],
         lastModified: {
             time: 0,
         },
-        __typename: 'Ownership',
     },
     globalTags: {
         __typename: 'GlobalTags',
@@ -1247,7 +1236,7 @@ export const recommendationModules = [
 ];
 
 /*
-    Define mock data to be returned by Apollo MockProvider. 
+    Define mock data to be returned by Apollo MockProvider.
 */
 export const mocks = [
     {
@@ -2651,6 +2640,26 @@ export const mocks = [
     },
     {
         request: {
+            query: GetMeDocument,
+            variables: {},
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                me: {
+                    __typename: 'AuthenticatedUser',
+                    corpUser: { ...user2 },
+                    platformPrivileges: {
+                        viewAnalytics: true,
+                        managePolicies: true,
+                        manageIdentities: true,
+                    },
+                },
+            },
+        },
+    },
+    {
+        request: {
             query: ListRecommendationsDocument,
             variables: {
                 input: {
@@ -2772,31 +2781,6 @@ export const mocks = [
                             count: 670,
                         },
                     ],
-                },
-            },
-        },
-    },
-    {
-        request: {
-            query: GetMeDocument,
-            variables: {},
-        },
-        result: {
-            data: {
-                __typename: 'Query',
-                me: {
-                    __typename: 'AuthenticatedUser',
-                    corpUser: { ...user2 },
-                    platformPrivileges: {
-                        __typename: 'PlatformPrivileges',
-                        viewAnalytics: true,
-                        managePolicies: true,
-                        manageIdentities: true,
-                        generatePersonalAccessTokens: true,
-                        manageIngestion: true,
-                        manageSecrets: true,
-                        manageDomains: true,
-                    },
                 },
             },
         },
