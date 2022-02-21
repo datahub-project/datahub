@@ -51,6 +51,7 @@ class AwsSourceConfig(ConfigModel):
     aws_secret_access_key: Optional[str] = None
     aws_session_token: Optional[str] = None
     aws_role: Optional[Union[str, List[str]]] = None
+    aws_profile: Optional[str] = None
     aws_region: str
 
     def get_session(self) -> Session:
@@ -89,7 +90,7 @@ class AwsSourceConfig(ConfigModel):
                 region_name=self.aws_region,
             )
         else:
-            return Session(region_name=self.aws_region)
+            return Session(region_name=self.aws_region, profile_name=self.aws_profile)
 
     def get_s3_client(self) -> "S3Client":
         return self.get_session().client("s3")

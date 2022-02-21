@@ -10,11 +10,18 @@ query getUser($urn: String!, $groupsCount: Int!) {
             lastName
             fullName
             email
+            departmentName
         }
-        editableInfo {
+        editableProperties {
+            slack
+            phone
             pictureLink
+            aboutMe
             teams
             skills
+            displayName
+            title
+            email
         }
         globalTags {
             ...globalTagsFields
@@ -92,9 +99,11 @@ query listUsers($input: ListUsersInput!) {
                 fullName
                 email
             }
-            editableInfo {
+            editableProperties {
+                displayName
                 pictureLink
                 teams
+                title
                 skills
             }
             status

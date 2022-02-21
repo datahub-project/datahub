@@ -45,6 +45,10 @@ framework_common = {
     "tabulate",
     "progressbar2",
     "psutil>=5.8.0",
+    # Markupsafe breaking change broke Jinja and some other libs
+    # Pinning it to a version which works even though we are not using explicitly
+    # https://github.com/aws/aws-sam-cli/issues/3661
+    "markupsafe==2.0.1",
 }
 
 kafka_common = {
@@ -102,7 +106,8 @@ plugins: Dict[str, Set[str]] = {
         "apache-airflow >= 1.10.2",
     },
     # Source plugins
-    "athena": sql_common | {"PyAthena[SQLAlchemy]"},
+    # PyAthena is pinned with exact version because we use private method in PyAthena
+    "athena": sql_common | {"PyAthena[SQLAlchemy]==2.4.1"},
     "azure-ad": set(),
     "bigquery": sql_common | bigquery_common | {"pybigquery >= 0.6.0"},
     "bigquery-usage": bigquery_common | {"cachetools"},
@@ -110,7 +115,11 @@ plugins: Dict[str, Set[str]] = {
     "data-lake": {*aws_common, "pydeequ==1.0.1", "pyspark==3.0.3", "parse==1.19.0"},
     "dbt": {"requests"},
     "druid": sql_common | {"pydruid>=0.6.2"},
-    "elasticsearch": {"elasticsearch"},
+    # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
+    # UnsupportedProductError
+    # https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/release-notes.html#rn-7-14-0
+    # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
+    "elasticsearch": {"elasticsearch==7.13.4"},
     "feast": {"docker"},
     "glue": aws_common,
     "hive": sql_common
@@ -186,9 +195,12 @@ base_dev_requirements = {
     "flake8>=3.8.3",
     "flake8-tidy-imports>=4.3.0",
     "isort>=5.7.0",
-    # Waiting for https://github.com/samuelcolvin/pydantic/pull/3175 before allowing mypy 0.920.
-    "mypy>=0.901,<0.920",
+    "mypy>=0.920",
+    # pydantic 1.8.2 is incompatible with mypy 0.910.
+    # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
+    "pydantic>=1.9.0",
     "pytest>=6.2.2",
+    "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
     "pytest-docker>=0.10.3",
     "tox",
@@ -198,7 +210,7 @@ base_dev_requirements = {
     "jsonpickle",
     "build",
     "twine",
-    "pydot",
+    "packaging",
     *list(
         dependency
         for plugin in [
@@ -239,18 +251,23 @@ dev_requirements = {
     "apache-airflow[snowflake]>=2.0.2",  # snowflake is used in example dags
     "snowflake-sqlalchemy<=1.2.4",  # make constraint consistent with extras
 }
-dev_requirements_airflow_1 = {
-    *base_dev_requirements,
+dev_requirements_airflow_1_base = {
     "apache-airflow==1.10.15",
     "apache-airflow-backport-providers-snowflake",
     "snowflake-sqlalchemy<=1.2.4",  # make constraint consistent with extras
     "WTForms==2.3.3",  # make constraint consistent with extras
+}
+dev_requirements_airflow_1 = {
+    *base_dev_requirements,
+    *dev_requirements_airflow_1_base,
 }
 
 full_test_dev_requirements = {
     *list(
         dependency
         for plugin in [
+            # Only include Athena for Python 3.7 or newer.
+            *(["athena"] if is_py37_or_newer else []),
             "druid",
             "feast",
             "hive",
@@ -392,6 +409,7 @@ setuptools.setup(
             )
         ),
         "dev": list(dev_requirements),
+        "dev-airflow1-base": list(dev_requirements_airflow_1_base),
         "dev-airflow1": list(dev_requirements_airflow_1),
         "integration-tests": list(full_test_dev_requirements),
     },

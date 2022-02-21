@@ -30,9 +30,7 @@ def assertionUrn(info: AssertionInfo) -> str:
     return builder.make_assertion_urn(assertionId)
 
 
-def emitAssertionResult(
-    assertionResult: AssertionResult, datasetUrn: str
-) -> None:
+def emitAssertionResult(assertionResult: AssertionResult, datasetUrn: str) -> None:
 
     dataset_assertionResult_mcp = MetadataChangeProposalWrapper(
         entityType="dataset",
