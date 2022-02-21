@@ -1,15 +1,19 @@
 package com.linkedin.datahub.graphql.resolvers.group;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
+import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.RemoveGroupMembersInput;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.GroupMembership;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.utils.GenericAspectUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
@@ -20,6 +24,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
+import static com.linkedin.datahub.graphql.resolvers.AuthUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
@@ -35,10 +40,10 @@ public class RemoveGroupMembersResolver implements DataFetcher<CompletableFuture
   @Override
   public CompletableFuture<Boolean> get(final DataFetchingEnvironment environment) throws Exception {
 
+    final RemoveGroupMembersInput input = bindArgument(environment.getArgument("input"), RemoveGroupMembersInput.class);
     final QueryContext context = environment.getContext();
 
-    if (AuthorizationUtils.canManageUsersAndGroups(context)) {
-      final RemoveGroupMembersInput input = bindArgument(environment.getArgument("input"), RemoveGroupMembersInput.class);
+    if (isAuthorized(input, context)) {
       final Urn groupUrn = Urn.createFromString(input.getGroupUrn());
       final Set<Urn> userUrns = input.getUserUrns().stream().map(UrnUtils::getUrn).collect(Collectors.toSet());
       final Map<Urn, EntityResponse> entityResponseMap = _entityClient.batchGetV2(CORP_USER_ENTITY_NAME,
@@ -71,5 +76,19 @@ public class RemoveGroupMembersResolver implements DataFetcher<CompletableFuture
       })).toArray(CompletableFuture[]::new)).thenApply(ignored -> Boolean.TRUE);
     }
     throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+  }
+
+  private boolean isAuthorized(RemoveGroupMembersInput input, QueryContext context) {
+    final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
+        ALL_PRIVILEGES_GROUP,
+        new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.EDIT_GROUP_MEMBERS_PRIVILEGE.getType()))
+    ));
+
+    return AuthorizationUtils.isAuthorized(
+        context.getAuthorizer(),
+        context.getActorUrn(),
+        CORP_GROUP_ENTITY_NAME,
+        input.getGroupUrn(),
+        orPrivilegeGroups);
   }
 }

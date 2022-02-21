@@ -135,7 +135,7 @@ class BigQueryTableRef:
             raise ValueError(f"invalid BigQuery table reference: {ref}")
         return cls(parts[1], parts[3], parts[5])
 
-    def is_anonymous(self) -> bool:
+    def is_temporary_table(self) -> bool:
         # Temporary tables will have a dataset that begins with an underscore.
         return self.dataset.startswith("_")
 
@@ -735,7 +735,7 @@ class BigQueryUsageSource(Source):
                 logger.warning(f"Failed to process event {str(event.resource)}", e)
                 continue
 
-            if resource.is_anonymous():
+            if resource.is_temporary_table():
                 logger.debug(f"Dropping temporary table {resource}")
                 self.report.report_dropped(str(resource))
                 continue

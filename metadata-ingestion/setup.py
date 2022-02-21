@@ -45,6 +45,10 @@ framework_common = {
     "tabulate",
     "progressbar2",
     "psutil>=5.8.0",
+    # Markupsafe breaking change broke Jinja and some other libs
+    # Pinning it to a version which works even though we are not using explicitly
+    # https://github.com/aws/aws-sam-cli/issues/3661
+    "markupsafe==2.0.1",
 }
 
 kafka_common = {
@@ -113,7 +117,11 @@ plugins: Dict[str, Set[str]] = {
     "data-lake": {*aws_common, "pydeequ==1.0.1", "pyspark==3.0.3", "parse==1.19.0"},
     "dbt": {"requests"},
     "druid": sql_common | {"pydruid>=0.6.2"},
-    "elasticsearch": {"elasticsearch"},
+    # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
+    # UnsupportedProductError
+    # https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/release-notes.html#rn-7-14-0
+    # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
+    "elasticsearch": {"elasticsearch==7.13.4"},
     "feast": {"docker"},
     "glue": aws_common,
     "hive": sql_common
@@ -204,7 +212,7 @@ base_dev_requirements = {
     "jsonpickle",
     "build",
     "twine",
-    "pydot",
+    "packaging",
     *list(
         dependency
         for plugin in [

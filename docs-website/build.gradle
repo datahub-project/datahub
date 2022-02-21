@@ -63,7 +63,7 @@ task generateGraphQLDocumentation(type: YarnTask, dependsOn: [yarnInstall, gener
   args = ['docusaurus', 'docs:generate:graphql']
 }
 
-task yarnGenerate(type: YarnTask, dependsOn: [yarnInstall, generateGraphQLDocumentation] ) {
+task yarnGenerate(type: YarnTask, dependsOn: [yarnInstall, generateGraphQLDocumentation, ':metadata-ingestion:modelDocGen'] ) {
   inputs.files(projectMdFiles)
   outputs.cacheIf { true }
   args = ['run', 'generate']

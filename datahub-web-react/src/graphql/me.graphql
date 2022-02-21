@@ -12,7 +12,9 @@ query getMe {
                 fullName
                 email
             }
-            editableInfo {
+            editableProperties {
+                displayName
+                title
                 pictureLink
                 teams
                 skills
