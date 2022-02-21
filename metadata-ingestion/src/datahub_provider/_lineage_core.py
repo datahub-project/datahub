@@ -12,7 +12,9 @@ if TYPE_CHECKING:
     from airflow import DAG
     from airflow.models.baseoperator import BaseOperator
 
-    from datahub_provider.hooks.datahub import DatahubGenericHook, AIRFLOW_1
+    from datahub_provider.hooks.datahub import DatahubGenericHook
+
+from datahub_provider.hooks.datahub import AIRFLOW_1
 
 
 def _entities_to_urn_list(iolets: List[_Entity]) -> List[str]:
@@ -250,12 +252,16 @@ def send_lineage_to_datahub(
     )
 
     job_doc = (
-        operator.doc
-        or operator.doc_md
-        or operator.doc_json
-        or operator.doc_yaml
-        or operator.doc_rst
-    ) if not AIRFLOW_1 else None
+        (
+            operator.doc
+            or operator.doc_md
+            or operator.doc_json
+            or operator.doc_yaml
+            or operator.doc_rst
+        )
+        if not AIRFLOW_1
+        else None
+    )
 
     job_mce = models.MetadataChangeEventClass(
         proposedSnapshot=models.DataJobSnapshotClass(
