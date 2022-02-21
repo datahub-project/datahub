@@ -1,15 +1,24 @@
 package datahub.spark.model.dataset;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import com.linkedin.common.FabricType;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
 
+import io.opentracing.contrib.jdbc.parser.URLParser;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
 
 @EqualsAndHashCode
 @ToString
 public class JdbcDataset implements SparkDataset {
+  private static final Map<String, String> platformNameMapping = new HashMap<>();
+  static {
+    platformNameMapping.put("postgresql", "postgres");
+  }
+
   private final DatasetUrn urn;
 
   public JdbcDataset(String url, String tbl, FabricType fabricType) {
@@ -22,19 +31,11 @@ public class JdbcDataset implements SparkDataset {
   }
 
   private static String platformName(String url) {
-    if (url.contains("postgres")) {
-      return "postgres";
-    }
-    return "unknownJdbc";
+    String dbType = URLParser.parse(url).getDbType();
+    return platformNameMapping.getOrDefault(dbType, dbType);
   }
 
   private static String dsName(String url, String tbl) {
-    url = url.replaceFirst("jdbc:", "");
-    if (url.contains("postgres")) {
-      url = url.substring(url.lastIndexOf('/') + 1);
-      url = url.substring(0, url.indexOf('?'));
-    }
-    // TODO different DBs have different formats. TBD mapping to data source names
-    return url + "." + tbl;
+    return URLParser.parse(url).getDbInstance() + "." + tbl;
   }
 }
