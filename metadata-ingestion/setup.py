@@ -157,7 +157,7 @@ plugins: Dict[str, Set[str]] = {
     "snowflake": snowflake_common,
     "snowflake-usage": snowflake_common | {"more-itertools>=8.12.0"},
     "sqlalchemy": sql_common,
-    "superset": {"requests", "sqlalchemy", "great_expectations"},
+    "superset": {"requests", "sqlalchemy", "great_expectations", "greenlet"},
     "tableau": {"tableauserverclient>=0.17.0"},
     "trino": sql_common | {"trino"},
     "starburst-trino-usage": sql_common | {"trino"},
