@@ -1,30 +1,9 @@
-ARG debian_buster_image_tag=8-jre-slim
-FROM openjdk:${debian_buster_image_tag}
-
-#RUN apt update -y && \
-#    apt-get install -y software-properties-common && \
-#    apt update -y && \
-#    add-apt-repository ppa:deadsnakes/ppa && \
-RUN    apt update -y && \
-    apt install -y python2.7
-
-#FROM rappdw/docker-java-python:openjdk1.8.0_171-python3.6.6
-
-# -- Layer: OS + Python 3.7
-
+FROM rappdw/docker-java-python:openjdk1.8.0_171-python3.6.6
 
 ARG shared_workspace=/opt/workspace
 
-#RUN mkdir -p ${shared_workspace} && \
-#    apt-get update -y && \
-#    apt-get install -y python3.6 && \
-#    ln -s /usr/bin/python3.6 /usr/bin/python && \
-#    rm -rf /var/lib/apt/lists/*
 
 ENV SHARED_WORKSPACE=${shared_workspace}
-
-
-
 
 # -- Layer: Apache Spark
 
@@ -44,16 +23,8 @@ ENV SPARK_MASTER_HOST spark-master
 ENV SPARK_MASTER_PORT 7077
 ENV PYSPARK_PYTHON python2.7
 ENV PATH=$PATH:$SPARK_HOME/bin
-# -- Runtime
 
 COPY workspace $SHARED_WORKSPACE
 
-cmd ls $SHARED_WORKSPACE
-
 WORKDIR ${SPARK_HOME}
 
-RUN python2.7 --version
-
-RUN echo $PATH
-
-RUN ls $SPARK_HOME/bin

@@ -24,9 +24,9 @@ df_o = spark.sql("select v1.c1 as a1, v1.c2 as b1, v2.c1 as c1, v2.c2 as d1 from
 df_o.write.mode('overwrite').csv(DATA_DIR + "/" + TEST_CASE_NAME+"/out2.csv")
 
 spark.sparkContext.stop()
-#spark.sparkContext._gateway.close()
+
 spark.stop()
 
-print("session terminated")
 
-#exit(0)
+
+

@@ -35,10 +35,5 @@ df.write.mode('overwrite').saveAsTable(tbl("foo4")) # CreateDataSourceTableAsSel
 df.write.mode('append').saveAsTable(tbl("foo4")) # CreateDataSourceTableAsSelectCommand
 df.write.insertInto(tbl("foo4")) # InsertIntoHadoopFsRelationCommand
 
-spark.sparkContext.stop()
-#spark.sparkContext._gateway.close()
 spark.stop()
 
-print("session terminated")
-
-#exit(0)

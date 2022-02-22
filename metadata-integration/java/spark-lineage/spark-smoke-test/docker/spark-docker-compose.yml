@@ -7,15 +7,9 @@ services:
     ports:
       - 8090:8080
       - 7077:7077
-#    depends_on:
-#      datahub-gms:
-#       condition: service_started
   spark-worker-1:
     image: spark-slave
     container_name: spark-worker-1
-#    environment:
-  #    - SPARK_WORKER_CORES=1
- #     - SPARK_WORKER_MEMORY=512m
     ports:
       - 8091:8081
     depends_on:
@@ -23,25 +17,10 @@ services:
   spark-worker-2:
     image: spark-slave
     container_name: spark-worker-2
-# environment:
-    #  - SPARK_WORKER_CORES=1
-    #  - SPARK_WORKER_MEMORY=512m
     ports:
       - 8092:8081
     depends_on:
       - spark-master
-#  spark-submit:
-#    image: spark-submit
-#    container_name: spark-submit
-#    depends_on:
-#      - spark-master
-#    extra_hosts:
-#       - "master:host-gateway"
-#      - "host.docker.internal:host-gateway"
-   
-#networks:
-#  default:
-#    name: spark_network
 
 networks:
   default:

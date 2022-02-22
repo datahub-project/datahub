@@ -74,7 +74,4 @@ def test_ingestion_via_rest(json_file):
         data = response.json()
         diff = json_compare.check(value, data)
         print(urn)
-        if diff != NO_DIFF:
-            print("!!!!!!Golden json: \n", value)
-            print("!!!!!!Actual json: \n", data)
         assert diff == NO_DIFF

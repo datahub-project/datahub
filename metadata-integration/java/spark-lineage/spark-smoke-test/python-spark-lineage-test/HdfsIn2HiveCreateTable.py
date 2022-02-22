@@ -33,11 +33,6 @@ df = df1.join(df2, "id").drop("id")
 
 df.write.mode('overwrite').saveAsTable(tbl("foo3")) # CreateDataSourceTableAsSelectCommand
 
-
-spark.sparkContext.stop()
-#spark.sparkContext._gateway.close()
 spark.stop()
 
-print("session terminated")
 
-#exit(0)

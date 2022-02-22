@@ -50,11 +50,6 @@ df = spark.sql("select * from " + tbl("foo5"));
 # InsertIntoHiveTable
 df.write.insertInto(tbl("hivetab"));
 
-
-spark.sparkContext.stop()
-#spark.sparkContext._gateway.close()
 spark.stop()
 
-print("session terminated")
 
-#exit(0)
