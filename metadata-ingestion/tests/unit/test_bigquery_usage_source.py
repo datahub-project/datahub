@@ -5,20 +5,8 @@ import pytest
 
 
 @pytest.mark.integration
-def test_bigquery_uri():
-    from datahub.ingestion.source.sql.bigquery import BigQueryConfig
-
-    config = BigQueryConfig.parse_obj(
-        {
-            "project_id": "test-project",
-        }
-    )
-    assert config.get_sql_alchemy_url() == "bigquery://test-project"
-
-
-@pytest.mark.integration
 def test_bigquery_uri_with_credential():
-    from datahub.ingestion.source.sql.bigquery import BigQueryConfig
+    from datahub.ingestion.source.usage.bigquery_usage import BigQueryUsageConfig
 
     expected_credential_json = {
         "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
@@ -33,7 +21,7 @@ def test_bigquery_uri_with_credential():
         "type": "service_account",
     }
 
-    config = BigQueryConfig.parse_obj(
+    config = BigQueryUsageConfig.parse_obj(
         {
             "project_id": "test-project",
             "credential": {
@@ -47,8 +35,6 @@ def test_bigquery_uri_with_credential():
     )
 
     try:
-
-        assert config.get_sql_alchemy_url() == "bigquery://test-project"
         assert config._credentials_path
 
         with open(config._credentials_path) as jsonFile:
