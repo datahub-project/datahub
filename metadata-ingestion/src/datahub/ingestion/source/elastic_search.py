@@ -223,7 +223,7 @@ class ElasticsearchSource(Source):
         return cls(config, ctx)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        indices = self.client.indices.get_alias(index="*")
+        indices = self.client.indices.get_alias()
 
         for index in indices:
             self.report.report_index_scanned(index)
