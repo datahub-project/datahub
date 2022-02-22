@@ -210,7 +210,7 @@ public class TestSparkJobsLineage {
   }
 
   private static HdfsPathDataset hdfsDs(String fileName) {
-    return new HdfsPathDataset("file:" + abs(DATA_DIR + "/" + fileName), DATASET_PLATFORM_INSTANCE,DATASET_ENV);
+    return new HdfsPathDataset("file:" + abs(DATA_DIR + "/" + fileName), DATASET_PLATFORM_INSTANCE, DATASET_ENV);
   }
 
   private static JdbcDataset pgDs(String tbl) {
