@@ -25,8 +25,4 @@ datahub docker quickstart \
 
 (cd tests/cypress ; yarn install)
 
-cd spark-smoke-test
-
-./setup_spark_smoke_test.sh
-
 pytest -vv --continue-on-collection-errors --junit-xml=junit.smoke.xml
