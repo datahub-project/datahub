@@ -2,6 +2,7 @@ namespace com.linkedin.datajob
 
 import com.linkedin.common.DatasetUrn
 import com.linkedin.common.DataJobUrn
+import com.linkedin.common.DatasetInputOutputLineage
 
 
 /**
@@ -10,45 +11,7 @@ import com.linkedin.common.DataJobUrn
 @Aspect = {
   "name": "dataJobInputOutput"
 }
-record DataJobInputOutput {
-
-  /**
-   * Input datasets consumed by the data job during processing
-   */
-  @Relationship = {
-    "/*": {
-      "name": "Consumes",
-      "entityTypes": [ "dataset" ]
-    }
-  }
-  @Searchable = {
-    "/*": {
-      "fieldName": "inputs",
-      "fieldType": "URN",
-      "numValuesFieldName": "numInputDatasets",
-      "queryByDefault": false
-    }
-  }
-  inputDatasets: array[DatasetUrn]
-
-  /**
-   * Output datasets produced by the data job during processing
-   */
-  @Relationship = {
-    "/*": {
-      "name": "Produces",
-      "entityTypes": [ "dataset" ]
-    }
-  }
-  @Searchable = {
-    "/*": {
-      "fieldName": "outputs",
-      "fieldType": "URN",
-      "numValuesFieldName": "numOutputDatasets",
-      "queryByDefault": false
-    }
-  }
-  outputDatasets: array[DatasetUrn]
+record DataJobInputOutput includes DatasetInputOutputLineage {
 
   /**
    * Input datajobs that this data job depends on

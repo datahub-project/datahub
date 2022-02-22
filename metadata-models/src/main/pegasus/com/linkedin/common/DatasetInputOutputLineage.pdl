@@ -1,0 +1,48 @@
+namespace com.linkedin.common
+
+/**
+ * Input and output datasets to be consumed and produced by an entity
+ */
+@Aspect = {
+  "name": "datasetInputOutputLineage"
+}
+record DatasetInputOutputLineage {
+
+  /**
+   * Input datasets to be consumed
+   */
+  @Relationship = {
+    "/*": {
+      "name": "Consumes",
+      "entityTypes": [ "dataset" ]
+    }
+  }
+  @Searchable = {
+    "/*": {
+      "fieldName": "inputs",
+      "fieldType": "URN",
+      "numValuesFieldName": "numInputDatasets",
+      "queryByDefault": false
+    }
+  }
+  inputDatasets: array[DatasetUrn]
+
+  /**
+   * Output datasets to be produced
+   */
+  @Relationship = {
+    "/*": {
+      "name": "Produces",
+      "entityTypes": [ "dataset" ]
+    }
+  }
+  @Searchable = {
+    "/*": {
+      "fieldName": "outputs",
+      "fieldType": "URN",
+      "numValuesFieldName": "numOutputDatasets",
+      "queryByDefault": false
+    }
+  }
+  outputDatasets: array[DatasetUrn]
+}
