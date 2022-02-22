@@ -15,7 +15,7 @@ from jsoncomparison import Compare, NO_DIFF
 # from tests.utils import ingest_file_via_rest
 
 GMS_ENDPOINT = "http://localhost:8080"
-GOLDEN_FILES_PATH = "golden_json"
+GOLDEN_FILES_PATH = "./golden_json/"
 golden_files = os.listdir(GOLDEN_FILES_PATH)
 print(golden_files)
 [file_name.strip(".json") for file_name in golden_files]
