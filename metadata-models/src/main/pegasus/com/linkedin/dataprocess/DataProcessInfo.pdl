@@ -2,14 +2,16 @@ namespace com.linkedin.dataprocess
 
 import com.linkedin.common.CustomProperties
 import com.linkedin.common.ExternalReference
+import com.linkedin.timeseries.TimeseriesAspectBase
 
 /**
  * The inputs and outputs of this data process
  */
 @Aspect = {
-  "name": "dataProcessInfo"
+  "name": "dataProcessInfo",
+  "type": "timeseries",
 }
-record DataProcessInfo includes CustomProperties, ExternalReference {
+record DataProcessInfo includes CustomProperties, ExternalReference, TimeseriesAspectBase {
 
   /**
    * Process name
@@ -42,5 +44,6 @@ record DataProcessInfo includes CustomProperties, ExternalReference {
   /**
    * Status of the process
    */
+  @TimeseriesField = {}
   status: optional ProcessStatus
 }
