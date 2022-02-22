@@ -90,7 +90,7 @@ source:
 
 Note that the `domain` in config above can be either an _urn_ or a domain _id_ (i.e. `urn:li:domain:13ae4d85-d955-49fc-8474-9004c663a810` or simply `13ae4d85-d955-49fc-8474-9004c663a810`). The Domain should exist in your DataHub instance before ingesting data into the Domain. To create a Domain on DataHub, check out the [Domains User Guide](https://datahubproject.io/docs/domains/).
 
-If you are trying to provide the topic to schema registry subject name mapping via `topic_subject_map`, you can use a configuration like below.
+If you are trying to provide the topic to schema registry subject name mapping via `topic_subject_map`, you can use a configuration like below. This is required when the `RecordNameStrategy` is used.
 
 ```yml
 source:
@@ -106,8 +106,6 @@ source:
       # Defines only the value schema for topic 'my_topic_2' (the topic doesn't have a key schema).
       "my_topic_2-value": "io.acryl.Schema3"
 ```
-
-Note that the `domain` in config above can be either an _urn_ or a domain _id_ (i.e. `urn:li:domain:13ae4d85-d955-49fc-8474-9004c663a810` or simply `13ae4d85-d955-49fc-8474-9004c663a810`). The Domain should exist in your DataHub instance before ingesting data into the Domain. To create a Domain on DataHub, check out the [Domains User Guide](https://datahubproject.io/docs/domains/).
 
 ## Config details
 
