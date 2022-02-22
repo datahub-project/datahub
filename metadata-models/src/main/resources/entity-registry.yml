@@ -31,6 +31,21 @@ entities:
     aspects:
       - domains
       - deprecation
+  - name: dataProcess
+    keyAspect: dataProcessKey
+    aspects:
+      - dataProcessInfo
+      - dataProcessInputOutput
+      - editableDataProcessProperties
+      - ownership
+      - status
+      - globalTags
+      - browsePaths
+      - glossaryTerms
+      - institutionalMemory
+      - deprecation
+      - dataPlatformInstance
+      - domains
   - name: chart
     keyAspect: chartKey
     aspects:

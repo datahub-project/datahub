@@ -10,6 +10,7 @@ import com.linkedin.common.GlobalTags
 import com.linkedin.common.BrowsePaths
 import com.linkedin.common.GlossaryTerms
 import com.linkedin.common.InstitutionalMemory
+import com.linkedin.common.Deprecation
 import com.linkedin.common.DataPlatformInstance
 
 /**
@@ -27,5 +28,6 @@ typeref DataProcessAspect = union[
   BrowsePaths,
   GlossaryTerms,
   InstitutionalMemory,
+  Deprecation,
   DataPlatformInstance
 ]
