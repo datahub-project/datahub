@@ -70,6 +70,17 @@ public class EbeanTimelineService implements TimelineService {
         }
         break;
         case DOCUMENTATION: {
+          aspects.add("institutionalMemory");
+          _diffFactory.addDiffer(entityType, elementName, "institutionalMemory", new BasicDiffer());
+          aspects.add("editableDatasetProperties");
+          _diffFactory.addDiffer(entityType, elementName, "editableDatasetProperties", new BasicDiffer());
+          aspects.add("datasetProperties");
+          _diffFactory.addDiffer(entityType, elementName, "datasetProperties", new BasicDiffer());
+        }
+        break;
+        case GLOSSARY_TERM: {
+          aspects.add("glossaryTerms");
+          _diffFactory.addDiffer(entityType, elementName, "glossaryTerms", new BasicDiffer());
         }
         break;
         case TECHNICAL_SCHEMA: {

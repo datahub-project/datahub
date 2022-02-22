@@ -322,3 +322,18 @@ External Entities Affected: None
 Old Entities Migrated = {'urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)'}
 ```
 
+### timeline
+
+The `migrate` command allows you to view a version history for entities. Currently only supported for Datasets. For example,
+the following command will show you the modifications to tags for a dataset for the past week. The output includes a computed semantic version,
+relevant for schema changes only currently, the target of the modification, and a description of the change including a timestamp.
+The default output is sanitized to be more readable, but the full API output can be obtained by passing the `--verbose` flag and
+to get the raw JSON difference in addition to the API output you can add the `--raw` flag.
+
+```console
+datahub timeline --urn "urn:li:dataset:(urn:li:dataPlatform:mysql,User.UserAccount,PROD)" --category TAG --start 7daysago
+2022-02-17 14:03:42 - 0.0.0-computed
+	MODIFY TAG dataset:mysql:User.UserAccount : A change in aspect editableSchemaMetadata happened at time 2022-02-17 20:03:42.0
+2022-02-17 14:17:30 - 0.0.0-computed
+	MODIFY TAG dataset:mysql:User.UserAccount : A change in aspect editableSchemaMetadata happened at time 2022-02-17 20:17:30.118
+```
