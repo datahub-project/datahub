@@ -1,5 +1,6 @@
 package datahub.spark;
 
+import datahub.spark.model.LineageUtils;
 import datahub.spark.model.dataset.CatalogTableDataset;
 import datahub.spark.model.dataset.HdfsPathDataset;
 import datahub.spark.model.dataset.JdbcDataset;
@@ -44,34 +45,35 @@ public class DatasetExtractor {
       InsertIntoHadoopFsRelationCommand.class, SaveIntoDataSourceCommand.class,
       CreateDataSourceTableAsSelectCommand.class, CreateHiveTableAsSelectCommand.class, InsertIntoHiveTable.class);
   private static final String DATASET_ENV_KEY = "metadata.dataset.env";
+  private static final String DATSET_PLATFORM_INSTANCE_KEY = "metadata.dataset.platform_instance";
   // TODO InsertIntoHiveDirCommand, InsertIntoDataSourceDirCommand
 
   private static interface PlanToDataset {
-    Optional<? extends SparkDataset> fromPlanNode(LogicalPlan plan, SparkContext ctx, Config datahubconfig);
+    Optional<? extends SparkDataset> fromPlanNode(LogicalPlan plan, SparkContext ctx, Config datahubConfig);
   }
 
   private static interface RelationToDataset {
-    Optional<? extends SparkDataset> fromRelation(BaseRelation rel, SparkContext ctx, Config datahubconfig);
+    Optional<? extends SparkDataset> fromRelation(BaseRelation rel, SparkContext ctx, Config datahubConfig);
   }
 
   static {
-    PLAN_TO_DATASET.put(InsertIntoHadoopFsRelationCommand.class, (p, ctx, datahubconfig) -> {
+    PLAN_TO_DATASET.put(InsertIntoHadoopFsRelationCommand.class, (p, ctx, datahubConfig) -> {
       InsertIntoHadoopFsRelationCommand cmd = (InsertIntoHadoopFsRelationCommand) p;
       if (cmd.catalogTable().isDefined()) {
-        return Optional.of(new CatalogTableDataset(cmd.catalogTable().get(), getCommonFabricType(datahubconfig)));
+        return Optional.of(new CatalogTableDataset(cmd.catalogTable().get(), getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig)));
       }
-      return Optional.of(new HdfsPathDataset(cmd.outputPath(), getCommonFabricType(datahubconfig)));
+      return Optional.of(new HdfsPathDataset(cmd.outputPath(), getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig)));
     });
 
-    PLAN_TO_DATASET.put(LogicalRelation.class, (p, ctx, datahubconfig) -> {
+    PLAN_TO_DATASET.put(LogicalRelation.class, (p, ctx, datahubConfig) -> {
       BaseRelation baseRel = ((LogicalRelation) p).relation();
       if (!REL_TO_DATASET.containsKey(baseRel.getClass())) {
         return Optional.empty();
       }
-      return REL_TO_DATASET.get(baseRel.getClass()).fromRelation(baseRel, ctx, datahubconfig);
+      return REL_TO_DATASET.get(baseRel.getClass()).fromRelation(baseRel, ctx, datahubConfig);
     });
 
-    PLAN_TO_DATASET.put(SaveIntoDataSourceCommand.class, (p, ctx, datahubconfig) -> {
+    PLAN_TO_DATASET.put(SaveIntoDataSourceCommand.class, (p, ctx, datahubConfig) -> {
 
       SaveIntoDataSourceCommand cmd = (SaveIntoDataSourceCommand) p;
 
@@ -82,43 +84,43 @@ public class DatasetExtractor {
       }
 
       String tbl = options.get("dbtable");
-      return Optional.of(new JdbcDataset(url, tbl, getCommonFabricType(datahubconfig)));
+      return Optional.of(new JdbcDataset(url, tbl, getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig)));
     });
 
-    PLAN_TO_DATASET.put(CreateDataSourceTableAsSelectCommand.class, (p, ctx, datahubconfig) -> {
+    PLAN_TO_DATASET.put(CreateDataSourceTableAsSelectCommand.class, (p, ctx, datahubConfig) -> {
       CreateDataSourceTableAsSelectCommand cmd = (CreateDataSourceTableAsSelectCommand) p;
       // TODO what of cmd.mode()
-      return Optional.of(new CatalogTableDataset(cmd.table(), getCommonFabricType(datahubconfig)));
+      return Optional.of(new CatalogTableDataset(cmd.table(), getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig)));
     });
-    PLAN_TO_DATASET.put(CreateHiveTableAsSelectCommand.class, (p, ctx, datahubconfig) -> {
+    PLAN_TO_DATASET.put(CreateHiveTableAsSelectCommand.class, (p, ctx, datahubConfig) -> {
       CreateHiveTableAsSelectCommand cmd = (CreateHiveTableAsSelectCommand) p;
-      return Optional.of(new CatalogTableDataset(cmd.tableDesc(), getCommonFabricType(datahubconfig)));
+      return Optional.of(new CatalogTableDataset(cmd.tableDesc(), getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig)));
     });
-    PLAN_TO_DATASET.put(InsertIntoHiveTable.class, (p, ctx, datahubconfig) -> {
+    PLAN_TO_DATASET.put(InsertIntoHiveTable.class, (p, ctx, datahubConfig) -> {
       InsertIntoHiveTable cmd = (InsertIntoHiveTable) p;
-      return Optional.of(new CatalogTableDataset(cmd.table(), getCommonFabricType(datahubconfig)));
+      return Optional.of(new CatalogTableDataset(cmd.table(), getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig)));
     });
 
-    PLAN_TO_DATASET.put(HiveTableRelation.class, (p, ctx, datahubconfig) -> {
+    PLAN_TO_DATASET.put(HiveTableRelation.class, (p, ctx, datahubConfig) -> {
       HiveTableRelation cmd = (HiveTableRelation) p;
-      return Optional.of(new CatalogTableDataset(cmd.tableMeta(), getCommonFabricType(datahubconfig)));
+      return Optional.of(new CatalogTableDataset(cmd.tableMeta(), getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig)));
     });
 
-    REL_TO_DATASET.put(HadoopFsRelation.class, (r, ctx, datahubconfig) -> {
+    REL_TO_DATASET.put(HadoopFsRelation.class, (r, ctx, datahubConfig) -> {
       List<Path> res = JavaConversions.asJavaCollection(((HadoopFsRelation) r).location().rootPaths()).stream()
           .map(p -> getDirectoryPath(p, ctx.hadoopConfiguration())).distinct().collect(Collectors.toList());
 
       // TODO mapping to URN TBD
-      return Optional.of(new HdfsPathDataset(res.get(0), getCommonFabricType(datahubconfig)));
+      return Optional.of(new HdfsPathDataset(res.get(0), getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig)));
     });
-    REL_TO_DATASET.put(JDBCRelation.class, (r, ctx, datahubconfig) -> {
+    REL_TO_DATASET.put(JDBCRelation.class, (r, ctx, datahubConfig) -> {
       JDBCRelation rel = (JDBCRelation) r;
       Option<String> tbl = rel.jdbcOptions().parameters().get(JDBCOptions.JDBC_TABLE_NAME());
       if (tbl.isEmpty()) {
         return Optional.empty();
       }
 
-      return Optional.of(new JdbcDataset(rel.jdbcOptions().url(), tbl.get(), getCommonFabricType(datahubconfig)));
+      return Optional.of(new JdbcDataset(rel.jdbcOptions().url(), tbl.get(), getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig)));
     });
   }
 
@@ -130,7 +132,7 @@ public class DatasetExtractor {
     if (!PLAN_TO_DATASET.containsKey(logicalPlan.getClass())) {
       return Optional.empty();
     }
-    Config datahubconfig = DatahubSparkListener.parseSparkConfig();
+    Config datahubconfig = LineageUtils.parseSparkConfig();
     return PLAN_TO_DATASET.get(logicalPlan.getClass()).fromPlanNode(logicalPlan, ctx, datahubconfig);
   }
 
@@ -160,4 +162,8 @@ public class DatasetExtractor {
     return fabricType;
   }
 
+  private static String getCommonPlatformInstance(Config datahubConfig) {
+    return datahubConfig.hasPath(DATSET_PLATFORM_INSTANCE_KEY) ? datahubConfig.getString(DATSET_PLATFORM_INSTANCE_KEY)
+        : null;
+  }
 }

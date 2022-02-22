@@ -4,9 +4,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 import com.linkedin.common.FabricType;
-import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
 
+import datahub.spark.model.LineageUtils;
 import io.opentracing.contrib.jdbc.parser.URLParser;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
@@ -14,15 +14,16 @@ import lombok.ToString;
 @EqualsAndHashCode
 @ToString
 public class JdbcDataset implements SparkDataset {
-  private static final Map<String, String> platformNameMapping = new HashMap<>();
+  //TODO: Should map to the central location on datahub for platform names
+  private static final Map<String, String> PLATFORM_NAME_MAPPING = new HashMap<>();
   static {
-    platformNameMapping.put("postgresql", "postgres");
+    PLATFORM_NAME_MAPPING.put("postgresql", "postgres");
   }
 
   private final DatasetUrn urn;
 
-  public JdbcDataset(String url, String tbl, FabricType fabricType) {
-    this.urn = new DatasetUrn(new DataPlatformUrn(platformName(url)), dsName(url, tbl), fabricType);
+  public JdbcDataset(String url, String tbl, String platformInstance, FabricType fabricType) {
+    this.urn = LineageUtils.createDatasetUrn(platformName(url), platformInstance, dsName(url, tbl), fabricType);
   }
 
   @Override
@@ -32,7 +33,7 @@ public class JdbcDataset implements SparkDataset {
 
   private static String platformName(String url) {
     String dbType = URLParser.parse(url).getDbType();
-    return platformNameMapping.getOrDefault(dbType, dbType);
+    return PLATFORM_NAME_MAPPING.getOrDefault(dbType, dbType);
   }
 
   private static String dsName(String url, String tbl) {

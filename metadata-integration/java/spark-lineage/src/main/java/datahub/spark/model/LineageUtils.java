@@ -1,15 +1,25 @@
 package datahub.spark.model;
 
+import com.linkedin.common.FabricType;
 import com.linkedin.common.urn.DataFlowUrn;
 import com.linkedin.common.urn.DataPlatformUrn;
+import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 
 import java.net.URISyntaxException;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
+
 import lombok.extern.slf4j.Slf4j;
+
+import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
 import org.apache.spark.SparkContext$;
+import org.apache.spark.SparkEnv;
 import org.apache.spark.sql.SparkSession;
 import scala.Option;
 import scala.runtime.AbstractFunction0;
@@ -65,6 +75,21 @@ public class LineageUtils {
     return consumers.get(consumerType);
   }
 
+  public static Config parseSparkConfig() {
+    SparkConf conf = SparkEnv.get().conf();
+    String propertiesString = Arrays.stream(conf.getAllWithPrefix("spark.datahub."))
+            .map(tup -> tup._1 + "= \"" + tup._2 + "\"")
+            .collect(Collectors.joining("\n"));
+    return ConfigFactory.parseString(propertiesString);
+  }
+  
+  //TODO: URN creation with platform instance needs to be inside DatasetUrn class
+  public static DatasetUrn createDatasetUrn(String platform, String platformInstance, String name, FabricType fabricType) {
+    String datasteName =  platformInstance == null ? name : platformInstance + "." + name;
+    return new DatasetUrn(new DataPlatformUrn(platform), datasteName, fabricType);
+    }
+    
+  
   /* This is for generating urn from a hash of the plan */
 
   /*

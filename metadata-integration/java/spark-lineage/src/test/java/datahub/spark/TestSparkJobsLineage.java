@@ -71,6 +71,11 @@ public class TestSparkJobsLineage {
   private static final int GMS_PORT = MOCK_GMS ? MOCK_PORT : 8080;
 
   private static final String EXPECTED_JSON_ROOT = "src/test/resources/expected/";
+  
+  private static final FabricType DATASET_ENV = FabricType.DEV;
+  private static final String PIPELINE_PLATFORM_INSTANCE = "test_machine";
+  private static final String DATASET_PLATFORM_INSTANCE = "test_dev_dataset";
+  
   @ClassRule
   public static PostgreSQLContainer<?> db =
       new PostgreSQLContainer<>("postgres:9.6.12").withDatabaseName("sparktestdb");
@@ -147,7 +152,9 @@ public class TestSparkJobsLineage {
         .config("spark.extraListeners", "datahub.spark.DatahubSparkListener")
         .config("spark.datahub.lineage.consumerTypes", "accumulator")
         .config("spark.datahub.rest.server", "http://localhost:" + mockServer.getPort())
-        .config("spark.datahub.metadata.pipeline.platform_instance", "test_machine")
+        .config("spark.datahub.metadata.pipeline.platform_instance", PIPELINE_PLATFORM_INSTANCE)
+        .config("spark.datahub.metadata.dataset.platform_instance", DATASET_PLATFORM_INSTANCE)
+        .config("spark.datahub.metadata.dataset.env", DATASET_ENV.name())
         .config("spark.sql.warehouse.dir", new File(WAREHOUSE_LOC).getAbsolutePath())
         .enableHiveSupport()
         .getOrCreate();
@@ -203,15 +210,15 @@ public class TestSparkJobsLineage {
   }
 
   private static HdfsPathDataset hdfsDs(String fileName) {
-    return new HdfsPathDataset("file:" + abs(DATA_DIR + "/" + fileName), FabricType.PROD);
+    return new HdfsPathDataset("file:" + abs(DATA_DIR + "/" + fileName), DATASET_PLATFORM_INSTANCE,DATASET_ENV);
   }
 
   private static JdbcDataset pgDs(String tbl) {
-    return new JdbcDataset(db.getJdbcUrl(), tbl, FabricType.PROD);
+    return new JdbcDataset(db.getJdbcUrl(), tbl, DATASET_PLATFORM_INSTANCE, DATASET_ENV);
   }
 
   private static CatalogTableDataset catTblDs(String tbl) {
-    return new CatalogTableDataset(tbl(tbl), FabricType.PROD);
+    return new CatalogTableDataset(tbl(tbl), DATASET_PLATFORM_INSTANCE, DATASET_ENV);
   }
 
   private static String tbl(String tbl) {

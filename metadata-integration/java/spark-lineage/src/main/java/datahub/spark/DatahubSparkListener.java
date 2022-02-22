@@ -1,21 +1,9 @@
 package datahub.spark;
 
-import com.google.common.base.Splitter;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import datahub.spark.model.LineageUtils;
-import datahub.spark.model.AppEndEvent;
-import datahub.spark.model.AppStartEvent;
-import datahub.spark.model.DatasetLineage;
-import datahub.spark.model.LineageConsumer;
-import datahub.spark.model.SQLQueryExecEndEvent;
-import datahub.spark.model.SQLQueryExecStartEvent;
-import datahub.spark.model.dataset.SparkDataset;
-import datahub.spark.consumer.impl.McpEmitter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -27,7 +15,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
-import lombok.extern.slf4j.Slf4j;
+
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
 import org.apache.spark.SparkEnv;
@@ -42,12 +30,24 @@ import org.apache.spark.sql.execution.QueryExecution;
 import org.apache.spark.sql.execution.SQLExecution;
 import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionEnd;
 import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionStart;
+
+import com.google.common.base.Splitter;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.typesafe.config.Config;
+
+import datahub.spark.consumer.impl.McpEmitter;
+import datahub.spark.model.AppEndEvent;
+import datahub.spark.model.AppStartEvent;
+import datahub.spark.model.DatasetLineage;
+import datahub.spark.model.LineageConsumer;
+import datahub.spark.model.LineageUtils;
+import datahub.spark.model.SQLQueryExecEndEvent;
+import datahub.spark.model.SQLQueryExecStartEvent;
+import datahub.spark.model.dataset.SparkDataset;
+import lombok.extern.slf4j.Slf4j;
 import scala.collection.JavaConversions;
 import scala.runtime.AbstractFunction1;
 import scala.runtime.AbstractPartialFunction;
-
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 
 
 
@@ -162,14 +162,6 @@ public class DatahubSparkListener extends SparkListener {
     }
   }
   
-  public static Config parseSparkConfig() {
-    SparkConf conf = SparkEnv.get().conf();
-    String propertiesString = Arrays.stream(conf.getAllWithPrefix("spark.datahub."))
-            .map(tup -> tup._1 + "= \"" + tup._2 + "\"")
-            .collect(Collectors.joining("\n"));
-    return ConfigFactory.parseString(propertiesString);
-  }
-
   @Override
   public void onApplicationStart(SparkListenerApplicationStart applicationStart) {
     try {
@@ -295,7 +287,8 @@ public class DatahubSparkListener extends SparkListener {
     String appId = ctx.applicationId();
     Config datahubConfig = appConfig.get(appId);
     if (datahubConfig == null) {
-      Config datahubConf = parseSparkConfig();
+      Config datahubConf = LineageUtils.parseSparkConfig();
+      appConfig.put(appId, datahubConf);
       Config pipelineConfig = datahubConf.hasPath(PIPELINE_KEY) ? datahubConf.getConfig(PIPELINE_KEY) : com.typesafe.config.ConfigFactory.empty(); 
       AppStartEvent evt = new AppStartEvent(LineageUtils.getMaster(ctx), getPipelineName(ctx), appId, ctx.startTime(),
           ctx.sparkUser(), pipelineConfig);
@@ -317,13 +310,13 @@ public class DatahubSparkListener extends SparkListener {
   }
 
   private String getPipelineName(SparkContext cx) {
-    Config datahubConfig = appConfig.computeIfAbsent(cx.applicationId(), s -> parseSparkConfig());
+    Config datahubConfig = appConfig.computeIfAbsent(cx.applicationId(), s -> LineageUtils.parseSparkConfig());
     String name = "";
     if (datahubConfig.hasPath(DATABRICKS_CLUSTER_KEY)) {
       name = datahubConfig.getString(DATABRICKS_CLUSTER_KEY) + "_" + cx.applicationId();
     }
     name = cx.appName();
-    
+    //TODO: appending of platform instance needs to be done at central location like adding constructor to dataflowurl
     if (datahubConfig.hasPath(PIPELINE_PLATFORM_INSTANCE_KEY)) {
       name = datahubConfig.getString(PIPELINE_PLATFORM_INSTANCE_KEY) + "." + name;
     }

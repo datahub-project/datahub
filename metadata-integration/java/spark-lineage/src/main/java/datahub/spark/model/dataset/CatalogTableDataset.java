@@ -3,9 +3,9 @@ package datahub.spark.model.dataset;
 import org.apache.spark.sql.catalyst.catalog.CatalogTable;
 
 import com.linkedin.common.FabricType;
-import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
 
+import datahub.spark.model.LineageUtils;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
 
@@ -14,12 +14,12 @@ import lombok.ToString;
 public class CatalogTableDataset implements SparkDataset {
   private final DatasetUrn urn;
 
-  public CatalogTableDataset(CatalogTable table, FabricType fabricType) {
-    this(table.qualifiedName(), fabricType);
+  public CatalogTableDataset(CatalogTable table, String platformInstance, FabricType fabricType) {
+    this(table.qualifiedName(), platformInstance, fabricType);
   }
 
-  public CatalogTableDataset(String dsName, FabricType fabricType) {
-    this.urn = new DatasetUrn(new DataPlatformUrn("hive"), dsName, fabricType);
+  public CatalogTableDataset(String dsName, String platformInstance, FabricType fabricType) {
+    this.urn = LineageUtils.createDatasetUrn("hive", platformInstance, dsName, fabricType);
   }
 
   @Override
