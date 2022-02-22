@@ -6,7 +6,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.fge.jsonpatch.JsonPatch;
 import com.github.fge.jsonpatch.diff.JsonDiff;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.JacksonDataTemplateCodec;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.timeline.TimelineService;
@@ -16,6 +15,7 @@ import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import com.linkedin.metadata.timeline.data.SemanticChangeType;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -30,19 +30,21 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import org.apache.parquet.SemanticVersion;
 
+import static com.linkedin.metadata.Constants.*;
+
 
 public class EbeanTimelineService implements TimelineService {
 
-  private static final int DEFAULT_MAX_TRANSACTION_RETRY = 3;
+  //private static final int DEFAULT_MAX_TRANSACTION_RETRY = 3;
   private static final long DEFAULT_LOOKBACK_TIME_WINDOW_MILLIS = 7 * 24 * 60 * 60 * 1000L; // 1 week lookback
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
   private static final long FIRST_TRANSACTION_ID = 0;
   private static final String BUILD_VALUE_COMPUTED = "-computed";
 
   private final EbeanAspectDao _entityDao;
-  private final JacksonDataTemplateCodec _dataTemplateCodec = new JacksonDataTemplateCodec();
+  //private final JacksonDataTemplateCodec _dataTemplateCodec = new JacksonDataTemplateCodec();
   private final DiffFactory _diffFactory;
-  private HashMap<String, HashMap<ChangeCategory, Set<String>>> entityTypeElementAspectRegistry = new HashMap<>();
+  private final HashMap<String, HashMap<ChangeCategory, Set<String>>> entityTypeElementAspectRegistry = new HashMap<>();
 
   public EbeanTimelineService(@Nonnull EbeanAspectDao entityDao) {
     this._entityDao = entityDao;
@@ -51,41 +53,41 @@ public class EbeanTimelineService implements TimelineService {
     // Dataset registry
     HashMap<ChangeCategory, Set<String>> datasetElementAspectRegistry = new HashMap<>();
     _diffFactory = new DiffFactory();
-    String entityType = "dataset";
+    String entityType = DATASET_ENTITY_NAME;
     for (ChangeCategory elementName : ChangeCategory.values()) {
       Set<String> aspects = new HashSet<>();
       switch (elementName) {
         case TAG: {
-          aspects.add("schemaMetadata");
-          _diffFactory.addDiffer(entityType, elementName, "schemaMetadata", new BasicDiffer());
-          aspects.add("editableSchemaMetadata");
-          _diffFactory.addDiffer(entityType, elementName, "editableSchemaMetadata", new BasicDiffer());
-          aspects.add("globalTags");
-          _diffFactory.addDiffer(entityType, elementName, "globalTags", new BasicDiffer());
+          aspects.add(SCHEMA_METADATA_ASPECT_NAME);
+          _diffFactory.addDiffer(entityType, elementName, SCHEMA_METADATA_ASPECT_NAME, new BasicDiffer());
+          aspects.add(EDITABLE_SCHEMA_METADATA_ASPECT_NAME);
+          _diffFactory.addDiffer(entityType, elementName, EDITABLE_SCHEMA_METADATA_ASPECT_NAME, new BasicDiffer());
+          aspects.add(GLOBAL_TAGS_ASPECT_NAME);
+          _diffFactory.addDiffer(entityType, elementName, GLOBAL_TAGS_ASPECT_NAME, new BasicDiffer());
         }
         break;
         case OWNERSHIP: {
-          aspects.add("ownership");
-          _diffFactory.addDiffer(entityType, elementName, "ownership", new BasicDiffer());
+          aspects.add(OWNERSHIP_ASPECT_NAME);
+          _diffFactory.addDiffer(entityType, elementName, OWNERSHIP_ASPECT_NAME, new BasicDiffer());
         }
         break;
         case DOCUMENTATION: {
-          aspects.add("institutionalMemory");
-          _diffFactory.addDiffer(entityType, elementName, "institutionalMemory", new BasicDiffer());
-          aspects.add("editableDatasetProperties");
-          _diffFactory.addDiffer(entityType, elementName, "editableDatasetProperties", new BasicDiffer());
-          aspects.add("datasetProperties");
-          _diffFactory.addDiffer(entityType, elementName, "datasetProperties", new BasicDiffer());
+          aspects.add(INSTITUTIONAL_MEMORY_ASPECT_NAME);
+          _diffFactory.addDiffer(entityType, elementName, INSTITUTIONAL_MEMORY_ASPECT_NAME, new BasicDiffer());
+          aspects.add(EDITABLE_DATASET_PROPERTIES_ASPECT_NAME);
+          _diffFactory.addDiffer(entityType, elementName, EDITABLE_DATASET_PROPERTIES_ASPECT_NAME, new BasicDiffer());
+          aspects.add(DATASET_PROPERTIES_ASPECT_NAME);
+          _diffFactory.addDiffer(entityType, elementName, DATASET_PROPERTIES_ASPECT_NAME, new BasicDiffer());
         }
         break;
         case GLOSSARY_TERM: {
-          aspects.add("glossaryTerms");
-          _diffFactory.addDiffer(entityType, elementName, "glossaryTerms", new BasicDiffer());
+          aspects.add(GLOSSARY_TERMS_ASPECT_NAME);
+          _diffFactory.addDiffer(entityType, elementName, GLOSSARY_TERMS_ASPECT_NAME, new BasicDiffer());
         }
         break;
         case TECHNICAL_SCHEMA: {
-          aspects.add("schemaMetadata");
-          _diffFactory.addDiffer(entityType, elementName, "schemaMetadata", new SchemaDiffer());
+          aspects.add(SCHEMA_METADATA_ASPECT_NAME);
+          _diffFactory.addDiffer(entityType, elementName, SCHEMA_METADATA_ASPECT_NAME, new SchemaDiffer());
         }
         break;
         default:
@@ -93,14 +95,14 @@ public class EbeanTimelineService implements TimelineService {
       }
       datasetElementAspectRegistry.put(elementName, aspects);
     }
-    entityTypeElementAspectRegistry.put("dataset", datasetElementAspectRegistry);
+    entityTypeElementAspectRegistry.put(DATASET_ENTITY_NAME, datasetElementAspectRegistry);
   }
 
   Set<String> getAspectsFromElements(String entityType, Set<ChangeCategory> elementNames) {
     if (this.entityTypeElementAspectRegistry.containsKey(entityType)) {
       return elementNames.stream()
           .map(x -> entityTypeElementAspectRegistry.get(entityType).get(x))
-          .flatMap(c -> c.stream())
+          .flatMap(Collection::stream)
           .collect(Collectors.toSet());
     } else {
       throw new UnsupportedOperationException("Entity Type " + entityType + " not supported");
@@ -117,7 +119,7 @@ public class EbeanTimelineService implements TimelineService {
 
     // TODO: Add more logic for defaults
     if (startVersionStamp != null && startTimeMillis != 0) {
-      // cannot specify both version stamp and millis
+      throw new IllegalArgumentException("Cannot specify both VersionStamp start and timestamp start");
     }
 
     if (endTimeMillis == 0) {
@@ -129,19 +131,12 @@ public class EbeanTimelineService implements TimelineService {
 
     List<EbeanAspectV2> foo = this._entityDao.getAspectsInRange(urn, aspectNames, startTimeMillis, endTimeMillis);
     Map<String, TreeSet<EbeanAspectV2>> aspectRowSetMap = new HashMap<>();
-    foo.stream().forEach(row -> {
-      TreeSet<EbeanAspectV2> rowList = aspectRowSetMap.get(row.getAspect());
-      if (rowList == null) {
-        rowList = new TreeSet<>(new Comparator<EbeanAspectV2>() {
-          @Override
-          public int compare(EbeanAspectV2 o1, EbeanAspectV2 o2) {
-            return o1.getCreatedOn().compareTo(o2.getCreatedOn());
-          }
-        });
-        aspectRowSetMap.put(row.getAspect(), rowList);
-      }
+    foo.forEach(row -> {
+      TreeSet<EbeanAspectV2> rowList =
+          aspectRowSetMap.computeIfAbsent(row.getAspect(), k -> new TreeSet<>(
+              Comparator.comparing(EbeanAspectV2::getCreatedOn)));
       rowList.add(row);
-      /**
+      /*
        Long minVersion = aspectMinVersionMap.get(row.getAspect());
        if (minVersion == null) {
        aspectMinVersionMap.put(row.getAspect(), row.getVersion());
@@ -150,7 +145,7 @@ public class EbeanTimelineService implements TimelineService {
        aspectMinVersionMap.put(row.getAspect(), row.getVersion());
        }
        }
-       **/
+       */
     });
 
     // we need to pull previous versions of these aspects that are currently at a 0
@@ -183,9 +178,9 @@ public class EbeanTimelineService implements TimelineService {
     for (Map.Entry<Long, List<ChangeTransaction>> entry : semanticDiffs.entrySet()) {
       changeTransactions.addAll(entry.getValue());
     }
-    Collections.sort(changeTransactions, Comparator.comparing(ChangeTransaction::getTimestamp));
+    changeTransactions.sort(Comparator.comparing(ChangeTransaction::getTimestamp));
     return changeTransactions;
-    /**
+    /*
      return foo.stream().map(row -> Model.SemanticChangeEvent.builder()
      .changeType("UPSERT")
      .target(urn.toString())
@@ -197,7 +192,7 @@ public class EbeanTimelineService implements TimelineService {
      .proxy(null)
      .rawDiff(row.getMetadata())
      .build()).collect(Collectors.toList());
-     **/
+     */
   }
 
   private SemanticVersion getGroupSemanticVersion(SemanticChangeType highestChangeInGroup,
@@ -223,7 +218,7 @@ public class EbeanTimelineService implements TimelineService {
 
   private void assignSemanticVersions(SortedMap<Long, List<ChangeTransaction>> changeTransactionsMap) {
     SemanticVersion curGroupVersion = null;
-    Long transactionId = FIRST_TRANSACTION_ID - 1;
+    long transactionId = FIRST_TRANSACTION_ID - 1;
     for (Map.Entry<Long, List<ChangeTransaction>> entry : changeTransactionsMap.entrySet()) {
       assert (transactionId < entry.getKey());
       transactionId = entry.getKey();
@@ -260,16 +255,11 @@ public class EbeanTimelineService implements TimelineService {
   private List<ChangeTransaction> computeDiff(@Nonnull EbeanAspectV2 previousValue, @Nonnull EbeanAspectV2 currentValue,
       String entityType, Set<ChangeCategory> elementNames, boolean rawDiffsRequested) throws JsonProcessingException {
     String aspectName = currentValue.getAspect();
-    String changeType = "UPSERT";
-    if (previousValue.getVersion() == -1) {
-      // sentinel MissingEbeanAspect
-      changeType = "CREATE";
-    }
 
     List<ChangeTransaction> semanticChangeTransactions = new ArrayList<>();
     JsonPatch rawDiff = getRawDiff(previousValue, currentValue);
     for (ChangeCategory element : elementNames) {
-      Differ differ = _diffFactory.getDiffer(entityType, element, currentValue.getAspect());
+      Differ differ = _diffFactory.getDiffer(entityType, element, aspectName);
       if (differ != null) {
         try {
           semanticChangeTransactions.add(differ.getSemanticDiff(previousValue, currentValue, element, rawDiff,
@@ -293,7 +283,6 @@ public class EbeanTimelineService implements TimelineService {
       prevNode = OBJECT_MAPPER.readTree(previousValue.getMetadata());
     }
     JsonNode currNode = OBJECT_MAPPER.readTree(currentValue.getMetadata());
-    JsonPatch output = JsonDiff.asJsonPatch(prevNode, currNode);
-    return output;
+    return JsonDiff.asJsonPatch(prevNode, currNode);
   }
 }
