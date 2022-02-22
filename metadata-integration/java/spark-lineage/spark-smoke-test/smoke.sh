@@ -20,11 +20,13 @@ echo "Setting up datahub server"
 echo "--------------------------------------------------------------------"
 
 
+pwd ../../../
+
 datahub docker quickstart \
 	--build-locally \
-	--quickstart-compose-file ../../docker/docker-compose.yml \
-	--quickstart-compose-file ../../docker/docker-compose.override.yml \
-	--quickstart-compose-file ../../docker/docker-compose.dev.yml \
+	--quickstart-compose-file ../../../../docker/docker-compose.yml \
+	--quickstart-compose-file ../../../../docker/docker-compose.override.yml \
+	--quickstart-compose-file ../../../../docker/docker-compose.dev.yml \
 	--dump-logs-on-failure
 
 echo "--------------------------------------------------------------------"

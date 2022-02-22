@@ -5,7 +5,9 @@ rm -rf workspace
 #Copy needed files 
 mkdir workspace
 
-cp ../../../metadata-integration/java/spark-lineage/build/libs/datahub-spark-lineage* workspace/
+ls ../../
+
+cp ../../build/libs/datahub-spark-lineage* workspace/
 cp ../spark-docker.conf workspace/
 cp -a ../python-spark-lineage-test workspace/
 mkdir workspace/java-spark-lineage-test
