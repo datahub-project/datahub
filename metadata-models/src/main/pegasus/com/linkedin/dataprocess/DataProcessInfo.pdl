@@ -36,10 +36,17 @@ record DataProcessInfo includes CustomProperties, ExternalReference, TimeseriesA
    * Process type
    */
   @Searchable = {
-    "fieldType": "TEXT",
-    "hasValuesFieldName": "hasType"
+    "fieldType": "KEYWORD",
+    "addToFilters": true,
+    "filterNameOverride": "Process Type"
   }
-  type: optional string
+  type: optional enum DataProcessType {
+    BATCH_SCHEDULED,
+    BATCH_AD_HOC,
+    STREAMING,
+    MICROSERVICE,
+    OTHER,
+  }
 
   /**
    * Status of the process
