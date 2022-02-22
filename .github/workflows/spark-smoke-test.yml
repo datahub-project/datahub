@@ -5,15 +5,17 @@ on:
   push:
     branches:
       - master
-    paths-ignore:
-      - "docs/**"
-      - "**.md"
+    paths:
+      - "metadata_models/**"
+      - "metadata-integration/java/datahub-client/**"
+      - "metadata-integration/java/spark-lineage"
   pull_request:
     branches:
       - master
-    paths-ignore:
-      - "docs/**"
-      - "**.md"
+    paths:
+      - "metadata_models/**"
+      - "metadata-integration/java/datahub-client/**"
+      - "metadata-integration/java/spark-lineage"
   release:
     types: [published, edited]
 
