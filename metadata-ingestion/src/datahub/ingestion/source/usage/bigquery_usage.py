@@ -400,7 +400,7 @@ class BigQueryCredential(ConfigModel):
 
     @pydantic.root_validator()
     def validate_config(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        if not values["client_x509_cert_url"]:
+        if values.get("client_x509_cert_url") is None:
             values[
                 "client_x509_cert_url"
             ] = f'https://www.googleapis.com/robot/v1/metadata/x509/{values["client_email"]}'
@@ -423,21 +423,17 @@ class BigQueryUsageConfig(DatasetSourceConfigBase, BaseUsageConfig):
     query_log_delay: Optional[pydantic.PositiveInt] = None
     max_query_duration: timedelta = timedelta(minutes=15)
     credential: Optional[BigQueryCredential]
-    credentials_path: Optional[str]
+    _credentials_path: Optional[str] = pydantic.PrivateAttr()
 
-    @pydantic.root_validator()
-    def validate_config(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+    def __init__(self, **data: Any):
+        super().__init__(**data)
 
-        if values["credential"]:
-            values["credentials_path"] = values[
-                "credential"
-            ].create_credential_temp_file()
+        if self.credential:
+            self._credentials_path = self.credential.create_credential_temp_file()
             logger.debug(
-                f'Creating temporary credential file at {values["credentials_path"]}'
+                f"Creating temporary credential file at {self._credentials_path}"
             )
-            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = values["credentials_path"]
-
-        return values
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._credentials_path
 
     @pydantic.validator("project_id")
     def note_project_id_deprecation(cls, v, values, **kwargs):
@@ -821,8 +817,8 @@ class BigQueryUsageSource(Source):
 
     # We can't use close as it is not called if the ingestion is not successful
     def __del__(self):
-        if self.config.credentials_path:
+        if self.config._credentials_path:
             logger.debug(
-                f"Deleting temporary credential file at {self.config.credentials_path}"
+                f"Deleting temporary credential file at {self.config._credentials_path}"
             )
-            os.unlink(self.config.credentials_path)
+            os.unlink(self.config._credentials_path)

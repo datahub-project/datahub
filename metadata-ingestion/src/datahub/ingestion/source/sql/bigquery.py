@@ -221,16 +221,17 @@ class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
     bigquery_audit_metadata_datasets: Optional[List[str]] = None
     use_exported_bigquery_audit_metadata: bool = False
     use_date_sharded_audit_log_tables: bool = False
+    _credentials_path: Optional[str] = pydantic.PrivateAttr()
 
     def __init__(self, **data: Any):
         super().__init__(**data)
 
         if self.credential:
-            self.credentials_path = self.credential.create_credential_temp_file()
+            self._credentials_path = self.credential.create_credential_temp_file()
             logger.debug(
-                f"Creating temporary credential file at {self.credentials_path}"
+                f"Creating temporary credential file at {self._credentials_path}"
             )
-            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self.credentials_path
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._credentials_path
 
     def get_sql_alchemy_url(self):
         if self.project_id:
@@ -782,8 +783,8 @@ WHERE
 
     # We can't use close as it is not called if the ingestion is not successful
     def __del__(self):
-        if self.config.credentials_path:
+        if self.config._credentials_path:
             logger.debug(
-                f"Deleting temporary credential file at {self.config.credentials_path}"
+                f"Deleting temporary credential file at {self.config._credentials_path}"
             )
-            os.unlink(self.config.credentials_path)
+            os.unlink(self.config._credentials_path)
