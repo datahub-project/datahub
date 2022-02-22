@@ -1,7 +1,8 @@
 import logging
 import os
 from datetime import datetime
-from typing import Any, Iterable, Optional
+from math import log10
+from typing import Any, Iterable, List, Optional
 
 import parse
 import pydeequ
@@ -61,7 +62,8 @@ from datahub.metadata.schema_classes import (
     MapTypeClass,
     OtherSchemaClass,
 )
-from datahub.telemetry import telemetry
+from datahub.telemetry import stats, telemetry
+from datahub.utilities.perf_timer import PerfTimer
 
 # hide annoying debug errors from py4j
 logging.getLogger("py4j").setLevel(logging.ERROR)
@@ -130,13 +132,19 @@ profiling_flags_to_report = [
 ]
 
 
+S3_PREFIXES = ["s3://", "s3n://", "s3a://"]
+
+
 class DataLakeSource(Source):
     source_config: DataLakeSourceConfig
-    report = DataLakeSourceReport()
+    report: DataLakeSourceReport
+    profiling_times_taken: List[float]
 
     def __init__(self, config: DataLakeSourceConfig, ctx: PipelineContext):
         super().__init__(ctx)
         self.source_config = config
+        self.report = DataLakeSourceReport()
+        self.profiling_times_taken = []
 
         telemetry.telemetry_instance.ping(
             "data_lake_profiling",
@@ -430,35 +438,48 @@ class DataLakeSource(Source):
             )
             return
 
-        # init PySpark analysis object
-        logger.debug(
-            f"Profiling {full_path}: reading file and computing nulls+uniqueness {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
-        )
-        table_profiler = _SingleTableProfiler(
-            table, self.spark, self.source_config.profiling, self.report, full_path
-        )
+        with PerfTimer() as timer:
+            # init PySpark analysis object
+            logger.debug(
+                f"Profiling {full_path}: reading file and computing nulls+uniqueness {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+            )
+            table_profiler = _SingleTableProfiler(
+                table,
+                self.spark,
+                self.source_config.profiling,
+                self.report,
+                full_path,
+            )
 
-        logger.debug(
-            f"Profiling {full_path}: preparing profilers to run {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
-        )
-        # instead of computing each profile individually, we run them all in a single analyzer.run() call
-        # we use a single call because the analyzer optimizes the number of calls to the underlying profiler
-        # since multiple profiles reuse computations, this saves a lot of time
-        table_profiler.prepare_table_profiles()
+            logger.debug(
+                f"Profiling {full_path}: preparing profilers to run {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+            )
+            # instead of computing each profile individually, we run them all in a single analyzer.run() call
+            # we use a single call because the analyzer optimizes the number of calls to the underlying profiler
+            # since multiple profiles reuse computations, this saves a lot of time
+            table_profiler.prepare_table_profiles()
 
-        # compute the profiles
-        logger.debug(
-            f"Profiling {full_path}: computing profiles {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
-        )
-        analysis_result = table_profiler.analyzer.run()
-        analysis_metrics = AnalyzerContext.successMetricsAsDataFrame(
-            self.spark, analysis_result
-        )
+            # compute the profiles
+            logger.debug(
+                f"Profiling {full_path}: computing profiles {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+            )
+            analysis_result = table_profiler.analyzer.run()
+            analysis_metrics = AnalyzerContext.successMetricsAsDataFrame(
+                self.spark, analysis_result
+            )
 
-        logger.debug(
-            f"Profiling {full_path}: extracting profiles {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
-        )
-        table_profiler.extract_table_profiles(analysis_metrics)
+            logger.debug(
+                f"Profiling {full_path}: extracting profiles {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+            )
+            table_profiler.extract_table_profiles(analysis_metrics)
+
+            time_taken = timer.elapsed_seconds()
+
+            logger.info(
+                f"Finished profiling {full_path}; took {time_taken:.3f} seconds"
+            )
+
+            self.profiling_times_taken.append(time_taken)
 
         mcp = MetadataChangeProposalWrapper(
             entityType="dataset",
@@ -475,72 +496,116 @@ class DataLakeSource(Source):
         self.report.report_workunit(wu)
         yield wu
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+    def get_workunits_s3(self) -> Iterable[MetadataWorkUnit]:
 
-        # check if file is an s3 object
-        if is_s3_uri(self.source_config.base_path):
+        plain_base_path = strip_s3_prefix(self.source_config.base_path)
 
-            plain_base_path = strip_s3_prefix(self.source_config.base_path)
+        # append a trailing slash if it's not there so prefix filtering works
+        if not plain_base_path.endswith("/"):
+            plain_base_path = plain_base_path + "/"
 
-            # append a trailing slash if it's not there so prefix filtering works
-            if not plain_base_path.endswith("/"):
-                plain_base_path = plain_base_path + "/"
+        if self.source_config.aws_config is None:
+            raise ValueError("AWS config is required for S3 file sources")
 
-            if self.source_config.aws_config is None:
-                raise ValueError("AWS config is required for S3 file sources")
+        s3 = self.source_config.aws_config.get_s3_resource()
+        bucket = s3.Bucket(plain_base_path.split("/")[0])
 
-            s3 = self.source_config.aws_config.get_s3_resource()
-            bucket = s3.Bucket(plain_base_path.split("/")[0])
+        unordered_files = []
 
-            unordered_files = []
+        for obj in bucket.objects.filter(
+            Prefix=plain_base_path.split("/", maxsplit=1)[1]
+        ):
 
-            for obj in bucket.objects.filter(
-                Prefix=plain_base_path.split("/", maxsplit=1)[1]
-            ):
+            s3_path = f"s3://{obj.bucket_name}/{obj.key}"
 
-                s3_path = f"s3://{obj.bucket_name}/{obj.key}"
+            # if table patterns do not allow this file, skip
+            if not self.source_config.schema_patterns.allowed(s3_path):
+                continue
 
-                # if table patterns do not allow this file, skip
-                if not self.source_config.schema_patterns.allowed(s3_path):
-                    continue
+            # if the file is a directory, skip it
+            if obj.key.endswith("/"):
+                continue
 
-                # if the file is a directory, skip it
-                if obj.key.endswith("/"):
-                    continue
+            file = os.path.basename(obj.key)
 
-                file = os.path.basename(obj.key)
+            if self.source_config.ignore_dotfiles and file.startswith("."):
+                continue
+
+            obj_path = f"s3a://{obj.bucket_name}/{obj.key}"
+
+            unordered_files.append(obj_path)
+
+        for aws_file in sorted(unordered_files):
+
+            relative_path = "./" + aws_file[len(f"s3a://{plain_base_path}") :]
+
+            # pass in the same relative_path as the full_path for S3 files
+            yield from self.ingest_table(aws_file, relative_path)
+
+    def get_workunits_local(self) -> Iterable[MetadataWorkUnit]:
+        for root, dirs, files in os.walk(self.source_config.base_path):
+            for file in sorted(files):
 
                 if self.source_config.ignore_dotfiles and file.startswith("."):
                     continue
 
-                obj_path = f"s3a://{obj.bucket_name}/{obj.key}"
+                full_path = os.path.join(root, file)
 
-                unordered_files.append(obj_path)
+                relative_path = "./" + os.path.relpath(
+                    full_path, self.source_config.base_path
+                )
 
-            for aws_file in sorted(unordered_files):
+                # if table patterns do not allow this file, skip
+                if not self.source_config.schema_patterns.allowed(full_path):
+                    continue
 
-                relative_path = "./" + aws_file[len(f"s3a://{plain_base_path}") :]
+                yield from self.ingest_table(full_path, relative_path)
 
-                # pass in the same relative_path as the full_path for S3 files
-                yield from self.ingest_table(aws_file, relative_path)
-        else:
-            for root, dirs, files in os.walk(self.source_config.base_path):
-                for file in sorted(files):
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
 
-                    if self.source_config.ignore_dotfiles and file.startswith("."):
-                        continue
+        with PerfTimer() as timer:
 
-                    full_path = os.path.join(root, file)
+            # check if file is an s3 object
+            if is_s3_uri(self.source_config.base_path):
 
-                    relative_path = "./" + os.path.relpath(
-                        full_path, self.source_config.base_path
+                yield from self.get_workunits_s3()
+
+            else:
+                yield from self.get_workunits_local()
+
+            if not self.source_config.profiling.enabled:
+                return
+
+            total_time_taken = timer.elapsed_seconds()
+
+            logger.info(
+                f"Profiling {len(self.profiling_times_taken)} table(s) finished in {total_time_taken:.3f} seconds"
+            )
+
+            telemetry.telemetry_instance.ping(
+                "data_lake_profiling",
+                "time_taken_total",
+                # bucket by taking floor of log of time taken
+                # report the bucket as a label so the count is not collapsed
+                str(10 ** int(log10(total_time_taken + 1))),
+            )
+
+            if len(self.profiling_times_taken) > 0:
+
+                percentiles = [50, 75, 95, 99]
+
+                percentile_values = stats.calculate_percentiles(
+                    self.profiling_times_taken, percentiles
+                )
+
+                for percentile in percentiles:
+                    telemetry.telemetry_instance.ping(
+                        "data_lake_profiling",
+                        f"time_taken_p{percentile}",
+                        # bucket by taking floor of log of time taken
+                        # report the bucket as a label so the count is not collapsed
+                        str(10 ** int(log10(percentile_values[percentile] + 1))),
                     )
-
-                    # if table patterns do not allow this file, skip
-                    if not self.source_config.schema_patterns.allowed(full_path):
-                        continue
-
-                    yield from self.ingest_table(full_path, relative_path)
 
     def get_report(self):
         return self.report

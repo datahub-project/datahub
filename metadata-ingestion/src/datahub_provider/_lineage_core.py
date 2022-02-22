@@ -14,6 +14,8 @@ if TYPE_CHECKING:
 
     from datahub_provider.hooks.datahub import DatahubGenericHook
 
+from datahub_provider.hooks.datahub import AIRFLOW_1
+
 
 def _entities_to_urn_list(iolets: List[_Entity]) -> List[str]:
     return [let.urn for let in iolets]
@@ -249,6 +251,18 @@ def send_lineage_to_datahub(
         + upstream_subdag_triggers
     )
 
+    job_doc = (
+        (
+            operator.doc
+            or operator.doc_md
+            or operator.doc_json
+            or operator.doc_yaml
+            or operator.doc_rst
+        )
+        if not AIRFLOW_1
+        else None
+    )
+
     job_mce = models.MetadataChangeEventClass(
         proposedSnapshot=models.DataJobSnapshotClass(
             urn=job_urn,
@@ -256,7 +270,7 @@ def send_lineage_to_datahub(
                 models.DataJobInfoClass(
                     name=task.task_id,
                     type=models.AzkabanJobTypeClass.COMMAND,
-                    description=None,
+                    description=job_doc,
                     customProperties=job_property_bag,
                     externalUrl=job_url,
                 ),
