@@ -142,7 +142,7 @@ class _SingleTableProfiler:
         self,
         dataframe: DataFrame,
         spark: SparkSession,
-        source_config: DataLakeProfilerConfig,
+        profiling_config: DataLakeProfilerConfig,
         report: DataLakeSourceReport,
         file_path: str,
     ):
@@ -151,7 +151,7 @@ class _SingleTableProfiler:
         self.analyzer = AnalysisRunner(spark).onData(dataframe)
         self.column_specs = []
         self.row_count = dataframe.count()
-        self.profiling_config = source_config
+        self.profiling_config = profiling_config
         self.file_path = file_path
         self.columns_to_profile = []
         self.ignored_columns = []

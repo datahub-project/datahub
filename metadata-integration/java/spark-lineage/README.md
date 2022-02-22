@@ -47,6 +47,14 @@ spark = SparkSession.builder()
         .enableHiveSupport()
         .getOrCreate();
  ```
+ 
+### Enable https and authentication token
+Add below config in spark config
+
+```
+spark.datahub.rest.server                   https://<server URL>
+spark.datahub.rest.token                    <token>
+```
 
 ## What to Expect: The Metadata Model
 

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { message, Button, Input, Modal, Typography, Form, Collapse } from 'antd';
 import { useCreateGroupMutation } from '../../../graphql/group.generated';
+import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
 
 type Props = {
     visible: boolean;
@@ -40,6 +41,11 @@ export default function CreateGroupModal({ visible, onClose, onCreate }: Props) 
         onClose();
     };
 
+    // Handle the Enter press
+    useEnterKeyListener({
+        querySelectorToExecuteClick: '#createGroupButton',
+    });
+
     return (
         <Modal
             title="Create new group"
@@ -50,7 +56,7 @@ export default function CreateGroupModal({ visible, onClose, onCreate }: Props) 
                     <Button onClick={onClose} type="text">
                         Cancel
                     </Button>
-                    <Button onClick={onCreateGroup} disabled={stagedName === ''}>
+                    <Button id="createGroupButton" onClick={onCreateGroup} disabled={stagedName === ''}>
                         Create
                     </Button>
                 </>
