@@ -4310,28 +4310,23 @@ type AssertionInfo {
     type: AssertionType!
 
     """
-    Logic for the assertion as expressed in the native assertion language. Code fragments, query strings, etc.
+    Dataset Assertion information when type is DATASET
     """
-    assertionLogic: String
+    datasetAssertion: DatasetAssertionInfo
 
     """
     Parameters required for the assertion. e.g. min_value, max_value, value, columns
     """
     parameters: [StringMapEntry!]
-
-    """
-    Dataset Assertion information when type is DATASET
-    """
-    datasetAssertion: DatasetAssertionInfo
 }
 
 type DatasetAssertionInfo {
-
     scope: DatasetAssertionScope
     columnAssertion: DatasetColumnAssertion
     rowsAssertion: DatasetRowsAssertion
     schemaAssertion: DatasetSchemaAssertion
-    fields: [String!]
+    fieldUrns: [String!]
+    fieldPaths: [String!]
     datasets: [String!]
 }
 

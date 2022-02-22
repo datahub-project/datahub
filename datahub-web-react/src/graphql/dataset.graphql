@@ -152,9 +152,7 @@ fragment viewProperties on Dataset {
 
 query getDatasetAssertions($urn: String!) {
     dataset(urn: $urn) {
-        assertions: relationships(
-            input: { types: ["Asserts"], direction: INCOMING, start: 0, count: 100 }
-        ) {
+        assertions: relationships(input: { types: ["Asserts"], direction: INCOMING, start: 0, count: 100 }) {
             start
             count
             total
@@ -167,6 +165,14 @@ query getDatasetAssertions($urn: String!) {
                     ... on Assertion {
                         platform {
                             urn
+                            properties {
+                                displayName
+                                logoUrl
+                            }
+                            info {
+                                displayName
+                                logoUrl
+                            }
                         }
                         info {
                             type
@@ -188,7 +194,8 @@ query getDatasetAssertions($urn: String!) {
                                     stdAggFunc
                                 }
                                 datasets
-                                fields
+                                fieldUrns
+                                fieldPaths
                             }
                             parameters {
                                 key
@@ -206,7 +213,7 @@ query getDatasetAssertions($urn: String!) {
                                 missingCount
                                 unexpectedCount
                                 externalUrl
-                                nativeResults{
+                                nativeResults {
                                     key
                                     value
                                 }
@@ -223,7 +230,6 @@ query getDatasetAssertions($urn: String!) {
     }
 }
 
-
 query getAssertionRuns($assertionUrn: String!, $limit: Int, $startTime: Long, $endTime: Long) {
     assertion(urn: $assertionUrn) {
         urn
@@ -238,7 +244,7 @@ query getAssertionRuns($assertionUrn: String!, $limit: Int, $startTime: Long, $e
                 missingCount
                 unexpectedCount
                 externalUrl
-                nativeResults{
+                nativeResults {
                     key
                     value
                 }

@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.analytics.resolver.IsAnalyticsEnabledResolve
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
 import com.linkedin.datahub.graphql.generated.AggregationMetadata;
 import com.linkedin.datahub.graphql.generated.Aspect;
+import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.BrowseResults;
 import com.linkedin.datahub.graphql.generated.Chart;
 import com.linkedin.datahub.graphql.generated.ChartInfo;
@@ -1128,6 +1129,10 @@ public class GmsGraphQLEngine {
             .dataFetcher("relationships", new AuthenticatedResolver<>(
                 new EntityRelationshipsResultResolver(graphClient)
             ))
+            .dataFetcher("platform", new AuthenticatedResolver<>(
+                new LoadableTypeResolver<>(dataPlatformType,
+                    (env) -> ((Assertion) env.getSource()).getPlatform().getUrn()))
+            )
             .dataFetcher("runEvents", new AuthenticatedResolver<>(
                 new TimeSeriesAspectResolver(
                     this.entityClient,

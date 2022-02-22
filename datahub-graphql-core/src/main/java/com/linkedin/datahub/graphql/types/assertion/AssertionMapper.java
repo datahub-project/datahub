@@ -106,10 +106,15 @@ public class AssertionMapper {
           .collect(Collectors.toList()));
     }
     if (gmsDatasetAssertion.hasFields()) {
-      datasetAssertion.setFields(gmsDatasetAssertion
+      datasetAssertion.setFieldUrns(gmsDatasetAssertion
           .getFields()
           .stream()
-          .map(urn -> urn.toString())
+          .map(Urn::toString)
+          .collect(Collectors.toList()));
+      datasetAssertion.setFieldPaths(gmsDatasetAssertion
+          .getFields()
+          .stream()
+          .map(urn -> urn.getEntityKey().get(1))
           .collect(Collectors.toList()));
     }
     return datasetAssertion;
