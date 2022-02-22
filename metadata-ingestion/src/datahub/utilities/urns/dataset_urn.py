@@ -1,5 +1,6 @@
-from typing import List
+from typing import List, Set
 
+from datahub.metadata.schema_classes import FabricTypeClass
 from datahub.utilities.urns.data_platform_urn import DataPlatformUrn
 from datahub.utilities.urns.error import InvalidUrnError
 from datahub.utilities.urns.urn import Urn
@@ -12,6 +13,13 @@ class DatasetUrn(Urn):
     """
 
     ENTITY_TYPE: str = "dataset"
+    VALID_FABRIC_SET: Set[str] = set(
+        [
+            str(getattr(FabricTypeClass, attr)).upper()
+            for attr in dir(FabricTypeClass)
+            if not callable(getattr(FabricTypeClass, attr)) and not attr.startswith("_")
+        ]
+    )
 
     def __init__(self, entity_type: str, entity_id: List[str], domain: str = "li"):
         super().__init__(entity_type, entity_id, domain)
@@ -33,7 +41,7 @@ class DatasetUrn(Urn):
         """
         return DataPlatformUrn.create_from_string(self.get_entity_id()[0])
 
-    def get_table_name(self) -> str:
+    def get_dataset_name(self) -> str:
         """
         :return: the dataset name from this DatasetUrn
         """
@@ -74,3 +82,8 @@ class DatasetUrn(Urn):
         platform_urn_str = entity_id[0]
 
         DataPlatformUrn.validate(platform_urn_str)
+        env = entity_id[2].upper()
+        if env not in DatasetUrn.VALID_FABRIC_SET:
+            raise InvalidUrnError(
+                f"Invalid env:{env}. Allowed evn are {DatasetUrn.VALID_FABRIC_SET}"
+            )
