@@ -11,7 +11,7 @@ import {
 import { useGetDatasetAssertionsQuery } from '../../../../../../graphql/dataset.generated';
 import { DatasetAssertionDescription } from './descriptions/DatasetAssertionDescription';
 import { StyledTable } from '../../../components/styled/StyledTable';
-import { AssertionHistory } from './AssertionHistory';
+import { AssertionDetails } from './AssertionDetails';
 import { Assertion, AssertionResultType, AssertionRunStatus } from '../../../../../../types.generated';
 
 const ActionButtonContainer = styled.div`
@@ -40,29 +40,40 @@ export const AssertionsList = ({ urn }: { urn: string }) => {
                 const executionDate = record.lastExecTime && new Date(record.lastExecTime);
                 const localTime = executionDate && `${executionDate.toUTCString()}`;
                 const resultColor = lastExecResult === AssertionResultType.Success ? 'green' : 'red';
+                const resultText = lastExecResult === AssertionResultType.Success ? 'Passed' : 'Failed';
+                const resultIcon =
+                    lastExecResult === AssertionResultType.Success ? (
+                        <CheckCircleOutlined style={{ color: resultColor }} />
+                    ) : (
+                        <CloseCircleOutlined style={{ color: resultColor }} />
+                    );
                 const assertionEntityType = record.type;
                 if (assertionEntityType !== 'DATASET') {
                     throw new Error(`Unsupported Assertion Type ${assertionEntityType} found.`);
                 }
                 return (
-                    <>
-                        {lastExecResult === AssertionResultType.Success ? (
-                            <Tooltip title={`Last run at ${localTime}`}>
+                    <span
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'left',
+                        }}
+                    >
+                        <div>
+                            <Tooltip title={`Last evaluated at ${localTime}`}>
                                 <Tag color={resultColor}>
-                                    <CheckCircleOutlined style={{ color: resultColor }} />
+                                    {resultIcon}
                                     <Typography.Text style={{ marginLeft: 8, color: resultColor }}>
-                                        Passed
+                                        {resultText}
                                     </Typography.Text>
                                 </Tag>
                             </Tooltip>
-                        ) : (
-                            <CloseCircleOutlined />
-                        )}
+                        </div>
                         <DatasetAssertionDescription
                             assertionInfo={record.datasetAssertionInfo}
                             parameters={record.parameters}
                         />
-                    </>
+                    </span>
                 );
             },
         },
@@ -72,12 +83,19 @@ export const AssertionsList = ({ urn }: { urn: string }) => {
             key: 'x',
             render: (_, record: any) => (
                 <ActionButtonContainer>
-                    <PlatformContainer>
-                        {(record.platform.properties?.logoUrl && (
-                            <Image height={20} width={20} src={record.platform.properties?.logoUrl} />
-                        )) || <Typography.Text>{record.platform.properties?.displayName}</Typography.Text>}
-                    </PlatformContainer>
-                    <Button onClick={() => null} type="text" shape="circle" danger>
+                    <Tooltip title={record.platform.properties?.displayName}>
+                        <PlatformContainer>
+                            {(record.platform.properties?.logoUrl && (
+                                <Image
+                                    preview={false}
+                                    height={20}
+                                    width={20}
+                                    src={record.platform.properties?.logoUrl}
+                                />
+                            )) || <Typography.Text>{record.platform.properties?.displayName}</Typography.Text>}
+                        </PlatformContainer>
+                    </Tooltip>
+                    <Button hidden onClick={() => null} type="text" shape="circle" danger>
                         <DeleteOutlined />
                     </Button>
                 </ActionButtonContainer>
@@ -95,6 +113,7 @@ export const AssertionsList = ({ urn }: { urn: string }) => {
             assertion.runEvents[0].status === AssertionRunStatus.Complete &&
             assertion.runEvents[0].result?.type,
         datasetAssertionInfo: assertion.info?.datasetAssertion,
+        parameters: assertion.info?.parameters,
     }));
 
     return (
@@ -108,7 +127,7 @@ export const AssertionsList = ({ urn }: { urn: string }) => {
                 }}
                 expandable={{
                     expandedRowRender: (record) => {
-                        return <AssertionHistory urn={record.urn} />;
+                        return <AssertionDetails urn={record.urn} />;
                     },
                     defaultExpandAllRows: false,
                     indentSize: 0,

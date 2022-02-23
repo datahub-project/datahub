@@ -1,13 +1,26 @@
 import React from 'react';
-import { DatasetRowsAssertion, StringMapEntry } from '../../../../../../../types.generated';
+import { Typography } from 'antd';
+import { DatasetRowsAssertion, DatasetRowsStdAggFunc, StringMapEntry } from '../../../../../../../types.generated';
+import { convertParametersArrayToMap, getOpText } from './util';
 
 type Props = {
     assertion: DatasetRowsAssertion;
-    parameters?: Array<StringMapEntry> | undefined;
+    parameters: Array<StringMapEntry> | undefined;
 };
 
 export const DatasetRowsAssertionDescription = ({ assertion, parameters }: Props) => {
-    console.log(assertion);
-    console.log(parameters);
-    return <>Hi</>;
+    const agg = assertion.stdAggFunc;
+    const op = assertion.stdOperator;
+    const parametersMap = convertParametersArrayToMap(parameters);
+
+    const opText = getOpText(op, assertion.nativeOperator || undefined, parametersMap);
+    let description: React.ReactNode;
+
+    if (agg === DatasetRowsStdAggFunc.RowCount) {
+        description = <Typography.Text>Dataset row count is {opText}</Typography.Text>;
+    } else {
+        throw new Error(`Unsupported Dataset Rows Aggregation ${agg} provided`);
+    }
+
+    return <>{description}</>;
 };

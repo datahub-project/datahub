@@ -10,6 +10,7 @@ import {
 import { DatasetColumnAssertionDescription } from './DatasetColumnsAssertionDescription';
 import { DatasetRowsAssertionDescription } from './DatasetRowsAssertionDescription';
 import { DatasetSchemaAssertionDescription } from './DatasetSchemaAssertionsDescription';
+import { validateColumnAssertionFieldPath } from './util';
 
 type Props = {
     assertionInfo: DatasetAssertionInfo;
@@ -27,8 +28,10 @@ export const DatasetAssertionDescription = ({ assertionInfo, parameters }: Props
         );
     }
     if (scope === DatasetAssertionScope.DatasetColumn) {
+        const fieldPath = validateColumnAssertionFieldPath(assertionInfo);
         return (
             <DatasetColumnAssertionDescription
+                fieldPath={fieldPath}
                 assertion={assertionInfo.columnAssertion as DatasetColumnAssertion}
                 parameters={parameters}
             />

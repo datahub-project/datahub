@@ -233,6 +233,33 @@ query getDatasetAssertions($urn: String!) {
 query getAssertionRuns($assertionUrn: String!, $limit: Int, $startTime: Long, $endTime: Long) {
     assertion(urn: $assertionUrn) {
         urn
+        info {
+            type
+            datasetAssertion {
+                scope
+                columnAssertion {
+                    nativeOperator
+                    stdOperator
+                    stdAggFunc
+                    nativeAggFunc
+                }
+                rowsAssertion {
+                    nativeOperator
+                    stdOperator
+                    stdAggFunc
+                    nativeAggFunc
+                }
+                schemaAssertion {
+                    nativeOperator
+                    stdOperator
+                    stdAggFunc
+                    nativeAggFunc
+                }
+                datasets
+                fieldUrns
+                fieldPaths
+            }
+        }
         runEvents(limit: $limit, startTimeMillis: $startTime, endTimeMillis: $endTime) {
             timestampMillis
             assertionUrn
@@ -243,7 +270,6 @@ query getAssertionRuns($assertionUrn: String!, $limit: Int, $startTime: Long, $e
                 rowCount
                 missingCount
                 unexpectedCount
-                externalUrl
                 nativeResults {
                     key
                     value
@@ -252,6 +278,7 @@ query getAssertionRuns($assertionUrn: String!, $limit: Int, $startTime: Long, $e
                     key
                     value
                 }
+                externalUrl
             }
         }
     }
