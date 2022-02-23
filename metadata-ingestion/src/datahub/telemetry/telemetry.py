@@ -9,14 +9,15 @@ from functools import wraps
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, TypeVar, Union
 
+from mixpanel import Mixpanel
+
 import requests
 
 import datahub as datahub_package
 
 logger = logging.getLogger(__name__)
 
-GA_VERSION = 1
-GA_TID = "UA-212728656-1"
+MIXPANEL_TOKEN = "5ee83d940754d63cacbf7d34daa6f44a"
 
 DATAHUB_FOLDER = Path(os.path.expanduser("~/.datahub"))
 
