@@ -7,7 +7,7 @@ import sys
 import uuid
 from functools import wraps
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, TypeVar, Union
+from typing import Any, Callable, Dict, Optional, TypeVar
 
 from mixpanel import Mixpanel
 
