@@ -478,8 +478,8 @@ class BigQuerySource(SQLAlchemySource):
             event: Optional[QueryEvent] = None
             try:
                 if QueryEvent.can_parse_entry(entry):
-                        event = QueryEvent.from_entry(entry)
-                        num_parsed_log_entires += 1
+                    event = QueryEvent.from_entry(entry)
+                    num_parsed_log_entires += 1
                 elif QueryEvent.can_parse_entry_v2(entry):
                     event = QueryEvent.from_entry_v2(entry)
                     num_parsed_log_entires += 1

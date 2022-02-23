@@ -106,7 +106,7 @@ AND
 timestamp >= "{start_time}"
 AND
 timestamp < "{end_time}"
-""".strip()
+""".strip(),
 }
 
 BQ_AUDIT_V2 = {
@@ -641,13 +641,19 @@ class BigQueryUsageSource(Source):
         )
         logger.debug(filter)
 
-        def get_entry_timestamp(entry: Union[AuditLogEntry, BigQueryAuditMetadata]) -> datetime:
+        def get_entry_timestamp(
+            entry: Union[AuditLogEntry, BigQueryAuditMetadata]
+        ) -> datetime:
             return entry.timestamp
 
-        list_entry_generators_across_clients: List[Iterable[Union[AuditLogEntry, BigQueryAuditMetadata]]] = list()
+        list_entry_generators_across_clients: List[
+            Iterable[Union[AuditLogEntry, BigQueryAuditMetadata]]
+        ] = list()
         for client in clients:
             try:
-                list_entries: Iterable[Union[AuditLogEntry, BigQueryAuditMetadata]] = client.list_entries(
+                list_entries: Iterable[
+                    Union[AuditLogEntry, BigQueryAuditMetadata]
+                ] = client.list_entries(
                     filter_=filter, page_size=self.config.log_page_size
                 )
                 list_entry_generators_across_clients.append(list_entries)
