@@ -28,6 +28,7 @@ public class McpEmitter implements LineageConsumer {
     if (emitter.isPresent()) {
       mcpws.stream().map(mcpw -> {
         try {
+          log.debug("emitting mcpw: " + mcpw);
           return emitter.get().emit(mcpw);
         } catch (IOException ioException) {
           log.error("Failed to emit metadata to DataHub", ioException);
@@ -35,7 +36,7 @@ public class McpEmitter implements LineageConsumer {
         }
       }).filter(Objects::nonNull).collect(Collectors.toList()).forEach(future -> {
         try {
-          future.get();
+          log.info(future.get().toString());
         } catch (InterruptedException | ExecutionException e) {
           // log error, but don't impact thread
           log.error("Failed to emit metadata to DataHub", e);

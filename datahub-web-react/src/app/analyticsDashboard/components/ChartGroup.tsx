@@ -32,10 +32,12 @@ type Props = {
 export const ChartGroup = ({ chartGroup }: Props) => {
     return (
         <Container>
-            <TitleContainer>
-                <GroupTitle level={3}>{chartGroup.title}</GroupTitle>
-                <Divider />
-            </TitleContainer>
+            {chartGroup.title?.length > 0 && (
+                <TitleContainer>
+                    <GroupTitle level={3}>{chartGroup.title}</GroupTitle>
+                    <Divider />
+                </TitleContainer>
+            )}
             <Row>
                 {chartGroup.charts.map((chart) => (
                     <Col sm={24} md={24} lg={8} xl={8}>
