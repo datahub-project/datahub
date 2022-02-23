@@ -9,14 +9,11 @@ from functools import wraps
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, TypeVar
 
-from mixpanel import Mixpanel
+from mixpanel import Mixpanel, Consumer
 
 import datahub as datahub_package
 
 logger = logging.getLogger(__name__)
-
-MIXPANEL_TOKEN = "5ee83d940754d63cacbf7d34daa6f44a"
-mp = Mixpanel(MIXPANEL_TOKEN)
 
 DATAHUB_FOLDER = Path(os.path.expanduser("~/.datahub"))
 
@@ -25,7 +22,9 @@ CONFIG_FILE = DATAHUB_FOLDER / "telemetry-config.json"
 # also fall back to environment variable if config file is not found
 ENV_ENABLED = os.environ.get("DATAHUB_TELEMETRY_ENABLED", "true").lower() == "true"
 TIMEOUT = int(os.environ.get("DATAHUB_TELEMETRY_TIMEOUT", "10"))
+MIXPANEL_TOKEN = "5ee83d940754d63cacbf7d34daa6f44a"
 
+mp = Mixpanel(MIXPANEL_TOKEN, consumer=Consumer(request_timeout=int(TIMEOUT)))
 
 class Telemetry:
 
