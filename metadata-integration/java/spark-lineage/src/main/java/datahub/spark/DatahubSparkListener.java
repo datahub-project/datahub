@@ -59,7 +59,7 @@ public class DatahubSparkListener extends SparkListener {
   public static final String DATAHUB_EMITTER = "mcpEmitter";
   public static final String  DATABRICKS_CLUSTER_KEY = "databricks.cluster";
   public static final String PIPELINE_KEY = "metadata.pipeline"; 
-  public static final String PIPELINE_PLATFORM_INSTANCE_KEY = PIPELINE_KEY + ".platform_instance";
+  public static final String PIPELINE_PLATFORM_INSTANCE_KEY = PIPELINE_KEY + ".platformInstance";
   
   private final Map<String, AppStartEvent> appDetails = new ConcurrentHashMap<>();
   private final Map<String, Map<Long, SQLQueryExecStartEvent>> appSqlDetails = new ConcurrentHashMap<>();
@@ -92,8 +92,7 @@ public class DatahubSparkListener extends SparkListener {
       log.debug("PLAN for execution id: " + getPipelineName(ctx) + ":" + sqlStart.executionId() + "\n");
       log.debug(plan.toString());
 
-      DatasetExtractor extractor = new DatasetExtractor();
-      Optional<? extends SparkDataset> outputDS = extractor.asDataset(plan, ctx, true);
+      Optional<? extends SparkDataset> outputDS = DatasetExtractor.asDataset(plan, ctx, true);
       if (!outputDS.isPresent()) {
         log.debug("Skipping execution as no output dataset present for execution id: " + ctx.applicationId() + ":"
             + sqlStart.executionId());
@@ -108,7 +107,7 @@ public class DatahubSparkListener extends SparkListener {
         @Override
         public Void apply(LogicalPlan plan) {
           log.debug("CHILD " + plan.getClass() + "\n" + plan + "\n-------------\n");
-          Optional<? extends SparkDataset> inputDS = extractor.asDataset(plan, ctx, false);
+          Optional<? extends SparkDataset> inputDS = DatasetExtractor.asDataset(plan, ctx, false);
           inputDS.ifPresent(x -> lineage.addSource(x));
           allInners.addAll(JavaConversions.asJavaCollection(plan.innerChildren()));
           return null;
@@ -131,7 +130,7 @@ public class DatahubSparkListener extends SparkListener {
           @Override
           public Void apply(LogicalPlan plan) {
             log.debug("INNER CHILD " + plan.getClass() + "\n" + plan + "\n-------------\n");
-            Optional<? extends SparkDataset> inputDS = extractor.asDataset(plan, ctx, false);
+            Optional<? extends SparkDataset> inputDS = DatasetExtractor.asDataset(plan, ctx, false);
             inputDS.ifPresent(
                 x -> log.debug("source added for " + ctx.appName() + "/" + sqlStart.executionId() + ": " + x));
             inputDS.ifPresent(x -> lineage.addSource(x));

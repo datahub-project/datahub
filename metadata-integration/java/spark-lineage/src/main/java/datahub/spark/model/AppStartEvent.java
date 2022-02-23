@@ -23,7 +23,7 @@ import lombok.extern.slf4j.Slf4j;
 @Getter
 public class AppStartEvent extends LineageEvent {
 
-  private static final String PLATFORM_INSTANCE_KEY = "platform_instance";
+  private static final String PLATFORM_INSTANCE_KEY = "platformInstance";
   private final String sparkUser;
   private Config pipelineConfig;
 
@@ -58,9 +58,6 @@ public class AppStartEvent extends LineageEvent {
     mcps.add(MetadataChangeProposalWrapper
         .create(b -> b.entityType("dataFlow").entityUrn(flowUrn).upsert().aspect(flowInfo)));
     return mcps;
-    // return Collections.singletonList(MetadataChangeProposalWrapper
-    // .create(b ->
-    // b.entityType("dataFlow").entityUrn(flowUrn).upsert().aspect(flowInfo)));
   }
 
   StringMap customProps() {

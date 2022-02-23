@@ -5,6 +5,8 @@ import datahub.spark.model.dataset.CatalogTableDataset;
 import datahub.spark.model.dataset.HdfsPathDataset;
 import datahub.spark.model.dataset.JdbcDataset;
 import datahub.spark.model.dataset.SparkDataset;
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
@@ -15,7 +17,6 @@ import java.util.stream.Collectors;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hive.com.esotericsoftware.minlog.Log;
 import org.apache.spark.SparkContext;
 import org.apache.spark.sql.catalyst.catalog.HiveTableRelation;
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan;
@@ -38,16 +39,21 @@ import scala.collection.JavaConversions;
 
 import com.typesafe.config.Config;
 
+@Slf4j
 public class DatasetExtractor {
+  
   private static final Map<Class<? extends LogicalPlan>, PlanToDataset> PLAN_TO_DATASET = new HashMap<>();
   private static final Map<Class<? extends BaseRelation>, RelationToDataset> REL_TO_DATASET = new HashMap<>();
   private static final Set<Class<? extends LogicalPlan>> OUTPUT_CMD = ImmutableSet.of(
       InsertIntoHadoopFsRelationCommand.class, SaveIntoDataSourceCommand.class,
       CreateDataSourceTableAsSelectCommand.class, CreateHiveTableAsSelectCommand.class, InsertIntoHiveTable.class);
   private static final String DATASET_ENV_KEY = "metadata.dataset.env";
-  private static final String DATSET_PLATFORM_INSTANCE_KEY = "metadata.dataset.platform_instance";
+  private static final String DATASET_PLATFORM_INSTANCE_KEY = "metadata.dataset.platformInstance";
   // TODO InsertIntoHiveDirCommand, InsertIntoDataSourceDirCommand
 
+ private DatasetExtractor() {
+   
+ }
   private static interface PlanToDataset {
     Optional<? extends SparkDataset> fromPlanNode(LogicalPlan plan, SparkContext ctx, Config datahubConfig);
   }
@@ -124,7 +130,7 @@ public class DatasetExtractor {
     });
   }
 
-  Optional<? extends SparkDataset> asDataset(LogicalPlan logicalPlan, SparkContext ctx, boolean outputNode) {
+  static Optional<? extends SparkDataset> asDataset(LogicalPlan logicalPlan, SparkContext ctx, boolean outputNode) {
     if (!outputNode && OUTPUT_CMD.contains(logicalPlan.getClass())) {
       return Optional.empty();
     }
@@ -156,14 +162,14 @@ public class DatasetExtractor {
     try {
       fabricType = FabricType.valueOf(fabricTypeString);
     } catch (IllegalArgumentException e) {
-      Log.warn("Invalid env ({}). Setting env to default PROD", DATASET_ENV_KEY);
+      log.warn("Invalid env ({}). Setting env to default PROD", fabricTypeString);
       fabricType = FabricType.PROD;
     }
     return fabricType;
   }
 
   private static String getCommonPlatformInstance(Config datahubConfig) {
-    return datahubConfig.hasPath(DATSET_PLATFORM_INSTANCE_KEY) ? datahubConfig.getString(DATSET_PLATFORM_INSTANCE_KEY)
+    return datahubConfig.hasPath(DATASET_PLATFORM_INSTANCE_KEY) ? datahubConfig.getString(DATASET_PLATFORM_INSTANCE_KEY)
         : null;
   }
 }

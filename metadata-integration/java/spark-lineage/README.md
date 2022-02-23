@@ -56,8 +56,8 @@ spark = SparkSession.builder()
 | spark.extraListeners                             | ✅        |         | datahub.spark.DatahubSparkListener                                      |
 | spark.datahub.rest.server                        | ✅        |         | Datahub server url  eg:http://localhost:8080                            |
 | spark.datahub.rest.token                         |          |         | Authentication token.                         |
-| spark.datahub.metadata.pipeline.platform_instance|          |         | Pipeline level platform_instance                                        |
-| spark.datahub.metadata.dataset.platform_instance|          |         | dataset level platform_instance                                        |
+| spark.datahub.metadata.pipeline.platformInstance|          |         | Pipeline level platform instance                                        |
+| spark.datahub.metadata.dataset.platformInstance|          |         | dataset level platform instance                                        |
 | spark.datahub.metadata.dataset.env              |          | PROD    | [Supported values](https://datahubproject.io/docs/graphql/enums#fabrictype). In all other cases, will fallback to PROD           |
 
 
