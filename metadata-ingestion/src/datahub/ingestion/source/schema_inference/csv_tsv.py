@@ -40,7 +40,7 @@ MAX_ROWS = 100
 def get_table_schema_fields(table: Table) -> List[SchemaField]:
     table.infer(limit=MAX_ROWS)
 
-    fields = []
+    fields: List[SchemaField] = []
 
     for raw_field in table.schema.fields:
 

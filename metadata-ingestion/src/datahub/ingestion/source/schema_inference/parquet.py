@@ -81,7 +81,7 @@ class ParquetInferrer(SchemaInferenceBase):
         # read the first line of the file
         schema = pyarrow.parquet.read_schema(file, memory_map=True)
 
-        fields = []
+        fields: List[SchemaField] = []
 
         for name, pyarrow_type in zip(schema.names, schema.types):
 
