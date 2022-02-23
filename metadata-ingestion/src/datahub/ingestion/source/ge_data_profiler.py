@@ -481,10 +481,8 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         telemetry.telemetry_instance.ping(
             "profile_sql_table",
             # bucket by taking floor of log of the number of rows scanned
-            # report the bucket as a label so the count is not collapsed
             {
                 "rows_profiled": 10 ** int(log10(row_count + 1)),
-                "platform": self.platform,
             },
         )
 
@@ -738,7 +736,7 @@ class DatahubGEProfiler:
                         }
 
                     telemetry.telemetry_instance.ping(
-                        "sql_profiling",
+                        "sql_profiling_summary",
                         # bucket by taking floor of log of time taken
                         {
                             "total_time_taken": 10 ** int(log10(total_time_taken + 1)),

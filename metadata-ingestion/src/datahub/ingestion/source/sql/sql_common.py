@@ -384,8 +384,8 @@ def get_schema_metadata(
 
 # config flags to emit telemetry for
 config_options_to_report = [
-    "platform",
-    "profiling",
+    "include_views",
+    "include_tables",
 ]
 
 # flags to emit telemetry for
@@ -415,12 +415,20 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self.platform = platform
         self.report = SQLSourceReport()
 
+        config_report = {
+            config_option: getattr(config, config_option)
+            for config_option in config_options_to_report
+        }
+
+        config_report = {
+            **config_report,
+            "profiling_enabled": config.profiling.enabled,
+            "platform": platform,
+        }
+
         telemetry.telemetry_instance.ping(
             "sql_config",
-            {
-                config_option: getattr(config, config_option)
-                for config_option in config_options_to_report
-            },
+            config_report,
         )
 
         if config.profiling.enabled:

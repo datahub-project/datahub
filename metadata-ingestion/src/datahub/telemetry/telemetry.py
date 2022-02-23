@@ -9,7 +9,6 @@ from functools import wraps
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, TypeVar, Union
 
-import requests
 from mixpanel import Mixpanel
 
 import datahub as datahub_package
@@ -43,11 +42,6 @@ class Telemetry:
         else:
             self.load_config()
 
-    def update_config(self) -> None:
-        """
-        Update the config file with the current client ID and enabled status.
-        """
-
         # send updated user-level prop{erties
         mp.people_set(
             self.client_id,
@@ -57,6 +51,11 @@ class Telemetry:
                 "python_version": platform.python_version(),
             },
         )
+
+    def update_config(self) -> None:
+        """
+        Update the config file with the current client ID and enabled status.
+        """
 
         if not DATAHUB_FOLDER.exists():
             os.makedirs(DATAHUB_FOLDER)
@@ -163,15 +162,15 @@ def with_telemetry(func: Callable[..., T]) -> Callable[..., T]:
 
         action = f"function:{func.__module__}.{func.__name__}"
 
-        telemetry_instance.ping(f"{action}:started")
+        telemetry_instance.ping(action)
         try:
             res = func(*args, **kwargs)
-            telemetry_instance.ping(f"{action}:completed")
+            telemetry_instance.ping(f"{action}:result", {"status": "success"})
             return res
         # Catch general exceptions
         except Exception as e:
             telemetry_instance.ping(
-                f"{action}:error", {"error": get_full_class_name(e)}
+                f"{action}:result", {"error": get_full_class_name(e), "status": "error"}
             )
             raise e
         # System exits (used in ingestion and Docker commands) are not caught by the exception handler,
@@ -179,19 +178,18 @@ def with_telemetry(func: Callable[..., T]) -> Callable[..., T]:
         except SystemExit as e:
             # Forward successful exits
             if e.code == 0:
-                telemetry_instance.ping(
-                    f"{action}:completed",
-                )
+                telemetry_instance.ping(f"{action}:result", {"status": "completed"})
                 sys.exit(0)
             # Report failed exits
             else:
                 telemetry_instance.ping(
-                    f"{action}:error", {"error": get_full_class_name(e)}
+                    f"{action}:result",
+                    {"status": "error", "error": get_full_class_name(e)},
                 )
                 sys.exit(e.code)
         # Catch SIGINTs
         except KeyboardInterrupt:
-            telemetry_instance.ping(f"{action}:cancelled")
+            telemetry_instance.ping(f"{action}:result", {"status": "cancelled"})
             sys.exit(0)
 
     return wrapper

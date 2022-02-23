@@ -266,7 +266,7 @@ class Pipeline:
     def log_ingestion_stats(self) -> None:
 
         telemetry.telemetry_instance.ping(
-            "ingest",
+            "ingest_stats",
             {
                 "source_type": self.config.source.type,
                 "sink_type": self.config.sink.type,

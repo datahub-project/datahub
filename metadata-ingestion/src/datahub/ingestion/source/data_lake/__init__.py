@@ -120,7 +120,6 @@ config_options_to_report = [
     "platform",
     "use_relative_path",
     "ignore_dotfiles",
-    "profiling",
 ]
 
 # profiling flags to emit telemetry for
@@ -153,12 +152,15 @@ class DataLakeSource(Source):
         self.report = DataLakeSourceReport()
         self.profiling_times_taken = []
 
+        config_report = {
+            config_option: config.dict().get(config_option)
+            for config_option in config_options_to_report
+        }
+        config_report = {**config_report, "profiling_enabled": config.profiling.enabled}
+
         telemetry.telemetry_instance.ping(
             "data_lake_config",
-            {
-                config_option: getattr(config, config_option)
-                for config_option in config_options_to_report
-            },
+            config_report,
         )
 
         if config.profiling.enabled:
