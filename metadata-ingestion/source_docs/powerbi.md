@@ -1,4 +1,4 @@
-# Power Bi dashboards
+# Power BI dashboards
 
 For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
 
@@ -68,13 +68,17 @@ sink:
 
 ## Concept mapping 
 
-| Power BI                  | Datahub     |                                                                                               
-| ------------------------- | ----------- |
-| `Dashboard`               | `Dashboard` |
-| `Dataset, Datasource`     | `Dataset`   |
-| `Tile`                    | `Chart`     |
+| Power BI                  | Datahub             |                                                                                               
+| ------------------------- | ------------------- |
+| `Dashboard`               | `Dashboard`         |
+| `Dataset, Datasource`     | `Dataset`           |
+| `Tile`                    | `Chart`             |
+| `Report.webUrl`           | `Chart.externalUrl` |
+| `Workspace`               | `N/A`               |
+| `Report`                  | `N/A`               |
 
-s
+If Tile is created from report then Chart.externalUrl is set to Report.webUrl.
+
 ## Compatibility
 
 Coming soon!

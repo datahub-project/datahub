@@ -17,7 +17,7 @@ import requests
 from orderedset import OrderedSet
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration import ConfigModel
+from datahub.configuration.source_common import EnvBasedSourceConfigBase
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -97,14 +97,11 @@ class Constant:
     ID = "ID"
 
 
-class PowerBiAPIConfig(ConfigModel):
+class PowerBiAPIConfig(EnvBasedSourceConfigBase):
     # Organsation Identifier
     tenant_id: str
     # PowerBi workspace identifier
     workspace_id: str
-    # Current working environment. Possible values are DEV, QA, STAGE, PROD
-    # It is used in generating dataset URN
-    env: str
     # Dataset type mapping
     dataset_type_mapping: Dict[str, str]
     # Azure app client identifier
@@ -125,7 +122,7 @@ class PowerBiAPIConfig(ConfigModel):
 
 class PowerBiDashboardSourceConfig(PowerBiAPIConfig):
     platform_name: str = "powerbi"
-    platform_urn: str = "urn:li:dataPlatform:powerbi"
+    platform_urn: str = builder.make_data_platform_urn(platform=platform_name)
     dashboard_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     chart_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
 
@@ -409,7 +406,6 @@ class PowerBiAPI:
     def get_access_token(self):
         if self.__access_token != "":
             LOGGER.info("Returning the cached access token")
-
             return self.__access_token
 
         LOGGER.info("Generating PowerBi access token")
