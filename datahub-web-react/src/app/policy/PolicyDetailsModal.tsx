@@ -6,15 +6,11 @@ import { useEntityRegistry } from '../useEntityRegistry';
 import { EntityType, Policy, PolicyState, PolicyType } from '../../types.generated';
 import { useAppConfig } from '../useAppConfig';
 import { mapResourceTypeToDisplayName } from './policyUtils';
-import { ANTD_GRAY } from '../entity/shared/constants';
 
 type Props = {
     policy: Omit<Policy, 'urn'>;
     visible: boolean;
-    onEdit: () => void;
     onClose: () => void;
-    onRemove: () => void;
-    onToggleActive: (value: boolean) => void;
 };
 
 const PolicyContainer = styled.div`
@@ -37,133 +33,113 @@ const ThinDivider = styled(Divider)`
     margin-bottom: 8px;
 `;
 
+const PoliciesTag = styled(Tag)`
+    && {
+        border-radius: 2px !important;
+    }
+`;
+
 /**
  * Component used for displaying the details about an existing Policy.
  *
  * TODO: Use the "display names" when rendering privileges, instead of raw privilege type.
  */
-export default function PolicyDetailsModal({ policy, visible, onEdit, onClose, onRemove, onToggleActive }: Props) {
+export default function PolicyDetailsModal({ policy, visible, onClose }: Props) {
     const entityRegistry = useEntityRegistry();
 
-    const isActive = policy.state === PolicyState.Active;
-    const isMetadataPolicy = policy.type === PolicyType.Metadata;
-    const isEditable = policy.editable; // Whether we should show edit buttons.
+    const isActive = policy?.state === PolicyState.Active;
+    const isMetadataPolicy = policy?.type === PolicyType.Metadata;
 
     const {
         config: { policiesConfig },
     } = useAppConfig();
 
-    const activeActionButton = isActive ? (
-        <Button
-            disabled={!isEditable}
-            onClick={() => onToggleActive(false)}
-            style={{ color: isEditable ? 'red' : ANTD_GRAY[6] }}
-        >
-            Deactivate
-        </Button>
-    ) : (
-        <Button
-            disabled={!isEditable}
-            onClick={() => onToggleActive(true)}
-            style={{ color: isEditable ? 'green' : ANTD_GRAY[6] }}
-        >
-            Activate
-        </Button>
-    );
-
     const actionButtons = (
         <ButtonsContainer>
-            <Button disabled={!isEditable} style={{ color: !isEditable ? ANTD_GRAY[6] : undefined }} onClick={onEdit}>
-                Edit
-            </Button>
-            {activeActionButton}
-            <Button disabled={!isEditable} style={{ color: isEditable ? 'red' : ANTD_GRAY[6] }} onClick={onRemove}>
-                Delete
-            </Button>
             <Button onClick={onClose}>Cancel</Button>
         </ButtonsContainer>
     );
 
     return (
-        <Modal title={policy.name} visible={visible} onCancel={onClose} closable width={800} footer={actionButtons}>
+        <Modal title={policy?.name} visible={visible} onCancel={onClose} closable width={800} footer={actionButtons}>
             <PolicyContainer>
                 <div>
                     <Typography.Title level={5}>Type</Typography.Title>
                     <ThinDivider />
-                    <Tag>{policy.type}</Tag>
+                    <PoliciesTag>{policy?.type}</PoliciesTag>
                 </div>
                 <div>
                     <Typography.Title level={5}>State</Typography.Title>
                     <ThinDivider />
-                    <Tag color={isActive ? 'green' : 'red'}>{policy.state}</Tag>
+                    <PoliciesTag color={isActive ? 'green' : 'red'}>{policy?.state}</PoliciesTag>
                 </div>
                 <div>
                     <Typography.Title level={5}>Description</Typography.Title>
                     <ThinDivider />
-                    <Typography.Text type="secondary">{policy.description}</Typography.Text>
+                    <Typography.Text type="secondary">{policy?.description}</Typography.Text>
                 </div>
                 {isMetadataPolicy && (
                     <>
                         <div>
                             <Typography.Title level={5}>Asset Type</Typography.Title>
                             <ThinDivider />
-                            <Tag>
+                            <PoliciesTag>
                                 {mapResourceTypeToDisplayName(
-                                    policy.resources?.type || '',
-                                    policiesConfig.resourcePrivileges || [],
+                                    policy?.resources?.type || '',
+                                    policiesConfig?.resourcePrivileges || [],
                                 )}
-                            </Tag>
+                            </PoliciesTag>
                         </div>
                         <div>
                             <Typography.Title level={5}>Assets</Typography.Title>
                             <ThinDivider />
-                            {policy.resources?.resources?.map((urn) => {
+                            {policy?.resources?.resources?.map((urn) => {
                                 // TODO: Wrap in a link for entities.
                                 return (
-                                    <Tag>
+                                    <PoliciesTag>
                                         <Typography.Text>{urn}</Typography.Text>
-                                    </Tag>
+                                    </PoliciesTag>
                                 );
                             })}
-                            {policy.resources?.allResources && <Tag>All</Tag>}
+                            {policy?.resources?.allResources && <PoliciesTag>All</PoliciesTag>}
                         </div>
                     </>
                 )}
                 <div>
                     <Typography.Title level={5}>Privileges</Typography.Title>
                     <ThinDivider />
-                    {policy.privileges.map((priv) => (
-                        <Tag>{priv}</Tag>
+                    {policy?.privileges?.map((priv) => (
+                        <PoliciesTag>{priv}</PoliciesTag>
                     ))}
                 </div>
                 <div>
                     <Typography.Title level={5}>Applies to Owners</Typography.Title>
                     <ThinDivider />
-                    <Tag>{policy.actors.resourceOwners ? 'True' : 'False'}</Tag>
+                    <PoliciesTag>{policy?.actors?.resourceOwners ? 'True' : 'False'}</PoliciesTag>
                 </div>
                 <div>
                     <Typography.Title level={5}>Applies to Users</Typography.Title>
                     <ThinDivider />
-                    {policy.actors.users?.map((userUrn) => (
+                    {policy?.actors?.users?.map((userUrn) => (
                         <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${userUrn}`} key={userUrn}>
-                            <Tag>
+                            <PoliciesTag>
                                 <Typography.Text underline>{userUrn}</Typography.Text>
-                            </Tag>
+                            </PoliciesTag>
                         </Link>
                     ))}
-                    {policy.actors.allUsers && <Tag>All</Tag>}
+                    {policy?.actors?.allUsers && <PoliciesTag>All</PoliciesTag>}
                 </div>
                 <div>
                     <Typography.Title level={5}>Applies to Groups</Typography.Title>
                     <ThinDivider />
-                    {policy.actors.groups?.map((groupUrn) => (
+                    {policy?.actors?.groups?.map((groupUrn) => (
                         <Link to={`/${entityRegistry.getPathName(EntityType.CorpGroup)}/${groupUrn}`} key={groupUrn}>
-                            <Tag>
+                            <PoliciesTag>
                                 <Typography.Text underline>{groupUrn}</Typography.Text>
-                            </Tag>
+                            </PoliciesTag>
                         </Link>
                     ))}
-                    {policy.actors.allGroups && <Tag>All</Tag>}
+                    {policy?.actors?.allGroups && <PoliciesTag>All</PoliciesTag>}
                 </div>
             </PolicyContainer>
         </Modal>

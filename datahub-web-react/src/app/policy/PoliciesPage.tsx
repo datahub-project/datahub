@@ -1,11 +1,13 @@
 import React, { useMemo, useState } from 'react';
-import { Button, List, message, Modal, Pagination, Typography } from 'antd';
+import { Button, Empty, message, Modal, Pagination, Tag, Typography } from 'antd';
 import styled from 'styled-components';
+import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { Link } from 'react-router-dom';
 
 import { SearchablePage } from '../search/SearchablePage';
 import PolicyBuilderModal from './PolicyBuilderModal';
-import { Policy, PolicyUpdateInput, PolicyState } from '../../types.generated';
-import PolicyListItem from './PolicyListItem';
+import { Policy, PolicyUpdateInput, PolicyState, EntityType } from '../../types.generated';
+
 import PolicyDetailsModal from './PolicyDetailsModal';
 import {
     useCreatePolicyMutation,
@@ -15,11 +17,20 @@ import {
 } from '../../graphql/policy.generated';
 import { Message } from '../shared/Message';
 import { EMPTY_POLICY } from './policyUtils';
+import TabToolbar from '../entity/shared/components/styled/TabToolbar';
+import { StyledTable } from '../entity/shared/components/styled/StyledTable';
+import { CustomAvatar } from '../shared/avatar';
+import { useEntityRegistry } from '../useEntityRegistry';
+import { ANTD_GRAY } from '../entity/shared/constants';
 
 const PoliciesContainer = styled.div`
-    padding: 40px;
-    padding-left: 120px;
-    padding-right: 120px;
+    padding-top: 20px;
+`;
+
+const PoliciesHeaderContainer = styled.div`
+    && {
+        padding-left: 24px;
+    }
 `;
 
 const PoliciesTitle = styled(Typography.Title)`
@@ -28,23 +39,33 @@ const PoliciesTitle = styled(Typography.Title)`
     }
 `;
 
-const NewPolicyButton = styled(Button)`
-    margin-bottom: 16px;
-`;
-
-const PolicyList = styled(List)`
-    &&& {
-        width: 100%;
-        border-color: ${(props) => props.theme.styles['border-color-base']};
-        margin-top: 12px;
-        padding: 16px 32px;
-        box-shadow: ${(props) => props.theme.styles['box-shadow']};
-    }
-`;
+const SourceContainer = styled.div``;
 
 const PaginationContainer = styled.div`
     display: flex;
     justify-content: center;
+`;
+const ActionButtonContainer = styled.div`
+    display: flex;
+    justify-content: right;
+`;
+
+const PolicyName = styled.span`
+    cursor: pointer;
+    font-weight: 700;
+`;
+
+const PoliciesType = styled(Tag)`
+    && {
+        border-radius: 2px !important;
+        font-weight: 700;
+    }
+`;
+
+const PoliciesState = styled(Tag)`
+    && {
+        border-radius: 2px !important;
+    }
 `;
 
 const DEFAULT_PAGE_SIZE = 10;
@@ -80,7 +101,12 @@ const toPolicyInput = (policy: Omit<Policy, 'urn'>): PolicyUpdateInput => {
 
 // TODO: Cleanup the styling.
 export const PoliciesPage = () => {
+    const entityRegistry = useEntityRegistry();
+
+    // Policy list paging.
     const [page, setPage] = useState(1);
+    const pageSize = DEFAULT_PAGE_SIZE;
+    const start = (page - 1) * pageSize;
 
     // Controls whether the editing and details view modals are active.
     const [showPolicyBuilderModal, setShowPolicyBuilderModal] = useState(false);
@@ -89,10 +115,6 @@ export const PoliciesPage = () => {
     // Focused policy represents a policy being actively viewed, edited, created via a popup modal.
     const [focusPolicyUrn, setFocusPolicyUrn] = useState<undefined | string>(undefined);
     const [focusPolicy, setFocusPolicy] = useState<Omit<Policy, 'urn'>>(EMPTY_POLICY);
-
-    // Policy list paging.
-    const pageSize = DEFAULT_PAGE_SIZE;
-    const start = (page - 1) * pageSize;
 
     const {
         loading: policiesLoading,
@@ -151,12 +173,12 @@ export const PoliciesPage = () => {
         setFocusPolicyUrn(undefined);
     };
 
-    const onRemovePolicy = () => {
+    const onRemovePolicy = (policy: Policy) => {
         Modal.confirm({
-            title: `Delete ${focusPolicy.name}`,
+            title: `Delete ${policy?.name}`,
             content: `Are you sure you want to remove policy?`,
             onOk() {
-                deletePolicy({ variables: { urn: focusPolicyUrn as string } }); // There must be a focus policy urn.
+                deletePolicy({ variables: { urn: policy.urn as string } }); // There must be a focus policy urn.
                 onCancelViewPolicy();
             },
             onCancel() {},
@@ -166,19 +188,20 @@ export const PoliciesPage = () => {
         });
     };
 
-    const onEditPolicy = () => {
-        setShowViewPolicyModal(false);
+    const onEditPolicy = (policy: Policy) => {
         setShowPolicyBuilderModal(true);
+        setFocusPolicyUrn(policy.urn);
+        setFocusPolicy({ ...policy });
     };
 
-    const onToggleActive = () => {
+    const onToggleActiveDuplicate = (policy: Policy) => {
         const newPolicy = {
-            ...focusPolicy,
-            state: focusPolicy?.state === PolicyState.Active ? PolicyState.Inactive : PolicyState.Active,
+            ...policy,
+            state: policy?.state === PolicyState.Active ? PolicyState.Inactive : PolicyState.Active,
         };
         updatePolicy({
             variables: {
-                urn: focusPolicyUrn as string, // There must be a focus policy urn.
+                urn: policy?.urn as string, // There must be a focus policy urn.
                 input: toPolicyInput(newPolicy),
             },
         });
@@ -197,35 +220,159 @@ export const PoliciesPage = () => {
         onClosePolicyBuilder();
     };
 
+    const tableColumns = [
+        {
+            title: 'Name',
+            dataIndex: 'name',
+            key: 'name',
+            render: (name: string, policy) => {
+                return <PolicyName onClick={() => onViewPolicy(policy)}>{name}</PolicyName>;
+            },
+        },
+        {
+            title: 'Type',
+            dataIndex: 'type',
+            key: 'type',
+            render: (type: string) => {
+                const policyType = type?.charAt(0)?.toUpperCase() + type?.slice(1)?.toLowerCase();
+                return <PoliciesType>{policyType}</PoliciesType>;
+            },
+        },
+        {
+            title: 'Description',
+            dataIndex: 'description',
+            key: 'description',
+            render: (description: string) => description || '',
+        },
+        {
+            title: 'Actors',
+            dataIndex: 'users',
+            key: 'users',
+            render: (_, record: any) => {
+                return (
+                    <div>
+                        {record?.users?.map((user) => (
+                            <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${user}`} key={user}>
+                                <CustomAvatar
+                                    style={{ color: '#f56a00', backgroundColor: '#fde3cf' }}
+                                    name={user}
+                                    useDefaultAvatar={false}
+                                />
+                            </Link>
+                        ))}
+                        {record?.allUsers ? <Tag>All Users</Tag> : null}
+                        {record?.groups?.map((group) => (
+                            <CustomAvatar
+                                style={{ color: '#f56a00', backgroundColor: '#BEBEBE' }}
+                                name={group}
+                                useDefaultAvatar={false}
+                            />
+                        ))}
+                        {record?.allGroups ? <Tag>All Groups</Tag> : null}
+                    </div>
+                );
+            },
+        },
+        {
+            title: 'State',
+            dataIndex: 'state',
+            key: 'state',
+            render: (state: string) => {
+                const isActive = state === PolicyState.Active;
+                const policyState = state?.charAt(0)?.toUpperCase() + state?.slice(1)?.toLowerCase();
+                return <PoliciesState color={isActive ? 'green' : 'red'}>{policyState}</PoliciesState>;
+            },
+        },
+        {
+            title: '',
+            dataIndex: '',
+            key: 'x',
+            render: (_, record: any) => (
+                <ActionButtonContainer>
+                    <Button style={{ marginRight: 16 }} onClick={() => onEditPolicy(record?.policy)}>
+                        EDIT
+                    </Button>
+                    {record?.state === PolicyState.Active ? (
+                        <Button
+                            disabled={!record?.editable}
+                            onClick={() => onToggleActiveDuplicate(record?.policy)}
+                            style={{ color: record?.editable ? 'red' : ANTD_GRAY[6] }}
+                        >
+                            Deactivate
+                        </Button>
+                    ) : (
+                        <Button
+                            disabled={!record?.editable}
+                            onClick={() => onToggleActiveDuplicate(record?.policy)}
+                            style={{ color: record?.editable ? 'green' : ANTD_GRAY[6] }}
+                        >
+                            Activate
+                        </Button>
+                    )}
+                    <Button onClick={() => onRemovePolicy(record?.policy)} type="text" shape="circle" danger>
+                        <DeleteOutlined />
+                    </Button>
+                </ActionButtonContainer>
+            ),
+        },
+    ];
+
+    const tableData = policies?.map((policy) => ({
+        urn: policy?.urn,
+        policy,
+        name: policy?.name,
+        type: policy?.type,
+        description: policy?.description,
+        allUsers: policy?.actors?.allUsers,
+        allGroups: policy?.actors?.allGroups,
+        users: policy?.actors?.users,
+        groups: policy?.actors?.groups,
+        state: policy?.state,
+        editable: policy?.editable,
+    }));
+
     return (
         <SearchablePage>
             {policiesLoading && <Message type="loading" content="Loading policies..." />}
             {policiesError && message.error('Failed to load policies :(')}
             {updateError && message.error('Failed to update the Policy :(')}
             <PoliciesContainer>
-                <PoliciesTitle level={2}>Manage Policies</PoliciesTitle>
-                <NewPolicyButton onClick={onClickNewPolicy} data-testid="add-policy-button">
-                    + New Policy
-                </NewPolicyButton>
-                <PolicyList
-                    bordered
-                    dataSource={policies}
-                    renderItem={(item: unknown) => (
-                        <PolicyListItem policy={item as Policy} onView={() => onViewPolicy(item as Policy)} />
-                    )}
-                />
-                <PaginationContainer>
-                    <Pagination
-                        style={{ margin: 40 }}
-                        current={page}
-                        pageSize={pageSize}
-                        total={totalPolicies}
-                        showLessItems
-                        onChange={onChangePage}
-                        showSizeChanger={false}
-                    />
-                </PaginationContainer>
+                <PoliciesHeaderContainer>
+                    <PoliciesTitle level={2}>Manage Policies</PoliciesTitle>
+                    <Typography.Paragraph type="secondary">
+                        Manage access for users & groups of DataHub using Policies.
+                    </Typography.Paragraph>
+                </PoliciesHeaderContainer>
             </PoliciesContainer>
+            <SourceContainer>
+                <TabToolbar>
+                    <div>
+                        <Button type="text" onClick={onClickNewPolicy} data-testid="add-policy-button">
+                            <PlusOutlined /> Create new policy
+                        </Button>
+                    </div>
+                </TabToolbar>
+                <StyledTable
+                    columns={tableColumns}
+                    dataSource={tableData}
+                    rowKey="urn"
+                    locale={{
+                        emptyText: <Empty description="No Ingestion Sources!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                    }}
+                    pagination={false}
+                />
+            </SourceContainer>
+            <PaginationContainer>
+                <Pagination
+                    style={{ margin: 40 }}
+                    current={page}
+                    pageSize={pageSize}
+                    total={totalPolicies}
+                    showLessItems
+                    onChange={onChangePage}
+                    showSizeChanger={false}
+                />
+            </PaginationContainer>
             {showPolicyBuilderModal && (
                 <PolicyBuilderModal
                     policy={focusPolicy || EMPTY_POLICY}
@@ -236,14 +383,7 @@ export const PoliciesPage = () => {
                 />
             )}
             {showViewPolicyModal && (
-                <PolicyDetailsModal
-                    policy={focusPolicy}
-                    visible={showViewPolicyModal}
-                    onEdit={onEditPolicy}
-                    onClose={onCancelViewPolicy}
-                    onRemove={onRemovePolicy}
-                    onToggleActive={onToggleActive}
-                />
+                <PolicyDetailsModal policy={focusPolicy} visible={showViewPolicyModal} onClose={onCancelViewPolicy} />
             )}
         </SearchablePage>
     );
