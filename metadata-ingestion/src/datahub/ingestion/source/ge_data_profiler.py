@@ -801,6 +801,7 @@ class DatahubGEProfiler:
                 )
                 ge_config["bigquery_temp_table"] = bigquery_temp_table
             else:
+                assert table
                 table_parts = table.split(".")
                 if len(table_parts) == 2:
                     bigquery_temp_table = (
