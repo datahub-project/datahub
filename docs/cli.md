@@ -324,11 +324,11 @@ Old Entities Migrated = {'urn:li:dataset:(urn:li:dataPlatform:hive,logging_event
 
 ### timeline
 
-The `migrate` command allows you to view a version history for entities. Currently only supported for Datasets. For example,
+The `timeline` command allows you to view a version history for entities. Currently only supported for Datasets. For example,
 the following command will show you the modifications to tags for a dataset for the past week. The output includes a computed semantic version,
 relevant for schema changes only currently, the target of the modification, and a description of the change including a timestamp.
 The default output is sanitized to be more readable, but the full API output can be obtained by passing the `--verbose` flag and
-to get the raw JSON difference in addition to the API output you can add the `--raw` flag.
+to get the raw JSON difference in addition to the API output you can add the `--raw` flag. For more details about the feature please see [the main feature page](dev-guides/timeline.md)
 
 ```console
 datahub timeline --urn "urn:li:dataset:(urn:li:dataPlatform:mysql,User.UserAccount,PROD)" --category TAG --start 7daysago
