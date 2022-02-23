@@ -162,7 +162,7 @@ export const IngestionSourceExecutionList = ({ urn, lastRefresh, onRefresh }: Pr
             render: (_, record: any) => (
                 <div style={{ display: 'flex', justifyContent: 'right' }}>
                     {record.urn && (
-                        <Tooltip title="Copy URN. An URN uniquely identifies an entity on DataHub.">
+                        <Tooltip title="Copy Execution Request URN">
                             <Button
                                 style={{ marginRight: 16 }}
                                 icon={<CopyOutlined />}

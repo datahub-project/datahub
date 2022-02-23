@@ -343,7 +343,7 @@ export const IngestionSourceList = () => {
             key: 'x',
             render: (_, record: any) => (
                 <ActionButtonContainer>
-                    <Tooltip title="Copy URN. An URN uniquely identifies an entity on DataHub.">
+                    <Tooltip title="Copy Ingestion Source URN">
                         <Button
                             style={{ marginRight: 16 }}
                             icon={<CopyOutlined />}
