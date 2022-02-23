@@ -153,7 +153,7 @@ The `docker` command allows you to start up a local DataHub instance using `data
 
 ### ingest
 
-The `ingest` command allows you to ingest metadata from your sources using ingestion configuration files, which we call recipes. The main [ingestion page](../metadata-ingestion/README.md) contains detailed instructions about how you can use the ingest command and perform advanced operations like rolling-back previously ingested metadata through the `rollback` sub-command.
+The `ingest` command allows you to ingest metadata from your sources using ingestion configuration files, which we call recipes. [Removing Metadata from DataHub](./how/delete-metadata.md) contains detailed instructions about how you can use the ingest command to perform operations like rolling-back previously ingested metadata through the `rollback` sub-command and listing all runs that happened through `list-runs` sub-command.
 
 ### check
 
