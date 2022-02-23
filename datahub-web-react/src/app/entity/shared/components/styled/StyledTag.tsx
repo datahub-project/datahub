@@ -1,10 +1,5 @@
 import { Tag } from 'antd';
 import styled, { css } from 'styled-components';
-import ColorHash from 'color-hash';
-
-const generateColor = new ColorHash({
-    saturation: 0.9,
-});
 
 export const StyledTag = styled(Tag)<{ $colorHash?: string | null }>`
     ${(props) =>
@@ -15,7 +10,7 @@ export const StyledTag = styled(Tag)<{ $colorHash?: string | null }>`
                 content: '';
                 width: 8px;
                 height: 8px;
-                background: ${generateColor.hex(props.$colorHash)};
+                background: ${props.$colorHash};
                 border-radius: 100em;
                 margin-right: 3px;
             }
