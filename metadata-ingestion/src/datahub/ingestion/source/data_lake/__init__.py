@@ -564,7 +564,7 @@ class DataLakeSource(Source):
                 }
 
             telemetry.telemetry_instance.ping(
-                "data_lake_profiling",
+                "data_lake_profiling_summary",
                 # bucket by taking floor of log of time taken
                 {
                     "total_time_taken": 10 ** int(log10(total_time_taken + 1)),
