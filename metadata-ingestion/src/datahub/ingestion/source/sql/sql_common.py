@@ -382,6 +382,12 @@ def get_schema_metadata(
     return schema_metadata
 
 
+# config flags to emit telemetry for
+config_options_to_report = [
+    "platform",
+    "profiling",
+]
+
 # flags to emit telemetry for
 profiling_flags_to_report = [
     "turn_off_expensive_profiling_metrics",
@@ -410,26 +416,22 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self.report = SQLSourceReport()
 
         telemetry.telemetry_instance.ping(
-            "sql_profiling",
-            "config",
-            "enabled",
-            1 if config.profiling.enabled else 0,
+            "sql_config",
+            {
+                config_option: getattr(config, config_option)
+                for config_option in config_options_to_report
+            },
         )
 
         if config.profiling.enabled:
 
-            for config_flag in profiling_flags_to_report:
-                config_value = getattr(config.profiling, config_flag)
-                config_int = (
-                    1 if config_value else 0
-                )  # convert to int so it can be emitted as a value
-
-                telemetry.telemetry_instance.ping(
-                    "sql_profiling",
-                    "config",
-                    config_flag,
-                    config_int,
-                )
+            telemetry.telemetry_instance.ping(
+                "sql_profiling_config",
+                {
+                    config_flag: getattr(config.profiling, config_flag)
+                    for config_flag in profiling_flags_to_report
+                },
+            )
 
     def get_inspectors(self) -> Iterable[Inspector]:
         # This method can be overridden in the case that you want to dynamically

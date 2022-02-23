@@ -8,7 +8,7 @@ import traceback
 import unittest.mock
 import uuid
 from math import log10
-from typing import Any, Callable, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 from datahub.telemetry import stats, telemetry
 
@@ -479,11 +479,13 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         row_count: int = profile.rowCount
 
         telemetry.telemetry_instance.ping(
-            "sql_profiling",
-            "rows_profiled",
+            "profile_sql_table",
             # bucket by taking floor of log of the number of rows scanned
             # report the bucket as a label so the count is not collapsed
-            str(10 ** int(log10(row_count + 1))),
+            {
+                "rows_profiled": 10 ** int(log10(row_count + 1)),
+                "platform": self.platform,
+            },
         )
 
         for column_spec in columns_profiling_queue:
@@ -720,31 +722,30 @@ class DatahubGEProfiler:
                         f"Profiling {len(requests)} table(s) finished in {total_time_taken:.3f} seconds"
                     )
 
-                    telemetry.telemetry_instance.ping(
-                        "sql_profiling",
-                        f"time_taken_total:{self.platform}",
-                        # bucket by taking floor of log of time taken
-                        # report the bucket as a label so the count is not collapsed
-                        str(10 ** int(log10(total_time_taken + 1))),
-                    )
+                    time_percentiles: Dict[str, float] = {}
 
                     if len(self.times_taken) > 0:
-
                         percentiles = [50, 75, 95, 99]
-
                         percentile_values = stats.calculate_percentiles(
                             self.times_taken, percentiles
                         )
-                        for percentile in percentiles:
-                            telemetry.telemetry_instance.ping(
-                                "sql_profiling",
-                                f"time_taken_p{percentile}:{self.platform}",
-                                # bucket by taking floor of log of time taken
-                                # report the bucket as a label so the count is not collapsed
-                                str(
-                                    10 ** int(log10(percentile_values[percentile] + 1))
-                                ),
-                            )
+
+                        time_percentiles = {
+                            f"table_time_taken_p{percentile}": percentile_values[
+                                percentile
+                            ]
+                            for percentile in percentiles
+                        }
+
+                    telemetry.telemetry_instance.ping(
+                        "sql_profiling",
+                        # bucket by taking floor of log of time taken
+                        {
+                            "total_time_taken": 10 ** int(log10(total_time_taken + 1)),
+                            "platform": self.platform,
+                            **time_percentiles,
+                        },
+                    )
 
                     self.report.report_from_query_combiner(query_combiner.report)
 

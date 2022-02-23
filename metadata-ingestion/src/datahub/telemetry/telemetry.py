@@ -9,15 +9,15 @@ from functools import wraps
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, TypeVar, Union
 
-from mixpanel import Mixpanel
-
 import requests
+from mixpanel import Mixpanel
 
 import datahub as datahub_package
 
 logger = logging.getLogger(__name__)
 
 MIXPANEL_TOKEN = "5ee83d940754d63cacbf7d34daa6f44a"
+mp = Mixpanel(MIXPANEL_TOKEN)
 
 DATAHUB_FOLDER = Path(os.path.expanduser("~/.datahub"))
 
@@ -47,6 +47,16 @@ class Telemetry:
         """
         Update the config file with the current client ID and enabled status.
         """
+
+        # send updated user-level prop{erties
+        mp.people_set(
+            self.client_id,
+            {
+                "datahub_version": datahub_package.nice_version_name(),
+                "os": platform.system(),
+                "python_version": platform.python_version(),
+            },
+        )
 
         if not DATAHUB_FOLDER.exists():
             os.makedirs(DATAHUB_FOLDER)
@@ -111,13 +121,11 @@ class Telemetry:
 
     def ping(
         self,
-        category: str,
         action: str,
-        label: Optional[str] = None,
-        value: Optional[int] = None,
+        properties: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
-        Ping Google Analytics with a single event.
+        Send a single telemetry event.
 
         Args:
             category (str): category for the event
@@ -129,41 +137,11 @@ class Telemetry:
         if not self.enabled:
             return
 
-        req_url = "https://www.google-analytics.com/collect"
-
-        params: Dict[str, Union[str, int]] = {
-            "an": "datahub-cli",  # app name
-            "av": datahub_package.nice_version_name(),  # app version
-            "t": "event",  # event type
-            "v": GA_VERSION,  # Google Analytics version
-            "tid": GA_TID,  # tracking id
-            "cid": self.client_id,  # client id
-            "ec": category,  # event category
-            "ea": action,  # event action
-            # use custom dimensions to capture OS and Python version
-            # see https://developers.google.com/analytics/devguides/collection/protocol/v1/parameters#cd_
-            "cd1": platform.system(),  # OS
-            "cd2": platform.python_version(),  # Python version
-        }
-
-        if label:
-            params["el"] = label
-
-        # this has to a non-negative int, otherwise the request will fail
-        if value:
-            params["ev"] = value
-
+        # send event
         try:
-            requests.post(
-                req_url,
-                data=params,
-                headers={
-                    "user-agent": f"datahub {datahub_package.nice_version_name()}"
-                },
-                timeout=TIMEOUT,
-            )
-        except Exception as e:
+            mp.track(self.client_id, action, properties)
 
+        except Exception as e:
             logger.debug(f"Error reporting telemetry: {e}")
 
 
@@ -183,34 +161,37 @@ def with_telemetry(func: Callable[..., T]) -> Callable[..., T]:
     @wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
 
-        category = func.__module__
-        action = func.__name__
+        action = f"function:{func.__module__}.{func.__name__}"
 
-        telemetry_instance.ping(category, action, "started")
+        telemetry_instance.ping(f"{action}:started")
         try:
             res = func(*args, **kwargs)
-            telemetry_instance.ping(category, action, "completed")
+            telemetry_instance.ping(f"{action}:completed")
             return res
         # Catch general exceptions
         except Exception as e:
-            telemetry_instance.ping(category, action, f"error:{get_full_class_name(e)}")
+            telemetry_instance.ping(
+                f"{action}:error", {"error": get_full_class_name(e)}
+            )
             raise e
         # System exits (used in ingestion and Docker commands) are not caught by the exception handler,
         # so we need to catch them here.
         except SystemExit as e:
             # Forward successful exits
             if e.code == 0:
-                telemetry_instance.ping(category, action, "completed")
+                telemetry_instance.ping(
+                    f"{action}:completed",
+                )
                 sys.exit(0)
             # Report failed exits
             else:
                 telemetry_instance.ping(
-                    category, action, f"error:{get_full_class_name(e)}"
+                    f"{action}:error", {"error": get_full_class_name(e)}
                 )
                 sys.exit(e.code)
         # Catch SIGINTs
         except KeyboardInterrupt:
-            telemetry_instance.ping(category, action, "cancelled")
+            telemetry_instance.ping(f"{action}:cancelled")
             sys.exit(0)
 
     return wrapper
