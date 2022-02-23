@@ -16,8 +16,10 @@ record Owner {
   @Searchable = {
     "fieldName": "owners",
     "fieldType": "URN",
+    "addToFilters": true,
     "hasValuesFieldName": "hasOwners",
-    "queryByDefault": false
+    "queryByDefault": false,
+    "filterNameOverride": "Owned By"
   }
   owner: Urn
 

@@ -1,7 +1,7 @@
 namespace com.linkedin.common
 
 /**
- * Tag aspect used for applying tags to an entity
+ * The specific instance of the data platform that this entity belongs to
  */
 @Aspect = {
   "name": "dataPlatformInstance"

@@ -1,5 +1,6 @@
 import datetime
 import logging
+import traceback
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
@@ -19,7 +20,7 @@ from typing import (
 from urllib.parse import quote_plus
 
 import pydantic
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, dialects, inspect
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.sql import sqltypes as types
@@ -94,6 +95,8 @@ logger: logging.Logger = logging.getLogger(__name__)
 def get_platform_from_sqlalchemy_uri(sqlalchemy_uri: str) -> str:
     if sqlalchemy_uri.startswith("bigquery"):
         return "bigquery"
+    if sqlalchemy_uri.startswith("clickhouse"):
+        return "clickhouse"
     if sqlalchemy_uri.startswith("druid"):
         return "druid"
     if sqlalchemy_uri.startswith("mssql"):
@@ -278,6 +281,20 @@ _field_type_mapping: Dict[Type[types.TypeEngine], Type] = {
     types.DATETIME: TimeTypeClass,
     types.TIMESTAMP: TimeTypeClass,
     types.JSON: RecordTypeClass,
+    dialects.postgresql.base.BYTEA: BytesTypeClass,
+    dialects.postgresql.base.DOUBLE_PRECISION: NumberTypeClass,
+    dialects.postgresql.base.INET: StringTypeClass,
+    dialects.postgresql.base.MACADDR: StringTypeClass,
+    dialects.postgresql.base.MONEY: NumberTypeClass,
+    dialects.postgresql.base.OID: StringTypeClass,
+    dialects.postgresql.base.REGCLASS: BytesTypeClass,
+    dialects.postgresql.base.TIMESTAMP: TimeTypeClass,
+    dialects.postgresql.base.TIME: TimeTypeClass,
+    dialects.postgresql.base.INTERVAL: TimeTypeClass,
+    dialects.postgresql.base.BIT: BytesTypeClass,
+    dialects.postgresql.base.UUID: StringTypeClass,
+    dialects.postgresql.base.TSVECTOR: BytesTypeClass,
+    dialects.postgresql.base.ENUM: EnumTypeClass,
     # When SQLAlchemy is unable to map a type into its internal hierarchy, it
     # assigns the NullType by default. We want to carry this warning through.
     types.NullType: NullTypeClass,
@@ -585,7 +602,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         schema_container_key = self.gen_schema_key(db_name, schema)
 
-        database_container_key = self.gen_database_key(database=db_name)
+        database_container_key: Optional[PlatformKey] = None
+        if db_name is not None:
+            database_container_key = self.gen_database_key(database=db_name)
 
         container_workunits = gen_containers(
             schema_container_key,
@@ -625,8 +644,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                     self.report.report_dropped(f"{schema}.*")
                     continue
 
-                if db_name:
-                    yield from self.gen_schema_containers(schema, db_name)
+                yield from self.gen_schema_containers(schema, db_name)
 
                 if sql_config.include_tables:
                     yield from self.loop_tables(inspector, schema, sql_config)
@@ -761,77 +779,79 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 self.report.report_dropped(dataset_name)
                 continue
 
-            columns = self._get_columns(dataset_name, inspector, schema, table)
-
-            dataset_urn = make_dataset_urn_with_platform_instance(
-                self.platform,
-                dataset_name,
-                self.config.platform_instance,
-                self.config.env,
-            )
-            dataset_snapshot = DatasetSnapshot(
-                urn=dataset_urn,
-                aspects=[StatusClass(removed=False)],
-            )
-
-            if self.is_stateful_ingestion_configured():
-                cur_checkpoint = self.get_current_checkpoint(
-                    self.get_default_ingestion_job_id()
+            try:
+                yield from self._process_table(
+                    dataset_name, inspector, schema, table, sql_config
                 )
-                if cur_checkpoint is not None:
-                    checkpoint_state = cast(
-                        BaseSQLAlchemyCheckpointState, cur_checkpoint.state
-                    )
-                    checkpoint_state.add_table_urn(dataset_urn)
-
-            description, properties = self.get_table_properties(
-                inspector, schema, table
-            )
-
-            if description is not None or properties:
-                dataset_properties = DatasetPropertiesClass(
-                    description=description,
-                    customProperties=properties,
+            except Exception as e:
+                logger.warning(
+                    f"Unable to ingest {schema}.{table} due to an exception.\n {traceback.format_exc()}"
                 )
-                dataset_snapshot.aspects.append(dataset_properties)
+                self.report.report_warning(f"{schema}.{table}", f"Ingestion error: {e}")
 
-            pk_constraints: dict = inspector.get_pk_constraint(table, schema)
-            foreign_keys = self._get_foreign_keys(dataset_urn, inspector, schema, table)
-
-            schema_fields = self.get_schema_fields(
-                dataset_name, columns, pk_constraints
+    def _process_table(
+        self,
+        dataset_name: str,
+        inspector: Inspector,
+        schema: str,
+        table: str,
+        sql_config: SQLAlchemyConfig,
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        columns = self._get_columns(dataset_name, inspector, schema, table)
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            self.platform,
+            dataset_name,
+            self.config.platform_instance,
+            self.config.env,
+        )
+        dataset_snapshot = DatasetSnapshot(
+            urn=dataset_urn,
+            aspects=[StatusClass(removed=False)],
+        )
+        if self.is_stateful_ingestion_configured():
+            cur_checkpoint = self.get_current_checkpoint(
+                self.get_default_ingestion_job_id()
             )
-
-            schema_metadata = get_schema_metadata(
-                self.report,
-                dataset_name,
-                self.platform,
-                columns,
-                pk_constraints,
-                foreign_keys,
-                schema_fields,
+            if cur_checkpoint is not None:
+                checkpoint_state = cast(
+                    BaseSQLAlchemyCheckpointState, cur_checkpoint.state
+                )
+                checkpoint_state.add_table_urn(dataset_urn)
+        description, properties = self.get_table_properties(inspector, schema, table)
+        if description is not None or properties:
+            dataset_properties = DatasetPropertiesClass(
+                description=description,
+                customProperties=properties,
             )
-            dataset_snapshot.aspects.append(schema_metadata)
-
-            db_name = self.get_db_name(inspector)
-            yield from self.add_table_to_schema_container(dataset_urn, db_name, schema)
-
-            mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-            wu = SqlWorkUnit(id=dataset_name, mce=mce)
-            self.report.report_workunit(wu)
-
-            yield wu
-
-            dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
-            if dpi_aspect:
-                yield dpi_aspect
-
-            yield from self._get_domain_wu(
-                dataset_name=dataset_name,
-                entity_urn=dataset_urn,
-                entity_type="dataset",
-                sql_config=sql_config,
-            )
+            dataset_snapshot.aspects.append(dataset_properties)
+        pk_constraints: dict = inspector.get_pk_constraint(table, schema)
+        foreign_keys = self._get_foreign_keys(dataset_urn, inspector, schema, table)
+        schema_fields = self.get_schema_fields(dataset_name, columns, pk_constraints)
+        schema_metadata = get_schema_metadata(
+            self.report,
+            dataset_name,
+            self.platform,
+            columns,
+            pk_constraints,
+            foreign_keys,
+            schema_fields,
+        )
+        dataset_snapshot.aspects.append(schema_metadata)
+        db_name = self.get_db_name(inspector)
+        yield from self.add_table_to_schema_container(dataset_urn, db_name, schema)
+        mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+        wu = SqlWorkUnit(id=dataset_name, mce=mce)
+        self.report.report_workunit(wu)
+        yield wu
+        dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
+        if dpi_aspect:
+            yield dpi_aspect
+        yield from self._get_domain_wu(
+            dataset_name=dataset_name,
+            entity_urn=dataset_urn,
+            entity_type="dataset",
+            sql_config=sql_config,
+        )
 
     def get_table_properties(
         self, inspector: Inspector, schema: str, table: str
@@ -965,99 +985,111 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 continue
 
             try:
-                columns = inspector.get_columns(view, schema)
-            except KeyError:
-                # For certain types of views, we are unable to fetch the list of columns.
-                self.report.report_warning(
-                    dataset_name, "unable to get schema for this view"
+                yield from self._process_view(
+                    dataset_name=dataset_name,
+                    inspector=inspector,
+                    schema=schema,
+                    view=view,
+                    sql_config=sql_config,
                 )
-                schema_metadata = None
-            else:
-                schema_fields = self.get_schema_fields(dataset_name, columns)
-                schema_metadata = get_schema_metadata(
-                    self.report,
-                    dataset_name,
-                    self.platform,
-                    columns,
-                    canonical_schema=schema_fields,
+            except Exception as e:
+                logger.warning(
+                    f"Unable to ingest view {schema}.{view} due to an exception.\n {traceback.format_exc()}"
                 )
+                self.report.report_warning(f"{schema}.{view}", f"Ingestion error: {e}")
 
-            try:
-                # SQLALchemy stubs are incomplete and missing this method.
-                # PR: https://github.com/dropbox/sqlalchemy-stubs/pull/223.
-                view_info: dict = inspector.get_table_comment(view, schema)  # type: ignore
-            except NotImplementedError:
-                description: Optional[str] = None
-                properties: Dict[str, str] = {}
-            else:
-                description = view_info["text"]
-
-                # The "properties" field is a non-standard addition to SQLAlchemy's interface.
-                properties = view_info.get("properties", {})
-
-            try:
-                view_definition = inspector.get_view_definition(view, schema)
-                if view_definition is None:
-                    view_definition = ""
-                else:
-                    # Some dialects return a TextClause instead of a raw string,
-                    # so we need to convert them to a string.
-                    view_definition = str(view_definition)
-            except NotImplementedError:
-                view_definition = ""
-            properties["view_definition"] = view_definition
-            properties["is_view"] = "True"
-
-            dataset_urn = make_dataset_urn_with_platform_instance(
-                self.platform,
+    def _process_view(
+        self,
+        dataset_name: str,
+        inspector: Inspector,
+        schema: str,
+        view: str,
+        sql_config: SQLAlchemyConfig,
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        try:
+            columns = inspector.get_columns(view, schema)
+        except KeyError:
+            # For certain types of views, we are unable to fetch the list of columns.
+            self.report.report_warning(
+                dataset_name, "unable to get schema for this view"
+            )
+            schema_metadata = None
+        else:
+            schema_fields = self.get_schema_fields(dataset_name, columns)
+            schema_metadata = get_schema_metadata(
+                self.report,
                 dataset_name,
-                self.config.platform_instance,
-                self.config.env,
+                self.platform,
+                columns,
+                canonical_schema=schema_fields,
             )
-            dataset_snapshot = DatasetSnapshot(
-                urn=dataset_urn,
-                aspects=[StatusClass(removed=False)],
+        try:
+            # SQLALchemy stubs are incomplete and missing this method.
+            # PR: https://github.com/dropbox/sqlalchemy-stubs/pull/223.
+            view_info: dict = inspector.get_table_comment(view, schema)  # type: ignore
+        except NotImplementedError:
+            description: Optional[str] = None
+            properties: Dict[str, str] = {}
+        else:
+            description = view_info["text"]
+
+            # The "properties" field is a non-standard addition to SQLAlchemy's interface.
+            properties = view_info.get("properties", {})
+        try:
+            view_definition = inspector.get_view_definition(view, schema)
+            if view_definition is None:
+                view_definition = ""
+            else:
+                # Some dialects return a TextClause instead of a raw string,
+                # so we need to convert them to a string.
+                view_definition = str(view_definition)
+        except NotImplementedError:
+            view_definition = ""
+        properties["view_definition"] = view_definition
+        properties["is_view"] = "True"
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            self.platform,
+            dataset_name,
+            self.config.platform_instance,
+            self.config.env,
+        )
+        dataset_snapshot = DatasetSnapshot(
+            urn=dataset_urn,
+            aspects=[StatusClass(removed=False)],
+        )
+        db_name = self.get_db_name(inspector)
+        yield from self.add_table_to_schema_container(dataset_urn, db_name, schema)
+        if self.is_stateful_ingestion_configured():
+            cur_checkpoint = self.get_current_checkpoint(
+                self.get_default_ingestion_job_id()
             )
-
-            db_name = self.get_db_name(inspector)
-            yield from self.add_table_to_schema_container(dataset_urn, db_name, schema)
-
-            if self.is_stateful_ingestion_configured():
-                cur_checkpoint = self.get_current_checkpoint(
-                    self.get_default_ingestion_job_id()
+            if cur_checkpoint is not None:
+                checkpoint_state = cast(
+                    BaseSQLAlchemyCheckpointState, cur_checkpoint.state
                 )
-                if cur_checkpoint is not None:
-                    checkpoint_state = cast(
-                        BaseSQLAlchemyCheckpointState, cur_checkpoint.state
-                    )
-                    checkpoint_state.add_view_urn(dataset_urn)
-
-            if description is not None or properties:
-                dataset_properties = DatasetPropertiesClass(
-                    description=description,
-                    customProperties=properties,
-                    # uri=dataset_name,
-                )
-                dataset_snapshot.aspects.append(dataset_properties)
-
-            if schema_metadata:
-                dataset_snapshot.aspects.append(schema_metadata)
-
-            mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-            wu = SqlWorkUnit(id=dataset_name, mce=mce)
-            self.report.report_workunit(wu)
-            yield wu
-
-            dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
-            if dpi_aspect:
-                yield dpi_aspect
-
-            yield from self._get_domain_wu(
-                dataset_name=dataset_name,
-                entity_urn=dataset_urn,
-                entity_type="dataset",
-                sql_config=sql_config,
+                checkpoint_state.add_view_urn(dataset_urn)
+        if description is not None or properties:
+            dataset_properties = DatasetPropertiesClass(
+                description=description,
+                customProperties=properties,
+                # uri=dataset_name,
             )
+            dataset_snapshot.aspects.append(dataset_properties)
+        if schema_metadata:
+            dataset_snapshot.aspects.append(schema_metadata)
+        mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+        wu = SqlWorkUnit(id=dataset_name, mce=mce)
+        self.report.report_workunit(wu)
+        yield wu
+        dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
+        if dpi_aspect:
+            yield dpi_aspect
+        yield from self._get_domain_wu(
+            dataset_name=dataset_name,
+            entity_urn=dataset_urn,
+            entity_type="dataset",
+            sql_config=sql_config,
+        )
 
     def add_table_to_schema_container(
         self, dataset_urn: str, db_name: str, schema: str
@@ -1075,7 +1107,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
 
         return DatahubGEProfiler(
-            conn=inspector.bind, report=self.report, config=self.config.profiling
+            conn=inspector.bind,
+            report=self.report,
+            config=self.config.profiling,
+            platform=self.platform,
         )
 
     # Override if needed

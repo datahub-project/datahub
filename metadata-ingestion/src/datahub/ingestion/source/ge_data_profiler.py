@@ -10,7 +10,7 @@ import uuid
 from math import log10
 from typing import Any, Callable, Iterable, Iterator, List, Optional, Tuple, Union
 
-from datahub.telemetry import telemetry
+from datahub.telemetry import stats, telemetry
 
 # Fun compatibility hack! GE version 0.13.44 broke compatibility with SQLAlchemy 1.3.24.
 # This is a temporary workaround until GE fixes the issue on their end.
@@ -225,12 +225,12 @@ def _is_single_row_query_method(query: Any) -> bool:
 
 
 # mypy does not yet support ParamSpec. See https://github.com/python/mypy/issues/8645.
-def _run_with_query_combiner(  # type: ignore
+def _run_with_query_combiner(
     method: Callable[Concatenate["_SingleDatasetProfiler", P], None]  # type: ignore
 ) -> Callable[Concatenate["_SingleDatasetProfiler", P], None]:  # type: ignore
     @functools.wraps(method)
     def inner(
-        self: "_SingleDatasetProfiler", *args: P.args, **kwargs: P.kwargs  # type: ignore
+        self: "_SingleDatasetProfiler", *args: P.args, **kwargs: P.kwargs
     ) -> None:
         return self.query_combiner.run(lambda: method(self, *args, **kwargs))
 
@@ -612,8 +612,10 @@ class GEContext:
 class DatahubGEProfiler:
     report: SQLSourceReport
     config: GEProfilingConfig
+    times_taken: List[float]
 
     base_engine: Engine
+    platform: str  # passed from parent source config
 
     # The actual value doesn't matter, it just matters that we use it consistently throughout.
     _datasource_name_base: str = "my_sqlalchemy_datasource"
@@ -623,9 +625,11 @@ class DatahubGEProfiler:
         conn: Union[Engine, Connection],
         report: SQLSourceReport,
         config: GEProfilingConfig,
+        platform: str,
     ):
         self.report = report
         self.config = config
+        self.times_taken = []
 
         # TRICKY: The call to `.engine` is quite important here. Connection.connect()
         # returns a "branched" connection, which does not actually use a new underlying
@@ -633,6 +637,7 @@ class DatahubGEProfiler:
         # make the threading code work correctly. As such, we need to make sure we've
         # got an engine here.
         self.base_engine = conn.engine
+        self.platform = platform
 
     @contextlib.contextmanager
     def _ge_context(self) -> Iterator[GEContext]:
@@ -709,9 +714,37 @@ class DatahubGEProfiler:
                     for async_profile in async_profiles:
                         yield async_profile.result()
 
+                    total_time_taken = timer.elapsed_seconds()
+
                     logger.info(
-                        f"Profiling {len(requests)} table(s) finished in {(timer.elapsed_seconds()):.3f} seconds"
+                        f"Profiling {len(requests)} table(s) finished in {total_time_taken:.3f} seconds"
                     )
+
+                    telemetry.telemetry_instance.ping(
+                        "sql_profiling",
+                        f"time_taken_total:{self.platform}",
+                        # bucket by taking floor of log of time taken
+                        # report the bucket as a label so the count is not collapsed
+                        str(10 ** int(log10(total_time_taken + 1))),
+                    )
+
+                    if len(self.times_taken) > 0:
+
+                        percentiles = [50, 75, 95, 99]
+
+                        percentile_values = stats.calculate_percentiles(
+                            self.times_taken, percentiles
+                        )
+                        for percentile in percentiles:
+                            telemetry.telemetry_instance.ping(
+                                "sql_profiling",
+                                f"time_taken_p{percentile}:{self.platform}",
+                                # bucket by taking floor of log of time taken
+                                # report the bucket as a label so the count is not collapsed
+                                str(
+                                    10 ** int(log10(percentile_values[percentile] + 1))
+                                ),
+                            )
 
                     self.report.report_from_query_combiner(query_combiner.report)
 
@@ -733,6 +766,9 @@ class DatahubGEProfiler:
                     connection.execute(
                         f"drop view if exists `{ge_config.get('bigquery_temp_table')}`"
                     )
+                    logger.debug(
+                        f"Temp table {ge_config.get('bigquery_temp_table')} was dropped."
+                    )
             except Exception:
                 logger.warning(
                     f"Unable to delete bigquery temporary table: {ge_config.get('bigquery_temp_table')}"
@@ -745,10 +781,11 @@ class DatahubGEProfiler:
         schema: str = None,
         table: str = None,
         partition: Optional[str] = None,
-        custom_sql: str = None,
+        custom_sql: Optional[str] = None,
         **kwargs: Any,
     ) -> Optional[DatasetProfileClass]:
         bigquery_temp_table: Optional[str] = None
+
         ge_config = {
             "schema": schema,
             "table": table,
@@ -757,17 +794,14 @@ class DatahubGEProfiler:
             **kwargs,
         }
 
-        if custom_sql:
-            if self.config.bigquery_temp_table_schema:
-                bigquery_temp_table = (
-                    f"{self.config.bigquery_temp_table_schema}.ge-temp-{uuid.uuid4()}"
-                )
+        if self.config.bigquery_temp_table_schema is not None:
+            bigquery_temp_table = (
+                f"{self.config.bigquery_temp_table_schema}.ge-temp-{uuid.uuid4()}"
+            )
+            ge_config["bigquery_temp_table"] = bigquery_temp_table
 
-            ge_config = {
-                "query": custom_sql,
-                "bigquery_temp_table": bigquery_temp_table,
-                **kwargs,
-            }
+        if custom_sql is not None:
+            ge_config["query"] = custom_sql
 
         with self._ge_context() as ge_context, PerfTimer() as timer:
             try:
@@ -788,11 +822,11 @@ class DatahubGEProfiler:
                     query_combiner,
                 ).generate_dataset_profile()
 
+                time_taken = timer.elapsed_seconds()
                 logger.info(
-                    f"Finished profiling {pretty_name}; took {(timer.elapsed_seconds()):.3f} seconds"
+                    f"Finished profiling {pretty_name}; took {time_taken:.3f} seconds"
                 )
-
-                self._drop_bigquery_temp_table(ge_config)
+                self.times_taken.append(time_taken)
 
                 return profile
             except Exception as e:
@@ -800,8 +834,9 @@ class DatahubGEProfiler:
                     raise e
                 logger.exception(f"Encountered exception while profiling {pretty_name}")
                 self.report.report_failure(pretty_name, f"Profiling exception {e}")
-                self._drop_bigquery_temp_table(ge_config)
                 return None
+            finally:
+                self._drop_bigquery_temp_table(ge_config)
 
     def _get_ge_dataset(
         self,
