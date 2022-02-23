@@ -646,10 +646,13 @@ class TableauSource(Source):
 
             if sheet.get("path", ""):
                 sheet_external_url = f"{self.config.connect_uri}#/site/{self.config.site}/views/{sheet.get('path', '')}"
-            else:
+            elif sheet.get("containedInDashboards"):
                 # sheet contained in dashboard
                 dashboard_path = sheet.get("containedInDashboards")[0].get("path", "")
                 sheet_external_url = f"{self.config.connect_uri}/t/{self.config.site}/authoring/{dashboard_path}/{sheet.get('name', '')}"
+            else:
+                # hidden or viz-in-tooltip sheet
+                sheet_external_url = f"{self.config.connect_uri}"
 
             fields = {}
             for field in sheet.get("datasourceFields", ""):

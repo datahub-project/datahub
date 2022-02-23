@@ -36329,12 +36329,7 @@
                             "createdAt": "2021-12-17T21:08:26Z",
                             "updatedAt": "2021-12-17T21:08:27Z",
                             "tags": [],
-                            "containedInDashboards": [
-                                {
-                                    "name": "Obesity",
-                                    "path": "Regional_16397753068010/Obesity"
-                                }
-                            ],
+                            "containedInDashboards": [],
                             "upstreamDatasources": [
                                 {
                                     "id": "8eb071bf-364e-262b-c761-1ab465b2f214",
