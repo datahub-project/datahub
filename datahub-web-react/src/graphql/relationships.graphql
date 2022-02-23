@@ -12,7 +12,7 @@ fragment relationshipFields on Entity {
         orchestrator
         flowId
         cluster
-        info {
+        properties {
             name
             description
             project
@@ -40,12 +40,9 @@ fragment relationshipFields on Entity {
     ... on Chart {
         tool
         chartId
-        info {
+        properties {
             name
             description
-            inputs {
-                urn
-            }
         }
         editableProperties {
             description
@@ -57,7 +54,9 @@ fragment relationshipFields on Entity {
     }
     ... on Dataset {
         name
-        description
+        properties {
+            description
+        }
         editableProperties {
             description
         }

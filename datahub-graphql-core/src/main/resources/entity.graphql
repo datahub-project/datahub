@@ -611,12 +611,76 @@ type Dataset implements EntityWithRelationships & Entity {
     View related properties. Only relevant if subtypes field contains VIEW.
     """
     viewProperties: ViewProperties
+
+    """
+    Experimental API.
+    For fetching extra entities that do not have custom UI code yet
+    """
+    aspects(input: AspectParams): [RawAspect!]
+}
+
+
+"""
+Params to configure what list of aspects should be fetched by the aspects property
+"""
+input AspectParams {
+    """
+    Only fetch auto render aspects
+    """
+    autoRenderOnly: Boolean
+}
+
+
+"""
+Payload representing data about a single aspect
+"""
+type RawAspect {
+    """
+    The name of the aspect
+    """
+    aspectName: String!
+
+    """
+    JSON string containing the aspect's payload
+    """
+    payload: String
+
+    """
+    Details for the frontend on how the raw aspect should be rendered
+    """
+    renderSpec: AspectRenderSpec
+}
+
+"""
+Details for the frontend on how the raw aspect should be rendered
+"""
+type AspectRenderSpec {
+    """
+    Format the aspect should be displayed in for the UI. Powered by the renderSpec annotation on the aspect model
+    """
+    displayType: String
+
+    """
+    Name to refer to the aspect type by for the UI. Powered by the renderSpec annotation on the aspect model
+    """
+    displayName: String
+
+    """
+    Field in the aspect payload to index into for rendering.
+    """
+    key: String
 }
 
 """
 Additional read only properties about a Dataset
 """
 type DatasetProperties {
+
+    """
+    The name of the dataset used in display
+    """
+    name: String
+
     """
     Environment in which the dataset belongs to or where it was generated
     Note that this field will soon be deprecated in favor of a more standardized concept of Environment
@@ -679,7 +743,7 @@ type GlossaryTerm implements Entity {
     Deprecated, use properties field instead
     Details of the Glossary Term
     """
-    glossaryTermInfo: GlossaryTermInfo!
+    glossaryTermInfo: GlossaryTermInfo
 
     """
     Edges extending from this entity

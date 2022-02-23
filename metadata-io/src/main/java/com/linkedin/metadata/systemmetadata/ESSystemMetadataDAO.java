@@ -4,6 +4,9 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.search.elasticsearch.update.BulkListener;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import java.io.IOException;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.bulk.BackoffPolicy;
@@ -105,14 +108,13 @@ public class ESSystemMetadataDAO {
     return null;
   }
 
-  public SearchResponse findByRunId(String runId) {
+  public SearchResponse findByParams(Map<String, String> searchParams) {
     SearchRequest searchRequest = new SearchRequest();
 
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
 
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
-    finalQuery.must(QueryBuilders.termQuery("runId", runId));
-
+    searchParams.entrySet().forEach(entry -> finalQuery.must(QueryBuilders.termQuery(entry.getKey(), entry.getValue())));
     searchSourceBuilder.query(finalQuery);
 
     // this is the max page size elastic will return
@@ -129,6 +131,17 @@ public class ESSystemMetadataDAO {
       e.printStackTrace();
     }
     return null;
+  }
+
+  public SearchResponse findByRegistry(String registryName, String registryVersion) {
+    Map<String, String> params = new HashMap<>();
+    params.put("registryName", registryName);
+    params.put("registryVersion", registryVersion);
+    return findByParams(params);
+  }
+
+  public SearchResponse findByRunId(String runId) {
+    return findByParams(Collections.singletonMap("runId", runId));
   }
 
   public SearchResponse findRuns(Integer pageOffset, Integer pageSize) {

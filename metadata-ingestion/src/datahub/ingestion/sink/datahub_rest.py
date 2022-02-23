@@ -2,14 +2,15 @@ import concurrent.futures
 import functools
 import logging
 from dataclasses import dataclass
-from typing import Dict, Optional, Union, cast
+from typing import Union, cast
 
-from datahub.configuration.common import ConfigModel, OperationalError
+from datahub.configuration.common import OperationalError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
 from datahub.ingestion.api.sink import Sink, SinkReport, WriteCallback
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.client import DatahubClientConfig
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
@@ -19,14 +20,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.usage import UsageAggregation
 logger = logging.getLogger(__name__)
 
 
-class DatahubRestSinkConfig(ConfigModel):
-    """Configuration class for holding connectivity to datahub gms"""
-
-    server: str = "http://localhost:8080"
-    token: Optional[str]
-    timeout_sec: Optional[int]
-    extra_headers: Optional[Dict[str, str]]
-    max_threads: int = 1
+class DatahubRestSinkConfig(DatahubClientConfig):
+    pass
 
 
 @dataclass
@@ -46,6 +41,7 @@ class DatahubRestSink(Sink):
             connect_timeout_sec=self.config.timeout_sec,  # reuse timeout_sec for connect timeout
             read_timeout_sec=self.config.timeout_sec,
             extra_headers=self.config.extra_headers,
+            ca_certificate_path=self.config.ca_certificate_path,
         )
         self.emitter.test_connection()
         self.executor = concurrent.futures.ThreadPoolExecutor(

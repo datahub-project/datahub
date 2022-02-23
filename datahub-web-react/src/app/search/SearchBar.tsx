@@ -135,7 +135,10 @@ export const SearchBar = ({
             >
                 <StyledSearchBar
                     placeholder={placeholderText}
-                    onPressEnter={() => onSearch(filterSearchQuery(searchQuery || ''))}
+                    onPressEnter={(e) => {
+                        e.stopPropagation();
+                        onSearch(filterSearchQuery(searchQuery || ''));
+                    }}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     data-testid="search-input"

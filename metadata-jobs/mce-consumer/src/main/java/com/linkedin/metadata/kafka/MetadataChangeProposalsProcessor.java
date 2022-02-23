@@ -2,8 +2,11 @@ package com.linkedin.metadata.kafka;
 
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
-import com.linkedin.entity.client.AspectClient;
-import com.linkedin.metadata.Constants;
+import com.datahub.authentication.Authentication;
+import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.RestliEntityClient;
+import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
+import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.kafka.config.MetadataChangeProposalProcessorCondition;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -18,6 +21,7 @@ import org.apache.commons.lang.exception.ExceptionUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Conditional;
+import org.springframework.context.annotation.Import;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -26,11 +30,13 @@ import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
+@Import({RestliEntityClientFactory.class, SystemAuthenticationFactory.class})
 @Conditional(MetadataChangeProposalProcessorCondition.class)
 @EnableKafka
 public class MetadataChangeProposalsProcessor {
 
-  private AspectClient aspectClient;
+  private Authentication systemAuthentication; // TODO: Consider whether
+  private EntityClient entityClient;
   private KafkaTemplate<String, GenericRecord> kafkaTemplate;
 
   private final Histogram kafkaLagStats =
@@ -40,9 +46,11 @@ public class MetadataChangeProposalsProcessor {
   private String fmcpTopicName;
 
   public MetadataChangeProposalsProcessor(
-      @Nonnull final AspectClient aspectClient,
+      @Nonnull final Authentication systemAuthentication,
+      @Nonnull final RestliEntityClient entityClient,
       @Nonnull final KafkaTemplate<String, GenericRecord> kafkaTemplate) {
-    this.aspectClient = aspectClient;
+    this.systemAuthentication = systemAuthentication;
+    this.entityClient = entityClient;
     this.kafkaTemplate = kafkaTemplate;
   }
 
@@ -59,7 +67,7 @@ public class MetadataChangeProposalsProcessor {
       event = EventUtils.avroToPegasusMCP(record);
       log.debug("MetadataChangeProposal {}", event);
       // TODO: Get this from the event itself.
-      aspectClient.ingestProposal(event, Constants.SYSTEM_ACTOR);
+      entityClient.ingestProposal(event, this.systemAuthentication);
     } catch (Throwable throwable) {
       log.error("MCP Processor Error", throwable);
       log.error("Message: {}", record);

@@ -1,3 +1,7 @@
+---
+title: "metadata-jobs:mae-consumer-job"
+---
+
 # MetadataAuditEvent (MAE) Consumer Job
 MAE Consumer is a [Kafka Streams](https://kafka.apache.org/documentation/streams/) job. Its main function is to listen
 `MetadataAuditEvent` Kafka topic for messages and process those messages, converting changes in the metadata model into updates

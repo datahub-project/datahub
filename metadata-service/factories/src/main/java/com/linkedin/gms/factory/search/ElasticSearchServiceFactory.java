@@ -3,6 +3,7 @@ package com.linkedin.gms.factory.search;
 import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
+import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilders;
@@ -19,9 +20,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.PropertySource;
 
 
 @Configuration
+@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 @Import({RestHighLevelClientFactory.class, IndexConventionFactory.class, EntityRegistryFactory.class,
     SettingsBuilderFactory.class})
 public class ElasticSearchServiceFactory {
@@ -41,16 +44,16 @@ public class ElasticSearchServiceFactory {
   @Qualifier("settingsBuilder")
   private SettingsBuilder settingsBuilder;
 
-  @Value("${ES_BULK_REQUESTS_LIMIT:1}")
+  @Value("${elasticsearch.bulkProcessor.requestsLimit}")
   private Integer bulkRequestsLimit;
 
-  @Value("${ES_BULK_FLUSH_PERIOD:1}")
+  @Value("${elasticsearch.bulkProcessor.flushPeriod}")
   private Integer bulkFlushPeriod;
 
-  @Value("${ES_BULK_NUM_RETRIES:3}")
+  @Value("${elasticsearch.bulkProcessor.numRetries}")
   private Integer numRetries;
 
-  @Value("${ES_BULK_RETRY_INTERVAL:1}")
+  @Value("${elasticsearch.bulkProcessor.retryInterval}")
   private Long retryInterval;
 
   @Bean(name = "elasticSearchService")

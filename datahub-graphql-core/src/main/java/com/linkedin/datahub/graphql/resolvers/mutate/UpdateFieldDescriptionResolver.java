@@ -44,7 +44,7 @@ public class UpdateFieldDescriptionResolver implements DataFetcher<CompletableFu
 
       try {
 
-        Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActor());
+        Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActorUrn());
         DescriptionUtils.updateFieldDescription(
             input.getDescription(),
             targetUrn,

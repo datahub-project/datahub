@@ -27,6 +27,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 
+import static com.linkedin.metadata.DockerTestUtils.checkContainerEngine;
 import static org.testng.Assert.assertEquals;
 
 import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.INDEX_NAME;
@@ -45,6 +46,7 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
   @BeforeTest
   public void setup() {
     _elasticsearchContainer = new ElasticsearchContainer(IMAGE_NAME);
+    checkContainerEngine(_elasticsearchContainer.getDockerClient());
     _elasticsearchContainer.start();
     _searchClient = buildRestClient();
     _client = buildService();

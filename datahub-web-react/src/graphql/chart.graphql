@@ -4,7 +4,7 @@ query getChart($urn: String!) {
         type
         tool
         chartId
-        info {
+        properties {
             name
             description
             externalUrl

@@ -90,7 +90,7 @@ public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEnti
                 .stream()
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet()),
-            context.getActor());
+            context.getAuthentication());
 
             final List<Entity> gmsResults = dataJobUrns.stream()
                 .map(jobUrn -> dataJobMap.getOrDefault(jobUrn, null)).collect(Collectors.toList());
@@ -115,7 +115,7 @@ public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEnti
                                 @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
         final SearchResult searchResult = _dataJobsClient.search(
-            "dataJob", query, facetFilters, start, count, context.getActor());
+            "dataJob", query, facetFilters, start, count, context.getAuthentication());
         return UrnSearchResultsMapper.map(searchResult);
     }
 
@@ -126,7 +126,7 @@ public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEnti
                                             int limit,
                                             @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final AutoCompleteResult result = _dataJobsClient.autoComplete("dataJob", query, facetFilters, limit, context.getActor());
+        final AutoCompleteResult result = _dataJobsClient.autoComplete("dataJob", query, facetFilters, limit, context.getAuthentication());
         return AutoCompleteResultsMapper.map(result);
     }
 
@@ -149,20 +149,20 @@ public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEnti
                 facetFilters,
                 start,
                 count,
-            context.getActor());
+            context.getAuthentication());
         return BrowseResultMapper.map(result);
     }
 
     @Override
     public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull QueryContext context) throws Exception {
-        final StringArray result = _dataJobsClient.getBrowsePaths(DataJobUrn.createFromString(urn), context.getActor());
+        final StringArray result = _dataJobsClient.getBrowsePaths(DataJobUrn.createFromString(urn), context.getAuthentication());
         return BrowsePathsMapper.map(result);
     }
 
     @Override
     public DataJob update(@Nonnull String urn, @Nonnull DataJobUpdateInput input, @Nonnull QueryContext context) throws Exception {
         if (isAuthorized(urn, input, context)) {
-            final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
+            final CorpuserUrn actor = CorpuserUrn.createFromString(context.getAuthentication().getActor().toUrnStr());
             final DataJobSnapshot dataJobSnapshot = DataJobUpdateInputSnapshotMapper.map(input, actor);
             dataJobSnapshot.setUrn(DataJobUrn.createFromString(urn));
 
@@ -171,7 +171,7 @@ public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEnti
             try {
                 Entity entity = new Entity();
                 entity.setValue(snapshot);
-                _dataJobsClient.update(entity, context.getActor());
+                _dataJobsClient.update(entity, context.getAuthentication());
             } catch (RemoteInvocationException e) {
                 throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
             }
@@ -186,7 +186,7 @@ public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEnti
         final DisjunctivePrivilegeGroup orPrivilegeGroups = getAuthorizedPrivileges(update);
         return AuthorizationUtils.isAuthorized(
             context.getAuthorizer(),
-            context.getActor(),
+            context.getAuthentication().getActor().toUrnStr(),
             PoliciesConfig.DATA_JOB_PRIVILEGES.getResourceType(),
             urn,
             orPrivilegeGroups);

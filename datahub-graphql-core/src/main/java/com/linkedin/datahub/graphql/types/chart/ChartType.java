@@ -89,7 +89,7 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
                     .stream()
                     .filter(Objects::nonNull)
                     .collect(Collectors.toSet()),
-                context.getActor());
+                context.getAuthentication());
 
             final List<com.linkedin.entity.Entity> gmsResults = new ArrayList<>();
             for (Urn urn : chartUrns) {
@@ -120,7 +120,7 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
             facetFilters,
             start,
             count,
-            context.getActor()
+            context.getAuthentication()
         );
         return UrnSearchResultsMapper.map(searchResult);
     }
@@ -137,7 +137,7 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
             query,
             facetFilters,
             limit,
-            context.getActor());
+            context.getAuthentication());
         return AutoCompleteResultsMapper.map(result);
     }
 
@@ -155,13 +155,13 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
                 facetFilters,
                 start,
                 count,
-                context.getActor());
+                context.getAuthentication());
         return BrowseResultMapper.map(result);
     }
 
     @Override
     public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull QueryContext context) throws Exception {
-        final StringArray result = _entityClient.getBrowsePaths(getChartUrn(urn), context.getActor());
+        final StringArray result = _entityClient.getBrowsePaths(getChartUrn(urn), context.getAuthentication());
         return BrowsePathsMapper.map(result);
     }
 
@@ -176,13 +176,13 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
     @Override
     public Chart update(@Nonnull String urn, @Nonnull ChartUpdateInput input, @Nonnull QueryContext context) throws Exception {
         if (isAuthorized(urn, input, context)) {
-            final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
+            final CorpuserUrn actor = CorpuserUrn.createFromString(context.getAuthentication().getActor().toUrnStr());
             final ChartSnapshot chartSnapshot = ChartUpdateInputSnapshotMapper.map(input, actor);
             chartSnapshot.setUrn(ChartUrn.createFromString(urn));
             final Snapshot snapshot = Snapshot.create(chartSnapshot);
 
             try {
-                _entityClient.update(new com.linkedin.entity.Entity().setValue(snapshot), context.getActor());
+                _entityClient.update(new com.linkedin.entity.Entity().setValue(snapshot), context.getAuthentication());
             } catch (RemoteInvocationException e) {
                 throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
             }
@@ -197,7 +197,7 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
         final DisjunctivePrivilegeGroup orPrivilegeGroups = getAuthorizedPrivileges(update);
         return AuthorizationUtils.isAuthorized(
             context.getAuthorizer(),
-            context.getActor(),
+            context.getAuthentication().getActor().toUrnStr(),
             PoliciesConfig.CHART_PRIVILEGES.getResourceType(),
             urn,
             orPrivilegeGroups);

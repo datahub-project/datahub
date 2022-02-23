@@ -1,0 +1,63 @@
+---
+version: '3.8'
+services:
+
+  connect:
+    image: confluentinc/cp-kafka-connect:6.2.1
+    env_file: ./../kafka-connect/setup/connect.env
+    container_name: test_connect
+    hostname: test_connect
+    depends_on:
+      - zookeeper
+      - broker
+      - mysqldb
+    ports:
+      - "58083:58083"    
+#    volumes:        
+#      - ./../kafka-connect/setup/confluentinc-kafka-connect-jdbc-10.2.5:/usr/local/share/kafka/plugins/confluentinc-kafka-connect-jdbc-10.2.5
+#      - ./../kafka-connect/setup/confluentinc-connect-transforms-1.4.1:/usr/local/share/kafka/plugins/confluentinc-connect-transforms-1.4.1
+#      - ./../kafka-connect/setup/debezium-debezium-connector-mysql-1.7.0:/usr/local/share/kafka/plugins/debezium-debezium-connector-mysql-1.7.0
+#      - ./../kafka-connect/setup/gcp-bigquery-project-keyfile.json:/usr/local/share/gcp-bigquery-project-keyfile.json
+    command:
+      - bash
+      - -c
+      - |
+        echo "Installing Connector"
+        #
+        confluent-hub install --no-prompt confluentinc/kafka-connect-jdbc:10.2.5      
+        #
+        confluent-hub install --no-prompt confluentinc/connect-transforms:1.4.1
+        #
+        confluent-hub install --no-prompt debezium/debezium-connector-mysql:1.7.0
+        #
+        #confluent-hub install --no-prompt wepay/kafka-connect-bigquery:1.6.8
+        #
+        curl -k -SL "https://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-java-8.0.27.tar.gz" \
+             | tar -xzf - -C /usr/share/confluent-hub-components/confluentinc-kafka-connect-jdbc/lib \
+             --strip-components=1 mysql-connector-java-8.0.27/mysql-connector-java-8.0.27.jar
+        #
+        curl -k -SL "https://repo1.maven.org/maven2/io/strimzi/kafka-env-var-config-provider/0.1.1/kafka-env-var-config-provider-0.1.1.tar.gz" \
+             | tar -xzf - -C /usr/share/confluent-hub-components/
+        #             
+        echo "Launching Kafka Connect worker"
+        #
+        /etc/confluent/docker/run &
+        #
+        sleep infinity
+  mysqldb:
+    image: mysql:5.7
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpwd
+      MYSQL_USER: foo
+      MYSQL_PASSWORD: datahub
+      MYSQL_DATABASE: librarydb
+    container_name: test_mysql
+    hostname: test_mysql
+    ports:
+      - "53306:3306"
+    volumes:  
+      - ./../kafka-connect/setup/conf/mysqld.cnf:/etc/mysql/mysql.conf.d/mysqld.cnf
+      - ./../kafka-connect/setup/mysql-setup.sql:/docker-entrypoint-initdb.d/mysql-setup.sql
+volumes:
+    test_zkdata:
+

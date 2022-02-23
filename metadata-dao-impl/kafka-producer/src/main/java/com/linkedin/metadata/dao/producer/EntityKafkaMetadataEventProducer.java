@@ -88,7 +88,8 @@ public class EntityKafkaMetadataEventProducer implements EntityEventProducer {
 
     GenericRecord record;
     try {
-      log.debug(String.format(String.format("Converting Pegasus snapshot to Avro snapshot urn %s", urn),
+      log.debug(String.format("Converting Pegasus snapshot to Avro snapshot urn %s\nMetadataAuditEvent: %s",
+          urn,
           metadataAuditEvent.toString()));
       record = EventUtils.pegasusToAvroMAE(metadataAuditEvent);
     } catch (IOException e) {
@@ -121,7 +122,8 @@ public class EntityKafkaMetadataEventProducer implements EntityEventProducer {
       @Nonnull final MetadataChangeLog metadataChangeLog) {
     GenericRecord record;
     try {
-      log.debug(String.format(String.format("Converting Pegasus snapshot to Avro snapshot urn %s", urn),
+      log.debug(String.format("Converting Pegasus snapshot to Avro snapshot urn %s\nMetadataChangeLog: %s",
+          urn,
           metadataChangeLog.toString()));
       record = EventUtils.pegasusToAvroMCL(metadataChangeLog);
     } catch (IOException e) {

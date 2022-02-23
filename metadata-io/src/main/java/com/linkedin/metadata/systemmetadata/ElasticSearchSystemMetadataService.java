@@ -1,10 +1,10 @@
 package com.linkedin.metadata.systemmetadata;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.IngestionRunSummary;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexBuilder;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.SystemMetadata;
 import java.io.IOException;
@@ -13,8 +13,12 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -24,8 +28,6 @@ import org.elasticsearch.action.delete.DeleteResponse;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.client.indices.CreateIndexRequest;
-import org.elasticsearch.client.indices.GetIndexRequest;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.reindex.DeleteByQueryRequest;
 import org.elasticsearch.search.SearchHits;
@@ -44,6 +46,15 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
 
   private static final String DOC_DELIMETER = "--";
   public static final String INDEX_NAME = "system_metadata_service_v1";
+  private static final String FIELD_URN = "urn";
+  private static final String FIELD_ASPECT = "aspect";
+  private static final String FIELD_RUNID = "runId";
+  private static final String FIELD_LAST_UPDATED = "lastUpdated";
+  private static final String FIELD_REGISTRY_NAME = "registryName";
+  private static final String FIELD_REGISTRY_VERSION = "registryVersion";
+  private static final Set<String> INDEX_FIELD_SET = new HashSet<>(
+      Arrays.asList(FIELD_URN, FIELD_ASPECT, FIELD_RUNID, FIELD_LAST_UPDATED, FIELD_REGISTRY_NAME,
+          FIELD_REGISTRY_VERSION));
 
   private String toDocument(SystemMetadata systemMetadata, String urn, String aspect) {
     final ObjectNode document = JsonNodeFactory.instance.objectNode();
@@ -52,13 +63,13 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
     document.put("aspect", aspect);
     document.put("runId", systemMetadata.getRunId());
     document.put("lastUpdated", systemMetadata.getLastObserved());
-
+    document.put("registryName", systemMetadata.getRegistryName());
+    document.put("registryVersion", systemMetadata.getRegistryVersion());
     return document.toString();
   }
 
   private String toDocId(@Nonnull final String urn, @Nonnull final String aspect) {
-    String rawDocId =
-        urn + DOC_DELIMETER + aspect;
+    String rawDocId = urn + DOC_DELIMETER + aspect;
 
     try {
       byte[] bytesOfRawDocID = rawDocId.getBytes("UTF-8");
@@ -97,24 +108,40 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
 
   @Override
   public List<AspectRowSummary> findByRunId(String runId) {
-    SearchHits hits = _esDAO.findByRunId(runId).getHits();
-    List<AspectRowSummary> summaries = Arrays.stream(hits.getHits()).map(hit -> {
-      Map<String, Object> values = hit.getSourceAsMap();
-      AspectRowSummary summary = new AspectRowSummary();
-      summary.setRunId((String) values.get("runId"));
-      summary.setAspectName((String) values.get("aspect"));
-      summary.setUrn((String) values.get("urn"));
-      Object timestamp = values.get("lastUpdated");
-      if (timestamp instanceof Long) {
-        summary.setTimestamp((Long) timestamp);
-      } else if (timestamp instanceof Integer) {
-        summary.setTimestamp(Long.valueOf((Integer) timestamp));
-      }
-      summary.setKeyAspect(((String) values.get("aspect")).endsWith("Key"));
-      return summary;
-    }).collect(Collectors.toList());
+    return findByParams(Collections.singletonMap(FIELD_RUNID, runId));
+  }
 
-    return summaries;
+  private List<AspectRowSummary> findByParams(Map<String, String> systemMetaParams) {
+    SearchResponse searchResponse = _esDAO.findByParams(systemMetaParams);
+    if (searchResponse != null) {
+      SearchHits hits = searchResponse.getHits();
+      List<AspectRowSummary> summaries = Arrays.stream(hits.getHits()).map(hit -> {
+        Map<String, Object> values = hit.getSourceAsMap();
+        AspectRowSummary summary = new AspectRowSummary();
+        summary.setRunId((String) values.get(FIELD_RUNID));
+        summary.setAspectName((String) values.get(FIELD_ASPECT));
+        summary.setUrn((String) values.get(FIELD_URN));
+        Object timestamp = values.get(FIELD_LAST_UPDATED);
+        if (timestamp instanceof Long) {
+          summary.setTimestamp((Long) timestamp);
+        } else if (timestamp instanceof Integer) {
+          summary.setTimestamp(Long.valueOf((Integer) timestamp));
+        }
+        summary.setKeyAspect(((String) values.get(FIELD_ASPECT)).endsWith("Key"));
+        return summary;
+      }).collect(Collectors.toList());
+      return summaries;
+    } else {
+      return Collections.emptyList();
+    }
+  }
+
+  @Override
+  public List<AspectRowSummary> findByRegistry(String registryName, String registryVersion) {
+    Map<String, String> registryParams = new HashMap<>();
+    registryParams.put(FIELD_REGISTRY_NAME, registryName);
+    registryParams.put(FIELD_REGISTRY_VERSION, registryVersion);
+    return findByParams(registryParams);
   }
 
   @Override
@@ -134,35 +161,13 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
   @Override
   public void configure() {
     log.info("Setting up system metadata index");
-    boolean exists = false;
+    IndexBuilder ib = new IndexBuilder(this.searchClient, _indexConvention.getIndexName(INDEX_NAME),
+        SystemMetadataMappingsBuilder.getMappings(), Collections.emptyMap());
     try {
-      exists = searchClient.indices().exists(
-          new GetIndexRequest(_indexConvention.getIndexName(INDEX_NAME)), RequestOptions.DEFAULT);
-    } catch (IOException e) {
-      log.error("ERROR: Failed to set up elasticsearch system metadata index. Could not check if the index exists");
-      e.printStackTrace();
-      return;
+      ib.buildIndex();
+    } catch (IOException ie) {
+      throw new RuntimeException("Could not configure system metadata index", ie);
     }
-
-    // If index doesn't exist, create index
-    if (!exists) {
-      log.info("Elastic System Metadata Index does not exist. Creating.");
-      CreateIndexRequest createIndexRequest = new CreateIndexRequest(_indexConvention.getIndexName(INDEX_NAME));
-
-      createIndexRequest.mapping(SystemMetadataMappingsBuilder.getMappings());
-
-      try {
-        searchClient.indices().create(createIndexRequest, RequestOptions.DEFAULT);
-      } catch (IOException e) {
-        log.error("ERROR: Failed to set up elasticsearch system metadata index. Could not create the index.");
-        e.printStackTrace();
-        return;
-      }
-
-      log.info("Successfully Created Elastic System Metadata Index");
-    }
-
-    return;
   }
 
   @Override
@@ -172,7 +177,7 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
     try {
       searchClient.deleteByQuery(deleteRequest, RequestOptions.DEFAULT);
     } catch (Exception e) {
-      log.error("Failed to clear graph service: {}", e.toString());
+      log.error("Failed to clear system metadata service: {}", e.toString());
     }
   }
 }

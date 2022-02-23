@@ -69,6 +69,61 @@ As a SQL-based service, the Trino integration is also supported by our SQL profi
 
 Coming soon!
 
+## Trino Usage Stats
+
+For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
+
+### Starburst Trino Usage Stats
+If you are using Starburst Trino you can collect usage stats the following way.
+#### Prerequsities 
+1. You need to setup Event Logger which saves audit logs into a Postgres db and setup this db as a catalog in Trino
+Here you can find more info about how to setup:
+https://docs.starburst.io/354-e/security/event-logger.html#security-event-logger--page-root
+https://docs.starburst.io/354-e/security/event-logger.html#analyzing-the-event-log
+
+2. Install starbust-trino-usage plugin 
+Run pip install 'acryl-datahub[starburst-trino-usage]'.
+
+#### Usage stats ingestion job
+Here is a sample recipe to ingest usage data:
+```
+source:
+    type: starburst-trino-usage
+    config:
+    # Coordinates
+    host_port: yourtrinohost:port
+    # The name of the catalog from getting the usage 
+    database: hive
+    # Credentials
+    username: trino_username
+    password: trino_password
+    email_domain: test.com
+    audit_catalog: audit
+    audit_schema: audit_schema
+
+sink:
+    type: "datahub-rest"
+    config:
+        server: "http://localhost:8080"
+```
+### Config details
+
+Note that a `.` is used to denote nested fields in the YAML recipe.
+
+By default, we extract usage stats for the last day, with the recommendation that this source is executed every day.
+
+| Field                  | Required | Default                                                        | Description                                                                                                                                                                                                                                                                                                                                                                            |
+| ---------------------- | -------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `database`        |    yes   |                                                                |  The name of the catalog from getting the usage                                                                                                                                                                                                                                                                                                                                  |
+| `audit_catalog`        |    yes   |                                                                |  The catalog name where the audit table can be found                                                                                                                                                                                                                                                                                                                                   |
+| `audit_schema`        |    yes   |                                                                |  The schema name where the audit table can be found                                                                                                                                                                                                                                                                                                                                   |
+| `email_domain`        |    yes   |                                                                |  The email domain which will be appended to the users                                                                                                                                                                                                                                                                                                                                  |
+| `env`                  |          | `"PROD"`                                                       | Environment to use in namespace when constructing URNs.                                                                                                                                                                                                                                                                                                                                |
+| `bucket_duration` |          | `"DAY"`                                                        | Duration to bucket usage events by. Can be `"DAY"` or `"HOUR"`. |
+| `start_time`           |          | Last full day in UTC (or hour, depending on `bucket_duration`) | Earliest date of usage logs to consider.                                                                                                                                                                                                                                                                                                                                               |
+| `end_time`             |          | Last full day in UTC (or hour, depending on `bucket_duration`) | Latest date of usage logs to consider.                                                                                                                                                                                                                                                                                                                                                 |
+| `top_n_queries`        |          | `10`                                                           | Number of top queries to save to each table.                                                                                                                                                                                                                                                                                                                                           |
+
 ## Questions
 
 If you've got any questions on configuring this source, feel free to ping us on [our Slack](https://slack.datahubproject.io/)!

@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers;
 
+import com.datahub.authentication.Authentication;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.element.DataElement;
@@ -55,8 +56,8 @@ public class ResolverUtils {
     }
 
     @Nonnull
-    public static String getActor(DataFetchingEnvironment environment) {
-        return ((QueryContext) environment.getContext()).getActor();
+    public static Authentication getAuthentication(DataFetchingEnvironment environment) {
+        return ((QueryContext) environment.getContext()).getAuthentication();
     }
 
     @Nonnull

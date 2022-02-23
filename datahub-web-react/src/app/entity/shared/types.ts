@@ -4,6 +4,7 @@ import {
     DataPlatform,
     DatasetEditableProperties,
     DatasetEditablePropertiesUpdate,
+    RawAspect,
     EditableSchemaMetadata,
     EditableSchemaMetadataUpdate,
     EntityType,
@@ -40,7 +41,9 @@ export type EntitySidebarSection = {
 export type GenericEntityProperties = {
     urn?: string;
     name?: Maybe<string>;
-    description?: Maybe<string>;
+    properties?: {
+        description?: string;
+    };
     globalTags?: Maybe<GlobalTags>;
     glossaryTerms?: Maybe<GlossaryTerms>;
     ownership?: Maybe<Ownership>;
@@ -54,6 +57,7 @@ export type GenericEntityProperties = {
     /** Dataset specific- TODO, migrate these out */
     editableSchemaMetadata?: Maybe<EditableSchemaMetadata>;
     editableProperties?: Maybe<DatasetEditableProperties>;
+    autoRenderAspects?: Maybe<Array<RawAspect>>;
 };
 
 export type GenericEntityUpdate = {

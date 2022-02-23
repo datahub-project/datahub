@@ -99,7 +99,7 @@ public class OwnerUtils {
 
     return AuthorizationUtils.isAuthorized(
         context.getAuthorizer(),
-        context.getActor(),
+        context.getActorUrn(),
         resourceUrn.getEntityType(),
         resourceUrn.toString(),
         orPrivilegeGroups);

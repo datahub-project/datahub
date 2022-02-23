@@ -42,6 +42,7 @@ services:
       - ./monitoring/client-prometheus-config.yaml:/datahub/datahub-gms/scripts/prometheus-config.yaml
       - ../metadata-models/src/main/resources/:/datahub/datahub-gms/resources
       - ../metadata-service/war/build/libs/:/datahub/datahub-gms/bin
+      - ${HOME}/.datahub/plugins:/etc/datahub/plugins
 
   datahub-frontend-react:
     image: linkedin/datahub-frontend-react:debug

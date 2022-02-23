@@ -11,6 +11,7 @@ import com.linkedin.metadata.recommendation.RecommendationParams;
 import com.linkedin.metadata.recommendation.RecommendationRenderType;
 import com.linkedin.metadata.recommendation.RecommendationRequestContext;
 import com.linkedin.metadata.recommendation.ScenarioType;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.io.IOException;
@@ -97,7 +98,8 @@ public class RecentlyViewedSource implements RecommendationSource {
     SearchSourceBuilder source = new SearchSourceBuilder();
     BoolQueryBuilder query = QueryBuilders.boolQuery();
     // Filter for the entity view events of the user requesting recommendation
-    query.must(QueryBuilders.termQuery(DataHubUsageEventConstants.ACTOR_URN, userUrn.toString()));
+    query.must(
+        QueryBuilders.termQuery(DataHubUsageEventConstants.ACTOR_URN + ESUtils.KEYWORD_SUFFIX, userUrn.toString()));
     query.must(
         QueryBuilders.termQuery(DataHubUsageEventConstants.TYPE, DataHubUsageEventType.ENTITY_VIEW_EVENT.getType()));
     source.query(query);
@@ -105,7 +107,7 @@ public class RecentlyViewedSource implements RecommendationSource {
     // Find the entity with the largest last viewed timestamp
     String lastViewed = "last_viewed";
     AggregationBuilder aggregation = AggregationBuilders.terms(ENTITY_AGG_NAME)
-        .field(DataHubUsageEventConstants.ENTITY_URN + ".keyword")
+        .field(DataHubUsageEventConstants.ENTITY_URN + ESUtils.KEYWORD_SUFFIX)
         .size(MAX_CONTENT)
         .order(BucketOrder.aggregation(lastViewed, false))
         .subAggregation(AggregationBuilders.max(lastViewed).field(DataHubUsageEventConstants.TIMESTAMP));

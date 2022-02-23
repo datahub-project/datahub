@@ -28,6 +28,8 @@ services:
     env_file: datahub-gms/env/docker-without-neo4j.env
     depends_on:
       - mysql
+    volumes:
+      - ${HOME}/.datahub/plugins:/etc/datahub/plugins
 
 volumes:
   mysqldata:

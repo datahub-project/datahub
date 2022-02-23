@@ -7,14 +7,14 @@ import { StyledTable } from '../../components/styled/StyledTable';
 import { useEntityData } from '../../EntityContext';
 
 const NameText = styled(Typography.Text)`
-    font-family: 'Roboto Mono';
+    font-family: 'Roboto Mono', monospace;
     font-weight: 600;
     font-size: 12px;
     color: ${ANTD_GRAY[9]};
 `;
 
 const ValueText = styled(Typography.Text)`
-    font-family: 'Roboto Mono';
+    font-family: 'Roboto Mono', monospace;
     font-weight: 400;
     font-size: 12px;
     color: ${ANTD_GRAY[8]};

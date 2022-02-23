@@ -81,6 +81,11 @@ const companyLogos = [
     imageUrl: "/img/logos/companies/uphold.png",
     size: "large",
   },
+  {
+    name: "hipages",
+    imageUrl: "/img/logos/companies/hipages.png",
+    size: "default",
+  },
 ];
 
 const platformLogos = [

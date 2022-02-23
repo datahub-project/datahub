@@ -1,6 +1,8 @@
 package com.linkedin.datahub.graphql;
 
-import com.datahub.metadata.authorization.Authorizer;
+import com.datahub.authentication.Actor;
+import com.datahub.authentication.Authentication;
+import com.datahub.authorization.Authorizer;
 
 
 /**
@@ -14,9 +16,23 @@ public interface QueryContext {
     boolean isAuthenticated();
 
     /**
+     * Returns the {@link com.datahub.authentication.Authentication} associated with the current query context.
+     */
+    Authentication getAuthentication();
+
+    /**
      * Returns the current authenticated actor, null if there is none.
      */
-    String getActor();
+    default Actor getActor() {
+        return getAuthentication().getActor();
+    }
+
+    /**
+     * Returns the current authenticated actor, null if there is none.
+     */
+    default String getActorUrn() {
+        return getActor().toUrnStr();
+    }
 
     /**
      * Returns the authorizer used to authorize specific actions.

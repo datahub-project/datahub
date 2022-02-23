@@ -11,11 +11,13 @@ source:
       allow:
         - "^metagalaxy"
         - "^northwind"
+        - "^datacharmer"
         - "^test_cases"
     profile_pattern:
       allow:
-        - "^northwind.*\$"
-        - "^test_cases.*\$"
+        - "^northwind"
+        - "^datacharmer"
+        - "^test_cases"
     profiling:
       enabled: True
 

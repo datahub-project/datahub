@@ -4,7 +4,6 @@ fragment entityPreview on Entity {
     ... on Dataset {
         name
         origin
-        description
         uri
         platform {
             name
@@ -18,6 +17,7 @@ fragment entityPreview on Entity {
         }
         platformNativeType
         properties {
+            description
             customProperties {
                 key
                 value
@@ -85,7 +85,7 @@ fragment entityPreview on Entity {
         type
         tool
         dashboardId
-        info {
+        properties {
             name
             description
             externalUrl
@@ -112,7 +112,7 @@ fragment entityPreview on Entity {
         type
         tool
         chartId
-        info {
+        properties {
             name
             description
             externalUrl
@@ -141,7 +141,7 @@ fragment entityPreview on Entity {
         orchestrator
         flowId
         cluster
-        info {
+        properties {
             name
             description
             project
@@ -169,7 +169,7 @@ fragment entityPreview on Entity {
         ownership {
             ...ownershipFields
         }
-        info {
+        properties {
             name
             description
         }

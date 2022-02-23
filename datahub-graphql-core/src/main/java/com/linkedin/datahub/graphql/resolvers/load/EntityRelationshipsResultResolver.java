@@ -49,7 +49,7 @@ public class EntityRelationshipsResultResolver implements DataFetcher<Completabl
             resolvedDirection,
             start,
             count,
-            context.getActor()
+            context.getActorUrn()
           ),
         resolvedDirection
     ));

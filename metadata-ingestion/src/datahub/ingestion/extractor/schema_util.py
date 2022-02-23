@@ -119,6 +119,7 @@ class AvroToMceSchemaConverter:
             avro.schema.PrimitiveSchema: self._gen_non_nested_to_mce_fields,
             avro.schema.FixedSchema: self._gen_non_nested_to_mce_fields,
             avro.schema.EnumSchema: self._gen_non_nested_to_mce_fields,
+            avro.schema.LogicalSchema: self._gen_non_nested_to_mce_fields,
         }
 
     def _get_column_type(
@@ -405,7 +406,12 @@ class AvroToMceSchemaConverter:
         self, avro_schema: avro.schema.Schema
     ) -> Generator[SchemaField, None, None]:
         # Invoke the relevant conversion handler for the schema element type.
-        yield from self._avro_type_to_mce_converter_map[type(avro_schema)](avro_schema)
+        schema_type = (
+            type(avro_schema)
+            if not isinstance(avro_schema, avro.schema.LogicalSchema)
+            else avro.schema.LogicalSchema
+        )
+        yield from self._avro_type_to_mce_converter_map[schema_type](avro_schema)
 
     @classmethod
     def to_mce_fields(
@@ -440,8 +446,14 @@ def avro_schema_to_mce_fields(
     :param is_key_schema: True if it is a key-schema. Default is False (value-schema).
     :return: The list of MCE compatible SchemaFields.
     """
-    return list(
-        AvroToMceSchemaConverter.to_mce_fields(
-            avro_schema_string, is_key_schema, default_nullable
+    schema_fields: List[SchemaField] = []
+    try:
+        schema_fields = list(
+            AvroToMceSchemaConverter.to_mce_fields(
+                avro_schema_string, is_key_schema, default_nullable
+            )
         )
-    )
+    except Exception:
+        logger.exception(f"Failed to parse {avro_schema_string} to mce_fields.")
+
+    return schema_fields

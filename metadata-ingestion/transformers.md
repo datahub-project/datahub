@@ -2,13 +2,13 @@
 
 ## What’s a transformer?
 
-Oftentimes we want to modify metadata before it reaches the ingestion sink – for instance, we might want to add custom tags, ownership, or patch some fields. A transformer allows us to do exactly these things.
+Oftentimes we want to modify metadata before it reaches the ingestion sink – for instance, we might want to add custom tags, ownership, properties, or patch some fields. A transformer allows us to do exactly these things.
 
 Moreover, a transformer allows one to have fine-grained control over the metadata that’s ingested without having to modify the ingestion framework's code yourself. Instead, you can write your own module that can take MCEs however you like. To configure the recipe, all that's needed is a module name as well as any arguments.
 
 ## Provided transformers
 
-Aside from the option of writing your own transformer (see below), we provide two simple transformers for the use cases of adding dataset tags and ownership information.
+Aside from the option of writing your own transformer (see below), we provide some simple transformers for the use cases of adding: dataset tags, dataset properties and ownership information.
 
 ### Adding a set of tags
 
@@ -191,6 +191,37 @@ transformers:
 In this case, the resulting dataset will have only 1 browse path, the one from the transform.
 
 Note that whatever browse paths you send via this will overwrite the browse paths present in the UI.
+
+
+### Adding a set of properties
+
+If you'd like to add more complex logic for assigning properties, you can use the `add_dataset_properties` transformer, which calls a user-provided class (that extends from `AddDatasetPropertiesResolverBase` class) to determine the properties for each dataset.
+
+The config, which we’d append to our ingestion recipe YAML, would look like this:
+
+```yaml
+transformers:
+  - type: "add_dataset_properties"
+    config:
+      add_properties_resolver_class: "<your_module>.<your_class>"
+```
+
+Then define your class to return a list of custom properties, for example:
+
+```python
+import logging
+from typing import Dict
+from datahub.ingestion.transformer.add_dataset_properties import AddDatasetPropertiesResolverBase
+from datahub.metadata.schema_classes import DatasetSnapshotClass
+
+class MyPropertiesResolver(AddDatasetPropertiesResolverBase):
+    def get_properties_to_add(self, current: DatasetSnapshotClass) -> Dict[str, str]:
+        ### Add custom logic here        
+        properties= {'my_custom_property': 'property value'}
+        logging.info(f"Adding properties: {properties} to dataset: {current.urn}.")
+        return properties
+```
+
 ## Writing a custom transformer from scratch
 
 In the above couple of examples, we use classes that have already been implemented in the ingestion framework. However, it’s common for more advanced cases to pop up where custom code is required, for instance if you'd like to utilize conditional logic or rewrite properties. In such cases, we can add our own modules and define the arguments it takes as a custom transformer.
@@ -322,6 +353,60 @@ def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventCla
         ownership.owners.extend(owners_to_add)
 
     return mce
+```
+
+### More Sophistication: Making calls to DataHub during Transformation
+
+In some advanced cases, you might want to check with DataHub before performing a transformation. A good example for this might be retrieving the current set of owners of a dataset before providing the new set of owners during an ingestion process. To allow transformers to always be able to query the graph, the framework provides them access to the graph through the context object `ctx`. Connectivity to the graph is automatically instantiated anytime the pipeline uses a REST sink. In case you are using the Kafka sink, you can additionally provide access to the graph by configuring it in your pipeline. 
+
+Here is an example of a recipe that uses Kafka as the sink, but provides access to the graph by explicitly configuring the `datahub_api`. 
+
+```yaml
+source:
+  type: mysql
+  config: 
+     # ..source configs
+     
+sink: 
+  type: datahub-kafka
+  config:
+     connection:
+        bootstrap: localhost:9092
+	schema_registry_url: "http://localhost:8081"
+
+datahub_api:
+  server: http://localhost:8080
+  # standard configs accepted by datahub rest client ... 
+```
+
+#### Advanced Use-Case: Patching Owners
+
+With the above capability, we can now build more powerful transformers that can check with the server-side state before issuing changes in metadata. 
+e.g. Here is how the AddDatasetOwnership transformer can now support PATCH semantics by ensuring that it never deletes any owners that are stored on the server. 
+
+```python
+def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventClass:
+        if not isinstance(mce.proposedSnapshot, DatasetSnapshotClass):
+            return mce
+        owners_to_add = self.config.get_owners_to_add(mce.proposedSnapshot)
+        if owners_to_add:
+            ownership = builder.get_or_add_aspect(
+                mce,
+                OwnershipClass(
+                    owners=[],
+                ),
+            )
+            ownership.owners.extend(owners_to_add)
+
+            if self.config.semantics == Semantics.PATCH:
+                assert self.ctx.graph
+                patch_ownership = AddDatasetOwnership.get_ownership_to_set(
+                    self.ctx.graph, mce.proposedSnapshot.urn, ownership
+                )
+                builder.set_aspect(
+                    mce, aspect=patch_ownership, aspect_type=OwnershipClass
+                )
+        return mce
 ```
 
 ### Installing the package

@@ -2,6 +2,17 @@
 
 A list of previous Town Halls, their planned schedule, and the recording of the meeting.
 
+## 11/19/2021
+[Full YouTube video](https://youtu.be/to80sEDZz7k)
+
+## Agenda
+- Community & Roadmap Updates by Maggie Hays (Acryl Data)
+- Project Updates by Shirshanka Das (Acryl Data)
+- DataHub Basics -- Lineage 101 by John Joyce & Surya Lanka (Acryl Data)
+- Introducing No-Code UI by Gabe Lyons & Shirshanka Das (Acryl Data)
+- DataHub API Authentication by John Joyce (Acryl Data)
+- Case Study: LinkedIn pilot to extend the OSS UI by Aikepaer Abuduweili & Joshua Shinavier
+
 ## 10/29/2021
 [Full YouTube video](https://youtu.be/GrS_uZhYNm0)
 

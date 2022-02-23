@@ -59,6 +59,7 @@ class DatahubRestEmitter:
         connect_timeout_sec: Optional[float] = None,
         read_timeout_sec: Optional[float] = None,
         extra_headers: Optional[Dict[str, str]] = None,
+        ca_certificate_path: Optional[str] = None,
     ):
         if ":9002" in gms_server:
             logger.warning(
@@ -83,6 +84,9 @@ class DatahubRestEmitter:
 
         if extra_headers:
             self._session.headers.update(extra_headers)
+
+        if ca_certificate_path:
+            self._session.verify = ca_certificate_path
 
         if connect_timeout_sec:
             self._connect_timeout_sec = connect_timeout_sec

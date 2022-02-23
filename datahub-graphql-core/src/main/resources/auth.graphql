@@ -1,0 +1,89 @@
+# GraphQL for authentication related operations
+
+extend type Query {
+    """
+    Generates an access token for DataHub APIs for a particular user & of a particular type
+    """
+    getAccessToken(input: GetAccessTokenInput!): AccessToken
+}
+
+"""
+Input required to fetch a new Access Token.
+"""
+input GetAccessTokenInput {
+
+  """
+  The type of the Access Token.
+  """
+  type: AccessTokenType!
+
+  """
+  The actor associated with the Access Token.
+  """
+  actorUrn: String!
+
+  """
+  The duration for which the Access Token is valid.
+  """
+  duration: AccessTokenDuration!
+
+}
+
+"""
+A type of DataHub Access Token.
+"""
+enum AccessTokenType {
+  """
+  Generates a personal access token
+  """
+  PERSONAL
+}
+
+"""
+The duration for which an Access Token is valid.
+"""
+enum AccessTokenDuration {
+  """
+  1 hour
+  """
+  ONE_HOUR
+
+  """
+  1 day
+  """
+  ONE_DAY
+
+  """
+  1 week
+  """
+  ONE_WEEK
+
+  """
+  1 month
+  """
+  ONE_MONTH
+
+  """
+  3 months
+  """
+  THREE_MONTHS
+
+  """
+  6 months
+  """
+  SIX_MONTHS
+
+  """
+  1 year
+  """
+  ONE_YEAR
+}
+
+type AccessToken {
+
+  """
+  The access token itself
+  """
+  accessToken: String!
+
+}

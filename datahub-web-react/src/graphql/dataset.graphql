@@ -115,6 +115,15 @@ query getDataset($urn: String!) {
             ...fullRelationshipResults
         }
         ...viewProperties
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            aspectName
+            payload
+            renderSpec {
+                displayType
+                displayName
+                key
+            }
+        }
     }
 }
 

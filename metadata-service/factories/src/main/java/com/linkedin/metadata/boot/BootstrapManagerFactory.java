@@ -5,6 +5,7 @@ import com.linkedin.gms.factory.entity.EntityServiceFactory;
 import com.linkedin.metadata.boot.steps.IngestDataPlatformInstancesStep;
 import com.linkedin.metadata.boot.steps.IngestDataPlatformsStep;
 import com.linkedin.metadata.boot.steps.IngestPoliciesStep;
+import com.linkedin.metadata.boot.steps.IngestRootUserStep;
 import com.linkedin.metadata.entity.EntityService;
 import io.ebean.EbeanServer;
 import javax.annotation.Nonnull;
@@ -32,11 +33,16 @@ public class BootstrapManagerFactory {
   @Scope("singleton")
   @Nonnull
   protected BootstrapManager createInstance() {
+    final IngestRootUserStep ingestRootUserStep = new IngestRootUserStep(_entityService);
     final IngestPoliciesStep ingestPoliciesStep = new IngestPoliciesStep(_entityService);
     final IngestDataPlatformsStep ingestDataPlatformsStep = new IngestDataPlatformsStep(_entityService);
     final IngestDataPlatformInstancesStep ingestDataPlatformInstancesStep =
         new IngestDataPlatformInstancesStep(_entityService, _server);
     return new BootstrapManager(
-        ImmutableList.of(ingestPoliciesStep, ingestDataPlatformsStep, ingestDataPlatformInstancesStep));
+        ImmutableList.of(
+            ingestRootUserStep,
+            ingestPoliciesStep,
+            ingestDataPlatformsStep,
+            ingestDataPlatformInstancesStep));
   }
 }

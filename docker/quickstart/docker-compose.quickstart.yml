@@ -68,6 +68,8 @@ services:
     image: linkedin/datahub-gms:${DATAHUB_VERSION:-head}
     ports:
     - 8080:8080
+    volumes:
+    - ${HOME}/.datahub/plugins/:/etc/datahub/plugins
   elasticsearch:
     container_name: elasticsearch
     environment:

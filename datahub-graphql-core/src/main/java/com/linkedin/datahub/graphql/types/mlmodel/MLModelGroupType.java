@@ -68,7 +68,7 @@ public class MLModelGroupType implements SearchableEntityType<MLModelGroup>, Bro
                 .stream()
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet()),
-            context.getActor());
+            context.getAuthentication());
 
             final List<Entity> gmsResults = mlModelGroupUrns.stream()
                 .map(modelUrn -> mlModelMap.getOrDefault(modelUrn, null)).collect(Collectors.toList());
@@ -92,7 +92,7 @@ public class MLModelGroupType implements SearchableEntityType<MLModelGroup>, Bro
                                 int count,
                                 @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final SearchResult searchResult = _entityClient.search("mlModelGroup", query, facetFilters, start, count, context.getActor());
+        final SearchResult searchResult = _entityClient.search("mlModelGroup", query, facetFilters, start, count, context.getAuthentication());
         return UrnSearchResultsMapper.map(searchResult);
     }
 
@@ -103,7 +103,7 @@ public class MLModelGroupType implements SearchableEntityType<MLModelGroup>, Bro
                                             int limit,
                                             @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final AutoCompleteResult result = _entityClient.autoComplete("mlModelGroup", query, facetFilters, limit, context.getActor());
+        final AutoCompleteResult result = _entityClient.autoComplete("mlModelGroup", query, facetFilters, limit, context.getAuthentication());
         return AutoCompleteResultsMapper.map(result);
     }
 
@@ -121,13 +121,13 @@ public class MLModelGroupType implements SearchableEntityType<MLModelGroup>, Bro
                 facetFilters,
                 start,
                 count,
-            context.getActor());
+            context.getAuthentication());
         return BrowseResultMapper.map(result);
     }
 
     @Override
     public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull final QueryContext context) throws Exception {
-        final StringArray result = _entityClient.getBrowsePaths(MLModelUtils.getMLModelGroupUrn(urn), context.getActor());
+        final StringArray result = _entityClient.getBrowsePaths(MLModelUtils.getMLModelGroupUrn(urn), context.getAuthentication());
         return BrowsePathsMapper.map(result);
     }
 }

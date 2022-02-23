@@ -28,6 +28,7 @@ import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.models.registry.MergedEntityRegistry;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
@@ -69,12 +70,15 @@ public class EbeanEntityServiceTest {
   private final EntityRegistry _configEntityRegistry =
       new ConfigEntityRegistry(Snapshot.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
   private final EntityRegistry _testEntityRegistry =
-      new MergedEntityRegistry(_snapshotEntityRegistry, _configEntityRegistry);
+      new MergedEntityRegistry(_snapshotEntityRegistry).apply(_configEntityRegistry);
   private EbeanEntityService _entityService;
   private EbeanAspectDao _aspectDao;
   private EbeanServer _server;
   private EntityEventProducer _mockProducer;
   private ChangeStreamProcessor _changeStreamProcessor;
+
+  public EbeanEntityServiceTest() throws EntityRegistryException {
+  }
 
   @Nonnull
   private static ServerConfig createTestingH2ServerConfig() {
@@ -536,7 +540,7 @@ public class EbeanEntityServiceTest {
     // this should no-op since the key should have been written in the furst run
     AspectRowSummary rollbackKeyWithWrongRunId = new AspectRowSummary();
     rollbackKeyWithWrongRunId.setRunId("run-456");
-    rollbackKeyWithWrongRunId.setAspectName("CorpUserKey");
+    rollbackKeyWithWrongRunId.setAspectName("corpUserKey");
     rollbackKeyWithWrongRunId.setUrn(entityUrn1.toString());
 
     _entityService.rollbackRun(ImmutableList.of(rollbackKeyWithWrongRunId), "run-456");

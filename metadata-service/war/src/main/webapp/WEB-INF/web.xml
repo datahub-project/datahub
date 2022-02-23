@@ -45,7 +45,12 @@
     <load-on-startup>1</load-on-startup>
     <async-supported>true</async-supported>
   </servlet>
-
+  <servlet>
+    <servlet-name>authServlet</servlet-name>
+    <servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
+    <load-on-startup>1</load-on-startup>
+    <async-supported>true</async-supported>
+  </servlet>
   <!--
     HttpRequestHandlerServlet loads the "restliServlet" spring bean as a servlet.  For details, see:
     http://static.springsource.org/spring-framework/docs/3.2.0.RC1/api/org/springframework/web/context/support/HttpRequestHandlerServlet.html
@@ -71,6 +76,10 @@
     <url-pattern>/api/*</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
+    <servlet-name>authServlet</servlet-name>
+    <url-pattern>/auth/*</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
     <servlet-name>restliRequestHandler</servlet-name>
     <url-pattern>/*</url-pattern>
   </servlet-mapping>
@@ -78,7 +87,7 @@
   <!-- filter definitions -->
   <filter>
     <filter-name>AuthenticationFilter</filter-name> <!-- mandatory -->
-    <filter-class>com.datahub.metadata.authentication.AuthenticationFilter</filter-class>
+    <filter-class>com.datahub.authentication.filter.AuthenticationFilter</filter-class>
     <async-supported>true</async-supported>
   </filter>
 
@@ -86,6 +95,19 @@
   <filter-mapping>
     <filter-name>AuthenticationFilter</filter-name> <!-- mandatory -->
     <servlet-name>apiServlet</servlet-name>
+    <dispatcher>REQUEST</dispatcher>
+  </filter-mapping>
+
+  <!-- filter mappings -->
+  <filter-mapping>
+    <filter-name>AuthenticationFilter</filter-name> <!-- mandatory -->
+    <servlet-name>restliRequestHandler</servlet-name>
+    <dispatcher>REQUEST</dispatcher>
+  </filter-mapping>
+
+  <filter-mapping>
+    <filter-name>AuthenticationFilter</filter-name> <!-- mandatory -->
+    <servlet-name>authServlet</servlet-name>
     <dispatcher>REQUEST</dispatcher>
   </filter-mapping>
 </web-app>

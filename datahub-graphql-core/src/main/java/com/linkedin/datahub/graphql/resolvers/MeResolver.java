@@ -1,16 +1,16 @@
 package com.linkedin.datahub.graphql.resolvers;
 
-import com.datahub.metadata.authorization.AuthorizationRequest;
-import com.datahub.metadata.authorization.AuthorizationResult;
-import com.datahub.metadata.authorization.Authorizer;
+import com.datahub.authorization.AuthorizationRequest;
+import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.PlatformPrivileges;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.datahub.graphql.generated.AuthenticatedUser;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.types.corpuser.mappers.CorpUserSnapshotMapper;
-import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
@@ -29,9 +29,9 @@ import java.util.concurrent.CompletableFuture;
  */
 public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUser>> {
 
-  private final RestliEntityClient _entityClient;
+  private final EntityClient _entityClient;
 
-  public MeResolver(final RestliEntityClient entityClient) {
+  public MeResolver(final EntityClient entityClient) {
     _entityClient = entityClient;
   }
 
@@ -41,8 +41,8 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
     return CompletableFuture.supplyAsync(() -> {
       try {
         // 1. Get currently logged in user profile.
-        final Urn userUrn = Urn.createFromString(context.getActor());
-        final CorpUserSnapshot gmsUser = _entityClient.get(userUrn, userUrn.toString())
+        final Urn userUrn = Urn.createFromString(context.getActorUrn());
+        final CorpUserSnapshot gmsUser = _entityClient.get(userUrn, context.getAuthentication())
             .getValue()
             .getCorpUserSnapshot();
         final CorpUser corpUser = CorpUserSnapshotMapper.map(gmsUser);
@@ -52,6 +52,7 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
         platformPrivileges.setViewAnalytics(canViewAnalytics(context));
         platformPrivileges.setManagePolicies(canManagePolicies(context));
         platformPrivileges.setManageIdentities(canManageUsersGroups(context));
+        platformPrivileges.setGeneratePersonalAccessTokens(canGeneratePersonalAccessToken(context));
 
         // Construct and return authenticated user object.
         final AuthenticatedUser authUser = new AuthenticatedUser();
@@ -68,21 +69,28 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
    * Returns true if the authenticated user has privileges to view analytics.
    */
   private boolean canViewAnalytics(final QueryContext context) {
-    return isAuthorized(context.getAuthorizer(), context.getActor(), PoliciesConfig.VIEW_ANALYTICS_PRIVILEGE);
+    return isAuthorized(context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.VIEW_ANALYTICS_PRIVILEGE);
   }
 
   /**
    * Returns true if the authenticated user has privileges to manage policies analytics.
    */
   private boolean canManagePolicies(final QueryContext context) {
-    return isAuthorized(context.getAuthorizer(), context.getActor(), PoliciesConfig.MANAGE_POLICIES_PRIVILEGE);
+    return isAuthorized(context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.MANAGE_POLICIES_PRIVILEGE);
   }
 
   /**
    * Returns true if the authenticated user has privileges to manage users & groups.
    */
   private boolean canManageUsersGroups(final QueryContext context) {
-    return isAuthorized(context.getAuthorizer(), context.getActor(), PoliciesConfig.MANAGE_USERS_AND_GROUPS_PRIVILEGE);
+    return isAuthorized(context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.MANAGE_USERS_AND_GROUPS_PRIVILEGE);
+  }
+
+  /**
+   * Returns true if the authenticated user has privileges to manage users & groups.
+   */
+  private boolean canGeneratePersonalAccessToken(final QueryContext context) {
+    return isAuthorized(context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE);
   }
 
   /**

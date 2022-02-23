@@ -57,7 +57,7 @@
               "type" : "record",
               "name" : "SystemMetadata",
               "namespace" : "com.linkedin.mxe",
-              "doc" : "Kafka event for proposing a metadata change for an entity. A corresponding MetadataAuditEvent is emitted when the change is accepted and committed, otherwise a FailedMetadataChangeEvent will be emitted instead.",
+              "doc" : "Metadata associated with each metadata change that is processed by the system",
               "fields" : [ {
                 "name" : "lastObserved",
                 "type" : "long",
@@ -67,8 +67,18 @@
               }, {
                 "name" : "runId",
                 "type" : "string",
-                "doc" : "The run id that produced the metadata",
+                "doc" : "The run id that produced the metadata. Populated in case of batch-ingestion.",
                 "default" : "no-run-id-provided",
+                "optional" : true
+              }, {
+                "name" : "registryName",
+                "type" : "string",
+                "doc" : "The model registry name that was used to process this event",
+                "optional" : true
+              }, {
+                "name" : "registryVersion",
+                "type" : "string",
+                "doc" : "The model registry version that was used to process this event",
                 "optional" : true
               }, {
                 "name" : "properties",
@@ -1167,11 +1177,7 @@
       "name" : "flowUrn",
       "type" : "com.linkedin.common.DataFlowUrn",
       "doc" : "DataFlow urn that this job is part of",
-      "optional" : true,
-      "Relationship" : {
-        "entityTypes" : [ "dataFlow" ],
-        "name" : "IsPartOf"
-      }
+      "optional" : true
     }, {
       "name" : "status",
       "type" : {
@@ -2192,6 +2198,11 @@
               "type" : "boolean",
               "doc" : "For schema fields that are part of complex keys, set this field to true\nWe do this to easily distinguish between value and key fields",
               "default" : false
+            }, {
+              "name" : "jsonProps",
+              "type" : "string",
+              "doc" : "For schema fields that have other properties that are not modeled explicitly,\nuse this field to serialize those properties into a JSON string",
+              "optional" : true
             } ]
           }
         },

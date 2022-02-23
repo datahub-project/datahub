@@ -53,7 +53,7 @@ public class SnapshotEntityRegistry implements EntityRegistry {
   public Map<String, EntitySpec> getEntitySpecs() {
     return entityNameToSpec;
   }
-
+  
   public static SnapshotEntityRegistry getInstance() {
     return INSTANCE;
   }

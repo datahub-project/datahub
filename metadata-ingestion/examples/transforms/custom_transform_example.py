@@ -1,11 +1,4 @@
 # see https://datahubproject.io/docs/metadata-ingestion/transformers for original tutorial
-from datahub.configuration.common import ConfigModel
-
-
-class AddCustomOwnershipConfig(ConfigModel):
-    owners_json: str
-
-
 import json
 from typing import Iterable
 
@@ -13,6 +6,7 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.transform import Transformer
+from datahub.ingestion.transformer.add_dataset_ownership import Semantics
 from datahub.metadata.schema_classes import (
     DatasetSnapshotClass,
     MetadataChangeEventClass,
@@ -20,6 +14,11 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipTypeClass,
 )
+
+
+class AddCustomOwnershipConfig(ConfigModel):
+    owners_json: str
+    semantics: Semantics = Semantics.OVERWRITE
 
 
 class AddCustomOwnership(Transformer):

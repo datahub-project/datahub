@@ -6,7 +6,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateGroupInput;
-import com.linkedin.entity.client.AspectClient;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpGroupInfo;
 import com.linkedin.metadata.Constants;
@@ -23,10 +23,10 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 // Currently, this resolver will override the group details, but not group membership, if a group with the same name already exists.
 public class CreateGroupResolver implements DataFetcher<CompletableFuture<String>> {
 
-  private final AspectClient _aspectClient;
+  private final EntityClient _entityClient;
 
-  public CreateGroupResolver(final AspectClient aspectClient) {
-    _aspectClient = aspectClient;
+  public CreateGroupResolver(final EntityClient entityClient) {
+    _entityClient = entityClient;
   }
 
   @Override
@@ -59,7 +59,7 @@ public class CreateGroupResolver implements DataFetcher<CompletableFuture<String
           proposal.setAspectName(Constants.CORP_GROUP_INFO_ASPECT_NAME);
           proposal.setAspect(GenericAspectUtils.serializeAspect(info));
           proposal.setChangeType(ChangeType.UPSERT);
-          return _aspectClient.ingestProposal(proposal, context.getActor()).getEntity();
+          return _entityClient.ingestProposal(proposal, context.getAuthentication());
         } catch (Exception e) {
           throw new RuntimeException("Failed to create group", e);
         }

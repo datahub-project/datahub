@@ -4,7 +4,7 @@ fragment dataFlowFields on DataFlow {
     orchestrator
     flowId
     cluster
-    info {
+    properties {
         name
         description
         project
@@ -63,7 +63,7 @@ query getDataFlow($urn: String!) {
                         ownership {
                             ...ownershipFields
                         }
-                        info {
+                        properties {
                             name
                             description
                         }

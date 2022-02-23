@@ -7,7 +7,7 @@ import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
-import com.linkedin.entity.client.RestliEntityClient;
+import com.linkedin.entity.client.EntityClient;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
@@ -34,7 +34,7 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
           EntityType.MLMODEL_GROUP, EntityType.MLFEATURE_TABLE, EntityType.DATA_FLOW, EntityType.DATA_JOB,
           EntityType.GLOSSARY_TERM, EntityType.TAG, EntityType.CORP_USER, EntityType.CORP_GROUP);
 
-  private final RestliEntityClient _entityClient;
+  private final EntityClient _entityClient;
 
   @Override
   public CompletableFuture<SearchResults> get(DataFetchingEnvironment environment) {
@@ -57,7 +57,7 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
             "Executing search for multiple entities: entity types {}, query {}, filters: {}, start: {}, count: {}",
             input.getTypes(), input.getQuery(), input.getFilters(), start, count);
         return UrnSearchResultsMapper.map(_entityClient.searchAcrossEntities(entityNames, sanitizedQuery,
-            ResolverUtils.buildFilter(input.getFilters()), start, count, ResolverUtils.getActor(environment)));
+            ResolverUtils.buildFilter(input.getFilters()), start, count, ResolverUtils.getAuthentication(environment)));
       } catch (Exception e) {
         log.error(
             "Failed to execute search for multiple entities: entity types {}, query {}, filters: {}, start: {}, count: {}",

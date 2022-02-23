@@ -90,7 +90,7 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
                     .stream()
                     .filter(Objects::nonNull)
                     .collect(Collectors.toSet()),
-                context.getActor());
+                context.getAuthentication());
 
             final List<Entity> gmsResults = new ArrayList<>();
             for (DatasetUrn urn : datasetUrns) {
@@ -116,7 +116,7 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
                                 int count,
                                 @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final SearchResult searchResult = _entityClient.search(ENTITY_NAME, query, facetFilters, start, count, context.getActor());
+        final SearchResult searchResult = _entityClient.search(ENTITY_NAME, query, facetFilters, start, count, context.getAuthentication());
         return UrnSearchResultsMapper.map(searchResult);
     }
 
@@ -127,7 +127,7 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
                                             int limit,
                                             @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final AutoCompleteResult result = _entityClient.autoComplete(ENTITY_NAME, query, facetFilters, limit, context.getActor());
+        final AutoCompleteResult result = _entityClient.autoComplete(ENTITY_NAME, query, facetFilters, limit, context.getAuthentication());
         return AutoCompleteResultsMapper.map(result);
     }
 
@@ -145,20 +145,20 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
                 facetFilters,
                 start,
                 count,
-            context.getActor());
+            context.getAuthentication());
         return BrowseResultMapper.map(result);
     }
 
     @Override
     public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull final QueryContext context) throws Exception {
-        final StringArray result = _entityClient.getBrowsePaths(DatasetUtils.getDatasetUrn(urn), context.getActor());
+        final StringArray result = _entityClient.getBrowsePaths(DatasetUtils.getDatasetUrn(urn), context.getAuthentication());
         return BrowsePathsMapper.map(result);
     }
 
     @Override
     public Dataset update(@Nonnull String urn, @Nonnull DatasetUpdateInput input, @Nonnull QueryContext context) throws Exception {
         if (isAuthorized(urn, input, context)) {
-            final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
+            final CorpuserUrn actor = CorpuserUrn.createFromString(context.getAuthentication().getActor().toUrnStr());
             final DatasetSnapshot datasetSnapshot = DatasetUpdateInputSnapshotMapper.map(input, actor);
             datasetSnapshot.setUrn(DatasetUrn.createFromString(urn));
             final Snapshot snapshot = Snapshot.create(datasetSnapshot);
@@ -166,7 +166,7 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
             try {
                 Entity entity = new Entity();
                 entity.setValue(snapshot);
-                _entityClient.update(entity, context.getActor());
+                _entityClient.update(entity, context.getAuthentication());
             } catch (RemoteInvocationException e) {
                 throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
             }
@@ -181,7 +181,7 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
         final DisjunctivePrivilegeGroup orPrivilegeGroups = getAuthorizedPrivileges(update);
         return AuthorizationUtils.isAuthorized(
             context.getAuthorizer(),
-            context.getActor(),
+            context.getAuthentication().getActor().toUrnStr(),
             PoliciesConfig.DATASET_PRIVILEGES.getResourceType(),
             urn,
             orPrivilegeGroups);

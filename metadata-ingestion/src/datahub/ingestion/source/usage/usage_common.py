@@ -35,10 +35,10 @@ class GenericAggregatedDataset(Generic[ResourceType]):
     columnFreq: Counter[str] = dataclasses.field(default_factory=collections.Counter)
 
     def add_read_entry(
-        self, user: str, query: Optional[str], fields: List[str]
+        self, user_email: str, query: Optional[str], fields: List[str]
     ) -> None:
         self.readCount += 1
-        self.userFreq[user] += 1
+        self.userFreq[user_email] += 1
         if query:
             self.queryCount += 1
             self.queryFreq[query] += 1

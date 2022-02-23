@@ -91,7 +91,7 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
                     .stream()
                     .filter(Objects::nonNull)
                     .collect(Collectors.toSet()),
-                context.getActor());
+                context.getAuthentication());
 
             final List<Entity> gmsResults = new ArrayList<>();
             for (DashboardUrn urn : dashboardUrns) {
@@ -116,7 +116,7 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
                                 int count,
                                 @Nonnull QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final SearchResult searchResult = _entityClient.search("dashboard", query, facetFilters, start, count, context.getActor());
+        final SearchResult searchResult = _entityClient.search("dashboard", query, facetFilters, start, count, context.getAuthentication());
         return UrnSearchResultsMapper.map(searchResult);
     }
 
@@ -127,7 +127,7 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
                                             int limit,
                                             @Nonnull QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final AutoCompleteResult result = _entityClient.autoComplete("dashboard", query, facetFilters, limit, context.getActor());
+        final AutoCompleteResult result = _entityClient.autoComplete("dashboard", query, facetFilters, limit, context.getAuthentication());
         return AutoCompleteResultsMapper.map(result);
     }
 
@@ -144,13 +144,13 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
                 facetFilters,
                 start,
                 count,
-            context.getActor());
+            context.getAuthentication());
         return BrowseResultMapper.map(result);
     }
 
     @Override
     public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull QueryContext context) throws Exception {
-        final StringArray result = _entityClient.getBrowsePaths(getDashboardUrn(urn), context.getActor());
+        final StringArray result = _entityClient.getBrowsePaths(getDashboardUrn(urn), context.getAuthentication());
         return BrowsePathsMapper.map(result);
     }
 
@@ -165,13 +165,13 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
     @Override
     public Dashboard update(@Nonnull String urn, @Nonnull DashboardUpdateInput input, @Nonnull QueryContext context) throws Exception {
         if (isAuthorized(urn, input, context)) {
-            final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
+            final CorpuserUrn actor = CorpuserUrn.createFromString(context.getAuthentication().getActor().toUrnStr());
             final DashboardSnapshot partialDashboard = DashboardUpdateInputSnapshotMapper.map(input, actor);
             partialDashboard.setUrn(DashboardUrn.createFromString(urn));
             final Snapshot snapshot = Snapshot.create(partialDashboard);
 
             try {
-                _entityClient.update(new com.linkedin.entity.Entity().setValue(snapshot), context.getActor());
+                _entityClient.update(new com.linkedin.entity.Entity().setValue(snapshot), context.getAuthentication());
             } catch (RemoteInvocationException e) {
                 throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
             }
@@ -186,7 +186,7 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
         final DisjunctivePrivilegeGroup orPrivilegeGroups = getAuthorizedPrivileges(update);
         return AuthorizationUtils.isAuthorized(
             context.getAuthorizer(),
-            context.getActor(),
+            context.getAuthentication().getActor().toUrnStr(),
             PoliciesConfig.DASHBOARD_PRIVILEGES.getResourceType(),
             urn,
             orPrivilegeGroups);

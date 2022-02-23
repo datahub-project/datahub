@@ -1,6 +1,6 @@
 import contextlib
 import subprocess
-from typing import Optional
+from typing import Optional, Union
 
 import pytest
 import pytest_docker.plugin
@@ -45,9 +45,11 @@ def wait_for_port(
 @pytest.fixture
 def docker_compose_runner(docker_compose_project_name, docker_cleanup):
     @contextlib.contextmanager
-    def run(compose_file_path: str, key: str) -> pytest_docker.plugin.Services:
+    def run(
+        compose_file_path: Union[str, list], key: str
+    ) -> pytest_docker.plugin.Services:
         with pytest_docker.plugin.get_docker_services(
-            str(compose_file_path),
+            compose_file_path,
             f"{docker_compose_project_name}-{key}",
             docker_cleanup,
         ) as docker_services:

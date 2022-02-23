@@ -1,4 +1,5 @@
 import datetime
+import itertools
 import logging
 import uuid
 from typing import Any, Dict, Iterable, List, Optional
@@ -16,6 +17,7 @@ from datahub.ingestion.api.sink import Sink, WriteCallback
 from datahub.ingestion.api.source import Extractor, Source
 from datahub.ingestion.api.transform import Transformer
 from datahub.ingestion.extractor.extractor_registry import extractor_registry
+from datahub.ingestion.graph.client import DatahubClientConfig
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
 from datahub.ingestion.transformer.transform_registry import transform_registry
@@ -36,6 +38,7 @@ class PipelineConfig(ConfigModel):
     sink: DynamicTypedConfig
     transformers: Optional[List[DynamicTypedConfig]]
     run_id: str = "__DEFAULT_RUN_ID"
+    datahub_api: Optional[DatahubClientConfig] = None
 
     @validator("run_id", pre=True, always=True)
     def run_id_should_be_semantic(
@@ -52,6 +55,18 @@ class PipelineConfig(ConfigModel):
         else:
             assert v is not None
             return v
+
+    @validator("datahub_api", always=True)
+    def datahub_api_should_use_rest_sink_as_default(
+        cls, v: Optional[DatahubClientConfig], values: Dict[str, Any], **kwargs: Any
+    ) -> Optional[DatahubClientConfig]:
+        if v is None:
+            if values["sink"].type is not None:
+                sink_type = values["sink"].type
+                if sink_type == "datahub-rest":
+                    sink_config = values["sink"].config
+                    v = DatahubClientConfig.parse_obj(sink_config)
+        return v
 
 
 class LoggingCallback(WriteCallback):
@@ -79,9 +94,15 @@ class Pipeline:
     sink: Sink
     transformers: List[Transformer]
 
-    def __init__(self, config: PipelineConfig):
+    def __init__(
+        self, config: PipelineConfig, dry_run: bool = False, preview_mode: bool = False
+    ):
         self.config = config
-        self.ctx = PipelineContext(run_id=self.config.run_id)
+        self.dry_run = dry_run
+        self.preview_mode = preview_mode
+        self.ctx = PipelineContext(
+            run_id=self.config.run_id, datahub_api=self.config.datahub_api
+        )
 
         source_type = self.config.source.type
         source_class = source_registry.get(source_type)
@@ -115,24 +136,31 @@ class Pipeline:
                 )
 
     @classmethod
-    def create(cls, config_dict: dict) -> "Pipeline":
+    def create(
+        cls, config_dict: dict, dry_run: bool = False, preview_mode: bool = False
+    ) -> "Pipeline":
         config = PipelineConfig.parse_obj(config_dict)
-        return cls(config)
+        return cls(config, dry_run=dry_run, preview_mode=preview_mode)
 
     def run(self) -> None:
         callback = LoggingCallback()
         extractor: Extractor = self.extractor_class()
-        for wu in self.source.get_workunits():
+        for wu in itertools.islice(
+            self.source.get_workunits(), 10 if self.preview_mode else None
+        ):
             # TODO: change extractor interface
             extractor.configure({}, self.ctx)
 
-            self.sink.handle_work_unit_start(wu)
+            if not self.dry_run:
+                self.sink.handle_work_unit_start(wu)
             record_envelopes = extractor.get_records(wu)
             for record_envelope in self.transform(record_envelopes):
-                self.sink.write_record_async(record_envelope, callback)
+                if not self.dry_run:
+                    self.sink.write_record_async(record_envelope, callback)
 
             extractor.close()
-            self.sink.handle_work_unit_end(wu)
+            if not self.dry_run:
+                self.sink.handle_work_unit_end(wu)
         self.source.close()
         self.sink.close()
 

@@ -4,4 +4,5 @@ record RollbackResponse {
     aspectRowSummaries: array[AspectRowSummary]
     entitiesAffected: long
     aspectsAffected: long
+    entitiesDeleted: optional long
 }

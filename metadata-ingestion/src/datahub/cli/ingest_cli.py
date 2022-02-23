@@ -10,6 +10,7 @@ from pydantic import ValidationError
 from tabulate import tabulate
 
 import datahub as datahub_package
+from datahub.cli import cli_utils
 from datahub.cli.cli_utils import (
     CONDENSED_DATAHUB_CONFIG_PATH,
     get_session_and_host,
@@ -40,7 +41,22 @@ def ingest() -> None:
     help="Config file in .toml or .yaml format.",
     required=True,
 )
-def run(config: str) -> None:
+@click.option(
+    "-n",
+    "--dry-run",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Perform a dry run of the ingestion, essentially skipping writing to sink.",
+)
+@click.option(
+    "--preview",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Perform limited ingestion from the source to the sink to get a quick preview.",
+)
+def run(config: str, dry_run: bool, preview: bool) -> None:
     """Ingest metadata into DataHub."""
     logger.debug("DataHub CLI version: %s", datahub_package.nice_version_name())
 
@@ -49,7 +65,7 @@ def run(config: str) -> None:
 
     try:
         logger.debug(f"Using config: {pipeline_config}")
-        pipeline = Pipeline.create(pipeline_config)
+        pipeline = Pipeline.create(pipeline_config, dry_run, preview)
     except ValidationError as e:
         click.echo(e, err=True)
         sys.exit(1)
@@ -103,14 +119,16 @@ def list_runs(page_offset: int, page_size: int) -> None:
     response = session.post(url, data=payload)
 
     rows = parse_restli_response(response)
+    local_timezone = datetime.now().astimezone().tzinfo
 
     structured_rows = [
         [
             row.get("runId"),
             row.get("rows"),
-            datetime.utcfromtimestamp(row.get("timestamp") / 1000).strftime(
+            datetime.fromtimestamp(row.get("timestamp") / 1000).strftime(
                 "%Y-%m-%d %H:%M:%S"
-            ),
+            )
+            + f" ({local_timezone})",
         ]
         for row in rows
     ]
@@ -123,7 +141,6 @@ def list_runs(page_offset: int, page_size: int) -> None:
 def show(run_id: str) -> None:
     """Describe a provided ingestion run to datahub"""
     payload_obj = {"runId": run_id, "dryRun": True}
-
     structured_rows, entities_affected, aspects_affected = post_rollback_endpoint(
         payload_obj, "/runs?action=rollback"
     )
@@ -148,25 +165,30 @@ def show(run_id: str) -> None:
 
 @ingest.command()
 @click.option("--run-id", required=True, type=str)
-def rollback(run_id: str) -> None:
+@click.option("--dry-run", "-n", required=False, is_flag=True, default=False)
+def rollback(run_id: str, dry_run: bool) -> None:
     """Rollback a provided ingestion run to datahub"""
-    click.confirm(
-        "This will permanently delete data from DataHub. Do you want to continue?",
-        abort=True,
-    )
 
-    payload_obj = {"runId": run_id, "dryRun": False}
+    cli_utils.test_connectivity_complain_exit("ingest")
+
+    if not dry_run:
+        click.confirm(
+            "This will permanently delete data from DataHub. Do you want to continue?",
+            abort=True,
+        )
+
+    payload_obj = {"runId": run_id, "dryRun": dry_run}
     structured_rows, entities_affected, aspects_affected = post_rollback_endpoint(
         payload_obj, "/runs?action=rollback"
     )
 
     click.echo(
-        "rolling back deletes the entities created by a run and reverts the updated aspects"
+        "Rolling back deletes the entities created by a run and reverts the updated aspects"
     )
     click.echo(
-        f"this rollback deleted {entities_affected} entities and rolled back {aspects_affected} aspects"
+        f"This rollback {'will' if dry_run else ''} {'delete' if dry_run else 'deleted'} {entities_affected} entities and {'will roll' if dry_run else 'rolled'} back {aspects_affected} aspects"
     )
     click.echo(
-        f"showing first {len(structured_rows)} of {aspects_affected} aspects reverted by this run"
+        f"showing first {len(structured_rows)} of {aspects_affected} aspects {'that will be' if dry_run else ''} reverted by this run"
     )
     click.echo(tabulate(structured_rows, RUN_TABLE_COLUMNS, tablefmt="grid"))

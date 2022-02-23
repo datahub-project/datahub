@@ -30,10 +30,8 @@ export default function GroupProfile() {
     const { urn } = useUserParams();
     const { loading, error, data } = useGetGroupQuery({ variables: { urn, membersCount: MEMBER_PAGE_SIZE } });
 
-    const name = data?.corpGroup && entityRegistry.getDisplayName(EntityType.CorpUser, data?.corpGroup?.name);
-
     const ownershipResult = useGetAllEntitySearchResults({
-        query: `owners:${name}`,
+        query: `owners:${data?.corpGroup?.name}`,
     });
 
     const contentLoading =

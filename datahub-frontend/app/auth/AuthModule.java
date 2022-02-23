@@ -1,8 +1,17 @@
 package auth;
 
+import client.AuthServiceClient;
+import com.datahub.authentication.Actor;
+import com.datahub.authentication.ActorType;
 import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
+import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.RestliEntityClient;
+import com.linkedin.metadata.restli.DefaultRestliClientFactory;
+import com.linkedin.util.Configuration;
+import com.datahub.authentication.Authentication;
+import java.util.Collections;
 import org.pac4j.core.client.Client;
 import org.pac4j.core.client.Clients;
 import org.pac4j.core.config.Config;
@@ -20,8 +29,12 @@ import auth.sso.oidc.OidcConfigs;
 import auth.sso.SsoConfigs;
 import auth.sso.SsoManager;
 import controllers.SsoCallbackController;
+import utils.ConfigUtil;
 
+import static auth.AuthUtils.*;
 import static auth.sso.oidc.OidcConfigs.*;
+import static utils.ConfigUtil.*;
+
 
 /**
  * Responsible for configuring, validating, and providing authentication related components.
@@ -42,9 +55,12 @@ public class AuthModule extends AbstractModule {
 
         try {
             bind(SsoCallbackController.class).toConstructor(SsoCallbackController.class.getConstructor(
-                SsoManager.class));
+                SsoManager.class,
+                Authentication.class,
+                EntityClient.class,
+                AuthServiceClient.class));
         } catch (NoSuchMethodException | SecurityException e) {
-            System.out.println("Required constructor missing");
+            throw new RuntimeException("Failed to bind to SsoCallbackController. Cannot find constructor, e");
         }
         // logout
         final LogoutController logoutController = new LogoutController();
@@ -83,11 +99,80 @@ public class AuthModule extends AbstractModule {
         return manager;
     }
 
+    @Provides @Singleton
+    protected Authentication provideSystemAuthentication() {
+        // Returns an instance of Authentication used to authenticate system initiated calls to Metadata Service.
+        String systemClientId = _configs.getString(SYSTEM_CLIENT_ID_CONFIG_PATH);
+        String systemSecret = _configs.getString(SYSTEM_CLIENT_SECRET_CONFIG_PATH);
+        final Actor systemActor = new Actor(ActorType.USER, systemClientId); // TODO: Change to service actor once supported.
+        return new Authentication(
+            systemActor,
+            String.format("Basic %s:%s", systemClientId, systemSecret),
+            Collections.emptyMap()
+        );
+    }
+
+    @Provides @Singleton
+    protected EntityClient provideEntityClient() {
+        return new RestliEntityClient(buildRestliClient());
+    }
+
+    @Provides @Singleton
+    protected AuthServiceClient provideAuthClient(Authentication systemAuthentication) {
+        // Init a GMS auth client
+        final String metadataServiceHost = _configs.hasPath(METADATA_SERVICE_HOST_CONFIG_PATH)
+            ? _configs.getString(METADATA_SERVICE_HOST_CONFIG_PATH)
+            : Configuration.getEnvironmentVariable(GMS_HOST_ENV_VAR, DEFAULT_GMS_HOST);
+
+        final int metadataServicePort = _configs.hasPath(METADATA_SERVICE_PORT_CONFIG_PATH)
+            ? _configs.getInt(METADATA_SERVICE_PORT_CONFIG_PATH)
+            : Integer.parseInt(Configuration.getEnvironmentVariable(GMS_PORT_ENV_VAR, DEFAULT_GMS_PORT));
+
+        final Boolean metadataServiceUseSsl = _configs.hasPath(METADATA_SERVICE_USE_SSL_CONFIG_PATH)
+            ? _configs.getBoolean(METADATA_SERVICE_USE_SSL_CONFIG_PATH)
+            : Boolean.parseBoolean(Configuration.getEnvironmentVariable(GMS_USE_SSL_ENV_VAR, DEFAULT_GMS_USE_SSL));
+
+        return new AuthServiceClient(
+            metadataServiceHost,
+            metadataServicePort,
+            metadataServiceUseSsl,
+            systemAuthentication);
+    }
+
+    private com.linkedin.restli.client.Client buildRestliClient() {
+        final String metadataServiceHost = utils.ConfigUtil.getString(
+            _configs,
+            METADATA_SERVICE_HOST_CONFIG_PATH,
+            utils.ConfigUtil.DEFAULT_METADATA_SERVICE_HOST);
+        final int metadataServicePort = utils.ConfigUtil.getInt(
+            _configs,
+            utils.ConfigUtil.METADATA_SERVICE_PORT_CONFIG_PATH,
+            utils.ConfigUtil.DEFAULT_METADATA_SERVICE_PORT);
+        final boolean metadataServiceUseSsl = utils.ConfigUtil.getBoolean(
+            _configs,
+            utils.ConfigUtil.METADATA_SERVICE_USE_SSL_CONFIG_PATH,
+            ConfigUtil.DEFAULT_METADATA_SERVICE_USE_SSL
+        );
+        final String metadataServiceSslProtocol = utils.ConfigUtil.getString(
+            _configs,
+            utils.ConfigUtil.METADATA_SERVICE_SSL_PROTOCOL_CONFIG_PATH,
+            ConfigUtil.DEFAULT_METADATA_SERVICE_SSL_PROTOCOL
+        );
+        return DefaultRestliClientFactory.getRestLiClient(metadataServiceHost, metadataServicePort, metadataServiceUseSsl, metadataServiceSslProtocol);
+    }
+
     protected boolean isSsoEnabled(com.typesafe.config.Config configs) {
         // If OIDC is enabled, we infer SSO to be enabled.
         return configs.hasPath(OIDC_ENABLED_CONFIG_PATH)
             && Boolean.TRUE.equals(
             Boolean.parseBoolean(configs.getString(OIDC_ENABLED_CONFIG_PATH)));
+    }
+
+    protected boolean isMetadataServiceAuthEnabled(com.typesafe.config.Config configs) {
+        // If OIDC is enabled, we infer SSO to be enabled.
+        return configs.hasPath(METADATA_SERVICE_AUTH_ENABLED_CONFIG_PATH)
+            && Boolean.TRUE.equals(
+            Boolean.parseBoolean(configs.getString(METADATA_SERVICE_AUTH_ENABLED_CONFIG_PATH)));
     }
 }
 

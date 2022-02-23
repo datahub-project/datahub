@@ -35,7 +35,7 @@ export default function GlossaryTermProfile() {
     const glossaryTermHierarchicalName = data?.glossaryTerm?.hierarchicalName;
     const entitySearchResult = useGetEntitySearchResults(
         {
-            query: `glossaryTerms:"${glossaryTermHierarchicalName}" OR fieldGlossaryTerms:"${glossaryTermHierarchicalName}"`,
+            query: `glossaryTerms:"${glossaryTermHierarchicalName}" OR fieldGlossaryTerms:"${glossaryTermHierarchicalName}" OR editedFieldGlossaryTerms:"${glossaryTermHierarchicalName}"`,
         },
         searchTypes,
     );
@@ -90,7 +90,7 @@ export default function GlossaryTermProfile() {
             <GlossaryTermHeader
                 sourceRef={glossaryTermInfo?.sourceRef || ''}
                 sourceUrl={glossaryTermInfo?.sourceUrl as string}
-                definition={glossaryTermInfo.definition}
+                definition={glossaryTermInfo?.definition as string}
                 ownership={ownership}
             />
         );

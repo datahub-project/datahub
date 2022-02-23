@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.config;
 
-import com.datahub.metadata.authorization.Authorizer;
+import com.datahub.authorization.Authorizer;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AnalyticsConfig;
 import com.linkedin.datahub.graphql.generated.AppConfig;

@@ -1,0 +1,107 @@
+# App Layer
+authentication:
+  # Enable if you want all requests to the Metadata Service to be authenticated. Disabled by default.
+  enabled: ${METADATA_SERVICE_AUTH_ENABLED:false}
+
+  # Required if enabled is true! A configurable chain of Authenticators
+  authenticators:
+      # Required for authenticating requests with DataHub-issued Access Tokens - best not to remove.
+    - type: com.datahub.authentication.authenticator.DataHubTokenAuthenticator
+      configs:
+        # Key used to validate incoming tokens. Should typically be the same as authentication.tokenService.signingKey
+        signingKey: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY:WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=}
+
+  # Required separately from the DataHubTokenAuthenticator as this is used by the AuthServiceController to authorize token generation
+  # at user login time.
+  systemClientId: ${DATAHUB_SYSTEM_CLIENT_ID:__datahub_system}
+  systemClientSecret: ${DATAHUB_SYSTEM_CLIENT_SECRET:JohnSnowKnowsNothing}
+
+  # Configurations for DataHub token service
+  tokenService:
+    # Key used to sign new tokens.
+    signingKey: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY:WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=}
+
+  # The max duration of a UI session in milliseconds. Defaults to 1 day.
+  sessionTokenDurationMs: ${SESSION_TOKEN_DURATION_MS:86400000}
+
+
+
+graphService:
+  type: ${GRAPH_SERVICE_IMPL:elasticsearch}
+
+searchService:
+  resultBatchSize: ${SEARCH_SERVICE_BATCH_SIZE:100}
+
+configEntityRegistry:
+  # TODO: Change to read from resources on classpath.
+  path: ${ENTITY_REGISTRY_CONFIG_PATH:../../metadata-models/src/main/resources/entity-registry.yml}
+
+pluginEntityRegistry:
+  path: ${ENTITY_REGISTRY_PLUGIN_PATH:$HOME/.datahub/plugins/models}
+
+authorizationManager:
+  enabled: ${AUTH_POLICIES_ENABLED:true}
+  cacheRefreshIntervalSecs: ${POLICY_CACHE_REFRESH_INTERVAL_SECONDS:120}
+
+platformAnalytics:
+  enabled: ${ANALYTICS_ENABLED:true}
+
+# Storage Layer
+ebean:
+  username: ${EBEAN_DATASOURCE_USERNAME:datahub}
+  password: ${EBEAN_DATASOURCE_PASSWORD:datahub}
+  url: ${EBEAN_DATASOURCE_URL:jdbc:mysql://localhost:3306/datahub} # JDBC URL
+  driver: ${EBEAN_DATASOURCE_DRIVER:com.mysql.jdbc.Driver} # JDBC Driver
+  minConnections: ${EBEAN_MIN_CONNECTIONS:2}
+  maxConnections: ${EBEAN_MAX_CONNECTIONS:50}
+  maxInactiveTimeSeconds: ${EBEAN_MAX_INACTIVE_TIME_IN_SECS:120}
+  maxAgeMinutes: ${EBEAN_MAX_AGE_MINUTES:120}
+  leakTimeMinutes: ${EBEAN_LEAK_TIME_MINUTES:15}
+  autoCreateDdl: ${EBEAN_AUTOCREATE:false}
+
+elasticsearch:
+  host: ${ELASTICSEARCH_HOST:localhost}
+  port: ${ELASTICSEARCH_PORT:9200}
+  threadCount: ${ELASTICSEARCH_THREAD_COUNT:1}
+  connectionRequestTimeout: ${ELASTICSEARCH_CONNECTION_REQUEST_TIMEOUT:0}
+  username: ${ELASTICSEARCH_USERNAME:#{null}}
+  password: ${ELASTICSEARCH_PASSWORD:#{null}}
+  pathPrefix: ${ELASTICSEARCH_PATH_PREFIX:#{null}}
+  useSSL: ${ELASTICSEARCH_USE_SSL:false}
+  sslContext: # Required if useSSL is true
+    protocol: ${ELASTICSEARCH_SSL_PROTOCOL:#{null}}
+    secureRandomImplementation: ${ELASTICSEARCH_SSL_SECURE_RANDOM_IMPL:#{null}}
+    trustStoreFile: ${ELASTICSEARCH_SSL_TRUSTSTORE_FILE:#{null}}
+    trustStoreType: ${ELASTICSEARCH_SSL_TRUSTSTORE_TYPE:#{null}}
+    trustStorePassword: ${ELASTICSEARCH_SSL_TRUSTSTORE_PASSWORD:#{null}}
+    keyStoreFile: ${ELASTICSEARCH_SSL_KEYSTORE_FILE:#{null}}
+    keyStoreType: ${ELASTICSEARCH_SSL_KEYSTORE_TYPE:#{null}}
+    keyStorePassword: ${ELASTICSEARCH_SSL_KEYSTORE_PASSWORD:#{null}}
+    keyPassword: ${ELASTICSEARCH_SSL_KEY_PASSWORD:#{null}}
+  bulkProcessor:
+    requestsLimit: ${ES_BULK_REQUESTS_LIMIT:1}
+    flushPeriod: ${ES_BULK_FLUSH_PERIOD:1}
+    numRetries: ${ES_BULK_NUM_RETRIES:3}
+    retryInterval: ${ES_BULK_RETRY_INTERVAL:1}
+  indexPrefix: ${INDEX_PREFIX:}
+
+# TODO: Kafka topic convention
+kafka:
+  bootstrapServers: ${KAFKA_BOOTSTRAP_SERVER:http://localhost:9092}
+  schemaRegistry:
+    type: ${SCHEMA_REGISTRY_TYPE:KAFKA} # KAFKA or AWS_GLUE
+    url: ${KAFKA_SCHEMAREGISTRY_URL:http://localhost:8081} # Application only for type = kafka
+    awsGlue:
+      region: ${AWS_GLUE_SCHEMA_REGISTRY_REGION:us-east-1}
+      registryName: ${AWS_GLUE_SCHEMA_REGISTRY_NAME:#{null}}
+
+# Only required if GraphService type is neo4j
+neo4j:
+  username: ${NEO4J_USERNAME:neo4j}
+  password: ${NEO4J_PASSWORD:datahub}
+  uri: ${NEO4J_URI:bolt://localhost}
+  maxConnectionPoolSize: ${NEO4J_MAX_CONNECTION_POOL_SIZE:100}
+  maxConnectionAcquisitionTimeout: ${NEO4J_MAX_CONNECTION_ACQUISITION_TIMEOUT_IN_SECONDS:60}
+  maxConnectionLifetimeInSeconds: ${NEO4j_MAX_CONNECTION_LIFETIME_IN_SECONDS:3600}
+  maxTransactionRetryTime: ${NEO4J_MAX_TRANSACTION_RETRY_TIME_IN_SECONDS:30}
+  connectionLivenessCheckTimeout: ${NEO4J_CONNECTION_LIVENESS_CHECK_TIMEOUT_IN_SECONDS:-1}

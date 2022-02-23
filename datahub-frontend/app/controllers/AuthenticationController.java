@@ -1,8 +1,10 @@
 package controllers;
 
+import client.AuthServiceClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.CorpuserUrn;
+import com.linkedin.common.urn.Urn;
 import com.typesafe.config.Config;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
@@ -52,6 +54,9 @@ public class AuthenticationController extends Controller {
     private SsoManager _ssoManager;
 
     @Inject
+    AuthServiceClient _authClient;
+
+    @Inject
     public AuthenticationController(@Nonnull Config configs) {
         _configs = configs;
         _jaasConfigs = new JAASConfigs(configs);
@@ -66,10 +71,12 @@ public class AuthenticationController extends Controller {
     @Nonnull
     public Result authenticate() {
 
+        // TODO: Call getAuthenticatedUser and then generate a session cookie for the UI if the user is authenticated.
+
         final Optional<String> maybeRedirectPath = Optional.ofNullable(ctx().request().getQueryString(AUTH_REDIRECT_URI_PARAM));
         final String redirectPath = maybeRedirectPath.orElse("/");
 
-        if (AuthUtils.isAuthenticated(ctx())) {
+        if (AuthUtils.hasValidSessionCookie(ctx())) {
             return redirect(redirectPath);
         }
 
@@ -84,6 +91,9 @@ public class AuthenticationController extends Controller {
         }
 
         // 3. If no auth enabled, fallback to using default user account & redirect.
+        // Generate GMS session token, TODO:
+        final String accessToken = _authClient.generateSessionTokenForUser(DEFAULT_ACTOR_URN.getId());
+        session().put(ACCESS_TOKEN, accessToken);
         session().put(ACTOR, DEFAULT_ACTOR_URN.toString());
         return redirect(redirectPath).withCookies(createActorCookie(DEFAULT_ACTOR_URN.toString(), _configs.hasPath(SESSION_TTL_CONFIG_PATH)
                 ? _configs.getInt(SESSION_TTL_CONFIG_PATH)
@@ -124,10 +134,12 @@ public class AuthenticationController extends Controller {
             return badRequest(invalidCredsJson);
         }
 
-        final String actorUrn = new CorpuserUrn(username).toString();
-        ctx().session().put(ACTOR, actorUrn);
 
-        return ok().withCookies(Http.Cookie.builder(ACTOR, actorUrn)
+        final Urn actorUrn = new CorpuserUrn(username);
+        final String accessToken = _authClient.generateSessionTokenForUser(actorUrn.getId());
+        ctx().session().put(ACTOR, actorUrn.toString());
+        ctx().session().put(ACCESS_TOKEN, accessToken);
+        return ok().withCookies(Http.Cookie.builder(ACTOR, actorUrn.toString())
             .withHttpOnly(false)
             .withMaxAge(Duration.of(30, ChronoUnit.DAYS))
             .build());

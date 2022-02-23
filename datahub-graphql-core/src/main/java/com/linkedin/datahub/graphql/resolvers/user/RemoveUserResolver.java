@@ -4,7 +4,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
-import com.linkedin.entity.client.RestliEntityClient;
+import com.linkedin.entity.client.EntityClient;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
@@ -15,9 +15,9 @@ import java.util.concurrent.CompletableFuture;
  */
 public class RemoveUserResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
-  private final RestliEntityClient _entityClient;
+  private final EntityClient _entityClient;
 
-  public RemoveUserResolver(final RestliEntityClient entityClient) {
+  public RemoveUserResolver(final EntityClient entityClient) {
     _entityClient = entityClient;
   }
 
@@ -29,7 +29,7 @@ public class RemoveUserResolver implements DataFetcher<CompletableFuture<Boolean
       final Urn urn = Urn.createFromString(userUrn);
       return CompletableFuture.supplyAsync(() -> {
         try {
-          _entityClient.deleteEntity(urn, context.getActor());
+          _entityClient.deleteEntity(urn, context.getAuthentication());
           return true;
         } catch (Exception e) {
           throw new RuntimeException(String.format("Failed to perform delete against user with urn %s", userUrn), e);

@@ -9,7 +9,7 @@ import com.linkedin.datahub.graphql.generated.ListUsersInput;
 import com.linkedin.datahub.graphql.generated.ListUsersResult;
 import com.linkedin.datahub.graphql.types.corpuser.mappers.CorpUserSnapshotMapper;
 import com.linkedin.entity.Entity;
-import com.linkedin.entity.client.RestliEntityClient;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
@@ -30,9 +30,9 @@ public class ListUsersResolver implements DataFetcher<CompletableFuture<ListUser
   private static final Integer DEFAULT_START = 0;
   private static final Integer DEFAULT_COUNT = 20;
 
-  private final RestliEntityClient _entityClient;
+  private final EntityClient _entityClient;
 
-  public ListUsersResolver(final RestliEntityClient entityClient) {
+  public ListUsersResolver(final EntityClient entityClient) {
     _entityClient = entityClient;
   }
 
@@ -50,10 +50,10 @@ public class ListUsersResolver implements DataFetcher<CompletableFuture<ListUser
         try {
           // First, get all policy Urns.
           final ListResult gmsResult =
-              _entityClient.list(Constants.CORP_USER_ENTITY_NAME, Collections.emptyMap(), start, count, context.getActor());
+              _entityClient.list(Constants.CORP_USER_ENTITY_NAME, Collections.emptyMap(), start, count, context.getAuthentication());
 
           // Then, get hydrate all users.
-          final Map<Urn, Entity> entities = _entityClient.batchGet(new HashSet<>(gmsResult.getEntities()), context.getActor());
+          final Map<Urn, Entity> entities = _entityClient.batchGet(new HashSet<>(gmsResult.getEntities()), context.getAuthentication());
 
           // Now that we have entities we can bind this to a result.
           final ListUsersResult result = new ListUsersResult();

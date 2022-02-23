@@ -16,6 +16,8 @@ public interface SystemMetadataService {
 
   List<AspectRowSummary> findByRunId(String runId);
 
+  List<AspectRowSummary> findByRegistry(String registryName, String registryVersion);
+
   List<IngestionRunSummary> listRuns(
       final Integer pageOffset,
       final Integer pageSize);

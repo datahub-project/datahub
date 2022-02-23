@@ -50,7 +50,7 @@ public class PegasusUtils {
 
   public static <T> Class<? extends T> getDataTemplateClassFromSchema(final NamedDataSchema schema, final Class<T> clazz) {
     try {
-      return Class.forName(schema.getFullName()).asSubclass(clazz);
+        return Class.forName(schema.getFullName()).asSubclass(clazz);
     } catch (ClassNotFoundException e) {
       log.error("Unable to find class for RecordDataSchema named " + schema.getFullName() + " " + e.getMessage());
       throw new ModelConversionException("Unable to find class for RecordDataSchema named " + schema.getFullName(), e);

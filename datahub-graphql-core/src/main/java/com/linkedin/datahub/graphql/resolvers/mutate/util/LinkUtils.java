@@ -96,7 +96,7 @@ public class LinkUtils {
 
     return AuthorizationUtils.isAuthorized(
         context.getAuthorizer(),
-        context.getActor(),
+        context.getActorUrn(),
         resourceUrn.getEntityType(),
         resourceUrn.toString(),
         orPrivilegeGroups);
