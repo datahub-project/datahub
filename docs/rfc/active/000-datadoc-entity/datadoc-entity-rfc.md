@@ -1,5 +1,5 @@
 - Start Date: (fill me in with today's date, 2022-02-22)
-- RFC PR: (after opening the RFC PR, update this with a link to it and update the file name)
+- RFC PR: https://github.com/linkedin/datahub/pull/4237 
 - Discussion Issue: (GitHub issue this was discussed in before the RFC, if any)
 - Implementation PR(s): (leave this empty)
 
