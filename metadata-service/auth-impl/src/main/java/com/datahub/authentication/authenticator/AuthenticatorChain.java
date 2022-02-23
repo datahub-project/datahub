@@ -6,6 +6,7 @@ import com.datahub.authentication.AuthenticationException;
 import com.datahub.authentication.AuthenticationExpiredException;
 import com.datahub.authentication.Authenticator;
 import com.datahub.authentication.AuthenticatorContext;
+import com.linkedin.util.Pair;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -43,6 +44,7 @@ public class AuthenticatorChain {
   @Nullable
   public Authentication authenticate(@Nonnull final AuthenticatorContext context) throws AuthenticationException {
     Objects.requireNonNull(context);
+    List<Pair<String, String>> authenticationFailures = new ArrayList<>();
     for (final Authenticator authenticator : this.authenticators) {
       try {
         log.debug(String.format("Executing Authenticator with class name %s", authenticator.getClass().getCanonicalName()));
@@ -57,12 +59,16 @@ public class AuthenticatorChain {
         throw e;
       } catch (Exception e) {
         // Log as a normal error otherwise.
-        log.error(String.format(
+        authenticationFailures.add(new Pair<>(authenticator.getClass().getCanonicalName(), e.getMessage()));
+        log.debug(String.format(
             "Caught exception while attempting to authenticate request using Authenticator %s",
             authenticator.getClass().getCanonicalName()), e);
       }
     }
     // No authentication resolved. Return null.
+    if (!authenticationFailures.isEmpty()) {
+      log.warn("Authentication chain failed to resolve a valid authentication. Errors: {}", authenticationFailures);
+    }
     return null;
   }
 }

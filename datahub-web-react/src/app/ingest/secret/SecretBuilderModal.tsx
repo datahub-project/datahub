@@ -1,5 +1,6 @@
 import { Button, Form, Input, Modal, Typography } from 'antd';
 import React, { useState } from 'react';
+import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
 import { SecretBuilderState } from './types';
 
 type Props = {
@@ -33,6 +34,11 @@ export const SecretBuilderModal = ({ initialState, visible, onSubmit, onCancel }
         });
     };
 
+    // Handle the Enter press
+    useEnterKeyListener({
+        querySelectorToExecuteClick: '#createSecretButton',
+    });
+
     return (
         <Modal
             width={540}
@@ -45,6 +51,7 @@ export const SecretBuilderModal = ({ initialState, visible, onSubmit, onCancel }
                         Cancel
                     </Button>
                     <Button
+                        id="createSecretButton"
                         onClick={() => onSubmit?.(secretBuilderState, () => setSecretBuilderState({}))}
                         disabled={
                             !secretBuilderState.name ||

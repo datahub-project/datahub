@@ -45,7 +45,9 @@ fragment entityPreview on Entity {
             lastName
             fullName
         }
-        editableInfo {
+        editableProperties {
+            displayName
+            title
             pictureLink
         }
     }
@@ -186,11 +188,13 @@ fragment entityPreview on Entity {
     ... on GlossaryTerm {
         name
         hierarchicalName
-        glossaryTermInfo {
-            definition
+        properties {
+            name
+            description
             termSource
             sourceRef
             sourceUrl
+            rawSchema
             customProperties {
                 key
                 value

@@ -8,6 +8,7 @@ import { CorpUser, EntityType, OwnerEntityType, SearchResult } from '../../../..
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { CustomAvatar } from '../../../../../../shared/avatar';
 import analytics, { EventType, EntityActionType } from '../../../../../../analytics';
+import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
 
 type Props = {
     visible: boolean;
@@ -172,6 +173,10 @@ export const AddOwnerModal = ({ visible, onClose, refetch, urn, entityType }: Pr
 
     const selectValue = (selectedActor && [selectedActor.displayName]) || [];
 
+    // Handle the Enter press
+    useEnterKeyListener({
+        querySelectorToExecuteClick: '#addOwnerButton',
+    });
     return (
         <Modal
             title="Add owner"
@@ -182,7 +187,7 @@ export const AddOwnerModal = ({ visible, onClose, refetch, urn, entityType }: Pr
                     <Button onClick={onClose} type="text">
                         Cancel
                     </Button>
-                    <Button disabled={selectedActor === undefined} onClick={onOk}>
+                    <Button id="addOwnerButton" disabled={selectedActor === undefined} onClick={onOk}>
                         Add
                     </Button>
                 </>
@@ -191,6 +196,8 @@ export const AddOwnerModal = ({ visible, onClose, refetch, urn, entityType }: Pr
             <Form component={false}>
                 <Form.Item>
                     <Select
+                        autoFocus
+                        filterOption={false}
                         value={selectValue}
                         mode="multiple"
                         ref={inputEl}

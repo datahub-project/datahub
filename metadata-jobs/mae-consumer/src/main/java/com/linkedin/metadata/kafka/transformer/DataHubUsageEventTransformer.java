@@ -4,21 +4,19 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Streams;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
 import com.linkedin.metadata.kafka.hydrator.EntityHydrator;
 import com.linkedin.metadata.kafka.hydrator.EntityType;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import static com.linkedin.metadata.datahubusage.DataHubUsageEventConstants.ACTOR_URN;
-import static com.linkedin.metadata.datahubusage.DataHubUsageEventConstants.ENTITY_TYPE;
-import static com.linkedin.metadata.datahubusage.DataHubUsageEventConstants.ENTITY_URN;
-import static com.linkedin.metadata.datahubusage.DataHubUsageEventConstants.TIMESTAMP;
-import static com.linkedin.metadata.datahubusage.DataHubUsageEventConstants.TYPE;
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.datahubusage.DataHubUsageEventConstants.*;
 
 
 /**
@@ -34,6 +32,18 @@ public class DataHubUsageEventTransformer {
           DataHubUsageEventType.ENTITY_ACTION_EVENT);
 
   private final EntityHydrator _entityHydrator;
+
+  private static final Map<EntityType, String> ENTITY_TYPE_MAP;
+
+  static {
+    ENTITY_TYPE_MAP = new HashMap<>(6);
+    ENTITY_TYPE_MAP.put(EntityType.CHART, CHART_ENTITY_NAME);
+    ENTITY_TYPE_MAP.put(EntityType.CORP_USER, CORP_GROUP_ENTITY_NAME);
+    ENTITY_TYPE_MAP.put(EntityType.DASHBOARD, DASHBOARD_ENTITY_NAME);
+    ENTITY_TYPE_MAP.put(EntityType.DATA_FLOW, DATA_FLOW_ENTITY_NAME);
+    ENTITY_TYPE_MAP.put(EntityType.DATA_JOB, DATA_JOB_ENTITY_NAME);
+    ENTITY_TYPE_MAP.put(EntityType.DATASET, DATASET_ENTITY_NAME);
+  }
 
   @Value
   public static class TransformedDocument {
@@ -77,25 +87,24 @@ public class DataHubUsageEventTransformer {
 
     // Hydrate entity fields for events with entity URN
     if (EVENTS_WITH_ENTITY_URN.contains(eventType)) {
-      setFieldsForEntity(ENTITY_TYPE, ENTITY_URN, usageEvent, eventDocument);
+      setFieldsForEntity(usageEvent, eventDocument);
     }
 
     try {
       return Optional.of(
           new TransformedDocument(getId(eventDocument), OBJECT_MAPPER.writeValueAsString(eventDocument)));
     } catch (JsonProcessingException e) {
-      log.info("Failed to package document: {}", eventDocument.toString());
+      log.info("Failed to package document: {}", eventDocument);
       return Optional.empty();
     }
   }
 
-  private void setFieldsForEntity(String entityTypeKey, String urnKey, ObjectNode recordObject,
-      ObjectNode searchObject) {
-    if (!recordObject.has(entityTypeKey) || !recordObject.has(urnKey)) {
+  private void setFieldsForEntity(ObjectNode recordObject, ObjectNode searchObject) {
+    if (!recordObject.has(ENTITY_TYPE) || !recordObject.has(ENTITY_URN)) {
       return;
     }
 
-    String entityType = recordObject.get(entityTypeKey).asText();
+    String entityType = recordObject.get(ENTITY_TYPE).asText();
     EntityType type;
     try {
       type = EntityType.valueOf(entityType);
@@ -104,17 +113,18 @@ public class DataHubUsageEventTransformer {
       return;
     }
 
-    setFieldsForEntity(type, recordObject.get(urnKey).asText(), searchObject);
+    setFieldsForEntity(type, recordObject.get(ENTITY_URN).asText(), searchObject);
   }
 
   private void setFieldsForEntity(EntityType entityType, String urn, ObjectNode searchObject) {
-    Optional<ObjectNode> entityObject = _entityHydrator.getHydratedEntity(urn);
+    String entityTypeName = ENTITY_TYPE_MAP.get(entityType);
+    Optional<ObjectNode> entityObject = _entityHydrator.getHydratedEntity(entityTypeName, urn);
     if (!entityObject.isPresent()) {
       log.info("No matches for urn {}", urn);
       return;
     }
-    Streams.stream(entityObject.get().fieldNames())
-        .forEach(
+    entityObject.get().fieldNames()
+        .forEachRemaining(
             key -> searchObject.put(entityType.name().toLowerCase() + "_" + key, entityObject.get().get(key).asText()));
   }
 

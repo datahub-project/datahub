@@ -11,12 +11,16 @@ import {
     EntityType,
     GlossaryTerm,
     Tag as TagType,
+    CorpUser,
+    CorpGroup,
 } from '../../types.generated';
 import { StyledTag } from '../entity/shared/components/styled/StyledTag';
 import { capitalizeFirstLetter } from '../shared/textUtil';
 import { DomainLink } from '../shared/tags/DomainLink';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { ENTITY_FILTER_NAME } from './utils/constants';
+import CustomAvatar from '../shared/avatar/CustomAvatar';
+import { IconStyleType } from '../entity/Entity';
 
 type Props = {
     aggregation: AggregationMetadata;
@@ -59,13 +63,44 @@ export const SearchFilterLabel = ({ aggregation, field }: Props) => {
         );
     }
 
+    if (aggregation.entity?.type === EntityType.CorpUser) {
+        const user = aggregation.entity as CorpUser;
+        const displayName = entityRegistry.getDisplayName(EntityType.CorpUser, user);
+        return (
+            <>
+                <CustomAvatar
+                    size={18}
+                    name={displayName}
+                    photoUrl={user.editableProperties?.pictureLink || undefined}
+                    useDefaultAvatar={false}
+                    style={{
+                        marginRight: 8,
+                    }}
+                />
+                {displayName} ({countText})
+            </>
+        );
+    }
+
+    if (aggregation.entity?.type === EntityType.CorpGroup) {
+        const group = aggregation.entity as CorpGroup;
+        return (
+            <>
+                <span style={{ marginRight: 8 }}>
+                    {entityRegistry.getIcon(EntityType.CorpGroup, 16, IconStyleType.ACCENT)}
+                </span>
+                {entityRegistry.getDisplayName(EntityType.CorpGroup, group)} ({countText})
+            </>
+        );
+    }
+
     if (aggregation.entity?.type === EntityType.GlossaryTerm) {
         const term = aggregation.entity as GlossaryTerm;
         return (
             <>
                 <Tag closable={false}>
                     <BookOutlined style={{ marginRight: '3%' }} />
-                    {term.name}
+                    {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term)}
                 </Tag>
                 ({countText})
             </>
@@ -104,7 +139,8 @@ export const SearchFilterLabel = ({ aggregation, field }: Props) => {
         const domain = aggregation.entity as Domain;
         return (
             <>
-                <DomainLink urn={domain.urn} name={entityRegistry.getDisplayName(EntityType.Domain, domain)} />
+                <DomainLink urn={domain.urn} name={entityRegistry.getDisplayName(EntityType.Domain, domain)} />(
+                {countText})
             </>
         );
     }
