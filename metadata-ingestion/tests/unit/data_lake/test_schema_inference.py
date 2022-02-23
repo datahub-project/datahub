@@ -53,7 +53,7 @@ def test_infer_schema_csv():
         file.write(bytes(test_table.to_csv(index=False, header=True), encoding="utf-8"))
         file.seek(0)
 
-        fields = csv_tsv.CsvInferrer().infer_schema(file)
+        fields = csv_tsv.CsvInferrer(max_rows=100).infer_schema(file)
         fields.sort(key=lambda x: x.fieldPath)
 
         assert_field_paths_match(fields, expected_field_paths)
@@ -69,7 +69,7 @@ def test_infer_schema_tsv():
         )
         file.seek(0)
 
-        fields = csv_tsv.TsvInferrer().infer_schema(file)
+        fields = csv_tsv.TsvInferrer(max_rows=100).infer_schema(file)
         fields.sort(key=lambda x: x.fieldPath)
 
         assert_field_paths_match(fields, expected_field_paths)
