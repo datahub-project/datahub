@@ -9,7 +9,7 @@ from functools import wraps
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, TypeVar
 
-from mixpanel import Mixpanel, Consumer
+from mixpanel import Consumer, Mixpanel
 
 import datahub as datahub_package
 
@@ -25,6 +25,7 @@ TIMEOUT = int(os.environ.get("DATAHUB_TELEMETRY_TIMEOUT", "10"))
 MIXPANEL_TOKEN = "5ee83d940754d63cacbf7d34daa6f44a"
 
 mp = Mixpanel(MIXPANEL_TOKEN, consumer=Consumer(request_timeout=int(TIMEOUT)))
+
 
 class Telemetry:
 
@@ -164,12 +165,12 @@ def with_telemetry(func: Callable[..., T]) -> Callable[..., T]:
         telemetry_instance.ping(action)
         try:
             res = func(*args, **kwargs)
-            telemetry_instance.ping(f"{action}:result", {"status": "success"})
+            telemetry_instance.ping(f"{action}:result", {"status": "completed"})
             return res
         # Catch general exceptions
         except Exception as e:
             telemetry_instance.ping(
-                f"{action}:result", {"error": get_full_class_name(e), "status": "error"}
+                f"{action}:result", {"status": "error", "error": get_full_class_name(e)}
             )
             raise e
         # System exits (used in ingestion and Docker commands) are not caught by the exception handler,

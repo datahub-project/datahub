@@ -167,7 +167,7 @@ class DataLakeSource(Source):
             telemetry.telemetry_instance.ping(
                 "data_lake_profiling_config",
                 {
-                    config_flag: getattr(config.profiling, config_flag)
+                    config_flag: config.profiling.dict().get(config_flag)
                     for config_flag in profiling_flags_to_report
                 },
             )

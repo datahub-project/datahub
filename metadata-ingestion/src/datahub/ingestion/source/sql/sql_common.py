@@ -416,7 +416,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self.report = SQLSourceReport()
 
         config_report = {
-            config_option: getattr(config, config_option)
+            config_option: config.dict().get(config_option)
             for config_option in config_options_to_report
         }
 
@@ -436,7 +436,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             telemetry.telemetry_instance.ping(
                 "sql_profiling_config",
                 {
-                    config_flag: getattr(config.profiling, config_flag)
+                    config_flag: config.profiling.dict().get(config_flag)
                     for config_flag in profiling_flags_to_report
                 },
             )
