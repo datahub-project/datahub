@@ -79,6 +79,27 @@ AND
 timestamp < "{end_time}"
 """.strip()
 
+BQ_FILTER_RULE_TEMPLATE_V2 = """
+resource.type=("bigquery_project")
+AND
+(
+    protoPayload.methodName=
+        (
+            "google.cloud.bigquery.v2.JobService.Query"
+            OR
+            "google.cloud.bigquery.v2.JobService.InsertJob"
+        )
+    AND
+    protoPayload.metadata.jobChange.job.jobStatus.jobState="DONE"
+    AND NOT protoPayload.metadata.jobChange.job.jobStatus.errorResult:*
+    AND protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables:*
+)
+AND
+timestamp >= "{start_time}"
+AND
+timestamp < "{end_time}"
+""".strip()
+
 BQ_GET_LATEST_PARTITION_TEMPLATE = """
 SELECT
     c.table_catalog,
@@ -248,6 +269,7 @@ class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
     bigquery_audit_metadata_datasets: Optional[List[str]] = None
     use_exported_bigquery_audit_metadata: bool = False
     use_date_sharded_audit_log_tables: bool = False
+    use_v2_audit_metadata: Optional[bool] = False
 
     def __init__(self, **data: Any):
         super().__init__(**data)
@@ -318,8 +340,13 @@ class BigQuerySource(SQLAlchemySource):
         logger.info("Populating lineage info via GCP audit logs")
         try:
             _clients: List[GCPLoggingClient] = self._make_bigquery_client()
+            template: str = BQ_FILTER_RULE_TEMPLATE
+
+            if self.config.use_v2_audit_metadata:
+                template = BQ_FILTER_RULE_TEMPLATE_V2
+
             log_entries: Iterable[AuditLogEntry] = self._get_bigquery_log_entries(
-                _clients
+                _clients, template
             )
             parsed_entries: Iterable[QueryEvent] = self._parse_bigquery_log_entries(
                 log_entries
@@ -362,10 +389,12 @@ class BigQuerySource(SQLAlchemySource):
             return [GCPLoggingClient(**client_options)]
 
     def _get_bigquery_log_entries(
-        self, clients: List[GCPLoggingClient]
-    ) -> Iterable[AuditLogEntry]:
+        self,
+        clients: List[GCPLoggingClient],
+        template: str,
+    ) -> Union[Iterable[AuditLogEntry], Iterable[BigQueryAuditMetadata]]:
         # Add a buffer to start and end time to account for delays in logging events.
-        filter = BQ_FILTER_RULE_TEMPLATE.format(
+        filter = template.format(
             start_time=(
                 self.config.start_time - self.config.max_query_duration
             ).strftime(BQ_DATETIME_FORMAT),
@@ -439,7 +468,8 @@ class BigQuerySource(SQLAlchemySource):
     # Currently we only parse JobCompleted events but in future we would want to parse other
     # events to also create field level lineage.
     def _parse_bigquery_log_entries(
-        self, entries: Iterable[AuditLogEntry]
+        self,
+        entries: Union[Iterable[AuditLogEntry], Iterable[BigQueryAuditMetadata]],
     ) -> Iterable[QueryEvent]:
         num_total_log_entries: int = 0
         num_parsed_log_entires: int = 0
@@ -448,7 +478,10 @@ class BigQuerySource(SQLAlchemySource):
             event: Optional[QueryEvent] = None
             try:
                 if QueryEvent.can_parse_entry(entry):
-                    event = QueryEvent.from_entry(entry)
+                        event = QueryEvent.from_entry(entry)
+                        num_parsed_log_entires += 1
+                elif QueryEvent.can_parse_entry_v2(entry):
+                    event = QueryEvent.from_entry_v2(entry)
                     num_parsed_log_entires += 1
                 else:
                     raise RuntimeError("Unable to parse log entry as QueryEvent.")
