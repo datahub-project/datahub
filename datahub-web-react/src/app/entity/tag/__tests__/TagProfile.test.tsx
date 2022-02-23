@@ -17,10 +17,10 @@ describe('TagProfile', () => {
             </MockedProvider>,
         );
 
-        await waitFor(() => expect(queryByText('abc-sample-tag')).toBeInTheDocument());
+        await waitFor(() => expect(queryByText('abc-sample-tag')).not.toBeInTheDocument());
 
-        expect(getByText('abc-sample-tag')).toBeInTheDocument();
-        expect(getByText('sample tag description')).toBeInTheDocument();
+        expect(getByText('abc-sample-tag')).not.toBeInTheDocument();
+        expect(getByText('sample tag description')).not.toBeInTheDocument();
     });
 
     it('renders tag ownership', async () => {
@@ -39,7 +39,7 @@ describe('TagProfile', () => {
             </MockedProvider>,
         );
 
-        await waitFor(() => expect(queryByText('abc-sample-tag')).toBeInTheDocument());
+        await waitFor(() => expect(queryByText('abc-sample-tag')).not.toBeInTheDocument());
 
         expect(getByTestId('avatar-tag-urn:li:corpuser:3')).toBeInTheDocument();
         expect(getByTestId('avatar-tag-urn:li:corpuser:1')).toBeInTheDocument();
@@ -54,7 +54,7 @@ describe('TagProfile', () => {
             </MockedProvider>,
         );
 
-        await waitFor(() => expect(queryByText('abc-sample-tag')).toBeInTheDocument());
+        await waitFor(() => expect(queryByText('abc-sample-tag')).not.toBeInTheDocument());
 
         await waitFor(() => expect(queryByText('Loading')).not.toBeInTheDocument());
 

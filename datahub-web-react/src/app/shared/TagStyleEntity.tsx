@@ -301,14 +301,14 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
                             <EmptyStatsText>Loading...</EmptyStatsText>
                         </div>
                     )}
-                    {!facetLoading && aggregations.length === 0 && (
+                    {!facetLoading && aggregations && aggregations?.length === 0 && (
                         <div>
                             <EmptyStatsText>No entities</EmptyStatsText>
                         </div>
                     )}
                     {!facetLoading &&
                         aggregations &&
-                        aggregations.map((aggregation) => {
+                        aggregations?.map((aggregation) => {
                             if (aggregation?.count === 0) {
                                 return null;
                             }
