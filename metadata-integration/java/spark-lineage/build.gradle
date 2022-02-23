@@ -167,6 +167,10 @@ assemble {
     dependsOn shadowJar
 }
 
+task integrationTest(type: Exec ) {
+  commandLine "spark-smoke-test/smoke.sh"
+}
+
 task sourcesJar(type: Jar) {
     classifier 'sources'
     from sourceSets.main.allJava

@@ -1,31 +1,17 @@
 import json
-import time
 import urllib
-
+import time
 import pytest
 import requests
 from datahub.cli.docker import check_local_docker_containers
-from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
-from datahub.ingestion.api.sink import NoopWriteCallback
-from datahub.ingestion.sink.file import FileSink, FileSinkConfig
-from datahub.metadata.schema_classes import (AssertionInfoClass,
-                                             AssertionResultClass,
-                                             AssertionResultTypeClass,
-                                             AssertionRunEventClass,
-                                             AssertionRunStatusClass,
-                                             AssertionStdOperatorClass,
-                                             AssertionTypeClass,
-                                             DatasetAssertionInfoClass,
-                                             DatasetAssertionScopeClass,
-                                             DatasetColumnAssertionClass,
-                                             DatasetColumnStdAggFuncClass,
-                                             PartitionSpecClass,
-                                             PartitionTypeClass)
-
 from tests.utils import ingest_file_via_rest
-
+from datahub.metadata.schema_classes import AssertionResultTypeClass, DatasetAssertionInfoClass, PartitionTypeClass, AssertionInfoClass, AssertionTypeClass, DatasetAssertionScopeClass, DatasetColumnAssertionClass, AssertionStdOperatorClass, DatasetColumnStdAggFuncClass, AssertionRunEventClass, PartitionSpecClass, AssertionResultClass, AssertionRunStatusClass
+from datahub.emitter.mce_builder import make_schema_field_urn, make_dataset_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.sink.file import FileSink, FileSinkConfig
+from datahub.ingestion.api.sink import NoopWriteCallback, WriteCallback
+from datahub.ingestion.api.common import RecordEnvelope
+from datahub.ingestion.api.common import PipelineContext
 GMS_ENDPOINT = "http://localhost:8080"
 
 restli_default_headers = {
@@ -35,39 +21,37 @@ restli_default_headers = {
 
 def create_test_data(test_file):
     assertion_urn = "urn:li:assertion:2d3b06a6e77e1f24adc9860a05ea089b"
-    dataset_urn = make_dataset_urn(platform="postgres", name="fooTable")
+    dataset_urn=make_dataset_urn(platform="postgres", name="fooTable")
     assertion_info = AssertionInfoClass(
         type=AssertionTypeClass.DATASET,
-        customProperties={"suite_name": "demo_suite"},
+        customProperties={
+            "suite_name": "demo_suite"
+        },
         datasetAssertion=DatasetAssertionInfoClass(
-            fields=[make_schema_field_urn(dataset_urn, "col1")],
+            fields=[make_schema_field_urn(dataset_urn,"col1")],
             datasets=[dataset_urn],
             scope=DatasetAssertionScopeClass.DATASET_COLUMN,
             columnAssertion=DatasetColumnAssertionClass(
-                stdOperator=AssertionStdOperatorClass.LESS_THAN,
-                nativeOperator="column_value_is_less_than",
-                stdAggFunc=DatasetColumnStdAggFuncClass.IDENTITY,
-            ),
+            stdOperator=AssertionStdOperatorClass.LESS_THAN,
+            nativeOperator="column_value_is_less_than",
+            stdAggFunc=DatasetColumnStdAggFuncClass.IDENTITY,
         ),
-        parameters={"max_value": "99"},
-    )
+        ),
+        parameters={
+            "max_value": "99"
+        },
+        )
     # The assertion definition
     mcp1 = MetadataChangeProposalWrapper(
         entityType="assertion",
         changeType="UPSERT",
         entityUrn=assertion_urn,
         aspectName="assertionInfo",
-        aspect=assertion_info,
+        aspect=assertion_info
     )
-    timestamps = [
-        1643794280350,
-        1643794280352,
-        1643794280354,
-        1643880726872,
-        1643880726874,
-        1643880726875,
-    ]
-    # The assertion run event attached to the dataset
+    timestamps = [1643794280350, 1643794280352, 1643794280354, 1643880726872, 1643880726874, 1643880726875]
+    msg_ids = []
+    # The assertion run event attached to the dataset    
     mcp2 = MetadataChangeProposalWrapper(
         entityType="dataset",
         entityUrn=dataset_urn,
@@ -78,7 +62,7 @@ def create_test_data(test_file):
             partitionSpec=PartitionSpecClass(
                 partition="[{'country': 'IN'}]",
                 type=PartitionTypeClass.PARTITION,
-            ),
+                ),
             messageId=str(timestamps[0]),
             assertionUrn=assertion_urn,
             asserteeUrn=dataset_urn,
@@ -86,10 +70,10 @@ def create_test_data(test_file):
                 type=AssertionResultTypeClass.SUCCESS,
                 actualAggValue=90,
                 externalUrl="http://example.com/uuid1",
-            ),
+                ),
             runId="uuid1",
-            status=AssertionRunStatusClass.COMPLETE,
-        ),
+            status=AssertionRunStatusClass.COMPLETE
+        )
     )
 
     mcp3 = MetadataChangeProposalWrapper(
@@ -102,7 +86,7 @@ def create_test_data(test_file):
             partitionSpec=PartitionSpecClass(
                 partition="[{'country': 'US'}]",
                 type=PartitionTypeClass.PARTITION,
-            ),
+                ),
             messageId=str(timestamps[1]),
             assertionUrn=assertion_urn,
             asserteeUrn=dataset_urn,
@@ -110,10 +94,10 @@ def create_test_data(test_file):
                 type=AssertionResultTypeClass.FAILURE,
                 actualAggValue=101,
                 externalUrl="http://example.com/uuid1",
-            ),
+                ),
             runId="uuid1",
-            status=AssertionRunStatusClass.COMPLETE,
-        ),
+            status=AssertionRunStatusClass.COMPLETE
+        )
     )
     # Result of evaluating this assertion on the whole dataset
     mcp4 = MetadataChangeProposalWrapper(
@@ -126,7 +110,7 @@ def create_test_data(test_file):
             partitionSpec=PartitionSpecClass(
                 partition="FULL_TABLE_SNAPSHOT",
                 type=PartitionTypeClass.FULL_TABLE,
-            ),
+                ),
             messageId=str(timestamps[2]),
             assertionUrn=assertion_urn,
             asserteeUrn=dataset_urn,
@@ -134,10 +118,10 @@ def create_test_data(test_file):
                 type=AssertionResultTypeClass.SUCCESS,
                 actualAggValue=93,
                 externalUrl="http://example.com/uuid1",
-            ),
+                ),
             runId="uuid1",
-            status=AssertionRunStatusClass.COMPLETE,
-        ),
+            status=AssertionRunStatusClass.COMPLETE
+        )
     )
 
     mcp5 = MetadataChangeProposalWrapper(
@@ -150,7 +134,7 @@ def create_test_data(test_file):
             partitionSpec=PartitionSpecClass(
                 partition="[{'country': 'IN'}]",
                 type=PartitionTypeClass.PARTITION,
-            ),
+                ),
             messageId=str(timestamps[3]),
             assertionUrn=assertion_urn,
             asserteeUrn=dataset_urn,
@@ -158,10 +142,10 @@ def create_test_data(test_file):
                 type=AssertionResultTypeClass.SUCCESS,
                 actualAggValue=90,
                 externalUrl="http://example.com/uuid1",
-            ),
+                ),
             runId="uuid1",
-            status=AssertionRunStatusClass.COMPLETE,
-        ),
+            status=AssertionRunStatusClass.COMPLETE
+        )
     )
     mcp6 = MetadataChangeProposalWrapper(
         entityType="dataset",
@@ -173,7 +157,7 @@ def create_test_data(test_file):
             partitionSpec=PartitionSpecClass(
                 partition="[{'country': 'US'}]",
                 type=PartitionTypeClass.PARTITION,
-            ),
+                ),
             messageId=str(timestamps[4]),
             assertionUrn=assertion_urn,
             asserteeUrn=dataset_urn,
@@ -181,10 +165,10 @@ def create_test_data(test_file):
                 type=AssertionResultTypeClass.FAILURE,
                 actualAggValue=101,
                 externalUrl="http://example.com/uuid1",
-            ),
+                ),
             runId="uuid1",
-            status=AssertionRunStatusClass.COMPLETE,
-        ),
+            status=AssertionRunStatusClass.COMPLETE
+        )
     )
 
     # Result of evaluating this assertion on the whole dataset
@@ -198,7 +182,7 @@ def create_test_data(test_file):
             partitionSpec=PartitionSpecClass(
                 partition="FULL_TABLE_SNAPSHOT",
                 type=PartitionTypeClass.FULL_TABLE,
-            ),
+                ),
             messageId=str(timestamps[5]),
             assertionUrn=assertion_urn,
             asserteeUrn=dataset_urn,
@@ -206,21 +190,19 @@ def create_test_data(test_file):
                 type=AssertionResultTypeClass.SUCCESS,
                 actualAggValue=93,
                 externalUrl="http://example.com/uuid1",
-            ),
+                ),
             runId="uuid1",
-            status=AssertionRunStatusClass.COMPLETE,
-        ),
+            status=AssertionRunStatusClass.COMPLETE
+        )
     )
 
-    fileSink: FileSink = FileSink.create(
-        FileSinkConfig(filename=test_file), ctx=PipelineContext(run_id="test-file")
-    )
+    fileSink: FileSink = FileSink.create(FileSinkConfig(filename=test_file), ctx=PipelineContext(run_id="test-file"))
     for mcp in [mcp1, mcp2, mcp3, mcp4, mcp5, mcp6, mcp7]:
-        fileSink.write_record_async(
-            RecordEnvelope(record=mcp, metadata={}), write_callback=NoopWriteCallback()
-        )
+        fileSink.write_record_async(RecordEnvelope(record=mcp, metadata={}), write_callback=NoopWriteCallback())
     fileSink.close()
 
+
+    
 
 @pytest.fixture(scope="session")
 def generate_test_data(tmp_path_factory):
@@ -229,7 +211,7 @@ def generate_test_data(tmp_path_factory):
     file_name = dir_name / "test_dq_events.json"
     create_test_data(test_file=str(file_name))
     yield str(file_name)
-
+    
 
 @pytest.fixture(scope="session")
 def wait_for_healthchecks(generate_test_data):
@@ -251,7 +233,7 @@ def test_run_ingestion(wait_for_healthchecks, generate_test_data):
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_gms_get_latest_assertions_results_by_partition():
-    urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,footable,PROD)"
+    urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,fooTable,PROD)"
 
     # sleep for elasticsearch indices to be updated
     time.sleep(5)
@@ -276,7 +258,9 @@ def test_gms_get_latest_assertions_results_by_partition():
                     }
                 ]
             },
-            "metrics": [{"fieldPath": "result", "aggregationType": "LATEST"}],
+            "metrics": [
+                {"fieldPath": "result", "aggregationType": "LATEST"}
+            ],
             "buckets": [
                 {"key": "asserteeUrn", "type": "STRING_GROUPING_BUCKET"},
                 {"key": "partitionSpec.partition", "type": "STRING_GROUPING_BUCKET"},
@@ -319,7 +303,7 @@ def test_gms_get_latest_assertions_results_by_partition():
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_gms_get_assertions_on_dataset():
     """lists all assertion urns including those which may not have executed"""
-    urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,footable,PROD)"
+    urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,fooTable,PROD)"
     response = requests.get(
         f"{GMS_ENDPOINT}/relationships?direction=INCOMING&urn={urllib.parse.quote(urn)}&types=Asserts"
     )
@@ -332,7 +316,7 @@ def test_gms_get_assertions_on_dataset():
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_gms_get_assertions_on_dataset_field():
     """lists all assertion urns including those which may not have executed"""
-    dataset_urn = make_dataset_urn("postgres", "fooTable")
+    dataset_urn=make_dataset_urn("postgres","fooTable")
     field_urn = make_schema_field_urn(dataset_urn, "col1")
     response = requests.get(
         f"{GMS_ENDPOINT}/relationships?direction=INCOMING&urn={urllib.parse.quote(field_urn)}&types=Asserts"
@@ -358,6 +342,5 @@ def test_gms_get_assertion_info():
     assert data["aspect"]
     assert data["aspect"]["com.linkedin.assertion.AssertionInfo"]
     assert data["aspect"]["com.linkedin.assertion.AssertionInfo"]["type"] == "DATASET"
-    assert data["aspect"]["com.linkedin.assertion.AssertionInfo"]["datasetAssertion"][
-        "scope"
-    ]
+    assert data["aspect"]["com.linkedin.assertion.AssertionInfo"]["datasetAssertion"]["scope"]
+
