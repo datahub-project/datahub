@@ -195,8 +195,8 @@ export default function TagTermGroup({
                 renderedTags += 1;
                 if (maxShow && renderedTags > maxShow) return null;
                 return (
-                    <TagLink to={entityRegistry.getEntityUrl(EntityType.Tag, tag.tag.urn)} key={tag.tag.urn}>
-                        <StyledTag $colorHash={tag.tag.properties?.colorHex} closable={false}>
+                    <TagLink to={entityRegistry.getEntityUrl(EntityType.Tag, tag?.tag?.urn)} key={tag?.tag?.urn}>
+                        <StyledTag $colorHash={tag?.tag?.urn} $color={tag?.tag?.properties?.colorHex} closable={false}>
                             {tag.tag.name}
                         </StyledTag>
                     </TagLink>
@@ -209,15 +209,16 @@ export default function TagTermGroup({
                 return (
                     <StyledTag
                         style={{ cursor: 'pointer' }}
-                        onClick={() => showTagProfileDrawer(tag.tag.urn)}
-                        $colorHash={tag.tag.properties?.colorHex}
+                        onClick={() => showTagProfileDrawer(tag?.tag?.urn)}
+                        $colorHash={tag?.tag?.urn}
+                        $color={tag?.tag?.properties?.colorHex}
                         closable={canRemove}
                         onClose={(e) => {
                             e.preventDefault();
-                            removeTag(tag.tag.urn);
+                            removeTag(tag?.tag?.urn);
                         }}
                     >
-                        {tag.tag.name}
+                        {tag?.tag?.name}
                     </StyledTag>
                 );
             })}
