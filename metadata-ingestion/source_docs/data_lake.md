@@ -51,7 +51,13 @@ This connector supports both local files as well as those stored on AWS S3 (whic
 - Parquet
 - Apache Avro
 
-Note that schemas are inferred for CSV and TSV filetypes on the basis of the first 100 rows. JSON file schemas are likewise inferred on the basis of the entire file, which may impact performance. Schemas for Parquet and Avro files are extracted as provided.
+Schemas for Parquet and Avro files are extracted as provided.
+
+
+Schemas for schemaless formats (CSV, TSV, JSON) are inferred. For CSV and TSV files, we consider the first 100 rows at most.
+JSON file schemas are inferred on the basis of the entire file (given the difficulty in extracting only the first few objects of the file), which may impact performance.
+We are working on using iterator-based JSON parsers to avoid reading in the entire JSON object.
+
 
 :::caution
 
