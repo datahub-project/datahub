@@ -37,7 +37,6 @@ class JsonInferrer(SchemaInferenceBase):
             datastore = [datastore]
 
         schema = construct_schema(datastore, delimiter=".")
-
         fields: List[SchemaField] = []
 
         for schema_field in sorted(schema.values(), key=lambda x: x["delimited_name"]):

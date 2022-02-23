@@ -154,7 +154,6 @@ class DataLakeSource(Source):
         )
 
         if config.profiling.enabled:
-
             for config_flag in profiling_flags_to_report:
                 config_value = getattr(config.profiling, config_flag)
                 config_int = (
@@ -201,7 +200,6 @@ class DataLakeSource(Source):
 
                 # see https://hadoop.apache.org/docs/r3.0.3/hadoop-aws/tools/hadoop-aws/index.html#Changing_Authentication_Providers
                 if all(x is not None for x in aws_provided_credentials):
-
                     conf.set(
                         "spark.hadoop.fs.s3a.aws.credentials.provider",
                         "org.apache.hadoop.fs.s3a.TemporaryAWSCredentialsProvider",
@@ -571,7 +569,6 @@ class DataLakeSource(Source):
 
             # check if file is an s3 object
             if is_s3_uri(self.source_config.base_path):
-
                 yield from self.get_workunits_s3()
 
             else:

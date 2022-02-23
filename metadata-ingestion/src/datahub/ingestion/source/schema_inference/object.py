@@ -37,12 +37,10 @@ def is_field_nullable(doc: Dict[str, Any], field_path: Tuple) -> bool:
 
     # if field is inside
     if field in doc:
-
         value = doc[field]
 
         if value is None:
             return True
-
         # if no fields left, must be non-nullable
         if len(field_path) == 1:
             return False
@@ -53,14 +51,11 @@ def is_field_nullable(doc: Dict[str, Any], field_path: Tuple) -> bool:
         # if dictionary, check additional level of nesting
         if isinstance(value, dict):
             return is_field_nullable(doc[field], remaining_fields)
-
         # if list, check if any member is missing field
         if isinstance(value, list):
-
             # count empty lists of nested objects as nullable
             if len(value) == 0:
                 return True
-
             return any(is_field_nullable(x, remaining_fields) for x in doc[field])
 
         # any other types to check?
@@ -123,35 +118,27 @@ def construct_schema(
         """
 
         for key, value in doc.items():
-
             new_parent_prefix = parent_prefix + (key,)
 
             # if nested value, look at the types within
             if isinstance(value, dict):
-
                 append_to_schema(value, new_parent_prefix)
-
             # if array of values, check what types are within
             if isinstance(value, list):
-
                 for item in value:
-
                     # if dictionary, add it as a nested object
                     if isinstance(item, dict):
                         append_to_schema(item, new_parent_prefix)
 
             # don't record None values (counted towards nullable)
             if value is not None:
-
                 if new_parent_prefix not in schema:
-
                     schema[new_parent_prefix] = {
                         "types": Counter([type(value)]),
                         "count": 1,
                     }
 
                 else:
-
                     # update the type count
                     schema[new_parent_prefix]["types"].update({type(value): 1})
                     schema[new_parent_prefix]["count"] += 1
@@ -162,15 +149,12 @@ def construct_schema(
     extended_schema: Dict[Tuple[str, ...], SchemaDescription] = {}
 
     for field_path in schema.keys():
-
         field_types = schema[field_path]["types"]
-
         field_type: Union[str, type] = "mixed"
 
         # if single type detected, mark that as the type to go with
         if len(field_types.keys()) == 1:
             field_type = next(iter(field_types))
-
         field_extended: SchemaDescription = {
             "types": schema[field_path]["types"],
             "count": schema[field_path]["count"],

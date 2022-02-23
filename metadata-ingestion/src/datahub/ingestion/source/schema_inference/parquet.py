@@ -84,7 +84,6 @@ class ParquetInferrer(SchemaInferenceBase):
         fields: List[SchemaField] = []
 
         for name, pyarrow_type in zip(schema.names, schema.types):
-
             mapped_type = map_pyarrow_type(pyarrow_type)
 
             field = SchemaField(

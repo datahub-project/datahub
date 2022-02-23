@@ -41,8 +41,7 @@ def get_table_schema_fields(table: Table, max_rows: int) -> List[SchemaField]:
     fields: List[SchemaField] = []
 
     for raw_field in table.schema.fields:
-
-        mapped_type = tableschema_type_map.get(raw_field.type, NullTypeClass)
+        mapped_type: Type = tableschema_type_map.get(raw_field.type, NullTypeClass)
 
         field = SchemaField(
             fieldPath=raw_field.name,
@@ -50,7 +49,6 @@ def get_table_schema_fields(table: Table, max_rows: int) -> List[SchemaField]:
             nativeDataType=str(raw_field.type),
             recursive=False,
         )
-
         fields.append(field)
 
     return fields
@@ -63,7 +61,6 @@ class CsvInferrer(SchemaInferenceBase):
     def infer_schema(self, file: IO[bytes]) -> List[SchemaField]:
         # infer schema of a csv file without reading the whole file
         table = Table(file, format="csv")
-
         return get_table_schema_fields(table, max_rows=self.max_rows)
 
 
@@ -74,5 +71,4 @@ class TsvInferrer(SchemaInferenceBase):
     def infer_schema(self, file: IO[bytes]) -> List[SchemaField]:
         # infer schema of a tsv file without reading the whole file
         table = Table(file, format="tsv")
-
         return get_table_schema_fields(table, max_rows=self.max_rows)
