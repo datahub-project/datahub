@@ -594,7 +594,7 @@ class BigQueryUsageSource(Source):
     def _get_bigquery_log_entries(
         self, clients: List[GCPLoggingClient]
     ) -> Iterable[Union[AuditLogEntry, BigQueryAuditMetadata]]:
-        audit_templates: dict[str, str] = BQ_AUDIT_V1
+        audit_templates: Dict[str, str] = BQ_AUDIT_V1
         if self.config.use_v2_audit_metadata:
             audit_templates = BQ_AUDIT_V2
 
