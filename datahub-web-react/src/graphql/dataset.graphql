@@ -162,6 +162,8 @@ query getDataset($urn: String!) {
             displayName
             description
             type
+            isSatisfied
+            reason
             params {
                 hasGlossaryTermInNodeParams {
                     nodeName
