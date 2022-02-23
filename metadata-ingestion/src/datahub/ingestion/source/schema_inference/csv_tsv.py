@@ -34,11 +34,9 @@ tableschema_type_map: Dict[str, Type] = {
     "any": UnionTypeClass,
 }
 
-MAX_ROWS = 100
 
-
-def get_table_schema_fields(table: Table) -> List[SchemaField]:
-    table.infer(limit=MAX_ROWS)
+def get_table_schema_fields(table: Table, max_rows: int) -> List[SchemaField]:
+    table.infer(limit=max_rows)
 
     fields: List[SchemaField] = []
 
@@ -59,16 +57,22 @@ def get_table_schema_fields(table: Table) -> List[SchemaField]:
 
 
 class CsvInferrer(SchemaInferenceBase):
+    def __init__(self, max_rows: int):
+        self.max_rows = max_rows
+
     def infer_schema(self, file: IO[bytes]) -> List[SchemaField]:
         # infer schema of a csv file without reading the whole file
         table = Table(file, format="csv")
 
-        return get_table_schema_fields(table)
+        return get_table_schema_fields(table, max_rows=self.max_rows)
 
 
 class TsvInferrer(SchemaInferenceBase):
+    def __init__(self, max_rows: int):
+        self.max_rows = max_rows
+
     def infer_schema(self, file: IO[bytes]) -> List[SchemaField]:
         # infer schema of a tsv file without reading the whole file
         table = Table(file, format="tsv")
 
-        return get_table_schema_fields(table)
+        return get_table_schema_fields(table, max_rows=self.max_rows)

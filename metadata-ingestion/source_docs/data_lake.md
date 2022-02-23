@@ -53,11 +53,9 @@ This connector supports both local files as well as those stored on AWS S3 (whic
 
 Schemas for Parquet and Avro files are extracted as provided.
 
-
-Schemas for schemaless formats (CSV, TSV, JSON) are inferred. For CSV and TSV files, we consider the first 100 rows at most.
+Schemas for schemaless formats (CSV, TSV, JSON) are inferred. For CSV and TSV files, we consider the first 100 rows by default, which can be controlled via the `max_rows` recipe parameter (see [below](#config-details))
 JSON file schemas are inferred on the basis of the entire file (given the difficulty in extracting only the first few objects of the file), which may impact performance.
 We are working on using iterator-based JSON parsers to avoid reading in the entire JSON object.
-
 
 :::caution
 
@@ -106,6 +104,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `aws_config.aws_access_key_id`                       |                          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html                                                                                                                             |
 | `aws_config.aws_secret_access_key`                   |                          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html                                                                                                                             |
 | `aws_config.aws_session_token`                       |                          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html                                                                                                                             |
+| `max_rows`                                           |                          | `100`        | Maximum number of rows to use when inferring schemas for TSV and CSV files.                                                                                                                                    |
 | `schema_patterns.allow`                              |                          | `*`          | List of regex patterns for tables to ingest. Defaults to all.                                                                                                                                                  |
 | `schema_patterns.deny`                               |                          |              | List of regex patterns for tables to not ingest. Defaults to none.                                                                                                                                             |
 | `schema_patterns.ignoreCase`                         |                          | `True`       | Whether to ignore case sensitivity during pattern matching of tables to ingest.                                                                                                                                |

@@ -341,9 +341,13 @@ class DataLakeSource(Source):
             if file_path.endswith(".parquet"):
                 fields = parquet.ParquetInferrer().infer_schema(file)
             elif file_path.endswith(".csv"):
-                fields = csv_tsv.CsvInferrer().infer_schema(file)
+                fields = csv_tsv.CsvInferrer(
+                    max_rows=self.source_config.max_rows
+                ).infer_schema(file)
             elif file_path.endswith(".tsv"):
-                fields = csv_tsv.TsvInferrer().infer_schema(file)
+                fields = csv_tsv.TsvInferrer(
+                    max_rows=self.source_config.max_rows
+                ).infer_schema(file)
             elif file_path.endswith(".json"):
                 fields = json.JsonInferrer().infer_schema(file)
             elif file_path.endswith(".avro"):
