@@ -524,7 +524,7 @@ def test_get_known_viz_chart_snapshot(mocked_data_source):
                     ),
                 ),
                 chartUrl="http://localhost:5000/queries/4#10",
-                inputs=["urn:li:dataset:(urn:li:dataPlatform:mysql,rfam,PROD)"],
+                inputs=["urn:li:dataset:(urn:li:dataPlatform:mysql,Rfam,PROD)"],
                 type="PIE",
             )
         ],
@@ -557,7 +557,7 @@ def test_get_unknown_viz_chart_snapshot(mocked_data_source):
                     ),
                 ),
                 chartUrl="http://localhost:5000/queries/4#9",
-                inputs=["urn:li:dataset:(urn:li:dataPlatform:mysql,rfam,PROD)"],
+                inputs=["urn:li:dataset:(urn:li:dataPlatform:mysql,Rfam,PROD)"],
                 type="TABLE",
             )
         ],
@@ -685,9 +685,9 @@ def test_get_chart_snapshot_parse_table_names_from_sql(mocked_data_source):
                 ),
                 chartUrl="http://localhost:5000/queries/4#10",
                 inputs=[
-                    "urn:li:dataset:(urn:li:dataPlatform:mysql,rfam.order_items,PROD)",
-                    "urn:li:dataset:(urn:li:dataPlatform:mysql,rfam.orders,PROD)",
-                    "urn:li:dataset:(urn:li:dataPlatform:mysql,rfam.staffs,PROD)",
+                    "urn:li:dataset:(urn:li:dataPlatform:mysql,Rfam.order_items,PROD)",
+                    "urn:li:dataset:(urn:li:dataPlatform:mysql,Rfam.orders,PROD)",
+                    "urn:li:dataset:(urn:li:dataPlatform:mysql,Rfam.staffs,PROD)",
                 ],
                 type="PIE",
             )

@@ -45,7 +45,9 @@ fragment entityPreview on Entity {
             lastName
             fullName
         }
-        editableInfo {
+        editableProperties {
+            displayName
+            title
             pictureLink
         }
     }

@@ -51,7 +51,7 @@ export class GroupEntity implements Entity<CorpGroup> {
     renderPreview = (_: PreviewType, data: CorpGroup) => (
         <Preview
             urn={data.urn}
-            name={data.info?.displayName || data.name || ''}
+            name={this.displayName(data)}
             description={data.info?.description}
             membersCount={(data as any)?.memberCount?.total || 0}
         />
@@ -62,7 +62,7 @@ export class GroupEntity implements Entity<CorpGroup> {
     };
 
     displayName = (data: CorpGroup) => {
-        return data.info?.displayName || data.name;
+        return data.properties?.displayName || data.info?.displayName || data.name;
     };
 
     getGenericEntityProperties = (group: CorpGroup) => {
