@@ -114,6 +114,8 @@ plugins: Dict[str, Set[str]] = {
     "azure-ad": set(),
     "bigquery": sql_common | bigquery_common | {"pybigquery >= 0.6.0"},
     "bigquery-usage": bigquery_common | {"cachetools"},
+    "clickhouse": sql_common | {"clickhouse-sqlalchemy==0.1.8"},
+    "clickhouse-usage": sql_common | {"clickhouse-sqlalchemy==0.1.8"},
     "datahub-business-glossary": set(),
     "data-lake": {*aws_common, "pydeequ==1.0.1", "pyspark==3.0.3", "parse==1.19.0"},
     "dbt": {"requests"},
@@ -158,7 +160,7 @@ plugins: Dict[str, Set[str]] = {
     "snowflake": snowflake_common,
     "snowflake-usage": snowflake_common | {"more-itertools>=8.12.0"},
     "sqlalchemy": sql_common,
-    "superset": {"requests", "sqlalchemy", "great_expectations"},
+    "superset": {"requests", "sqlalchemy", "great_expectations", "greenlet"},
     "tableau": {"tableauserverclient>=0.17.0"},
     "trino": sql_common | {"trino"},
     "starburst-trino-usage": sql_common | {"trino"},
@@ -220,6 +222,8 @@ base_dev_requirements = {
         for plugin in [
             "bigquery",
             "bigquery-usage",
+            "clickhouse",
+            "clickhouse-usage",
             "elasticsearch",
             "looker",
             "glue",
@@ -273,6 +277,7 @@ full_test_dev_requirements = {
         for plugin in [
             # Only include Athena for Python 3.7 or newer.
             *(["athena"] if is_py37_or_newer else []),
+            "clickhouse",
             "druid",
             "feast",
             "hive",
@@ -298,6 +303,8 @@ entry_points = {
         "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",
         "bigquery = datahub.ingestion.source.sql.bigquery:BigQuerySource",
         "bigquery-usage = datahub.ingestion.source.usage.bigquery_usage:BigQueryUsageSource",
+        "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
+        "clickhouse-usage = datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource",
         "data-lake = datahub.ingestion.source.data_lake:DataLakeSource",
         "dbt = datahub.ingestion.source.dbt:DBTSource",
         "druid = datahub.ingestion.source.sql.druid:DruidSource",

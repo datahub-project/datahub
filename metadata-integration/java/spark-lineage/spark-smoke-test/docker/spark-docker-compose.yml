@@ -1,0 +1,29 @@
+version: "3.6"
+
+services:
+  spark-master:
+    image: spark-master
+    container_name: spark-master
+    ports:
+      - 8090:8080
+      - 7077:7077
+  spark-worker-1:
+    image: spark-slave
+    container_name: spark-worker-1
+    ports:
+      - 8091:8081
+    depends_on:
+      - spark-master
+  spark-worker-2:
+    image: spark-slave
+    container_name: spark-worker-2
+    ports:
+      - 8092:8081
+    depends_on:
+      - spark-master
+
+networks:
+  default:
+    external: true
+    name: datahub_network
+

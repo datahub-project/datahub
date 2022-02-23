@@ -49,7 +49,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
-    DatasetKeyClass,
     DatasetPropertiesClass,
     GlobalTagsClass,
     GlossaryTermsClass,
@@ -715,15 +714,6 @@ class DBTSource(Source):
                             [upstream_dbt_urn]
                         )
                         aspects.append(upstreams_lineage_class)
-                    else:
-                        dataset_key = mce_builder.dataset_urn_to_key(node_datahub_urn)
-                        assert dataset_key is not None
-                        key_aspect = DatasetKeyClass(
-                            "urn:li:dataPlatform:" + dataset_key.platform,
-                            dataset_key.name,
-                            dataset_key.origin,
-                        )
-                        aspects.append(key_aspect)
                 else:
                     # add upstream lineage
                     platform_upstream_aspect = (
@@ -734,6 +724,8 @@ class DBTSource(Source):
                     if platform_upstream_aspect:
                         aspects.append(platform_upstream_aspect)
 
+            if len(aspects) == 0:
+                continue
             dataset_snapshot = DatasetSnapshot(urn=node_datahub_urn, aspects=aspects)
             mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
             if self.config.write_semantics == "PATCH":
