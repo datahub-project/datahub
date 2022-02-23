@@ -43,6 +43,7 @@ class GEProfilingConfig(ConfigModel):
     # Hidden option - used for debugging purposes.
     catch_exceptions: bool = True
 
+    partition_profiling_enabled: Optional[bool] = True
     bigquery_temp_table_schema: Optional[str] = None
     partition_datetime: Optional[datetime.datetime]
 

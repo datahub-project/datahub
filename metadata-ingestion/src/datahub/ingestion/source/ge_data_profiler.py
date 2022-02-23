@@ -794,11 +794,20 @@ class DatahubGEProfiler:
             **kwargs,
         }
 
-        if self.config.bigquery_temp_table_schema is not None:
-            bigquery_temp_table = (
-                f"{self.config.bigquery_temp_table_schema}.ge-temp-{uuid.uuid4()}"
-            )
-            ge_config["bigquery_temp_table"] = bigquery_temp_table
+        if custom_sql or self.config.limit or self.config.offset:
+            if self.config.bigquery_temp_table_schema:
+                bigquery_temp_table = (
+                    f"{self.config.bigquery_temp_table_schema}.ge-temp-{uuid.uuid4()}"
+                )
+                ge_config["bigquery_temp_table"] = bigquery_temp_table
+            else:
+                project = schema
+                table_parts = table.split(".")
+                if len(table_parts) == 2:
+                    bigquery_temp_table = (
+                        f"{schema}.{table_parts[0]}.ge-temp-{uuid.uuid4()}"
+                    )
+                    ge_config["bigquery_temp_table"] = bigquery_temp_table
 
         if custom_sql is not None:
             ge_config["query"] = custom_sql
