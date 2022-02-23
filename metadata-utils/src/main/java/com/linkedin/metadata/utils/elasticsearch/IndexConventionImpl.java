@@ -27,8 +27,7 @@ public class IndexConventionImpl implements IndexConvention {
     _getAllEntityIndicesPattern =
         _prefix.map(p -> p + "_").orElse("") + "*" + ENTITY_INDEX_SUFFIX + "_" + ENTITY_INDEX_VERSION;
     _getAllTimeseriesIndicesPattern =
-        _prefix.map(p -> p + "_").orElse("") + "*" + TIMESERIES_ENTITY_INDEX_SUFFIX + "_"
-            + TIMESERIES_INDEX_VERSION;
+        _prefix.map(p -> p + "_").orElse("") + "*" + TIMESERIES_ENTITY_INDEX_SUFFIX + "_" + TIMESERIES_INDEX_VERSION;
   }
 
   private String createIndexName(String baseName) {
@@ -49,13 +48,19 @@ public class IndexConventionImpl implements IndexConvention {
   @Nonnull
   @Override
   public String getIndexName(EntitySpec entitySpec) {
-    return this.getIndexName(entitySpec.getName()) + ENTITY_INDEX_SUFFIX + "_" + ENTITY_INDEX_VERSION;
+    return getEntityIndexName(entitySpec.getName());
   }
 
   @Nonnull
   @Override
   public String getIndexName(String baseIndexName) {
     return indexNameMapping.computeIfAbsent(baseIndexName, this::createIndexName);
+  }
+
+  @Nonnull
+  @Override
+  public String getEntityIndexName(String entityName) {
+    return this.getIndexName(entityName + ENTITY_INDEX_SUFFIX + "_" + ENTITY_INDEX_VERSION);
   }
 
   @Nonnull

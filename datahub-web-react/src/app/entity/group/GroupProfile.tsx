@@ -4,7 +4,6 @@ import React, { useMemo } from 'react';
 import styled from 'styled-components';
 // import GroupHeader from './GroupHeader';
 import { useGetGroupQuery } from '../../../graphql/group.generated';
-import { useGetAllEntitySearchResults } from '../../../utils/customGraphQL/useGetAllEntitySearchResults';
 import useUserParams from '../../shared/entitySearch/routingUtils/useUserParams';
 import { EntityRelationshipsResult, EntityType, SearchResult } from '../../../types.generated';
 // import { EntityRelationshipsResult } from '../../../types.generated';
@@ -33,6 +32,7 @@ export enum TabType {
 const ENABLED_TAB_TYPES = [TabType.Assets, TabType.Members];
 
 const MEMBER_PAGE_SIZE = 20;
+const OWNERSHIP_PAGE_SIZE = 10;
 
 /**
  * Styled Components
@@ -60,30 +60,6 @@ export default function GroupProfile() {
     const { urn: encodedUrn } = useUserParams();
     const urn = encodedUrn && decodeUrn(encodedUrn);
     const { loading, error, data, refetch } = useGetGroupQuery({ variables: { urn, membersCount: MEMBER_PAGE_SIZE } });
-
-    const ownershipResult = useGetAllEntitySearchResults({
-        query: `owners:${data?.corpGroup?.name}`,
-    });
-
-    const contentLoading =
-        Object.keys(ownershipResult).some((type) => {
-            return ownershipResult[type].loading;
-        }) || loading;
-
-    const ownershipForDetails = useMemo(() => {
-        const filteredOwnershipResult: {
-            [key in EntityType]?: Array<SearchResult>;
-        } = {};
-
-        Object.keys(ownershipResult).forEach((type) => {
-            const entities = ownershipResult[type].data?.search?.searchResults;
-
-            if (entities && entities.length > 0) {
-                filteredOwnershipResult[type] = ownershipResult[type].data?.search?.searchResults;
-            }
-        });
-        return filteredOwnershipResult;
-    }, [ownershipResult]);
 
     if (error || (!loading && !error && !data)) {
         return <Alert type="error" message={error?.message || 'Group failed to load :('} />;
@@ -136,10 +112,10 @@ export default function GroupProfile() {
         groupMemberRelationships: groupMemberRelationships as EntityRelationshipsResult,
         urn,
     };
-    console.log('data', data, 'group member', groupMemberRelationships, 'owner', ownershipForDetails);
+    console.log('data', data, 'group member', groupMemberRelationships, 'owner');
     return (
         <>
-            {contentLoading && <Message type="loading" content="Loading..." style={messageStyle} />}
+            {loading && <Message type="loading" content="Loading..." style={messageStyle} />}
             {data && data?.corpGroup && (
                 // <LegacyEntityProfile
                 //     title=""
