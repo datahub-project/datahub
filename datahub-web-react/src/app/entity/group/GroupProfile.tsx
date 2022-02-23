@@ -10,21 +10,27 @@ import { EntityRelationshipsResult, EntityType, SearchResult } from '../../../ty
 // import { EntityRelationshipsResult } from '../../../types.generated';
 // import RelatedEntityResults from '../../shared/entitySearch/RelatedEntityResults';
 import { Message } from '../../shared/Message';
-// import GroupMembers from './GroupMembers';
+import GroupMembers from './GroupMembers';
 // import { LegacyEntityProfile } from '../../shared/LegacyEntityProfile';
 // import { useEntityRegistry } from '../../useEntityRegistry';
 import { decodeUrn } from '../shared/utils';
-// import { RoutedTabs } from '../../shared/RoutedTabs';
+import { RoutedTabs } from '../../shared/RoutedTabs';
 import GroupInfoSidebar from './GroupInfoSideBar';
+import { GroupAssets } from './GroupAssets';
 
 const messageStyle = { marginTop: '10%' };
 
+// export enum TabType {
+//     Members = 'Members',
+//     Ownership = 'Ownership',
+// }
+
 export enum TabType {
-    Members = 'Assets',
-    Ownership = 'Ownership',
+    Assets = 'Assets',
+    Members = 'Members',
 }
 
-// const ENABLED_TAB_TYPES = [TabType.Members, TabType.Ownership];
+const ENABLED_TAB_TYPES = [TabType.Assets, TabType.Members];
 
 const MEMBER_PAGE_SIZE = 20;
 
@@ -85,38 +91,46 @@ export default function GroupProfile() {
 
     const groupMemberRelationships = data?.corpGroup?.relationships as EntityRelationshipsResult;
 
-    // const getTabs = () => {
-    //     return [
-    //         {
-    //             name: TabType.Members,
-    //             path: TabType.Members.toLocaleLowerCase(),
-    //             content: (
-    //                 <GroupMembers
-    //                     urn={urn}
-    //                     initialRelationships={groupMemberRelationships}
-    //                     pageSize={MEMBER_PAGE_SIZE}
-    //                 />
-    //             ),
-    //         },
-    //         {
-    //             name: TabType.Ownership,
-    //             path: TabType.Ownership.toLocaleLowerCase(),
-    //             content: <RelatedEntityResults searchResult={ownershipForDetails} />,
-    //         },
-    //     ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
-    // };
+    const getTabs = () => {
+        return [
+            {
+                name: TabType.Members,
+                path: TabType.Members.toLocaleLowerCase(),
+                content: (
+                    <GroupMembers
+                        urn={urn}
+                        initialRelationships={groupMemberRelationships}
+                        pageSize={MEMBER_PAGE_SIZE}
+                    />
+                ),
+                display: {
+                    enabled: () => true,
+                },
+            },
+            {
+                name: TabType.Assets,
+                path: TabType.Assets.toLocaleLowerCase(),
+                content: <GroupAssets urn={urn} />,
+                display: {
+                    enabled: () => true,
+                },
+            },
+        ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
+    };
 
+    const defaultTabPath = getTabs() && getTabs()?.length > 0 ? getTabs()[0].path : '';
+    const onTabChange = () => null;
     // const description = data?.corpGroup?.info?.description;
 
     // Side bar data
     const sideBarData = {
         photoUrl: undefined,
         avatarName: data?.corpGroup?.info?.displayName || data?.corpGroup?.name,
-        name: 'data?.corpGroup' || undefined,
+        name: data?.corpGroup?.info?.displayName || data?.corpGroup?.name || undefined,
         role: 'data?.corpGroup' || undefined,
         team: 'data?.corpGroup' || undefined,
-        email: 'data?.corpGroup' || undefined,
-        slack: 'data?.corpGroup' || undefined,
+        email: data?.corpGroup?.editableProperties?.email || undefined,
+        slack: data?.corpGroup?.editableProperties?.slack || undefined,
         phone: 'data?.corpGroup' || undefined,
         aboutText: data?.corpGroup?.info?.description || undefined,
         groupMemberRelationships: groupMemberRelationships as EntityRelationshipsResult,
@@ -146,7 +160,7 @@ export default function GroupProfile() {
                         </Col>
                         <Col xl={19} lg={19} md={19} sm={24} xs={24} style={{ borderLeft: '1px solid #E9E9E9' }}>
                             <Content>
-                                {/* <RoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} /> */}
+                                <RoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />
                             </Content>
                         </Col>
                     </Row>

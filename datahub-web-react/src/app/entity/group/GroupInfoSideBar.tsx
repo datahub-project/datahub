@@ -2,17 +2,18 @@ import { Divider, message, Space, Button, Typography, Tag } from 'antd';
 import React, { useState } from 'react';
 // import React from 'react';
 import styled from 'styled-components';
-import { EditOutlined, PhoneOutlined, SlackOutlined, TeamOutlined } from '@ant-design/icons';
+import { EditOutlined, MailOutlined, SlackOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
 // import { EntityType } from '../../../types.generated';
 import { EntityType, EntityRelationshipsResult } from '../../../types.generated';
 
-// import UserEditProfileModal from './UserEditProfileModal';
+import GroupEditModal from './GroupEditModal';
 // import { ExtendedEntityRelationshipsResult } from './type';
 import CustomAvatar from '../../shared/avatar/CustomAvatar';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
+import SidebarOwnerSection from './SidebarOwnerSection';
 
 const { Paragraph } = Typography;
 
@@ -32,7 +33,7 @@ type SideBarData = {
 
 type Props = {
     sideBarData: SideBarData;
-    refetch: () => void;
+    refetch: () => Promise<any>;
 };
 
 const AVATAR_STYLE = { margin: '5px 5px 5px 0' };
@@ -175,7 +176,7 @@ export const GroupsSection = styled.div`
 
 export const TagsSection = styled.div`
     height: calc(75vh - 460px);
-    padding: 5px;
+    padding: 5px 5px 5px 0;
 `;
 
 export const NoDataFound = styled.span`
@@ -200,26 +201,21 @@ export const GroupsSeeMoreText = styled.span`
  * Responsible for reading & writing users.
  */
 export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
-    const { name, aboutText, groupMemberRelationships, email, phone, photoUrl, role, slack, team, urn } = sideBarData;
+    const { avatarName, name, aboutText, groupMemberRelationships, email, photoUrl, slack, urn } = sideBarData;
 
     const [updateCorpUserPropertiesMutation] = useUpdateCorpUserPropertiesMutation();
     const entityRegistry = useEntityRegistry();
 
     const [groupSectionExpanded, setGroupSectionExpanded] = useState(false);
     /* eslint-disable @typescript-eslint/no-unused-vars */
-    const [editProfileModal, showEditProfileModal] = useState(false);
+    const [editGroupModal, showEditGroupModal] = useState(false);
     const me = useGetAuthenticatedUser();
     const isProfileOwner = me?.corpUser?.urn === urn;
 
     const getEditModalData = {
         urn,
-        name,
-        title: role,
-        team,
         email,
-        image: photoUrl,
         slack,
-        phone,
     };
 
     // About Text save
@@ -248,22 +244,21 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
         <>
             <SideBar>
                 <SideBarSubSection className={isProfileOwner ? '' : 'fullView'}>
-                    {/* <CustomAvatar size={160} photoUrl={photoUrl} name={avatarName} style={AVATAR_STYLE} /> */}
                     <Name>
-                        <TeamOutlined />
-                        Finance
+                        <CustomAvatar size={28} photoUrl={photoUrl} name={avatarName} style={AVATAR_STYLE} />
+                        {name}
                     </Name>
                     <Divider className="divider-infoSection" />
                     <SocialDetails>
                         <Space>
-                            <SlackOutlined />
-                            {slack || <EmptyValue />}
+                            <MailOutlined />
+                            {email || <EmptyValue />}
                         </Space>
                     </SocialDetails>
                     <SocialDetails>
                         <Space>
-                            <PhoneOutlined />
-                            {phone || <EmptyValue />}
+                            <SlackOutlined />
+                            {slack || <EmptyValue />}
                         </Space>
                     </SocialDetails>
                     <Divider className="divider-aboutSection" />
@@ -286,7 +281,7 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                             {!groupSectionExpanded &&
                                 groupMemberRelationships?.relationships.slice(0, 2).map((item) => {
                                     return (
-                                        <Link to={entityRegistry.getEntityUrl(EntityType.CorpGroup, item.entity.urn)}>
+                                        <Link to={entityRegistry.getEntityUrl(EntityType.CorpUser, item.entity.urn)}>
                                             <Tags>
                                                 <Tag>
                                                     <CustomAvatar
@@ -298,7 +293,7 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                                                         )}
                                                         style={AVATAR_STYLE}
                                                     />
-                                                    {entityRegistry.getDisplayName(EntityType.CorpGroup, item.entity)}
+                                                    {entityRegistry.getDisplayName(EntityType.CorpUser, item.entity)}
                                                 </Tag>
                                             </Tags>
                                         </Link>
@@ -308,10 +303,10 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                                 groupMemberRelationships?.relationships.length > 2 &&
                                 groupMemberRelationships?.relationships.map((item) => {
                                     return (
-                                        <Link to={entityRegistry.getEntityUrl(EntityType.CorpGroup, item.entity.urn)}>
+                                        <Link to={entityRegistry.getEntityUrl(EntityType.CorpUser, item.entity.urn)}>
                                             <Tags>
                                                 <Tag>
-                                                    {entityRegistry.getDisplayName(EntityType.CorpGroup, item.entity)}
+                                                    {entityRegistry.getDisplayName(EntityType.CorpUser, item.entity)}
                                                 </Tag>
                                             </Tags>
                                         </Link>
@@ -326,68 +321,26 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                     </GroupsSection>
                     <Divider className="divider-groupsSection" />
                     <GroupsSection>
-                        Owners
-                        <TagsSection>
-                            {groupMemberRelationships?.relationships.length === 0 && <EmptyValue />}
-                            {!groupSectionExpanded &&
-                                groupMemberRelationships?.relationships.slice(0, 2).map((item) => {
-                                    return (
-                                        <Link to={entityRegistry.getEntityUrl(EntityType.CorpGroup, item.entity.urn)}>
-                                            <Tags>
-                                                <Tag>
-                                                    <CustomAvatar
-                                                        size={20}
-                                                        photoUrl={photoUrl}
-                                                        name={entityRegistry.getDisplayName(
-                                                            EntityType.CorpGroup,
-                                                            item.entity,
-                                                        )}
-                                                        style={AVATAR_STYLE}
-                                                    />
-                                                    {entityRegistry.getDisplayName(EntityType.CorpGroup, item.entity)}
-                                                </Tag>
-                                            </Tags>
-                                        </Link>
-                                    );
-                                })}
-                            {groupSectionExpanded &&
-                                groupMemberRelationships?.relationships.length > 2 &&
-                                groupMemberRelationships?.relationships.map((item) => {
-                                    return (
-                                        <Link to={entityRegistry.getEntityUrl(EntityType.CorpGroup, item.entity.urn)}>
-                                            <Tags>
-                                                <Tag>
-                                                    {entityRegistry.getDisplayName(EntityType.CorpGroup, item.entity)}
-                                                </Tag>
-                                            </Tags>
-                                        </Link>
-                                    );
-                                })}
-                            {!groupSectionExpanded && groupMemberRelationships?.relationships.length > 2 && (
-                                <GroupsSeeMoreText onClick={() => setGroupSectionExpanded(!groupSectionExpanded)}>
-                                    {`+${groupMemberRelationships?.relationships.length - 2} more`}
-                                </GroupsSeeMoreText>
-                            )}
-                        </TagsSection>
+                        <SidebarOwnerSection data="some" refetch={refetch} />
                     </GroupsSection>
                 </SideBarSubSection>
                 {isProfileOwner && (
                     <EditProfileButton>
-                        <Button icon={<EditOutlined />} onClick={() => showEditProfileModal(true)}>
-                            Edit Profile
+                        <Button icon={<EditOutlined />} onClick={() => showEditGroupModal(true)}>
+                            Edit Group
                         </Button>
                     </EditProfileButton>
                 )}
             </SideBar>
             {/* Modal */}
-            {/* <UserEditProfileModal
-                visible={editProfileModal}
-                onClose={() => showEditProfileModal(false)}
+            <GroupEditModal
+                visible={editGroupModal}
+                onClose={() => showEditGroupModal(false)}
                 onSave={() => {
                     refetch();
                 }}
                 editModalData={getEditModalData}
-            /> */}
+            />
         </>
     );
 }

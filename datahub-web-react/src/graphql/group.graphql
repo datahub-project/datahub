@@ -8,6 +8,14 @@ query getGroup($urn: String!, $membersCount: Int!) {
             description
             email
         }
+        editableProperties {
+            description
+            slack
+            email
+        }
+        # ownership {
+        #     ...ownershipFields
+        # }
         relationships(input: { types: ["IsMemberOfGroup"], direction: INCOMING, start: 0, count: $membersCount }) {
             start
             count

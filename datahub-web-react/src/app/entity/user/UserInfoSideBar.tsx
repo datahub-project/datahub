@@ -169,7 +169,7 @@ export const GroupsSection = styled.div`
 
 export const TagsSection = styled.div`
     height: calc(75vh - 460px);
-    padding: 5px;
+    padding: 5px 5px 5px 0;
 `;
 
 export const NoDataFound = styled.span`
