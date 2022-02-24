@@ -28,6 +28,7 @@ base_requirements = {
     # Actual dependencies.
     "typing-inspect",
     "pydantic>=1.5.1",
+    "mixpanel>=4.9.0",
 }
 
 framework_common = {

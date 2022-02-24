@@ -6,7 +6,6 @@ import { useAddOwnerMutation } from '../../../../../../../graphql/mutations.gene
 import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
 import { CorpUser, EntityType, OwnerEntityType, SearchResult } from '../../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import { useEntityData } from '../../../../EntityContext';
 import { CustomAvatar } from '../../../../../../shared/avatar';
 import analytics, { EventType, EntityActionType } from '../../../../../../analytics';
 import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
@@ -15,6 +14,8 @@ type Props = {
     visible: boolean;
     onClose: () => void;
     refetch?: () => Promise<any>;
+    urn: string;
+    entityType: EntityType;
 };
 
 const SearchResultContainer = styled.div`
@@ -40,9 +41,8 @@ type SelectedActor = {
     urn: string;
 };
 
-export const AddOwnerModal = ({ visible, onClose, refetch }: Props) => {
+export const AddOwnerModal = ({ visible, onClose, refetch, urn, entityType }: Props) => {
     const entityRegistry = useEntityRegistry();
-    const { urn, entityType } = useEntityData();
     const [selectedActor, setSelectedActor] = useState<SelectedActor | undefined>(undefined);
     const [userSearch, { data: userSearchData }] = useGetSearchResultsLazyQuery();
     const [groupSearch, { data: groupSearchData }] = useGetSearchResultsLazyQuery();

@@ -178,7 +178,7 @@ The env variables take precedence over what is in the config.
 
 ### telemetry
 
-To help us understand how people are using DataHub, we collect anonymous usage statistics on actions such as command invocations via Google Analytics.
+To help us understand how people are using DataHub, we collect anonymous usage statistics on actions such as command invocations via Mixpanel.
 We do not collect private information such as IP addresses, contents of ingestions, or credentials.
 The code responsible for collecting and broadcasting these events is open-source and can be found [within our GitHub](https://github.com/linkedin/datahub/blob/master/metadata-ingestion/src/datahub/telemetry/telemetry.py).
 
