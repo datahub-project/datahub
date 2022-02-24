@@ -12,6 +12,8 @@ import com.linkedin.metadata.timeline.data.SemanticChangeType;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 import static com.linkedin.metadata.Constants.*;
 
@@ -24,12 +26,13 @@ public class DatasetPropertiesDiffer implements Differ {
         .equals(DATASET_PROPERTIES_ASPECT_NAME)) {
       throw new IllegalArgumentException("Aspect is not " + DATASET_PROPERTIES_ASPECT_NAME);
     }
-    assert (currentValue != null);
     List<ChangeEvent> changeEvents = new ArrayList<>();
     if (element == ChangeCategory.DOCUMENTATION) {
       DatasetProperties baseDatasetProperties = getDatasetPropertiesFromAspect(previousValue);
       DatasetProperties targetDatasetProperties = getDatasetPropertiesFromAspect(currentValue);
-      changeEvents.addAll(computeDiffs(baseDatasetProperties, targetDatasetProperties, currentValue.getUrn()));
+      if (baseDatasetProperties != null && targetDatasetProperties != null) {
+        changeEvents.addAll(computeDiffs(baseDatasetProperties, targetDatasetProperties, currentValue.getUrn()));
+      }
     }
 
     // Assess the highest change at the transaction(schema) level.
@@ -49,8 +52,8 @@ public class DatasetPropertiesDiffer implements Differ {
         .build();
   }
 
-  private List<ChangeEvent> computeDiffs(DatasetProperties baseDatasetProperties,
-      DatasetProperties targetDatasetProperties, String entityUrn) {
+  private List<ChangeEvent> computeDiffs(@Nonnull DatasetProperties baseDatasetProperties,
+      @Nonnull DatasetProperties targetDatasetProperties, @Nonnull String entityUrn) {
     List<ChangeEvent> changeEvents = new ArrayList<>();
     String baseDescription = baseDatasetProperties.getDescription();
     String targetDescription = targetDatasetProperties.getDescription();
@@ -89,6 +92,7 @@ public class DatasetPropertiesDiffer implements Differ {
     return changeEvents;
   }
 
+  @Nullable
   private DatasetProperties getDatasetPropertiesFromAspect(EbeanAspectV2 ebeanAspectV2) {
     if (ebeanAspectV2 != null && ebeanAspectV2.getMetadata() != null) {
       return RecordUtils.toRecordTemplate(DatasetProperties.class, ebeanAspectV2.getMetadata());

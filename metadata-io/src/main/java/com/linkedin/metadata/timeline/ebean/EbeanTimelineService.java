@@ -135,7 +135,7 @@ public class EbeanTimelineService implements TimelineService {
   @Override
   public List<ChangeTransaction> getTimeline(@Nonnull final Urn urn, @Nonnull final Set<ChangeCategory> elementNames,
       long startTimeMillis, long endTimeMillis, String startVersionStamp, String endVersionStamp,
-      boolean rawDiffRequested) throws JsonProcessingException {
+      boolean rawDiffRequested) {
 
     Set<String> aspectNames = getAspectsFromElements(urn.getEntityType(), elementNames);
 
@@ -189,18 +189,38 @@ public class EbeanTimelineService implements TimelineService {
       }
     }
 
-    SortedMap<Long, List<ChangeTransaction>> semanticDiffs = new TreeMap<>();
-    for (Map.Entry<String, TreeSet<EbeanAspectV2>> aspectRowSetEntry : aspectRowSetMap.entrySet()) {
-      semanticDiffs.putAll(
-          computeDiffs(aspectRowSetEntry.getValue(), urn.getEntityType(), elementNames, rawDiffRequested));
-    }
+    // TODO: There are some extra steps happening here, we need to clean up how transactions get combined across differs
+    SortedMap<Long, List<ChangeTransaction>> semanticDiffs = aspectRowSetMap.values().stream()
+        .map(value -> computeDiffs(value, urn.getEntityType(), elementNames, rawDiffRequested))
+        .collect(TreeMap::new, this::combineComputedDiffsPerTransactionId, this::combineComputedDiffsPerTransactionId);
+    // TODO:Move this down
     assignSemanticVersions(semanticDiffs);
     List<ChangeTransaction> changeTransactions = new ArrayList<>();
     for (Map.Entry<Long, List<ChangeTransaction>> entry : semanticDiffs.entrySet()) {
       changeTransactions.addAll(entry.getValue());
     }
-    changeTransactions.sort(Comparator.comparing(ChangeTransaction::getTimestamp));
-    return changeTransactions;
+    Map<Long, List<ChangeTransaction>> transactionsByTimestamp = changeTransactions.stream()
+        .collect(Collectors.groupingBy(ChangeTransaction::getTimestamp));
+    List<ChangeTransaction> combinedChangeTransactions = new ArrayList<>();
+    for (List<ChangeTransaction> transactionList : transactionsByTimestamp.values()) {
+      if (!transactionList.isEmpty()) {
+        ChangeTransaction result = transactionList.get(0);
+        SemanticChangeType maxSemanticChangeType = result.getSemVerChange();
+        String maxSemVer = result.getSemVer();
+        for (int i = 1; i < transactionList.size(); i++) {
+          ChangeTransaction element = transactionList.get(i);
+          result.getChangeEvents().addAll(element.getChangeEvents());
+          maxSemanticChangeType = result.getSemVerChange().compareTo(element.getSemVerChange()) >= 0
+              ? result.getSemVerChange() : element.getSemVerChange();
+          maxSemVer = result.getSemVer().compareTo(element.getSemVer()) >= 0 ? result.getSemVer() : element.getSemVer();
+        }
+        result.setSemVerChange(maxSemanticChangeType);
+        result.setSemanticVersion(maxSemVer);
+        combinedChangeTransactions.add(result);
+      }
+    }
+    combinedChangeTransactions.sort(Comparator.comparing(ChangeTransaction::getTimestamp));
+    return combinedChangeTransactions;
     /*
      return foo.stream().map(row -> Model.SemanticChangeEvent.builder()
      .changeType("UPSERT")
@@ -216,48 +236,8 @@ public class EbeanTimelineService implements TimelineService {
      */
   }
 
-  private SemanticVersion getGroupSemanticVersion(SemanticChangeType highestChangeInGroup,
-      SemanticVersion previousVersion) {
-    if (previousVersion == null) {
-      // Start with all 0s if there is no previous version.
-      return new SemanticVersion(0, 0, 0, null, null, BUILD_VALUE_COMPUTED);
-    }
-    // Evaluate the version for this group based on previous version and the hightest semantic change type in the group.
-    if (highestChangeInGroup == SemanticChangeType.MAJOR) {
-      // Bump up major, reset all lower to 0s.
-      return new SemanticVersion(previousVersion.major + 1, 0, 0, null, null, BUILD_VALUE_COMPUTED);
-    } else if (highestChangeInGroup == SemanticChangeType.MINOR) {
-      // Bump up minor, reset all lower to 0s.
-      return new SemanticVersion(previousVersion.major, previousVersion.minor + 1, 0, null, null, BUILD_VALUE_COMPUTED);
-    } else if (highestChangeInGroup == SemanticChangeType.PATCH) {
-      // Bump up patch.
-      return new SemanticVersion(previousVersion.major, previousVersion.minor, previousVersion.patch + 1, null, null,
-          BUILD_VALUE_COMPUTED);
-    }
-    return previousVersion;
-  }
-
-  private void assignSemanticVersions(SortedMap<Long, List<ChangeTransaction>> changeTransactionsMap) {
-    SemanticVersion curGroupVersion = null;
-    long transactionId = FIRST_TRANSACTION_ID - 1;
-    for (Map.Entry<Long, List<ChangeTransaction>> entry : changeTransactionsMap.entrySet()) {
-      assert (transactionId < entry.getKey());
-      transactionId = entry.getKey();
-      SemanticChangeType highestChangeInGroup = SemanticChangeType.NONE;
-      ChangeTransaction highestChangeTransaction =
-          entry.getValue().stream().max(Comparator.comparing(ChangeTransaction::getSemVerChange)).orElse(null);
-      if (highestChangeTransaction != null) {
-        highestChangeInGroup = highestChangeTransaction.getSemVerChange();
-      }
-      curGroupVersion = getGroupSemanticVersion(highestChangeInGroup, curGroupVersion);
-      for (ChangeTransaction t : entry.getValue()) {
-        t.setSemanticVersion(curGroupVersion.toString());
-      }
-    }
-  }
-
   private SortedMap<Long, List<ChangeTransaction>> computeDiffs(TreeSet<EbeanAspectV2> aspectTimeline,
-      String entityType, Set<ChangeCategory> elementNames, boolean rawDiffsRequested) throws JsonProcessingException {
+      String entityType, Set<ChangeCategory> elementNames, boolean rawDiffsRequested) {
     EbeanAspectV2 previousValue = null;
     SortedMap<Long, List<ChangeTransaction>> changeTransactionsMap = new TreeMap<>();
     long transactionId = FIRST_TRANSACTION_ID;
@@ -274,7 +254,7 @@ public class EbeanTimelineService implements TimelineService {
   }
 
   private List<ChangeTransaction> computeDiff(@Nonnull EbeanAspectV2 previousValue, @Nonnull EbeanAspectV2 currentValue,
-      String entityType, Set<ChangeCategory> elementNames, boolean rawDiffsRequested) throws JsonProcessingException {
+      String entityType, Set<ChangeCategory> elementNames, boolean rawDiffsRequested) {
     String aspectName = currentValue.getAspect();
 
     List<ChangeTransaction> semanticChangeTransactions = new ArrayList<>();
@@ -298,12 +278,74 @@ public class EbeanTimelineService implements TimelineService {
     return semanticChangeTransactions;
   }
 
-  private JsonPatch getRawDiff(EbeanAspectV2 previousValue, EbeanAspectV2 currentValue) throws JsonProcessingException {
+  private JsonPatch getRawDiff(EbeanAspectV2 previousValue, EbeanAspectV2 currentValue){
     JsonNode prevNode = OBJECT_MAPPER.nullNode();
-    if (previousValue.getVersion() != -1) {
-      prevNode = OBJECT_MAPPER.readTree(previousValue.getMetadata());
+    try {
+      if (previousValue.getVersion() != -1) {
+        prevNode = OBJECT_MAPPER.readTree(previousValue.getMetadata());
+      }
+      JsonNode currNode = OBJECT_MAPPER.readTree(currentValue.getMetadata());
+      return JsonDiff.asJsonPatch(prevNode, currNode);
+    } catch (JsonProcessingException e) {
+      throw new IllegalStateException(e);
     }
-    JsonNode currNode = OBJECT_MAPPER.readTree(currentValue.getMetadata());
-    return JsonDiff.asJsonPatch(prevNode, currNode);
+  }
+
+  private void combineComputedDiffsPerTransactionId(
+      @Nonnull SortedMap<Long, List<ChangeTransaction>> semanticDiffs,
+      @Nonnull SortedMap<Long, List<ChangeTransaction>> computedDiffs) {
+    for (Map.Entry<Long, List<ChangeTransaction>> entry : computedDiffs.entrySet()) {
+      if (!semanticDiffs.containsKey(entry.getKey())) {
+        semanticDiffs.put(entry.getKey(), entry.getValue());
+      } else {
+        List<ChangeTransaction> transactions = semanticDiffs.get(entry.getKey());
+        transactions.addAll(entry.getValue());
+        semanticDiffs.put(entry.getKey(), transactions);
+      }
+    }
+  }
+
+  private void assignSemanticVersions(SortedMap<Long, List<ChangeTransaction>> changeTransactionsMap) {
+    SemanticVersion curGroupVersion = null;
+    long transactionId = FIRST_TRANSACTION_ID - 1;
+    for (Map.Entry<Long, List<ChangeTransaction>> entry : changeTransactionsMap.entrySet()) {
+      assert (transactionId < entry.getKey());
+      transactionId = entry.getKey();
+      SemanticChangeType highestChangeInGroup = SemanticChangeType.NONE;
+      ChangeTransaction highestChangeTransaction =
+          entry.getValue().stream().max(Comparator.comparing(ChangeTransaction::getSemVerChange)).orElse(null);
+      if (highestChangeTransaction != null) {
+        highestChangeInGroup = highestChangeTransaction.getSemVerChange();
+      }
+      curGroupVersion = getGroupSemanticVersion(highestChangeInGroup, curGroupVersion);
+      for (ChangeTransaction t : entry.getValue()) {
+        t.setSemanticVersion(curGroupVersion.toString());
+      }
+    }
+  }
+
+  private SemanticVersion getGroupSemanticVersion(SemanticChangeType highestChangeInGroup,
+      SemanticVersion previousVersion) {
+    if (previousVersion == null) {
+      // Start with all 0s if there is no previous version.
+      return new SemanticVersion(0, 0, 0, null, null, BUILD_VALUE_COMPUTED);
+    }
+    // Evaluate the version for this group based on previous version and the hightest semantic change type in the group.
+    if (highestChangeInGroup == SemanticChangeType.MAJOR) {
+      // Bump up major, reset all lower to 0s.
+      return new SemanticVersion(previousVersion.major + 1, 0, 0, null, null, BUILD_VALUE_COMPUTED);
+    } else if (highestChangeInGroup == SemanticChangeType.MINOR) {
+      // Bump up minor, reset all lower to 0s.
+      return new SemanticVersion(previousVersion.major, previousVersion.minor + 1, 0, null, null, BUILD_VALUE_COMPUTED);
+    } else if (highestChangeInGroup == SemanticChangeType.PATCH) {
+      // Bump up patch.
+      return new SemanticVersion(previousVersion.major, previousVersion.minor, previousVersion.patch + 1, null, null,
+          BUILD_VALUE_COMPUTED);
+    }
+    return previousVersion;
+  }
+
+  private void combineTransactionsByTimestamp(ChangeTransaction result, ChangeTransaction element) {
+
   }
 }
