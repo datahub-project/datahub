@@ -195,30 +195,9 @@ public class EbeanTimelineService implements TimelineService {
         .collect(TreeMap::new, this::combineComputedDiffsPerTransactionId, this::combineComputedDiffsPerTransactionId);
     // TODO:Move this down
     assignSemanticVersions(semanticDiffs);
-    List<ChangeTransaction> changeTransactions = new ArrayList<>();
-    for (Map.Entry<Long, List<ChangeTransaction>> entry : semanticDiffs.entrySet()) {
-      changeTransactions.addAll(entry.getValue());
-    }
-    Map<Long, List<ChangeTransaction>> transactionsByTimestamp = changeTransactions.stream()
-        .collect(Collectors.groupingBy(ChangeTransaction::getTimestamp));
-    List<ChangeTransaction> combinedChangeTransactions = new ArrayList<>();
-    for (List<ChangeTransaction> transactionList : transactionsByTimestamp.values()) {
-      if (!transactionList.isEmpty()) {
-        ChangeTransaction result = transactionList.get(0);
-        SemanticChangeType maxSemanticChangeType = result.getSemVerChange();
-        String maxSemVer = result.getSemVer();
-        for (int i = 1; i < transactionList.size(); i++) {
-          ChangeTransaction element = transactionList.get(i);
-          result.getChangeEvents().addAll(element.getChangeEvents());
-          maxSemanticChangeType = result.getSemVerChange().compareTo(element.getSemVerChange()) >= 0
-              ? result.getSemVerChange() : element.getSemVerChange();
-          maxSemVer = result.getSemVer().compareTo(element.getSemVer()) >= 0 ? result.getSemVer() : element.getSemVer();
-        }
-        result.setSemVerChange(maxSemanticChangeType);
-        result.setSemanticVersion(maxSemVer);
-        combinedChangeTransactions.add(result);
-      }
-    }
+    List<ChangeTransaction> changeTransactions = semanticDiffs.values().stream()
+        .collect(ArrayList::new, ArrayList::addAll, ArrayList::addAll);
+    List<ChangeTransaction> combinedChangeTransactions = combineTransactionsByTimestamp(changeTransactions);
     combinedChangeTransactions.sort(Comparator.comparing(ChangeTransaction::getTimestamp));
     return combinedChangeTransactions;
     /*
@@ -345,7 +324,27 @@ public class EbeanTimelineService implements TimelineService {
     return previousVersion;
   }
 
-  private void combineTransactionsByTimestamp(ChangeTransaction result, ChangeTransaction element) {
-
+  private List<ChangeTransaction> combineTransactionsByTimestamp(List<ChangeTransaction> changeTransactions) {
+    Map<Long, List<ChangeTransaction>> transactionsByTimestamp =
+        changeTransactions.stream().collect(Collectors.groupingBy(ChangeTransaction::getTimestamp));
+    List<ChangeTransaction> combinedChangeTransactions = new ArrayList<>();
+    for (List<ChangeTransaction> transactionList : transactionsByTimestamp.values()) {
+      if (!transactionList.isEmpty()) {
+        ChangeTransaction result = transactionList.get(0);
+        SemanticChangeType maxSemanticChangeType = result.getSemVerChange();
+        String maxSemVer = result.getSemVer();
+        for (int i = 1; i < transactionList.size(); i++) {
+          ChangeTransaction element = transactionList.get(i);
+          result.getChangeEvents().addAll(element.getChangeEvents());
+          maxSemanticChangeType =
+              result.getSemVerChange().compareTo(element.getSemVerChange()) >= 0 ? result.getSemVerChange() : element.getSemVerChange();
+          maxSemVer = result.getSemVer().compareTo(element.getSemVer()) >= 0 ? result.getSemVer() : element.getSemVer();
+        }
+        result.setSemVerChange(maxSemanticChangeType);
+        result.setSemanticVersion(maxSemVer);
+        combinedChangeTransactions.add(result);
+      }
+    }
+    return combinedChangeTransactions;
   }
 }

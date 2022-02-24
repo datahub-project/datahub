@@ -3,7 +3,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:kafka,test-timeline-sample-kafka3,PROD)",
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:kafka,test-timeline-sample-kafka,PROD)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
