@@ -228,7 +228,7 @@ module.exports = {
         ],
       },
       "docs/how/restore-indices",
-      "docs/api/openapi/timeline",
+      "docs/dev-guides/timeline",
       "docs/how/extract-container-logs",
       "docs/how/delete-metadata",
       "datahub-web-react/src/app/analytics/README",
