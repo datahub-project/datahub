@@ -2,6 +2,18 @@
 
 A list of previous Town Halls, their planned schedule, and the recording of the meeting.
 
+## 1/28/2022
+[Full YouTube video](https://youtu.be/ShlSR3dMUnE)
+
+## Agenda
+
+- Community & Roadmap Updates by Maggie Hays (Acryl Data)
+- Project Updates by Shirshanka Das  (Acryl Data)
+- Community Case Study: Adding Dataset Transformers by Eric Cooklin (Stash)
+- Demo: Data Domains & Containers by John Joyce (Acryl Data)
+- DataHub Basics — Data Profiling & Usage Stats 101 by Maggie Hays & Tamás Németh (Acryl Data)
+- Demo: Spark Lineage by Mugdha Hardikar (GS Lab) & Shirshanka Das
+
 ## 12/17/2021
 [Full YouTube video](https://youtu.be/rYInKCwxu7o)
 
