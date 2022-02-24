@@ -115,7 +115,7 @@ query getDataset($urn: String!) {
             message
             causes
         }
-        assertions: relationships(input: { types: ["Asserts"], direction: INCOMING, start: 0, count: 1 }) {
+        assertions(start: 0, count: 1) {
             total
         }
         operations(limit: 1) {
@@ -158,80 +158,86 @@ fragment viewProperties on Dataset {
     }
 }
 
+fragment assertionDetails on Assertion {
+    urn
+    type
+    platform {
+        urn
+        properties {
+            displayName
+            logoUrl
+        }
+        info {
+            displayName
+            logoUrl
+        }
+    }
+    info {
+        type
+        datasetAssertion {
+            scope
+            columnAssertion {
+                nativeType
+                stdOperator
+                stdAggFunc
+            }
+            rowsAssertion {
+                nativeType
+                stdOperator
+                stdAggFunc
+            }
+            schemaAssertion {
+                nativeType
+                stdOperator
+                stdAggFunc
+            }
+            fieldUrns
+            fieldPaths
+            parameters {
+                key
+                value
+            }
+            logic
+        }
+    }
+}
+
+fragment assertionRunEventDetails on AssertionRunEvent {
+  timestampMillis
+  assertionUrn
+  status
+  result {
+      type
+      actualAggValue
+      rowCount
+      missingCount
+      unexpectedCount
+      externalUrl
+      nativeResults {
+          key
+          value
+      }
+      runtimeContext {
+          key
+          value
+      }
+  }
+}
+
 query getDatasetAssertions($urn: String!) {
     dataset(urn: $urn) {
-        assertions: relationships(input: { types: ["Asserts"], direction: INCOMING, start: 0, count: 100 }) {
+        assertions(start: 0, count: 100) {
             start
             count
             total
-            relationships {
-                type
-                direction
-                entity {
-                    urn
-                    type
-                    ... on Assertion {
-                        platform {
-                            urn
-                            properties {
-                                displayName
-                                logoUrl
-                            }
-                            info {
-                                displayName
-                                logoUrl
-                            }
-                        }
-                        info {
-                            type
-                            datasetAssertion {
-                                scope
-                                columnAssertion {
-                                    nativeType
-                                    stdOperator
-                                    stdAggFunc
-                                }
-                                rowsAssertion {
-                                    nativeType
-                                    stdOperator
-                                    stdAggFunc
-                                }
-                                schemaAssertion {
-                                    nativeType
-                                    stdOperator
-                                    stdAggFunc
-                                }
-                                datasets
-                                fieldUrns
-                                fieldPaths
-                            }
-                            parameters {
-                                key
-                                value
-                            }
-                            logic
-                        }
-                        runEvents(limit: 1) {
-                            timestampMillis
-                            assertionUrn
-                            status
-                            result {
-                                type
-                                actualAggValue
-                                rowCount
-                                missingCount
-                                unexpectedCount
-                                externalUrl
-                                nativeResults {
-                                    key
-                                    value
-                                }
-                                runtimeContext {
-                                    key
-                                    value
-                                }
-                            }
-                        }
+            assertions {
+                ...assertionDetails
+                runEvents(status: "COMPLETE", limit: 1) {
+                    total
+                    failed
+                    succeeded
+                    runEvents {
+                      ...assertionRunEventDetails
                     }
                 }
             }
@@ -239,56 +245,16 @@ query getDatasetAssertions($urn: String!) {
     }
 }
 
-query getAssertionRuns($assertionUrn: String!, $limit: Int, $startTime: Long, $endTime: Long) {
+query getAssertionRuns($assertionUrn: String!, $startTime: Long, $endTime: Long, $limit: Int) {
     assertion(urn: $assertionUrn) {
         urn
-        info {
-            type
-            datasetAssertion {
-                scope
-                columnAssertion {
-                    nativeOperator
-                    stdOperator
-                    stdAggFunc
-                    nativeAggFunc
-                }
-                rowsAssertion {
-                    nativeOperator
-                    stdOperator
-                    stdAggFunc
-                    nativeAggFunc
-                }
-                schemaAssertion {
-                    nativeOperator
-                    stdOperator
-                    stdAggFunc
-                    nativeAggFunc
-                }
-                datasets
-                fieldUrns
-                fieldPaths
-            }
-            logic
-        }
-        runEvents(limit: $limit, startTimeMillis: $startTime, endTimeMillis: $endTime) {
-            timestampMillis
-            assertionUrn
-            status
-            result {
-                type
-                actualAggValue
-                rowCount
-                missingCount
-                unexpectedCount
-                nativeResults {
-                    key
-                    value
-                }
-                runtimeContext {
-                    key
-                    value
-                }
-                externalUrl
+        ...assertionDetails
+        runEvents(status: "COMPLETE", startTimeMillis: $startTime, endTimeMillis: $endTime, limit: $limit) {
+            total
+            failed
+            succeeded
+            runEvents {
+                ...assertionRunEventDetails
             }
         }
     }

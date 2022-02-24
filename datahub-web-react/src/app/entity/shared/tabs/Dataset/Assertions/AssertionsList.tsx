@@ -52,11 +52,7 @@ export const AssertionsList = ({ assertions }: { assertions: Array<Assertion> })
                                 </Tag>
                             </Tooltip>
                         </div>
-                        <DatasetAssertionDescription
-                            assertionInfo={record.datasetAssertionInfo}
-                            parameters={record.parameters}
-                            logic={record.logic}
-                        />
+                        <DatasetAssertionDescription assertionInfo={record.datasetAssertionInfo} />
                     </span>
                 );
             },
@@ -91,14 +87,12 @@ export const AssertionsList = ({ assertions }: { assertions: Array<Assertion> })
         urn: assertion.urn,
         type: assertion.info?.type,
         platform: assertion.platform,
-        lastExecTime: assertion.runEvents?.length && assertion.runEvents[0].timestampMillis,
+        lastExecTime: assertion.runEvents?.runEvents.length && assertion.runEvents.runEvents[0].timestampMillis,
         lastExecResult:
-            assertion.runEvents?.length &&
-            assertion.runEvents[0].status === AssertionRunStatus.Complete &&
-            assertion.runEvents[0].result?.type,
+            assertion.runEvents?.runEvents.length &&
+            assertion.runEvents.runEvents[0].status === AssertionRunStatus.Complete &&
+            assertion.runEvents.runEvents[0].result?.type,
         datasetAssertionInfo: assertion.info?.datasetAssertion,
-        parameters: assertion.info?.parameters,
-        logic: assertion.info?.logic,
     }));
 
     return (
@@ -116,6 +110,7 @@ export const AssertionsList = ({ assertions }: { assertions: Array<Assertion> })
                     },
                     defaultExpandAllRows: false,
                     indentSize: 0,
+                    expandRowByClick: true,
                     expandIcon: ({ expanded, onExpand, record }: any) =>
                         expanded ? (
                             <DownOutlined style={{ fontSize: 8 }} onClick={(e) => onExpand(record, e)} />

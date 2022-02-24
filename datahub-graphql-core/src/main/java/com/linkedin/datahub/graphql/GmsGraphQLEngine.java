@@ -46,6 +46,8 @@ import com.linkedin.datahub.graphql.generated.UsageQueryResult;
 import com.linkedin.datahub.graphql.generated.UserUsageCounts;
 import com.linkedin.datahub.graphql.resolvers.AuthenticatedResolver;
 import com.linkedin.datahub.graphql.resolvers.MeResolver;
+import com.linkedin.datahub.graphql.resolvers.assertion.AssertionRunEventResolver;
+import com.linkedin.datahub.graphql.resolvers.assertion.EntityAssertionsResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.GetAccessTokenResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowsePathsResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowseResolver;
@@ -129,7 +131,6 @@ import com.linkedin.datahub.graphql.types.dataflow.DataFlowType;
 import com.linkedin.datahub.graphql.types.datajob.DataJobType;
 import com.linkedin.datahub.graphql.types.dataplatform.DataPlatformType;
 import com.linkedin.datahub.graphql.types.dataset.DatasetType;
-import com.linkedin.datahub.graphql.types.dataset.mappers.AssertionRunEventMapper;
 import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetProfileMapper;
 import com.linkedin.datahub.graphql.types.domain.DomainType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
@@ -751,6 +752,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher("schemaMetadata", new AuthenticatedResolver<>(
                     new AspectResolver())
                 )
+                .dataFetcher("assertions", new EntityAssertionsResolver(entityClient, graphClient))
                .dataFetcher("aspects", new AuthenticatedResolver<>(
                    new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
                )
@@ -1139,14 +1141,7 @@ public class GmsGraphQLEngine {
                 new LoadableTypeResolver<>(dataPlatformType,
                     (env) -> ((Assertion) env.getSource()).getPlatform().getUrn()))
             )
-            .dataFetcher("runEvents", new AuthenticatedResolver<>(
-                new TimeSeriesAspectResolver(
-                    this.entityClient,
-                    "assertion",
-                    "assertionRunEvent",
-                    AssertionRunEventMapper::map
-                )
-            ))
+            .dataFetcher("runEvents", new AssertionRunEventResolver(entityClient))
         );
     }
 

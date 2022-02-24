@@ -32,7 +32,7 @@ const SUCCESS_COLOR_HEX = '#52C41A';
 const FAILURE_COLOR_HEX = '#F5222D';
 
 export const BooleanTimeline = ({ data, timeRange, width }: Props) => {
-    const yMax = 72;
+    const yMax = 60;
     const left = 0;
 
     // scales, memoize for performance
@@ -57,7 +57,7 @@ export const BooleanTimeline = ({ data, timeRange, width }: Props) => {
 
     return (
         <>
-            <svg width={width} height={100}>
+            <svg width={width} height={88}>
                 <Group>
                     {transformedData.map((d) => {
                         const barWidth = 8;
@@ -89,7 +89,7 @@ export const BooleanTimeline = ({ data, timeRange, width }: Props) => {
                     })}
                 </Group>
                 <AxisBottom
-                    top={72}
+                    top={yMax}
                     left={left}
                     scale={xScale}
                     numTicks={7}

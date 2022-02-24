@@ -3,7 +3,7 @@ import { SelectValue } from 'antd/lib/select';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { useGetAssertionRunsLazyQuery } from '../../../../../../graphql/dataset.generated';
-import { AssertionResultType, AssertionRunEvent, AssertionRunStatus } from '../../../../../../types.generated';
+import { AssertionResultType, AssertionRunEvent } from '../../../../../../types.generated';
 import { formatNumber } from '../../../../../shared/formatNumber';
 import { getFixedLookbackWindow, getLocaleTimezone } from '../../../../../shared/time/timeUtils';
 import { ANTD_GRAY } from '../../../constants';
@@ -48,48 +48,48 @@ export const AssertionDetails = ({ urn, lastReportedAt }: Props) => {
     };
 
     const chartData =
-        data?.assertion?.runEvents
-            ?.filter((runEvent) => runEvent.status === AssertionRunStatus.Complete)
-            .map((runEvent) => {
-                const { result } = runEvent;
+        data?.assertion?.runEvents?.runEvents.map((runEvent) => {
+            const { result } = runEvent;
 
-                const resultTitle = result && (
-                    <>
-                        <span style={{ marginRight: 8 }}>{getResultIcon(result.type)}</span>
-                        <Typography.Text strong>{getResultText(result.type)}</Typography.Text>
-                    </>
-                );
+            const resultTitle = result && (
+                <>
+                    <span style={{ marginRight: 8 }}>{getResultIcon(result.type)}</span>
+                    <Typography.Text strong>{getResultText(result.type)}</Typography.Text>
+                </>
+            );
 
-                const resultMessage =
-                    data.assertion?.info && getResultMessage(data.assertion.info, runEvent as AssertionRunEvent);
-                const resultTime = new Date(runEvent.timestampMillis);
-                const localTime = resultTime.toLocaleString();
-                const gmtTime = resultTime.toUTCString();
+            const resultMessage =
+                data.assertion?.info && getResultMessage(data.assertion.info, runEvent as AssertionRunEvent);
+            const resultTime = new Date(runEvent.timestampMillis);
+            const localTime = resultTime.toLocaleString();
+            const gmtTime = resultTime.toUTCString();
 
-                const resultContent = (
-                    <>
-                        <div style={{ marginBottom: 4 }}>{resultMessage}</div>
-                        <div>
-                            <Tooltip title={`${gmtTime}`}>
-                                <Typography.Text type="secondary">{localTime}</Typography.Text>
-                            </Tooltip>
-                        </div>
-                    </>
-                );
+            const resultContent = (
+                <>
+                    <div style={{ marginBottom: 4 }}>{resultMessage}</div>
+                    <div>
+                        <Tooltip title={`${gmtTime}`}>
+                            <Typography.Text type="secondary">{localTime}</Typography.Text>
+                        </Tooltip>
+                    </div>
+                </>
+            );
 
-                return {
-                    time: runEvent.timestampMillis,
-                    result: {
-                        title: resultTitle,
-                        content: resultContent,
-                        result: result?.type !== AssertionResultType.Failure,
-                    },
-                };
-            }) || [];
+            return {
+                time: runEvent.timestampMillis,
+                result: {
+                    title: resultTitle,
+                    content: resultContent,
+                    result: result?.type !== AssertionResultType.Failure,
+                },
+            };
+        }) || [];
 
     const resolvedReportedAt = lastReportedAt
         ? new Date(lastReportedAt)
-        : (data?.assertion?.runEvents?.length && new Date(data?.assertion?.runEvents[0].timestampMillis)) || undefined;
+        : (data?.assertion?.runEvents?.runEvents.length &&
+              new Date(data?.assertion?.runEvents.runEvents[0].timestampMillis)) ||
+          undefined;
 
     const localeTimezone = getLocaleTimezone();
     const lastEvaluatedTimeLocal =
@@ -106,8 +106,11 @@ export const AssertionDetails = ({ urn, lastReportedAt }: Props) => {
         day: 'numeric',
     });
 
+    const succeededCount = data?.assertion?.runEvents?.succeeded;
+    const failedCount = data?.assertion?.runEvents?.failed;
+
     return (
-        <div style={{ width: '100%', paddingLeft: 40 }}>
+        <div style={{ width: '100%', paddingLeft: 52 }}>
             <div>
                 <Typography.Title level={5}>Evaluations</Typography.Title>
                 <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between' }}>
@@ -122,25 +125,32 @@ export const AssertionDetails = ({ urn, lastReportedAt }: Props) => {
                                 width: 250,
                                 display: 'flex',
                                 alignItems: 'center',
-                                justifyContent: 'space-between',
+                                justifyContent: 'left',
                             }}
                         >
-                            <Typography.Text strong>
+                            <Typography.Text strong style={{ marginRight: 20 }}>
                                 {startDate} - {endDate}
                             </Typography.Text>
-                            <span>
-                                <Typography.Text style={{ color: getResultColor(AssertionResultType.Success) }}>
-                                    {formatNumber(1)}
-                                </Typography.Text>{' '}
-                                passes
-                            </span>
-                            <span>
-                                <Typography.Text style={{ color: getResultColor(AssertionResultType.Failure) }}>
-                                    {formatNumber(0)}
-                                </Typography.Text>{' '}
-                                fails
-                            </span>
+                            <div>
+                                <span style={{ marginRight: 12 }}>
+                                    <Typography.Text
+                                        style={{ color: getResultColor(AssertionResultType.Success), fontWeight: 600 }}
+                                    >
+                                        {formatNumber(succeededCount)}
+                                    </Typography.Text>{' '}
+                                    passed
+                                </span>
+                                <span>
+                                    <Typography.Text
+                                        style={{ color: getResultColor(AssertionResultType.Failure), fontWeight: 600 }}
+                                    >
+                                        {formatNumber(failedCount)}
+                                    </Typography.Text>{' '}
+                                    failed
+                                </span>
+                            </div>
                         </div>
+
                         <PrefixedSelect
                             prefixText="Show "
                             values={Object.values(LOOKBACK_WINDOWS).map((window) => window.text)}

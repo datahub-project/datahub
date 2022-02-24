@@ -3,7 +3,7 @@ namespace com.linkedin.assertion
 import com.linkedin.common.Urn
 
 /**
-* Assertion attributes that are applicable to Dataset Assertions
+* Attributes that are applicable to single-Dataset Assertions
 **/
 record DatasetAssertionInfo {
     /**
@@ -54,7 +54,7 @@ record DatasetAssertionInfo {
     fields: optional array[Urn]
 
     /**
-    * One or more datasets that are targeted by this assertion
+    * The dataset targeted by this assertion. TODO: change this to 1.
     */
     @Relationship = {
       "/*": {

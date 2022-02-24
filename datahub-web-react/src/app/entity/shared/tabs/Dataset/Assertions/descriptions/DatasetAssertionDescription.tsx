@@ -6,7 +6,6 @@ import {
     DatasetColumnAssertion,
     DatasetRowsAssertion,
     DatasetSchemaAssertion,
-    StringMapEntry,
 } from '../../../../../../../types.generated';
 import { DatasetColumnAssertionDescription } from './DatasetColumnsAssertionDescription';
 import { DatasetRowsAssertionDescription } from './DatasetRowsAssertionDescription';
@@ -15,11 +14,11 @@ import { validateColumnAssertionFieldPath } from './util';
 
 type Props = {
     assertionInfo: DatasetAssertionInfo;
-    parameters?: Array<StringMapEntry> | undefined;
-    logic?: string | undefined;
 };
 
-export const DatasetAssertionDescription = ({ assertionInfo, parameters, logic }: Props) => {
+export const DatasetAssertionDescription = ({ assertionInfo }: Props) => {
+    const { logic, parameters } = assertionInfo;
+
     let description;
     let type;
 
@@ -38,7 +37,7 @@ export const DatasetAssertionDescription = ({ assertionInfo, parameters, logic }
                 description = (
                     <DatasetRowsAssertionDescription
                         assertion={assertionInfo.rowsAssertion as DatasetRowsAssertion}
-                        parameters={parameters}
+                        parameters={parameters || undefined}
                     />
                 );
                 break;
@@ -50,7 +49,7 @@ export const DatasetAssertionDescription = ({ assertionInfo, parameters, logic }
                     <DatasetColumnAssertionDescription
                         fieldPath={fieldPath}
                         assertion={assertionInfo.columnAssertion as DatasetColumnAssertion}
-                        parameters={parameters}
+                        parameters={parameters || undefined}
                     />
                 );
                 break;
@@ -60,7 +59,7 @@ export const DatasetAssertionDescription = ({ assertionInfo, parameters, logic }
                 description = (
                     <DatasetSchemaAssertionDescription
                         assertion={assertionInfo.schemaAssertion as DatasetSchemaAssertion}
-                        parameters={parameters}
+                        parameters={parameters || undefined}
                     />
                 );
                 break;

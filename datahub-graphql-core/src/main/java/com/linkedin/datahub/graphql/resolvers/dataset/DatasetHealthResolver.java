@@ -165,7 +165,7 @@ public class DatasetHealthResolver implements DataFetcher<CompletableFuture<Heal
         health.setCauses(failedAssertionUrns);
       } else {
         health.setStatus(HealthStatus.PASS);
-        health.setMessage(String.format("Dataset is passing %s/%s assertions.", activeAssertionUrns.size(), activeAssertionUrns.size()));
+        health.setMessage(String.format("Dataset is passing all assertions.", activeAssertionUrns.size(), activeAssertionUrns.size()));
       }
       return new CachedHealth(true, health);
     }

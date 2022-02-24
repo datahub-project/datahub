@@ -54,15 +54,15 @@ public class AssertionMapper {
     final com.linkedin.datahub.graphql.generated.AssertionInfo assertionInfo =
         new com.linkedin.datahub.graphql.generated.AssertionInfo();
     assertionInfo.setType(AssertionType.valueOf(gmsAssertionInfo.getType().name()));
-    if (gmsAssertionInfo.hasParameters()) {
-      assertionInfo.setParameters(StringMapMapper.map(gmsAssertionInfo.getParameters()));
-    }
     if (gmsAssertionInfo.hasDatasetAssertion()) {
       DatasetAssertionInfo datasetAssertion = mapDatasetAssertionInfo(gmsAssertionInfo.getDatasetAssertion());
+      if (gmsAssertionInfo.hasParameters()) {
+        datasetAssertion.setParameters(StringMapMapper.map(gmsAssertionInfo.getParameters()));
+      }
+      if (gmsAssertionInfo.hasAssertionLogic()) {
+        datasetAssertion.setLogic(gmsAssertionInfo.getAssertionLogic());
+      }
       assertionInfo.setDatasetAssertion(datasetAssertion);
-    }
-    if (gmsAssertionInfo.hasAssertionLogic()) {
-      assertionInfo.setLogic(gmsAssertionInfo.getAssertionLogic());
     }
     return assertionInfo;
   }
@@ -100,13 +100,6 @@ public class AssertionMapper {
       schemaAssertion.setNativeType(
           gmsDatasetAssertion.getSchemaAssertion().getNativeType());
       datasetAssertion.setSchemaAssertion(schemaAssertion);
-    }
-    if (gmsDatasetAssertion.hasDatasets()) {
-      datasetAssertion.setDatasets(gmsDatasetAssertion
-          .getDatasets()
-          .stream()
-          .map(urn -> urn.toString())
-          .collect(Collectors.toList()));
     }
     if (gmsDatasetAssertion.hasFields()) {
       datasetAssertion.setFieldUrns(gmsDatasetAssertion

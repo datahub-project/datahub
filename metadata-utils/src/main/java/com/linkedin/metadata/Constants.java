@@ -159,6 +159,7 @@ public class Constants {
   // Assertion
   public static final String ASSERTION_KEY_ASPECT_NAME = "assertionKey";
   public static final String ASSERTION_INFO_ASPECT_NAME = "assertionInfo";
+  public static final String ASSERTION_RUN_EVENT_ASPECT_NAME = "assertionRunEvent";
 
   // DataHub Ingestion Source
   public static final String INGESTION_INFO_ASPECT_NAME = "dataHubIngestionSourceInfo";

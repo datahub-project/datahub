@@ -653,6 +653,11 @@ type Dataset implements EntityWithRelationships & Entity {
     operations(startTimeMillis: Long, endTimeMillis: Long, limit: Int): [Operation!]
 
     """
+    Assertions associated with the Dataset
+    """
+    assertions(start: Int, count: Int): EntityAssertionsResult
+
+    """
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
@@ -4269,8 +4274,11 @@ type TimeWindow {
   durationMillis: Long!
 }
 
-type Assertion implements EntityWithRelationships & Entity {
 
+"""
+An assertion represents a programmatic validation, check, or test performed periodically against another Entity.
+"""
+type Assertion implements EntityWithRelationships & Entity {
     """
     The primary key of the Assertion
     """
@@ -4292,82 +4300,120 @@ type Assertion implements EntityWithRelationships & Entity {
     info: AssertionInfo
 
     """
-    Assertion Events in descending order
-    If no start or end time are provided, the most recent events will be returned
+    Lifecycle events detailing individual runs of this assertion. If startTimeMillis & endTimeMillis are not provided, the most
+    recent events will be returned.
     """    
-    runEvents(startTimeMillis: Long, endTimeMillis: Long, limit: Int): [AssertionRunEvent!]
+    runEvents(status: String, startTimeMillis: Long, endTimeMillis: Long, limit: Int): AssertionRunEventsResult
 
     """
     Edges extending from this entity
     """
-    relationships(input: RelationshipsInput!): EntityRelationshipsResult  
-    
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
 }
 
 """
 Type of assertion. Assertion types can evolve to span Datasets, Flows (Pipelines), Models, Features etc.
 """
 type AssertionInfo {
-
     """
-    Type of assertion. Assertion types can evolve to span Datasets, Flows (Pipelines), Models, Features etc.
+    Top-level type of the assertion.
     """
     type: AssertionType!
 
     """
-    Dataset Assertion information when type is DATASET
+    Dataset-specific assertion information
     """
     datasetAssertion: DatasetAssertionInfo
+}
+
+"""
+Detailed information about a Dataset Assertion
+"""
+type DatasetAssertionInfo {
+    """
+    The scope of the Dataset assertion.
+    """
+    scope: DatasetAssertionScope
 
     """
-    Parameters required for the assertion. e.g. min_value, max_value, value, columns
+    The native operator for the assertion. For Great Expectations, this will contain the original expectation name.
+    """
+    nativeType: String
+
+    """
+    Detailed information about a Dataset Column Assertion.
+    """
+    columnAssertion: DatasetColumnAssertion
+
+    """
+    Detailed information about a Dataset Rows Assertion.
+    """
+    rowsAssertion: DatasetRowsAssertion
+
+    """
+    Detailed information about a Dataset Schema Assertion.
+    """
+    schemaAssertion: DatasetSchemaAssertion
+
+    """
+    The urns of the schema fields serving as input to the assertion.
+    """
+    fieldUrns: [String!]
+
+    """
+    The standard paths of the schema fields serving as input to the assertion.
+    """
+    fieldPaths: [String!]
+
+    """
+    Key-Value parameters used in evaluating the assertion. Key names depend on the specific operator associated with the assertion. Values may be fixed (static) values, or variable references.
     """
     parameters: [StringMapEntry!]
 
     """
-    Raw logic for an Assertion
+    Logic comprising a raw, unstructured assertion.
     """
     logic: String
 }
 
-type DatasetAssertionInfo {
-    scope: DatasetAssertionScope
-    columnAssertion: DatasetColumnAssertion
-    rowsAssertion: DatasetRowsAssertion
-    schemaAssertion: DatasetSchemaAssertion
-    fieldUrns: [String!]
-    fieldPaths: [String!]
-    datasets: [String!]
-}
-
-
+"""
+Detailed information about a Dataset Column values Assertion
+"""
 type DatasetColumnAssertion {
-
+    """
+    The standard operator associated with the assertion.
+    """
     stdOperator: AssertionStdOperator!
+
+    """
+    The standard aggregation / input performed on the input column values.
+    """
     stdAggFunc: DatasetColumnStdAggFunc!
     nativeType: String
 }
 
+"""
+Detailed information about a Dataset Column values Assertion
+"""
 type DatasetRowsAssertion {
-
+    """
+    The standard operator associated with the assertion.
+    """
     stdOperator: AssertionStdOperator!
     stdAggFunc: DatasetRowsStdAggFunc!
     nativeType: String
 }
 
 type DatasetSchemaAssertion {
-
     stdOperator: AssertionStdOperator!
     stdAggFunc: DatasetSchemaStdAggFunc!
     nativeType: String
 }
 
 """
-An event representing the current status of evaluating an assertion on a batch.
-AssertionRunEvent should be used for fetching/reporting the status of a run as an assertion evaluation progresses.
+An event representing an event in the assertion evaluation lifecycle.
 """
 type AssertionRunEvent implements TimeSeriesAspect {
-
   """
   The time at which the assertion was evaluated
   """
@@ -4415,6 +4461,9 @@ type AssertionRunEvent implements TimeSeriesAspect {
 
 }
 
+"""
+The result of evaluating an assertion.
+"""
 type AssertionResult {
     """
     The final result, e.g. either SUCCESS or FAILURE.
@@ -4479,15 +4528,34 @@ type BatchSpec {
     customProperties: [StringMapEntry!]
 }
 
+"""
+The result type of an assertion, success or failure.
+"""
 enum AssertionResultType {
+    """
+    The assertion succeeded.
+    """
     SUCCESS
+
+    """
+    The assertion failed.
+    """
     FAILURE
 }
 
+"""
+The state of an assertion run, as defined within an Assertion Run Event.
+"""
 enum AssertionRunStatus {
+    """
+    An assertion run has completed.
+    """
     COMPLETE
 }
 
+"""
+An "aggregation" function that can be applied to column values of a Dataset to create the input to an Assertion Operator.
+"""
 enum DatasetColumnStdAggFunc {
     """
     Assertion is applied on individual column value
@@ -4549,8 +4617,11 @@ enum DatasetColumnStdAggFunc {
     """
     _NATIVE_
 }
-enum DatasetSchemaStdAggFunc {
 
+"""
+An "aggregation" function that can be applied to a Dataset Schema to create an input to an Assertion Operator.
+"""
+enum DatasetSchemaStdAggFunc {
     """
     Assertion is applied on all columns
     """
@@ -4564,6 +4635,10 @@ enum DatasetSchemaStdAggFunc {
     """
     _NATIVE_
 }
+
+"""
+An "aggregation" function that can be applied to the rows of a Dataset to create the input to an Assertion Operator.
+"""
 enum DatasetRowsStdAggFunc {
     """
     Assertion is applied on number of rows
@@ -4575,6 +4650,9 @@ enum DatasetRowsStdAggFunc {
     _NATIVE_
 }
 
+"""
+A standard operator or condition that constitutes an assertion definition
+"""
 enum AssertionStdOperator {
     """
     Value being asserted is between min_value and max_value
@@ -4637,14 +4715,81 @@ enum AssertionStdOperator {
     _NATIVE_
 }
 
+"""
+The scope that a Dataset-level assertion applies to.
+"""
 enum DatasetAssertionScope {
+    """
+    Assertion applies to columns of a dataset.
+    """
     DATASET_COLUMN,
+
+    """
+    Assertion applies to rows of a dataset.
+    """
     DATASET_ROWS,
+
+    """
+    Assertion applies to schema of a dataset.
+    """
     DATASET_SCHEMA
 }
 
+"""
+The top-level assertion type. Currently single Dataset assertions are the only type supported.
+"""
 enum AssertionType {
     DATASET
+}
+
+"""
+Result returned when fetching run events for an assertion.
+"""
+type AssertionRunEventsResult {
+  """
+  The total number of run events returned
+  """
+  total: Int!
+
+  """
+  The number of failed run events
+  """
+  failed: Int!
+
+  """
+  The number of succeeded run events
+  """
+  succeeded: Int!
+
+  """
+  The run events themselves
+  """
+  runEvents: [AssertionRunEvent!]!
+}
+
+"""
+A list of Assertions Associated with an Entity
+"""
+type EntityAssertionsResult {
+  """
+  The starting offset of the result set returned
+  """
+  start: Int!
+
+  """
+  The number of assertions in the returned result set
+  """
+  count: Int!
+
+  """
+  The total number of assertions in the result set
+  """
+  total: Int!
+
+  """
+  The assertions themselves
+  """
+  assertions: [Assertion!]!
 }
 
 """
