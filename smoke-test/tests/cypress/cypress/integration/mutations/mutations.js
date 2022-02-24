@@ -47,10 +47,10 @@ describe('mutations', () => {
     // verify dataset shows up in search now
     cy.contains('of 1 result').click();
     cy.contains('cypress_logging_events').click();
-    cy.get('a[href="/tag/urn:li:tag:CypressTestAddTag"]').within(() => cy.get('span[aria-label=close]').click());
+    cy.contains('CypressTestAddTag').within(() => cy.get('span[aria-label=close]').click());
     cy.contains('Yes').click();
 
-    cy.get('a[href="/tag/urn:li:tag:CypressTestAddTag"]').should('not.exist');
+    cy.contains('CypressTestAddTag').should('not.exist');
 
     cy.deleteUrn('urn:li:tag:CypressTestAddTag')
   });
