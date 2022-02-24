@@ -568,6 +568,7 @@ class DataLakeSource(Source):
                 # bucket by taking floor of log of time taken
                 {
                     "total_time_taken": 10 ** int(log10(total_time_taken + 1)),
+                    "count": 10 ** int(log10(len(self.profiling_times_taken) + 1)),
                     "platform": self.source_config.platform,
                     **time_percentiles,
                 },

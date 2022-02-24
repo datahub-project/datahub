@@ -740,6 +740,7 @@ class DatahubGEProfiler:
                         # bucket by taking floor of log of time taken
                         {
                             "total_time_taken": 10 ** int(log10(total_time_taken + 1)),
+                            "count": 10 ** int(log10(len(self.times_taken) + 1)),
                             "platform": self.platform,
                             **time_percentiles,
                         },
