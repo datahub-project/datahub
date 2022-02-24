@@ -18,8 +18,15 @@ def test_all():
     res_data = timeline_cli.get_timeline(dataset_urn, ["TAG", "DOCUMENTATION", "TECHNICAL_SCHEMA", "GLOSSARY_TERM",
                                                        "OWNERSHIP"], None, None, False)
 
-    assert res_data
-
-    #pdb.set_trace()
-    print(res_data)
     delete_cli.delete_one_urn_cmd(dataset_urn, False, False, "dataset", None, None)
+    assert res_data
+    assert len(res_data) == 3
+    assert res_data[0]["semVerChange"] == "MINOR"
+    assert len(res_data[0]["changeEvents"]) == 6
+    assert res_data[1]["semVerChange"] == "MAJOR"
+    assert len(res_data[1]["changeEvents"]) == 6
+    assert res_data[2]["semVerChange"] == "MAJOR"
+    assert len(res_data[2]["changeEvents"]) == 5
+    assert res_data[2]["semVer"] == "2.0.0-computed"
+
+    print(res_data)
