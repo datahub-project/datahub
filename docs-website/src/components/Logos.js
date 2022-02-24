@@ -17,6 +17,11 @@ const companiesByIndustry = [
         size: "small",
       },
       {
+        name: "Udemy",
+        imageUrl: "/img/logos/companies/udemy.png",
+        size: "defualt",
+      },
+      {
         name: "Geotab",
         imageUrl: "/img/logos/companies/geotab.jpg",
         size: "small",
@@ -82,6 +87,10 @@ const companiesByIndustry = [
     name: "E-Commerce",
     companies: [
       {
+        name: "Adevinta",
+        imageUrl: "/img/logos/companies/adevinta.png",
+        size: "default",
+      },      {
         name: "Grofers",
         imageUrl: "/img/logos/companies/grofers.png",
         size: "default",
