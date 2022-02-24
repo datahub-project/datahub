@@ -110,7 +110,7 @@ public class GlossaryTermsDiffer implements Differ {
   }
 
   private static GlossaryTerms getGlossaryTermsFromAspect(EbeanAspectV2 ebeanAspectV2) {
-    if (ebeanAspectV2 != null) {
+    if (ebeanAspectV2 != null && ebeanAspectV2.getMetadata() != null) {
       return RecordUtils.toRecordTemplate(GlossaryTerms.class, ebeanAspectV2.getMetadata());
     }
     return null;
