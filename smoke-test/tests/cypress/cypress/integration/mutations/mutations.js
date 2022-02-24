@@ -25,10 +25,14 @@ describe('mutations', () => {
     // wont know and we'll see applied to 0 entities
     cy.wait(2000);
 
-    // go to tag page
+    // go to tag drawer
     cy.contains('CypressTestAddTag').click();
+    
     cy.wait(1000);
-    cy.get('a[href="/tag/urn:li:tag:CypressTestAddTag"]').click();
+    
+    // Click the Tag Details to launch full profile
+    cy.contains('Tag Details').click();
+    
     cy.wait(1000);
 
     // title of tag page
