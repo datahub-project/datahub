@@ -22,7 +22,7 @@ export default function TermAssociationRequestItem({ actionRequest, onUpdate }: 
     const term = actionRequest.params?.glossaryTermProposal?.glossaryTerm;
     const termView = term && (
         <Link to={`/${entityRegistry.getPathName(EntityType.GlossaryTerm)}/${term.urn}`}>
-            <StyledTag style={{ marginRight: 2, marginLeft: 2 }}>
+            <StyledTag $color={null} style={{ marginRight: 2, marginLeft: 2 }}>
                 {term?.name}
                 <BookOutlined style={{ marginLeft: '2%' }} />
             </StyledTag>

@@ -21,7 +21,11 @@ export default function TagAssociationRequestItem({ actionRequest, onUpdate }: P
     const tag = actionRequest.params?.tagProposal?.tag;
     const tagView = tag && (
         <Link to={`/${entityRegistry.getPathName(EntityType.Tag)}/${tag.urn}`}>
-            <StyledTag $colorHash={tag.urn} style={{ marginRight: 2, marginLeft: 2 }}>
+            <StyledTag
+                $color={tag?.properties?.colorHex}
+                $colorHash={tag.urn}
+                style={{ marginRight: 2, marginLeft: 2 }}
+            >
                 {tag?.name}
             </StyledTag>
         </Link>
