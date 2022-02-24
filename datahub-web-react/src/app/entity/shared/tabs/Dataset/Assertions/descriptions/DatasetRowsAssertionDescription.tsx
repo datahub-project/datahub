@@ -13,17 +13,13 @@ export const DatasetRowsAssertionDescription = ({ assertion, parameters }: Props
     const op = assertion.stdOperator;
     const parametersMap = convertParametersArrayToMap(parameters);
 
-    const opText = getOpText(op, assertion.nativeOperator || undefined, parametersMap);
+    const opText = getOpText(op, assertion.nativeType || undefined, parametersMap);
     let description: React.ReactNode;
 
     if (agg === DatasetRowsStdAggFunc.RowCount) {
         description = <Typography.Text>Dataset row count is {opText}</Typography.Text>;
     } else if (agg === DatasetRowsStdAggFunc.Native) {
-        description = (
-            <Typography.Text>
-                {assertion.nativeAggFunc} is {opText}
-            </Typography.Text>
-        );
+        description = <Typography.Text>Assertion is {opText}</Typography.Text>;
     } else {
         throw new Error(`Unsupported Dataset Rows Aggregation ${agg} provided`);
     }

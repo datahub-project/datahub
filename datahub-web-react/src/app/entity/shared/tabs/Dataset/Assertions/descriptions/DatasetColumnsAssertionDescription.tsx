@@ -14,7 +14,7 @@ export const DatasetColumnAssertionDescription = ({ fieldPath, assertion, parame
     const op = assertion.stdOperator;
     const parametersMap = convertParametersArrayToMap(parameters);
 
-    const opText = getOpText(op, assertion.nativeOperator || undefined, parametersMap);
+    const opText = getOpText(op, assertion.nativeType || undefined, parametersMap);
     let description: React.ReactNode;
 
     switch (agg) {
@@ -103,7 +103,7 @@ export const DatasetColumnAssertionDescription = ({ fieldPath, assertion, parame
         }
         // Native Aggregations
         case DatasetColumnStdAggFunc.Native: {
-            const nativeAgg = assertion.nativeAggFunc;
+            const nativeAgg = assertion.nativeType;
             description = (
                 <Typography.Text>
                     {nativeAgg} for column <Typography.Text strong>{fieldPath}</Typography.Text> is {opText}

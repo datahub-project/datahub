@@ -33,7 +33,7 @@ export const DatasetAssertionDescription = ({ assertionInfo }: Props) => {
         const { scope } = assertionInfo;
         switch (scope) {
             case DatasetAssertionScope.DatasetRows: {
-                type = assertionInfo.rowsAssertion?.nativeOperator;
+                type = assertionInfo.rowsAssertion?.nativeType;
                 description = (
                     <DatasetRowsAssertionDescription
                         assertion={assertionInfo.rowsAssertion as DatasetRowsAssertion}
@@ -44,7 +44,7 @@ export const DatasetAssertionDescription = ({ assertionInfo }: Props) => {
             }
             case DatasetAssertionScope.DatasetColumn: {
                 const fieldPath = validateColumnAssertionFieldPath(assertionInfo);
-                type = assertionInfo.columnAssertion?.nativeOperator;
+                type = assertionInfo.columnAssertion?.nativeType;
                 description = (
                     <DatasetColumnAssertionDescription
                         fieldPath={fieldPath}
@@ -55,7 +55,7 @@ export const DatasetAssertionDescription = ({ assertionInfo }: Props) => {
                 break;
             }
             case DatasetAssertionScope.DatasetSchema: {
-                type = assertionInfo.schemaAssertion?.nativeOperator;
+                type = assertionInfo.schemaAssertion?.nativeType;
                 description = (
                     <DatasetSchemaAssertionDescription
                         assertion={assertionInfo.schemaAssertion as DatasetSchemaAssertion}

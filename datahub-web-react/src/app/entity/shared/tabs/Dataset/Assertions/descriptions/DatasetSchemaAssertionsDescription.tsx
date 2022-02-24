@@ -13,7 +13,7 @@ export const DatasetSchemaAssertionDescription = ({ assertion, parameters }: Pro
     const op = assertion.stdOperator;
     const parametersMap = convertParametersArrayToMap(parameters);
 
-    const opText = getOpText(op, assertion.nativeOperator || undefined, parametersMap);
+    const opText = getOpText(op, assertion.nativeType || undefined, parametersMap);
     let description: React.ReactNode;
 
     switch (agg) {
@@ -26,11 +26,7 @@ export const DatasetSchemaAssertionDescription = ({ assertion, parameters }: Pro
             description = <Typography.Text>Dataset columns are {opText}</Typography.Text>;
             break;
         case DatasetSchemaStdAggFunc.Native:
-            description = (
-                <Typography.Text>
-                    {assertion.nativeAggFunc} is {opText}
-                </Typography.Text>
-            );
+            description = <Typography.Text>Assertion is {opText}</Typography.Text>;
             break;
         default:
             throw new Error(`Unsupported schema aggregation assertion ${agg} provided.`);
