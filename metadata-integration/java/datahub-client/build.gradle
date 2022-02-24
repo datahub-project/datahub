@@ -2,10 +2,8 @@ plugins {
     id("com.palantir.git-version") apply false
 }
 apply plugin: 'java'
-apply plugin: 'com.github.johnrengelman.shadow'
 apply plugin: 'jacoco'
 apply plugin: 'signing'
-apply plugin: 'io.codearte.nexus-staging'
 apply plugin: 'maven-publish'
 import org.apache.tools.ant.filters.ReplaceTokens
 
@@ -82,40 +80,40 @@ test {
   finalizedBy jacocoTestReport
 }
 
-task checkShadowJar(type: Exec) { 
-   commandLine 'sh', '-c', 'scripts/check_jar.sh'
-}
-
-
-shadowJar {
-  zip64=true
-  archiveClassifier = ''
-  dependencies {
-    exclude(dependency('org.apache.httpcomponents:httpasyncclient'))
-  }
-  mergeServiceFiles()
-  // we relocate namespaces manually, because we want to know exactly which libs we are exposing and why
-  // we can move to automatic relocation using ConfigureShadowRelocation after we get to a good place on these first
-  relocate 'com.fasterxml.jackson', 'datahub.shaded.jackson'
-  relocate 'net.jcip.annotations', 'datahub.shaded.annotations'
-  relocate 'javassist', 'datahub.shaded.javassist'
-  relocate 'edu.umd.cs.findbugs', 'datahub.shaded.findbugs'
-  relocate 'org.antlr', 'datahub.shaded.org.antlr'
-  relocate 'antlr', 'datahub.shaded.antlr'
-  relocate 'com.google.common', 'datahub.shaded.com.google.common'
-  relocate 'org.apache.commons', 'datahub.shaded.org.apache.commons'
-  relocate 'org.reflections', 'datahub.shaded.org.reflections'
-  relocate 'st4hidden', 'datahub.shaded.st4hidden'
-  relocate 'org.stringtemplate', 'datahub.shaded.org.stringtemplate'
-  relocate 'org.abego.treelayout', 'datahub.shaded.treelayout'
-  relocate 'org.slf4j', 'datahub.shaded.slf4j'
-  relocate 'javax.annotation', 'datahub.shaded.javax.annotation'
-  finalizedBy checkShadowJar
-}
-
-checkShadowJar {
-   dependsOn shadowJar
-}
+//task checkShadowJar(type: Exec) {
+//   commandLine 'sh', '-c', 'scripts/check_jar.sh'
+//}
+//
+//
+//shadowJar {
+//  zip64=true
+//  archiveClassifier = ''
+//  dependencies {
+//    exclude(dependency('org.apache.httpcomponents:httpasyncclient'))
+//  }
+//  mergeServiceFiles()
+//  // we relocate namespaces manually, because we want to know exactly which libs we are exposing and why
+//  // we can move to automatic relocation using ConfigureShadowRelocation after we get to a good place on these first
+//  relocate 'com.fasterxml.jackson', 'datahub.shaded.jackson'
+//  relocate 'net.jcip.annotations', 'datahub.shaded.annotations'
+//  relocate 'javassist', 'datahub.shaded.javassist'
+//  relocate 'edu.umd.cs.findbugs', 'datahub.shaded.findbugs'
+//  relocate 'org.antlr', 'datahub.shaded.org.antlr'
+//  relocate 'antlr', 'datahub.shaded.antlr'
+//  relocate 'com.google.common', 'datahub.shaded.com.google.common'
+//  relocate 'org.apache.commons', 'datahub.shaded.org.apache.commons'
+//  relocate 'org.reflections', 'datahub.shaded.org.reflections'
+//  relocate 'st4hidden', 'datahub.shaded.st4hidden'
+//  relocate 'org.stringtemplate', 'datahub.shaded.org.stringtemplate'
+//  relocate 'org.abego.treelayout', 'datahub.shaded.treelayout'
+//  relocate 'org.slf4j', 'datahub.shaded.slf4j'
+//  relocate 'javax.annotation', 'datahub.shaded.javax.annotation'
+//  finalizedBy checkShadowJar
+//}
+//
+//checkShadowJar {
+//   dependsOn shadowJar
+//}
 
 assemble {
     dependsOn shadowJar
@@ -134,7 +132,7 @@ task javadocJar(type: Jar) {
 
 publishing {
   publications {
-    shadow(MavenPublication) {
+    mavenJava(MavenPublication) {
       publication -> project.shadow.component(publication)
       pom {
         name = 'Datahub Client'
@@ -170,29 +168,16 @@ publishing {
 
   repositories {
     maven {
-      def releasesRepoUrl = "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
-      def snapshotsRepoUrl = "https://s01.oss.sonatype.org/content/repositories/snapshots/"
-      def ossrhUsername = System.getenv('RELEASE_USERNAME')
-      def ossrhPassword = System.getenv('RELEASE_PASSWORD')
+      url 'https://acryl-795586375822.d.codeartifact.us-west-2.amazonaws.com/maven/acryl-datahub-client/'
       credentials {
-        username ossrhUsername
-        password ossrhPassword
+        username "aws"
+        password System.getenv('CODEARTIFACT_AUTH_TOKEN')
       }
-      url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
     }
   }
 }
 
 
 signing {
-    def signingKey = findProperty("signingKey")
-    def signingPassword = System.getenv("SIGNING_PASSWORD")
-    useInMemoryPgpKeys(signingKey, signingPassword)
-    sign publishing.publications.shadow
-}
-
-nexusStaging {
-    serverUrl = "https://s01.oss.sonatype.org/service/local/" //required only for projects registered in Sonatype after 2021-02-24
-    username = System.getenv("NEXUS_USERNAME")
-    password = System.getenv("NEXUS_PASSWORD")
+    sign publishing.publications.mavenJava
 }

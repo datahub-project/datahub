@@ -41,10 +41,11 @@ jobs:
       - uses: actions/setup-python@v2
         with:
           python-version: "3.6"
-      - name: checkout upstream repo
-        run: |
-          git remote add upstream https://github.com/linkedin/datahub.git
-          git fetch upstream --tags --force
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: us-west-2
       - name: publish datahub-client jar
         env:
           RELEASE_USERNAME: ${{ secrets.RELEASE_USERNAME }}
@@ -57,17 +58,4 @@ jobs:
           echo signingKey=$SIGNING_KEY >> gradle.properties
           ./gradlew :metadata-integration:java:datahub-client:printVersion
           ./gradlew :metadata-integration:java:datahub-client:publishToMavenLocal
-          #./gradlew :metadata-integration:java:datahub-client:closeAndReleaseRepository --info
-      - name: publish datahub-spark jar
-        env:
-          RELEASE_USERNAME: ${{ secrets.RELEASE_USERNAME }}
-          RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
-          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
-          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
-          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
-          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
-        run: |
-          echo signingKey=$SIGNING_KEY >> gradle.properties
-          ./gradlew :metadata-integration:java:spark-lineage:printVersion
-          ./gradlew :metadata-integration:java:spark-lineage:publishToMavenLocal
           #./gradlew :metadata-integration:java:datahub-client:closeAndReleaseRepository --info
