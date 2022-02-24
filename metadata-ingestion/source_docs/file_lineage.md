@@ -20,7 +20,7 @@ For general pointers on writing and running a recipe, see our [main recipe guide
 
 ```yml
 source:
-  type: datahub-file-lineage
+  type: datahub-lineage-file
   config:
     # Coordinates
     file: /path/to/file_lineage.yml
