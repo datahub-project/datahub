@@ -652,7 +652,7 @@ class TableauSource(Source):
                 sheet_external_url = f"{self.config.connect_uri}/t/{self.config.site}/authoring/{dashboard_path}/{sheet.get('name', '')}"
             else:
                 # hidden or viz-in-tooltip sheet
-                sheet_external_url = f"{self.config.connect_uri}"
+                sheet_external_url = None
 
             fields = {}
             for field in sheet.get("datasourceFields", ""):
