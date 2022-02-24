@@ -2,8 +2,6 @@ package com.linkedin.metadata.timeline.differ;
 
 import com.datahub.util.RecordUtils;
 import com.github.fge.jsonpatch.JsonPatch;
-import com.linkedin.common.GlossaryTermAssociation;
-import com.linkedin.common.TagAssociation;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
@@ -17,7 +15,6 @@ import com.linkedin.schema.SchemaMetadata;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -30,6 +27,12 @@ public class SchemaDiffer implements Differ {
   private static final String BACKWARDS_INCOMPATIBLE_DESC = "A backwards incompatible change due to ";
   private static final String FORWARDS_COMPATIBLE_DESC = "A forwards compatible change due to ";
   private static final String BACK_AND_FORWARD_COMPATIBLE_DESC = "A forwards & backwards compatible change due to ";
+  private static final String FIELD_DESCRIPTION_ADDED_FORMAT =
+      "The description '%s' for the field '%s' has been added.";
+  private static final String FIELD_DESCRIPTION_REMOVED_FORMAT =
+      "The description '%s' for the field '%s' has been removed.";
+  private static final String FIELD_DESCRIPTION_MODIFIED_FORMAT =
+      "The description for the field '%s' has been changed from '%s' to '%s'.";
 
   private static String getFieldPathV1(SchemaField field) {
     assert (field != null);
@@ -49,227 +52,77 @@ public class SchemaDiffer implements Differ {
     return String.format("urn:li:schemaField:(%s,%s)", datasetUrn, schemaFieldPath);
   }
 
-  @Override
-  public ChangeTransaction getSemanticDiff(EbeanAspectV2 previousValue, EbeanAspectV2 currentValue,
-      ChangeCategory element, JsonPatch rawDiff, boolean rawDiffRequested) {
-    if (!previousValue.getAspect().equals(SCHEMA_METADATA_ASPECT_NAME) || !currentValue.getAspect()
-        .equals(SCHEMA_METADATA_ASPECT_NAME)) {
-      throw new IllegalArgumentException("Aspect is not " + SCHEMA_METADATA_ASPECT_NAME);
-    }
-
-    SchemaMetadata baseSchema = getSchemaMetadataFromAspect(previousValue);
-    SchemaMetadata targetSchema = getSchemaMetadataFromAspect(currentValue);
-    assert (targetSchema != null);
-    List<ChangeEvent> changeEvents = new ArrayList<>();
-    ChangeEvent incompatibleChangeEvent = getIncompatibleChangeEvent(baseSchema, targetSchema);
-    if (incompatibleChangeEvent != null) {
-      changeEvents.add(incompatibleChangeEvent);
-    } else {
-      try {
-        changeEvents.addAll(
-            computeSchemaDiff(baseSchema, targetSchema, DatasetUrn.createFromString(currentValue.getUrn())));
-      } catch (URISyntaxException e) {
-        throw new IllegalArgumentException("Malformed DatasetUrn " + currentValue.getUrn());
-      }
-    }
-
-    // Assess the highest change at the transaction(schema) level.
-    SemanticChangeType highestSematicChange = SemanticChangeType.NONE;
-    changeEvents =
-        changeEvents.stream().filter(changeEvent -> changeEvent.getCategory() == element).collect(Collectors.toList());
-    ChangeEvent highestChangeEvent =
-        changeEvents.stream().max(Comparator.comparing(ChangeEvent::getSemVerChange)).orElse(null);
-    if (highestChangeEvent != null) {
-      highestSematicChange = highestChangeEvent.getSemVerChange();
-    }
-    return ChangeTransaction.builder()
-        .changeEvents(changeEvents)
-        .timestamp(currentValue.getCreatedOn().getTime())
-        .rawDiff(rawDiffRequested ? rawDiff : null)
-        .semVerChange(highestSematicChange)
-        .actor(currentValue.getCreatedBy())
-        .build();
-  }
-
-  private ChangeEvent getDescriptionChange(SchemaField baseField, SchemaField targetField, String datasetFieldUrn) {
-    if (baseField.getDescription() == null && targetField.getDescription() == null) {
-      return null;
-    }
-    if (baseField.getDescription() == null && targetField.getDescription() != null) {
+  private static ChangeEvent getDescriptionChange(SchemaField baseField, SchemaField targetField,
+      String datasetFieldUrn) {
+    String baseDesciption = (baseField != null) ? baseField.getDescription() : null;
+    String targetDescription = (targetField != null) ? targetField.getDescription() : null;
+    if (baseDesciption == null && targetDescription != null) {
       // Description got added.
       return ChangeEvent.builder()
           .changeType(ChangeOperation.ADD)
           .semVerChange(SemanticChangeType.MINOR)
           .category(ChangeCategory.DOCUMENTATION)
           .target(datasetFieldUrn)
-          .description("Description added.")
+          .description(String.format(FIELD_DESCRIPTION_ADDED_FORMAT, targetDescription, targetField.getFieldPath()))
           .build();
     }
-    if (baseField.getDescription() != null && targetField.getDescription() == null) {
+    if (baseDesciption != null && targetDescription == null) {
       // Description removed.
       return ChangeEvent.builder()
           .changeType(ChangeOperation.REMOVE)
           .semVerChange(SemanticChangeType.MINOR)
           .category(ChangeCategory.DOCUMENTATION)
           .target(datasetFieldUrn)
-          .description("Description removed.")
+          .description(String.format(FIELD_DESCRIPTION_REMOVED_FORMAT, baseDesciption, baseField.getFieldPath()))
           .build();
     }
-    if (!baseField.getDescription().equals(targetField.getDescription())) {
+    if (baseDesciption != null && targetDescription != null && !baseDesciption.equals(targetDescription)) {
       // Description Change
       return ChangeEvent.builder()
           .changeType(ChangeOperation.MODIFY)
-          .semVerChange(SemanticChangeType.MINOR)
+          .semVerChange(SemanticChangeType.PATCH)
           .category(ChangeCategory.DOCUMENTATION)
           .target(datasetFieldUrn)
-          .description(
-              "Description updated from '" + baseField.getDescription() + "' to '" + targetField.getDescription() + "'")
+          .description(String.format(FIELD_DESCRIPTION_MODIFIED_FORMAT, baseField.getFieldPath(), baseDesciption,
+              targetDescription))
           .build();
     }
     return null;
   }
 
-  private List<ChangeEvent> getGlobalTagChangeEvents(SchemaField baseField, SchemaField targetField,
+  private static List<ChangeEvent> getGlobalTagChangeEvents(SchemaField baseField, SchemaField targetField,
       String datasetFieldUrn) {
-    if (baseField.getGlobalTags() == null && targetField.getGlobalTags() == null) {
-      return null;
-    }
-    if (baseField.getGlobalTags() == null && targetField.getGlobalTags() != null) {
-      // Global tags added.
-      return Collections.singletonList(ChangeEvent.builder()
-          .changeType(ChangeOperation.ADD)
-          .semVerChange(SemanticChangeType.MINOR)
-          .category(ChangeCategory.TAG)
-          .target(datasetFieldUrn)
-          .description("Global Tags created.")
-          .build());
-    }
-
-    if (baseField.getGlobalTags() != null && targetField.getGlobalTags() == null) {
-      // Global tags removed.
-      return Collections.singletonList(ChangeEvent.builder()
-          .changeType(ChangeOperation.REMOVE)
-          .semVerChange(SemanticChangeType.MINOR)
-          .category(ChangeCategory.TAG)
-          .target(datasetFieldUrn)
-          .description("Global Tags removed.")
-          .build());
-    }
-
-    if (!baseField.getGlobalTags().equals(targetField.getGlobalTags())) {
-      List<ChangeEvent> glossaryTermChangeEvents = new ArrayList<>();
-      Set<TagAssociation> baseFieldTags = new HashSet<>(baseField.getGlobalTags().getTags());
-      Set<TagAssociation> targetFieldTags = new HashSet<>(targetField.getGlobalTags().getTags());
-      Set<TagAssociation> removedTags =
-          baseFieldTags.stream().filter(key -> !targetFieldTags.contains(key)).collect(Collectors.toSet());
-      Set<TagAssociation> addedTags =
-          targetFieldTags.stream().filter(key -> !baseFieldTags.contains(key)).collect(Collectors.toSet());
-      for (TagAssociation removedTag : removedTags) {
-        // Global tags changed.
-        glossaryTermChangeEvents.add(ChangeEvent.builder()
-            .changeType(ChangeOperation.REMOVE)
-            .semVerChange(SemanticChangeType.MINOR)
-            .category(ChangeCategory.TAG)
-            .target(datasetFieldUrn)
-            .description("The tag '" + removedTag.getTag() + "' has been removed.")
-            .build());
-      }
-      for (TagAssociation addedTag : addedTags) {
-        glossaryTermChangeEvents.add(ChangeEvent.builder()
-            .changeType(ChangeOperation.ADD)
-            .semVerChange(SemanticChangeType.MINOR)
-            .category(ChangeCategory.TAG)
-            .target(datasetFieldUrn)
-            .description("The tag '" + addedTag.getTag() + "' has been added.")
-            .build());
-      }
-      return glossaryTermChangeEvents;
-    }
-    return null;
+    return GlobalTagsDiffer.computeDiffs(baseField != null ? baseField.getGlobalTags() : null,
+        targetField != null ? targetField.getGlobalTags() : null, datasetFieldUrn);
   }
 
-  private List<ChangeEvent> getGlossaryTermsChangeEvents(SchemaField baseField, SchemaField targetField,
+  private static List<ChangeEvent> getGlossaryTermsChangeEvents(SchemaField baseField, SchemaField targetField,
       String datasetFieldUrn) {
-    if (baseField.getGlossaryTerms() == null && targetField.getGlossaryTerms() == null) {
-      return null;
-    }
-    if (baseField.getGlossaryTerms() == null && targetField.getGlossaryTerms() != null) {
-      // Glossary terms created.
-      return Collections.singletonList(ChangeEvent.builder()
-          .changeType(ChangeOperation.ADD)
-          .semVerChange(SemanticChangeType.MINOR)
-          .category(ChangeCategory.GLOSSARY_TERM)
-          .target(datasetFieldUrn)
-          .description("Glossary terms created.")
-          .build());
-    }
-
-    if (baseField.getGlossaryTerms() != null && targetField.getGlossaryTerms() == null) {
-      // Glossary terms removed.
-      return Collections.singletonList(ChangeEvent.builder()
-          .changeType(ChangeOperation.REMOVE)
-          .semVerChange(SemanticChangeType.MINOR)
-          .category(ChangeCategory.GLOSSARY_TERM)
-          .target(datasetFieldUrn)
-          .description("Glossary terms removed.")
-          .build());
-    }
-
-    if (!baseField.getGlossaryTerms().equals(targetField.getGlossaryTerms())) {
-      List<ChangeEvent> tagChangeEvents = new ArrayList<>();
-      Set<GlossaryTermAssociation> baseFieldTerms = new HashSet<>(baseField.getGlossaryTerms().getTerms());
-      Set<GlossaryTermAssociation> targetFieldTerms = new HashSet<>(targetField.getGlossaryTerms().getTerms());
-      Set<GlossaryTermAssociation> removedTerms =
-          baseFieldTerms.stream().filter(key -> !targetFieldTerms.contains(key)).collect(Collectors.toSet());
-      Set<GlossaryTermAssociation> addedTerms =
-          targetFieldTerms.stream().filter(key -> !baseFieldTerms.contains(key)).collect(Collectors.toSet());
-      for (GlossaryTermAssociation removedTerm : removedTerms) {
-        // Global tags changed.
-        tagChangeEvents.add(ChangeEvent.builder()
-            .changeType(ChangeOperation.REMOVE)
-            .semVerChange(SemanticChangeType.MINOR)
-            .category(ChangeCategory.GLOSSARY_TERM)
-            .target(datasetFieldUrn)
-            .description("The glossary term '" + removedTerm.getUrn() + "' has been removed.")
-            .build());
-      }
-      for (GlossaryTermAssociation addedTerm : addedTerms) {
-        tagChangeEvents.add(ChangeEvent.builder()
-            .changeType(ChangeOperation.ADD)
-            .semVerChange(SemanticChangeType.MINOR)
-            .category(ChangeCategory.GLOSSARY_TERM)
-            .target(datasetFieldUrn)
-            .description("The glossary term'" + addedTerm.getUrn() + "' has been added.")
-            .build());
-      }
-      return tagChangeEvents;
-    }
-    return null;
+    return GlossaryTermsDiffer.computeDiffs(baseField != null ? baseField.getGlossaryTerms() : null,
+        targetField != null ? targetField.getGlossaryTerms() : null, datasetFieldUrn);
   }
 
-  private List<ChangeEvent> getFieldPropertyChangeEvents(SchemaField baseField, SchemaField targetField,
+  private static List<ChangeEvent> getFieldPropertyChangeEvents(SchemaField baseField, SchemaField targetField,
       DatasetUrn datasetUrn) {
     List<ChangeEvent> propChangeEvents = new ArrayList<>();
     String datasetFieldUrn = getSchemaFieldUrn(datasetUrn, targetField);
+
     // Description Change.
     ChangeEvent descriptionChangeEvent = getDescriptionChange(baseField, targetField, datasetFieldUrn);
     if (descriptionChangeEvent != null) {
       propChangeEvents.add(descriptionChangeEvent);
     }
+
     // Global Tags
-    List<ChangeEvent> globalTagChangeEvents = getGlobalTagChangeEvents(baseField, targetField, datasetFieldUrn);
-    if (globalTagChangeEvents != null) {
-      propChangeEvents.addAll(globalTagChangeEvents);
-    }
+    propChangeEvents.addAll(getGlobalTagChangeEvents(baseField, targetField, datasetFieldUrn));
+
     // Glossary terms.
-    List<ChangeEvent> glossaryTermsChangeEvents = getGlossaryTermsChangeEvents(baseField, targetField, datasetFieldUrn);
-    if (glossaryTermsChangeEvents != null) {
-      propChangeEvents.addAll(glossaryTermsChangeEvents);
-    }
+    propChangeEvents.addAll(getGlossaryTermsChangeEvents(baseField, targetField, datasetFieldUrn));
+
     return propChangeEvents;
   }
 
-  private List<ChangeEvent> computeSchemaDiff(SchemaMetadata baseSchema, SchemaMetadata targetSchema,
+  private static List<ChangeEvent> computeSchemaDiff(SchemaMetadata baseSchema, SchemaMetadata targetSchema,
       DatasetUrn datasetUrn) {
     boolean isOrdinalBasedSchema = isSchemaOrdinalBased(targetSchema);
     if (!isOrdinalBasedSchema) {
@@ -279,9 +132,8 @@ public class SchemaDiffer implements Differ {
       }
       sortFieldsByPath(targetSchema);
     }
-    /**
-     * Performs ordinal based diff, primarily based on fixed field ordinals and their types.
-     */
+
+    // Performs ordinal based diff, primarily based on fixed field ordinals and their types.
     SchemaFieldArray baseFields = (baseSchema != null ? baseSchema.getFields() : new SchemaFieldArray());
     SchemaFieldArray targetFields = targetSchema.getFields();
     int baseFieldIdx = 0;
@@ -399,13 +251,54 @@ public class SchemaDiffer implements Differ {
     return changeEvents;
   }
 
-  private List<ChangeEvent> getForeignKeyChangeEvents(SchemaMetadata baseSchema, SchemaMetadata targetSchema) {
+  private static boolean isSchemaOrdinalBased(SchemaMetadata schemaMetadata) {
+    if (schemaMetadata == null) {
+      return false;
+    }
+    SchemaMetadata.PlatformSchema platformSchema = schemaMetadata.getPlatformSchema();
+    return platformSchema.isOracleDDL() || platformSchema.isMySqlDDL() || platformSchema.isPrestoDDL();
+  }
+
+  private static void sortFieldsByPath(SchemaMetadata schemaMetadata) {
+    assert (schemaMetadata != null);
+    List<SchemaField> schemaFields = new ArrayList<>(schemaMetadata.getFields());
+    schemaFields.sort(Comparator.comparing(SchemaField::getFieldPath));
+    schemaMetadata.setFields(new SchemaFieldArray(schemaFields));
+  }
+
+  private static ChangeEvent getIncompatibleChangeEvent(SchemaMetadata baseSchema, SchemaMetadata targetSchema) {
+    if (baseSchema != null && targetSchema != null) {
+      if (!baseSchema.getPlatform().equals(targetSchema.getPlatform())) {
+        return ChangeEvent.builder()
+            .semVerChange(SemanticChangeType.EXCEPTIONAL)
+            .description("Incompatible schema types," + baseSchema.getPlatform() + ", " + targetSchema.getPlatform())
+            .build();
+      }
+      if (!baseSchema.getSchemaName().equals(targetSchema.getSchemaName())) {
+        return ChangeEvent.builder()
+            .semVerChange(SemanticChangeType.EXCEPTIONAL)
+            .description(
+                "Schema names are not same," + baseSchema.getSchemaName() + ", " + targetSchema.getSchemaName())
+            .build();
+      }
+    }
+    return null;
+  }
+
+  private static SchemaMetadata getSchemaMetadataFromAspect(EbeanAspectV2 ebeanAspectV2) {
+    if (ebeanAspectV2 != null && ebeanAspectV2.getMetadata() != null) {
+      return RecordUtils.toRecordTemplate(SchemaMetadata.class, ebeanAspectV2.getMetadata());
+    }
+    return null;
+  }
+
+  private static List<ChangeEvent> getForeignKeyChangeEvents(SchemaMetadata baseSchema, SchemaMetadata targetSchema) {
     List<ChangeEvent> foreignKeyChangeEvents = new ArrayList<>();
     // TODO: Implement the diffing logic.
     return foreignKeyChangeEvents;
   }
 
-  private List<ChangeEvent> getPrimaryKeyChangeEvents(SchemaMetadata baseSchema, SchemaMetadata targetSchema,
+  private static List<ChangeEvent> getPrimaryKeyChangeEvents(SchemaMetadata baseSchema, SchemaMetadata targetSchema,
       DatasetUrn datasetUrn) {
     List<ChangeEvent> primaryKeyChangeEvents = new ArrayList<>();
     Set<String> basePrimaryKeys =
@@ -435,52 +328,51 @@ public class SchemaDiffer implements Differ {
           .target(datasetUrn.toString())
           .changeType(ChangeOperation.MODIFY)
           .semVerChange(SemanticChangeType.MAJOR)
-          .description(
-              BACKWARDS_INCOMPATIBLE_DESC + "addition of the primary key field '" + addedTargetKeyField.toString()
-                  + "'")
+          .description(BACKWARDS_INCOMPATIBLE_DESC + "addition of the primary key field '" + addedTargetKeyField + "'")
           .build());
     }
     return primaryKeyChangeEvents;
   }
 
-  private void sortFieldsByPath(SchemaMetadata schemaMetadata) {
-    assert (schemaMetadata != null);
-    List<SchemaField> schemaFields = new ArrayList<>(schemaMetadata.getFields());
-    schemaFields.sort(Comparator.comparing(SchemaField::getFieldPath));
-    schemaMetadata.setFields(new SchemaFieldArray(schemaFields));
-  }
-
-  private boolean isSchemaOrdinalBased(SchemaMetadata schemaMetadata) {
-    if (schemaMetadata == null) {
-      return false;
+  @Override
+  public ChangeTransaction getSemanticDiff(EbeanAspectV2 previousValue, EbeanAspectV2 currentValue,
+      ChangeCategory element, JsonPatch rawDiff, boolean rawDiffRequested) {
+    if (!previousValue.getAspect().equals(SCHEMA_METADATA_ASPECT_NAME) || !currentValue.getAspect()
+        .equals(SCHEMA_METADATA_ASPECT_NAME)) {
+      throw new IllegalArgumentException("Aspect is not " + SCHEMA_METADATA_ASPECT_NAME);
     }
-    SchemaMetadata.PlatformSchema platformSchema = schemaMetadata.getPlatformSchema();
-    return platformSchema.isOracleDDL() || platformSchema.isMySqlDDL() || platformSchema.isPrestoDDL();
-  }
 
-  private ChangeEvent getIncompatibleChangeEvent(SchemaMetadata baseSchema, SchemaMetadata targetSchema) {
-    if (baseSchema != null && targetSchema != null) {
-      if (!baseSchema.getPlatform().equals(targetSchema.getPlatform())) {
-        return ChangeEvent.builder()
-            .semVerChange(SemanticChangeType.EXCEPTIONAL)
-            .description("Incompatible schema types," + baseSchema.getPlatform() + ", " + targetSchema.getPlatform())
-            .build();
-      }
-      if (!baseSchema.getSchemaName().equals(targetSchema.getSchemaName())) {
-        return ChangeEvent.builder()
-            .semVerChange(SemanticChangeType.EXCEPTIONAL)
-            .description(
-                "Schema names are not same," + baseSchema.getSchemaName() + ", " + targetSchema.getSchemaName())
-            .build();
+    SchemaMetadata baseSchema = getSchemaMetadataFromAspect(previousValue);
+    SchemaMetadata targetSchema = getSchemaMetadataFromAspect(currentValue);
+    assert (targetSchema != null);
+    List<ChangeEvent> changeEvents = new ArrayList<>();
+    ChangeEvent incompatibleChangeEvent = getIncompatibleChangeEvent(baseSchema, targetSchema);
+    if (incompatibleChangeEvent != null) {
+      changeEvents.add(incompatibleChangeEvent);
+    } else {
+      try {
+        changeEvents.addAll(
+            computeSchemaDiff(baseSchema, targetSchema, DatasetUrn.createFromString(currentValue.getUrn())));
+      } catch (URISyntaxException e) {
+        throw new IllegalArgumentException("Malformed DatasetUrn " + currentValue.getUrn());
       }
     }
-    return null;
-  }
 
-  private SchemaMetadata getSchemaMetadataFromAspect(EbeanAspectV2 ebeanAspectV2) {
-    if (ebeanAspectV2 != null && ebeanAspectV2.getMetadata() != null) {
-      return RecordUtils.toRecordTemplate(SchemaMetadata.class, ebeanAspectV2.getMetadata());
+    // Assess the highest change at the transaction(schema) level.
+    SemanticChangeType highestSematicChange = SemanticChangeType.NONE;
+    changeEvents =
+        changeEvents.stream().filter(changeEvent -> changeEvent.getCategory() == element).collect(Collectors.toList());
+    ChangeEvent highestChangeEvent =
+        changeEvents.stream().max(Comparator.comparing(ChangeEvent::getSemVerChange)).orElse(null);
+    if (highestChangeEvent != null) {
+      highestSematicChange = highestChangeEvent.getSemVerChange();
     }
-    return null;
+    return ChangeTransaction.builder()
+        .changeEvents(changeEvents)
+        .timestamp(currentValue.getCreatedOn().getTime())
+        .rawDiff(rawDiffRequested ? rawDiff : null)
+        .semVerChange(highestSematicChange)
+        .actor(currentValue.getCreatedBy())
+        .build();
   }
 }
