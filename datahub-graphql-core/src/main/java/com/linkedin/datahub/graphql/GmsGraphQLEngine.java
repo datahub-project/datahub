@@ -51,6 +51,7 @@ import com.linkedin.datahub.graphql.resolvers.browse.BrowsePathsResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowseResolver;
 import com.linkedin.datahub.graphql.resolvers.config.AppConfigResolver;
 import com.linkedin.datahub.graphql.resolvers.container.ContainerEntitiesResolver;
+import com.linkedin.datahub.graphql.resolvers.dataset.DatasetHealthResolver;
 import com.linkedin.datahub.graphql.resolvers.deprecation.UpdateDeprecationResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.CreateDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.DomainEntitiesResolver;
@@ -146,6 +147,7 @@ import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.secret.SecretService;
+import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.usage.UsageClient;
 import graphql.execution.DataFetcherResult;
@@ -195,6 +197,7 @@ public class GmsGraphQLEngine {
     private final TokenService tokenService;
     private final SecretService secretService;
     private final GitVersion gitVersion;
+    private final TimeseriesAspectService timeseriesAspectService;
 
     private final IngestionConfiguration ingestionConfiguration;
 
@@ -258,6 +261,7 @@ public class GmsGraphQLEngine {
             null,
             null,
             null,
+            null,
             null);
     }
 
@@ -269,6 +273,7 @@ public class GmsGraphQLEngine {
         final EntityService entityService,
         final RecommendationsService recommendationsService,
         final TokenService tokenService,
+        final TimeseriesAspectService timeseriesAspectService,
         final EntityRegistry entityRegistry,
         final SecretService secretService,
         final IngestionConfiguration ingestionConfiguration,
@@ -286,6 +291,7 @@ public class GmsGraphQLEngine {
         this.secretService = secretService;
         this.entityRegistry = entityRegistry;
         this.gitVersion = gitVersion;
+        this.timeseriesAspectService = timeseriesAspectService;
 
         this.ingestionConfiguration = Objects.requireNonNull(ingestionConfiguration);
 
@@ -741,6 +747,7 @@ public class GmsGraphQLEngine {
                     )
                 ))
                 .dataFetcher("usageStats", new AuthenticatedResolver<>(new UsageTypeResolver()))
+                .dataFetcher("health", new DatasetHealthResolver(graphClient, timeseriesAspectService))
                 .dataFetcher("schemaMetadata", new AuthenticatedResolver<>(
                     new AspectResolver())
                 )

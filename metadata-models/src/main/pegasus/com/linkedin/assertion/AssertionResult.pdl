@@ -5,6 +5,7 @@ record AssertionResult {
   /**
   *  The final result, e.g. either SUCCESS or FAILURE.
   */
+  @TimeseriesField = {}
   type: enum AssertionResultType {
     /**
     *  The Assertion Succeeded

@@ -646,7 +646,7 @@ type Dataset implements EntityWithRelationships & Entity {
     If no start or end time are provided, the most recent events will be returned
     """
     datasetProfiles(startTimeMillis: Long, endTimeMillis: Long, limit: Int): [DatasetProfile!]
-        
+
     """
     Operational events for an entity.
     """
@@ -656,6 +656,11 @@ type Dataset implements EntityWithRelationships & Entity {
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Experimental! The resolved health status of the Dataset
+    """
+    health: Health
 
     """
     Schema metadata of the dataset
@@ -6227,4 +6232,41 @@ type ListDomainsResult {
   The Domains themselves
   """
   domains: [Domain!]!
+}
+
+enum HealthStatus {
+  """
+  The Asset is in a healthy state
+  """
+  PASS
+
+  """
+  The Asset is in a warning state
+  """
+  WARN
+
+  """
+  The Asset is in a failing (unhealthy) state
+  """
+  FAIL
+}
+
+"""
+The resolved Health of an Asset
+"""
+type Health {
+  """
+  An enum representing the resolved Health status of an Asset
+  """
+  status: HealthStatus!
+
+  """
+  An optional message describing the resolved health status
+  """
+  message: String
+
+  """
+  The causes responsible for the health status
+  """
+  causes: [String!]
 }

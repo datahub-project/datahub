@@ -110,6 +110,14 @@ query getDataset($urn: String!) {
                 sampleValues
             }
         }
+        health {
+            status
+            message
+            causes
+        }
+        assertions: relationships(input: { types: ["Asserts"], direction: INCOMING, start: 0, count: 1 }) {
+            total
+        }
         operations(limit: 1) {
             timestampMillis
         }

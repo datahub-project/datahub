@@ -1,6 +1,6 @@
+import React from 'react';
 import { CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import { Typography } from 'antd';
-import React from 'react';
 import {
     AssertionInfo,
     AssertionResultType,

@@ -2,7 +2,6 @@ import { Button, Empty, Image, Tag, Tooltip, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { DeleteOutlined, DownOutlined, RightOutlined, StopOutlined } from '@ant-design/icons';
-import { useGetDatasetAssertionsQuery } from '../../../../../../graphql/dataset.generated';
 import { DatasetAssertionDescription } from './descriptions/DatasetAssertionDescription';
 import { StyledTable } from '../../../components/styled/StyledTable';
 import { AssertionDetails } from './AssertionDetails';
@@ -19,24 +18,7 @@ const PlatformContainer = styled.div`
     margin-right: 8px;
 `;
 
-export const AssertionsList = ({ urn }: { urn: string }) => {
-    const { data } = useGetDatasetAssertionsQuery({ variables: { urn } });
-
-    const assertions =
-        (data && data.dataset?.assertions?.relationships?.map((relationship) => relationship.entity as Assertion)) ||
-        [];
-
-    // Pre-sort the list of assertions based on which has been most recently executed.
-    assertions.sort((a, b) => {
-        if (!a.runEvents?.length) {
-            return 1;
-        }
-        if (!b.runEvents?.length) {
-            return -1;
-        }
-        return b.runEvents[0].timestampMillis - a.runEvents[0].timestampMillis;
-    });
-
+export const AssertionsList = ({ assertions }: { assertions: Array<Assertion> }) => {
     const tableColumns = [
         {
             title: 'Last Result',

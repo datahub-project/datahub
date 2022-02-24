@@ -141,7 +141,9 @@ export class DatasetEntity implements Entity<Dataset> {
                     component: AssertionTab,
                     display: {
                         visible: (_, _1) => true,
-                        enabled: (_, _1: GetDatasetQuery) => true,
+                        enabled: (_, dataset: GetDatasetQuery) => {
+                            return (dataset?.dataset?.assertions?.total || 0) > 0;
+                        },
                     },
                 },
             ]}
