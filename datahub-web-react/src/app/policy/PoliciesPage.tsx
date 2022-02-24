@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Button, Empty, message, Modal, Pagination, Tag, Typography } from 'antd';
+import { Button, Col, Empty, message, Modal, Pagination, Row, Tag, Typography } from 'antd';
 import styled from 'styled-components';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
@@ -59,12 +59,6 @@ const PoliciesType = styled(Tag)`
     && {
         border-radius: 2px !important;
         font-weight: 700;
-    }
-`;
-
-const PoliciesState = styled(Tag)`
-    && {
-        border-radius: 2px !important;
     }
 `;
 
@@ -250,26 +244,38 @@ export const PoliciesPage = () => {
             key: 'users',
             render: (_, record: any) => {
                 return (
-                    <div>
-                        {record?.users?.map((user) => (
-                            <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${user}`} key={user}>
-                                <CustomAvatar
-                                    style={{ color: '#f56a00', backgroundColor: '#fde3cf' }}
-                                    name={user}
-                                    useDefaultAvatar={false}
-                                />
-                            </Link>
-                        ))}
-                        {record?.allUsers ? <Tag>All Users</Tag> : null}
-                        {record?.groups?.map((group) => (
-                            <CustomAvatar
-                                style={{ color: '#f56a00', backgroundColor: '#BEBEBE' }}
-                                name={group}
-                                useDefaultAvatar={false}
-                            />
-                        ))}
-                        {record?.allGroups ? <Tag>All Groups</Tag> : null}
-                    </div>
+                    <>
+                        <Row>
+                            <Col flex="auto">
+                                {record?.users?.map((user) => (
+                                    <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${user}`} key={user}>
+                                        <CustomAvatar
+                                            style={{ color: '#f56a00', backgroundColor: '#fde3cf' }}
+                                            name={user}
+                                            useDefaultAvatar={false}
+                                        />
+                                    </Link>
+                                ))}
+                            </Col>
+                            <Col flex={1} style={{ display: 'flex', justifyContent: 'end' }}>
+                                {record?.allUsers ? <Tag>All Users</Tag> : null}
+                            </Col>
+                        </Row>
+                        <Row>
+                            <Col flex="auto">
+                                {record?.groups?.map((group) => (
+                                    <CustomAvatar
+                                        style={{ color: '#f56a00', backgroundColor: '#BEBEBE' }}
+                                        name={group}
+                                        useDefaultAvatar={false}
+                                    />
+                                ))}
+                            </Col>
+                            <Col flex={1} style={{ display: 'flex', justifyContent: 'end' }}>
+                                {record?.allGroups ? <Tag>All Groups</Tag> : null}
+                            </Col>
+                        </Row>
+                    </>
                 );
             },
         },
@@ -279,8 +285,7 @@ export const PoliciesPage = () => {
             key: 'state',
             render: (state: string) => {
                 const isActive = state === PolicyState.Active;
-                const policyState = state?.charAt(0)?.toUpperCase() + state?.slice(1)?.toLowerCase();
-                return <PoliciesState color={isActive ? 'green' : 'red'}>{policyState}</PoliciesState>;
+                return <Tag color={isActive ? 'green' : 'red'}>{state}</Tag>;
             },
         },
         {

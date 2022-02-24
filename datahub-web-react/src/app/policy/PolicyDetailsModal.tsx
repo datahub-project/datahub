@@ -71,7 +71,7 @@ export default function PolicyDetailsModal({ policy, visible, onClose }: Props) 
                 <div>
                     <Typography.Title level={5}>State</Typography.Title>
                     <ThinDivider />
-                    <PoliciesTag color={isActive ? 'green' : 'red'}>{policy?.state}</PoliciesTag>
+                    <Tag color={isActive ? 'green' : 'red'}>{policy?.state}</Tag>
                 </div>
                 <div>
                     <Typography.Title level={5}>Description</Typography.Title>
