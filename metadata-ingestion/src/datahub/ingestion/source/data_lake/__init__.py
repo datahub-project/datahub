@@ -559,7 +559,8 @@ class DataLakeSource(Source):
                 )
 
                 time_percentiles = {
-                    f"table_time_taken_p{percentile}": percentile_values[percentile]
+                    f"table_time_taken_p{percentile}": 10
+                    ** int(log10(percentile_values[percentile] + 1))
                     for percentile in percentiles
                 }
 
