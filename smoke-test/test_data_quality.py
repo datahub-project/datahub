@@ -35,7 +35,7 @@ restli_default_headers = {
 
 def create_test_data(test_file):
     assertion_urn = "urn:li:assertion:2d3b06a6e77e1f24adc9860a05ea089b"
-    dataset_urn = make_dataset_urn(platform="postgres", name="fooTable")
+    dataset_urn = make_dataset_urn(platform="postgres", name="foo")
     assertion_info = AssertionInfoClass(
         type=AssertionTypeClass.DATASET,
         customProperties={"suite_name": "demo_suite"},
@@ -45,7 +45,7 @@ def create_test_data(test_file):
             scope=DatasetAssertionScopeClass.DATASET_COLUMN,
             columnAssertion=DatasetColumnAssertionClass(
                 stdOperator=AssertionStdOperatorClass.LESS_THAN,
-                nativeOperator="column_value_is_less_than",
+                nativeType="column_value_is_less_than",
                 stdAggFunc=DatasetColumnStdAggFuncClass.IDENTITY,
             ),
         ),
@@ -251,7 +251,7 @@ def test_run_ingestion(wait_for_healthchecks, generate_test_data):
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_gms_get_latest_assertions_results_by_partition():
-    urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,footable,PROD)"
+    urn = make_dataset_urn("postgres", "foo")
 
     # sleep for elasticsearch indices to be updated
     time.sleep(5)
@@ -319,7 +319,7 @@ def test_gms_get_latest_assertions_results_by_partition():
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_gms_get_assertions_on_dataset():
     """lists all assertion urns including those which may not have executed"""
-    urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,footable,PROD)"
+    urn = make_dataset_urn("postgres", "foo")
     response = requests.get(
         f"{GMS_ENDPOINT}/relationships?direction=INCOMING&urn={urllib.parse.quote(urn)}&types=Asserts"
     )
@@ -332,7 +332,7 @@ def test_gms_get_assertions_on_dataset():
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_gms_get_assertions_on_dataset_field():
     """lists all assertion urns including those which may not have executed"""
-    dataset_urn = make_dataset_urn("postgres", "fooTable")
+    dataset_urn = make_dataset_urn("postgres", "foo")
     field_urn = make_schema_field_urn(dataset_urn, "col1")
     response = requests.get(
         f"{GMS_ENDPOINT}/relationships?direction=INCOMING&urn={urllib.parse.quote(field_urn)}&types=Asserts"

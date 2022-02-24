@@ -52,6 +52,11 @@ enum AssertionStdOperator {
         START_WITH
 
         /**
+        * Value being asserted matches the regex value
+        */
+        REGEX_MATCH
+
+        /**
         * Value being asserted is one of the array values
         */
         IN

@@ -75,10 +75,8 @@ public class AssertionMapper {
           gmsDatasetAssertion.getColumnAssertion().getStdOperator().name()));
       columnAssertion.setStdAggFunc(DatasetColumnStdAggFunc.valueOf(
           gmsDatasetAssertion.getColumnAssertion().getStdAggFunc().name()));
-      columnAssertion.setNativeOperator(
-          gmsDatasetAssertion.getColumnAssertion().getNativeOperator());
-      columnAssertion.setNativeAggFunc(
-          gmsDatasetAssertion.getColumnAssertion().getNativeAggFunc());
+      columnAssertion.setNativeType(
+          gmsDatasetAssertion.getColumnAssertion().getNativeType());
       datasetAssertion.setColumnAssertion(columnAssertion);
     }
     if (gmsDatasetAssertion.hasRowsAssertion()) {
@@ -87,8 +85,7 @@ public class AssertionMapper {
           gmsDatasetAssertion.getRowsAssertion().getStdOperator().name()));
       rowsAssertion.setStdAggFunc(DatasetRowsStdAggFunc.valueOf(
           gmsDatasetAssertion.getRowsAssertion().getStdAggFunc().name()));
-      rowsAssertion.setNativeOperator(gmsDatasetAssertion.getRowsAssertion().getNativeOperator());
-      rowsAssertion.setNativeAggFunc(gmsDatasetAssertion.getRowsAssertion().getNativeAggFunc());
+      rowsAssertion.setNativeType(gmsDatasetAssertion.getRowsAssertion().getNativeType());
       datasetAssertion.setRowsAssertion(rowsAssertion);
     }
     if (gmsDatasetAssertion.hasSchemaAssertion()) {
@@ -97,10 +94,8 @@ public class AssertionMapper {
           gmsDatasetAssertion.getSchemaAssertion().getStdOperator().name()));
       schemaAssertion.setStdAggFunc(DatasetSchemaStdAggFunc.valueOf(
           gmsDatasetAssertion.getSchemaAssertion().getStdAggFunc().name()));
-      schemaAssertion.setNativeOperator(
-          gmsDatasetAssertion.getSchemaAssertion().getNativeOperator());
-      schemaAssertion.setNativeAggFunc(
-          gmsDatasetAssertion.getSchemaAssertion().getNativeAggFunc());
+      schemaAssertion.setNativeType(
+          gmsDatasetAssertion.getSchemaAssertion().getNativeType());
       datasetAssertion.setSchemaAssertion(schemaAssertion);
     }
     if (gmsDatasetAssertion.hasDatasets()) {

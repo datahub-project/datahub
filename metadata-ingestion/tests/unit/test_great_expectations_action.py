@@ -168,7 +168,7 @@ def test_DatahubValidationAction_basic(
                 MetadataChangeProposalWrapper(
                     entityType="assertion",
                     changeType="UPSERT",
-                    entityUrn="urn:li:assertion:350d331f33e707d8638e70ea37aaef24",
+                    entityUrn="urn:li:assertion:e7299c1e76b53a263d89729862437802",
                     aspectName="assertionInfo",
                     aspect=AssertionInfoClass(
                         type=AssertionTypeClass.DATASET,
@@ -180,7 +180,7 @@ def test_DatahubValidationAction_basic(
                             ],
                             rowsAssertion=DatasetRowsAssertionClass(
                                 stdOperator="BETWEEN",
-                                nativeOperator="expect_table_row_count_to_be_between",
+                                nativeType="expect_table_row_count_to_be_between",
                                 stdAggFunc="ROW_COUNT",
                             ),
                         ),
@@ -196,7 +196,7 @@ def test_DatahubValidationAction_basic(
                 MetadataChangeProposalWrapper(
                     entityType="assertion",
                     changeType="UPSERT",
-                    entityUrn="urn:li:assertion:350d331f33e707d8638e70ea37aaef24",
+                    entityUrn="urn:li:assertion:e7299c1e76b53a263d89729862437802",
                     aspectName="dataPlatformInstance",
                     aspect=DataPlatformInstanceClass(
                         platform="urn:li:dataPlatform:greatExpectations"
@@ -208,7 +208,7 @@ def test_DatahubValidationAction_basic(
                 MetadataChangeProposalWrapper(
                     entityType="assertion",
                     changeType="UPSERT",
-                    entityUrn="urn:li:assertion:350d331f33e707d8638e70ea37aaef24",
+                    entityUrn="urn:li:assertion:e7299c1e76b53a263d89729862437802",
                     entityKeyAspect=None,
                     aspectName="assertionRunEvent",
                     aspect=AssertionRunEventClass(
@@ -219,7 +219,7 @@ def test_DatahubValidationAction_basic(
                             partition="FULL_TABLE_SNAPSHOT",
                             timePartition=None,
                         ),
-                        assertionUrn="urn:li:assertion:350d331f33e707d8638e70ea37aaef24",
+                        assertionUrn="urn:li:assertion:e7299c1e76b53a263d89729862437802",
                         asserteeUrn="urn:li:dataset:(urn:li:dataPlatform:postgres,test.public.foo2,PROD)",
                         batchSpec=BatchSpecClass(
                             customProperties={"data_asset_name": "foo2"},
@@ -229,7 +229,7 @@ def test_DatahubValidationAction_basic(
                         result=AssertionResultClass(
                             type=AssertionResultTypeClass.SUCCESS,
                             actualAggValue=10000,
-                            nativeResults={},
+                            nativeResults={"observed_value": "10000"},
                         ),
                     ),
                 ),

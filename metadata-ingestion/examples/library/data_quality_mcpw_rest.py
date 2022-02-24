@@ -29,15 +29,7 @@ def fldUrn(tbl: str, fld: str) -> str:
 
 
 def assertionUrn(info: AssertionInfo) -> str:
-    assertionId = builder.datahub_guid(
-        {
-            "type": info.type,
-            "datasetAssertion": info.datasetAssertion.to_obj(),
-            "assertionLogic": info.assertionLogic,
-            "parameters": info.parameters,
-        }
-    )
-    return builder.make_assertion_urn(assertionId)
+    return "urn:li:assertion:432475190cc846f2894b5b3aa4d55af2"
 
 
 def emitAssertionResult(assertionResult: AssertionResult) -> None:
@@ -61,7 +53,7 @@ assertion_maxVal = AssertionInfo(
         scope=DatasetAssertionScope.DATASET_COLUMN,
         columnAssertion=DatasetColumnAssertion(
             stdOperator=AssertionStdOperator.LESS_THAN,
-            nativeOperator="column_value_is_less_than",
+            nativeType="column_value_is_less_than",
             stdAggFunc=DatasetColumnStdAggFunc.IDENTITY,
         ),
         fields=[fldUrn("bazTable", "col1")],

@@ -173,22 +173,19 @@ query getDatasetAssertions($urn: String!) {
                             datasetAssertion {
                                 scope
                                 columnAssertion {
-                                    nativeOperator
+                                    nativeType
                                     stdOperator
                                     stdAggFunc
-                                    nativeAggFunc
                                 }
                                 rowsAssertion {
-                                    nativeOperator
+                                    nativeType
                                     stdOperator
                                     stdAggFunc
-                                    nativeAggFunc
                                 }
                                 schemaAssertion {
-                                    nativeOperator
+                                    nativeType
                                     stdOperator
                                     stdAggFunc
-                                    nativeAggFunc
                                 }
                                 datasets
                                 fields

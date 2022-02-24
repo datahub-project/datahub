@@ -24,7 +24,10 @@ action_list:
       server_url: http://localhost:8080
       graceful_exceptions: False
 evaluation_parameters: {}
-runtime_configuration: {}
+runtime_configuration:
+  result_format:
+    result_format: COMPLETE
+    partial_unexpected_count: 20
 validations:
   - batch_request:
       datasource_name: my_postgresql_datasource

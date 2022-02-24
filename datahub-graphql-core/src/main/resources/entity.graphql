@@ -4286,24 +4286,21 @@ type DatasetColumnAssertion {
 
     stdOperator: AssertionStdOperator!
     stdAggFunc: DatasetColumnStdAggFunc!
-    nativeOperator: String
-    nativeAggFunc: String
+    nativeType: String
 }
 
 type DatasetRowsAssertion {
 
     stdOperator: AssertionStdOperator!
     stdAggFunc: DatasetRowsStdAggFunc!
-    nativeOperator: String
-    nativeAggFunc: String
+    nativeType: String
 }
 
 type DatasetSchemaAssertion {
 
     stdOperator: AssertionStdOperator!
     stdAggFunc: DatasetSchemaStdAggFunc!
-    nativeOperator: String
-    nativeAggFunc: String   
+    nativeType: String
 }
 
 """
@@ -4482,6 +4479,11 @@ enum DatasetColumnStdAggFunc {
     Assertion is applied on column std deviation
     """
     MAX
+
+    """
+    Assertion is applied on column sum
+    """
+    SUM
     
     """
     Other
