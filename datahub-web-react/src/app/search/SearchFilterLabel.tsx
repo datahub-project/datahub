@@ -1,8 +1,7 @@
 import { BookOutlined } from '@ant-design/icons';
-import { Tag } from 'antd';
+import { Tag, Tooltip } from 'antd';
 import * as React from 'react';
 import styled from 'styled-components';
-
 import {
     AggregationMetadata,
     Domain,
@@ -53,24 +52,27 @@ export const SearchFilterLabel = ({ aggregation, field }: Props) => {
 
     if (aggregation.entity?.type === EntityType.Tag) {
         const tag = aggregation.entity as TagType;
+        const displayName = entityRegistry.getDisplayName(EntityType.Tag, tag);
+        const truncatedDisplayName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
         return (
-            <>
+            <Tooltip title={displayName}>
                 <StyledTag $colorHash={tag?.urn} $color={tag?.properties?.colorHex}>
-                    {tag?.name}
+                    {truncatedDisplayName}
                 </StyledTag>
                 ({countText})
-            </>
+            </Tooltip>
         );
     }
 
     if (aggregation.entity?.type === EntityType.CorpUser) {
         const user = aggregation.entity as CorpUser;
         const displayName = entityRegistry.getDisplayName(EntityType.CorpUser, user);
+        const truncatedDisplayName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
         return (
-            <>
+            <Tooltip title={displayName}>
                 <CustomAvatar
                     size={18}
-                    name={displayName}
+                    name={truncatedDisplayName}
                     photoUrl={user.editableProperties?.pictureLink || undefined}
                     useDefaultAvatar={false}
                     style={{
@@ -78,82 +80,92 @@ export const SearchFilterLabel = ({ aggregation, field }: Props) => {
                     }}
                 />
                 {displayName} ({countText})
-            </>
+            </Tooltip>
         );
     }
 
     if (aggregation.entity?.type === EntityType.CorpGroup) {
         const group = aggregation.entity as CorpGroup;
+        const displayName = entityRegistry.getDisplayName(EntityType.CorpGroup, group);
+        const truncatedDisplayName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
         return (
-            <>
+            <Tooltip title={displayName}>
                 <span style={{ marginRight: 8 }}>
                     {entityRegistry.getIcon(EntityType.CorpGroup, 16, IconStyleType.ACCENT)}
                 </span>
-                {entityRegistry.getDisplayName(EntityType.CorpGroup, group)} ({countText})
-            </>
+                {truncatedDisplayName} ({countText})
+            </Tooltip>
         );
     }
 
     if (aggregation.entity?.type === EntityType.GlossaryTerm) {
         const term = aggregation.entity as GlossaryTerm;
+        const displayName = entityRegistry.getDisplayName(EntityType.GlossaryTerm, term);
+        const truncatedDisplayName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
         return (
-            <>
+            <Tooltip title={displayName}>
                 <Tag closable={false}>
                     <BookOutlined style={{ marginRight: '3%' }} />
-                    {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term)}
+                    {truncatedDisplayName}
                 </Tag>
                 ({countText})
-            </>
+            </Tooltip>
         );
     }
 
     if (aggregation.entity?.type === EntityType.DataPlatform) {
         const platform = aggregation.entity as DataPlatform;
+        const displayName = platform.properties?.displayName || platform.info?.displayName || platform.name;
+        const truncatedDisplayName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
         return (
-            <>
+            <Tooltip title={displayName}>
                 {!!platform.properties?.logoUrl && (
                     <PreviewImage src={platform.properties?.logoUrl} alt={platform.name} />
                 )}
                 <span>
-                    {platform.properties?.displayName || platform.name} ({countText})
+                    {truncatedDisplayName} ({countText})
                 </span>
-            </>
+            </Tooltip>
         );
     }
 
     if (aggregation.entity?.type === EntityType.Container) {
         const container = aggregation.entity as Container;
+        const displayName = entityRegistry.getDisplayName(EntityType.Container, container);
+        const truncatedDisplayName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
         return (
-            <>
+            <Tooltip title={displayName}>
                 {!!container.platform?.properties?.logoUrl && (
                     <PreviewImage src={container.platform?.properties?.logoUrl} alt={container.properties?.name} />
                 )}
                 <span>
-                    {container.properties?.name} ({countText})
+                    {truncatedDisplayName} ({countText})
                 </span>
-            </>
+            </Tooltip>
         );
     }
 
     if (aggregation.entity?.type === EntityType.Domain) {
         const domain = aggregation.entity as Domain;
+        const displayName = entityRegistry.getDisplayName(EntityType.Domain, domain);
+        const truncatedDomainName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
         return (
-            <>
-                <DomainLink urn={domain.urn} name={entityRegistry.getDisplayName(EntityType.Domain, domain)} />(
-                {countText})
-            </>
+            <Tooltip title={displayName}>
+                <DomainLink urn={domain.urn} name={truncatedDomainName} />({countText})
+            </Tooltip>
         );
     }
 
     // Warning: Special casing for Sub-Types
     if (field === 'typeNames') {
-        const subTypeDisplayName = capitalizeFirstLetter(aggregation.value);
+        const displayName = capitalizeFirstLetter(aggregation.value) || '';
+        const truncatedDomainName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
         return (
-            <>
+            <Tooltip title={displayName}>
                 <span>
-                    {subTypeDisplayName} ({countText})
+                    {truncatedDomainName} ({countText})
                 </span>
-            </>
+            </Tooltip>
         );
     }
 
