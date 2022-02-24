@@ -209,7 +209,7 @@ class ElasticsearchSource(Source):
         self.client = Elasticsearch(
             self.source_config.host,
             http_auth=(self.source_config.username, self.source_config.password),
-            url_prefix = self.source_config.url_prefix
+            url_prefix=self.source_config.url_prefix,
         )
         self.report = ElasticsearchSourceReport()
         self.data_stream_partition_count: Dict[str, int] = defaultdict(int)
