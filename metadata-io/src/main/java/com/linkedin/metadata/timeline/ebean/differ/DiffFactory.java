@@ -1,6 +1,7 @@
-package com.linkedin.metadata.timeline.ebean;
+package com.linkedin.metadata.timeline.ebean.differ;
 
 import com.linkedin.metadata.timeline.data.ChangeCategory;
+import com.linkedin.metadata.timeline.ebean.differ.Differ;
 import java.util.HashMap;
 import java.util.Map;
 
