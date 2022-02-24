@@ -30,6 +30,29 @@ public class OwnershipDiffer implements Differ {
     assert (currentValue != null);
     Ownership baseOwnership = getOwnershipFromAspect(previousValue);
     Ownership targetOwnership = getOwnershipFromAspect(currentValue);
+    List<ChangeEvent> changeEvents = null;
+    if (element == ChangeCategory.OWNERSHIP) {
+      changeEvents = computeDiffs(baseOwnership, targetOwnership, currentValue.getUrn());
+    }
+
+    // Assess the highest change at the transaction(schema) level.
+    SemanticChangeType highestSemanticChange = SemanticChangeType.NONE;
+    if (changeEvents != null) {
+      ChangeEvent highestChangeEvent =
+          changeEvents.stream().max(Comparator.comparing(ChangeEvent::getSemVerChange)).orElse(null);
+      highestSemanticChange = highestChangeEvent.getSemVerChange();
+    }
+
+    return ChangeTransaction.builder()
+        .semVerChange(highestSemanticChange)
+        .changeEvents(changeEvents)
+        .timestamp(currentValue.getCreatedOn().getTime())
+        .rawDiff(rawDiffsRequested ? rawDiff : null)
+        .actor(currentValue.getCreatedBy())
+        .build();
+  }
+
+  private List<ChangeEvent> computeDiffs(Ownership baseOwnership, Ownership targetOwnership, String entityUrn) {
     sortOwnersByUrn(baseOwnership);
     sortOwnersByUrn(targetOwnership);
     List<ChangeEvent> changeEvents = new ArrayList<>();
@@ -60,25 +83,25 @@ public class OwnershipDiffer implements Differ {
         // Owner got removed
         changeEvents.add(ChangeEvent.builder()
             .elementId(baseOwner.getOwner().toString())
-            .target(currentValue.getUrn())
+            .target(entityUrn)
             .category(ChangeCategory.OWNERSHIP)
             .changeType(ChangeOperation.REMOVE)
             .semVerChange(SemanticChangeType.MINOR)
             .description(String.format("Owner '%s' of the dataset '%s' has been removed.", baseOwner.getOwner().getId(),
-                currentValue.getUrn()))
+                entityUrn))
             .build());
         ++baseOwnerIdx;
       } else {
         // Owner got added.
         changeEvents.add(ChangeEvent.builder()
             .elementId(targetOwner.getOwner().toString())
-            .target(currentValue.getUrn())
+            .target(entityUrn)
             .category(ChangeCategory.OWNERSHIP)
             .changeType(ChangeOperation.ADD)
             .semVerChange(SemanticChangeType.MINOR)
             .description(
                 String.format("A new owner '%s' for the dataset '%s' has been added.", targetOwner.getOwner().getId(),
-                    currentValue.getUrn()))
+                    entityUrn))
             .build());
         ++targetOwnerIdx;
       }
@@ -89,12 +112,12 @@ public class OwnershipDiffer implements Differ {
       Owner baseOwner = baseOwners.get(baseOwnerIdx);
       changeEvents.add(ChangeEvent.builder()
           .elementId(baseOwner.getOwner().toString())
-          .target(currentValue.getUrn())
+          .target(entityUrn)
           .category(ChangeCategory.OWNERSHIP)
           .changeType(ChangeOperation.REMOVE)
           .semVerChange(SemanticChangeType.MINOR)
           .description(String.format("Owner '%s' of the dataset '%s' has been removed.", baseOwner.getOwner().getId(),
-              currentValue.getUrn()))
+              entityUrn))
           .build());
       ++baseOwnerIdx;
     }
@@ -103,32 +126,17 @@ public class OwnershipDiffer implements Differ {
       Owner targetOwner = targetOwners.get(targetOwnerIdx);
       changeEvents.add(ChangeEvent.builder()
           .elementId(targetOwner.getOwner().toString())
-          .target(currentValue.getUrn())
+          .target(entityUrn)
           .category(ChangeCategory.OWNERSHIP)
           .changeType(ChangeOperation.ADD)
           .semVerChange(SemanticChangeType.MINOR)
           .description(
               String.format("A new owner '%s' for the dataset '%s' has been added.", targetOwner.getOwner().getId(),
-                  currentValue.getUrn()))
+                  entityUrn))
           .build());
       ++targetOwnerIdx;
     }
-
-    // Assess the highest change at the transaction(schema) level.
-    SemanticChangeType highestSemanticChange = SemanticChangeType.NONE;
-    if (changeEvents.size() > 0) {
-      ChangeEvent highestChangeEvent =
-          changeEvents.stream().max(Comparator.comparing(ChangeEvent::getSemVerChange)).orElse(null);
-      highestSemanticChange = highestChangeEvent.getSemVerChange();
-    }
-
-    return ChangeTransaction.builder()
-        .semVerChange(highestSemanticChange)
-        .changeEvents(changeEvents.size() > 0 ? changeEvents : null)
-        .timestamp(currentValue.getCreatedOn().getTime())
-        .rawDiff(rawDiffsRequested ? rawDiff : null)
-        .actor(currentValue.getCreatedBy())
-        .build();
+    return changeEvents.size() > 0 ? changeEvents : null;
   }
 
   private Ownership getOwnershipFromAspect(EbeanAspectV2 ebeanAspectV2) {
