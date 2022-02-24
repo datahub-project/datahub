@@ -15,7 +15,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
-
 @Slf4j
 @RequiredArgsConstructor
 public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<Boolean>> {
@@ -37,6 +36,8 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
         return updateGlossaryTermDescription(targetUrn, input, environment.getContext());
       case Constants.TAG_ENTITY_NAME:
         return updateTagDescription(targetUrn, input, environment.getContext());
+      case Constants.CORP_GROUP_ENTITY_NAME:
+        return updateCorpGroupDescription(targetUrn, input, environment.getContext());
       default:
         throw new RuntimeException(
             String.format("Failed to update description. Unsupported resource type %s provided.", targetUrn));
@@ -156,6 +157,30 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
       try {
         Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
         DescriptionUtils.updateGlossaryTermDescription(
+            input.getDescription(),
+            targetUrn,
+            actor,
+            _entityService);
+        return true;
+      } catch (Exception e) {
+        log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
+        throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
+      }
+    });
+  }
+
+  private CompletableFuture<Boolean> updateCorpGroupDescription(Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
+    return CompletableFuture.supplyAsync(() -> {
+
+      if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
+        throw new AuthorizationException(
+            "Unauthorized to perform this action. Please contact your DataHub administrator.");
+      }
+      DescriptionUtils.validateCorpGroupInput(targetUrn, _entityService);
+
+      try {
+        Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
+        DescriptionUtils.updateCorpGroupDescription(
             input.getDescription(),
             targetUrn,
             actor,

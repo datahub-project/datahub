@@ -99,9 +99,11 @@ query listUsers($input: ListUsersInput!) {
                 fullName
                 email
             }
-            editableInfo {
+            editableProperties {
+                displayName
                 pictureLink
                 teams
+                title
                 skills
             }
             status
