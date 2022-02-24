@@ -59,7 +59,7 @@ public class EbeanTimelineService implements TimelineService {
       switch (elementName) {
         case TAG: {
           aspects.add(SCHEMA_METADATA_ASPECT_NAME);
-          _diffFactory.addDiffer(entityType, elementName, SCHEMA_METADATA_ASPECT_NAME, new BasicDiffer());
+          _diffFactory.addDiffer(entityType, elementName, SCHEMA_METADATA_ASPECT_NAME, new SchemaDiffer());
           aspects.add(EDITABLE_SCHEMA_METADATA_ASPECT_NAME);
           _diffFactory.addDiffer(entityType, elementName, EDITABLE_SCHEMA_METADATA_ASPECT_NAME, new BasicDiffer());
           aspects.add(GLOBAL_TAGS_ASPECT_NAME);
@@ -78,6 +78,8 @@ public class EbeanTimelineService implements TimelineService {
           _diffFactory.addDiffer(entityType, elementName, EDITABLE_DATASET_PROPERTIES_ASPECT_NAME, new BasicDiffer());
           aspects.add(DATASET_PROPERTIES_ASPECT_NAME);
           _diffFactory.addDiffer(entityType, elementName, DATASET_PROPERTIES_ASPECT_NAME, new BasicDiffer());
+          aspects.add(SCHEMA_METADATA_ASPECT_NAME);
+          _diffFactory.addDiffer(entityType, elementName, SCHEMA_METADATA_ASPECT_NAME, new SchemaDiffer());
         }
         break;
         case GLOSSARY_TERM: {

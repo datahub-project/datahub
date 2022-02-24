@@ -76,6 +76,9 @@ public class SchemaDiffer implements Differ {
     // Assess the highest change at the transaction(schema) level.
     SemanticChangeType highestSematicChange = SemanticChangeType.NONE;
     if (changeEvents != null) {
+      changeEvents = changeEvents.stream()
+          .filter(changeEvent -> changeEvent.getCategory() == element)
+          .collect(Collectors.toList());
       ChangeEvent highestChangeEvent =
           changeEvents.stream().max(Comparator.comparing(ChangeEvent::getSemVerChange)).orElse(null);
       if (highestChangeEvent != null) {
@@ -160,12 +163,10 @@ public class SchemaDiffer implements Differ {
       List<ChangeEvent> glossaryTermChangeEvents = new ArrayList<>();
       Set<TagAssociation> baseFieldTags = new HashSet<>(baseField.getGlobalTags().getTags());
       Set<TagAssociation> targetFieldTags = new HashSet<>(targetField.getGlobalTags().getTags());
-      Set<TagAssociation> removedTags = baseFieldTags.stream()
-          .filter(key -> !targetFieldTags.contains(key))
-          .collect(Collectors.toSet());
-      Set<TagAssociation> addedTags = targetFieldTags.stream()
-          .filter(key -> !baseFieldTags.contains(key))
-          .collect(Collectors.toSet());
+      Set<TagAssociation> removedTags =
+          baseFieldTags.stream().filter(key -> !targetFieldTags.contains(key)).collect(Collectors.toSet());
+      Set<TagAssociation> addedTags =
+          targetFieldTags.stream().filter(key -> !baseFieldTags.contains(key)).collect(Collectors.toSet());
       for (TagAssociation removedTag : removedTags) {
         // Global tags changed.
         glossaryTermChangeEvents.add(ChangeEvent.builder()
@@ -221,12 +222,10 @@ public class SchemaDiffer implements Differ {
       List<ChangeEvent> tagChangeEvents = new ArrayList<>();
       Set<GlossaryTermAssociation> baseFieldTerms = new HashSet<>(baseField.getGlossaryTerms().getTerms());
       Set<GlossaryTermAssociation> targetFieldTerms = new HashSet<>(targetField.getGlossaryTerms().getTerms());
-      Set<GlossaryTermAssociation> removedTerms = baseFieldTerms.stream()
-          .filter(key -> !targetFieldTerms.contains(key))
-          .collect(Collectors.toSet());
-      Set<GlossaryTermAssociation> addedTerms = targetFieldTerms.stream()
-          .filter(key -> !baseFieldTerms.contains(key))
-          .collect(Collectors.toSet());
+      Set<GlossaryTermAssociation> removedTerms =
+          baseFieldTerms.stream().filter(key -> !targetFieldTerms.contains(key)).collect(Collectors.toSet());
+      Set<GlossaryTermAssociation> addedTerms =
+          targetFieldTerms.stream().filter(key -> !baseFieldTerms.contains(key)).collect(Collectors.toSet());
       for (GlossaryTermAssociation removedTerm : removedTerms) {
         // Global tags changed.
         tagChangeEvents.add(ChangeEvent.builder()
@@ -417,9 +416,8 @@ public class SchemaDiffer implements Differ {
             : new HashSet<>();
     Set<String> targetPrimaryKeys =
         (targetSchema.getPrimaryKeys() != null) ? new HashSet<>(targetSchema.getPrimaryKeys()) : new HashSet<>();
-    Set<String> removedBaseKeys = basePrimaryKeys.stream()
-        .filter(key -> !targetPrimaryKeys.contains(key))
-        .collect(Collectors.toSet());
+    Set<String> removedBaseKeys =
+        basePrimaryKeys.stream().filter(key -> !targetPrimaryKeys.contains(key)).collect(Collectors.toSet());
     for (String removedBaseKeyField : removedBaseKeys) {
       primaryKeyChangeEvents.add(ChangeEvent.builder()
           .category(ChangeCategory.TECHNICAL_SCHEMA)
@@ -427,14 +425,12 @@ public class SchemaDiffer implements Differ {
           .target(datasetUrn.toString())
           .changeType(ChangeOperation.MODIFY)
           .semVerChange(SemanticChangeType.MAJOR)
-          .description(
-              BACKWARDS_INCOMPATIBLE_DESC + "removal of the primary key field '" + removedBaseKeyField + "'")
+          .description(BACKWARDS_INCOMPATIBLE_DESC + "removal of the primary key field '" + removedBaseKeyField + "'")
           .build());
     }
 
-    Set<String> addedTargetKeys = targetPrimaryKeys.stream()
-        .filter(key -> !basePrimaryKeys.contains(key))
-        .collect(Collectors.toSet());
+    Set<String> addedTargetKeys =
+        targetPrimaryKeys.stream().filter(key -> !basePrimaryKeys.contains(key)).collect(Collectors.toSet());
     for (String addedTargetKeyField : addedTargetKeys) {
       primaryKeyChangeEvents.add(ChangeEvent.builder()
           .category(ChangeCategory.TECHNICAL_SCHEMA)
