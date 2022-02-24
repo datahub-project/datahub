@@ -25,9 +25,10 @@ type Props = {
         [key in EntityType]?: Array<SearchResult>;
     };
     emptyMessage?: string;
+    menuItemChangeHook?: (string) => void;
 };
 
-export default function RelatedEntityResults({ searchResult, emptyMessage }: Props) {
+export default function RelatedEntityResults({ searchResult, emptyMessage, menuItemChangeHook }: Props) {
     const entityRegistry = useEntityRegistry();
     const menuOptions: Array<EntityType> = Object.keys(searchResult) as Array<EntityType>;
     const [selectedKey, setSelectedKey] = useState('');
@@ -35,11 +36,13 @@ export default function RelatedEntityResults({ searchResult, emptyMessage }: Pro
         if (menuOptions && menuOptions.length > 0 && selectedKey.length === 0) {
             const firstEntityType = entityRegistry.getPathName(menuOptions[0] as EntityType);
             setSelectedKey(firstEntityType);
+            menuItemChangeHook?.(firstEntityType);
         }
-    }, [menuOptions, entityRegistry, selectedKey]);
+    }, [menuOptions, entityRegistry, selectedKey, menuItemChangeHook]);
 
     const onMenuClick = ({ key }) => {
         setSelectedKey(key);
+        menuItemChangeHook?.(key);
     };
 
     return (
