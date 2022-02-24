@@ -19,6 +19,7 @@ import com.linkedin.metadata.timeline.ebean.differ.DiffFactory;
 import com.linkedin.metadata.timeline.ebean.differ.Differ;
 import com.linkedin.metadata.timeline.ebean.differ.EditableDatasetPropertiesDiffer;
 import com.linkedin.metadata.timeline.ebean.differ.GlobalTagsDiffer;
+import com.linkedin.metadata.timeline.ebean.differ.GlossaryTermsDiffer;
 import com.linkedin.metadata.timeline.ebean.differ.InstitutionalMemoryDiffer;
 import com.linkedin.metadata.timeline.ebean.differ.OwnershipDiffer;
 import com.linkedin.metadata.timeline.ebean.differ.SchemaDiffer;
@@ -96,7 +97,7 @@ public class EbeanTimelineService implements TimelineService {
         break;
         case GLOSSARY_TERM: {
           aspects.add(GLOSSARY_TERMS_ASPECT_NAME);
-          _diffFactory.addDiffer(entityType, elementName, GLOSSARY_TERMS_ASPECT_NAME, new BasicDiffer());
+          _diffFactory.addDiffer(entityType, elementName, GLOSSARY_TERMS_ASPECT_NAME, new GlossaryTermsDiffer());
         }
         break;
         case TECHNICAL_SCHEMA: {
