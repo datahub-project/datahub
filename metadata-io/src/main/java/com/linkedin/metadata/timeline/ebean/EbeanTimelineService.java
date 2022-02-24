@@ -16,6 +16,7 @@ import com.linkedin.metadata.timeline.data.SemanticChangeType;
 import com.linkedin.metadata.timeline.ebean.differ.BasicDiffer;
 import com.linkedin.metadata.timeline.ebean.differ.DiffFactory;
 import com.linkedin.metadata.timeline.ebean.differ.Differ;
+import com.linkedin.metadata.timeline.ebean.differ.GlobalTagsDiffer;
 import com.linkedin.metadata.timeline.ebean.differ.OwnershipDiffer;
 import com.linkedin.metadata.timeline.ebean.differ.SchemaDiffer;
 import java.sql.Timestamp;
@@ -68,7 +69,7 @@ public class EbeanTimelineService implements TimelineService {
           aspects.add(EDITABLE_SCHEMA_METADATA_ASPECT_NAME);
           _diffFactory.addDiffer(entityType, elementName, EDITABLE_SCHEMA_METADATA_ASPECT_NAME, new BasicDiffer());
           aspects.add(GLOBAL_TAGS_ASPECT_NAME);
-          _diffFactory.addDiffer(entityType, elementName, GLOBAL_TAGS_ASPECT_NAME, new BasicDiffer());
+          _diffFactory.addDiffer(entityType, elementName, GLOBAL_TAGS_ASPECT_NAME, new GlobalTagsDiffer());
         }
         break;
         case OWNERSHIP: {
