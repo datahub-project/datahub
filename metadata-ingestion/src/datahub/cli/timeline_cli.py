@@ -6,13 +6,12 @@ from datetime import datetime
 from typing import Any, List, Optional
 
 import click
-from click.exceptions import UsageError
-from requests import Response
-from termcolor import colored
-
 import datahub.cli.cli_utils
+from click.exceptions import UsageError
 from datahub.emitter.mce_builder import dataset_urn_to_key, schema_field_urn_to_key
 from datahub.telemetry import telemetry
+from requests import Response
+from termcolor import colored
 
 logger = logging.getLogger(__name__)
 
@@ -198,19 +197,20 @@ def timeline(
             print(
                 f"{colored(change_instant,'blue')} - {colored(change_txn['semVer'],change_color)}"
             )
-            for change_event in change_txn["changeEvents"]:
-                element_string = (
-                    f"({pretty_id(change_event.get('elementId'))})"
-                    if change_event.get("elementId")
-                    else ""
-                )
-                event_change_color: str = (
-                    "green" if change_event.get("semVerChange") == "MINOR" else "red"
-                )
-                target_string = pretty_id(change_event.get("target") or "")
-                print(
-                    f"\t{colored(change_event['changeType'],event_change_color)} {change_event.get('category')} {target_string} {element_string}: {change_event['description']}"
-                )
+            if change_txn["changeEvents"] is not None:
+                for change_event in change_txn["changeEvents"]:
+                    element_string = (
+                        f"({pretty_id(change_event.get('elementId'))})"
+                        if change_event.get("elementId")
+                        else ""
+                    )
+                    event_change_color: str = (
+                        "green" if change_event.get("semVerChange") == "MINOR" else "red"
+                    )
+                    target_string = pretty_id(change_event.get("target") or "")
+                    print(
+                        f"\t{colored(change_event['changeType'],event_change_color)} {change_event.get('category')} {target_string} {element_string}: {change_event['description']}"
+                    )
     else:
         click.echo(
             json.dumps(
