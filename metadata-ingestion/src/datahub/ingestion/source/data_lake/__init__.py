@@ -2,7 +2,7 @@ import logging
 import os
 from datetime import datetime
 from math import log10
-from typing import Any, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 import parse
 import pydeequ
@@ -115,7 +115,14 @@ def get_column_type(
     return SchemaFieldDataType(type=TypeClass())
 
 
-# flags to emit telemetry for
+# config flags to emit telemetry for
+config_options_to_report = [
+    "platform",
+    "use_relative_path",
+    "ignore_dotfiles",
+]
+
+# profiling flags to emit telemetry for
 profiling_flags_to_report = [
     "profile_table_level_only",
     "include_field_null_count",
@@ -145,27 +152,25 @@ class DataLakeSource(Source):
         self.report = DataLakeSourceReport()
         self.profiling_times_taken = []
 
+        config_report = {
+            config_option: config.dict().get(config_option)
+            for config_option in config_options_to_report
+        }
+        config_report = {**config_report, "profiling_enabled": config.profiling.enabled}
+
         telemetry.telemetry_instance.ping(
-            "data_lake_profiling",
-            "config",
-            "enabled",
-            1 if config.profiling.enabled else 0,
+            "data_lake_config",
+            config_report,
         )
 
         if config.profiling.enabled:
-
-            for config_flag in profiling_flags_to_report:
-                config_value = getattr(config.profiling, config_flag)
-                config_int = (
-                    1 if config_value else 0
-                )  # convert to int so it can be emitted as a value
-
-                telemetry.telemetry_instance.ping(
-                    "data_lake_profiling",
-                    "config",
-                    config_flag,
-                    config_int,
-                )
+            telemetry.telemetry_instance.ping(
+                "data_lake_profiling_config",
+                {
+                    config_flag: config.profiling.dict().get(config_flag)
+                    for config_flag in profiling_flags_to_report
+                },
+            )
 
         conf = SparkConf()
 
@@ -242,11 +247,7 @@ class DataLakeSource(Source):
 
         extension = os.path.splitext(file)[1]
 
-        telemetry.telemetry_instance.ping(
-            "data_lake_profiling",
-            "file_extension",
-            extension,
-        )
+        telemetry.telemetry_instance.ping("data_lake_file", {"extension": extension})
 
         if file.endswith(".parquet"):
             df = self.spark.read.parquet(file)
@@ -549,30 +550,30 @@ class DataLakeSource(Source):
                 f"Profiling {len(self.profiling_times_taken)} table(s) finished in {total_time_taken:.3f} seconds"
             )
 
-            telemetry.telemetry_instance.ping(
-                "data_lake_profiling",
-                "time_taken_total",
-                # bucket by taking floor of log of time taken
-                # report the bucket as a label so the count is not collapsed
-                str(10 ** int(log10(total_time_taken + 1))),
-            )
+            time_percentiles: Dict[str, float] = {}
 
             if len(self.profiling_times_taken) > 0:
-
                 percentiles = [50, 75, 95, 99]
-
                 percentile_values = stats.calculate_percentiles(
                     self.profiling_times_taken, percentiles
                 )
 
-                for percentile in percentiles:
-                    telemetry.telemetry_instance.ping(
-                        "data_lake_profiling",
-                        f"time_taken_p{percentile}",
-                        # bucket by taking floor of log of time taken
-                        # report the bucket as a label so the count is not collapsed
-                        str(10 ** int(log10(percentile_values[percentile] + 1))),
-                    )
+                time_percentiles = {
+                    f"table_time_taken_p{percentile}": 10
+                    ** int(log10(percentile_values[percentile] + 1))
+                    for percentile in percentiles
+                }
+
+            telemetry.telemetry_instance.ping(
+                "data_lake_profiling_summary",
+                # bucket by taking floor of log of time taken
+                {
+                    "total_time_taken": 10 ** int(log10(total_time_taken + 1)),
+                    "count": 10 ** int(log10(len(self.profiling_times_taken) + 1)),
+                    "platform": self.source_config.platform,
+                    **time_percentiles,
+                },
+            )
 
     def get_report(self):
         return self.report
