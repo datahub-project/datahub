@@ -41,10 +41,11 @@ public class TimelineController {
       @PathVariable("urn") String rawUrn,
       @RequestParam(defaultValue = "-1") long start,
       @RequestParam(defaultValue = "0") long end,
-      @RequestParam(required = false) String startVersionStamp,
-      @RequestParam(required = false) String endVersionStamp,
       @RequestParam(defaultValue = "false") boolean raw,
       @RequestParam Set<ChangeCategory> categories) throws URISyntaxException, JsonProcessingException {
+    // Make request params when implemented
+    String startVersionStamp = null;
+    String endVersionStamp = null;
     Urn urn = Urn.createFromString(rawUrn);
     return ResponseEntity.ok(_timelineService.getTimeline(urn, categories, start, end, startVersionStamp, endVersionStamp, raw));
   }
