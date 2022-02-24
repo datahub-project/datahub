@@ -891,6 +891,7 @@ class KafkaConnectSource(Source):
                             source_platform,
                             source_dataset,
                             platform_instance=source_platform_instance,
+                            env=self.config.env
                         )
                     ]
                     if source_dataset
@@ -901,6 +902,7 @@ class KafkaConnectSource(Source):
                         target_platform,
                         target_dataset,
                         platform_instance=target_platform_instance,
+                        env=self.config.env
                     )
                 ]
 
