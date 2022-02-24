@@ -1,18 +1,13 @@
 import { Button, Empty, Image, Tag, Tooltip, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import {
-    CheckCircleOutlined,
-    CloseCircleOutlined,
-    DeleteOutlined,
-    DownOutlined,
-    RightOutlined,
-} from '@ant-design/icons';
+import { DeleteOutlined, DownOutlined, RightOutlined, StopOutlined } from '@ant-design/icons';
 import { useGetDatasetAssertionsQuery } from '../../../../../../graphql/dataset.generated';
 import { DatasetAssertionDescription } from './descriptions/DatasetAssertionDescription';
 import { StyledTable } from '../../../components/styled/StyledTable';
 import { AssertionDetails } from './AssertionDetails';
 import { Assertion, AssertionResultType, AssertionRunStatus } from '../../../../../../types.generated';
+import { getResultColor, getResultIcon, getResultText } from './assertionUtils';
 
 const ActionButtonContainer = styled.div`
     display: flex;
@@ -31,22 +26,28 @@ export const AssertionsList = ({ urn }: { urn: string }) => {
         (data && data.dataset?.assertions?.relationships?.map((relationship) => relationship.entity as Assertion)) ||
         [];
 
+    // Pre-sort the list of assertions based on which has been most recently executed.
+    assertions.sort((a, b) => {
+        if (!a.runEvents?.length) {
+            return 1;
+        }
+        if (!b.runEvents?.length) {
+            return -1;
+        }
+        return b.runEvents[0].timestampMillis - a.runEvents[0].timestampMillis;
+    });
+
     const tableColumns = [
         {
             title: 'Last Result',
             dataIndex: 'lastExecResult',
             key: 'lastExecResult',
-            render: (lastExecResult: string, record: any) => {
+            render: (lastExecResult: AssertionResultType, record: any) => {
                 const executionDate = record.lastExecTime && new Date(record.lastExecTime);
-                const localTime = executionDate && `${executionDate.toUTCString()}`;
-                const resultColor = lastExecResult === AssertionResultType.Success ? 'green' : 'red';
-                const resultText = lastExecResult === AssertionResultType.Success ? 'Passed' : 'Failed';
-                const resultIcon =
-                    lastExecResult === AssertionResultType.Success ? (
-                        <CheckCircleOutlined style={{ color: resultColor }} />
-                    ) : (
-                        <CloseCircleOutlined style={{ color: resultColor }} />
-                    );
+                const localTime = executionDate && `${executionDate.toLocaleDateString()}`;
+                const resultColor = (lastExecResult && getResultColor(lastExecResult)) || 'default';
+                const resultText = (lastExecResult && getResultText(lastExecResult)) || 'No Evaluations';
+                const resultIcon = (lastExecResult && getResultIcon(lastExecResult)) || <StopOutlined />;
                 const assertionEntityType = record.type;
                 if (assertionEntityType !== 'DATASET') {
                     throw new Error(`Unsupported Assertion Type ${assertionEntityType} found.`);
@@ -60,7 +61,7 @@ export const AssertionsList = ({ urn }: { urn: string }) => {
                         }}
                     >
                         <div>
-                            <Tooltip title={`Last evaluated at ${localTime}`}>
+                            <Tooltip title={(localTime && `Last evaluated on ${localTime}`) || 'No Evaluations'}>
                                 <Tag color={resultColor}>
                                     {resultIcon}
                                     <Typography.Text style={{ marginLeft: 8, color: resultColor }}>
@@ -72,6 +73,7 @@ export const AssertionsList = ({ urn }: { urn: string }) => {
                         <DatasetAssertionDescription
                             assertionInfo={record.datasetAssertionInfo}
                             parameters={record.parameters}
+                            logic={record.logic}
                         />
                     </span>
                 );
@@ -114,6 +116,7 @@ export const AssertionsList = ({ urn }: { urn: string }) => {
             assertion.runEvents[0].result?.type,
         datasetAssertionInfo: assertion.info?.datasetAssertion,
         parameters: assertion.info?.parameters,
+        logic: assertion.info?.logic,
     }));
 
     return (
@@ -127,7 +130,7 @@ export const AssertionsList = ({ urn }: { urn: string }) => {
                 }}
                 expandable={{
                     expandedRowRender: (record) => {
-                        return <AssertionDetails urn={record.urn} />;
+                        return <AssertionDetails urn={record.urn} lastReportedAt={record.lastExecTime} />;
                     },
                     defaultExpandAllRows: false,
                     indentSize: 0,

@@ -1,30 +1,33 @@
+import { Tooltip, Typography } from 'antd';
 import { SelectValue } from 'antd/lib/select';
 import React, { useEffect, useState } from 'react';
+import styled from 'styled-components';
 import { useGetAssertionRunsLazyQuery } from '../../../../../../graphql/dataset.generated';
-import {
-    AssertionInfo,
-    AssertionResultType,
-    AssertionRunEvent,
-    AssertionRunStatus,
-} from '../../../../../../types.generated';
-import { getFixedLookbackWindow } from '../../../../../shared/time/timeUtils';
+import { AssertionResultType, AssertionRunEvent, AssertionRunStatus } from '../../../../../../types.generated';
+import { formatNumber } from '../../../../../shared/formatNumber';
+import { getFixedLookbackWindow, getLocaleTimezone } from '../../../../../shared/time/timeUtils';
+import { ANTD_GRAY } from '../../../constants';
 import PrefixedSelect from '../Stats/historical/shared/PrefixedSelect';
 import { LOOKBACK_WINDOWS } from '../Stats/lookbackWindows';
+import { getResultColor, getResultIcon, getResultMessage, getResultText } from './assertionUtils';
 import { BooleanTimeline } from './BooleanTimeline';
+
+const ReportedAtLabel = styled.div`
+    padding: 0;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    color: ${ANTD_GRAY[7]};
+`;
 
 type Props = {
     urn: string;
+    lastReportedAt?: number | undefined;
 };
 
-const computeResultMessage = (assertionInfo: AssertionInfo, runEvent: AssertionRunEvent) => {
-    console.log(assertionInfo);
-    console.log(runEvent);
-    return 'Yay';
-};
-
-export const AssertionDetails = ({ urn }: Props) => {
+export const AssertionDetails = ({ urn, lastReportedAt }: Props) => {
     const [getAssertionRuns, { data }] = useGetAssertionRunsLazyQuery();
-    const [lookbackWindow, setLookbackWindow] = useState(LOOKBACK_WINDOWS.MONTH);
+    const [lookbackWindow, setLookbackWindow] = useState(LOOKBACK_WINDOWS.WEEK);
 
     useEffect(() => {
         getAssertionRuns({
@@ -32,51 +35,122 @@ export const AssertionDetails = ({ urn }: Props) => {
         });
     }, [urn, lookbackWindow, getAssertionRuns]);
 
-    const selectedWindow = getFixedLookbackWindow(lookbackWindow.windowSize);
-
-    // Compute Assertion Graph Data
-    const timeRange = {
-        startMs: selectedWindow.startTime,
-        endMs: selectedWindow.endTime,
-    };
-
-    const chartData =
-        (data &&
-            data.assertion?.runEvents
-                ?.filter((runEvent) => runEvent.status === AssertionRunStatus.Complete)
-                .map((runEvent) => {
-                    const { result } = runEvent;
-                    const resultMessage =
-                        data.assertion?.info &&
-                        computeResultMessage(data.assertion?.info, runEvent as AssertionRunEvent); // Message depends on the assertion type itself.
-                    const resultTitle = result?.type === AssertionResultType.Success ? 'Succeeded' : 'Failed';
-                    return {
-                        time: runEvent.timestampMillis,
-                        result: {
-                            title: resultTitle,
-                            content: resultMessage,
-                            result: result?.type !== AssertionResultType.Failure,
-                        },
-                    };
-                })) ||
-        [];
-
-    console.log(chartData);
-
     const onChangeLookbackWindow = (value: SelectValue) => {
         const newLookbackWindow = Object.values(LOOKBACK_WINDOWS).filter((window) => window.text === value?.valueOf());
         setLookbackWindow(newLookbackWindow[0]);
     };
 
+    const selectedWindow = getFixedLookbackWindow(lookbackWindow.windowSize);
+
+    const selectedWindowTimeRange = {
+        startMs: selectedWindow.startTime,
+        endMs: selectedWindow.endTime,
+    };
+
+    const chartData =
+        data?.assertion?.runEvents
+            ?.filter((runEvent) => runEvent.status === AssertionRunStatus.Complete)
+            .map((runEvent) => {
+                const { result } = runEvent;
+
+                const resultTitle = result && (
+                    <>
+                        <span style={{ marginRight: 8 }}>{getResultIcon(result.type)}</span>
+                        <Typography.Text strong>{getResultText(result.type)}</Typography.Text>
+                    </>
+                );
+
+                const resultMessage =
+                    data.assertion?.info && getResultMessage(data.assertion.info, runEvent as AssertionRunEvent);
+                const resultTime = new Date(runEvent.timestampMillis);
+                const localTime = resultTime.toLocaleString();
+                const gmtTime = resultTime.toUTCString();
+
+                const resultContent = (
+                    <>
+                        <div style={{ marginBottom: 4 }}>{resultMessage}</div>
+                        <div>
+                            <Tooltip title={`${gmtTime}`}>
+                                <Typography.Text type="secondary">{localTime}</Typography.Text>
+                            </Tooltip>
+                        </div>
+                    </>
+                );
+
+                return {
+                    time: runEvent.timestampMillis,
+                    result: {
+                        title: resultTitle,
+                        content: resultContent,
+                        result: result?.type !== AssertionResultType.Failure,
+                    },
+                };
+            }) || [];
+
+    const resolvedReportedAt = lastReportedAt
+        ? new Date(lastReportedAt)
+        : (data?.assertion?.runEvents?.length && new Date(data?.assertion?.runEvents[0].timestampMillis)) || undefined;
+
+    const localeTimezone = getLocaleTimezone();
+    const lastEvaluatedTimeLocal =
+        (resolvedReportedAt &&
+            `Last evaluated on ${resolvedReportedAt.toLocaleDateString()} at ${resolvedReportedAt.toLocaleTimeString()} (${localeTimezone})`) ||
+        'No evaluations found';
+    const lastEvaluatedTimeGMT = resolvedReportedAt && resolvedReportedAt.toUTCString();
+    const startDate = new Date(selectedWindowTimeRange.startMs).toLocaleDateString('en-us', {
+        month: 'short',
+        day: 'numeric',
+    });
+    const endDate = new Date(selectedWindowTimeRange.endMs).toLocaleDateString('en-us', {
+        month: 'short',
+        day: 'numeric',
+    });
+
     return (
-        <>
-            <PrefixedSelect
-                prefixText="Show past "
-                values={Object.values(LOOKBACK_WINDOWS).map((window) => window.text)}
-                value={lookbackWindow.text}
-                setValue={onChangeLookbackWindow}
-            />
-            <BooleanTimeline data={chartData} timeRange={timeRange} />
-        </>
+        <div style={{ width: '100%', paddingLeft: 40 }}>
+            <div>
+                <Typography.Title level={5}>Evaluations</Typography.Title>
+                <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between' }}>
+                    <Tooltip title={lastEvaluatedTimeGMT}>
+                        <ReportedAtLabel>{lastEvaluatedTimeLocal}</ReportedAtLabel>
+                    </Tooltip>
+                </div>
+                <div style={{ width: 800, paddingTop: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <div
+                            style={{
+                                width: 250,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                            }}
+                        >
+                            <Typography.Text strong>
+                                {startDate} - {endDate}
+                            </Typography.Text>
+                            <span>
+                                <Typography.Text style={{ color: getResultColor(AssertionResultType.Success) }}>
+                                    {formatNumber(1)}
+                                </Typography.Text>{' '}
+                                passes
+                            </span>
+                            <span>
+                                <Typography.Text style={{ color: getResultColor(AssertionResultType.Failure) }}>
+                                    {formatNumber(0)}
+                                </Typography.Text>{' '}
+                                fails
+                            </span>
+                        </div>
+                        <PrefixedSelect
+                            prefixText="Show "
+                            values={Object.values(LOOKBACK_WINDOWS).map((window) => window.text)}
+                            value={lookbackWindow.text}
+                            setValue={onChangeLookbackWindow}
+                        />
+                    </div>
+                    <BooleanTimeline width={800} data={chartData} timeRange={selectedWindowTimeRange} />
+                </div>
+            </div>
+        </div>
     );
 };

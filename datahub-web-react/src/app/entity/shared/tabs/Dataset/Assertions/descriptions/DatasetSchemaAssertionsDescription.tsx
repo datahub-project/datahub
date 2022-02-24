@@ -25,6 +25,13 @@ export const DatasetSchemaAssertionDescription = ({ assertion, parameters }: Pro
             // TODO: Determine why this is considered an aggregation.
             description = <Typography.Text>Dataset columns are {opText}</Typography.Text>;
             break;
+        case DatasetSchemaStdAggFunc.Native:
+            description = (
+                <Typography.Text>
+                    {assertion.nativeAggFunc} is {opText}
+                </Typography.Text>
+            );
+            break;
         default:
             throw new Error(`Unsupported schema aggregation assertion ${agg} provided.`);
     }

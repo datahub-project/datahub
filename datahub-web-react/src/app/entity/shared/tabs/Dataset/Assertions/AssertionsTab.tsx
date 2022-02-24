@@ -1,12 +1,23 @@
+import { FileProtectOutlined } from '@ant-design/icons';
+import { Button } from 'antd';
 import React from 'react';
-import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
-import { useBaseEntity, useEntityData } from '../../../EntityContext';
+import TabToolbar from '../../../components/styled/TabToolbar';
+import { useEntityData } from '../../../EntityContext';
 import { AssertionsList } from './AssertionsList';
 
 export const AssertionTab = () => {
     const { entityData } = useEntityData();
-    const baseEntity = useBaseEntity<GetDatasetQuery>();
-    console.log(baseEntity);
-
-    return <>{entityData && <AssertionsList urn={entityData.urn as string} />}</>;
+    return (
+        <>
+            <TabToolbar>
+                <div>
+                    <Button type="text">
+                        <FileProtectOutlined />
+                        Assertions
+                    </Button>
+                </div>
+            </TabToolbar>
+            {entityData && <AssertionsList urn={entityData.urn as string} />}
+        </>
+    );
 };

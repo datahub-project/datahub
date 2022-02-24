@@ -27,34 +27,38 @@ export const validateParameters = (parameters: Map<string, string> | undefined, 
     return parameters;
 };
 
+const getFormattedParameterValue = (parameters, name) => {
+    const value = parameters.get(name);
+    return Number.isNaN(Number(value as any)) ? value : parseFloat(value as string).toLocaleString();
+};
+
 export const getOpText = (
     op: AssertionStdOperator,
     nativeOp: string | undefined,
     parameters: Map<string, string> | undefined,
 ) => {
     switch (op) {
+        // Hybrid Operators
         case AssertionStdOperator.Between: {
             const validParameters = validateParameters(parameters, ['min_value', 'max_value']);
             return (
                 <Typography.Text>
                     between{' '}
                     <Typography.Text strong>
-                        {parseInt(validParameters.get('max_value') as string, 10).toLocaleString()}{' '}
+                        {getFormattedParameterValue(validParameters, 'min_value')}{' '}
                     </Typography.Text>
                     and{' '}
-                    <Typography.Text strong>
-                        {parseInt(validParameters.get('min_value') as string, 10).toLocaleString()}
-                    </Typography.Text>
+                    <Typography.Text strong>{getFormattedParameterValue(validParameters, 'max_value')}</Typography.Text>
                 </Typography.Text>
             );
         }
-        // Hybrid Operators
         case AssertionStdOperator.EqualTo: {
             const validParameters = validateParameters(parameters, ['value']);
             const operatorText = 'equal to';
             return (
                 <Typography.Text>
-                    {operatorText} <Typography.Text strong>{validParameters.get('value') as string} </Typography.Text>
+                    {operatorText}{' '}
+                    <Typography.Text strong>{getFormattedParameterValue(validParameters, 'value')}</Typography.Text>
                 </Typography.Text>
             );
         }
@@ -63,7 +67,8 @@ export const getOpText = (
             const operatorText = 'contains';
             return (
                 <Typography.Text>
-                    {operatorText} <Typography.Text strong>{validParameters.get('value') as string} </Typography.Text>
+                    {operatorText}{' '}
+                    <Typography.Text strong>{getFormattedParameterValue(validParameters, 'value')} </Typography.Text>
                 </Typography.Text>
             );
         }
@@ -72,7 +77,8 @@ export const getOpText = (
             const operatorText = 'in';
             return (
                 <Typography.Text>
-                    {operatorText} <Typography.Text strong>{validParameters.get('value') as string} </Typography.Text>
+                    {operatorText}{' '}
+                    <Typography.Text strong>{getFormattedParameterValue(validParameters, 'value')} </Typography.Text>
                 </Typography.Text>
             );
         }
@@ -87,9 +93,7 @@ export const getOpText = (
             return (
                 <Typography.Text>
                     {operatorText}{' '}
-                    <Typography.Text strong>
-                        {parseInt(validParameters.get('value') as string, 10).toLocaleString()}{' '}
-                    </Typography.Text>
+                    <Typography.Text strong>{getFormattedParameterValue(validParameters, 'value')} </Typography.Text>
                 </Typography.Text>
             );
         }
@@ -99,9 +103,7 @@ export const getOpText = (
             return (
                 <Typography.Text>
                     {operatorText}{' '}
-                    <Typography.Text strong>
-                        {parseInt(validParameters.get('value') as string, 10).toLocaleString()}{' '}
-                    </Typography.Text>
+                    <Typography.Text strong>{getFormattedParameterValue(validParameters, 'value')} </Typography.Text>
                 </Typography.Text>
             );
         }
@@ -111,9 +113,7 @@ export const getOpText = (
             return (
                 <Typography.Text>
                     {operatorText}{' '}
-                    <Typography.Text strong>
-                        {parseInt(validParameters.get('value') as string, 10).toLocaleString()}{' '}
-                    </Typography.Text>
+                    <Typography.Text strong>{getFormattedParameterValue(validParameters, 'value')} </Typography.Text>
                 </Typography.Text>
             );
         }
@@ -123,9 +123,7 @@ export const getOpText = (
             return (
                 <Typography.Text>
                     {operatorText}{' '}
-                    <Typography.Text strong>
-                        {parseInt(validParameters.get('value') as string, 10).toLocaleString()}{' '}
-                    </Typography.Text>
+                    <Typography.Text strong>{getFormattedParameterValue(validParameters, 'value')} </Typography.Text>
                 </Typography.Text>
             );
         }
@@ -149,8 +147,11 @@ export const getOpText = (
             );
         }
         case AssertionStdOperator.Native: {
-            const operatorText = `meets condition ${nativeOp} given parameters ${parameters}`;
-            return <Typography.Text>{operatorText}</Typography.Text>;
+            return (
+                <Typography.Text>
+                    matching assertion <Typography.Text strong>{nativeOp}</Typography.Text>
+                </Typography.Text>
+            );
         }
         default:
             throw new Error(`Unsupported assertion operator ${op} provided.`);

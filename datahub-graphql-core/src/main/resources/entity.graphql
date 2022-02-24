@@ -4318,6 +4318,11 @@ type AssertionInfo {
     Parameters required for the assertion. e.g. min_value, max_value, value, columns
     """
     parameters: [StringMapEntry!]
+
+    """
+    Raw logic for an Assertion
+    """
+    logic: String
 }
 
 type DatasetAssertionInfo {

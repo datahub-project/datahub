@@ -137,7 +137,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     },
                 },
                 {
-                    name: 'Assertions',
+                    name: 'Validation',
                     component: AssertionTab,
                     display: {
                         visible: (_, _1) => true,

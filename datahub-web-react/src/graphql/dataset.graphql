@@ -201,6 +201,7 @@ query getDatasetAssertions($urn: String!) {
                                 key
                                 value
                             }
+                            logic
                         }
                         runEvents(limit: 1) {
                             timestampMillis
@@ -259,6 +260,7 @@ query getAssertionRuns($assertionUrn: String!, $limit: Int, $startTime: Long, $e
                 fieldUrns
                 fieldPaths
             }
+            logic
         }
         runEvents(limit: $limit, startTimeMillis: $startTime, endTimeMillis: $endTime) {
             timestampMillis
