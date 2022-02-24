@@ -24,39 +24,7 @@ public class GlossaryTermsDiffer implements Differ {
   private static final String GLOSSARY_TERM_REMOVED_FORMAT =
       "The GlossaryTerm '%s' for the entity '%s' has been removed.";
 
-  @Override
-  public ChangeTransaction getSemanticDiff(EbeanAspectV2 previousValue, EbeanAspectV2 currentValue,
-      ChangeCategory element, JsonPatch rawDiff, boolean rawDiffsRequested) {
-    if (!previousValue.getAspect().equals(GLOSSARY_TERMS_ASPECT_NAME) || !currentValue.getAspect()
-        .equals(GLOSSARY_TERMS_ASPECT_NAME)) {
-      throw new IllegalArgumentException("Aspect is not " + GLOSSARY_TERMS_ASPECT_NAME);
-    }
-    assert (currentValue != null);
-    GlossaryTerms baseGlossaryTerms = getGlossaryTermsFromAspect(previousValue);
-    GlossaryTerms targetGlossaryTerms = getGlossaryTermsFromAspect(currentValue);
-    List<ChangeEvent> changeEvents = new ArrayList<>();
-    if (element == ChangeCategory.GLOSSARY_TERM) {
-      changeEvents.addAll(computeDiffs(baseGlossaryTerms, targetGlossaryTerms, currentValue.getUrn()));
-    }
-
-    // Assess the highest change at the transaction(schema) level.
-    SemanticChangeType highestSemanticChange = SemanticChangeType.NONE;
-    ChangeEvent highestChangeEvent =
-        changeEvents.stream().max(Comparator.comparing(ChangeEvent::getSemVerChange)).orElse(null);
-    if (highestChangeEvent != null) {
-      highestSemanticChange = highestChangeEvent.getSemVerChange();
-    }
-
-    return ChangeTransaction.builder()
-        .semVerChange(highestSemanticChange)
-        .changeEvents(changeEvents)
-        .timestamp(currentValue.getCreatedOn().getTime())
-        .rawDiff(rawDiffsRequested ? rawDiff : null)
-        .actor(currentValue.getCreatedBy())
-        .build();
-  }
-
-  private List<ChangeEvent> computeDiffs(GlossaryTerms baseGlossaryTerms, GlossaryTerms targetGlossaryTerms,
+  public static List<ChangeEvent> computeDiffs(GlossaryTerms baseGlossaryTerms, GlossaryTerms targetGlossaryTerms,
       String entityUrn) {
     sortGlossaryTermsByGlossaryTermUrn(baseGlossaryTerms);
     sortGlossaryTermsByGlossaryTermUrn(targetGlossaryTerms);
@@ -132,19 +100,51 @@ public class GlossaryTermsDiffer implements Differ {
     return changeEvents.size() > 0 ? changeEvents : null;
   }
 
-  private GlossaryTerms getGlossaryTermsFromAspect(EbeanAspectV2 ebeanAspectV2) {
-    if (ebeanAspectV2 != null) {
-      return RecordUtils.toRecordTemplate(GlossaryTerms.class, ebeanAspectV2.getMetadata());
-    }
-    return null;
-  }
-
-  private void sortGlossaryTermsByGlossaryTermUrn(GlossaryTerms globalGlossaryTerms) {
+  private static void sortGlossaryTermsByGlossaryTermUrn(GlossaryTerms globalGlossaryTerms) {
     if (globalGlossaryTerms == null) {
       return;
     }
     List<GlossaryTermAssociation> glossaryTerms = new ArrayList<>(globalGlossaryTerms.getTerms());
     glossaryTerms.sort(Comparator.comparing(GlossaryTermAssociation::getUrn, Comparator.comparing(Urn::toString)));
     globalGlossaryTerms.setTerms(new GlossaryTermAssociationArray(glossaryTerms));
+  }
+
+  private static GlossaryTerms getGlossaryTermsFromAspect(EbeanAspectV2 ebeanAspectV2) {
+    if (ebeanAspectV2 != null) {
+      return RecordUtils.toRecordTemplate(GlossaryTerms.class, ebeanAspectV2.getMetadata());
+    }
+    return null;
+  }
+
+  @Override
+  public ChangeTransaction getSemanticDiff(EbeanAspectV2 previousValue, EbeanAspectV2 currentValue,
+      ChangeCategory element, JsonPatch rawDiff, boolean rawDiffsRequested) {
+    if (!previousValue.getAspect().equals(GLOSSARY_TERMS_ASPECT_NAME) || !currentValue.getAspect()
+        .equals(GLOSSARY_TERMS_ASPECT_NAME)) {
+      throw new IllegalArgumentException("Aspect is not " + GLOSSARY_TERMS_ASPECT_NAME);
+    }
+    assert (currentValue != null);
+    GlossaryTerms baseGlossaryTerms = getGlossaryTermsFromAspect(previousValue);
+    GlossaryTerms targetGlossaryTerms = getGlossaryTermsFromAspect(currentValue);
+    List<ChangeEvent> changeEvents = new ArrayList<>();
+    if (element == ChangeCategory.GLOSSARY_TERM) {
+      changeEvents.addAll(computeDiffs(baseGlossaryTerms, targetGlossaryTerms, currentValue.getUrn()));
+    }
+
+    // Assess the highest change at the transaction(schema) level.
+    SemanticChangeType highestSemanticChange = SemanticChangeType.NONE;
+    ChangeEvent highestChangeEvent =
+        changeEvents.stream().max(Comparator.comparing(ChangeEvent::getSemVerChange)).orElse(null);
+    if (highestChangeEvent != null) {
+      highestSemanticChange = highestChangeEvent.getSemVerChange();
+    }
+
+    return ChangeTransaction.builder()
+        .semVerChange(highestSemanticChange)
+        .changeEvents(changeEvents)
+        .timestamp(currentValue.getCreatedOn().getTime())
+        .rawDiff(rawDiffsRequested ? rawDiff : null)
+        .actor(currentValue.getCreatedBy())
+        .build();
   }
 }

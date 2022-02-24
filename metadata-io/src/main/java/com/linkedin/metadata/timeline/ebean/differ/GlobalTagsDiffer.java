@@ -20,39 +20,8 @@ import static com.linkedin.metadata.Constants.*;
 
 
 public class GlobalTagsDiffer implements Differ {
-  @Override
-  public ChangeTransaction getSemanticDiff(EbeanAspectV2 previousValue, EbeanAspectV2 currentValue,
-      ChangeCategory element, JsonPatch rawDiff, boolean rawDiffsRequested) {
-    if (!previousValue.getAspect().equals(GLOBAL_TAGS_ASPECT_NAME) || !currentValue.getAspect()
-        .equals(GLOBAL_TAGS_ASPECT_NAME)) {
-      throw new IllegalArgumentException("Aspect is not " + GLOBAL_TAGS_ASPECT_NAME);
-    }
-    assert (currentValue != null);
-    GlobalTags baseGlobalTags = getGlobalTagsFromAspect(previousValue);
-    GlobalTags targetGlobalTags = getGlobalTagsFromAspect(currentValue);
-    List<ChangeEvent> changeEvents = new ArrayList<>();
-    if (element == ChangeCategory.TAG) {
-      changeEvents.addAll(computeDiffs(baseGlobalTags, targetGlobalTags, currentValue.getUrn()));
-    }
-
-    // Assess the highest change at the transaction(schema) level.
-    SemanticChangeType highestSemanticChange = SemanticChangeType.NONE;
-    ChangeEvent highestChangeEvent =
-        changeEvents.stream().max(Comparator.comparing(ChangeEvent::getSemVerChange)).orElse(null);
-    if (highestChangeEvent != null) {
-      highestSemanticChange = highestChangeEvent.getSemVerChange();
-    }
-
-    return ChangeTransaction.builder()
-        .semVerChange(highestSemanticChange)
-        .changeEvents(changeEvents)
-        .timestamp(currentValue.getCreatedOn().getTime())
-        .rawDiff(rawDiffsRequested ? rawDiff : null)
-        .actor(currentValue.getCreatedBy())
-        .build();
-  }
-
-  private List<ChangeEvent> computeDiffs(GlobalTags baseGlobalTags, GlobalTags targetGlobalTags, String entityUrn) {
+  public static List<ChangeEvent> computeDiffs(GlobalTags baseGlobalTags, GlobalTags targetGlobalTags,
+      String entityUrn) {
     sortGlobalTagsByTagUrn(baseGlobalTags);
     sortGlobalTagsByTagUrn(targetGlobalTags);
     List<ChangeEvent> changeEvents = new ArrayList<>();
@@ -128,19 +97,51 @@ public class GlobalTagsDiffer implements Differ {
     return changeEvents.size() > 0 ? changeEvents : null;
   }
 
-  private GlobalTags getGlobalTagsFromAspect(EbeanAspectV2 ebeanAspectV2) {
-    if (ebeanAspectV2 != null && ebeanAspectV2.getMetadata() != null) {
-      return RecordUtils.toRecordTemplate(GlobalTags.class, ebeanAspectV2.getMetadata());
-    }
-    return null;
-  }
-
-  private void sortGlobalTagsByTagUrn(GlobalTags globalTags) {
+  private static void sortGlobalTagsByTagUrn(GlobalTags globalTags) {
     if (globalTags == null) {
       return;
     }
     List<TagAssociation> tags = new ArrayList<>(globalTags.getTags());
     tags.sort(Comparator.comparing(TagAssociation::getTag, Comparator.comparing(Urn::toString)));
     globalTags.setTags(new TagAssociationArray(tags));
+  }
+
+  private static GlobalTags getGlobalTagsFromAspect(EbeanAspectV2 ebeanAspectV2) {
+    if (ebeanAspectV2 != null && ebeanAspectV2.getMetadata() != null) {
+      return RecordUtils.toRecordTemplate(GlobalTags.class, ebeanAspectV2.getMetadata());
+    }
+    return null;
+  }
+
+  @Override
+  public ChangeTransaction getSemanticDiff(EbeanAspectV2 previousValue, EbeanAspectV2 currentValue,
+      ChangeCategory element, JsonPatch rawDiff, boolean rawDiffsRequested) {
+    if (!previousValue.getAspect().equals(GLOBAL_TAGS_ASPECT_NAME) || !currentValue.getAspect()
+        .equals(GLOBAL_TAGS_ASPECT_NAME)) {
+      throw new IllegalArgumentException("Aspect is not " + GLOBAL_TAGS_ASPECT_NAME);
+    }
+    assert (currentValue != null);
+    GlobalTags baseGlobalTags = getGlobalTagsFromAspect(previousValue);
+    GlobalTags targetGlobalTags = getGlobalTagsFromAspect(currentValue);
+    List<ChangeEvent> changeEvents = new ArrayList<>();
+    if (element == ChangeCategory.TAG) {
+      changeEvents.addAll(computeDiffs(baseGlobalTags, targetGlobalTags, currentValue.getUrn()));
+    }
+
+    // Assess the highest change at the transaction(schema) level.
+    SemanticChangeType highestSemanticChange = SemanticChangeType.NONE;
+    ChangeEvent highestChangeEvent =
+        changeEvents.stream().max(Comparator.comparing(ChangeEvent::getSemVerChange)).orElse(null);
+    if (highestChangeEvent != null) {
+      highestSemanticChange = highestChangeEvent.getSemVerChange();
+    }
+
+    return ChangeTransaction.builder()
+        .semVerChange(highestSemanticChange)
+        .changeEvents(changeEvents)
+        .timestamp(currentValue.getCreatedOn().getTime())
+        .rawDiff(rawDiffsRequested ? rawDiff : null)
+        .actor(currentValue.getCreatedBy())
+        .build();
   }
 }
