@@ -24,4 +24,8 @@ public class ChangeTransaction {
   public void setSemanticVersion(String semanticVersion) {
     this.semVer = semanticVersion;
   }
+
+  public void setSemVerChange(SemanticChangeType semVerChange) {
+    this.semVerChange = semVerChange;
+  }
 }
