@@ -5,4 +5,5 @@ import com.linkedin.common.DatasetFieldUrn
 /**
  * Upstreams of a dataset field.
  */
+@deprecated = "refer FineGrainedLineage for alternative representation"
 typeref DatasetFieldUpstream = union[DatasetFieldUrn]
