@@ -20,6 +20,126 @@ import static com.linkedin.metadata.Constants.*;
 
 
 public class InstitutionalMemoryDiffer implements Differ {
+  private static final String INSTITUTIONAL_MEMORY_ADDED_FORMAT =
+      "The institutionalMemory '%s' with description '%s' of the dataset '%s' has been added.";
+  private static final String INSTITUTIONAL_MEMORY_REMOVED_FORMAT =
+      "The institutionalMemory '%s' with description '%s' of the dataset '%s' has been removed.";
+  private static final String INSTITUTIONAL_MEMORY_MODIFIED_FORMAT =
+      "The description of the institutionalMemory '%s' of the dataset '%s' has been changed from '%s' to '%s'.";
+
+  private static List<ChangeEvent> computeDiffs(InstitutionalMemory baseInstitutionalMemory,
+      InstitutionalMemory targetInstitutionalMemory, String entityUrn) {
+    List<ChangeEvent> changeEvents = new ArrayList<>();
+
+    sortElementsByUrl(baseInstitutionalMemory);
+    sortElementsByUrl(targetInstitutionalMemory);
+    InstitutionalMemoryMetadataArray baseElements =
+        (baseInstitutionalMemory != null) ? baseInstitutionalMemory.getElements()
+            : new InstitutionalMemoryMetadataArray();
+    InstitutionalMemoryMetadataArray targetElements =
+        (targetInstitutionalMemory != null) ? targetInstitutionalMemory.getElements()
+            : new InstitutionalMemoryMetadataArray();
+
+    int baseIdx = 0;
+    int targetIdx = 0;
+    while (baseIdx < baseElements.size() && targetIdx < targetElements.size()) {
+      InstitutionalMemoryMetadata baseElement = baseElements.get(baseIdx);
+      InstitutionalMemoryMetadata targetElement = targetElements.get(targetIdx);
+      int comparison = baseElement.getUrl().toString().compareTo(targetElement.getUrl().toString());
+      if (comparison == 0) {
+        if (!baseElement.getDescription().equals(targetElement.getDescription())) {
+          // InstitutionalMemory description has changed.
+          changeEvents.add(ChangeEvent.builder()
+              .elementId(baseElement.getUrl().toString())
+              .target(entityUrn)
+              .category(ChangeCategory.DOCUMENTATION)
+              .changeType(ChangeOperation.MODIFY)
+              .semVerChange(SemanticChangeType.PATCH)
+              .description(String.format(INSTITUTIONAL_MEMORY_MODIFIED_FORMAT, baseElement.getUrl(), entityUrn,
+                  baseElement.getDescription(), targetElement.getDescription()))
+              .build());
+        }
+        ++baseIdx;
+        ++targetIdx;
+      } else if (comparison < 0) {
+        // InstitutionalMemory got removed.
+        changeEvents.add(ChangeEvent.builder()
+            .elementId(baseElement.getUrl().toString())
+            .target(entityUrn)
+            .category(ChangeCategory.DOCUMENTATION)
+            .changeType(ChangeOperation.REMOVE)
+            .semVerChange(SemanticChangeType.MINOR)
+            .description(
+                String.format(INSTITUTIONAL_MEMORY_REMOVED_FORMAT, baseElement.getUrl(), baseElement.getDescription(),
+                    entityUrn))
+            .build());
+        ++baseIdx;
+      } else {
+        // InstitutionalMemory got added..
+        changeEvents.add(ChangeEvent.builder()
+            .elementId(targetElement.getUrl().toString())
+            .target(entityUrn)
+            .category(ChangeCategory.DOCUMENTATION)
+            .changeType(ChangeOperation.ADD)
+            .semVerChange(SemanticChangeType.MINOR)
+            .description(
+                String.format(INSTITUTIONAL_MEMORY_ADDED_FORMAT, targetElement.getUrl(), targetElement.getDescription(),
+                    entityUrn))
+            .build());
+        ++targetIdx;
+      }
+    }
+
+    while (baseIdx < baseElements.size()) {
+      // InstitutionalMemory got removed.
+      InstitutionalMemoryMetadata baseElement = baseElements.get(baseIdx);
+      changeEvents.add(ChangeEvent.builder()
+          .elementId(baseElement.getUrl().toString())
+          .target(entityUrn)
+          .category(ChangeCategory.DOCUMENTATION)
+          .changeType(ChangeOperation.REMOVE)
+          .semVerChange(SemanticChangeType.MINOR)
+          .description(
+              String.format(INSTITUTIONAL_MEMORY_REMOVED_FORMAT, baseElement.getUrl(), baseElement.getDescription(),
+                  entityUrn))
+          .build());
+      ++baseIdx;
+    }
+    while (targetIdx < targetElements.size()) {
+      // Newly added owners.
+      InstitutionalMemoryMetadata targetElement = targetElements.get(targetIdx);
+      // InstitutionalMemory got added..
+      changeEvents.add(ChangeEvent.builder()
+          .elementId(targetElement.getUrl().toString())
+          .target(entityUrn)
+          .category(ChangeCategory.DOCUMENTATION)
+          .changeType(ChangeOperation.ADD)
+          .semVerChange(SemanticChangeType.MINOR)
+          .description(
+              String.format(INSTITUTIONAL_MEMORY_ADDED_FORMAT, targetElement.getUrl(), targetElement.getDescription(),
+                  entityUrn))
+          .build());
+      ++targetIdx;
+    }
+    return changeEvents;
+  }
+
+  private static InstitutionalMemory getInstitutionalMemoryFromAspect(EbeanAspectV2 ebeanAspectV2) {
+    if (ebeanAspectV2 != null && ebeanAspectV2.getMetadata() != null) {
+      return RecordUtils.toRecordTemplate(InstitutionalMemory.class, ebeanAspectV2.getMetadata());
+    }
+    return null;
+  }
+
+  private static void sortElementsByUrl(InstitutionalMemory institutionalMemory) {
+    if (institutionalMemory == null) {
+      return;
+    }
+    List<InstitutionalMemoryMetadata> elements = new ArrayList<>(institutionalMemory.getElements());
+    elements.sort(Comparator.comparing(InstitutionalMemoryMetadata::getUrl, Comparator.comparing(Url::toString)));
+    institutionalMemory.setElements(new InstitutionalMemoryMetadataArray(elements));
+  }
+
   @Override
   public ChangeTransaction getSemanticDiff(EbeanAspectV2 previousValue, EbeanAspectV2 currentValue,
       ChangeCategory element, JsonPatch rawDiff, boolean rawDiffsRequested) {
@@ -50,113 +170,5 @@ public class InstitutionalMemoryDiffer implements Differ {
         .rawDiff(rawDiffsRequested ? rawDiff : null)
         .actor(currentValue.getCreatedBy())
         .build();
-  }
-
-  private List<ChangeEvent> computeDiffs(InstitutionalMemory baseInstitutionalMemory,
-      InstitutionalMemory targetInstitutionalMemory, String entityUrn) {
-    sortElementsByUrl(baseInstitutionalMemory);
-    sortElementsByUrl(targetInstitutionalMemory);
-    List<ChangeEvent> changeEvents = new ArrayList<>();
-    InstitutionalMemoryMetadataArray baseElements =
-        (baseInstitutionalMemory != null) ? baseInstitutionalMemory.getElements()
-            : new InstitutionalMemoryMetadataArray();
-    InstitutionalMemoryMetadataArray targetElements = targetInstitutionalMemory.getElements();
-    int baseIdx = 0;
-    int targetIdx = 0;
-    while (baseIdx < baseElements.size() && targetIdx < targetElements.size()) {
-      InstitutionalMemoryMetadata baseElement = baseElements.get(baseIdx);
-      InstitutionalMemoryMetadata targetElement = targetElements.get(targetIdx);
-      int comparison = baseElement.getUrl().toString().compareTo(targetElement.getUrl().toString());
-      if (comparison == 0) {
-        if (!baseElement.getDescription().equals(targetElement.getDescription())) {
-          // InstitutionalMemory description has changed.
-          changeEvents.add(ChangeEvent.builder()
-              .elementId(baseElement.getUrl().toString())
-              .target(entityUrn)
-              .category(ChangeCategory.DOCUMENTATION)
-              .changeType(ChangeOperation.MODIFY)
-              .semVerChange(SemanticChangeType.PATCH)
-              .description(
-                  String.format("The institutionalMemory description of the element '%s' changed from '%s' to '%s'.",
-                      baseElement.getUrl(), baseElement.getDescription(), targetElement.getDescription()))
-              .build());
-        }
-        ++baseIdx;
-        ++targetIdx;
-      } else if (comparison < 0) {
-        // InstitutionalMemory got removed.
-        changeEvents.add(ChangeEvent.builder()
-            .elementId(baseElement.getUrl().toString())
-            .target(entityUrn)
-            .category(ChangeCategory.DOCUMENTATION)
-            .changeType(ChangeOperation.REMOVE)
-            .semVerChange(SemanticChangeType.MINOR)
-            .description(String.format("The institutionalMemory '%s' of the dataset '%s' has been removed.",
-                baseElement.getUrl(), entityUrn))
-            .build());
-        ++baseIdx;
-      } else {
-        // InstitutionalMemory got added..
-        changeEvents.add(ChangeEvent.builder()
-            .elementId(targetElement.getUrl().toString())
-            .target(entityUrn)
-            .category(ChangeCategory.DOCUMENTATION)
-            .changeType(ChangeOperation.ADD)
-            .semVerChange(SemanticChangeType.MINOR)
-            .description(String.format("The institutionalMemory '%s' for the dataset '%s' has been added.",
-                targetElement.getUrl(), entityUrn))
-            .build());
-        ++targetIdx;
-      }
-    }
-
-    while (baseIdx < baseElements.size()) {
-      // InstitutionalMemory got removed.
-      InstitutionalMemoryMetadata baseElement = baseElements.get(baseIdx);
-      changeEvents.add(ChangeEvent.builder()
-          .elementId(baseElement.getUrl().toString())
-          .target(entityUrn)
-          .category(ChangeCategory.DOCUMENTATION)
-          .changeType(ChangeOperation.REMOVE)
-          .semVerChange(SemanticChangeType.MINOR)
-          .description(
-              String.format("The institutionalMemory '%s' of the dataset '%s' has been removed.", baseElement.getUrl(),
-                  entityUrn))
-          .build());
-      ++baseIdx;
-    }
-    while (targetIdx < targetElements.size()) {
-      // Newly added owners.
-      InstitutionalMemoryMetadata targetElement = targetElements.get(targetIdx);
-      // InstitutionalMemory got added..
-      changeEvents.add(ChangeEvent.builder()
-          .elementId(targetElement.getUrl().toString())
-          .target(entityUrn)
-          .category(ChangeCategory.DOCUMENTATION)
-          .changeType(ChangeOperation.ADD)
-          .semVerChange(SemanticChangeType.MINOR)
-          .description(
-              String.format("The institutionalMemory '%s' for the dataset '%s' has been added.", targetElement.getUrl(),
-                  entityUrn))
-          .build());
-      ++targetIdx;
-    }
-    return changeEvents;
-  }
-
-  private InstitutionalMemory getInstitutionalMemoryFromAspect(EbeanAspectV2 ebeanAspectV2) {
-    if (ebeanAspectV2 != null && ebeanAspectV2.getMetadata() != null) {
-      return RecordUtils.toRecordTemplate(InstitutionalMemory.class, ebeanAspectV2.getMetadata());
-    }
-    return null;
-  }
-
-  private void sortElementsByUrl(InstitutionalMemory institutionalMemory) {
-    if (institutionalMemory == null) {
-      return;
-    }
-    List<InstitutionalMemoryMetadata> elements = new ArrayList<>(institutionalMemory.getElements());
-    elements.sort(Comparator.comparing(InstitutionalMemoryMetadata::getUrl, Comparator.comparing(Url::toString)));
-    institutionalMemory.setElements(new InstitutionalMemoryMetadataArray(elements));
   }
 }

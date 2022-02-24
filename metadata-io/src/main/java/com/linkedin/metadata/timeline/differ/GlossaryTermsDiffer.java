@@ -26,12 +26,16 @@ public class GlossaryTermsDiffer implements Differ {
 
   public static List<ChangeEvent> computeDiffs(GlossaryTerms baseGlossaryTerms, GlossaryTerms targetGlossaryTerms,
       String entityUrn) {
+    List<ChangeEvent> changeEvents = new ArrayList<>();
+
     sortGlossaryTermsByGlossaryTermUrn(baseGlossaryTerms);
     sortGlossaryTermsByGlossaryTermUrn(targetGlossaryTerms);
-    List<ChangeEvent> changeEvents = new ArrayList<>();
+
     GlossaryTermAssociationArray baseTerms =
         (baseGlossaryTerms != null) ? baseGlossaryTerms.getTerms() : new GlossaryTermAssociationArray();
-    GlossaryTermAssociationArray targetTerms = targetGlossaryTerms.getTerms();
+    GlossaryTermAssociationArray targetTerms =
+        (targetGlossaryTerms != null) ? targetGlossaryTerms.getTerms() : new GlossaryTermAssociationArray();
+
     int baseGlossaryTermIdx = 0;
     int targetGlossaryTermIdx = 0;
     while (baseGlossaryTermIdx < baseTerms.size() && targetGlossaryTermIdx < targetTerms.size()) {
@@ -97,7 +101,7 @@ public class GlossaryTermsDiffer implements Differ {
           .build());
       ++targetGlossaryTermIdx;
     }
-    return changeEvents.size() > 0 ? changeEvents : null;
+    return changeEvents;
   }
 
   private static void sortGlossaryTermsByGlossaryTermUrn(GlossaryTerms globalGlossaryTerms) {

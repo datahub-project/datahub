@@ -17,6 +17,64 @@ import static com.linkedin.metadata.Constants.*;
 
 
 public class EditableDatasetPropertiesDiffer implements Differ {
+  private static List<ChangeEvent> computeDiffs(EditableDatasetProperties baseDatasetProperties,
+      EditableDatasetProperties targetDatasetProperties, String entityUrn) {
+    List<ChangeEvent> changeEvents = new ArrayList<>();
+    ChangeEvent descriptionChangeEvent =
+        getDescriptionChangeEvent(baseDatasetProperties, targetDatasetProperties, entityUrn);
+    if (descriptionChangeEvent != null) {
+      changeEvents.add(descriptionChangeEvent);
+    }
+    return changeEvents;
+  }
+
+  private static ChangeEvent getDescriptionChangeEvent(EditableDatasetProperties baseDatasetProperties,
+      EditableDatasetProperties targetDatasetProperties, String entityUrn) {
+    String baseDescription = (baseDatasetProperties != null) ? baseDatasetProperties.getDescription() : null;
+    String targetDescription = (targetDatasetProperties != null) ? targetDatasetProperties.getDescription() : null;
+    if (baseDescription == null && targetDescription != null) {
+      // Description added
+      return ChangeEvent.builder()
+          .target(entityUrn)
+          .category(ChangeCategory.DOCUMENTATION)
+          .changeType(ChangeOperation.ADD)
+          .semVerChange(SemanticChangeType.MINOR)
+          .description(
+              String.format("The editable description '%s' has been added for the dataset '%s'.", targetDescription,
+                  entityUrn))
+          .build();
+    } else if (baseDescription != null && targetDescription == null) {
+      // Description removed.
+      return ChangeEvent.builder()
+          .target(entityUrn)
+          .category(ChangeCategory.DOCUMENTATION)
+          .changeType(ChangeOperation.REMOVE)
+          .semVerChange(SemanticChangeType.MINOR)
+          .description(
+              String.format("The editable description '%s' has been removed for the dataset '%s'.", baseDescription,
+                  entityUrn))
+          .build();
+    } else if (baseDescription != null && targetDescription != null && !baseDescription.equals(targetDescription)) {
+      // Description has been modified.
+      return ChangeEvent.builder()
+          .target(entityUrn)
+          .category(ChangeCategory.DOCUMENTATION)
+          .changeType(ChangeOperation.MODIFY)
+          .semVerChange(SemanticChangeType.MINOR)
+          .description(String.format("The editable description of the dataset '%s' has been changed from '%s' to '%s'.",
+              entityUrn, baseDescription, targetDescription))
+          .build();
+    }
+    return null;
+  }
+
+  private static EditableDatasetProperties getEditableDatasetPropertiesFromAspect(EbeanAspectV2 ebeanAspectV2) {
+    if (ebeanAspectV2 != null && ebeanAspectV2.getMetadata() != null) {
+      return RecordUtils.toRecordTemplate(EditableDatasetProperties.class, ebeanAspectV2.getMetadata());
+    }
+    return null;
+  }
+
   @Override
   public ChangeTransaction getSemanticDiff(EbeanAspectV2 previousValue, EbeanAspectV2 currentValue,
       ChangeCategory element, JsonPatch rawDiff, boolean rawDiffsRequested) {
@@ -47,53 +105,5 @@ public class EditableDatasetPropertiesDiffer implements Differ {
         .rawDiff(rawDiffsRequested ? rawDiff : null)
         .actor(currentValue.getCreatedBy())
         .build();
-  }
-
-  private List<ChangeEvent> computeDiffs(EditableDatasetProperties baseDatasetProperties,
-      EditableDatasetProperties targetDatasetProperties, String entityUrn) {
-    List<ChangeEvent> changeEvents = new ArrayList<>();
-    String baseDescription = baseDatasetProperties.getDescription();
-    String targetDescription = targetDatasetProperties.getDescription();
-    if (baseDescription == null && targetDescription != null) {
-      // Description added
-      changeEvents.add(ChangeEvent.builder()
-          .target(entityUrn)
-          .category(ChangeCategory.DOCUMENTATION)
-          .changeType(ChangeOperation.ADD)
-          .semVerChange(SemanticChangeType.MINOR)
-          .description(
-              String.format("The editable description '%s' has been added for the dataset '%s'.", targetDescription,
-                  entityUrn))
-          .build());
-    } else if (baseDescription != null && targetDescription == null) {
-      // Description removed.
-      changeEvents.add(ChangeEvent.builder()
-          .target(entityUrn)
-          .category(ChangeCategory.DOCUMENTATION)
-          .changeType(ChangeOperation.REMOVE)
-          .semVerChange(SemanticChangeType.MINOR)
-          .description(
-              String.format("The editable description '%s' has been removed for the dataset '%s'.", baseDescription,
-                  entityUrn))
-          .build());
-    } else if (!baseDescription.equals(targetDescription)) {
-      // Description has been modified.
-      changeEvents.add(ChangeEvent.builder()
-          .target(entityUrn)
-          .category(ChangeCategory.DOCUMENTATION)
-          .changeType(ChangeOperation.MODIFY)
-          .semVerChange(SemanticChangeType.MINOR)
-          .description(String.format("The editable description of the dataset '%s' has been changed from '%s' to '%s'.",
-              entityUrn, baseDescription, targetDescription))
-          .build());
-    }
-    return changeEvents;
-  }
-
-  private EditableDatasetProperties getEditableDatasetPropertiesFromAspect(EbeanAspectV2 ebeanAspectV2) {
-    if (ebeanAspectV2 != null && ebeanAspectV2.getMetadata() != null) {
-      return RecordUtils.toRecordTemplate(EditableDatasetProperties.class, ebeanAspectV2.getMetadata());
-    }
-    return null;
   }
 }

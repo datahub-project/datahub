@@ -20,13 +20,17 @@ import static com.linkedin.metadata.Constants.*;
 
 
 public class GlobalTagsDiffer implements Differ {
+  private static final String TAG_ADDED_FORMAT = "The tag '%s' of the entity '%s' has been added.";
+  private static final String TAG_REMOVED_FORMAT = "The tag '%s' of the entity '%s' has been removed.";
+
   public static List<ChangeEvent> computeDiffs(GlobalTags baseGlobalTags, GlobalTags targetGlobalTags,
       String entityUrn) {
     sortGlobalTagsByTagUrn(baseGlobalTags);
     sortGlobalTagsByTagUrn(targetGlobalTags);
     List<ChangeEvent> changeEvents = new ArrayList<>();
     TagAssociationArray baseTags = (baseGlobalTags != null) ? baseGlobalTags.getTags() : new TagAssociationArray();
-    TagAssociationArray targetTags = targetGlobalTags.getTags();
+    TagAssociationArray targetTags =
+        (targetGlobalTags != null) ? targetGlobalTags.getTags() : new TagAssociationArray();
     int baseTagIdx = 0;
     int targetTagIdx = 0;
     while (baseTagIdx < baseTags.size() && targetTagIdx < targetTags.size()) {
@@ -34,6 +38,7 @@ public class GlobalTagsDiffer implements Differ {
       TagAssociation targetTagAssociation = targetTags.get(targetTagIdx);
       int comparison = baseTagAssociation.getTag().toString().compareTo(targetTagAssociation.getTag().toString());
       if (comparison == 0) {
+        // No change to this tag.
         ++baseTagIdx;
         ++targetTagIdx;
       } else if (comparison < 0) {
@@ -44,9 +49,7 @@ public class GlobalTagsDiffer implements Differ {
             .category(ChangeCategory.TAG)
             .changeType(ChangeOperation.REMOVE)
             .semVerChange(SemanticChangeType.MINOR)
-            .description(
-                String.format("Tag '%s' of the entity '%s' has been removed.", baseTagAssociation.getTag().getId(),
-                    entityUrn))
+            .description(String.format(TAG_REMOVED_FORMAT, baseTagAssociation.getTag().getId(), entityUrn))
             .build());
         ++baseTagIdx;
       } else {
@@ -57,8 +60,7 @@ public class GlobalTagsDiffer implements Differ {
             .category(ChangeCategory.TAG)
             .changeType(ChangeOperation.ADD)
             .semVerChange(SemanticChangeType.MINOR)
-            .description(String.format("A new tag '%s' for the entity '%s' has been added.",
-                targetTagAssociation.getTag().getId(), entityUrn))
+            .description(String.format(TAG_ADDED_FORMAT, targetTagAssociation.getTag().getId(), entityUrn))
             .build());
         ++targetTagIdx;
       }
@@ -73,9 +75,7 @@ public class GlobalTagsDiffer implements Differ {
           .category(ChangeCategory.TAG)
           .changeType(ChangeOperation.REMOVE)
           .semVerChange(SemanticChangeType.MINOR)
-          .description(
-              String.format("Tag '%s' of the entity '%s' has been removed.", baseTagAssociation.getTag().getId(),
-                  entityUrn))
+          .description(String.format(TAG_REMOVED_FORMAT, baseTagAssociation.getTag().getId(), entityUrn))
           .build());
       ++baseTagIdx;
     }
@@ -88,13 +88,11 @@ public class GlobalTagsDiffer implements Differ {
           .category(ChangeCategory.TAG)
           .changeType(ChangeOperation.ADD)
           .semVerChange(SemanticChangeType.MINOR)
-          .description(
-              String.format("A new tag '%s' for the entity '%s' has been added.", targetTagAssociation.getTag().getId(),
-                  entityUrn))
+          .description(String.format(TAG_ADDED_FORMAT, targetTagAssociation.getTag().getId(), entityUrn))
           .build());
       ++targetTagIdx;
     }
-    return changeEvents.size() > 0 ? changeEvents : null;
+    return changeEvents;
   }
 
   private static void sortGlobalTagsByTagUrn(GlobalTags globalTags) {
