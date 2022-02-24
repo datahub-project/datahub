@@ -14,6 +14,7 @@ import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import com.linkedin.metadata.timeline.data.SemanticChangeType;
 import com.linkedin.metadata.timeline.ebean.differ.BasicDiffer;
+import com.linkedin.metadata.timeline.ebean.differ.DatasetPropertiesDiffer;
 import com.linkedin.metadata.timeline.ebean.differ.DiffFactory;
 import com.linkedin.metadata.timeline.ebean.differ.Differ;
 import com.linkedin.metadata.timeline.ebean.differ.EditableDatasetPropertiesDiffer;
@@ -84,9 +85,11 @@ public class EbeanTimelineService implements TimelineService {
           _diffFactory.addDiffer(entityType, elementName, INSTITUTIONAL_MEMORY_ASPECT_NAME,
               new InstitutionalMemoryDiffer());
           aspects.add(EDITABLE_DATASET_PROPERTIES_ASPECT_NAME);
-          _diffFactory.addDiffer(entityType, elementName, EDITABLE_DATASET_PROPERTIES_ASPECT_NAME, new EditableDatasetPropertiesDiffer());
+          _diffFactory.addDiffer(entityType, elementName, EDITABLE_DATASET_PROPERTIES_ASPECT_NAME,
+              new EditableDatasetPropertiesDiffer());
           aspects.add(DATASET_PROPERTIES_ASPECT_NAME);
-          _diffFactory.addDiffer(entityType, elementName, DATASET_PROPERTIES_ASPECT_NAME, new BasicDiffer());
+          _diffFactory.addDiffer(entityType, elementName, DATASET_PROPERTIES_ASPECT_NAME,
+              new DatasetPropertiesDiffer());
           aspects.add(SCHEMA_METADATA_ASPECT_NAME);
           _diffFactory.addDiffer(entityType, elementName, SCHEMA_METADATA_ASPECT_NAME, new SchemaDiffer());
         }
