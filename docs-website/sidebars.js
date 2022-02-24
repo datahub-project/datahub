@@ -219,12 +219,12 @@ module.exports = {
       //"docs/how/graph-onboarding",
       //"docs/demo/graph-onboarding",
       {
-        "Authentication": [
+        Authentication: [
           "docs/how/auth/jaas",
           "docs/how/auth/sso/configure-oidc-react",
           "docs/how/auth/sso/configure-oidc-react-google",
           "docs/how/auth/sso/configure-oidc-react-okta",
-          "docs/how/auth/sso/configure-oidc-react-azure"
+          "docs/how/auth/sso/configure-oidc-react-azure",
         ],
       },
       "docs/how/restore-indices",
