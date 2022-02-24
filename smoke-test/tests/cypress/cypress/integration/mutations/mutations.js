@@ -26,7 +26,10 @@ describe('mutations', () => {
     cy.wait(2000);
 
     // go to tag page
+    cy.contains('CypressTestAddTag').click();
+    cy.wait(1000);
     cy.get('a[href="/tag/urn:li:tag:CypressTestAddTag"]').click();
+    cy.wait(1000);
 
     // title of tag page
     cy.contains('CypressTestAddTag');
