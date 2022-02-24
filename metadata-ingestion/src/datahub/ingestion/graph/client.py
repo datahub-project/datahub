@@ -4,6 +4,7 @@ import urllib.parse
 from json.decoder import JSONDecodeError
 from typing import Any, Dict, List, Optional, Type
 
+from avro.schema import RecordSchema
 from requests.adapters import Response
 from requests.models import HTTPError
 
@@ -93,8 +94,8 @@ class DataHubGraph(DatahubRestEmitter):
         self,
         entity_urn: str,
         aspect: str,
-        aspect_type_name: str,
         aspect_type: Type[Aspect],
+        aspect_type_name: Optional[str] = None,
     ) -> Optional[Aspect]:
         url = f"{self._gms_server}/aspects/{urllib.parse.quote(entity_urn)}?aspect={aspect}&version=0"
         response = self._session.get(url)
@@ -103,6 +104,16 @@ class DataHubGraph(DatahubRestEmitter):
             return None
         response.raise_for_status()
         response_json = response.json()
+        if not aspect_type_name:
+            record_schema: RecordSchema = aspect_type.__getattribute__(
+                aspect_type, "RECORD_SCHEMA"
+            )
+            if not record_schema:
+                logger.warning(
+                    f"Failed to infer type name of the aspect from the aspect type class {aspect_type}. Please provide an aspect_type_name. Continuing, but this will fail."
+                )
+            else:
+                aspect_type_name = record_schema.fullname.replace(".pegasus2avro", "")
         aspect_json = response_json.get("aspect", {}).get(aspect_type_name)
         if aspect_json:
             return aspect_type.from_obj(aspect_json, tuples=True)

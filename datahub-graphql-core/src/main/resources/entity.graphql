@@ -2413,6 +2413,11 @@ type CorpGroup implements Entity {
     name: String!
 
     """
+    Ownership metadata of the Corp Group
+    """
+    ownership: Ownership
+
+    """
     Additional read only properties about the group
     """
     properties: CorpGroupProperties

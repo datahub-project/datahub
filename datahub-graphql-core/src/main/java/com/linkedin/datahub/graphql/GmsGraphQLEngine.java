@@ -5,6 +5,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.analytics.resolver.AnalyticsChartTypeResolver;
 import com.linkedin.datahub.graphql.analytics.resolver.GetChartsResolver;
 import com.linkedin.datahub.graphql.analytics.resolver.GetHighlightsResolver;
+import com.linkedin.datahub.graphql.analytics.resolver.GetMetadataAnalyticsResolver;
 import com.linkedin.datahub.graphql.analytics.resolver.IsAnalyticsEnabledResolver;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
 import com.linkedin.datahub.graphql.generated.AggregationMetadata;
@@ -48,6 +49,7 @@ import com.linkedin.datahub.graphql.resolvers.auth.GetAccessTokenResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowsePathsResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowseResolver;
 import com.linkedin.datahub.graphql.resolvers.config.AppConfigResolver;
+import com.linkedin.datahub.graphql.resolvers.container.ContainerEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.deprecation.UpdateDeprecationResolver;
 import com.linkedin.datahub.graphql.resolvers.container.ContainerEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.CreateDomainResolver;
@@ -166,8 +168,15 @@ import org.dataloader.BatchLoaderContextProvider;
 import org.dataloader.DataLoader;
 import org.dataloader.DataLoaderOptions;
 
-import static com.linkedin.datahub.graphql.Constants.*;
-import static graphql.Scalars.*;
+import static com.linkedin.datahub.graphql.Constants.ANALYTICS_SCHEMA_FILE;
+import static com.linkedin.datahub.graphql.Constants.APP_SCHEMA_FILE;
+import static com.linkedin.datahub.graphql.Constants.AUTH_SCHEMA_FILE;
+import static com.linkedin.datahub.graphql.Constants.GMS_SCHEMA_FILE;
+import static com.linkedin.datahub.graphql.Constants.INGESTION_SCHEMA_FILE;
+import static com.linkedin.datahub.graphql.Constants.RECOMMENDATIONS_SCHEMA_FILE;
+import static com.linkedin.datahub.graphql.Constants.SEARCH_SCHEMA_FILE;
+import static com.linkedin.datahub.graphql.Constants.URN_FIELD_NAME;
+import static graphql.Scalars.GraphQLLong;
 
 /**
  * A {@link GraphQLEngine} configured to provide access to the entities and aspects on the the GMS graph.
@@ -475,9 +484,10 @@ public class GmsGraphQLEngine {
         builder.type("Query", typeWiring -> typeWiring.dataFetcher("isAnalyticsEnabled", new IsAnalyticsEnabledResolver(isAnalyticsEnabled)))
             .type("AnalyticsChart", typeWiring -> typeWiring.typeResolver(new AnalyticsChartTypeResolver()));
         if (isAnalyticsEnabled) {
-            builder.type("Query",
-                typeWiring -> typeWiring.dataFetcher("getAnalyticsCharts", new GetChartsResolver(analyticsService))
-                    .dataFetcher("getHighlights", new GetHighlightsResolver(analyticsService)));
+            builder.type("Query", typeWiring -> typeWiring.dataFetcher("getAnalyticsCharts",
+                new GetChartsResolver(analyticsService, entityClient))
+                .dataFetcher("getHighlights", new GetHighlightsResolver(analyticsService))
+                .dataFetcher("getMetadataAnalyticsCharts", new GetMetadataAnalyticsResolver(entityClient)));
         }
     }
 
