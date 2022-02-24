@@ -6,6 +6,7 @@ from unittest import mock
 
 import airflow.configuration
 import airflow.version
+import packaging.version
 import pytest
 from airflow.lineage import apply_lineage, prepare_lineage
 from airflow.models import DAG, Connection, DagBag, TaskInstance
@@ -21,6 +22,9 @@ from datahub_provider import get_provider_info
 from datahub_provider.entities import Dataset
 from datahub_provider.hooks.datahub import AIRFLOW_1, DatahubKafkaHook, DatahubRestHook
 from datahub_provider.operators.datahub import DatahubEmitterOperator
+
+# Approach suggested by https://stackoverflow.com/a/11887885/5004662.
+AIRFLOW_VERSION = packaging.version.parse(airflow.version.version)
 
 lineage_mce = builder.make_lineage_mce(
     [
@@ -186,7 +190,7 @@ def test_hook_airflow_ui(hook):
             [Dataset("snowflake", "mydb.schema.tableConsumed")],
             [Dataset("snowflake", "mydb.schema.tableProduced")],
             marks=pytest.mark.skipif(
-                airflow.version.version.startswith("1"),
+                AIRFLOW_VERSION < packaging.version.parse("2.0.0"),
                 reason="list-style lineage is only supported in Airflow 2.x",
             ),
             id="airflow-2-lineage-syntax",
@@ -230,13 +234,11 @@ def test_lineage_backend(mock_emit, inlets, outlets):
             )
             op1 >> op2
 
-        # Airflow <= 2.1 requires the execution_date parameter. Newer Airflow
+        # Airflow < 2.2 requires the execution_date parameter. Newer Airflow
         # versions do not require it, but will attempt to find the associated
         # run_id in the database if execution_date is provided. As such, we
         # must fake the run_id parameter for newer Airflow versions.
-        if any(
-            airflow.version.version.startswith(prefix) for prefix in ["1", "2.0", "2.1"]
-        ):
+        if AIRFLOW_VERSION < packaging.version.parse("2.2.0"):
             ti = TaskInstance(task=op2, execution_date=DEFAULT_DATE)
         else:
             ti = TaskInstance(task=op2, run_id=f"test_airflow-{DEFAULT_DATE}")

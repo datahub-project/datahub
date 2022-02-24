@@ -66,6 +66,7 @@ public class Constants {
   // Group
   public static final String CORP_GROUP_KEY_ASPECT_NAME = "corpGroupKey";
   public static final String CORP_GROUP_INFO_ASPECT_NAME = "corpGroupInfo";
+  public static final String CORP_GROUP_EDITABLE_INFO_ASPECT_NAME = "corpGroupEditableInfo";
 
   // Dataset
   public static final String DATASET_KEY_ASPECT_NAME = "datasetKey";

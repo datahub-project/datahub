@@ -1,0 +1,5 @@
+pytest>=6.2
+pytest-dependency>=0.5.1
+requests>=2.27
+jsoncomparison>=1.1
+-e ../../../../metadata-ingestion[datahub-rest,datahub-kafka,mysql]
