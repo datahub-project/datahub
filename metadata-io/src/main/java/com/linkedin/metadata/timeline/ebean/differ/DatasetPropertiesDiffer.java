@@ -19,44 +19,12 @@ import static com.linkedin.metadata.Constants.*;
 
 
 public class DatasetPropertiesDiffer implements Differ {
-  @Override
-  public ChangeTransaction getSemanticDiff(EbeanAspectV2 previousValue, EbeanAspectV2 currentValue,
-      ChangeCategory element, JsonPatch rawDiff, boolean rawDiffsRequested) {
-    if (!previousValue.getAspect().equals(DATASET_PROPERTIES_ASPECT_NAME) || !currentValue.getAspect()
-        .equals(DATASET_PROPERTIES_ASPECT_NAME)) {
-      throw new IllegalArgumentException("Aspect is not " + DATASET_PROPERTIES_ASPECT_NAME);
-    }
-    List<ChangeEvent> changeEvents = new ArrayList<>();
-    if (element == ChangeCategory.DOCUMENTATION) {
-      DatasetProperties baseDatasetProperties = getDatasetPropertiesFromAspect(previousValue);
-      DatasetProperties targetDatasetProperties = getDatasetPropertiesFromAspect(currentValue);
-      if (baseDatasetProperties != null && targetDatasetProperties != null) {
-        changeEvents.addAll(computeDiffs(baseDatasetProperties, targetDatasetProperties, currentValue.getUrn()));
-      }
-    }
-
-    // Assess the highest change at the transaction(schema) level.
-    SemanticChangeType highestSemanticChange = SemanticChangeType.NONE;
-    ChangeEvent highestChangeEvent =
-        changeEvents.stream().max(Comparator.comparing(ChangeEvent::getSemVerChange)).orElse(null);
-    if (highestChangeEvent != null) {
-      highestSemanticChange = highestChangeEvent.getSemVerChange();
-    }
-
-    return ChangeTransaction.builder()
-        .semVerChange(highestSemanticChange)
-        .changeEvents(changeEvents)
-        .timestamp(currentValue.getCreatedOn().getTime())
-        .rawDiff(rawDiffsRequested ? rawDiff : null)
-        .actor(currentValue.getCreatedBy())
-        .build();
-  }
-
-  private List<ChangeEvent> computeDiffs(@Nonnull DatasetProperties baseDatasetProperties,
+  private static List<ChangeEvent> computeDiffs(DatasetProperties baseDatasetProperties,
       @Nonnull DatasetProperties targetDatasetProperties, @Nonnull String entityUrn) {
     List<ChangeEvent> changeEvents = new ArrayList<>();
-    String baseDescription = baseDatasetProperties.getDescription();
-    String targetDescription = targetDatasetProperties.getDescription();
+    String baseDescription = (baseDatasetProperties != null) ? baseDatasetProperties.getDescription() : null;
+    String targetDescription = (targetDatasetProperties != null) ? targetDatasetProperties.getDescription() : null;
+
     if (baseDescription == null && targetDescription != null) {
       // Description added
       changeEvents.add(ChangeEvent.builder()
@@ -77,7 +45,7 @@ public class DatasetPropertiesDiffer implements Differ {
           .description(
               String.format("The description '%s' has been removed for the dataset '%s'.", baseDescription, entityUrn))
           .build());
-    } else if (!baseDescription.equals(targetDescription)) {
+    } else if (baseDescription != null && targetDescription != null && !baseDescription.equals(targetDescription)) {
       // Description has been modified.
       changeEvents.add(ChangeEvent.builder()
           .target(entityUrn)
@@ -93,10 +61,41 @@ public class DatasetPropertiesDiffer implements Differ {
   }
 
   @Nullable
-  private DatasetProperties getDatasetPropertiesFromAspect(EbeanAspectV2 ebeanAspectV2) {
+  private static DatasetProperties getDatasetPropertiesFromAspect(EbeanAspectV2 ebeanAspectV2) {
     if (ebeanAspectV2 != null && ebeanAspectV2.getMetadata() != null) {
       return RecordUtils.toRecordTemplate(DatasetProperties.class, ebeanAspectV2.getMetadata());
     }
     return null;
+  }
+
+  @Override
+  public ChangeTransaction getSemanticDiff(EbeanAspectV2 previousValue, EbeanAspectV2 currentValue,
+      ChangeCategory element, JsonPatch rawDiff, boolean rawDiffsRequested) {
+    if (!previousValue.getAspect().equals(DATASET_PROPERTIES_ASPECT_NAME) || !currentValue.getAspect()
+        .equals(DATASET_PROPERTIES_ASPECT_NAME)) {
+      throw new IllegalArgumentException("Aspect is not " + DATASET_PROPERTIES_ASPECT_NAME);
+    }
+    List<ChangeEvent> changeEvents = new ArrayList<>();
+    if (element == ChangeCategory.DOCUMENTATION) {
+      DatasetProperties baseDatasetProperties = getDatasetPropertiesFromAspect(previousValue);
+      DatasetProperties targetDatasetProperties = getDatasetPropertiesFromAspect(currentValue);
+      changeEvents.addAll(computeDiffs(baseDatasetProperties, targetDatasetProperties, currentValue.getUrn()));
+    }
+
+    // Assess the highest change at the transaction(schema) level.
+    SemanticChangeType highestSemanticChange = SemanticChangeType.NONE;
+    ChangeEvent highestChangeEvent =
+        changeEvents.stream().max(Comparator.comparing(ChangeEvent::getSemVerChange)).orElse(null);
+    if (highestChangeEvent != null) {
+      highestSemanticChange = highestChangeEvent.getSemVerChange();
+    }
+
+    return ChangeTransaction.builder()
+        .semVerChange(highestSemanticChange)
+        .changeEvents(changeEvents)
+        .timestamp(currentValue.getCreatedOn().getTime())
+        .rawDiff(rawDiffsRequested ? rawDiff : null)
+        .actor(currentValue.getCreatedBy())
+        .build();
   }
 }

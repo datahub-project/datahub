@@ -108,7 +108,7 @@ public class EditableSchemaMetadataDiffer implements Differ {
   }
 
   private static EditableSchemaMetadata getEditableSchemaMetadataFromAspect(EbeanAspectV2 ebeanAspectV2) {
-    if (ebeanAspectV2 != null) {
+    if (ebeanAspectV2 != null && ebeanAspectV2.getMetadata() != null) {
       return RecordUtils.toRecordTemplate(EditableSchemaMetadata.class, ebeanAspectV2.getMetadata());
     }
     return null;
