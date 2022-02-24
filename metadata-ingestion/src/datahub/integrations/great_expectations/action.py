@@ -477,9 +477,10 @@ class DatahubValidationAction(ValidationAction):
                 if k
                 in [
                     "values",
+                    "value_set",
                     "values_set",
-                    "columns_list",
-                    "columns_set",
+                    "column_list",
+                    "column_set",
                     "regex",
                     "regex_list",
                 ]
