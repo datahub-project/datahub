@@ -68,7 +68,7 @@ public class EbeanTimelineService implements TimelineService {
         break;
         case OWNERSHIP: {
           aspects.add(OWNERSHIP_ASPECT_NAME);
-          _diffFactory.addDiffer(entityType, elementName, OWNERSHIP_ASPECT_NAME, new BasicDiffer());
+          _diffFactory.addDiffer(entityType, elementName, OWNERSHIP_ASPECT_NAME, new OwnershipDiffer());
         }
         break;
         case DOCUMENTATION: {
@@ -132,9 +132,8 @@ public class EbeanTimelineService implements TimelineService {
     List<EbeanAspectV2> foo = this._entityDao.getAspectsInRange(urn, aspectNames, startTimeMillis, endTimeMillis);
     Map<String, TreeSet<EbeanAspectV2>> aspectRowSetMap = new HashMap<>();
     foo.forEach(row -> {
-      TreeSet<EbeanAspectV2> rowList =
-          aspectRowSetMap.computeIfAbsent(row.getAspect(), k -> new TreeSet<>(
-              Comparator.comparing(EbeanAspectV2::getCreatedOn)));
+      TreeSet<EbeanAspectV2> rowList = aspectRowSetMap.computeIfAbsent(row.getAspect(),
+          k -> new TreeSet<>(Comparator.comparing(EbeanAspectV2::getCreatedOn)));
       rowList.add(row);
       /*
        Long minVersion = aspectMinVersionMap.get(row.getAspect());
@@ -170,8 +169,8 @@ public class EbeanTimelineService implements TimelineService {
 
     SortedMap<Long, List<ChangeTransaction>> semanticDiffs = new TreeMap<>();
     for (Map.Entry<String, TreeSet<EbeanAspectV2>> aspectRowSetEntry : aspectRowSetMap.entrySet()) {
-      semanticDiffs.putAll(computeDiffs(aspectRowSetEntry.getValue(), urn.getEntityType(), elementNames,
-          rawDiffRequested));
+      semanticDiffs.putAll(
+          computeDiffs(aspectRowSetEntry.getValue(), urn.getEntityType(), elementNames, rawDiffRequested));
     }
     assignSemanticVersions(semanticDiffs);
     List<ChangeTransaction> changeTransactions = new ArrayList<>();
@@ -243,8 +242,8 @@ public class EbeanTimelineService implements TimelineService {
     for (EbeanAspectV2 currentValue : aspectTimeline) {
       if (previousValue != null) {
         // we skip the first element and only compare once we have two in hand
-        changeTransactionsMap.put(transactionId, computeDiff(previousValue, currentValue, entityType, elementNames,
-            rawDiffsRequested));
+        changeTransactionsMap.put(transactionId,
+            computeDiff(previousValue, currentValue, entityType, elementNames, rawDiffsRequested));
         ++transactionId;
       }
       previousValue = currentValue;
@@ -262,8 +261,8 @@ public class EbeanTimelineService implements TimelineService {
       Differ differ = _diffFactory.getDiffer(entityType, element, aspectName);
       if (differ != null) {
         try {
-          semanticChangeTransactions.add(differ.getSemanticDiff(previousValue, currentValue, element, rawDiff,
-              rawDiffsRequested));
+          semanticChangeTransactions.add(
+              differ.getSemanticDiff(previousValue, currentValue, element, rawDiff, rawDiffsRequested));
         } catch (Exception e) {
           semanticChangeTransactions.add(ChangeTransaction.builder()
               .semVerChange(SemanticChangeType.EXCEPTIONAL)
