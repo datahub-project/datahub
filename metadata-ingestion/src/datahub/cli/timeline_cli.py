@@ -79,8 +79,8 @@ def get_timeline(
             f"urn {urn} does not seem to be a valid raw (starts with urn:) or encoded urn (starts with urn%3A)"
         )
     categories: str = ",".join([c.upper() for c in category])
-    start_time_param: str = f"&start={start_time}" if start_time else ""
-    end_time_param: str = f"&end={end_time}" if end_time else ""
+    start_time_param: str = f"&startTime={start_time}" if start_time else ""
+    end_time_param: str = f"&endTime={end_time}" if end_time else ""
     diff_param: str = f"&raw={diff}" if diff else ""
     endpoint: str = (
         host
