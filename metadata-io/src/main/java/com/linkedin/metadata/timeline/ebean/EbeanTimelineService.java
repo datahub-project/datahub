@@ -13,11 +13,11 @@ import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import com.linkedin.metadata.timeline.data.SemanticChangeType;
-import com.linkedin.metadata.timeline.ebean.differ.BasicDiffer;
 import com.linkedin.metadata.timeline.ebean.differ.DatasetPropertiesDiffer;
 import com.linkedin.metadata.timeline.ebean.differ.DiffFactory;
 import com.linkedin.metadata.timeline.ebean.differ.Differ;
 import com.linkedin.metadata.timeline.ebean.differ.EditableDatasetPropertiesDiffer;
+import com.linkedin.metadata.timeline.ebean.differ.EditableSchemaMetadataDiffer;
 import com.linkedin.metadata.timeline.ebean.differ.GlobalTagsDiffer;
 import com.linkedin.metadata.timeline.ebean.differ.GlossaryTermsDiffer;
 import com.linkedin.metadata.timeline.ebean.differ.InstitutionalMemoryDiffer;
@@ -71,7 +71,8 @@ public class EbeanTimelineService implements TimelineService {
           aspects.add(SCHEMA_METADATA_ASPECT_NAME);
           _diffFactory.addDiffer(entityType, elementName, SCHEMA_METADATA_ASPECT_NAME, new SchemaDiffer());
           aspects.add(EDITABLE_SCHEMA_METADATA_ASPECT_NAME);
-          _diffFactory.addDiffer(entityType, elementName, EDITABLE_SCHEMA_METADATA_ASPECT_NAME, new BasicDiffer());
+          _diffFactory.addDiffer(entityType, elementName, EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+              new EditableSchemaMetadataDiffer());
           aspects.add(GLOBAL_TAGS_ASPECT_NAME);
           _diffFactory.addDiffer(entityType, elementName, GLOBAL_TAGS_ASPECT_NAME, new GlobalTagsDiffer());
         }
@@ -91,6 +92,9 @@ public class EbeanTimelineService implements TimelineService {
           aspects.add(DATASET_PROPERTIES_ASPECT_NAME);
           _diffFactory.addDiffer(entityType, elementName, DATASET_PROPERTIES_ASPECT_NAME,
               new DatasetPropertiesDiffer());
+          aspects.add(EDITABLE_SCHEMA_METADATA_ASPECT_NAME);
+          _diffFactory.addDiffer(entityType, elementName, EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+              new EditableSchemaMetadataDiffer());
           aspects.add(SCHEMA_METADATA_ASPECT_NAME);
           _diffFactory.addDiffer(entityType, elementName, SCHEMA_METADATA_ASPECT_NAME, new SchemaDiffer());
         }
@@ -98,6 +102,9 @@ public class EbeanTimelineService implements TimelineService {
         case GLOSSARY_TERM: {
           aspects.add(GLOSSARY_TERMS_ASPECT_NAME);
           _diffFactory.addDiffer(entityType, elementName, GLOSSARY_TERMS_ASPECT_NAME, new GlossaryTermsDiffer());
+          aspects.add(EDITABLE_SCHEMA_METADATA_ASPECT_NAME);
+          _diffFactory.addDiffer(entityType, elementName, EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+              new EditableSchemaMetadataDiffer());
         }
         break;
         case TECHNICAL_SCHEMA: {
