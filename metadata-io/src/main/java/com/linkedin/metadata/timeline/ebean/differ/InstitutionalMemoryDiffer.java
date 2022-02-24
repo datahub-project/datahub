@@ -75,7 +75,7 @@ public class InstitutionalMemoryDiffer implements Differ {
               .target(entityUrn)
               .category(ChangeCategory.DOCUMENTATION)
               .changeType(ChangeOperation.MODIFY)
-              .semVerChange(SemanticChangeType.MINOR)
+              .semVerChange(SemanticChangeType.PATCH)
               .description(
                   String.format("The institutionalMemory description of the element '%s' changed from '%s' to '%s'.",
                       baseElement.getUrl(), baseElement.getDescription(), targetElement.getDescription()))
