@@ -1,4 +1,4 @@
-package com.linkedin.metadata.timeline.ebean;
+package com.linkedin.metadata.timeline.ebean.differ;
 
 import com.datahub.util.RecordUtils;
 import com.github.fge.jsonpatch.JsonPatch;
@@ -12,6 +12,7 @@ import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import com.linkedin.metadata.timeline.data.SemanticChangeType;
+import com.linkedin.metadata.timeline.ebean.differ.Differ;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;

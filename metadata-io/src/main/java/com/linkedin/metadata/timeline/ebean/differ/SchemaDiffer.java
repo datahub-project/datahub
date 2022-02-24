@@ -1,4 +1,4 @@
-package com.linkedin.metadata.timeline.ebean;
+package com.linkedin.metadata.timeline.ebean.differ;
 
 import com.datahub.util.RecordUtils;
 import com.github.fge.jsonpatch.JsonPatch;
