@@ -48,14 +48,10 @@ jobs:
           aws-region: us-west-2
       - name: publish datahub-client jar
         env:
-          RELEASE_USERNAME: ${{ secrets.RELEASE_USERNAME }}
-          RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
-          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
-          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
         run: |
+          export CODEARTIFACT_AUTH_TOKEN=`aws codeartifact get-authorization-token --domain acryl --domain-owner 795586375822 --query authorizationToken --output text`
           echo signingKey=$SIGNING_KEY >> gradle.properties
           ./gradlew :metadata-integration:java:datahub-client:printVersion
-          ./gradlew :metadata-integration:java:datahub-client:publishToMavenLocal
-          #./gradlew :metadata-integration:java:datahub-client:closeAndReleaseRepository --info
+          ./gradlew :metadata-integration:java:datahub-client:publish

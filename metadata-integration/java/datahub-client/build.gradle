@@ -2,6 +2,7 @@ plugins {
     id("com.palantir.git-version") apply false
 }
 apply plugin: 'java'
+apply plugin: 'com.github.johnrengelman.shadow'
 apply plugin: 'jacoco'
 apply plugin: 'signing'
 apply plugin: 'maven-publish'
@@ -80,40 +81,30 @@ test {
   finalizedBy jacocoTestReport
 }
 
-//task checkShadowJar(type: Exec) {
-//   commandLine 'sh', '-c', 'scripts/check_jar.sh'
-//}
-//
-//
-//shadowJar {
-//  zip64=true
-//  archiveClassifier = ''
-//  dependencies {
-//    exclude(dependency('org.apache.httpcomponents:httpasyncclient'))
-//  }
-//  mergeServiceFiles()
-//  // we relocate namespaces manually, because we want to know exactly which libs we are exposing and why
-//  // we can move to automatic relocation using ConfigureShadowRelocation after we get to a good place on these first
-//  relocate 'com.fasterxml.jackson', 'datahub.shaded.jackson'
-//  relocate 'net.jcip.annotations', 'datahub.shaded.annotations'
-//  relocate 'javassist', 'datahub.shaded.javassist'
-//  relocate 'edu.umd.cs.findbugs', 'datahub.shaded.findbugs'
-//  relocate 'org.antlr', 'datahub.shaded.org.antlr'
-//  relocate 'antlr', 'datahub.shaded.antlr'
-//  relocate 'com.google.common', 'datahub.shaded.com.google.common'
-//  relocate 'org.apache.commons', 'datahub.shaded.org.apache.commons'
-//  relocate 'org.reflections', 'datahub.shaded.org.reflections'
-//  relocate 'st4hidden', 'datahub.shaded.st4hidden'
-//  relocate 'org.stringtemplate', 'datahub.shaded.org.stringtemplate'
-//  relocate 'org.abego.treelayout', 'datahub.shaded.treelayout'
-//  relocate 'org.slf4j', 'datahub.shaded.slf4j'
-//  relocate 'javax.annotation', 'datahub.shaded.javax.annotation'
-//  finalizedBy checkShadowJar
-//}
-//
-//checkShadowJar {
-//   dependsOn shadowJar
-//}
+shadowJar {
+  zip64=true
+  archiveClassifier = ''
+  dependencies {
+    exclude(dependency('org.apache.httpcomponents:httpasyncclient'))
+  }
+  mergeServiceFiles()
+  // we relocate namespaces manually, because we want to know exactly which libs we are exposing and why
+  // we can move to automatic relocation using ConfigureShadowRelocation after we get to a good place on these first
+  relocate 'com.fasterxml.jackson', 'datahub.shaded.jackson'
+  relocate 'net.jcip.annotations', 'datahub.shaded.annotations'
+  relocate 'javassist', 'datahub.shaded.javassist'
+  relocate 'edu.umd.cs.findbugs', 'datahub.shaded.findbugs'
+  relocate 'org.antlr', 'datahub.shaded.org.antlr'
+  relocate 'antlr', 'datahub.shaded.antlr'
+  relocate 'com.google.common', 'datahub.shaded.com.google.common'
+  relocate 'org.apache.commons', 'datahub.shaded.org.apache.commons'
+  relocate 'org.reflections', 'datahub.shaded.org.reflections'
+  relocate 'st4hidden', 'datahub.shaded.st4hidden'
+  relocate 'org.stringtemplate', 'datahub.shaded.org.stringtemplate'
+  relocate 'org.abego.treelayout', 'datahub.shaded.treelayout'
+  relocate 'org.slf4j', 'datahub.shaded.slf4j'
+  relocate 'javax.annotation', 'datahub.shaded.javax.annotation'
+}
 
 assemble {
     dependsOn shadowJar
@@ -132,7 +123,7 @@ task javadocJar(type: Jar) {
 
 publishing {
   publications {
-    mavenJava(MavenPublication) {
+    shadow(MavenPublication) {
       publication -> project.shadow.component(publication)
       pom {
         name = 'Datahub Client'
@@ -177,7 +168,9 @@ publishing {
   }
 }
 
-
 signing {
-    sign publishing.publications.mavenJava
+  def signingKey = findProperty("signingKey")
+  def signingPassword = System.getenv("SIGNING_PASSWORD")
+  useInMemoryPgpKeys(signingKey, signingPassword)
+  sign publishing.publications.shadow
 }
