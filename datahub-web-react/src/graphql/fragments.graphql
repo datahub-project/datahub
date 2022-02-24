@@ -4,6 +4,9 @@ fragment globalTagsFields on GlobalTags {
             urn
             name
             description
+            properties {
+                colorHex
+            }
         }
     }
 }
