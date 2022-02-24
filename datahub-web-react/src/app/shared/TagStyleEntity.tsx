@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { grey } from '@ant-design/colors';
 import { Alert, Button, Divider, message, Typography } from 'antd';
 import { useHistory } from 'react-router';
 import { ApolloError } from '@apollo/client';
 import styled from 'styled-components';
 import { ChromePicker } from 'react-color';
-
+import ColorHash from 'color-hash';
 import { PlusOutlined } from '@ant-design/icons';
 import { useGetTagQuery } from '../../graphql/tag.generated';
 import { EntityType, FacetMetadata, Maybe, Scalars } from '../../types.generated';
@@ -61,7 +61,6 @@ const TitleText = styled(Typography.Text)`
 const ColorPicker = styled.div`
     position: relative;
     display: inline-block;
-    margin-top: 1em;
 `;
 
 const ColorPickerButton = styled.div`
@@ -141,6 +140,12 @@ const OwnerButtonTitle = styled.span`
     color: ${grey[10]};
 `;
 
+const TagName = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: left;
+`;
+
 const { Paragraph } = Typography;
 
 type Props = {
@@ -151,6 +156,10 @@ type Props = {
         error: ApolloError | undefined;
     };
 };
+
+const generateColor = new ColorHash({
+    saturation: 0.9,
+});
 
 /**
  * Responsible for displaying metadata about a tag
@@ -166,7 +175,7 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
 
     const description = data?.tag?.properties?.description || '';
     const [updatedDescription, setUpdatedDescription] = useState('');
-    const hexColor = data?.tag?.properties?.colorHex || '';
+    const hexColor = data?.tag?.properties?.colorHex || generateColor.hex(urn);
     const [displayColorPicker, setDisplayColorPicker] = useState(false);
     const [colorValue, setColorValue] = useState('');
     const ownersEmpty = !data?.tag?.ownership?.owners?.length;
@@ -195,9 +204,8 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
     const aggregations = facets && facets[0]?.aggregations;
 
     // Save Color Change
-    const saveColor = async () => {
+    const saveColor = useCallback(async () => {
         if (displayColorPicker) {
-            message.loading({ content: 'Saving...' });
             try {
                 await setTagColorMutation({
                     variables: {
@@ -206,17 +214,42 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
                     },
                 });
                 message.destroy();
-                message.success({ content: 'Color Updated', duration: 2 });
+                message.success({ content: 'Color Saved!', duration: 2 });
                 setDisplayColorPicker(false);
             } catch (e: unknown) {
                 message.destroy();
                 if (e instanceof Error) {
-                    message.error({ content: `Failed to update Color: \n ${e.message || ''}`, duration: 2 });
+                    message.error({ content: `Failed to save tag color: \n ${e.message || ''}`, duration: 2 });
                 }
             }
             refetch?.();
         }
-    };
+    }, [urn, colorValue, displayColorPicker, setTagColorMutation, setDisplayColorPicker, refetch]);
+
+    const colorPickerRef = useRef(null);
+
+    useEffect(() => {
+        /**
+         * Save Color if Clicked outside of the Color Picker
+         */
+        function handleClickOutsideColorPicker(event) {
+            if (displayColorPicker) {
+                const { current }: any = colorPickerRef;
+                if (current) {
+                    if (!current.contains(event.target)) {
+                        setDisplayColorPicker(false);
+                        saveColor();
+                    }
+                }
+            }
+        }
+        // Bind the event listener
+        document.addEventListener('mousedown', handleClickOutsideColorPicker);
+        return () => {
+            // Unbind the event listener on clean up
+            document.removeEventListener('mousedown', handleClickOutsideColorPicker);
+        };
+    }, [colorPickerRef, displayColorPicker, saveColor]);
 
     const handlePickerClick = () => {
         setDisplayColorPicker(!displayColorPicker);
@@ -271,15 +304,17 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
             {/* Tag Title */}
             <div>
                 <TitleLabel>Tag</TitleLabel>
-                <ColorPicker>
-                    <ColorPickerButton style={{ backgroundColor: colorValue }} onClick={handlePickerClick} />
-                </ColorPicker>
+                <TagName>
+                    <ColorPicker>
+                        <ColorPickerButton style={{ backgroundColor: colorValue }} onClick={handlePickerClick} />
+                    </ColorPicker>
+                    <TitleText>{data?.tag?.properties?.name}</TitleText>
+                </TagName>
                 {displayColorPicker && (
-                    <ColorPickerPopOver>
+                    <ColorPickerPopOver ref={colorPickerRef}>
                         <ChromePicker color={colorValue} onChange={handleColorChange} />
                     </ColorPickerPopOver>
                 )}
-                <TitleText>{data?.tag?.properties?.name}</TitleText>
             </div>
             <Divider />
             {/* Tag Description */}
