@@ -24,7 +24,7 @@ type Props = {
     description?: string | undefined;
     original?: string | undefined;
     onClose: () => void;
-    onSubmit: (description: string | null) => void;
+    onSubmit: (description: string) => void;
     isAddDesc?: boolean;
 };
 
