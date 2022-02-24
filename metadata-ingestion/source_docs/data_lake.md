@@ -2,6 +2,12 @@
 
 For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
 
+:::caution
+
+This source is in **Beta** and under active development. Not yet considered ready for production.
+
+:::
+
 ## Setup
 
 To install this plugin, run `pip install 'acryl-datahub[data-lake]'`. Because the files are read using PySpark, we require Spark 3.0.3 with Hadoop 3.2 to be installed.
@@ -43,12 +49,18 @@ This connector supports both local files as well as those stored on AWS S3 (whic
 - TSV
 - Parquet
 - JSON
+- Apache Avro
 
 :::caution
 
 If you are ingesting datasets from AWS S3, we recommend running the ingestion on a server in the same region to avoid high egress costs.
 
 :::
+
+| Capability | Status | Details | 
+| -----------| ------ | ---- |
+| Platform Instance | 🛑 | [link](../../docs/platform-instances.md) |
+
 
 ## Quickstart recipe
 
@@ -60,7 +72,7 @@ For general pointers on writing and running a recipe, see our [main recipe guide
 source:
   type: data-lake
   config:
-    env: "prod"
+    env: "PROD"
     platform: "local-data-lake"
     base_path: "/path/to/data/folder"
     profiling:

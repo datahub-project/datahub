@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
 import { Alert, Divider } from 'antd';
+import SplitPane from 'react-split-pane';
 import { MutationHookOptions, MutationTuple, QueryHookOptions, QueryResult } from '@apollo/client/react/types/types';
 import styled from 'styled-components';
 import { useHistory } from 'react-router';
@@ -18,6 +19,7 @@ import { useEntityRegistry } from '../../../../useEntityRegistry';
 import LineageExplorer from '../../../../lineage/LineageExplorer';
 import CompactContext from '../../../../shared/CompactContext';
 import DynamicTab from '../../tabs/Entity/weaklyTypedAspects/DynamicTab';
+import analytics, { EventType } from '../../../../analytics';
 
 type Props<T, U> = {
     urn: string;
@@ -47,7 +49,6 @@ const ContentContainer = styled.div`
     display: flex;
     height: auto;
     min-height: 100%;
-    max-height: calc(100vh - 108px);
     align-items: stretch;
     flex: 1;
 `;
@@ -68,7 +69,6 @@ const HeaderAndTabsFlex = styled.div`
 const Sidebar = styled.div`
     overflow: auto;
     flex-basis: 30%;
-    border-left: 1px solid ${ANTD_GRAY[4.5]};
     padding-left: 20px;
     padding-right: 20px;
 `;
@@ -83,6 +83,14 @@ const TabContent = styled.div`
     flex: 1;
     overflow: auto;
 `;
+
+const resizerStyles = {
+    background: '#E9E9E9',
+    width: '1px',
+    cursor: 'col-resize',
+    margin: '0 5px',
+    height: 'auto',
+};
 
 const defaultTabDisplayConfig = {
     visible: (_, _1) => true,
@@ -125,6 +133,12 @@ export const EntityProfile = <T, U>({
             tabParams?: Record<string, any>;
             method?: 'push' | 'replace';
         }) => {
+            analytics.event({
+                type: EventType.EntitySectionViewEvent,
+                entityType,
+                entityUrn: urn,
+                section: tabName.toLowerCase(),
+            });
             history[method](getEntityPath(entityType, urn, entityRegistry, false, tabName, tabParams));
         },
         [history, entityType, urn, entityRegistry],
@@ -223,7 +237,17 @@ export const EntityProfile = <T, U>({
                     {isLineageMode ? (
                         <LineageExplorer type={entityType} urn={urn} />
                     ) : (
-                        <>
+                        <SplitPane
+                            split="vertical"
+                            minSize={window.innerWidth - 400}
+                            maxSize={window.innerWidth - 250}
+                            defaultSize={window.innerWidth - 400}
+                            resizerStyle={resizerStyles}
+                            style={{
+                                height: 'auto',
+                                overflow: 'auto',
+                            }}
+                        >
                             <HeaderAndTabs>
                                 <HeaderAndTabsFlex>
                                     <Header>
@@ -233,13 +257,15 @@ export const EntityProfile = <T, U>({
                                             selectedTab={routedTab}
                                         />
                                     </Header>
-                                    <TabContent>{routedTab && <routedTab.component />}</TabContent>
+                                    <TabContent>
+                                        {routedTab && <routedTab.component properties={routedTab.properties} />}
+                                    </TabContent>
                                 </HeaderAndTabsFlex>
                             </HeaderAndTabs>
                             <Sidebar>
                                 <EntitySidebar sidebarSections={sideBarSectionsWithDefaults} />
                             </Sidebar>
-                        </>
+                        </SplitPane>
                     )}
                 </ContentContainer>
             </>

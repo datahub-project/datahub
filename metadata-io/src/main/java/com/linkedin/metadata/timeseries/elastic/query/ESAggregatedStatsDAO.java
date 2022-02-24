@@ -12,6 +12,7 @@ import com.linkedin.metadata.models.TimeseriesFieldSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.timeseries.AggregationSpec;
 import com.linkedin.timeseries.GenericTable;
@@ -55,6 +56,7 @@ public class ESAggregatedStatsDAO {
   private static final String ES_TERMS_AGGREGATION_PREFIX = "terms_";
   private static final String ES_MAX_AGGREGATION_PREFIX = "max_";
   private static final String ES_FIELD_TIMESTAMP = "timestampMillis";
+  private static final String ES_FIELD_URN = "urn";
   private static final String ES_AGG_TIMESTAMP = ES_AGGREGATION_PREFIX + ES_FIELD_TIMESTAMP;
   private static final String ES_AGG_MAX_TIMESTAMP =
       ES_AGGREGATION_PREFIX + ES_MAX_AGGREGATION_PREFIX + ES_FIELD_TIMESTAMP;
@@ -171,11 +173,13 @@ public class ESAggregatedStatsDAO {
     if (fieldPath.equals(ES_FIELD_TIMESTAMP)) {
       return DataSchema.Type.LONG;
     }
-    /* TODO: Remove if not needed after merge.
+    if (fieldPath.equals(ES_FIELD_URN)) {
+      return DataSchema.Type.STRING;
+    }
     if (fieldPath.equals(MappingsBuilder.EVENT_GRANULARITY)) {
       return DataSchema.Type.RECORD;
     }
-    */
+    
     String[] memberParts = fieldPath.split("\\.");
     if (memberParts.length == 1) {
       // Search in the timeseriesFieldSpecs.
@@ -190,6 +194,16 @@ public class ESAggregatedStatsDAO {
         return timeseriesFieldCollectionSpec.getPegasusSchema().getType();
       }
     } else if (memberParts.length == 2) {
+      // Check if partitionSpec
+      if (memberParts[0].equals(MappingsBuilder.PARTITION_SPEC)) {
+        if (memberParts[1].equals(MappingsBuilder.PARTITION_SPEC_PARTITION) || memberParts[1].equals(
+            MappingsBuilder.PARTITION_SPEC_TIME_PARTITION)) {
+          return DataSchema.Type.STRING;
+        } else {
+          throw new IllegalArgumentException("Unknown partitionSpec member" + memberParts[1]);
+        }
+      }
+
       // This is either a collection key/stat.
       TimeseriesFieldCollectionSpec timeseriesFieldCollectionSpec =
           aspectSpec.getTimeseriesFieldCollectionSpecMap().get(memberParts[0]);
@@ -426,18 +440,6 @@ public class ESAggregatedStatsDAO {
     }
 
     return lastAggregationBuilder;
-  }
-
-  private boolean isIntegralType(DataSchema.Type fieldType) {
-    switch (fieldType) {
-      case INT:
-      case FLOAT:
-      case DOUBLE:
-      case LONG:
-        return true;
-      default:
-        return false;
-    }
   }
 
   private GenericTable generateResponseFromElastic(SearchResponse searchResponse, GroupingBucket[] groupingBuckets,

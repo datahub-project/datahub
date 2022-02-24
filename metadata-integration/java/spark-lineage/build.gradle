@@ -1,10 +1,12 @@
+plugins {
+    id("com.palantir.git-version") apply false
+}
 apply plugin: 'java'
 apply plugin: 'com.github.johnrengelman.shadow'
 apply plugin: 'signing'
 apply plugin: 'io.codearte.nexus-staging'
 apply plugin: 'maven-publish'
 apply plugin: 'jacoco'
-apply plugin: 'com.palantir.git-version'
 import org.apache.tools.ant.filters.ReplaceTokens
 
 jar.enabled = false // Since we only want to build shadow jars, disabling the regular jar creation
@@ -19,18 +21,53 @@ configurations {
     implementation.extendsFrom provided 
 }
 
-def details = versionDetails()
-version = details.lastTag
-version = version.startsWith("v")? version.substring(1): version
-// trim version if it is of size 4 to size 3
-def versionParts = version.tokenize(".")
-def lastPart = details.isCleanTag? versionParts[2]: (versionParts[2].toInteger()+1).toString() + "-SNAPSHOT"
-version = versionParts[0] + "." + versionParts[1] + "." + lastPart
+def detailedVersionString = "0.0.0-unknown-SNAPSHOT"
+def snapshotVersion = false
+if (project.hasProperty("releaseVersion")) {
+  version = releaseVersion
+  detailedVersionString = releaseVersion
+} else {
+  try {
+      // apply this plugin in a try-catch block so that we can handle cases without .git directory
+      apply plugin: "com.palantir.git-version"
+      println("In else section")
+      def details = versionDetails()
+      detailedVersionString = gitVersion()
+      version = details.lastTag
+      version = version.startsWith("v")? version.substring(1): version
+      def suffix = details.isCleanTag? "": "-SNAPSHOT"
+      snapshotVersion = ! details.isCleanTag
+    }
+    catch (Exception e) {
+          e.printStackTrace()
+          // last fall back
+          version = detailedVersionString
+      }
+  }
+    // trim version if it is of size 4 to size 3
+    def versionParts = version.tokenize(".")
+    if (versionParts.size() > 3) {
+      // at-least 4 part version
+      // we check if the 4th part is a .0 in which case we want to create a release
+      if (versionParts[3] != '0') {
+        snapshotVersion = true
+      }
+      versionParts = versionParts[0..2]
+      version = versionParts[0..2].join('.')
+    }
 
-processResources {
-    filter(ReplaceTokens, tokens:[fullVersion: gitVersion()])
-}
-
+    if (snapshotVersion) {
+        if (versionParts[versionParts.size()-1].isInteger()) {
+          version = versionParts[0..versionParts.size()-2].join('.') + '.' + (versionParts[versionParts.size()-1].toInteger()+1).toString() + "-SNAPSHOT"
+        } else {
+          // we are unable to part the last token as an integer, so we just append SNAPSHOT to this version
+          version = versionParts[0..versionParts.size()-1].join('.') + '-SNAPSHOT'
+      }
+    }
+ 
+    processResources {
+      filter(ReplaceTokens, tokens:[fullVersion: detailedVersionString])
+    }
 
 dependencies {
 
@@ -49,6 +86,8 @@ dependencies {
   
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
+  
+  implementation externalDependency.typesafeConfig
 
   implementation project(path: ':metadata-integration:java:datahub-client', configuration: 'shadow')
 
@@ -106,6 +145,7 @@ shadowJar {
   relocate 'org.apache.http','datahub.spark2.shaded.http'
   relocate 'org.apache.commons.codec', 'datahub.spark2.shaded.o.a.c.codec'
   relocate 'mozilla', 'datahub.spark2.shaded.mozilla'
+  relocate 'com.typesafe','datahub.spark2.shaded.typesafe'
   finalizedBy checkShadowJar
 }
 
@@ -125,6 +165,10 @@ test {
 
 assemble {
     dependsOn shadowJar
+}
+
+task integrationTest(type: Exec ) {
+  commandLine "spark-smoke-test/smoke.sh"
 }
 
 task sourcesJar(type: Jar) {

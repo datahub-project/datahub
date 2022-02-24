@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { message, Button, Input, Modal, Typography, Form } from 'antd';
+import { message, Button, Input, Modal, Typography, Form, Collapse } from 'antd';
 import { useCreateGroupMutation } from '../../../graphql/group.generated';
+import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
 
 type Props = {
     visible: boolean;
@@ -11,12 +12,14 @@ type Props = {
 export default function CreateGroupModal({ visible, onClose, onCreate }: Props) {
     const [stagedName, setStagedName] = useState('');
     const [stagedDescription, setStagedDescription] = useState('');
+    const [stagedId, setStagedId] = useState<string | undefined>(undefined);
     const [createGroupMutation] = useCreateGroupMutation();
 
     const onCreateGroup = () => {
         createGroupMutation({
             variables: {
                 input: {
+                    id: stagedId,
                     name: stagedName,
                     description: stagedDescription,
                 },
@@ -38,6 +41,11 @@ export default function CreateGroupModal({ visible, onClose, onCreate }: Props) 
         onClose();
     };
 
+    // Handle the Enter press
+    useEnterKeyListener({
+        querySelectorToExecuteClick: '#createGroupButton',
+    });
+
     return (
         <Modal
             title="Create new group"
@@ -48,7 +56,7 @@ export default function CreateGroupModal({ visible, onClose, onCreate }: Props) 
                     <Button onClick={onClose} type="text">
                         Cancel
                     </Button>
-                    <Button onClick={onCreateGroup} disabled={stagedName === ''}>
+                    <Button id="createGroupButton" onClick={onCreateGroup} disabled={stagedName === ''}>
                         Create
                     </Button>
                 </>
@@ -71,6 +79,23 @@ export default function CreateGroupModal({ visible, onClose, onCreate }: Props) 
                         onChange={(event) => setStagedDescription(event.target.value)}
                     />
                 </Form.Item>
+                <Collapse ghost>
+                    <Collapse.Panel header={<Typography.Text type="secondary">Advanced</Typography.Text>} key="1">
+                        <Form.Item label={<Typography.Text strong>Group Id</Typography.Text>}>
+                            <Typography.Paragraph>
+                                By default, a random UUID will be generated to uniquely identify this group. If
+                                you&apos;d like to provide a custom id instead to more easily keep track of this group,
+                                you may provide it here. Be careful, you cannot easily change the group id after
+                                creation.
+                            </Typography.Paragraph>
+                            <Input
+                                placeholder="product_engineering"
+                                value={stagedId || ''}
+                                onChange={(event) => setStagedId(event.target.value)}
+                            />
+                        </Form.Item>
+                    </Collapse.Panel>
+                </Collapse>
             </Form>
         </Modal>
     );

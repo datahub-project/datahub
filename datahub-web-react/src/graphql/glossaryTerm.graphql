@@ -31,8 +31,12 @@ query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
         ownership {
             ...ownershipFields
         }
-        glossaryTermInfo {
-            definition
+        institutionalMemory {
+            ...institutionalMemoryFields
+        }
+        properties {
+            name
+            description
             termSource
             sourceRef
             sourceUrl
@@ -41,6 +45,9 @@ query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
                 key
                 value
             }
+        }
+        schemaMetadata(version: 0) {
+            ...schemaMetadataFields
         }
     }
 }

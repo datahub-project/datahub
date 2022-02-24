@@ -39,11 +39,11 @@ import com.linkedin.util.Pair;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.HashSet;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -152,7 +152,7 @@ public abstract class EntityService {
   public Map<Urn, EntityResponse> getEntitiesV2(
       @Nonnull final String entityName,
       @Nonnull final Set<Urn> urns,
-      @Nonnull final Set<String> aspectNames) throws Exception {
+      @Nonnull final Set<String> aspectNames) throws URISyntaxException {
     return getLatestEnvelopedAspects(entityName, urns, aspectNames)
         .entrySet()
         .stream()
@@ -170,7 +170,7 @@ public abstract class EntityService {
   public abstract Map<Urn, List<EnvelopedAspect>> getLatestEnvelopedAspects(
       @Nonnull final String entityName,
       @Nonnull final Set<Urn> urns,
-      @Nonnull final Set<String> aspectNames) throws Exception;
+      @Nonnull final Set<String> aspectNames) throws URISyntaxException;
 
   /**
    * Retrieves the latest aspect for the given urn as a list of enveloped aspects
@@ -222,10 +222,27 @@ public abstract class EntityService {
   public abstract ListResult<RecordTemplate> listLatestAspects(@Nonnull final String entityName,
       @Nonnull final String aspectName, final int start, int count);
 
+
+  @Nonnull
+  private UpdateAspectResult wrappedIngestAspectToLocalDB(@Nonnull final Urn urn, @Nonnull final String aspectName,
+      @Nonnull final Function<Optional<RecordTemplate>, RecordTemplate> updateLambda,
+      @Nonnull final AuditStamp auditStamp, @Nonnull final SystemMetadata systemMetadata) {
+    validateUrn(urn);
+    return ingestAspectToLocalDB(urn, aspectName, updateLambda, auditStamp, systemMetadata);
+  }
+
+  @Nonnull
+  private List<Pair<String, UpdateAspectResult>> wrappedIngestAspectsToLocalDB(@Nonnull final Urn urn,
+      @Nonnull List<Pair<String, RecordTemplate>> aspectRecordsToIngest,
+      @Nonnull final AuditStamp auditStamp, @Nonnull final SystemMetadata providedSystemMetadata) {
+    validateUrn(urn);
+    return ingestAspectsToLocalDB(urn, aspectRecordsToIngest, auditStamp, providedSystemMetadata);
+  }
   /**
    * Checks whether there is an actual update to the aspect by applying the updateLambda
    * If there is an update, push the new version into the local DB.
    * Otherwise, do not push the new version, but just update the system metadata.
+   * DO NOT CALL DIRECTLY, USE WRAPPED METHODS TO VALIDATE URN
    *
    * @param urn an urn associated with the new aspect
    * @param aspectName name of the aspect being inserted
@@ -234,14 +251,17 @@ public abstract class EntityService {
    * @return Details about the new and old version of the aspect
    */
   @Nonnull
+  @Deprecated
   protected abstract UpdateAspectResult ingestAspectToLocalDB(@Nonnull final Urn urn, @Nonnull final String aspectName,
       @Nonnull final Function<Optional<RecordTemplate>, RecordTemplate> updateLambda,
       @Nonnull final AuditStamp auditStamp, @Nonnull final SystemMetadata systemMetadata);
 
   /**
    * Same as ingestAspectToLocalDB but for multiple aspects
+   * DO NOT CALL DIRECTLY, USE WRAPPED METHODS TO VALIDATE URN
    */
   @Nonnull
+  @Deprecated
   protected abstract List<Pair<String, UpdateAspectResult>> ingestAspectsToLocalDB(@Nonnull final Urn urn,
     @Nonnull List<Pair<String, RecordTemplate>> aspectRecordsToIngest,
     @Nonnull final AuditStamp auditStamp, @Nonnull final SystemMetadata providedSystemMetadata);
@@ -265,11 +285,10 @@ public abstract class EntityService {
   public void ingestAspects(@Nonnull final Urn urn, @Nonnull List<Pair<String, RecordTemplate>> aspectRecordsToIngest,
     @Nonnull final AuditStamp auditStamp, SystemMetadata systemMetadata) {
 
-    validateUrn(urn);
     systemMetadata = generateSystemMetadataIfEmpty(systemMetadata);
 
     Timer.Context ingestToLocalDBTimer = MetricUtils.timer(this.getClass(), "ingestAspectsToLocalDB").time();
-    List<Pair<String, UpdateAspectResult>> ingestResults = ingestAspectsToLocalDB(urn, aspectRecordsToIngest, auditStamp, systemMetadata);
+    List<Pair<String, UpdateAspectResult>> ingestResults = wrappedIngestAspectsToLocalDB(urn, aspectRecordsToIngest, auditStamp, systemMetadata);
     ingestToLocalDBTimer.stop();
 
     for (Pair<String, UpdateAspectResult> result: ingestResults) {
@@ -295,11 +314,10 @@ public abstract class EntityService {
 
     log.debug("Invoked ingestAspect with urn: {}, aspectName: {}, newValue: {}", urn, aspectName, newValue);
 
-    validateUrn(urn);
     systemMetadata = generateSystemMetadataIfEmpty(systemMetadata);
 
     Timer.Context ingestToLocalDBTimer = MetricUtils.timer(this.getClass(), "ingestAspectToLocalDB").time();
-    UpdateAspectResult result = ingestAspectToLocalDB(urn, aspectName, ignored -> newValue, auditStamp, systemMetadata);
+    UpdateAspectResult result = wrappedIngestAspectToLocalDB(urn, aspectName, ignored -> newValue, auditStamp, systemMetadata);
     ingestToLocalDBTimer.stop();
 
     return sendEventForUpdateAspectResult(urn, aspectName, result);
@@ -397,7 +415,7 @@ public abstract class EntityService {
     if (!aspectSpec.isTimeseries()) {
       Timer.Context ingestToLocalDBTimer = MetricUtils.timer(this.getClass(), "ingestProposalToLocalDB").time();
       UpdateAspectResult result =
-          ingestAspectToLocalDB(entityUrn, metadataChangeProposal.getAspectName(), ignored -> aspect, auditStamp,
+          wrappedIngestAspectToLocalDB(entityUrn, metadataChangeProposal.getAspectName(), ignored -> aspect, auditStamp,
               systemMetadata);
       ingestToLocalDBTimer.stop();
       oldAspect = result.getOldValue();

@@ -57,6 +57,11 @@ const user1 = {
                     urn: 'urn:li:tag:abc-sample-tag',
                     name: 'abc-sample-tag',
                     description: 'sample tag',
+                    properties: {
+                        name: 'abc-sample-tag',
+                        description: 'sample tag',
+                        colorHex: 'sample tag color',
+                    },
                 },
             },
         ],
@@ -87,9 +92,26 @@ const user2 = {
                     urn: 'urn:li:tag:abc-sample-tag',
                     name: 'abc-sample-tag',
                     description: 'sample tag',
+                    properties: {
+                        name: 'abc-sample-tag',
+                        description: 'sample tag',
+                        colorHex: 'sample tag color',
+                    },
                 },
             },
         ],
+    },
+};
+
+const dataPlatform = {
+    urn: 'urn:li:dataPlatform:hdfs',
+    name: 'HDFS',
+    type: EntityType.DataPlatform,
+    properties: {
+        displayName: 'HDFS',
+        type: PlatformType.FileSystem,
+        datasetNameDelimiter: '.',
+        logoUrl: '',
     },
 };
 
@@ -100,7 +122,7 @@ const dataset1 = {
         urn: 'urn:li:dataPlatform:hdfs',
         name: 'HDFS',
         type: EntityType.DataPlatform,
-        info: {
+        properties: {
             displayName: 'HDFS',
             type: PlatformType.FileSystem,
             datasetNameDelimiter: '.',
@@ -176,6 +198,8 @@ const dataset1 = {
             ],
         },
     ],
+    domain: null,
+    container: null,
 };
 
 const dataset2 = {
@@ -246,6 +270,8 @@ const dataset2 = {
             ],
         },
     ],
+    domain: null,
+    container: null,
 };
 
 export const dataset3 = {
@@ -308,6 +334,11 @@ export const dataset3 = {
                     urn: 'urn:li:tag:abc-sample-tag',
                     name: 'abc-sample-tag',
                     description: 'sample tag',
+                    properties: {
+                        name: 'abc-sample-tag',
+                        description: 'sample tag',
+                        colorHex: 'sample tag color',
+                    },
                 },
             },
         ],
@@ -320,7 +351,9 @@ export const dataset3 = {
                     urn: 'urn:li:glossaryTerm:sample-glossary-term',
                     name: 'sample-glossary-term',
                     hierarchicalName: 'example.sample-glossary-term',
-                    glossaryTermInfo: {
+                    properties: {
+                        name: 'sample-glossary-term',
+                        description: 'sample definition',
                         definition: 'sample definition',
                         termSource: 'sample term source',
                     },
@@ -432,6 +465,8 @@ export const dataset3 = {
             },
         },
     ],
+    domain: null,
+    container: null,
 } as Dataset;
 
 export const dataset4 = {
@@ -686,6 +721,16 @@ const glossaryTerm1 = {
         },
     },
     glossaryTermInfo: {
+        name: 'Another glossary term',
+        description: 'New glossary term',
+        definition: 'New glossary term',
+        termSource: 'termSource',
+        sourceRef: 'sourceRef',
+        sourceURI: 'sourceURI',
+    },
+    properties: {
+        name: 'Another glossary term',
+        description: 'New glossary term',
         definition: 'New glossary term',
         termSource: 'termSource',
         sourceRef: 'sourceRef',
@@ -700,6 +745,8 @@ const glossaryTerm2 = {
     hierarchicalName: 'example.glossaryterm1',
     ownership: null,
     glossaryTermInfo: {
+        name: 'glossaryterm1',
+        description: 'is A relation glossary term 1',
         definition: 'is A relation glossary term 1',
         termSource: 'INTERNAL',
         sourceRef: 'TERM_SOURCE_SAXO',
@@ -713,6 +760,23 @@ const glossaryTerm2 = {
             },
         ],
         __typename: 'GlossaryTermInfo',
+    },
+    properties: {
+        name: 'glossaryterm1',
+        description: 'is A relation glossary term 1',
+        definition: 'is A relation glossary term 1',
+        termSource: 'INTERNAL',
+        sourceRef: 'TERM_SOURCE_SAXO',
+        sourceUrl: '',
+        rawSchema: 'sample proto schema',
+        customProperties: [
+            {
+                key: 'keyProperty',
+                value: 'valueProperty',
+                __typename: 'StringMapEntry',
+            },
+        ],
+        __typename: 'GlossaryTermProperties',
     },
     isRealtedTerms: {
         start: 0,
@@ -752,6 +816,8 @@ const glossaryTerm3 = {
     hierarchicalName: 'example.glossaryterm2',
     ownership: null,
     glossaryTermInfo: {
+        name: 'glossaryterm2',
+        description: 'has A relation glossary term 2',
         definition: 'has A relation glossary term 2',
         termSource: 'INTERNAL',
         sourceRef: 'TERM_SOURCE_SAXO',
@@ -766,17 +832,38 @@ const glossaryTerm3 = {
         ],
         __typename: 'GlossaryTermInfo',
     },
+    properties: {
+        name: 'glossaryterm2',
+        description: 'has A relation glossary term 2',
+        definition: 'has A relation glossary term 2',
+        termSource: 'INTERNAL',
+        sourceRef: 'TERM_SOURCE_SAXO',
+        sourceUrl: '',
+        rawSchema: 'sample proto schema',
+        customProperties: [
+            {
+                key: 'keyProperty',
+                value: 'valueProperty',
+                __typename: 'StringMapEntry',
+            },
+        ],
+        __typename: 'GlossaryTermProperties',
+    },
     glossaryRelatedTerms: {
         isRelatedTerms: null,
         hasRelatedTerms: [
             {
                 urn: 'urn:li:glossaryTerm:example.glossaryterm3',
-                name: 'glossaryterm3',
+                properties: {
+                    name: 'glossaryterm3',
+                },
                 __typename: 'GlossaryTerm',
             },
             {
                 urn: 'urn:li:glossaryTerm:example.glossaryterm4',
-                name: 'glossaryterm4',
+                properties: {
+                    name: 'glossaryterm4',
+                },
                 __typename: 'GlossaryTerm',
             },
         ],
@@ -807,6 +894,11 @@ const sampleTag = {
         lastModified: {
             time: 0,
         },
+    },
+    properties: {
+        name: 'abc-sample-tag',
+        description: 'sample tag description',
+        colorHex: 'sample tag color',
     },
 };
 
@@ -852,10 +944,19 @@ export const dataFlow1 = {
                     urn: 'urn:li:tag:abc-sample-tag',
                     name: 'abc-sample-tag',
                     description: 'sample tag',
+                    properties: {
+                        name: 'abc-sample-tag',
+                        description: 'sample tag',
+                        colorHex: 'sample tag color',
+                    },
                 },
             },
         ],
     },
+    platform: {
+        ...dataPlatform,
+    },
+    domain: null,
 } as DataFlow;
 
 export const dataJob1 = {
@@ -905,6 +1006,11 @@ export const dataJob1 = {
                     urn: 'urn:li:tag:abc-sample-tag',
                     name: 'abc-sample-tag',
                     description: 'sample tag',
+                    properties: {
+                        name: 'abc-sample-tag',
+                        description: 'sample tag',
+                        colorHex: 'sample tag color',
+                    },
                 },
             },
         ],
@@ -923,6 +1029,7 @@ export const dataJob1 = {
             },
         ],
     },
+    domain: null,
 } as DataJob;
 
 export const dataJob2 = {
@@ -972,10 +1079,16 @@ export const dataJob2 = {
                     urn: 'urn:li:tag:abc-sample-tag',
                     name: 'abc-sample-tag',
                     description: 'sample tag',
+                    properties: {
+                        name: 'abc-sample-tag',
+                        description: 'sample tag',
+                        colorHex: 'sample tag color',
+                    },
                 },
             },
         ],
     },
+    domain: null,
 } as DataJob;
 
 export const dataJob3 = {
@@ -1025,10 +1138,16 @@ export const dataJob3 = {
                     urn: 'urn:li:tag:abc-sample-tag',
                     name: 'abc-sample-tag',
                     description: 'sample tag',
+                    properties: {
+                        name: 'abc-sample-tag',
+                        description: 'sample tag',
+                        colorHex: 'sample tag color',
+                    },
                 },
             },
         ],
     },
+    domain: null,
 } as DataJob;
 
 export const mlModel = {
@@ -1090,6 +1209,11 @@ export const mlModel = {
                     urn: 'urn:li:tag:abc-sample-tag',
                     name: 'abc-sample-tag',
                     description: 'sample tag',
+                    properties: {
+                        name: 'abc-sample-tag',
+                        description: 'sample tag',
+                        colorHex: 'sample tag color',
+                    },
                 },
             },
         ],
@@ -1145,6 +1269,11 @@ export const mlModelGroup = {
                     urn: 'urn:li:tag:abc-sample-tag',
                     name: 'abc-sample-tag',
                     description: 'sample tag',
+                    properties: {
+                        name: 'abc-sample-tag',
+                        description: 'sample tag',
+                        colorHex: 'sample tag color',
+                    },
                 },
             },
         ],
@@ -1175,9 +1304,14 @@ export const recommendationModules = [
                 entity: {
                     urn: 'urn:li:dataPlatform:snowflake',
                     type: EntityType.DataPlatform,
-                    info: {
+                    name: 'snowflake',
+                    properties: {
                         displayName: 'Snowflake',
+                        datasetNameDelimiter: '.',
+                        logoUrl: null,
                     },
+                    displayName: null,
+                    info: null,
                 },
                 params: {
                     contentParams: {
@@ -2634,7 +2768,7 @@ export const mocks = [
                     requestContext: {
                         scenario: ScenarioType.Home,
                     },
-                    limit: 5,
+                    limit: 10,
                 },
             },
         },

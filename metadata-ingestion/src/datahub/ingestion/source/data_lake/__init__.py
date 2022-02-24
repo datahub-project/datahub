@@ -1,7 +1,8 @@
 import logging
 import os
 from datetime import datetime
-from typing import Any, Iterable, Optional
+from math import log10
+from typing import Any, Dict, Iterable, List, Optional
 
 import parse
 import pydeequ
@@ -28,13 +29,14 @@ from pyspark.sql.types import (
     StructType,
     TimestampType,
 )
+from pyspark.sql.utils import AnalysisException
 
 from datahub.emitter.mce_builder import make_data_platform_urn, make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.aws.aws_common import make_s3_urn
+from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.ingestion.source.data_lake.config import DataLakeSourceConfig
 from datahub.ingestion.source.data_lake.profiling import _SingleTableProfiler
 from datahub.ingestion.source.data_lake.report import DataLakeSourceReport
@@ -59,6 +61,8 @@ from datahub.metadata.schema_classes import (
     MapTypeClass,
     OtherSchemaClass,
 )
+from datahub.telemetry import stats, telemetry
+from datahub.utilities.perf_timer import PerfTimer
 
 # hide annoying debug errors from py4j
 logging.getLogger("py4j").setLevel(logging.ERROR)
@@ -111,17 +115,75 @@ def get_column_type(
     return SchemaFieldDataType(type=TypeClass())
 
 
+# config flags to emit telemetry for
+config_options_to_report = [
+    "platform",
+    "use_relative_path",
+    "ignore_dotfiles",
+]
+
+# profiling flags to emit telemetry for
+profiling_flags_to_report = [
+    "profile_table_level_only",
+    "include_field_null_count",
+    "include_field_min_value",
+    "include_field_max_value",
+    "include_field_mean_value",
+    "include_field_median_value",
+    "include_field_stddev_value",
+    "include_field_quantiles",
+    "include_field_distinct_value_frequencies",
+    "include_field_histogram",
+    "include_field_sample_values",
+]
+
+
+S3_PREFIXES = ["s3://", "s3n://", "s3a://"]
+
+
 class DataLakeSource(Source):
     source_config: DataLakeSourceConfig
-    report = DataLakeSourceReport()
+    report: DataLakeSourceReport
+    profiling_times_taken: List[float]
 
     def __init__(self, config: DataLakeSourceConfig, ctx: PipelineContext):
         super().__init__(ctx)
         self.source_config = config
+        self.report = DataLakeSourceReport()
+        self.profiling_times_taken = []
+
+        config_report = {
+            config_option: config.dict().get(config_option)
+            for config_option in config_options_to_report
+        }
+        config_report = {**config_report, "profiling_enabled": config.profiling.enabled}
+
+        telemetry.telemetry_instance.ping(
+            "data_lake_config",
+            config_report,
+        )
+
+        if config.profiling.enabled:
+            telemetry.telemetry_instance.ping(
+                "data_lake_profiling_config",
+                {
+                    config_flag: config.profiling.dict().get(config_flag)
+                    for config_flag in profiling_flags_to_report
+                },
+            )
 
         conf = SparkConf()
 
-        conf.set("spark.jars.packages", "org.apache.hadoop:hadoop-aws:3.0.3")
+        conf.set(
+            "spark.jars.packages",
+            ",".join(
+                [
+                    "org.apache.hadoop:hadoop-aws:3.0.3",
+                    "org.apache.spark:spark-avro_2.12:3.0.3",
+                    pydeequ.deequ_maven_coord,
+                ]
+            ),
+        )
 
         if self.source_config.aws_config is not None:
 
@@ -170,7 +232,6 @@ class DataLakeSource(Source):
                     "org.apache.hadoop.fs.s3a.AnonymousAWSCredentialsProvider",
                 )
 
-        conf.set("spark.jars.packages", pydeequ.deequ_maven_coord)
         conf.set("spark.jars.excludes", pydeequ.f2j_maven_coord)
         conf.set("spark.driver.memory", config.spark_driver_memory)
 
@@ -179,9 +240,14 @@ class DataLakeSource(Source):
     @classmethod
     def create(cls, config_dict, ctx):
         config = DataLakeSourceConfig.parse_obj(config_dict)
+
         return cls(config, ctx)
 
     def read_file(self, file: str) -> Optional[DataFrame]:
+
+        extension = os.path.splitext(file)[1]
+
+        telemetry.telemetry_instance.ping("data_lake_file", {"extension": extension})
 
         if file.endswith(".parquet"):
             df = self.spark.read.parquet(file)
@@ -206,11 +272,19 @@ class DataLakeSource(Source):
             )
         elif file.endswith(".json"):
             df = self.spark.read.json(file)
+        elif file.endswith(".avro"):
+            try:
+                df = self.spark.read.format("avro").load(file)
+            except AnalysisException:
+                self.report.report_warning(
+                    file,
+                    "To ingest avro files, please install the spark-avro package: https://mvnrepository.com/artifact/org.apache.spark/spark-avro_2.12/3.0.3",
+                )
+                return None
+
         # TODO: add support for more file types
         # elif file.endswith(".orc"):
-        #     df = self.spark.read.orc(file)
-        # elif file.endswith(".avro"):
-        #     df = self.spark.read.avro(file)
+        # df = self.spark.read.orc(file)
         else:
             self.report.report_warning(file, f"file {file} has unsupported extension")
             return None
@@ -326,35 +400,48 @@ class DataLakeSource(Source):
         if not self.source_config.profiling.enabled:
             return
 
-        # init PySpark analysis object
-        logger.debug(
-            f"Profiling {full_path}: reading file and computing nulls+uniqueness {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
-        )
-        table_profiler = _SingleTableProfiler(
-            table, self.spark, self.source_config.profiling, self.report, full_path
-        )
+        with PerfTimer() as timer:
+            # init PySpark analysis object
+            logger.debug(
+                f"Profiling {full_path}: reading file and computing nulls+uniqueness {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+            )
+            table_profiler = _SingleTableProfiler(
+                table,
+                self.spark,
+                self.source_config.profiling,
+                self.report,
+                full_path,
+            )
 
-        logger.debug(
-            f"Profiling {full_path}: preparing profilers to run {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
-        )
-        # instead of computing each profile individually, we run them all in a single analyzer.run() call
-        # we use a single call because the analyzer optimizes the number of calls to the underlying profiler
-        # since multiple profiles reuse computations, this saves a lot of time
-        table_profiler.prepare_table_profiles()
+            logger.debug(
+                f"Profiling {full_path}: preparing profilers to run {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+            )
+            # instead of computing each profile individually, we run them all in a single analyzer.run() call
+            # we use a single call because the analyzer optimizes the number of calls to the underlying profiler
+            # since multiple profiles reuse computations, this saves a lot of time
+            table_profiler.prepare_table_profiles()
 
-        # compute the profiles
-        logger.debug(
-            f"Profiling {full_path}: computing profiles {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
-        )
-        analysis_result = table_profiler.analyzer.run()
-        analysis_metrics = AnalyzerContext.successMetricsAsDataFrame(
-            self.spark, analysis_result
-        )
+            # compute the profiles
+            logger.debug(
+                f"Profiling {full_path}: computing profiles {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+            )
+            analysis_result = table_profiler.analyzer.run()
+            analysis_metrics = AnalyzerContext.successMetricsAsDataFrame(
+                self.spark, analysis_result
+            )
 
-        logger.debug(
-            f"Profiling {full_path}: extracting profiles {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
-        )
-        table_profiler.extract_table_profiles(analysis_metrics)
+            logger.debug(
+                f"Profiling {full_path}: extracting profiles {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+            )
+            table_profiler.extract_table_profiles(analysis_metrics)
+
+            time_taken = timer.elapsed_seconds()
+
+            logger.info(
+                f"Finished profiling {full_path}; took {time_taken:.3f} seconds"
+            )
+
+            self.profiling_times_taken.append(time_taken)
 
         mcp = MetadataChangeProposalWrapper(
             entityType="dataset",
@@ -371,80 +458,122 @@ class DataLakeSource(Source):
         self.report.report_workunit(wu)
         yield wu
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+    def get_workunits_s3(self) -> Iterable[MetadataWorkUnit]:
 
-        s3_prefixes = ["s3://", "s3n://", "s3a://"]
+        for s3_prefix in S3_PREFIXES:
+            if self.source_config.base_path.startswith(s3_prefix):
+                plain_base_path = self.source_config.base_path.lstrip(s3_prefix)
+                break
 
-        # check if file is an s3 object
-        if any(
-            self.source_config.base_path.startswith(s3_prefix)
-            for s3_prefix in s3_prefixes
+        # append a trailing slash if it's not there so prefix filtering works
+        if not plain_base_path.endswith("/"):
+            plain_base_path = plain_base_path + "/"
+
+        if self.source_config.aws_config is None:
+            raise ValueError("AWS config is required for S3 file sources")
+
+        s3 = self.source_config.aws_config.get_s3_resource()
+        bucket = s3.Bucket(plain_base_path.split("/")[0])
+
+        unordered_files = []
+
+        for obj in bucket.objects.filter(
+            Prefix=plain_base_path.split("/", maxsplit=1)[1]
         ):
 
-            for s3_prefix in s3_prefixes:
-                if self.source_config.base_path.startswith(s3_prefix):
-                    plain_base_path = self.source_config.base_path.lstrip(s3_prefix)
-                    break
+            s3_path = f"s3://{obj.bucket_name}/{obj.key}"
 
-            # append a trailing slash if it's not there so prefix filtering works
-            if not plain_base_path.endswith("/"):
-                plain_base_path = plain_base_path + "/"
+            # if table patterns do not allow this file, skip
+            if not self.source_config.schema_patterns.allowed(s3_path):
+                continue
 
-            if self.source_config.aws_config is None:
-                raise ValueError("AWS config is required for S3 file sources")
+            # if the file is a directory, skip it
+            if obj.key.endswith("/"):
+                continue
 
-            s3 = self.source_config.aws_config.get_s3_resource()
-            bucket = s3.Bucket(plain_base_path.split("/")[0])
+            file = os.path.basename(obj.key)
 
-            unordered_files = []
+            if self.source_config.ignore_dotfiles and file.startswith("."):
+                continue
 
-            for obj in bucket.objects.filter(
-                Prefix=plain_base_path.split("/", maxsplit=1)[1]
-            ):
+            obj_path = f"s3a://{obj.bucket_name}/{obj.key}"
 
-                s3_path = f"s3://{obj.bucket_name}/{obj.key}"
+            unordered_files.append(obj_path)
 
-                # if table patterns do not allow this file, skip
-                if not self.source_config.schema_patterns.allowed(s3_path):
-                    continue
+        for aws_file in sorted(unordered_files):
 
-                # if the file is a directory, skip it
-                if obj.key.endswith("/"):
-                    continue
+            relative_path = "./" + aws_file[len(f"s3a://{plain_base_path}") :]
 
-                file = os.path.basename(obj.key)
+            # pass in the same relative_path as the full_path for S3 files
+            yield from self.ingest_table(aws_file, relative_path)
+
+    def get_workunits_local(self) -> Iterable[MetadataWorkUnit]:
+        for root, dirs, files in os.walk(self.source_config.base_path):
+            for file in sorted(files):
 
                 if self.source_config.ignore_dotfiles and file.startswith("."):
                     continue
 
-                obj_path = f"s3a://{obj.bucket_name}/{obj.key}"
+                full_path = os.path.join(root, file)
 
-                unordered_files.append(obj_path)
+                relative_path = "./" + os.path.relpath(
+                    full_path, self.source_config.base_path
+                )
 
-            for aws_file in sorted(unordered_files):
+                # if table patterns do not allow this file, skip
+                if not self.source_config.schema_patterns.allowed(full_path):
+                    continue
 
-                relative_path = "./" + aws_file[len(f"s3a://{plain_base_path}") :]
+                yield from self.ingest_table(full_path, relative_path)
 
-                # pass in the same relative_path as the full_path for S3 files
-                yield from self.ingest_table(aws_file, relative_path)
-        else:
-            for root, dirs, files in os.walk(self.source_config.base_path):
-                for file in sorted(files):
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
 
-                    if self.source_config.ignore_dotfiles and file.startswith("."):
-                        continue
+        with PerfTimer() as timer:
 
-                    full_path = os.path.join(root, file)
+            # check if file is an s3 object
+            if any(
+                self.source_config.base_path.startswith(s3_prefix)
+                for s3_prefix in S3_PREFIXES
+            ):
 
-                    relative_path = "./" + os.path.relpath(
-                        full_path, self.source_config.base_path
-                    )
+                yield from self.get_workunits_s3()
 
-                    # if table patterns do not allow this file, skip
-                    if not self.source_config.schema_patterns.allowed(full_path):
-                        continue
+            else:
+                yield from self.get_workunits_local()
 
-                    yield from self.ingest_table(full_path, relative_path)
+            if not self.source_config.profiling.enabled:
+                return
+
+            total_time_taken = timer.elapsed_seconds()
+
+            logger.info(
+                f"Profiling {len(self.profiling_times_taken)} table(s) finished in {total_time_taken:.3f} seconds"
+            )
+
+            time_percentiles: Dict[str, float] = {}
+
+            if len(self.profiling_times_taken) > 0:
+                percentiles = [50, 75, 95, 99]
+                percentile_values = stats.calculate_percentiles(
+                    self.profiling_times_taken, percentiles
+                )
+
+                time_percentiles = {
+                    f"table_time_taken_p{percentile}": 10
+                    ** int(log10(percentile_values[percentile] + 1))
+                    for percentile in percentiles
+                }
+
+            telemetry.telemetry_instance.ping(
+                "data_lake_profiling_summary",
+                # bucket by taking floor of log of time taken
+                {
+                    "total_time_taken": 10 ** int(log10(total_time_taken + 1)),
+                    "count": 10 ** int(log10(len(self.profiling_times_taken) + 1)),
+                    "platform": self.source_config.platform,
+                    **time_percentiles,
+                },
+            )
 
     def get_report(self):
         return self.report

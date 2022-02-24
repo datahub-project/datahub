@@ -58,6 +58,12 @@ query getDataset($urn: String!) {
         subTypes {
             typeNames
         }
+        domain {
+            ...entityDomain
+        }
+        container {
+            ...entityContainer
+        }
         usageStats(resource: $urn, range: MONTH) {
             buckets {
                 bucket

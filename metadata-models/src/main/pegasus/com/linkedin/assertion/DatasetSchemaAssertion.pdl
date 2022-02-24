@@ -1,0 +1,45 @@
+namespace com.linkedin.assertion
+
+import com.linkedin.common.Urn
+
+/**
+  * Assertion on schema of a dataset
+  */
+record DatasetSchemaAssertion {
+    
+    /**
+    * Standardized assertion operator
+    */
+    stdOperator: AssertionStdOperator
+
+    /**
+    * Native assertion operator
+    */
+    nativeOperator: optional string
+
+    /**
+    * Standardized aggrgation function applied on rows
+    */
+    stdAggFunc: enum DatasetSchemaStdAggFunc {
+
+        /**
+        * Assertion is applied on all columns
+        */
+        COLUMNS
+
+        /**
+        * Assertion is applied on number of columns
+        */
+        COLUMN_COUNT
+
+        /**
+        * Other
+        */
+        _NATIVE_
+    }
+
+    /**
+    * Native aggrgation function applied on rows
+    */
+    nativeAggFunc: optional string
+}

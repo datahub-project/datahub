@@ -3,12 +3,14 @@ import contextlib
 import dataclasses
 import functools
 import logging
-import os
 import threading
 import traceback
 import unittest.mock
 import uuid
+from math import log10
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+
+from datahub.telemetry import stats, telemetry
 
 # Fun compatibility hack! GE version 0.13.44 broke compatibility with SQLAlchemy 1.3.24.
 # This is a temporary workaround until GE fixes the issue on their end.
@@ -21,7 +23,6 @@ try:
 except ImportError:
     pass
 
-import pydantic
 import sqlalchemy as sa
 from great_expectations.core.util import convert_to_json_serializable
 from great_expectations.data_context import BaseDataContext
@@ -39,8 +40,8 @@ from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.exc import ProgrammingError
 from typing_extensions import Concatenate, ParamSpec
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.emitter.mce_builder import get_sys_time
+from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.profiling.common import (
     Cardinality,
     _convert_to_cardinality,
@@ -50,6 +51,7 @@ from datahub.metadata.schema_classes import (
     DatasetFieldProfileClass,
     DatasetProfileClass,
     HistogramClass,
+    PartitionSpecClass,
     QuantileClass,
     ValueFrequencyClass,
 )
@@ -157,86 +159,6 @@ def _get_column_quantiles_bigquery_patch(  # type:ignore
         return list()
 
 
-class GEProfilingConfig(ConfigModel):
-    enabled: bool = False
-    limit: Optional[int] = None
-    offset: Optional[int] = None
-
-    # These settings will override the ones below.
-    turn_off_expensive_profiling_metrics: bool = False
-    profile_table_level_only: bool = False
-
-    include_field_null_count: bool = True
-    include_field_min_value: bool = True
-    include_field_max_value: bool = True
-    include_field_mean_value: bool = True
-    include_field_median_value: bool = True
-    include_field_stddev_value: bool = True
-    include_field_quantiles: bool = False
-    include_field_distinct_value_frequencies: bool = False
-    include_field_histogram: bool = False
-    include_field_sample_values: bool = True
-
-    allow_deny_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
-    max_number_of_fields_to_profile: Optional[pydantic.PositiveInt] = None
-
-    # The default of (5 * cpu_count) is adopted from the default max_workers
-    # parameter of ThreadPoolExecutor. Given that profiling is often an I/O-bound
-    # task, it may make sense to increase this default value in the future.
-    # https://docs.python.org/3/library/concurrent.futures.html#concurrent.futures.ThreadPoolExecutor
-    max_workers: int = 5 * (os.cpu_count() or 4)
-
-    # The query combiner enables us to combine multiple queries into a single query,
-    # reducing the number of round-trips to the database and speeding up profiling.
-    query_combiner_enabled: bool = True
-
-    # Hidden option - used for debugging purposes.
-    catch_exceptions: bool = True
-
-    @pydantic.root_validator()
-    def ensure_field_level_settings_are_normalized(
-        cls: "GEProfilingConfig", values: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        max_num_fields_to_profile_key = "max_number_of_fields_to_profile"
-        table_level_profiling_only_key = "profile_table_level_only"
-        max_num_fields_to_profile = values.get(max_num_fields_to_profile_key)
-        if values.get(table_level_profiling_only_key):
-            all_field_level_metrics: List[str] = [
-                "include_field_null_count",
-                "include_field_min_value",
-                "include_field_max_value",
-                "include_field_mean_value",
-                "include_field_median_value",
-                "include_field_stddev_value",
-                "include_field_quantiles",
-                "include_field_distinct_value_frequencies",
-                "include_field_histogram",
-                "include_field_sample_values",
-            ]
-            # Suppress all field-level metrics
-            for field_level_metric in all_field_level_metrics:
-                values[field_level_metric] = False
-            assert (
-                max_num_fields_to_profile is None
-            ), f"{max_num_fields_to_profile_key} should be set to None"
-
-        if values.get("turn_off_expensive_profiling_metrics"):
-            if not values.get(table_level_profiling_only_key):
-                expensive_field_level_metrics: List[str] = [
-                    "include_field_quantiles",
-                    "include_field_distinct_value_frequencies",
-                    "include_field_histogram",
-                    "include_field_sample_values",
-                ]
-                for expensive_field_metric in expensive_field_level_metrics:
-                    values[expensive_field_metric] = False
-            if max_num_fields_to_profile is None:
-                # We currently profile up to 10 non-filtered columns in this mode by default.
-                values[max_num_fields_to_profile_key] = 10
-
-        return values
-
-
 def _is_single_row_query_method(query: Any) -> bool:
     SINGLE_ROW_QUERY_FILES = {
         # "great_expectations/dataset/dataset.py",
@@ -303,12 +225,12 @@ def _is_single_row_query_method(query: Any) -> bool:
 
 
 # mypy does not yet support ParamSpec. See https://github.com/python/mypy/issues/8645.
-def _run_with_query_combiner(  # type: ignore
+def _run_with_query_combiner(
     method: Callable[Concatenate["_SingleDatasetProfiler", P], None]  # type: ignore
 ) -> Callable[Concatenate["_SingleDatasetProfiler", P], None]:  # type: ignore
     @functools.wraps(method)
     def inner(
-        self: "_SingleDatasetProfiler", *args: P.args, **kwargs: P.kwargs  # type: ignore
+        self: "_SingleDatasetProfiler", *args: P.args, **kwargs: P.kwargs
     ) -> None:
         return self.query_combiner.run(lambda: method(self, *args, **kwargs))
 
@@ -331,6 +253,7 @@ class _SingleColumnSpec:
 class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     dataset: Dataset
     dataset_name: str
+    partition: Optional[str]
     config: GEProfilingConfig
     report: SQLSourceReport
 
@@ -525,6 +448,8 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         )
 
         profile = DatasetProfileClass(timestampMillis=get_sys_time())
+        if self.partition:
+            profile.partitionSpec = PartitionSpecClass(partition=self.partition)
         profile.fieldProfiles = []
         self._get_dataset_rows(profile)
 
@@ -552,6 +477,14 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
         assert profile.rowCount is not None
         row_count: int = profile.rowCount
+
+        telemetry.telemetry_instance.ping(
+            "profile_sql_table",
+            # bucket by taking floor of log of the number of rows scanned
+            {
+                "rows_profiled": 10 ** int(log10(row_count + 1)),
+            },
+        )
 
         for column_spec in columns_profiling_queue:
             column = column_spec.column
@@ -584,7 +517,11 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
             self._get_dataset_column_sample_values(column_profile, column)
 
-            if type_ == ProfilerDataType.INT or type_ == ProfilerDataType.FLOAT:
+            if (
+                type_ == ProfilerDataType.INT
+                or type_ == ProfilerDataType.FLOAT
+                or type_ == ProfilerDataType.NUMERIC
+            ):
                 if cardinality == Cardinality.UNIQUE:
                     pass
                 elif cardinality in [
@@ -592,12 +529,6 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                     Cardinality.TWO,
                     Cardinality.VERY_FEW,
                     Cardinality.FEW,
-                ]:
-                    self._get_dataset_column_distinct_value_frequencies(
-                        column_profile,
-                        column,
-                    )
-                elif cardinality in [
                     Cardinality.MANY,
                     Cardinality.VERY_MANY,
                     Cardinality.UNIQUE,
@@ -606,11 +537,22 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                     self._get_dataset_column_max(column_profile, column)
                     self._get_dataset_column_mean(column_profile, column)
                     self._get_dataset_column_median(column_profile, column)
+
                     if type_ == ProfilerDataType.INT:
                         self._get_dataset_column_stdev(column_profile, column)
 
                     self._get_dataset_column_quantiles(column_profile, column)
                     self._get_dataset_column_histogram(column_profile, column)
+                    if cardinality in [
+                        Cardinality.ONE,
+                        Cardinality.TWO,
+                        Cardinality.VERY_FEW,
+                        Cardinality.FEW,
+                    ]:
+                        self._get_dataset_column_distinct_value_frequencies(
+                            column_profile,
+                            column,
+                        )
                 else:  # unknown cardinality - skip
                     pass
 
@@ -670,8 +612,10 @@ class GEContext:
 class DatahubGEProfiler:
     report: SQLSourceReport
     config: GEProfilingConfig
+    times_taken: List[float]
 
     base_engine: Engine
+    platform: str  # passed from parent source config
 
     # The actual value doesn't matter, it just matters that we use it consistently throughout.
     _datasource_name_base: str = "my_sqlalchemy_datasource"
@@ -681,9 +625,11 @@ class DatahubGEProfiler:
         conn: Union[Engine, Connection],
         report: SQLSourceReport,
         config: GEProfilingConfig,
+        platform: str,
     ):
         self.report = report
         self.config = config
+        self.times_taken = []
 
         # TRICKY: The call to `.engine` is quite important here. Connection.connect()
         # returns a "branched" connection, which does not actually use a new underlying
@@ -691,6 +637,7 @@ class DatahubGEProfiler:
         # make the threading code work correctly. As such, we need to make sure we've
         # got an engine here.
         self.base_engine = conn.engine
+        self.platform = platform
 
     @contextlib.contextmanager
     def _ge_context(self) -> Iterator[GEContext]:
@@ -767,8 +714,35 @@ class DatahubGEProfiler:
                     for async_profile in async_profiles:
                         yield async_profile.result()
 
+                    total_time_taken = timer.elapsed_seconds()
+
                     logger.info(
-                        f"Profiling {len(requests)} table(s) finished in {(timer.elapsed_seconds()):.3f} seconds"
+                        f"Profiling {len(requests)} table(s) finished in {total_time_taken:.3f} seconds"
+                    )
+
+                    time_percentiles: Dict[str, float] = {}
+
+                    if len(self.times_taken) > 0:
+                        percentiles = [50, 75, 95, 99]
+                        percentile_values = stats.calculate_percentiles(
+                            self.times_taken, percentiles
+                        )
+
+                        time_percentiles = {
+                            f"table_time_taken_p{percentile}": 10
+                            ** int(log10(percentile_values[percentile] + 1))
+                            for percentile in percentiles
+                        }
+
+                    telemetry.telemetry_instance.ping(
+                        "sql_profiling_summary",
+                        # bucket by taking floor of log of time taken
+                        {
+                            "total_time_taken": 10 ** int(log10(total_time_taken + 1)),
+                            "count": 10 ** int(log10(len(self.times_taken) + 1)),
+                            "platform": self.platform,
+                            **time_percentiles,
+                        },
                     )
 
                     self.report.report_from_query_combiner(query_combiner.report)
@@ -779,10 +753,25 @@ class DatahubGEProfiler:
         request: GEProfilerRequest,
     ) -> Tuple[GEProfilerRequest, Optional[DatasetProfileClass]]:
         return request, self._generate_single_profile(
-            query_combiner,
-            request.pretty_name,
+            query_combiner=query_combiner,
+            pretty_name=request.pretty_name,
             **request.batch_kwargs,
         )
+
+    def _drop_bigquery_temp_table(self, ge_config: dict) -> None:
+        if "bigquery_temp_table" in ge_config:
+            try:
+                with self.base_engine.connect() as connection:
+                    connection.execute(
+                        f"drop view if exists `{ge_config.get('bigquery_temp_table')}`"
+                    )
+                    logger.debug(
+                        f"Temp table {ge_config.get('bigquery_temp_table')} was dropped."
+                    )
+            except Exception:
+                logger.warning(
+                    f"Unable to delete bigquery temporary table: {ge_config.get('bigquery_temp_table')}"
+                )
 
     def _generate_single_profile(
         self,
@@ -790,30 +779,54 @@ class DatahubGEProfiler:
         pretty_name: str,
         schema: str = None,
         table: str = None,
+        partition: Optional[str] = None,
+        custom_sql: Optional[str] = None,
         **kwargs: Any,
     ) -> Optional[DatasetProfileClass]:
+        bigquery_temp_table: Optional[str] = None
+
+        ge_config = {
+            "schema": schema,
+            "table": table,
+            "limit": self.config.limit,
+            "offset": self.config.offset,
+            **kwargs,
+        }
+
+        if self.config.bigquery_temp_table_schema is not None:
+            bigquery_temp_table = (
+                f"{self.config.bigquery_temp_table_schema}.ge-temp-{uuid.uuid4()}"
+            )
+            ge_config["bigquery_temp_table"] = bigquery_temp_table
+
+        if custom_sql is not None:
+            ge_config["query"] = custom_sql
+
         with self._ge_context() as ge_context, PerfTimer() as timer:
             try:
                 logger.info(f"Profiling {pretty_name}")
 
                 batch = self._get_ge_dataset(
                     ge_context,
-                    {
-                        "schema": schema,
-                        "table": table,
-                        "limit": self.config.limit,
-                        "offset": self.config.offset,
-                        **kwargs,
-                    },
+                    ge_config,
                     pretty_name=pretty_name,
                 )
+
                 profile = _SingleDatasetProfiler(
-                    batch, pretty_name, self.config, self.report, query_combiner
+                    batch,
+                    pretty_name,
+                    partition,
+                    self.config,
+                    self.report,
+                    query_combiner,
                 ).generate_dataset_profile()
 
+                time_taken = timer.elapsed_seconds()
                 logger.info(
-                    f"Finished profiling {pretty_name}; took {(timer.elapsed_seconds()):.3f} seconds"
+                    f"Finished profiling {pretty_name}; took {time_taken:.3f} seconds"
                 )
+                self.times_taken.append(time_taken)
+
                 return profile
             except Exception as e:
                 if not self.config.catch_exceptions:
@@ -821,6 +834,8 @@ class DatahubGEProfiler:
                 logger.exception(f"Encountered exception while profiling {pretty_name}")
                 self.report.report_failure(pretty_name, f"Profiling exception {e}")
                 return None
+            finally:
+                self._drop_bigquery_temp_table(ge_config)
 
     def _get_ge_dataset(
         self,

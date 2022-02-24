@@ -24,20 +24,19 @@ export default function AvatarsGroup({ owners, entityRegistry, maxCount = 6, siz
                     {owner.owner.__typename === 'CorpUser' ? (
                         <CustomAvatar
                             size={size}
-                            name={
-                                owner.owner.info?.fullName ||
-                                owner.owner.info?.firstName ||
-                                owner.owner.info?.email ||
-                                owner.owner.username
-                            }
+                            name={entityRegistry.getDisplayName(EntityType.CorpUser, owner.owner)}
                             url={`/${entityRegistry.getPathName(owner.owner.type)}/${owner.owner.urn}`}
-                            photoUrl={owner.owner?.editableInfo?.pictureLink || undefined}
+                            photoUrl={
+                                owner.owner?.editableProperties?.pictureLink ||
+                                owner.owner?.editableInfo?.pictureLink ||
+                                undefined
+                            }
                         />
                     ) : (
                         owner.owner.__typename === 'CorpGroup' && (
                             <CustomAvatar
                                 size={size || 28}
-                                name={owner.owner.name}
+                                name={entityRegistry.getDisplayName(EntityType.CorpGroup, owner.owner)}
                                 url={`/${entityRegistry.getPathName(owner.owner.type || EntityType.CorpGroup)}/${
                                     owner.owner.urn
                                 }`}

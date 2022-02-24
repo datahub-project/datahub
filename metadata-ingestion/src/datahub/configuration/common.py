@@ -1,6 +1,6 @@
 import re
 from abc import ABC, abstractmethod
-from typing import IO, Any, Dict, List, Optional, Pattern
+from typing import IO, Any, Dict, List, Optional, Pattern, cast
 
 from pydantic import BaseModel
 
@@ -41,6 +41,26 @@ class OperationalError(PipelineExecutionError):
 
 class ConfigurationError(MetaError):
     """A configuration error has happened"""
+
+
+class SensitiveError(Exception):
+    """Wraps an exception that should not be logged with variable information."""
+
+    @classmethod
+    def get_sensitive_cause(cls, exc: Exception) -> Optional[Exception]:
+        """
+        Returns the underlying exception if the exception is sensitive, and None otherwise.
+        """
+
+        e: Optional[Exception] = exc
+        while e:
+            # This cast converts BaseException to Exception.
+            inner = cast(Optional[Exception], e.__cause__)
+
+            if isinstance(e, cls):
+                return inner
+            e = inner
+        return None
 
 
 class ConfigurationMechanism(ABC):

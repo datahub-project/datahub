@@ -1,4 +1,5 @@
 import dataclasses
+from math import log10
 from typing import Any, Dict, List, Optional
 
 import pydantic
@@ -46,6 +47,7 @@ from datahub.metadata.schema_classes import (
     QuantileClass,
     ValueFrequencyClass,
 )
+from datahub.telemetry import telemetry
 
 NUM_SAMPLE_ROWS = 20
 QUANTILES = [0.05, 0.25, 0.5, 0.75, 0.95]
@@ -140,7 +142,7 @@ class _SingleTableProfiler:
         self,
         dataframe: DataFrame,
         spark: SparkSession,
-        source_config: DataLakeProfilerConfig,
+        profiling_config: DataLakeProfilerConfig,
         report: DataLakeSourceReport,
         file_path: str,
     ):
@@ -149,7 +151,7 @@ class _SingleTableProfiler:
         self.analyzer = AnalysisRunner(spark).onData(dataframe)
         self.column_specs = []
         self.row_count = dataframe.count()
-        self.profiling_config = source_config
+        self.profiling_config = profiling_config
         self.file_path = file_path
         self.columns_to_profile = []
         self.ignored_columns = []
@@ -311,6 +313,12 @@ class _SingleTableProfiler:
     def prepare_table_profiles(self) -> None:
 
         row_count = self.row_count
+
+        telemetry.telemetry_instance.ping(
+            "profile_data_lake_table",
+            # bucket by taking floor of log of the number of rows scanned
+            {"rows_profiled": 10 ** int(log10(row_count + 1))},
+        )
 
         # loop through the columns and add the analyzers
         for column_spec in self.column_specs:

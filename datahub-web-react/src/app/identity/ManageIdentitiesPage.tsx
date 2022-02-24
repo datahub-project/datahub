@@ -17,7 +17,7 @@ const PageHeaderContainer = styled.div`
 
 const PageTitle = styled(Typography.Title)`
     && {
-        margin-bottom: 24px;
+        margin-bottom: 12px;
     }
 `;
 

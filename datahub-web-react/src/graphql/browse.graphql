@@ -19,10 +19,7 @@ query getBrowseResults($input: BrowseInput!) {
                     description
                 }
                 platform {
-                    name
-                    info {
-                        logoUrl
-                    }
+                    ...platformFields
                 }
                 ownership {
                     ...ownershipFields
@@ -35,6 +32,9 @@ query getBrowseResults($input: BrowseInput!) {
                 }
                 subTypes {
                     typeNames
+                }
+                domain {
+                    ...entityDomain
                 }
             }
             ... on Dashboard {
@@ -63,13 +63,20 @@ query getBrowseResults($input: BrowseInput!) {
                 glossaryTerms {
                     ...glossaryTerms
                 }
+                platform {
+                    ...platformFields
+                }
+                domain {
+                    ...entityDomain
+                }
             }
             ... on GlossaryTerm {
-                name
                 ownership {
                     ...ownershipFields
                 }
-                glossaryTermInfo {
+                properties {
+                    name
+                    description
                     definition
                     termSource
                     sourceRef
@@ -107,6 +114,12 @@ query getBrowseResults($input: BrowseInput!) {
                 glossaryTerms {
                     ...glossaryTerms
                 }
+                platform {
+                    ...platformFields
+                }
+                domain {
+                    ...entityDomain
+                }
             }
             ... on DataFlow {
                 urn
@@ -131,6 +144,12 @@ query getBrowseResults($input: BrowseInput!) {
                 glossaryTerms {
                     ...glossaryTerms
                 }
+                platform {
+                    ...platformFields
+                }
+                domain {
+                    ...entityDomain
+                }
             }
             ... on MLFeatureTable {
                 urn
@@ -150,10 +169,7 @@ query getBrowseResults($input: BrowseInput!) {
                     ...ownershipFields
                 }
                 platform {
-                    name
-                    info {
-                        logoUrl
-                    }
+                    ...platformFields
                 }
             }
             ... on MLModel {
@@ -167,10 +183,7 @@ query getBrowseResults($input: BrowseInput!) {
                     ...globalTagsFields
                 }
                 platform {
-                    name
-                    info {
-                        logoUrl
-                    }
+                    ...platformFields
                 }
             }
             ... on MLModelGroup {
@@ -181,10 +194,7 @@ query getBrowseResults($input: BrowseInput!) {
                     ...ownershipFields
                 }
                 platform {
-                    name
-                    info {
-                        logoUrl
-                    }
+                    ...platformFields
                 }
             }
         }

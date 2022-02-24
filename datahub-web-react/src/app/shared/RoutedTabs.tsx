@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Route, Switch, useRouteMatch, useLocation } from 'react-router-dom';
-import { useHistory, Redirect } from 'react-router';
+import { Redirect, useHistory } from 'react-router';
 import { Tabs } from 'antd';
 import { TabsProps } from 'antd/lib/tabs';
 
@@ -12,6 +12,9 @@ interface Props extends TabsProps {
         name: string;
         path: string;
         content: React.ReactNode;
+        display?: {
+            enabled: () => boolean;
+        };
     }>;
     onTabChange?: (selectedTab: string) => void;
 }
@@ -24,13 +27,11 @@ export const RoutedTabs = ({ defaultPath, tabs, onTabChange, ...props }: Props) 
     const { path, url } = useRouteMatch();
     const { pathname } = useLocation();
     const history = useHistory();
-
     const subRoutes = tabs.map((tab) => tab.path.replace('/', ''));
     const trimmedPathName = pathname.endsWith('/') ? pathname.slice(0, pathname.length - 1) : pathname;
     const splitPathName = trimmedPathName.split('/');
     const providedPath = splitPathName[splitPathName.length - 1];
     const activePath = subRoutes.includes(providedPath) ? providedPath : defaultPath.replace('/', '');
-
     return (
         <div>
             <Tabs
@@ -41,14 +42,17 @@ export const RoutedTabs = ({ defaultPath, tabs, onTabChange, ...props }: Props) 
                 onChange={(newPath) => history.push(`${url}/${newPath}`)}
                 {...props}
             >
-                {tabs.map((tab) => (
-                    <TabPane tab={tab.name} key={tab.path.replace('/', '')} />
-                ))}
+                {tabs.map((tab) => {
+                    return (
+                        <TabPane tab={tab.name} key={tab.path.replace('/', '')} disabled={!tab.display?.enabled()} />
+                    );
+                })}
             </Tabs>
             <Switch>
                 <Route exact path={path}>
                     <Redirect to={`${pathname}${pathname.endsWith('/') ? '' : '/'}${defaultPath}`} />
                 </Route>
+
                 {tabs.map((tab) => (
                     <Route
                         exact
