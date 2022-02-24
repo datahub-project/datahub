@@ -75,15 +75,12 @@ public class SchemaDiffer implements Differ {
 
     // Assess the highest change at the transaction(schema) level.
     SemanticChangeType highestSematicChange = SemanticChangeType.NONE;
-    if (changeEvents != null) {
-      changeEvents = changeEvents.stream()
-          .filter(changeEvent -> changeEvent.getCategory() == element)
-          .collect(Collectors.toList());
-      ChangeEvent highestChangeEvent =
-          changeEvents.stream().max(Comparator.comparing(ChangeEvent::getSemVerChange)).orElse(null);
-      if (highestChangeEvent != null) {
-        highestSematicChange = highestChangeEvent.getSemVerChange();
-      }
+    changeEvents =
+        changeEvents.stream().filter(changeEvent -> changeEvent.getCategory() == element).collect(Collectors.toList());
+    ChangeEvent highestChangeEvent =
+        changeEvents.stream().max(Comparator.comparing(ChangeEvent::getSemVerChange)).orElse(null);
+    if (highestChangeEvent != null) {
+      highestSematicChange = highestChangeEvent.getSemVerChange();
     }
     return ChangeTransaction.builder()
         .changeEvents(changeEvents)

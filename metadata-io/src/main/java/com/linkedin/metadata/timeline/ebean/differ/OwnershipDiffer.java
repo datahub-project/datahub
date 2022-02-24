@@ -12,7 +12,6 @@ import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import com.linkedin.metadata.timeline.data.SemanticChangeType;
-import com.linkedin.metadata.timeline.ebean.differ.Differ;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -31,16 +30,16 @@ public class OwnershipDiffer implements Differ {
     assert (currentValue != null);
     Ownership baseOwnership = getOwnershipFromAspect(previousValue);
     Ownership targetOwnership = getOwnershipFromAspect(currentValue);
-    List<ChangeEvent> changeEvents = null;
+    List<ChangeEvent> changeEvents = new ArrayList<>();
     if (element == ChangeCategory.OWNERSHIP) {
-      changeEvents = computeDiffs(baseOwnership, targetOwnership, currentValue.getUrn());
+      changeEvents.addAll(computeDiffs(baseOwnership, targetOwnership, currentValue.getUrn()));
     }
 
     // Assess the highest change at the transaction(schema) level.
     SemanticChangeType highestSemanticChange = SemanticChangeType.NONE;
-    if (changeEvents != null) {
-      ChangeEvent highestChangeEvent =
-          changeEvents.stream().max(Comparator.comparing(ChangeEvent::getSemVerChange)).orElse(null);
+    ChangeEvent highestChangeEvent =
+        changeEvents.stream().max(Comparator.comparing(ChangeEvent::getSemVerChange)).orElse(null);
+    if (highestChangeEvent != null) {
       highestSemanticChange = highestChangeEvent.getSemVerChange();
     }
 
@@ -123,7 +122,7 @@ public class OwnershipDiffer implements Differ {
       ++baseOwnerIdx;
     }
     while (targetOwnerIdx < targetOwners.size()) {
-      // Newly added fields. Forwards & backwards compatible change + minor version bump.
+      // Newly added owners.
       Owner targetOwner = targetOwners.get(targetOwnerIdx);
       changeEvents.add(ChangeEvent.builder()
           .elementId(targetOwner.getOwner().toString())
@@ -137,7 +136,7 @@ public class OwnershipDiffer implements Differ {
           .build());
       ++targetOwnerIdx;
     }
-    return changeEvents.size() > 0 ? changeEvents : null;
+    return changeEvents;
   }
 
   private Ownership getOwnershipFromAspect(EbeanAspectV2 ebeanAspectV2) {
