@@ -1,10 +1,16 @@
 import logging
-from typing import Iterable, List, Optional, Union
+from dataclasses import dataclass, field
+from typing import Any, Dict, Iterable, List, Optional, Union
+
+from pydantic import validator
 
 import datahub.metadata.schema_classes as models
-from dataclasses import dataclass, field
 from datahub.cli.cli_utils import get_aspects_for_entity
-from datahub.configuration.common import ConfigModel, ConfigurationError, VersionedConfig
+from datahub.configuration.common import (
+    ConfigModel,
+    ConfigurationError,
+    VersionedConfig,
+)
 from datahub.configuration.config_loader import load_config_file
 from datahub.configuration.source_common import EnvBasedSourceConfigBase
 from datahub.emitter.mce_builder import (
@@ -12,9 +18,9 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
-from pydantic import validator
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +37,11 @@ class EntityConfig(EnvBasedSourceConfigBase):
 
     @validator("type")
     def type_must_be_supported(cls, v: str) -> str:
-        allowed_types = ['dataset']
+        allowed_types = ["dataset"]
         if v not in allowed_types:
-            raise ConfigurationError(f"Type must be one of {allowed_types}, {v} is not yet supported.")
+            raise ConfigurationError(
+                f"Type must be one of {allowed_types}, {v} is not yet supported."
+            )
         return v
 
 
@@ -66,7 +74,9 @@ class LineageFileSource(Source):
     report: SourceReport = field(default_factory=SourceReport)
 
     @classmethod
-    def create(cls, config_dict, ctx) -> "LineageFileSource":
+    def create(
+        cls, config_dict: Dict[str, Any], ctx: PipelineContext
+    ) -> "LineageFileSource":
         config = LineageFileSourceConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
@@ -78,7 +88,7 @@ class LineageFileSource(Source):
 
     @staticmethod
     def get_lineage_metadata_change_event_proposal(
-            entities: List[EntityNodeConfig], preserve_upstream: bool
+        entities: List[EntityNodeConfig], preserve_upstream: bool
     ) -> Iterable[MetadataChangeProposalWrapper]:
         """
         Builds a list of events to be emitted to datahub by going through each entity and its upstream nodes
@@ -163,8 +173,10 @@ class LineageFileSource(Source):
         preserve_upstream = self.config.preserve_upstream
         logger.debug(lineage_config)
         logger.info(f"preserve_upstream is set to {self.config.preserve_upstream}")
-        for metadata_change_event_proposal in self.get_lineage_metadata_change_event_proposal(
-                lineage, preserve_upstream
+        for (
+            metadata_change_event_proposal
+        ) in self.get_lineage_metadata_change_event_proposal(
+            lineage, preserve_upstream
         ):
             work_unit = MetadataWorkUnit(
                 f"lineage-{metadata_change_event_proposal.entityUrn}",
