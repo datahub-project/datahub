@@ -36,7 +36,8 @@ const PlatformInfo = styled.div`
 `;
 
 const TitleContainer = styled.div`
-    margin-bottom: 8px;
+    margin-bottom: 0px;
+    line-height: 30px;
 `;
 
 const PreviewImage = styled(Image)`
@@ -49,7 +50,7 @@ const PreviewImage = styled(Image)`
 
 const EntityTitle = styled(Typography.Text)<{ $titleSizePx?: number }>`
     &&& {
-        margin-bottom: 0;
+        margin-right 8px;
         font-size: ${(props) => props.$titleSizePx || 16}px;
         font-weight: 600;
         vertical-align: middle;
@@ -91,7 +92,7 @@ const AvatarContainer = styled.div`
 
 const TagContainer = styled.div`
     display: inline-block;
-    margin-left: 8px;
+    margin-left: 0px;
     margin-top: -2px;
 `;
 
