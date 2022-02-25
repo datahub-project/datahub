@@ -57,12 +57,13 @@ We use a plugin architecture so that you can install only the dependencies you a
 
 ### Sources
 
-| Plugin Name                                                     | Install Command                                            | Provides                            |
-|-----------------------------------------------------------------|------------------------------------------------------------| ----------------------------------- |
+| Plugin Name                                                                         | Install Command                                            | Provides                            |
+|-------------------------------------------------------------------------------------|------------------------------------------------------------| ----------------------------------- |
 | [file](../metadata-ingestion/source_docs/file.md)                                   | _included by default_                                      | File source and sink                |
 | [athena](../metadata-ingestion/source_docs/athena.md)                               | `pip install 'acryl-datahub[athena]'`                      | AWS Athena source                   |
 | [bigquery](../metadata-ingestion/source_docs/bigquery.md)                           | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source                     |
 | [bigquery-usage](../metadata-ingestion/source_docs/bigquery.md)                     | `pip install 'acryl-datahub[bigquery-usage]'`              | BigQuery usage statistics source    |
+| [datahub-lineage-file](../metadata-ingestion/source_docs/file_lineage.md)           | _no additional dependencies_                               | Lineage File source                 |
 | [datahub-business-glossary](../metadata-ingestion/source_docs/business_glossary.md) | _no additional dependencies_                               | Business Glossary File source                         |
 | [dbt](../metadata-ingestion/source_docs/dbt.md)                                     | _no additional dependencies_                               | dbt source                          |
 | [druid](../metadata-ingestion/source_docs/druid.md)                                 | `pip install 'acryl-datahub[druid]'`                       | Druid Source                        |
@@ -178,7 +179,7 @@ The env variables take precedence over what is in the config.
 
 ### telemetry
 
-To help us understand how people are using DataHub, we collect anonymous usage statistics on actions such as command invocations via Google Analytics.
+To help us understand how people are using DataHub, we collect anonymous usage statistics on actions such as command invocations via Mixpanel.
 We do not collect private information such as IP addresses, contents of ingestions, or credentials.
 The code responsible for collecting and broadcasting these events is open-source and can be found [within our GitHub](https://github.com/linkedin/datahub/blob/master/metadata-ingestion/src/datahub/telemetry/telemetry.py).
 

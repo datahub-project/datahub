@@ -28,6 +28,7 @@ base_requirements = {
     # Actual dependencies.
     "typing-inspect",
     "pydantic>=1.5.1",
+    "mixpanel>=4.9.0",
 }
 
 framework_common = {
@@ -128,6 +129,7 @@ plugins: Dict[str, Set[str]] = {
     "bigquery-usage": bigquery_common | {"cachetools"},
     "clickhouse": sql_common | {"clickhouse-sqlalchemy==0.1.8"},
     "clickhouse-usage": sql_common | {"clickhouse-sqlalchemy==0.1.8"},
+    "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
     "data-lake": {*data_lake_base, *data_lake_profiling},
     "dbt": {"requests"},
@@ -329,6 +331,7 @@ entry_points = {
         "ldap = datahub.ingestion.source.ldap:LDAPSource",
         "looker = datahub.ingestion.source.looker:LookerDashboardSource",
         "lookml = datahub.ingestion.source.lookml:LookMLSource",
+        "datahub-lineage-file = datahub.ingestion.source.metadata.lineage:LineageFileSource",
         "datahub-business-glossary = datahub.ingestion.source.metadata.business_glossary:BusinessGlossaryFileSource",
         "mode = datahub.ingestion.source.mode:ModeSource",
         "mongodb = datahub.ingestion.source.mongodb:MongoDBSource",
