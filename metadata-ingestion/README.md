@@ -41,7 +41,7 @@ sink:
     server: "http://localhost:8080"
 ```
 
-A number of recipes are included in the [examples/recipes](./examples/recipes) directory. For full info and context on each source and sink, see the pages described in the [table of plugins](#installing-plugins).
+A number of recipes are included in the [examples/recipes](./examples/recipes) directory. For full info and context on each source and sink, see the pages described in the [table of plugins](../docs/cli.md#installing-plugins).
 
 ### Handling sensitive information in recipes
 

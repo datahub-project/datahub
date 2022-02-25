@@ -28,6 +28,7 @@ base_requirements = {
     # Actual dependencies.
     "typing-inspect",
     "pydantic>=1.5.1",
+    "mixpanel>=4.9.0",
 }
 
 framework_common = {
@@ -38,12 +39,14 @@ framework_common = {
     "entrypoints",
     "docker",
     "expandvars>=0.6.5",
-    "avro-gen3==0.7.1",
+    "avro-gen3==0.7.2",
     "avro>=1.10.2,<1.11",
     "python-dateutil>=2.8.0",
     "stackprinter",
     "tabulate",
     "progressbar2",
+    "termcolor>=1.0.0",
+    "types-termcolor>=1.0.0",
     "psutil>=5.8.0",
     # Markupsafe breaking change broke Jinja and some other libs
     # Pinning it to a version which works even though we are not using explicitly
@@ -96,6 +99,21 @@ snowflake_common = {
     "cryptography",
 }
 
+data_lake_base = {
+    *aws_common,
+    "parse>=1.19.0",
+    "pyarrow>=6.0.1",
+    "tableschema>=1.20.2",
+    "ujson>=4.3.0",
+    "types-ujson>=4.2.1",
+    "smart-open[s3]>=5.2.1",
+}
+
+data_lake_profiling = {
+    "pydeequ==1.0.1",
+    "pyspark==3.0.3",
+}
+
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
@@ -111,8 +129,11 @@ plugins: Dict[str, Set[str]] = {
     "azure-ad": set(),
     "bigquery": sql_common | bigquery_common | {"pybigquery >= 0.6.0"},
     "bigquery-usage": bigquery_common | {"cachetools"},
+    "clickhouse": sql_common | {"clickhouse-sqlalchemy==0.1.8"},
+    "clickhouse-usage": sql_common | {"clickhouse-sqlalchemy==0.1.8"},
+    "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
-    "data-lake": {*aws_common, "pydeequ==1.0.1", "pyspark==3.0.3", "parse==1.19.0"},
+    "data-lake": {*data_lake_base, *data_lake_profiling},
     "dbt": {"requests"},
     "druid": sql_common | {"pydruid>=0.6.2"},
     # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
@@ -155,7 +176,7 @@ plugins: Dict[str, Set[str]] = {
     "snowflake": snowflake_common,
     "snowflake-usage": snowflake_common | {"more-itertools>=8.12.0"},
     "sqlalchemy": sql_common,
-    "superset": {"requests", "sqlalchemy", "great_expectations"},
+    "superset": {"requests", "sqlalchemy", "great_expectations", "greenlet"},
     "tableau": {"tableauserverclient>=0.17.0"},
     "trino": sql_common | {"trino"},
     "starburst-trino-usage": sql_common | {"trino"},
@@ -190,6 +211,7 @@ base_dev_requirements = {
     *base_requirements,
     *framework_common,
     *mypy_stubs,
+    *data_lake_base,
     "black>=21.12b0",
     "coverage>=5.1",
     "flake8>=3.8.3",
@@ -216,6 +238,8 @@ base_dev_requirements = {
         for plugin in [
             "bigquery",
             "bigquery-usage",
+            "clickhouse",
+            "clickhouse-usage",
             "elasticsearch",
             "looker",
             "glue",
@@ -268,6 +292,7 @@ full_test_dev_requirements = {
         for plugin in [
             # Only include Athena for Python 3.7 or newer.
             *(["athena"] if is_py37_or_newer else []),
+            "clickhouse",
             "druid",
             "feast",
             "hive",
@@ -293,6 +318,8 @@ entry_points = {
         "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",
         "bigquery = datahub.ingestion.source.sql.bigquery:BigQuerySource",
         "bigquery-usage = datahub.ingestion.source.usage.bigquery_usage:BigQueryUsageSource",
+        "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
+        "clickhouse-usage = datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource",
         "data-lake = datahub.ingestion.source.data_lake:DataLakeSource",
         "dbt = datahub.ingestion.source.dbt:DBTSource",
         "druid = datahub.ingestion.source.sql.druid:DruidSource",
@@ -306,6 +333,7 @@ entry_points = {
         "ldap = datahub.ingestion.source.ldap:LDAPSource",
         "looker = datahub.ingestion.source.looker:LookerDashboardSource",
         "lookml = datahub.ingestion.source.lookml:LookMLSource",
+        "datahub-lineage-file = datahub.ingestion.source.metadata.lineage:LineageFileSource",
         "datahub-business-glossary = datahub.ingestion.source.metadata.business_glossary:BusinessGlossaryFileSource",
         "mode = datahub.ingestion.source.mode:ModeSource",
         "mongodb = datahub.ingestion.source.mongodb:MongoDBSource",
