@@ -29,6 +29,9 @@ jobs:
 
   publish:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     needs: [check-secret]
     if: needs.check-secret.outputs.publish-enabled == 'true'
     steps:
