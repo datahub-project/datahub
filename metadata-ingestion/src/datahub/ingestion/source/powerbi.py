@@ -17,8 +17,8 @@ import requests
 from orderedset import OrderedSet
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.source_common import EnvBasedSourceConfigBase
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.source_common import EnvBasedSourceConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
