@@ -154,11 +154,11 @@ class FeastRepositorySource(Source):
 
         return sources
 
-    def _get_entity(
+    def _get_entity_workunit(
         self, project: str, feature_view: FeatureView, entity: Entity
     ) -> MetadataWorkUnit:
         """
-        Generate an MLPrimaryKey workunit for a Feast entity.
+        Generate an MLPrimaryKey work unit for a Feast entity.
         """
 
         feature_view_name = f"{project}.{feature_view.name}"
@@ -180,14 +180,14 @@ class FeastRepositorySource(Source):
 
         return MetadataWorkUnit(id=entity.name, mce=mce)
 
-    def _get_feature(
+    def _get_feature_workunit(
         self,
         project: str,
         feature_view: Union[FeatureView, OnDemandFeatureView],
         feature: Feature,
     ) -> MetadataWorkUnit:
         """
-        Generate an MLFeature workunit for a Feast feature.
+        Generate an MLFeature work unit for a Feast feature.
         """
 
         feature_view_name = f"{project}.{feature_view.name}"
@@ -233,11 +233,11 @@ class FeastRepositorySource(Source):
 
         return MetadataWorkUnit(id=feature.name, mce=mce)
 
-    def _get_feature_view(
+    def _get_feature_view_workunit(
         self, project: str, feature_view: FeatureView
     ) -> MetadataWorkUnit:
         """
-        Generate an MLFeatureTable workunit for a Feast feature view.
+        Generate an MLFeatureTable work unit for a Feast feature view.
         """
 
         feature_view_name = f"{project}.{feature_view.name}"
@@ -271,11 +271,11 @@ class FeastRepositorySource(Source):
 
         return MetadataWorkUnit(id=feature_view_name, mce=mce)
 
-    def _get_on_demand_feature_view(
+    def _get_on_demand_feature_view_workunit(
         self, project: str, on_demand_feature_view: OnDemandFeatureView
     ) -> MetadataWorkUnit:
         """
-        Generate an MLFeatureTable workunit for a Feast on-demand feature view.
+        Generate an MLFeatureTable work unit for a Feast on-demand feature view.
         """
 
         on_demand_feature_view_name = f"{project}.{on_demand_feature_view.name}"
@@ -320,7 +320,7 @@ class FeastRepositorySource(Source):
         for feature_view in feature_store.list_feature_views():
             for entity_name in feature_view.entities:
                 entity = feature_store.get_entity(entity_name)
-                work_unit = self._get_entity(
+                work_unit = self._get_entity_workunit(
                     feature_store.project, feature_view, entity
                 )
 
@@ -329,7 +329,7 @@ class FeastRepositorySource(Source):
                 yield work_unit
 
             for feature in feature_view.features:
-                work_unit = self._get_feature(
+                work_unit = self._get_feature_workunit(
                     feature_store.project, feature_view, feature
                 )
 
@@ -337,7 +337,7 @@ class FeastRepositorySource(Source):
 
                 yield work_unit
 
-            work_unit = self._get_feature_view(feature_store.project, feature_view)
+            work_unit = self._get_feature_view_workunit(feature_store.project, feature_view)
 
             self.report.report_workunit(work_unit)
 
@@ -345,7 +345,7 @@ class FeastRepositorySource(Source):
 
         for on_demand_feature_view in feature_store.list_on_demand_feature_views():
             for feature in on_demand_feature_view.features:
-                work_unit = self._get_feature(
+                work_unit = self._get_feature_workunit(
                     feature_store.project, on_demand_feature_view, feature
                 )
 
@@ -353,7 +353,7 @@ class FeastRepositorySource(Source):
 
                 yield work_unit
 
-            work_unit = self._get_on_demand_feature_view(
+            work_unit = self._get_on_demand_feature_view_workunit(
                 feature_store.project, on_demand_feature_view
             )
 
