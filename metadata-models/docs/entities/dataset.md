@@ -123,6 +123,207 @@ The following script shows you how to add an owner to a dataset using the low-le
 ```
 </details>
 
+### Fine-grained lineage
+Fine-grained lineage at field level can be associated to a dataset in two ways - either directly attached to the `upstreamLineage` aspect of a dataset, or captured as part of the `dataJobInputOutput` aspect of a dataJob.
+
+<details>
+<summary>Python SDK: Add fine-grained lineage to a dataset</summary>
+
+```python
+# inlined from metadata-ingestion/examples/library/lineage_emitter_dataset_finegrained.py
+{{ inline examples/library/lineage_emitter_dataset_finegrained.py }}
+```
+</details>
+
+<details>
+<summary>Python SDK: Add fine-grained lineage to a datajob</summary>
+
+```python
+# inlined from metadata-ingestion/examples/library/lineage_emitter_datajob_finegrained.py
+{{ inline examples/library/lineage_emitter_datajob_finegrained.py }}
+```
+</details>
+
+#### Querying lineage information
+The standard [GET APIs to retrive entities](https://datahubproject.io/docs/metadata-service/#retrieving-entities) can be used to fetch the dataset/datajob created by the above example.
+The response will include the fine-grained lineage information as well.
+<details>
+<summary>Fetch entity snapshot, including fine-grained lineages</summary>
+
+```
+curl 'http://localhost:8080/entities/urn%3Ali%3Adataset%3A(urn%3Ali%3AdataPlatform%3Apostgres,bar,PROD)'
+```
+```
+curl 'http://localhost:8080/entities/urn%3Ali%3AdataJob%3A(urn%3Ali%3AdataFlow%3A(spark,Flow1,prod),Task1)'
+```
+</details>
+
+The below queries can be used to find the upstream/downstream datasets/fields of a dataset/datajob.
+
+<details>
+<summary>Find upstream datasets and fields of a dataset</summary>
+
+```
+curl 'http://localhost:8080/relationships?direction=OUTGOING&urn=urn%3Ali%3Adataset%3A(urn%3Ali%3AdataPlatform%3Apostgres,bar,PROD)&types=DownstreamOf'
+
+{
+    "start": 0,
+    "count": 9,
+    "relationships": [
+        {
+            "type": "DownstreamOf",
+            "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,bar2,PROD)"
+        },
+        {
+            "type": "DownstreamOf",
+            "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,bar4,PROD)"
+        },
+        {
+            "type": "DownstreamOf",
+            "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,bar3,PROD)"
+        },
+        {
+            "type": "DownstreamOf",
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,bar3,PROD),c1)"
+        },
+        {
+            "type": "DownstreamOf",
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,bar2,PROD),c3)"
+        },
+        {
+            "type": "DownstreamOf",
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,bar2,PROD),c2)"
+        },
+        {
+            "type": "DownstreamOf",
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,bar3,PROD),c2)"
+        },
+        {
+            "type": "DownstreamOf",
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,bar4,PROD),c1)"
+        },
+        {
+            "type": "DownstreamOf",
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,bar2,PROD),c1)"
+        }
+    ],
+    "total": 9
+}
+```
+</details>
+
+<details>
+<summary>Find the datasets and fields consumed by a datajob i.e. inputs to a datajob</summary>
+
+```
+curl 'http://localhost:8080/relationships?direction=OUTGOING&urn=urn%3Ali%3AdataJob%3A(urn%3Ali%3AdataFlow%3A(spark,Flow1,prod),Task1)&types=Consumes'
+
+{
+    "start": 0,
+    "count": 9,
+    "relationships": [
+        {
+            "type": "Consumes",
+            "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,bar4,PROD)"
+        },
+        {
+            "type": "Consumes",
+            "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,bar3,PROD)"
+        },
+        {
+            "type": "Consumes",
+            "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,bar2,PROD)"
+        },
+        {
+            "type": "Consumes",
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,bar4,PROD),c1)"
+        },
+        {
+            "type": "Consumes",
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,bar3,PROD),c2)"
+        },
+        {
+            "type": "Consumes",
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,bar3,PROD),c1)"
+        },
+        {
+            "type": "Consumes",
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,bar2,PROD),c3)"
+        },
+        {
+            "type": "Consumes",
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,bar2,PROD),c2)"
+        },
+        {
+            "type": "Consumes",
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,bar2,PROD),c1)"
+        }
+    ],
+    "total": 9
+}
+```
+</details>
+
+<details>
+<summary>Find the datasets and fields produced by a datajob i.e. outputs of a datajob</summary>
+
+```
+curl 'http://localhost:8080/relationships?direction=OUTGOING&urn=urn%3Ali%3AdataJob%3A(urn%3Ali%3AdataFlow%3A(spark,Flow1,prod),Task1)&types=Produces'
+
+{
+    "start": 0,
+    "count": 11,
+    "relationships": [
+        {
+            "type": "Produces",
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,bar2,PROD),c9)"
+        },
+        {
+            "type": "Produces",
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,bar,PROD),c9)"
+        },
+        {
+            "type": "Produces",
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,bar,PROD),c7)"
+        },
+        {
+            "type": "Produces",
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,bar,PROD),c6)"
+        },
+        {
+            "type": "Produces",
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,bar,PROD),c5)"
+        },
+        {
+            "type": "Produces",
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,bar,PROD),c4)"
+        },
+        {
+            "type": "Produces",
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,bar,PROD),c3)"
+        },
+        {
+            "type": "Produces",
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,bar,PROD),c2)"
+        },
+        {
+            "type": "Produces",
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,bar,PROD),c1)"
+        },
+        {
+            "type": "Produces",
+            "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,bar2,PROD)"
+        },
+        {
+            "type": "Produces",
+            "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,bar,PROD)"
+        }
+    ],
+    "total": 11
+}
+```
+</details>
+
 ### Documentation, Links etc.
 
 Documentation for Datasets is available via the `datasetProperties` aspect (typically filled out via ingestion connectors when information is already present in the source system) and via the `editableDatasetProperties` aspect (filled out via the UI typically)
