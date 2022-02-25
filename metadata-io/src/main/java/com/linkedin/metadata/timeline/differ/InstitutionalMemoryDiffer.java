@@ -21,11 +21,11 @@ import static com.linkedin.metadata.Constants.*;
 
 public class InstitutionalMemoryDiffer implements Differ {
   private static final String INSTITUTIONAL_MEMORY_ADDED_FORMAT =
-      "The institutionalMemory '%s' with description '%s' of the dataset '%s' has been added.";
+      "Institutional Memory '%s' with documentation of '%s' has been added: '%s'";
   private static final String INSTITUTIONAL_MEMORY_REMOVED_FORMAT =
-      "The institutionalMemory '%s' with description '%s' of the dataset '%s' has been removed.";
+      "Institutional Memory '%s' with documentation of '%s' has been removed: '%s'";
   private static final String INSTITUTIONAL_MEMORY_MODIFIED_FORMAT =
-      "The description of the institutionalMemory '%s' of the dataset '%s' has been changed from '%s' to '%s'.";
+      "Documentation of Institutional Memory '%s' of  '%s' has been changed from '%s' to '%s'.";
 
   private static List<ChangeEvent> computeDiffs(InstitutionalMemory baseInstitutionalMemory,
       InstitutionalMemory targetInstitutionalMemory, String entityUrn) {
@@ -70,8 +70,8 @@ public class InstitutionalMemoryDiffer implements Differ {
             .changeType(ChangeOperation.REMOVE)
             .semVerChange(SemanticChangeType.MINOR)
             .description(
-                String.format(INSTITUTIONAL_MEMORY_REMOVED_FORMAT, baseElement.getUrl(), baseElement.getDescription(),
-                    entityUrn))
+                String.format(INSTITUTIONAL_MEMORY_REMOVED_FORMAT, baseElement.getUrl(), entityUrn,
+                    baseElement.getDescription()))
             .build());
         ++baseIdx;
       } else {
@@ -83,8 +83,8 @@ public class InstitutionalMemoryDiffer implements Differ {
             .changeType(ChangeOperation.ADD)
             .semVerChange(SemanticChangeType.MINOR)
             .description(
-                String.format(INSTITUTIONAL_MEMORY_ADDED_FORMAT, targetElement.getUrl(), targetElement.getDescription(),
-                    entityUrn))
+                String.format(INSTITUTIONAL_MEMORY_ADDED_FORMAT, targetElement.getUrl(), entityUrn,
+                    targetElement.getDescription()))
             .build());
         ++targetIdx;
       }
@@ -100,8 +100,8 @@ public class InstitutionalMemoryDiffer implements Differ {
           .changeType(ChangeOperation.REMOVE)
           .semVerChange(SemanticChangeType.MINOR)
           .description(
-              String.format(INSTITUTIONAL_MEMORY_REMOVED_FORMAT, baseElement.getUrl(), baseElement.getDescription(),
-                  entityUrn))
+              String.format(INSTITUTIONAL_MEMORY_REMOVED_FORMAT, baseElement.getUrl(), entityUrn,
+                  baseElement.getDescription()))
           .build());
       ++baseIdx;
     }
@@ -116,8 +116,8 @@ public class InstitutionalMemoryDiffer implements Differ {
           .changeType(ChangeOperation.ADD)
           .semVerChange(SemanticChangeType.MINOR)
           .description(
-              String.format(INSTITUTIONAL_MEMORY_ADDED_FORMAT, targetElement.getUrl(), targetElement.getDescription(),
-                  entityUrn))
+              String.format(INSTITUTIONAL_MEMORY_ADDED_FORMAT, targetElement.getUrl(), entityUrn,
+                  targetElement.getDescription()))
           .build());
       ++targetIdx;
     }

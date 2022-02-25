@@ -16,6 +16,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.timeline.differ.EditableDatasetPropertiesDiffer.*;
 
 
 public class DatasetPropertiesDiffer implements Differ {
@@ -32,8 +33,7 @@ public class DatasetPropertiesDiffer implements Differ {
           .category(ChangeCategory.DOCUMENTATION)
           .changeType(ChangeOperation.ADD)
           .semVerChange(SemanticChangeType.MINOR)
-          .description(
-              String.format("The description '%s' has been added for the dataset '%s'.", targetDescription, entityUrn))
+          .description(String.format(DESCRIPTION_ADDED, targetDescription, entityUrn))
           .build());
     } else if (baseDescription != null && targetDescription == null) {
       // Description removed.
@@ -42,8 +42,7 @@ public class DatasetPropertiesDiffer implements Differ {
           .category(ChangeCategory.DOCUMENTATION)
           .changeType(ChangeOperation.REMOVE)
           .semVerChange(SemanticChangeType.MINOR)
-          .description(
-              String.format("The description '%s' has been removed for the dataset '%s'.", baseDescription, entityUrn))
+          .description(String.format(DESCRIPTION_REMOVED, baseDescription, entityUrn))
           .build());
     } else if (baseDescription != null && targetDescription != null && !baseDescription.equals(targetDescription)) {
       // Description has been modified.
@@ -52,9 +51,7 @@ public class DatasetPropertiesDiffer implements Differ {
           .category(ChangeCategory.DOCUMENTATION)
           .changeType(ChangeOperation.MODIFY)
           .semVerChange(SemanticChangeType.MINOR)
-          .description(
-              String.format("The description of the dataset '%s' has been changed from '%s' to '%s'.", entityUrn,
-                  baseDescription, targetDescription))
+          .description(String.format(DESCRIPTION_CHANGED, entityUrn,baseDescription, targetDescription))
           .build());
     }
     return changeEvents;

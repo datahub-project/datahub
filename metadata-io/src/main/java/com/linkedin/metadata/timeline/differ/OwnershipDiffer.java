@@ -20,10 +20,10 @@ import static com.linkedin.metadata.Constants.*;
 
 
 public class OwnershipDiffer implements Differ {
-  private static final String OWNER_ADDED_FORMAT = "The owner '%s' of the dataset '%s' has been added.";
-  private static final String OWNER_REMOVED_FORMAT = "The owner '%s' of the dataset '%s' has been removed.";
+  private static final String OWNER_ADDED_FORMAT = "'%s' added as a `%s` of '%s'.";
+  private static final String OWNER_REMOVED_FORMAT = "'%s' removed as a `%s` of '%s'.";
   private static final String OWNERSHIP_TYPE_CHANGE_FORMAT =
-      "The ownership type of the owner '%s' changed from '%s' to '%s'.";
+      "'%s''s ownership type changed from '%s' to '%s' for '%s'.";
 
   private static List<ChangeEvent> computeDiffs(Ownership baseOwnership, Ownership targetOwnership, String entityUrn) {
     List<ChangeEvent> changeEvents = new ArrayList<>();
@@ -50,7 +50,7 @@ public class OwnershipDiffer implements Differ {
               .semVerChange(SemanticChangeType.PATCH)
               .description(
                   String.format(OWNERSHIP_TYPE_CHANGE_FORMAT, baseOwner.getOwner().getId(), baseOwner.getType(),
-                      targetOwner.getType()))
+                      targetOwner.getType(), entityUrn))
               .build());
         }
         ++baseOwnerIdx;
@@ -63,7 +63,7 @@ public class OwnershipDiffer implements Differ {
             .category(ChangeCategory.OWNERSHIP)
             .changeType(ChangeOperation.REMOVE)
             .semVerChange(SemanticChangeType.MINOR)
-            .description(String.format(OWNER_REMOVED_FORMAT, baseOwner.getOwner().getId(), entityUrn))
+            .description(String.format(OWNER_REMOVED_FORMAT, baseOwner.getOwner().getId(), baseOwner.getType(), entityUrn))
             .build());
         ++baseOwnerIdx;
       } else {
@@ -74,7 +74,7 @@ public class OwnershipDiffer implements Differ {
             .category(ChangeCategory.OWNERSHIP)
             .changeType(ChangeOperation.ADD)
             .semVerChange(SemanticChangeType.MINOR)
-            .description(String.format(OWNER_ADDED_FORMAT, targetOwner.getOwner().getId(), entityUrn))
+            .description(String.format(OWNER_ADDED_FORMAT, targetOwner.getOwner().getId(), targetOwner.getType(), entityUrn))
             .build());
         ++targetOwnerIdx;
       }
@@ -89,7 +89,7 @@ public class OwnershipDiffer implements Differ {
           .category(ChangeCategory.OWNERSHIP)
           .changeType(ChangeOperation.REMOVE)
           .semVerChange(SemanticChangeType.MINOR)
-          .description(String.format(OWNER_REMOVED_FORMAT, baseOwner.getOwner().getId(), entityUrn))
+          .description(String.format(OWNER_REMOVED_FORMAT, baseOwner.getOwner().getId(), baseOwner.getType(), entityUrn))
           .build());
       ++baseOwnerIdx;
     }
@@ -102,7 +102,7 @@ public class OwnershipDiffer implements Differ {
           .category(ChangeCategory.OWNERSHIP)
           .changeType(ChangeOperation.ADD)
           .semVerChange(SemanticChangeType.MINOR)
-          .description(String.format(OWNER_ADDED_FORMAT, targetOwner.getOwner().getId(), entityUrn))
+          .description(String.format(OWNER_ADDED_FORMAT, targetOwner.getOwner().getId(), targetOwner.getType(), entityUrn))
           .build());
       ++targetOwnerIdx;
     }
