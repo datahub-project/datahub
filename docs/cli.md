@@ -57,12 +57,13 @@ We use a plugin architecture so that you can install only the dependencies you a
 
 ### Sources
 
-| Plugin Name                                                     | Install Command                                            | Provides                            |
-|-----------------------------------------------------------------|------------------------------------------------------------| ----------------------------------- |
+| Plugin Name                                                                         | Install Command                                            | Provides                            |
+|-------------------------------------------------------------------------------------|------------------------------------------------------------| ----------------------------------- |
 | [file](../metadata-ingestion/source_docs/file.md)                                   | _included by default_                                      | File source and sink                |
 | [athena](../metadata-ingestion/source_docs/athena.md)                               | `pip install 'acryl-datahub[athena]'`                      | AWS Athena source                   |
 | [bigquery](../metadata-ingestion/source_docs/bigquery.md)                           | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source                     |
 | [bigquery-usage](../metadata-ingestion/source_docs/bigquery.md)                     | `pip install 'acryl-datahub[bigquery-usage]'`              | BigQuery usage statistics source    |
+| [datahub-lineage-file](../metadata-ingestion/source_docs/file_lineage.md)           | _no additional dependencies_                               | Lineage File source                 |
 | [datahub-business-glossary](../metadata-ingestion/source_docs/business_glossary.md) | _no additional dependencies_                               | Business Glossary File source                         |
 | [dbt](../metadata-ingestion/source_docs/dbt.md)                                     | _no additional dependencies_                               | dbt source                          |
 | [druid](../metadata-ingestion/source_docs/druid.md)                                 | `pip install 'acryl-datahub[druid]'`                       | Druid Source                        |
@@ -179,7 +180,7 @@ The env variables take precedence over what is in the config.
 
 ### telemetry
 
-To help us understand how people are using DataHub, we collect anonymous usage statistics on actions such as command invocations via Google Analytics.
+To help us understand how people are using DataHub, we collect anonymous usage statistics on actions such as command invocations via Mixpanel.
 We do not collect private information such as IP addresses, contents of ingestions, or credentials.
 The code responsible for collecting and broadcasting these events is open-source and can be found [within our GitHub](https://github.com/linkedin/datahub/blob/master/metadata-ingestion/src/datahub/telemetry/telemetry.py).
 
@@ -323,3 +324,18 @@ External Entities Affected: None
 Old Entities Migrated = {'urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)'}
 ```
 
+### timeline
+
+The `timeline` command allows you to view a version history for entities. Currently only supported for Datasets. For example,
+the following command will show you the modifications to tags for a dataset for the past week. The output includes a computed semantic version,
+relevant for schema changes only currently, the target of the modification, and a description of the change including a timestamp.
+The default output is sanitized to be more readable, but the full API output can be obtained by passing the `--verbose` flag and
+to get the raw JSON difference in addition to the API output you can add the `--raw` flag. For more details about the feature please see [the main feature page](dev-guides/timeline.md)
+
+```console
+datahub timeline --urn "urn:li:dataset:(urn:li:dataPlatform:mysql,User.UserAccount,PROD)" --category TAG --start 7daysago
+2022-02-17 14:03:42 - 0.0.0-computed
+	MODIFY TAG dataset:mysql:User.UserAccount : A change in aspect editableSchemaMetadata happened at time 2022-02-17 20:03:42.0
+2022-02-17 14:17:30 - 0.0.0-computed
+	MODIFY TAG dataset:mysql:User.UserAccount : A change in aspect editableSchemaMetadata happened at time 2022-02-17 20:17:30.118
+```
