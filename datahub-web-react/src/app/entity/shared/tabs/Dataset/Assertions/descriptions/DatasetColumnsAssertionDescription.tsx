@@ -103,10 +103,9 @@ export const DatasetColumnAssertionDescription = ({ fieldPath, assertion, parame
         }
         // Native Aggregations
         case DatasetColumnStdAggFunc.Native: {
-            const nativeAgg = assertion.nativeType;
             description = (
                 <Typography.Text>
-                    {nativeAgg} for column <Typography.Text strong>{fieldPath}</Typography.Text> is {opText}
+                    Column <Typography.Text strong>{fieldPath}</Typography.Text> values are {opText}
                 </Typography.Text>
             );
             break;

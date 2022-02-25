@@ -39,7 +39,7 @@ export const BooleanTimeline = ({ data, timeRange, width }: Props) => {
     const xScale = useMemo(
         () =>
             scaleUtc({
-                domain: [new Date(timeRange.startMs), new Date(timeRange.endMs)],
+                domain: [new Date(timeRange.startMs), new Date(timeRange.endMs + 600000)],
                 range: [0, width],
             }),
         [timeRange, width],

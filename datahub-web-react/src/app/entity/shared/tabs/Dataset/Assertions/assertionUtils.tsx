@@ -53,7 +53,7 @@ export const getResultIcon = (result: AssertionResultType) => {
     }
 };
 
-const getDatasetNativeAggregationResultMessage = (runEvent: AssertionRunEvent) => {
+const getDatasetNativeResultMessage = (runEvent: AssertionRunEvent) => {
     const maybeActualValue = runEvent.result?.actualAggValue;
     const maybeUnexpectedCount = runEvent.result?.unexpectedCount;
     const maybeRowCount = runEvent.result?.rowCount;
@@ -98,11 +98,11 @@ const getDatasetRowCountResultMessage = (runEvent: AssertionRunEvent) => {
 };
 
 const getDatasetColumnCountResultMessage = (runEvent: AssertionRunEvent) => {
-    return getDatasetNativeAggregationResultMessage(runEvent);
+    return getDatasetNativeResultMessage(runEvent);
 };
 
 const getDatasetColumnsResultMessage = (runEvent: AssertionRunEvent) => {
-    return getDatasetNativeAggregationResultMessage(runEvent);
+    return getDatasetNativeResultMessage(runEvent);
 };
 
 const getDatasetRowsResultMessage = (
@@ -116,7 +116,7 @@ const getDatasetRowsResultMessage = (
             }
             case DatasetRowsStdAggFunc.Native:
             default: {
-                return getDatasetNativeAggregationResultMessage(runEvent);
+                return getDatasetNativeResultMessage(runEvent);
             }
         }
     }
@@ -137,7 +137,7 @@ const getDatasetSchemaResultMessage = (
             }
             case DatasetSchemaStdAggFunc.Native:
             default: {
-                return getDatasetNativeAggregationResultMessage(runEvent);
+                return getDatasetNativeResultMessage(runEvent);
             }
         }
     }
@@ -149,7 +149,7 @@ const getDatasetColumnResultMessage = (
     runEvent: AssertionRunEvent,
 ) => {
     if (assertion) {
-        return getDatasetNativeAggregationResultMessage(runEvent);
+        return getDatasetNativeResultMessage(runEvent);
     }
     throw new Error("Invalid dataset column assertion found: missing 'datasetColumnAssertion' field.");
 };

@@ -1,4 +1,5 @@
 import logging
+import time
 from datetime import timezone
 from typing import Any, Dict, List, Optional, Union
 
@@ -243,6 +244,7 @@ class DatahubValidationAction(ValidationAction):
                 "expectation_suite_name": expectation_suite_name
             }
 
+            # TODO: Understand why their run time is incorrect.
             run_time = run_id.run_time.astimezone(timezone.utc)
             assertionResults = []
 
@@ -270,7 +272,7 @@ class DatahubValidationAction(ValidationAction):
             for dset in datasets:
                 # https://docs.greatexpectations.io/docs/reference/expectations/result_format/
                 assertionResult = AssertionRunEvent(
-                    timestampMillis=int(run_time.timestamp() * 1000),
+                    timestampMillis=int(round(time.time() * 1000)),
                     assertionUrn=assertionUrn,
                     asserteeUrn=dset["dataset_urn"],
                     runId=run_time.strftime("%Y-%m-%dT%H:%M:%SZ"),

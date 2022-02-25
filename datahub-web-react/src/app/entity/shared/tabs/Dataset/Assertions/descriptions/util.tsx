@@ -149,7 +149,7 @@ export const getOpText = (
         case AssertionStdOperator.Native: {
             return (
                 <Typography.Text>
-                    matching assertion <Typography.Text strong>{nativeOp}</Typography.Text>
+                    passing assertion <Typography.Text strong>{nativeOp}</Typography.Text>
                 </Typography.Text>
             );
         }

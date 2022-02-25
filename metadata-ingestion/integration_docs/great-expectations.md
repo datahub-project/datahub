@@ -5,7 +5,8 @@ This guide helps to setup and configure `DatahubValidationAction` in Great Expec
 
 ## Capabilities
 
-`DatahubValidationAction` pushes assertions metadata to Datahub. This includes 
+`DatahubValidationAction` pushes assertions metadata to DataHub. This includes
+
 - Details of assertions set on a dataset
 - Details of whether assertion succeeded against the dataset at a particular time
 
@@ -17,7 +18,7 @@ This integration does not support
 - v2 Datasources such as SqlAlchemyDataset
 - v3 Datasources using execution engine other than SqlAlchemyExecutionEngine
 
-## Seting up 
+## Setting up 
 
 1. Install the required dependency in your Great Expectations environment.  
     ```shell

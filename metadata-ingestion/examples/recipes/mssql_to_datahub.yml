@@ -1,13 +1,24 @@
 ---
 # see https://datahubproject.io/docs/metadata-ingestion/source_docs/mssql for complete documentation
 source:
-  type: mssql
+  type: postgres
   config:
-    username: sa
-    password: test!Password
-    database: DemoData
+    # Coordinates
+    host_port: localhost:5432 # Your Postgres host and port, e.g. postgres:5432
+    database: postgres # Your Postgres Database, e.g. sample_db
 
-# see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
+    # Credentials
+    username: postgres # Your Postgres username, e.g. admin
+    password: datahub # Your Postgres password, e.g. password_01
+
+    # Options
+    include_tables: True
+    include_views: True
+
+    # Profiling
+    profiling:
+      enabled: true
+# see https://datahubproject.io/docs/metadata-ingestion/sink_docs/console for complete documentation
 sink:
   type: "datahub-rest"
   config:

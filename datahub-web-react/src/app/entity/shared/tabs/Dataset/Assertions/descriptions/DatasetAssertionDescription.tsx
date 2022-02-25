@@ -76,7 +76,7 @@ export const DatasetAssertionDescription = ({ assertionInfo }: Props) => {
             content={
                 <>
                     <Typography.Text strong>type</Typography.Text>: {type || 'N/A'}
-                    {parameters?.length &&
+                    {parameters &&
                         parameters.map((parameter) => (
                             <div>
                                 <Typography.Text strong>{parameter.key}</Typography.Text>: {parameter.value}
