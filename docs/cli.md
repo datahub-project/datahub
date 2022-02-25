@@ -67,6 +67,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 | [dbt](../metadata-ingestion/source_docs/dbt.md)                                     | _no additional dependencies_                               | dbt source                          |
 | [druid](../metadata-ingestion/source_docs/druid.md)                                 | `pip install 'acryl-datahub[druid]'`                       | Druid Source                        |
 | [feast](../metadata-ingestion/source_docs/feast.md)                                 | `pip install 'acryl-datahub[feast]'`                       | Feast source                        |
+| [feast-repository](../metadata-ingestion/source_docs/feast_repository.md)           | `pip install 'acryl-datahub[feast-repository]'`            | Feast repository source             |
 | [glue](../metadata-ingestion/source_docs/glue.md)                                   | `pip install 'acryl-datahub[glue]'`                        | AWS Glue source                     |
 | [hive](../metadata-ingestion/source_docs/hive.md)                                   | `pip install 'acryl-datahub[hive]'`                        | Hive source                         |
 | [kafka](../metadata-ingestion/source_docs/kafka.md)                                 | `pip install 'acryl-datahub[kafka]'`                       | Kafka source                        |
