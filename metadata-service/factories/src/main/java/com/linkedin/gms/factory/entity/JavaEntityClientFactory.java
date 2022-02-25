@@ -3,6 +3,7 @@ package com.linkedin.gms.factory.entity;
 import com.linkedin.entity.client.JavaEntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.RelationshipSearchService;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,8 +30,13 @@ public class JavaEntityClientFactory {
   @Qualifier("timeseriesAspectService")
   private TimeseriesAspectService _timeseriesAspectService;
 
+  @Autowired
+  @Qualifier("relationshipSearchService")
+  private RelationshipSearchService _relationshipSearchService;
+
   @Bean("javaEntityClient")
   public JavaEntityClient getJavaEntityClient() {
-    return new JavaEntityClient(_entityService, _entitySearchService, _searchService, _timeseriesAspectService);
+    return new JavaEntityClient(_entityService, _entitySearchService, _searchService, _timeseriesAspectService,
+        _relationshipSearchService);
   }
 }

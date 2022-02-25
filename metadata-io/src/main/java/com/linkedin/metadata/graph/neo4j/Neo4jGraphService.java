@@ -1,10 +1,16 @@
-package com.linkedin.metadata.graph;
+package com.linkedin.metadata.graph.neo4j;
 
 import com.codahale.metrics.Timer;
 import com.datahub.util.Statement;
 import com.datahub.util.exception.RetryLimitReached;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.graph.Edge;
+import com.linkedin.metadata.graph.EntityLineageResult;
+import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.graph.LineageDirection;
+import com.linkedin.metadata.graph.RelatedEntitiesResult;
+import com.linkedin.metadata.graph.RelatedEntity;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.CriterionArray;
@@ -142,6 +148,13 @@ public class Neo4jGraphService implements GraphService {
             record.values().get(0).asNode().get("urn").asString())); // Urn TODO: Validate this works against Neo4j.
     final int totalCount = runQuery(countStatement).single().get(0).asInt();
     return new RelatedEntitiesResult(offset, relatedEntities.size(), totalCount, relatedEntities);
+  }
+
+  @Nonnull
+  @Override
+  public EntityLineageResult getLineage(@Nonnull Urn entityUrn, @Nonnull LineageDirection direction, int offset,
+      int count, int maxHops) {
+    throw new UnsupportedOperationException("getLineage not yet supported for neo4j");
   }
 
   public void removeNode(@Nonnull final Urn urn) {

@@ -1,0 +1,11 @@
+namespace com.linkedin.metadata.query.filter
+
+/**
+ * A list of criterion or'd together.
+ */
+record DisjunctiveCriterion {
+  /**
+   * A list of disjunctive criterion for the filter. (or operation to combine filters)
+   */
+  or: array[ConjunctiveCriterion]
+}

@@ -72,6 +72,15 @@ public interface GraphService {
       final int offset,
       final int count);
 
+  @Nonnull
+  EntityLineageResult getLineage(
+      @Nonnull Urn entityUrn,
+      @Nonnull LineageDirection direction,
+      final int offset,
+      final int count,
+      final int maxHops
+  );
+
   /**
    * Removes the given node (if it exists) as well as all edges (incoming and outgoing) of the node.
    */

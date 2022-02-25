@@ -5,9 +5,12 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.graph.Edge;
-import com.linkedin.metadata.graph.RelatedEntity;
-import com.linkedin.metadata.graph.RelatedEntitiesResult;
+import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.graph.LineageDirection;
+import com.linkedin.metadata.graph.LineageRelationshipArray;
+import com.linkedin.metadata.graph.RelatedEntitiesResult;
+import com.linkedin.metadata.graph.RelatedEntity;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -18,6 +21,7 @@ import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import io.opentelemetry.extension.annotations.WithSpan;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -46,7 +50,6 @@ import org.elasticsearch.index.reindex.DeleteByQueryRequest;
 @RequiredArgsConstructor
 public class ElasticSearchGraphService implements GraphService {
 
-  private static final int MAX_ELASTIC_RESULT = 10000;
   private final RestHighLevelClient searchClient;
   private final IndexConvention _indexConvention;
   private final ESGraphWriteDAO _graphWriteDAO;
@@ -141,6 +144,20 @@ public class ElasticSearchGraphService implements GraphService {
         .collect(Collectors.toList());
 
     return new RelatedEntitiesResult(offset, relationships.size(), totalCount, relationships);
+  }
+
+  @Nonnull
+  @WithSpan
+  @Override
+  public EntityLineageResult getLineage(@Nonnull Urn entityUrn, @Nonnull LineageDirection direction, int offset,
+      int count, int maxHops) {
+    ESGraphQueryDAO.LineageResponse lineageResponse =
+        _graphReadDAO.getLineage(entityUrn, direction, offset, count, maxHops);
+    return new EntityLineageResult().setRelationships(
+        new LineageRelationshipArray(lineageResponse.getLineageRelationships()))
+        .setStart(offset)
+        .setCount(count)
+        .setTotal(lineageResponse.getTotal());
   }
 
   private Filter createUrnFilter(@Nonnull final Urn urn) {

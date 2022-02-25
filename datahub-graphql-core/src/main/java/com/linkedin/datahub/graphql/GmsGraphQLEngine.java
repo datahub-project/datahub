@@ -28,6 +28,7 @@ import com.linkedin.datahub.graphql.generated.EntityRelationship;
 import com.linkedin.datahub.graphql.generated.EntityRelationshipLegacy;
 import com.linkedin.datahub.graphql.generated.ForeignKeyConstraint;
 import com.linkedin.datahub.graphql.generated.InstitutionalMemoryMetadata;
+import com.linkedin.datahub.graphql.generated.LineageRelationship;
 import com.linkedin.datahub.graphql.generated.ListDomainsResult;
 import com.linkedin.datahub.graphql.generated.MLFeature;
 import com.linkedin.datahub.graphql.generated.MLFeatureProperties;
@@ -40,6 +41,7 @@ import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKeyProperties;
 import com.linkedin.datahub.graphql.generated.Owner;
 import com.linkedin.datahub.graphql.generated.RecommendationContent;
+import com.linkedin.datahub.graphql.generated.SearchAcrossRelationshipsResult;
 import com.linkedin.datahub.graphql.generated.SearchResult;
 import com.linkedin.datahub.graphql.generated.UsageQueryResult;
 import com.linkedin.datahub.graphql.generated.UserUsageCounts;
@@ -76,6 +78,7 @@ import com.linkedin.datahub.graphql.resolvers.ingest.source.GetIngestionSourceRe
 import com.linkedin.datahub.graphql.resolvers.ingest.source.ListIngestionSourcesResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.source.UpsertIngestionSourceResolver;
 import com.linkedin.datahub.graphql.resolvers.load.AspectResolver;
+import com.linkedin.datahub.graphql.resolvers.load.EntityLineageResultResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityRelationshipsResultResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
@@ -101,6 +104,7 @@ import com.linkedin.datahub.graphql.resolvers.recommendation.ListRecommendations
 import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteForMultipleResolver;
 import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossEntitiesResolver;
+import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossRelationshipsResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchResolver;
 import com.linkedin.datahub.graphql.resolvers.tag.SetTagColorResolver;
 import com.linkedin.datahub.graphql.resolvers.type.AspectInterfaceTypeResolver;
@@ -512,6 +516,8 @@ public class GmsGraphQLEngine {
                     new SearchResolver(this.entityClient)))
             .dataFetcher("searchAcrossEntities",
                 new SearchAcrossEntitiesResolver(this.entityClient))
+            .dataFetcher("searchAcrossRelationships",
+                new SearchAcrossRelationshipsResolver(this.entityClient))
             .dataFetcher("autoComplete", new AuthenticatedResolver<>(
                     new AutoCompleteResolver(searchableTypes)))
             .dataFetcher("autoCompleteForMultiple", new AuthenticatedResolver<>(
@@ -647,6 +653,13 @@ public class GmsGraphQLEngine {
                         (env) -> ((SearchResult) env.getSource()).getEntity()))
                 )
             )
+            .type("SearchAcrossRelationshipsResult", typeWiring -> typeWiring
+                .dataFetcher("entity", new AuthenticatedResolver<>(
+                    new EntityTypeResolver(
+                        entityTypes.stream().collect(Collectors.toList()),
+                        (env) -> ((SearchAcrossRelationshipsResult) env.getSource()).getEntity()))
+                )
+            )
             .type("AggregationMetadata", typeWiring -> typeWiring
                 .dataFetcher("entity", new EntityTypeResolver(
                     entityTypes.stream().collect(Collectors.toList()),
@@ -678,6 +691,13 @@ public class GmsGraphQLEngine {
                         (env) -> ((EntityRelationship) env.getSource()).getEntity()))
                 )
             )
+            .type("LineageRelationship", typeWiring -> typeWiring
+                .dataFetcher("entity", new AuthenticatedResolver<>(
+                    new EntityTypeResolver(
+                        new ArrayList<>(entityTypes),
+                        (env) -> ((LineageRelationship) env.getSource()).getEntity()))
+                )
+            )
             .type("ListDomainsResult", typeWiring -> typeWiring
                 .dataFetcher("domains",
                     new LoadableTypeBatchResolver<>(domainType,
@@ -695,6 +715,9 @@ public class GmsGraphQLEngine {
             .type("Dataset", typeWiring -> typeWiring
                 .dataFetcher("relationships", new AuthenticatedResolver<>(
                     new EntityRelationshipsResultResolver(graphClient)
+                ))
+                .dataFetcher("lineage", new AuthenticatedResolver<>(
+                    new EntityLineageResultResolver(graphClient)
                 ))
                 .dataFetcher("domain",
                     new LoadableTypeResolver<>(
@@ -840,6 +863,9 @@ public class GmsGraphQLEngine {
             .dataFetcher("relationships", new AuthenticatedResolver<>(
                 new EntityRelationshipsResultResolver(graphClient)
             ))
+            .dataFetcher("lineage", new AuthenticatedResolver<>(
+                new EntityLineageResultResolver(graphClient)
+            ))
             .dataFetcher("platform", new AuthenticatedResolver<>(
                 new LoadableTypeResolver<>(dataPlatformType,
                     (env) -> ((Dashboard) env.getSource()).getPlatform().getUrn()))
@@ -878,6 +904,9 @@ public class GmsGraphQLEngine {
         builder.type("Chart", typeWiring -> typeWiring
             .dataFetcher("relationships", new AuthenticatedResolver<>(
                 new EntityRelationshipsResultResolver(graphClient)
+            ))
+            .dataFetcher("lineage", new AuthenticatedResolver<>(
+                new EntityLineageResultResolver(graphClient)
             ))
             .dataFetcher("platform", new AuthenticatedResolver<>(
                 new LoadableTypeResolver<>(dataPlatformType,
@@ -1005,6 +1034,9 @@ public class GmsGraphQLEngine {
                 .dataFetcher("relationships", new AuthenticatedResolver<>(
                     new EntityRelationshipsResultResolver(graphClient)
                 ))
+                .dataFetcher("lineage", new AuthenticatedResolver<>(
+                    new EntityLineageResultResolver(graphClient)
+                ))
                 .dataFetcher("platform", new AuthenticatedResolver<>(
                     new LoadableTypeResolver<>(dataPlatformType,
                         (env) -> ((DataFlow) env.getSource()).getPlatform().getUrn()))
@@ -1028,6 +1060,9 @@ public class GmsGraphQLEngine {
             .type("MLFeatureTable", typeWiring -> typeWiring
                 .dataFetcher("relationships", new AuthenticatedResolver<>(
                     new EntityRelationshipsResultResolver(graphClient)
+                ))
+                .dataFetcher("lineage", new AuthenticatedResolver<>(
+                    new EntityLineageResultResolver(graphClient)
                 ))
                 .dataFetcher("platform", new AuthenticatedResolver<>(
                         new LoadableTypeResolver<>(dataPlatformType,
@@ -1068,6 +1103,9 @@ public class GmsGraphQLEngine {
                 .dataFetcher("relationships", new AuthenticatedResolver<>(
                     new EntityRelationshipsResultResolver(graphClient)
                 ))
+                .dataFetcher("lineage", new AuthenticatedResolver<>(
+                    new EntityLineageResultResolver(graphClient)
+                ))
                 .dataFetcher("platform", new AuthenticatedResolver<>(
                         new LoadableTypeResolver<>(dataPlatformType,
                                 (env) -> ((MLModel) env.getSource()).getPlatform().getUrn()))
@@ -1090,6 +1128,9 @@ public class GmsGraphQLEngine {
             .type("MLModelGroup", typeWiring -> typeWiring
                 .dataFetcher("relationships", new AuthenticatedResolver<>(
                     new EntityRelationshipsResultResolver(graphClient)
+                ))
+                .dataFetcher("lineage", new AuthenticatedResolver<>(
+                    new EntityLineageResultResolver(graphClient)
                 ))
                 .dataFetcher("platform", new AuthenticatedResolver<>(
                         new LoadableTypeResolver<>(dataPlatformType,

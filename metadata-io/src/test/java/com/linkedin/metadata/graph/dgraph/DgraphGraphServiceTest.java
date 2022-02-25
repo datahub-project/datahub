@@ -1,5 +1,8 @@
-package com.linkedin.metadata.graph;
+package com.linkedin.metadata.graph.dgraph;
 
+import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.graph.GraphServiceTestBase;
+import com.linkedin.metadata.graph.RelatedEntity;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import io.dgraph.DgraphClient;
 import io.dgraph.DgraphGrpc;

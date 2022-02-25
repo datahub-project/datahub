@@ -13,7 +13,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.search.utils.QueryUtils.*;
+import static com.linkedin.metadata.search.utils.QueryUtils.EMPTY_FILTER;
 
 
 @Slf4j
@@ -74,5 +74,29 @@ public class JavaGraphClient implements GraphClient {
         .setCount(relatedEntitiesResult.getCount())
         .setTotal(relatedEntitiesResult.getTotal())
         .setRelationships(entityArray);
+  }
+
+  /**
+   * Returns a list of related entities for a given entity, set of edge types, and direction relative to the
+   * source node
+   * @param rawUrn
+   * @param direction
+   * @param start
+   * @param count
+   * @param actor
+   * @param maxHops
+   */
+  @Nonnull
+  @Override
+  public EntityLineageResult getLineageEntities(String rawUrn, LineageDirection direction, @Nullable Integer start,
+      @Nullable Integer count, String actor, int maxHops) {
+    Urn urn;
+    try {
+      urn = Urn.createFromString(rawUrn);
+    } catch (URISyntaxException e) {
+      throw new RuntimeException(String.format("Error parsing urn %s", rawUrn));
+    }
+    return _graphService.getLineage(urn, direction, start != null ? start : 0, count != null ? count : 100,
+        maxHops);
   }
 }

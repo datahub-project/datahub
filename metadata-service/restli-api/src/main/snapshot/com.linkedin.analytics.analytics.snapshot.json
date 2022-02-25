@@ -43,6 +43,14 @@
                       "type" : "string",
                       "doc" : "The value of the intended field"
                     }, {
+                      "name" : "values",
+                      "type" : {
+                        "type" : "array",
+                        "items" : "string"
+                      },
+                      "doc" : "Values. one of which the intended field should match\nNote, if values is set, the above \"value\" field will be ignored",
+                      "default" : [ ]
+                    }, {
                       "name" : "condition",
                       "type" : {
                         "type" : "enum",
@@ -70,7 +78,27 @@
               } ]
             }
           },
-          "doc" : "A list of of disjunctive criterion for the filter.",
+          "doc" : "A list of disjunctive criterion for the filter. (or operation to combine filters)\nNOTE only one of \"or\" and \"and\" fields can be set",
+          "optional" : true
+        }, {
+          "name" : "and",
+          "type" : {
+            "type" : "array",
+            "items" : {
+              "type" : "record",
+              "name" : "DisjunctiveCriterion",
+              "doc" : "A list of criterion or'd together.",
+              "fields" : [ {
+                "name" : "or",
+                "type" : {
+                  "type" : "array",
+                  "items" : "ConjunctiveCriterion"
+                },
+                "doc" : "A list of disjunctive criterion for the filter. (or operation to combine filters)"
+              } ]
+            }
+          },
+          "doc" : "A list of conjunctive criterion for the filter. (and operation to combine filters)\nNOTE only one of \"or\" and \"and\" fields can be set",
           "optional" : true
         }, {
           "name" : "criteria",
@@ -200,7 +228,7 @@
       "doc" : "When the index was last updated.",
       "optional" : true
     } ]
-  }, "com.linkedin.metadata.query.filter.Condition", "com.linkedin.metadata.query.filter.ConjunctiveCriterion", "com.linkedin.metadata.query.filter.Criterion", "com.linkedin.metadata.query.filter.Filter", "com.linkedin.timeseries.AggregationSpec", "com.linkedin.timeseries.AggregationType", "com.linkedin.timeseries.CalendarInterval", "com.linkedin.timeseries.GenericTable", "com.linkedin.timeseries.GroupingBucket", "com.linkedin.timeseries.GroupingBucketType", "com.linkedin.timeseries.TimeWindowSize" ],
+  }, "com.linkedin.metadata.query.filter.Condition", "com.linkedin.metadata.query.filter.ConjunctiveCriterion", "com.linkedin.metadata.query.filter.Criterion", "com.linkedin.metadata.query.filter.DisjunctiveCriterion", "com.linkedin.metadata.query.filter.Filter", "com.linkedin.timeseries.AggregationSpec", "com.linkedin.timeseries.AggregationType", "com.linkedin.timeseries.CalendarInterval", "com.linkedin.timeseries.GenericTable", "com.linkedin.timeseries.GroupingBucket", "com.linkedin.timeseries.GroupingBucketType", "com.linkedin.timeseries.TimeWindowSize" ],
   "schema" : {
     "name" : "analytics",
     "namespace" : "com.linkedin.analytics",

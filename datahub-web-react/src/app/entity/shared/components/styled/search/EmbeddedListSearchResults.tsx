@@ -5,6 +5,7 @@ import { FacetFilterInput, FacetMetadata, SearchResults as SearchResultType } fr
 import { SearchFilters } from '../../../../../search/SearchFilters';
 import { SearchCfg } from '../../../../../../conf';
 import { EntityNameList } from '../../../../../recommendations/renderer/component/EntityNameList';
+import { ReactComponent as LoadingSvg } from '../../../../../../images/datahub-logo-color-loading_pendulum.svg';
 
 const SearchBody = styled.div`
     display: flex;
@@ -62,6 +63,18 @@ const SearchFilterContainer = styled.div`
     padding-top: 10px;
 `;
 
+const LoadingText = styled.div`
+    margin-top: 18px;
+    font-size: 12px;
+`;
+
+const LoadingContainer = styled.div`
+    padding-top: 40px;
+    padding-bottom: 40px;
+    width: 100%;
+    text-align: center;
+`;
+
 interface Props {
     page: number;
     searchResponse?: SearchResultType | null;
@@ -109,6 +122,12 @@ export const EmbeddedListSearchResults = ({
                     </FiltersContainer>
                 )}
                 <ResultContainer>
+                    {loading && (
+                        <LoadingContainer>
+                            <LoadingSvg height={80} width={80} />
+                            <LoadingText>Searching for related entities...</LoadingText>
+                        </LoadingContainer>
+                    )}
                     {!loading && (
                         <>
                             <EntityNameList

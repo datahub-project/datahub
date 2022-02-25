@@ -1,0 +1,17 @@
+namespace com.linkedin.metadata.query.filter
+
+/**
+ * The relationship direction in the lineage visualization
+ */
+enum LineageDirection {
+
+  /**
+   * The incoming edge to a source node in the graph
+   */
+  UPSTREAM
+
+  /**
+   * The outgoing edge to a source node in the graph
+   */
+  DOWNSTREAM
+}

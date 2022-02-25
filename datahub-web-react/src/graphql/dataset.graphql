@@ -113,15 +113,11 @@ query getDataset($urn: String!) {
         operations(limit: 1) {
             timestampMillis
         }
-        incoming: relationships(
-            input: { types: ["DownstreamOf", "Consumes", "Produces"], direction: INCOMING, start: 0, count: 100 }
-        ) {
-            ...fullRelationshipResults
+        upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
+            ...fullLineageResults
         }
-        outgoing: relationships(
-            input: { types: ["DownstreamOf", "Consumes", "Produces"], direction: OUTGOING, start: 0, count: 100 }
-        ) {
-            ...fullRelationshipResults
+        downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
+            ...fullLineageResults
         }
         ...viewProperties
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {

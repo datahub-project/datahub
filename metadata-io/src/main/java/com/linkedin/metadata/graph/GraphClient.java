@@ -22,4 +22,12 @@ public interface GraphClient {
       @Nullable Integer start,
       @Nullable Integer count,
       String actor);
+
+  /**
+   * Returns a list of related entities for a given entity, set of edge types, and direction relative to the
+   * source node
+   */
+  @Nonnull
+  EntityLineageResult getLineageEntities(String rawUrn, LineageDirection direction, @Nullable Integer start,
+      @Nullable Integer count, String actor, int maxHops);
 }

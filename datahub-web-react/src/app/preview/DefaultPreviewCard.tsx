@@ -3,6 +3,7 @@ import React, { ReactNode } from 'react';
 import { FolderOpenOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+
 import {
     GlobalTags,
     Owner,
@@ -14,6 +15,7 @@ import {
     Domain,
 } from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
+
 import AvatarsGroup from '../shared/avatar/AvatarsGroup';
 import TagTermGroup from '../shared/tags/TagTermGroup';
 import { ANTD_GRAY } from '../entity/shared/constants';

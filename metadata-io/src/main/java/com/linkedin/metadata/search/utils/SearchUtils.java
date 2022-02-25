@@ -1,13 +1,17 @@
 package com.linkedin.metadata.search.utils;
 
-import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.DisjunctiveCriterion;
+import com.linkedin.metadata.query.filter.DisjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Collections;
 import java.util.Map;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -75,5 +79,45 @@ public class SearchUtils {
       log.error("Can't read file: " + filePath);
       throw new RuntimeException("Can't read file: " + filePath);
     }
+  }
+
+  public static void validateFilter(@Nonnull Filter filter) {
+    if (filter.getOr() != null && filter.getAnd() != null) {
+      log.error("Filter cannot have both or and and fields set {}", filter);
+      throw new IllegalArgumentException(
+          String.format("Filter cannot have both or and and fields set %s", filter.toString()));
+    }
+  }
+
+  @Nonnull
+  public static Filter removeCriteria(@Nonnull Filter originalFilter, Predicate<Criterion> shouldRemove) {
+    if (originalFilter.getOr() != null) {
+      return new Filter().setOr(new ConjunctiveCriterionArray(originalFilter.getOr()
+          .stream()
+          .map(criteria -> removeCriteria(criteria, shouldRemove))
+          .collect(Collectors.toList())));
+    } else if (originalFilter.getAnd() != null) {
+      return new Filter().setAnd(new DisjunctiveCriterionArray(originalFilter.getAnd()
+          .stream()
+          .map(criteria -> removeCriteria(criteria, shouldRemove))
+          .collect(Collectors.toList())));
+    }
+    return originalFilter;
+  }
+
+  private static DisjunctiveCriterion removeCriteria(@Nonnull DisjunctiveCriterion disjunctiveCriterion,
+      Predicate<Criterion> shouldRemove) {
+    return new DisjunctiveCriterion().setOr(new ConjunctiveCriterionArray(disjunctiveCriterion.getOr()
+        .stream()
+        .map(criteria -> removeCriteria(criteria, shouldRemove))
+        .collect(Collectors.toList())));
+  }
+
+  private static ConjunctiveCriterion removeCriteria(@Nonnull ConjunctiveCriterion conjunctiveCriterion,
+      Predicate<Criterion> shouldRemove) {
+    return new ConjunctiveCriterion().setAnd(new CriterionArray(conjunctiveCriterion.getAnd()
+        .stream()
+        .filter(criterion -> !shouldRemove.test(criterion))
+        .collect(Collectors.toList())));
   }
 }

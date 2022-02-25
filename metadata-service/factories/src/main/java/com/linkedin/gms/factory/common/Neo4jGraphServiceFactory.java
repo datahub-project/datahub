@@ -1,6 +1,6 @@
 package com.linkedin.gms.factory.common;
 
-import com.linkedin.metadata.graph.Neo4jGraphService;
+import com.linkedin.metadata.graph.neo4j.Neo4jGraphService;
 import javax.annotation.Nonnull;
 import org.neo4j.driver.Driver;
 import org.springframework.beans.factory.annotation.Autowired;

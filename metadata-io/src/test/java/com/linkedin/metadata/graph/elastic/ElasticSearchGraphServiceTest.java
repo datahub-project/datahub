@@ -1,7 +1,14 @@
-package com.linkedin.metadata.graph;
+package com.linkedin.metadata.graph.elastic;
 
 import com.linkedin.common.urn.Urn;
+
 import com.linkedin.metadata.ElasticSearchTestUtils;
+import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.graph.GraphServiceTestBase;
+import com.linkedin.metadata.graph.LineageRegistry;
+import com.linkedin.metadata.graph.RelatedEntitiesResult;
+import com.linkedin.metadata.graph.RelatedEntity;
+import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.ElasticTestUtils;
 import com.linkedin.metadata.graph.elastic.ESGraphQueryDAO;
 import com.linkedin.metadata.graph.elastic.ESGraphWriteDAO;
@@ -17,6 +24,8 @@ import java.util.HashSet;
 import java.util.List;
 import javax.annotation.Nonnull;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
 import org.testng.SkipException;
 import org.testng.annotations.AfterTest;
@@ -36,6 +45,7 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
   private final IndexConvention _indexConvention = new IndexConventionImpl(null);
   private final String _indexName = _indexConvention.getIndexName(INDEX_NAME);
   private ElasticSearchGraphService _client;
+  private CacheManager cacheManager = new ConcurrentMapCacheManager();
 
   @BeforeTest
   public void setup() {
@@ -55,7 +65,9 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
 
   @Nonnull
   private ElasticSearchGraphService buildService() {
-    ESGraphQueryDAO readDAO = new ESGraphQueryDAO(_searchClient, _indexConvention);
+    ESGraphQueryDAO readDAO =
+        new ESGraphQueryDAO(_searchClient, new LineageRegistry(SnapshotEntityRegistry.getInstance()), _indexConvention,
+            cacheManager.getCache("test"));
     ESGraphWriteDAO writeDAO =
         new ESGraphWriteDAO(_searchClient, _indexConvention, ElasticSearchServiceTest.getBulkProcessor(_searchClient));
     return new ElasticSearchGraphService(_searchClient, _indexConvention, writeDAO, readDAO,
@@ -83,8 +95,8 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
     // https://github.com/linkedin/datahub/issues/3115
     // ElasticSearchGraphService produces duplicates, which is here ignored until fixed
     // actual.count and actual.total not tested due to duplicates
-    assertEquals(actual.start, expected.start);
-    assertEqualsAnyOrder(actual.entities, expected.entities, RELATED_ENTITY_COMPARATOR);
+    assertEquals(actual.getStart(), expected.getStart());
+    assertEqualsAnyOrder(actual.getEntities(), expected.getEntities(), RELATED_ENTITY_COMPARATOR);
   }
 
   @Override

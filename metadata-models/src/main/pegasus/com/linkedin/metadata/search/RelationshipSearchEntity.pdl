@@ -1,0 +1,15 @@
+namespace com.linkedin.metadata.search
+
+import com.linkedin.common.Urn
+
+/**
+ * The model for each entity returned by the relationship search query
+ */
+record RelationshipSearchEntity includes SearchEntity {
+
+  /**
+   * Optional list of entities between the source and destination node
+   */
+  path: array[Urn] = []
+
+}

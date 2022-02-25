@@ -73,10 +73,6 @@ public class AllEntitiesSearchAggregator {
   @WithSpan
   public SearchResult search(@Nonnull List<String> entities, @Nonnull String input, @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion, int queryFrom, int querySize) {
-    log.info(String.format(
-        "Searching Search documents across entities: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
-        entities, input, postFilters, sortCriterion, queryFrom, querySize));
-
     // 1. Get entities to query for (Do not query entities without a single document)
     List<String> nonEmptyEntities;
     List<String> lowercaseEntities = entities.stream().map(String::toLowerCase).collect(Collectors.toList());

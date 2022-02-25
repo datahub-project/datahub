@@ -169,6 +169,9 @@ export const SearchFilterLabel = ({ aggregation, field }: Props) => {
         );
     }
 
+    if (field === 'level') {
+        return <>{aggregation.value}</>;
+    }
     return (
         <>
             {aggregation.value} ({countText})

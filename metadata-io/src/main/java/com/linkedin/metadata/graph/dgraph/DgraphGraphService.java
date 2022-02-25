@@ -1,9 +1,15 @@
-package com.linkedin.metadata.graph;
+package com.linkedin.metadata.graph.dgraph;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.ByteString;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.graph.Edge;
+import com.linkedin.metadata.graph.EntityLineageResult;
+import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.graph.LineageDirection;
+import com.linkedin.metadata.graph.RelatedEntitiesResult;
+import com.linkedin.metadata.graph.RelatedEntity;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
@@ -16,12 +22,6 @@ import io.dgraph.DgraphProto.Operation;
 import io.dgraph.DgraphProto.Request;
 import io.dgraph.DgraphProto.Response;
 import io.dgraph.DgraphProto.Value;
-import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.tuple.Pair;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -34,6 +34,11 @@ import java.util.StringJoiner;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.tuple.Pair;
 
 @Slf4j
 public class DgraphGraphService implements GraphService {
@@ -406,6 +411,13 @@ public class DgraphGraphService implements GraphService {
             total++;
         }
         return new RelatedEntitiesResult(offset, entities.size(), total, entities);
+    }
+
+    @Nonnull
+    @Override
+    public EntityLineageResult getLineage(@Nonnull Urn entityUrn, @Nonnull LineageDirection direction, int offset,
+        int count, int maxHops) {
+        throw new UnsupportedOperationException("getLineage not yet supported for neo4j");
     }
 
     // Creates filter conditions from destination to source nodes
