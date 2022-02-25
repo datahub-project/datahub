@@ -14,7 +14,7 @@ from tableauserverclient import (
 )
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import ConfigModel, ConfigurationError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
@@ -81,11 +81,14 @@ class TableauConfig(ConfigModel):
     password: Optional[str] = None
     token_name: Optional[str] = None
     token_value: Optional[str] = None
+
     site: str
     projects: Optional[List] = ["default"]
     default_schema_map: dict = {}
     ingest_tags: Optional[bool] = False
     ingest_owner: Optional[bool] = False
+
+    workbooks_page_size: int = 10
     env: str = builder.DEFAULT_ENV
 
     @validator("connect_uri")
@@ -125,15 +128,17 @@ class TableauSource(Source):
         authentication = None
         if self.config.username and self.config.password:
             authentication = TableauAuth(
-                self.config.username, self.config.password, self.config.site
+                username=self.config.username,
+                password=self.config.password,
+                site_id=self.config.site,
             )
         elif self.config.token_name and self.config.token_value:
             authentication = PersonalAccessTokenAuth(
                 self.config.token_name, self.config.token_value, self.config.site
             )
         else:
-            self.report.report_failure(
-                key="tableau-login", reason="No valid authentication was found"
+            raise ConfigurationError(
+                "Tableau Source: Either username/password or token_name/token_value must be set"
             )
 
         try:
@@ -160,13 +165,25 @@ class TableauSource(Source):
         query_data = query_metadata(
             self.server, query, connection_type, count, current_count, query_filter
         )
+
+        if "errors" in query_data:
+            self.report.report_warning(
+                key="tableau-metadata",
+                reason=f"Connection: {connection_type} Error: {query_data['errors']}",
+            )
+
         connection_object = query_data.get("data", {}).get(connection_type, {})
         total_count = connection_object.get("totalCount", 0)
         has_next_page = connection_object.get("pageInfo", {}).get("hasNextPage", False)
         return connection_object, total_count, has_next_page
 
-    def emit_workbooks(self, count_on_query: int) -> Iterable[MetadataWorkUnit]:
-        projects = f"projectNameWithin: {json.dumps(self.config.projects)}"
+    def emit_workbooks(self, workbooks_page_size: int) -> Iterable[MetadataWorkUnit]:
+
+        projects = (
+            f"projectNameWithin: {json.dumps(self.config.projects)}"
+            if self.config.projects
+            else ""
+        )
 
         workbook_connection, total_count, has_next_page = self.get_connection_object(
             workbook_graphql_query, "workbooksConnection", projects
@@ -175,8 +192,8 @@ class TableauSource(Source):
         current_count = 0
         while has_next_page:
             count = (
-                count_on_query
-                if current_count + count_on_query < total_count
+                workbooks_page_size
+                if current_count + workbooks_page_size < total_count
                 else total_count - current_count
             )
             (
@@ -330,13 +347,12 @@ class TableauSource(Source):
         for field in columns:
             # Datasource fields
             fields = []
-            TypeClass = FIELD_TYPE_MAPPING.get(
-                field.get("remoteType", "UNKNOWN"), NullTypeClass
-            )
+            nativeDataType = field.get("remoteType", "UNKNOWN")
+            TypeClass = FIELD_TYPE_MAPPING.get(nativeDataType, NullTypeClass)
             schema_field = SchemaField(
                 fieldPath=field.get("name", ""),
                 type=SchemaFieldDataType(type=TypeClass()),
-                nativeDataType=field.get("remoteType", "UNKNOWN"),
+                nativeDataType=nativeDataType,
                 description=field.get("description", ""),
             )
             fields.append(schema_field)
@@ -406,16 +422,16 @@ class TableauSource(Source):
             # check datasource - custom sql relations from a field being referenced
             self._track_custom_sql_ids(field)
 
-            TypeClass = FIELD_TYPE_MAPPING.get(
-                field.get("dataType", "UNKNOWN"), NullTypeClass
-            )
+            nativeDataType = field.get("dataType", "UNKNOWN")
+            TypeClass = FIELD_TYPE_MAPPING.get(nativeDataType, NullTypeClass)
+
             schema_field = SchemaField(
                 fieldPath=field["name"],
                 type=SchemaFieldDataType(type=TypeClass()),
                 description=make_description_from_params(
                     field.get("description", ""), field.get("formula")
                 ),
-                nativeDataType=field.get("dataType", "UNKNOWN"),
+                nativeDataType=nativeDataType,
                 globalTags=get_tags_from_params(
                     [
                         field.get("role", ""),
@@ -608,15 +624,16 @@ class TableauSource(Source):
 
             fields = []
             for field in columns:
-                TypeClass = FIELD_TYPE_MAPPING.get(
-                    field.get("remoteType", "UNKNOWN"), NullTypeClass
-                )
+                nativeDataType = field.get("remoteType", "UNKNOWN")
+                TypeClass = FIELD_TYPE_MAPPING.get(nativeDataType, NullTypeClass)
+
                 schema_field = SchemaField(
                     fieldPath=field["name"],
                     type=SchemaFieldDataType(type=TypeClass()),
                     description="",
-                    nativeDataType=field.get("remoteType") or "unknown",
+                    nativeDataType=nativeDataType,
                 )
+
                 fields.append(schema_field)
 
             schema_metadata = SchemaMetadata(
@@ -644,16 +661,19 @@ class TableauSource(Source):
             updated_at = sheet.get("updatedAt", datetime.now())
             last_modified = self.get_last_modified(creator, created_at, updated_at)
 
-            if sheet.get("path", ""):
-                sheet_external_url = f"{self.config.connect_uri}#/site/{self.config.site}/views/{sheet.get('path', '')}"
+            if sheet.get("path"):
+                site_part = f"/site/{self.config.site}" if self.config.site else ""
+                sheet_external_url = (
+                    f"{self.config.connect_uri}/#{site_part}/views/{sheet.get('path')}"
+                )
             elif sheet.get("containedInDashboards"):
                 # sheet contained in dashboard
+                site_part = f"/t/{self.config.site}" if self.config.site else ""
                 dashboard_path = sheet.get("containedInDashboards")[0].get("path", "")
-                sheet_external_url = f"{self.config.connect_uri}/t/{self.config.site}/authoring/{dashboard_path}/{sheet.get('name', '')}"
+                sheet_external_url = f"{self.config.connect_uri}{site_part}/authoring/{dashboard_path}/{sheet.get('name', '')}"
             else:
                 # hidden or viz-in-tooltip sheet
                 sheet_external_url = None
-
             fields = {}
             for field in sheet.get("datasourceFields", ""):
                 description = make_description_from_params(
@@ -724,7 +744,8 @@ class TableauSource(Source):
             updated_at = dashboard.get("updatedAt", datetime.now())
             last_modified = self.get_last_modified(creator, created_at, updated_at)
 
-            dashboard_external_url = f"{self.config.connect_uri}/#/site/{self.config.site}/views/{dashboard.get('path', '')}"
+            site_part = f"/site/{self.config.site}" if self.config.site else ""
+            dashboard_external_url = f"{self.config.connect_uri}/#{site_part}/views/{dashboard.get('path', '')}"
             title = dashboard.get("name", "").replace("/", REPLACE_SLASH_CHAR) or ""
             chart_urns = [
                 builder.make_chart_urn(self.platform, sheet.get("id"))
@@ -807,7 +828,7 @@ class TableauSource(Source):
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         try:
-            yield from self.emit_workbooks(10)
+            yield from self.emit_workbooks(self.config.workbooks_page_size)
             if self.datasource_ids_being_used:
                 yield from self.emit_published_datasources()
             if self.custom_sql_ids_being_used:

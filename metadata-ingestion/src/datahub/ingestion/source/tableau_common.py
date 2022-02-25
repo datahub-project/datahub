@@ -420,9 +420,9 @@ def make_description_from_params(description, formula):
 
 def get_field_value_in_sheet(field, field_name):
     if field.get("__typename", "") == "DatasourceField":
-        field_value = field.get("remoteField", {}).get(field_name, "")
-    else:
-        field_value = field.get(field_name, "")
+        field = field.get("remoteField") if field.get("remoteField") else {}
+
+    field_value = field.get(field_name, "")
     return field_value
 
 
@@ -477,8 +477,4 @@ def query_metadata(server, main_query, connection_name, first, offset, qry_filte
     )
     query_result = server.metadata.query(query)
 
-    if "errors" in query_result:
-        raise MetadataQueryException(
-            f"Connection: {connection_name} Error: {query_result['errors']}"
-        )
     return query_result

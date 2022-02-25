@@ -1,5 +1,4 @@
 # Tableau
-
 For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
 
 Note that this connector is currently considered in `BETA`, and has not been validated for production use. 
@@ -377,9 +376,7 @@ source:
     # Credentials
     username: username@acrylio.com
     password: pass
-    token_name: Acryl
-    token_value: token_generated_from_tableau
-    
+
     # Options
     ingest_tags: True
     ingest_owner: True
@@ -396,24 +393,25 @@ sink:
 | Field                 | Required | Default   | Description                                                              |
 |-----------------------|----------|-----------|--------------------------------------------------------------------------|
 | `connect_uri`         | ✅        |           | Tableau host URL.                                                        |
-| `site`                | ✅        |           | Tableau Online Site                                                      |
+| `site`                | ✅        |           | Tableau Site. Use emptystring "" to connect with Default site on Tableau Server  |
 | `env`                 |          | `"PROD"`  | Environment to use in namespace when constructing URNs.                  |
-| `username`            |          |           | Tableau user name.                                                       |
-| `password`            |          |           | Tableau password for authentication.                                     |
-| `token_name`          |          |           | Tableau token name if authenticating using a personal token.             |
-| `token_value`         |          |           | Tableau token value if authenticating using a personal token.            |
+| `username`            |          |           | Tableau username, must be set if authenticating using username/password.    |
+| `password`            |          |           | Tableau password, must be set if authenticating using username/password.    |
+| `token_name`          |          |           | Tableau token name, must be set if authenticating using a personal token.  |
+| `token_value`         |          |           | Tableau token value, must be set if authenticating using a personal token. |
 | `projects`            |          | `default` | List of projects                                                         |
+| `workbooks_page_size`            |          | 10 | Number of workbooks to query at a time using Tableau api.                                              |
 | `default_schema_map`* |          |           | Default schema to use when schema is not found.                          |
 | `ingest_tags`         |          | `False`   | Ingest Tags from source. This will override Tags entered from UI         |
 | `ingest_owners`       |          | `False`   | Ingest Owner from source. This will override Owner info entered from UI  |
 
-
 *Tableau may not provide schema name when ingesting Custom SQL data source. Use `default_schema_map` to provide a default
 schema name to use when constructing a table URN.
 
+
 ### Authentication
 
-Currently, authentication is supported on Tableau Online using username and password
+Currently, authentication is supported on Tableau using username and password
 and personal token. For more information on Tableau authentication, refer to [How to Authenticate](https://help.tableau.com/current/api/metadata_api/en-us/docs/meta_api_auth.html) guide.
 
 
