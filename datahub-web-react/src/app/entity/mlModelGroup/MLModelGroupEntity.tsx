@@ -62,20 +62,14 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
             urn: entity.urn,
             name: entity.name,
             type: EntityType.MlmodelGroup,
-            downstreamChildren: getChildrenFromRelationships({
-                // eslint-disable-next-line @typescript-eslint/dot-notation
-                incomingRelationships: entity?.['incoming'],
-                // eslint-disable-next-line @typescript-eslint/dot-notation
-                outgoingRelationships: entity?.['outgoing'],
-                direction: RelationshipDirection.Incoming,
-            }),
-            upstreamChildren: getChildrenFromRelationships({
-                // eslint-disable-next-line @typescript-eslint/dot-notation
-                incomingRelationships: entity?.['incoming'],
-                // eslint-disable-next-line @typescript-eslint/dot-notation
-                outgoingRelationships: entity?.['outgoing'],
-                direction: RelationshipDirection.Outgoing,
-            }),
+            // eslint-disable-next-line @typescript-eslint/dot-notation
+            downstreamChildren: entity?.['downstream'].relationships.map(
+                (relationship) => ({ entity: relationship.entity, type: relationship.entity.type } as EntityAndType),
+            ),
+            // eslint-disable-next-line @typescript-eslint/dot-notation
+            upstreamChildren: entity?.['upstream'].relationships.map(
+                (relationship) => ({ entity: relationship.entity, type: relationship.entity.type } as EntityAndType),
+            ),
             icon: entity.platform?.properties?.logoUrl || undefined,
             platform: entity.platform?.name,
         };

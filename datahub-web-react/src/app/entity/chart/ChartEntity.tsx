@@ -181,11 +181,11 @@ export class ChartEntity implements Entity<Chart> {
             name: entity.properties?.name || '',
             type: EntityType.Chart,
             // eslint-disable-next-line @typescript-eslint/dot-notation
-            upstreamChildren: entity?.['inputs']?.relationships?.map(
+            downstreamChildren: entity?.['downstream'].relationships.map(
                 (relationship) => ({ entity: relationship.entity, type: relationship.entity.type } as EntityAndType),
             ),
             // eslint-disable-next-line @typescript-eslint/dot-notation
-            downstreamChildren: entity?.['dashboards']?.relationships?.map(
+            upstreamChildren: entity?.['upstream'].relationships.map(
                 (relationship) => ({ entity: relationship.entity, type: relationship.entity.type } as EntityAndType),
             ),
             icon: entity?.platform?.properties?.logoUrl || '',
