@@ -30,7 +30,7 @@ public class EditableSchemaMetadataDiffer implements Differ {
       "Documentation for the field '%s' of '%s' has been removed: '%s'";
   public static final String FIELD_DOCUMENTATION_UPDATED_FORMAT =
       "Documentation for the field '%s' of '%s' has been updated from '%s' to '%s'.";
-  private static final Set<ChangeCategory> supportedCategories =
+  private static final Set<ChangeCategory> SUPPORTED_CATEGORIES =
       Stream.of(ChangeCategory.DOCUMENTATION, ChangeCategory.TAG, ChangeCategory.GLOSSARY_TERM)
           .collect(Collectors.toSet());
 
@@ -184,7 +184,7 @@ public class EditableSchemaMetadataDiffer implements Differ {
     EditableSchemaMetadata baseEditableSchemaMetadata = getEditableSchemaMetadataFromAspect(previousValue);
     EditableSchemaMetadata targetEditableSchemaMetadata = getEditableSchemaMetadataFromAspect(currentValue);
     List<ChangeEvent> changeEvents = new ArrayList<>();
-    if (supportedCategories.contains(element)) {
+    if (SUPPORTED_CATEGORIES.contains(element)) {
       changeEvents.addAll(
           computeDiffs(baseEditableSchemaMetadata, targetEditableSchemaMetadata, currentValue.getUrn(), element));
     }

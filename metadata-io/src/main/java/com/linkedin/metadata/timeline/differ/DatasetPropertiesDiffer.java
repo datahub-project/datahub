@@ -51,7 +51,7 @@ public class DatasetPropertiesDiffer implements Differ {
           .category(ChangeCategory.DOCUMENTATION)
           .changeType(ChangeOperation.MODIFY)
           .semVerChange(SemanticChangeType.MINOR)
-          .description(String.format(DESCRIPTION_CHANGED, entityUrn,baseDescription, targetDescription))
+          .description(String.format(DESCRIPTION_CHANGED, entityUrn, baseDescription, targetDescription))
           .build());
     }
     return changeEvents;

@@ -190,13 +190,14 @@ public class EbeanTimelineService implements TimelineService {
     }
 
     // TODO: There are some extra steps happening here, we need to clean up how transactions get combined across differs
-    SortedMap<Long, List<ChangeTransaction>> semanticDiffs = aspectRowSetMap.values().stream()
+    SortedMap<Long, List<ChangeTransaction>> semanticDiffs = aspectRowSetMap.values()
+        .stream()
         .map(value -> computeDiffs(value, urn.getEntityType(), elementNames, rawDiffRequested))
         .collect(TreeMap::new, this::combineComputedDiffsPerTransactionId, this::combineComputedDiffsPerTransactionId);
     // TODO:Move this down
     assignSemanticVersions(semanticDiffs);
-    List<ChangeTransaction> changeTransactions = semanticDiffs.values().stream()
-        .collect(ArrayList::new, ArrayList::addAll, ArrayList::addAll);
+    List<ChangeTransaction> changeTransactions =
+        semanticDiffs.values().stream().collect(ArrayList::new, ArrayList::addAll, ArrayList::addAll);
     List<ChangeTransaction> combinedChangeTransactions = combineTransactionsByTimestamp(changeTransactions);
     combinedChangeTransactions.sort(Comparator.comparing(ChangeTransaction::getTimestamp));
     return combinedChangeTransactions;
@@ -257,7 +258,7 @@ public class EbeanTimelineService implements TimelineService {
     return semanticChangeTransactions;
   }
 
-  private JsonPatch getRawDiff(EbeanAspectV2 previousValue, EbeanAspectV2 currentValue){
+  private JsonPatch getRawDiff(EbeanAspectV2 previousValue, EbeanAspectV2 currentValue) {
     JsonNode prevNode = OBJECT_MAPPER.nullNode();
     try {
       if (previousValue.getVersion() != -1) {
@@ -270,8 +271,7 @@ public class EbeanTimelineService implements TimelineService {
     }
   }
 
-  private void combineComputedDiffsPerTransactionId(
-      @Nonnull SortedMap<Long, List<ChangeTransaction>> semanticDiffs,
+  private void combineComputedDiffsPerTransactionId(@Nonnull SortedMap<Long, List<ChangeTransaction>> semanticDiffs,
       @Nonnull SortedMap<Long, List<ChangeTransaction>> computedDiffs) {
     for (Map.Entry<Long, List<ChangeTransaction>> entry : computedDiffs.entrySet()) {
       if (!semanticDiffs.containsKey(entry.getKey())) {
@@ -337,7 +337,8 @@ public class EbeanTimelineService implements TimelineService {
           ChangeTransaction element = transactionList.get(i);
           result.getChangeEvents().addAll(element.getChangeEvents());
           maxSemanticChangeType =
-              result.getSemVerChange().compareTo(element.getSemVerChange()) >= 0 ? result.getSemVerChange() : element.getSemVerChange();
+              result.getSemVerChange().compareTo(element.getSemVerChange()) >= 0 ? result.getSemVerChange()
+                  : element.getSemVerChange();
           maxSemVer = result.getSemVer().compareTo(element.getSemVer()) >= 0 ? result.getSemVer() : element.getSemVer();
         }
         result.setSemVerChange(maxSemanticChangeType);
