@@ -213,26 +213,6 @@ curl 'http://localhost:8080/relationships?direction=OUTGOING&urn=urn%3Ali%3Adata
 </details>
 
 <details>
-<summary>Find downstream datasets and fields of a dataset</summary>
-
-```
-curl 'http://localhost:8080/relationships?direction=INCOMING&urn=urn%3Ali%3Adataset%3A(urn%3Ali%3AdataPlatform%3Apostgres,bar2,PROD)&types=DownstreamOf'
-
-{
-    "start": 0,
-    "count": 1,
-    "relationships": [
-        {
-            "type": "DownstreamOf",
-            "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,bar,PROD)"
-        }
-    ],
-    "total": 1
-}
-```
-</details>
-
-<details>
 <summary>Find the datasets and fields consumed by a datajob i.e. inputs to a datajob</summary>
 
 ```
