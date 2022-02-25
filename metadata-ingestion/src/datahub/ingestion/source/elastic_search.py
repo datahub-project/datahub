@@ -168,6 +168,7 @@ class ElasticsearchSourceConfig(DatasetSourceConfigBase):
     host: str = "localhost:9200"
     username: str = ""
     password: str = ""
+    url_prefix: str = ""
     index_pattern: AllowDenyPattern = AllowDenyPattern(
         allow=[".*"], deny=["^_.*", "^ilm-history.*"]
     )
@@ -208,6 +209,7 @@ class ElasticsearchSource(Source):
         self.client = Elasticsearch(
             self.source_config.host,
             http_auth=(self.source_config.username, self.source_config.password),
+            url_prefix=self.source_config.url_prefix,
         )
         self.report = ElasticsearchSourceReport()
         self.data_stream_partition_count: Dict[str, int] = defaultdict(int)
@@ -221,7 +223,7 @@ class ElasticsearchSource(Source):
         return cls(config, ctx)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        indices = self.client.indices.get_alias(index="*")
+        indices = self.client.indices.get_alias()
 
         for index in indices:
             self.report.report_index_scanned(index)
