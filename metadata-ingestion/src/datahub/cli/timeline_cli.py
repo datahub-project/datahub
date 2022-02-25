@@ -6,12 +6,13 @@ from datetime import datetime
 from typing import Any, List, Optional
 
 import click
-import datahub.cli.cli_utils
 from click.exceptions import UsageError
-from datahub.emitter.mce_builder import dataset_urn_to_key, schema_field_urn_to_key
-from datahub.telemetry import telemetry
 from requests import Response
 from termcolor import colored
+
+import datahub.cli.cli_utils
+from datahub.emitter.mce_builder import dataset_urn_to_key, schema_field_urn_to_key
+from datahub.telemetry import telemetry
 
 logger = logging.getLogger(__name__)
 
@@ -205,7 +206,9 @@ def timeline(
                         else ""
                     )
                     event_change_color: str = (
-                        "green" if change_event.get("semVerChange") == "MINOR" else "red"
+                        "green"
+                        if change_event.get("semVerChange") == "MINOR"
+                        else "red"
                     )
                     target_string = pretty_id(change_event.get("target") or "")
                     print(
