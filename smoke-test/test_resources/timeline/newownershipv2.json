@@ -1,0 +1,12 @@
+{
+  "owners": [
+    {
+      "owner": "urn:li:corpuser:jdoe",
+      "type": "DATAOWNER"
+    }
+  ],
+  "lastModified": {
+    "time": 1581407189001,
+    "actor": "urn:li:corpuser:jdoe"
+  }
+}
