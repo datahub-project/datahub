@@ -30,16 +30,18 @@ from pyspark.sql.types import (
     TimestampType,
 )
 from pyspark.sql.utils import AnalysisException
+from smart_open import open as smart_open
 
 from datahub.emitter.mce_builder import make_data_platform_urn, make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.aws.s3_util import make_s3_urn
+from datahub.ingestion.source.aws.s3_util import is_s3_uri, make_s3_urn, strip_s3_prefix
 from datahub.ingestion.source.data_lake.config import DataLakeSourceConfig
 from datahub.ingestion.source.data_lake.profiling import _SingleTableProfiler
 from datahub.ingestion.source.data_lake.report import DataLakeSourceReport
+from datahub.ingestion.source.schema_inference import avro, csv_tsv, json, parquet
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -49,7 +51,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     NullTypeClass,
     NumberTypeClass,
     RecordTypeClass,
-    SchemaField,
     SchemaFieldDataType,
     SchemaMetadata,
     StringTypeClass,
@@ -171,6 +172,9 @@ class DataLakeSource(Source):
                     for config_flag in profiling_flags_to_report
                 },
             )
+            self.init_spark()
+
+    def init_spark(self):
 
         conf = SparkConf()
 
@@ -201,7 +205,6 @@ class DataLakeSource(Source):
 
                 # see https://hadoop.apache.org/docs/r3.0.3/hadoop-aws/tools/hadoop-aws/index.html#Changing_Authentication_Providers
                 if all(x is not None for x in aws_provided_credentials):
-
                     conf.set(
                         "spark.hadoop.fs.s3a.aws.credentials.provider",
                         "org.apache.hadoop.fs.s3a.TemporaryAWSCredentialsProvider",
@@ -233,7 +236,7 @@ class DataLakeSource(Source):
                 )
 
         conf.set("spark.jars.excludes", pydeequ.f2j_maven_coord)
-        conf.set("spark.driver.memory", config.spark_driver_memory)
+        conf.set("spark.driver.memory", self.source_config.spark_driver_memory)
 
         self.spark = SparkSession.builder.config(conf=conf).getOrCreate()
 
@@ -243,7 +246,7 @@ class DataLakeSource(Source):
 
         return cls(config, ctx)
 
-    def read_file(self, file: str) -> Optional[DataFrame]:
+    def read_file_spark(self, file: str) -> Optional[DataFrame]:
 
         extension = os.path.splitext(file)[1]
 
@@ -294,7 +297,7 @@ class DataLakeSource(Source):
         return df.toDF(*(c.replace(".", "_") for c in df.columns))
 
     def get_table_schema(
-        self, dataframe: DataFrame, file_path: str, table_name: str
+        self, file_path: str, table_name: str
     ) -> Iterable[MetadataWorkUnit]:
 
         data_platform_urn = make_data_platform_urn(self.source_config.platform)
@@ -305,7 +308,7 @@ class DataLakeSource(Source):
         dataset_name = os.path.basename(file_path)
 
         # if no path spec is provided and the file is in S3, then use the S3 path to construct an URN
-        if self.source_config.platform == "s3" and self.source_config.path_spec is None:
+        if is_s3_uri(file_path) and self.source_config.path_spec is None:
             dataset_urn = make_s3_urn(file_path, self.source_config.env)
 
         dataset_snapshot = DatasetSnapshot(
@@ -319,25 +322,53 @@ class DataLakeSource(Source):
         )
         dataset_snapshot.aspects.append(dataset_properties)
 
-        column_fields = []
+        if file_path.startswith("s3a://"):
+            if self.source_config.aws_config is None:
+                raise ValueError("AWS config is required for S3 file sources")
 
-        for field in dataframe.schema.fields:
+            s3_client = self.source_config.aws_config.get_s3_client()
 
-            field = SchemaField(
-                fieldPath=field.name,
-                type=get_column_type(self.report, dataset_name, field.dataType),
-                nativeDataType=str(field.dataType),
-                recursive=False,
+            file = smart_open(file_path, "rb", transport_params={"client": s3_client})
+
+        else:
+
+            file = open(file_path, "rb")
+
+        fields = []
+
+        try:
+            if file_path.endswith(".parquet"):
+                fields = parquet.ParquetInferrer().infer_schema(file)
+            elif file_path.endswith(".csv"):
+                fields = csv_tsv.CsvInferrer(
+                    max_rows=self.source_config.max_rows
+                ).infer_schema(file)
+            elif file_path.endswith(".tsv"):
+                fields = csv_tsv.TsvInferrer(
+                    max_rows=self.source_config.max_rows
+                ).infer_schema(file)
+            elif file_path.endswith(".json"):
+                fields = json.JsonInferrer().infer_schema(file)
+            elif file_path.endswith(".avro"):
+                fields = avro.AvroInferrer().infer_schema(file)
+            else:
+                self.report.report_warning(
+                    file_path, f"file {file_path} has unsupported extension"
+                )
+            file.close()
+        except Exception as e:
+            self.report.report_warning(
+                file_path, f"could not infer schema for file {file_path}: {e}"
             )
+            file.close()
 
-            column_fields.append(field)
-
+        fields = sorted(fields, key=lambda f: f.fieldPath)
         schema_metadata = SchemaMetadata(
             schemaName=dataset_name,
             platform=data_platform_urn,
             version=0,
             hash="",
-            fields=column_fields,
+            fields=fields,
             platformSchema=OtherSchemaClass(rawSchema=""),
         )
 
@@ -348,10 +379,16 @@ class DataLakeSource(Source):
         self.report.report_workunit(wu)
         yield wu
 
-    def get_table_name(self, relative_path: str) -> str:
+    def get_table_name(self, relative_path: str, full_path: str) -> str:
 
         if self.source_config.path_spec is None:
-            return relative_path
+            name, extension = os.path.splitext(full_path)
+
+            if extension != "":
+                extension = extension[1:]  # remove the dot
+                return f"{name}_{extension}"
+
+            return name
 
         def warn():
             self.report.report_warning(
@@ -382,22 +419,26 @@ class DataLakeSource(Source):
         self, full_path: str, relative_path: str
     ) -> Iterable[MetadataWorkUnit]:
 
-        table_name = self.get_table_name(relative_path)
-
-        table = self.read_file(full_path)
-
-        # if table is not readable, skip
-        if table is None:
-            return
+        table_name = self.get_table_name(relative_path, full_path)
 
         # yield the table schema first
         logger.debug(
             f"Ingesting {full_path}: making table schemas {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
         )
-        yield from self.get_table_schema(table, full_path, table_name)
+        yield from self.get_table_schema(full_path, table_name)
 
         # If profiling is not enabled, skip the rest
         if not self.source_config.profiling.enabled:
+            return
+
+        # read in the whole table with Spark for profiling
+        table = self.read_file_spark(full_path)
+
+        # if table is not readable, skip
+        if table is None:
+            self.report.report_warning(
+                table_name, f"unable to read table {table_name} from file {full_path}"
+            )
             return
 
         with PerfTimer() as timer:
@@ -460,10 +501,7 @@ class DataLakeSource(Source):
 
     def get_workunits_s3(self) -> Iterable[MetadataWorkUnit]:
 
-        for s3_prefix in S3_PREFIXES:
-            if self.source_config.base_path.startswith(s3_prefix):
-                plain_base_path = self.source_config.base_path.lstrip(s3_prefix)
-                break
+        plain_base_path = strip_s3_prefix(self.source_config.base_path)
 
         # append a trailing slash if it's not there so prefix filtering works
         if not plain_base_path.endswith("/"):
@@ -531,11 +569,7 @@ class DataLakeSource(Source):
         with PerfTimer() as timer:
 
             # check if file is an s3 object
-            if any(
-                self.source_config.base_path.startswith(s3_prefix)
-                for s3_prefix in S3_PREFIXES
-            ):
-
+            if is_s3_uri(self.source_config.base_path):
                 yield from self.get_workunits_s3()
 
             else:
