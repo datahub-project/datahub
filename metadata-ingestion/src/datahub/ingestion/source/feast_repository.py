@@ -75,16 +75,16 @@ class FeastRepositorySource(Source):
         Maps types encountered in Feast to corresponding schema types.
         """
 
-        enum_type = _field_type_mapping.get(field_type)
+        ml_feature_data_type = _field_type_mapping.get(field_type)
 
-        if enum_type is None:
+        if ml_feature_data_type is None:
             self.report.report_warning(
                 parent_name, f"unable to map type {field_type} to metadata schema"
             )
 
-            enum_type = MLFeatureDataType.UNKNOWN
+            ml_feature_data_type = MLFeatureDataType.UNKNOWN
 
-        return enum_type
+        return ml_feature_data_type
 
     def _get_data_source_details(self, source: DataSource) -> Tuple[str, str]:
         """
