@@ -20,9 +20,8 @@ import static com.linkedin.metadata.Constants.*;
 
 
 public class GlossaryTermsDiffer implements Differ {
-  private static final String GLOSSARY_TERM_ADDED_FORMAT = "The GlossaryTerm '%s' for the entity '%s' has been added.";
-  private static final String GLOSSARY_TERM_REMOVED_FORMAT =
-      "The GlossaryTerm '%s' for the entity '%s' has been removed.";
+  private static final String GLOSSARY_TERM_ADDED_FORMAT = "Term '%s' added to entity '%s'.";
+  private static final String GLOSSARY_TERM_REMOVED_FORMAT = "Term '%s' removed from entity '%s'.";
 
   public static List<ChangeEvent> computeDiffs(GlossaryTerms baseGlossaryTerms, GlossaryTerms targetGlossaryTerms,
       String entityUrn) {

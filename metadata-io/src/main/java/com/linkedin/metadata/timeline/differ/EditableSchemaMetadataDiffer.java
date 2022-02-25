@@ -24,12 +24,12 @@ import static com.linkedin.metadata.Constants.*;
 
 
 public class EditableSchemaMetadataDiffer implements Differ {
-  private static final String DOCUMENTATION_ADDED_FORMAT =
-      "The documentation '%s' for the  field '%s' of the dataset '%s' has been added.";
-  private static final String DOCUMENTATION_REMOVED_FORMAT =
-      "The documentation '%s' for the field '%s' of the dataset '%s' has been removed.";
-  private static final String DOCUMENTATION_UPDATED_FORMAT =
-      "The documentation for the field '%s' of the dataset '%s' has been updated from '%s' to '%s'.";
+  public static final String FIELD_DOCUMENTATION_ADDED_FORMAT =
+      "Documentation for the field '%s' of '%s' has been added: '%s'";
+  public static final String FIELD_DOCUMENTATION_REMOVED_FORMAT =
+      "Documentation for the field '%s' of '%s' has been removed: '%s'";
+  public static final String FIELD_DOCUMENTATION_UPDATED_FORMAT =
+      "Documentation for the field '%s' of '%s' has been updated from '%s' to '%s'.";
   private static final Set<ChangeCategory> supportedCategories =
       Stream.of(ChangeCategory.DOCUMENTATION, ChangeCategory.TAG, ChangeCategory.GLOSSARY_TERM)
           .collect(Collectors.toSet());
@@ -126,8 +126,8 @@ public class EditableSchemaMetadataDiffer implements Differ {
           .category(ChangeCategory.DOCUMENTATION)
           .changeType(ChangeOperation.ADD)
           .semVerChange(SemanticChangeType.MINOR)
-          .description(String.format(DOCUMENTATION_ADDED_FORMAT, targetFieldDescription, targetFieldInfo.getFieldPath(),
-              entityUrn))
+          .description(String.format(FIELD_DOCUMENTATION_ADDED_FORMAT, targetFieldInfo.getFieldPath(), entityUrn,
+              targetFieldDescription))
           .build();
     }
 
@@ -138,8 +138,8 @@ public class EditableSchemaMetadataDiffer implements Differ {
           .category(ChangeCategory.DOCUMENTATION)
           .changeType(ChangeOperation.REMOVE)
           .semVerChange(SemanticChangeType.MINOR)
-          .description(String.format(DOCUMENTATION_REMOVED_FORMAT, baseFieldDescription, targetFieldInfo.getFieldPath(),
-              entityUrn))
+          .description(String.format(FIELD_DOCUMENTATION_REMOVED_FORMAT, targetFieldInfo.getFieldPath(), entityUrn,
+              baseFieldDescription))
           .build();
     }
 
@@ -151,7 +151,7 @@ public class EditableSchemaMetadataDiffer implements Differ {
           .category(ChangeCategory.DOCUMENTATION)
           .changeType(ChangeOperation.MODIFY)
           .semVerChange(SemanticChangeType.PATCH)
-          .description(String.format(DOCUMENTATION_UPDATED_FORMAT, targetFieldInfo.getFieldPath(), entityUrn,
+          .description(String.format(FIELD_DOCUMENTATION_UPDATED_FORMAT, targetFieldInfo.getFieldPath(), entityUrn,
               baseFieldDescription, targetFieldDescription))
           .build();
     }

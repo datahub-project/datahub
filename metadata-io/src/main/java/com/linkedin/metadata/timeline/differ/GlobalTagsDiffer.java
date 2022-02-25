@@ -20,8 +20,8 @@ import static com.linkedin.metadata.Constants.*;
 
 
 public class GlobalTagsDiffer implements Differ {
-  private static final String TAG_ADDED_FORMAT = "The tag '%s' of the entity '%s' has been added.";
-  private static final String TAG_REMOVED_FORMAT = "The tag '%s' of the entity '%s' has been removed.";
+  private static final String TAG_ADDED_FORMAT = "Tag '%s' added to entity '%s'.";
+  private static final String TAG_REMOVED_FORMAT = "Tag '%s' removed from entity '%s'.";
 
   public static List<ChangeEvent> computeDiffs(GlobalTags baseGlobalTags, GlobalTags targetGlobalTags,
       String entityUrn) {

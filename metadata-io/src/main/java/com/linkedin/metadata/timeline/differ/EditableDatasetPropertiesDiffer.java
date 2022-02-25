@@ -17,6 +17,10 @@ import static com.linkedin.metadata.Constants.*;
 
 
 public class EditableDatasetPropertiesDiffer implements Differ {
+  public static final String DESCRIPTION_ADDED = "Documentation for '%s' has been added: '%s'.";
+  public static final String DESCRIPTION_REMOVED = "Documentation for '%s' has been removed: '%s'.";
+  public static final String DESCRIPTION_CHANGED = "Documentation of '%s' has been changed from '%s' to '%s'.";
+
   private static List<ChangeEvent> computeDiffs(EditableDatasetProperties baseDatasetProperties,
       EditableDatasetProperties targetDatasetProperties, String entityUrn) {
     List<ChangeEvent> changeEvents = new ArrayList<>();
@@ -39,9 +43,7 @@ public class EditableDatasetPropertiesDiffer implements Differ {
           .category(ChangeCategory.DOCUMENTATION)
           .changeType(ChangeOperation.ADD)
           .semVerChange(SemanticChangeType.MINOR)
-          .description(
-              String.format("The editable description '%s' has been added for the dataset '%s'.", targetDescription,
-                  entityUrn))
+          .description(String.format(DESCRIPTION_ADDED, entityUrn, targetDescription))
           .build();
     } else if (baseDescription != null && targetDescription == null) {
       // Description removed.
@@ -50,9 +52,7 @@ public class EditableDatasetPropertiesDiffer implements Differ {
           .category(ChangeCategory.DOCUMENTATION)
           .changeType(ChangeOperation.REMOVE)
           .semVerChange(SemanticChangeType.MINOR)
-          .description(
-              String.format("The editable description '%s' has been removed for the dataset '%s'.", baseDescription,
-                  entityUrn))
+          .description(String.format(DESCRIPTION_REMOVED, entityUrn, baseDescription))
           .build();
     } else if (baseDescription != null && targetDescription != null && !baseDescription.equals(targetDescription)) {
       // Description has been modified.
@@ -61,8 +61,7 @@ public class EditableDatasetPropertiesDiffer implements Differ {
           .category(ChangeCategory.DOCUMENTATION)
           .changeType(ChangeOperation.MODIFY)
           .semVerChange(SemanticChangeType.MINOR)
-          .description(String.format("The editable description of the dataset '%s' has been changed from '%s' to '%s'.",
-              entityUrn, baseDescription, targetDescription))
+          .description(String.format(DESCRIPTION_CHANGED, entityUrn, baseDescription, targetDescription))
           .build();
     }
     return null;
