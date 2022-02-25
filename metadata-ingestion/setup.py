@@ -102,6 +102,22 @@ snowflake_common = {
 microsoft_common = {
     "msal==1.16.0"
 }
+
+data_lake_base = {
+    *aws_common,
+    "parse>=1.19.0",
+    "pyarrow>=6.0.1",
+    "tableschema>=1.20.2",
+    "ujson>=4.3.0",
+    "types-ujson>=4.2.1",
+    "smart-open[s3]>=5.2.1",
+}
+
+data_lake_profiling = {
+    "pydeequ==1.0.1",
+    "pyspark==3.0.3",
+}
+
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
@@ -121,7 +137,7 @@ plugins: Dict[str, Set[str]] = {
     "clickhouse-usage": sql_common | {"clickhouse-sqlalchemy==0.1.8"},
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
-    "data-lake": {*aws_common, "pydeequ==1.0.1", "pyspark==3.0.3", "parse==1.19.0"},
+    "data-lake": {*data_lake_base, *data_lake_profiling},
     "dbt": {"requests"},
     "druid": sql_common | {"pydruid>=0.6.2"},
     # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
@@ -200,6 +216,7 @@ base_dev_requirements = {
     *base_requirements,
     *framework_common,
     *mypy_stubs,
+    *data_lake_base,
     "black>=21.12b0",
     "coverage>=5.1",
     "flake8>=3.8.3",

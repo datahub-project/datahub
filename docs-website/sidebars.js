@@ -59,12 +59,7 @@ module.exports = {
       "docs/saas",
       "releases",
     ],
-    "Getting Started": [
-      "docs/quickstart",
-      "docs/cli",
-      "docs/debugging",
-      "docs/how/search",
-    ],
+    "Getting Started": ["docs/quickstart", "docs/cli", "docs/debugging"],
     "Metadata Ingestion": [
       // add a custom label since the default is 'Metadata Ingestion'
       // note that we also have to add the path to this file in sidebarsjs_hardcoded_titles in generateDocsDir.ts
@@ -200,7 +195,12 @@ module.exports = {
         ],
       },
     ],
-    "Usage Guides": ["docs/policies", "docs/domains", "docs/ui-ingestion"],
+    "Usage Guides": [
+      "docs/policies",
+      "docs/domains",
+      "docs/ui-ingestion",
+      "docs/how/search",
+    ],
     "Developer Guides": [
       // TODO: the titles of these should not be in question form in the sidebar
       "docs/developers",
