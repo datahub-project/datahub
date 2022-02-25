@@ -5,6 +5,10 @@ title: "Timeline API"
 The Timeline API supports viewing version history of schemas, documentation, tags, glossary terms, and other updates
 to entities. At present, the API only supports Datasets. 
 
+## Compatibility
+
+The Timeline API is available in server versions `0.8.28` and higher. The `cli` timeline command is available in [pypi](https://pypi.org/project/acryl-datahub/) versions `0.8.27.1` onwards.
+
 # Concepts
 
 ## Entity Timeline Conceptually
