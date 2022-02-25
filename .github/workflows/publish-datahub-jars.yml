@@ -50,12 +50,15 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: us-west-2
+      - name: Get CodeArtifact Auth Token
+        run: |
+          echo "CODEARTIFACT_AUTH_TOKEN=$(aws codeartifact get-authorization-token --domain acryl --domain-owner 795586375822 --query authorizationToken --output text)" >> $GITHUB_ENV
       - name: publish datahub-client jar
         env:
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          CODEARTIFACT_AUTH_TOKEN: ${{ env.CODEARTIFACT_AUTH_TOKEN }}
         run: |
-          export CODEARTIFACT_AUTH_TOKEN=`aws codeartifact get-authorization-token --domain acryl --domain-owner 795586375822 --query authorizationToken --output text`
           echo signingKey=$SIGNING_KEY >> gradle.properties
           ./gradlew :metadata-integration:java:datahub-client:printVersion
           ./gradlew :metadata-integration:java:datahub-client:publish
