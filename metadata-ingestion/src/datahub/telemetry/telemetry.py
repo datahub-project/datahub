@@ -42,15 +42,16 @@ class Telemetry:
         else:
             self.load_config()
 
-        # send updated user-level prop{erties
-        mp.people_set(
-            self.client_id,
-            {
-                "datahub_version": datahub_package.nice_version_name(),
-                "os": platform.system(),
-                "python_version": platform.python_version(),
-            },
-        )
+        # send updated user-level properties
+        if self.enabled:
+            mp.people_set(
+                self.client_id,
+                {
+                    "datahub_version": datahub_package.nice_version_name(),
+                    "os": platform.system(),
+                    "python_version": platform.python_version(),
+                },
+            )
 
     def update_config(self) -> None:
         """
