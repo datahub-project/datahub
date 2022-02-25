@@ -21,7 +21,7 @@ public class DatasetHydrator extends BaseHydrator {
   protected void hydrateFromEntityResponse(ObjectNode document, EntityResponse entityResponse) {
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
     MappingHelper<ObjectNode> mappingHelper = new MappingHelper<>(aspectMap, document);
-    mappingHelper.mapToResult(CORP_USER_KEY_ASPECT_NAME, this::mapKey);
+    mappingHelper.mapToResult(DATASET_KEY_ASPECT_NAME, this::mapKey);
   }
 
   private void mapKey(ObjectNode jsonNodes, DataMap dataMap) {
