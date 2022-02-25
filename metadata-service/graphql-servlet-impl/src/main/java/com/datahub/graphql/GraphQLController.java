@@ -29,7 +29,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class GraphQLController {
 
   public GraphQLController() {
-    log.error("I created graphqlcontroller");
 
   }
 
