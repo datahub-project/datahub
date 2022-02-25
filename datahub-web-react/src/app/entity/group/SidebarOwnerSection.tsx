@@ -2,13 +2,28 @@ import { PlusOutlined } from '@ant-design/icons';
 import { Button, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
+import { Ownership } from '../../../types.generated';
+import { ExpandedOwner } from '../shared/components/styled/ExpandedOwner';
 import { AddOwnerModal } from '../shared/containers/profile/sidebar/Ownership/AddOwnerModal';
 
 type Props = {
-    data: string;
+    OwnerData: Ownership;
     refetch: () => Promise<any>;
+    urn: string;
 };
 
+// TODO: get below variables from separate file
+const TITLE = 'Owners';
+const EMPTY_MESSAGES = {
+    owners: {
+        title: 'No owners added yet',
+        description: 'Adding owners helps you keep track of who is responsible for this data.',
+    },
+};
+
+/**
+ * Styled Components
+ */
 const SectionTitle = styled.div`
     min-height: 32px;
     display: flex;
@@ -21,28 +36,22 @@ const SectionTitle = styled.div`
 `;
 
 const SectionWrapper = styled.div`
-    color: red;
+    height: calc(75vh - 464px);
 `;
-export default function SidebarOwnerSection({ data, refetch }: Props) {
-    const title = 'Owners';
-    const ownersEmpty = true;
-    const EMPTY_MESSAGES = {
-        owners: {
-            title: 'No owners added yet',
-            description: 'Adding owners helps you keep track of who is responsible for this data.',
-        },
-    };
+export default function SidebarOwnerSection({ OwnerData, refetch, urn }: Props) {
     const [showAddModal, setShowAddModal] = useState(false);
-    console.log('data', data);
+    const ownersEmpty = !OwnerData?.owners?.length;
+
     return (
         <>
             <SectionTitle>
-                <Typography.Title level={5}>{title}</Typography.Title>
+                <Typography.Title level={5}>{TITLE}</Typography.Title>
             </SectionTitle>
             <SectionWrapper>
-                {/* {entityData?.ownership?.owners?.map((owner) => (
-                    <ExpandedOwner entityUrn={urn} owner={owner} refetch={refetch} />
-                ))} */}
+                {OwnerData &&
+                    OwnerData?.owners?.map((owner) => (
+                        <ExpandedOwner entityUrn={urn} owner={owner} refetch={refetch} />
+                    ))}
                 {ownersEmpty && (
                     <Typography.Paragraph type="secondary">
                         {EMPTY_MESSAGES.owners.title}. {EMPTY_MESSAGES.owners.description}

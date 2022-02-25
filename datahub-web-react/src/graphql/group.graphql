@@ -13,9 +13,9 @@ query getGroup($urn: String!, $membersCount: Int!) {
             slack
             email
         }
-        # ownership {
-        #     ...ownershipFields
-        # }
+        ownership {
+            ...ownershipFields
+        }
         relationships(input: { types: ["IsMemberOfGroup"], direction: INCOMING, start: 0, count: $membersCount }) {
             start
             count
@@ -109,4 +109,10 @@ mutation removeGroup($urn: String!) {
 
 mutation createGroup($input: CreateGroupInput!) {
     createGroup(input: $input)
+}
+
+mutation updateCorpGroupProperties($urn: String!, $input: CorpGroupUpdateInput!) {
+    updateCorpGroupProperties(urn: $urn, input: $input) {
+        urn
+    }
 }

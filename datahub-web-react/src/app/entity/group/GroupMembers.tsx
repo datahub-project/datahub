@@ -1,12 +1,12 @@
 import { MoreOutlined, UserAddOutlined, UserDeleteOutlined } from '@ant-design/icons';
 import { Col, Dropdown, Menu, message, Modal, Pagination, Row } from 'antd';
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { useGetGroupMembersLazyQuery, useRemoveGroupMembersMutation } from '../../../graphql/group.generated';
 import { CorpUser, EntityRelationshipsResult, EntityType } from '../../../types.generated';
 import { CustomAvatar } from '../../shared/avatar';
 import { useEntityRegistry } from '../../useEntityRegistry';
-// import { PreviewType } from '../Entity';
 import { AddGroupMembersModal } from './AddGroupMembersModal';
 
 type Props = {
@@ -19,37 +19,11 @@ const ADD_MEMBER_STYLE = {
     backGround: '#ffffff',
     boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.05)',
 };
+const AVATAR_STYLE = { margin: '5px 5px 5px 0' };
 
-// const MemberList = styled(List)`
-//     &&& {
-//         width: 100%;
-//         border-color: ${(props) => props.theme.styles['border-color-base']};
-//         margin-top: 12px;
-//         margin-bottom: 28px;
-//         padding: 24px 32px;
-//         box-shadow: ${(props) => props.theme.styles['box-shadow']};
-//     }
-//     & li {
-//         padding-top: 28px;
-//         padding-bottom: 28px;
-//     }
-//     & li:not(:last-child) {
-//         border-bottom: 1.5px solid #ededed;
-//     }
-// `;
-
-// const MembersView = styled(Space)`
-//     width: 100%;
-//     margin-bottom: 32px;
-//     padding-top: 28px;
-// `;
-
-// const HeaderView = styled.div`
-//     display: flex;
-//     justify-content: space-between;
-//     align-items: center;
-// `;
-
+/**
+ * Styled Components
+ */
 const AddMember = styled(Col)`
     font-family: Manrope;
     font-style: normal;
@@ -64,6 +38,7 @@ const AddMember = styled(Col)`
         margin-right: 6px;
     }
 `;
+
 const GroupMemberWrapper = styled.div`
     height: calc(100vh - 217px);
     overflow-y: auto;
@@ -72,6 +47,7 @@ const GroupMemberWrapper = styled.div`
         margin: 0 19px;
     }
 `;
+
 const MemberColumn = styled(Col)`
     padding: 19px 0 19px 0;
     border-bottom: 1px solid #f0f0f0;
@@ -86,13 +62,8 @@ const Name = styled.span`
     font-weight: bold;
     font-size: 14px;
     line-height: 22px;
-    /* identical to box height, or 157% */
-
-    /* Gray / gray-9 */
-
     color: #262626;
 `;
-const AVATAR_STYLE = { margin: '5px 5px 5px 0' };
 
 export default function GroupMembers({ urn, initialRelationships, pageSize }: Props) {
     const entityRegistry = useEntityRegistry();
@@ -161,7 +132,6 @@ export default function GroupMembers({ urn, initialRelationships, pageSize }: Pr
     const relationships = membersData ? membersData.corpGroup?.relationships : initialRelationships;
     const total = relationships?.total || 0;
     const groupMembers = relationships?.relationships?.map((rel) => rel.entity as CorpUser) || [];
-    console.log('groupMembers', groupMembers);
 
     const onMemberMenuClick = (e, urnID) => {
         // TODO: add for make owner if required, else remove it
@@ -202,13 +172,15 @@ export default function GroupMembers({ urn, initialRelationships, pageSize }: Pr
                             return (
                                 <>
                                     <MemberColumn xl={23} lg={23} md={23} sm={23} xs={23}>
-                                        <CustomAvatar
-                                            size={24}
-                                            photoUrl={item.editableProperties?.pictureLink || ''}
-                                            name={entityRegistry.getDisplayName(EntityType.CorpGroup, item)}
-                                            style={AVATAR_STYLE}
-                                        />
-                                        <Name>{item.editableProperties?.displayName}</Name>
+                                        <Link to={entityRegistry.getEntityUrl(EntityType.CorpUser, item.urn)}>
+                                            <CustomAvatar
+                                                size={24}
+                                                photoUrl={item.editableProperties?.pictureLink || ''}
+                                                name={entityRegistry.getDisplayName(EntityType.CorpUser, item)}
+                                                style={AVATAR_STYLE}
+                                            />
+                                            <Name>{entityRegistry.getDisplayName(EntityType.CorpUser, item)}</Name>
+                                        </Link>
                                     </MemberColumn>
                                     <MemberColumn xl={1} lg={1} md={1} sm={1} xs={1}>
                                         <MemberEditIcon>
@@ -238,39 +210,6 @@ export default function GroupMembers({ urn, initialRelationships, pageSize }: Pr
                 onSubmit={onAddMembers}
                 onClose={() => setIsEditingMembers(false)}
             />
-            {/* <MembersView direction="vertical" size="middle">
-                <HeaderView>
-                    <Typography.Title level={3}>Group Membership</Typography.Title>
-                    <Button onClick={onClickEditMembers}>+ Add Members</Button>
-                </HeaderView>
-                <Row justify="center">
-                    <MemberList
-                        dataSource={groupMembers}
-                        split={false}
-                        renderItem={(item: any, _) => (
-                            <List.Item>
-                                {entityRegistry.renderPreview(EntityType.CorpUser, PreviewType.PREVIEW, item)}
-                                <CloseOutlined onClick={() => onRemoveMember(item.urn)} />
-                            </List.Item>
-                        )}
-                        bordered
-                    />
-                    <Pagination
-                        current={page}
-                        pageSize={pageSize}
-                        total={total}
-                        showLessItems
-                        onChange={onChangeMembersPage}
-                        showSizeChanger={false}
-                    />
-                </Row>
-                <AddGroupMembersModal
-                    urn={urn}
-                    visible={isEditingMembers}
-                    onSubmit={onAddMembers}
-                    onClose={() => setIsEditingMembers(false)}
-                />
-            </MembersView> */}
         </>
     );
 }

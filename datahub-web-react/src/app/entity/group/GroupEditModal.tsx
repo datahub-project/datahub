@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { message, Button, Input, Modal, Typography, Form } from 'antd';
-import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
+import { useUpdateCorpGroupPropertiesMutation } from '../../../graphql/group.generated';
 
 type PropsData = {
     email: string | undefined;
@@ -18,7 +18,7 @@ type Props = {
 export const USER_NAME_REGEX = new RegExp('^[a-zA-Z ]*$');
 
 export default function UserEditProfileModal({ visible, onClose, onSave, editModalData }: Props) {
-    const [updateCorpUserPropertiesMutation] = useUpdateCorpUserPropertiesMutation();
+    const [updateCorpGroupPropertiesMutation] = useUpdateCorpGroupPropertiesMutation();
     const [form] = Form.useForm();
 
     const [saveButtonEnabled, setSaveButtonEnabled] = useState(true);
@@ -34,9 +34,7 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
 
     // save changes function
     const onSaveChanges = () => {
-        // TODO: update the following mutation with updateCorpGroupProperties
-        // Its not present now, need to take help from JOHN
-        updateCorpUserPropertiesMutation({
+        updateCorpGroupPropertiesMutation({
             variables: {
                 urn: editModalData?.urn || '',
                 input: {
