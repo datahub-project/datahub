@@ -200,6 +200,7 @@ module.exports = {
       "docs/domains",
       "docs/ui-ingestion",
       "docs/how/search",
+      "docs/how/auth/add-users-to-datahub"
     ],
     "Developer Guides": [
       // TODO: the titles of these should not be in question form in the sidebar
