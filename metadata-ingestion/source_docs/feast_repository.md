@@ -2,6 +2,12 @@
 
 For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
 
+This source is designed for Feast 10+ repositories.
+
+As of version 0.10+, Feast has changed the architecture from a stack of services to SDK/CLI centric application. Please refer to [Feast 0.9 vs Feast 0.10+](https://docs.feast.dev/project/feast-0.9-vs-feast-0.10+) for further details.
+
+See also [Feast](feast.md) source.
+
 ## Setup
 
 To install this plugin, run `pip install 'acryl-datahub[feast-repository]'`.
@@ -14,6 +20,7 @@ This plugin extracts:
 - Features as [`MLFeature`](https://datahubproject.io/docs/graphql/objects#mlfeature)
 - Feature views and on-demand feature views as [`MLFeatureTable`](https://datahubproject.io/docs/graphql/objects#mlfeaturetable)
 - Batch and stream source details as [`Dataset`](https://datahubproject.io/docs/graphql/objects#dataset)
+- Column types associated with each entity and feature
 
 ## Quickstart recipe
 
