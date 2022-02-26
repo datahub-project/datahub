@@ -337,7 +337,9 @@ class FeastRepositorySource(Source):
 
                 yield work_unit
 
-            work_unit = self._get_feature_view_workunit(feature_store.project, feature_view)
+            work_unit = self._get_feature_view_workunit(
+                feature_store.project, feature_view
+            )
 
             self.report.report_workunit(work_unit)
 
