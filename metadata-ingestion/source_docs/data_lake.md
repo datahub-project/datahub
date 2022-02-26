@@ -10,7 +10,7 @@ This source is in **Beta** and under active development. Not yet considered read
 
 ## Setup
 
-To install this plugin, run `pip install 'acryl-datahub[data-lake]'`. Note that because the profiling is run with PySpark, we require Spark 3.0.3 with Hadoop 3.2 to be installed (see [compatibility](#compatibility) for more details).
+To install this plugin, run `pip install 'acryl-datahub[data-lake]'`. Note that because the profiling is run with PySpark, we require Spark 3.0.3 with Hadoop 3.2 to be installed (see [compatibility](#compatibility) for more details). If ingesting S3 files with Spark, make sure that permissions for **s3a://** access are set as well because Spark and Hadoop use the s3a:// protocol to interface with AWS.
 
 The data lake connector extracts schemas and profiles from a variety of file formats (see below for an exhaustive list).
 Individual files are ingested as tables, and profiles are computed similar to the [SQL profiler](./sql_profiles.md).
@@ -94,7 +94,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | Field                                                | Required                 | Default      | Description                                                                                                                                                                                                    |
 | ---------------------------------------------------- | ------------------------ | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `env`                                                |                          | `PROD`       | Environment to use in namespace when constructing URNs.                                                                                                                                                        |
-| `platform`                                           | ✅                       |              | Platform to use in namespace when constructing URNs.                                                                                                                                                           |
+| `platform`                                           |                          | Autodetected | Platform to use in namespace when constructing URNs. If left blank, local paths will correspond to `file` and S3 paths will correspond to `s3`.                                                                |
 | `base_path`                                          | ✅                       |              | Path of the base folder to crawl. Unless `schema_patterns` and `profile_patterns` are set, the connector will ingest all files in this folder.                                                                 |
 | `path_spec`                                          |                          |              | Format string for constructing table identifiers from the relative path. See the above [setup section](#setup) for details.                                                                                    |
 | `use_relative_path`                                  |                          | `False`      | Whether to use the relative path when constructing URNs. Has no effect when a `path_spec` is provided.                                                                                                         |

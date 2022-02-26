@@ -6,14 +6,15 @@ import pydantic
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
+from datahub.ingestion.source.aws.s3_util import is_s3_uri
 from datahub.ingestion.source.data_lake.profiling import DataLakeProfilerConfig
 
 
 class DataLakeSourceConfig(ConfigModel):
 
     env: str = DEFAULT_ENV
-    platform: str
     base_path: str
+    platform: str = "file"  # overwritten by validator below
 
     use_relative_path: bool = False
     ignore_dotfiles: bool = True
@@ -39,6 +40,15 @@ class DataLakeSourceConfig(ConfigModel):
         if profiling is not None and profiling.enabled:
             profiling.allow_deny_patterns = values["profile_patterns"]
         return values
+
+    @pydantic.validator("platform", always=True)
+    def validate_platform(cls, value: str, values: Dict[str, Any]) -> Optional[str]:
+        if value is not None:
+            return value
+
+        if is_s3_uri(values["base_path"]):
+            return "s3"
+        return "file"
 
     @pydantic.validator("path_spec", always=True)
     def validate_path_spec(
