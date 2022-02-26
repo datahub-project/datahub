@@ -75,7 +75,7 @@ export const AddOwnerModal = ({ urn, type, visible, onClose, refetch }: Props) =
             analytics.event({
                 type: EventType.EntityActionEvent,
                 actionType: EntityActionType.UpdateOwnership,
-                entityType,
+                entityType: type,
                 entityUrn: urn,
             });
         } catch (e: unknown) {
@@ -113,12 +113,12 @@ export const AddOwnerModal = ({ urn, type, visible, onClose, refetch }: Props) =
     };
 
     // Invokes the search API as the user types
-    const handleSearch = (type: EntityType, text: string, searchQuery: any) => {
+    const handleSearch = (entityType: EntityType, text: string, searchQuery: any) => {
         if (text.length > 2) {
             searchQuery({
                 variables: {
                     input: {
-                        type,
+                        type: entityType,
                         query: text,
                         start: 0,
                         count: 5,

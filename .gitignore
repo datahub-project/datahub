@@ -57,3 +57,6 @@ smoke-test/spark-smoke-test/__pycache__/
 
 # Metadata Ingestion Generated
 metadata-ingestion/generated/**
+
+# docs
+docs/generated/

@@ -59,12 +59,7 @@ module.exports = {
       "docs/saas",
       "releases",
     ],
-    "Getting Started": [
-      "docs/quickstart",
-      "docs/cli",
-      "docs/debugging",
-      "docs/how/search",
-    ],
+    "Getting Started": ["docs/quickstart", "docs/cli", "docs/debugging"],
     "Metadata Ingestion": [
       // add a custom label since the default is 'Metadata Ingestion'
       // note that we also have to add the path to this file in sidebarsjs_hardcoded_titles in generateDocsDir.ts
@@ -200,7 +195,12 @@ module.exports = {
         ],
       },
     ],
-    "Usage Guides": ["docs/policies", "docs/domains", "docs/ui-ingestion"],
+    "Usage Guides": [
+      "docs/policies",
+      "docs/domains",
+      "docs/ui-ingestion",
+      "docs/how/search",
+    ],
     "Developer Guides": [
       // TODO: the titles of these should not be in question form in the sidebar
       "docs/developers",
@@ -218,12 +218,17 @@ module.exports = {
       //"docs/how/build-metadata-service",
       //"docs/how/graph-onboarding",
       //"docs/demo/graph-onboarding",
-      "docs/how/auth/jaas",
-      "docs/how/auth/sso/configure-oidc-react",
-      "docs/how/auth/sso/configure-oidc-react-google",
-      "docs/how/auth/sso/configure-oidc-react-okta",
-      "docs/how/auth/sso/configure-oidc-react-azure",
+      {
+        Authentication: [
+          "docs/how/auth/jaas",
+          "docs/how/auth/sso/configure-oidc-react",
+          "docs/how/auth/sso/configure-oidc-react-google",
+          "docs/how/auth/sso/configure-oidc-react-okta",
+          "docs/how/auth/sso/configure-oidc-react-azure",
+        ],
+      },
       "docs/how/restore-indices",
+      "docs/dev-guides/timeline",
       "docs/how/extract-container-logs",
       "docs/how/delete-metadata",
       "datahub-web-react/src/app/analytics/README",

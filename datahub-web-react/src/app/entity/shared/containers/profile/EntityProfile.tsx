@@ -55,7 +55,7 @@ const ContentContainer = styled.div`
 
 const HeaderAndTabs = styled.div`
     flex-basis: 70%;
-    min-width: 640px;
+    min-width: 440px;
 `;
 const HeaderAndTabsFlex = styled.div`
     display: flex;

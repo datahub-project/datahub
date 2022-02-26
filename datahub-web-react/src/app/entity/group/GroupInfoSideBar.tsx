@@ -1,20 +1,19 @@
 import { Divider, message, Space, Button, Typography, Tag } from 'antd';
 import React, { useState } from 'react';
+import styled from 'styled-components';
 import { EditOutlined, MailOutlined, SlackOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { useUpdateCorpGroupPropertiesMutation } from '../../../graphql/group.generated';
-import { EntityType, EntityRelationshipsResult, Ownership } from '../../../types.generated';
+import { EntityType, EntityRelationshipsResult, Ownership, CorpUser } from '../../../types.generated';
 
 import GroupEditModal from './GroupEditModal';
 import CustomAvatar from '../../shared/avatar/CustomAvatar';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
 import SidebarOwnerSection from './SidebarOwnerSection';
 import {
     SideBar,
     SideBarSubSection,
     EmptyValue,
-    Name,
     SocialDetails,
     EditProfileButton,
     AboutSection,
@@ -46,20 +45,39 @@ type Props = {
 
 const AVATAR_STYLE = { margin: '3px 5px 3px -4px' };
 
+const GroupName = styled.div`
+    font-size: 20px;
+    line-height: 28px;
+    color: #262626;
+    margin: 13px 0 7px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100px;
+`;
+
 /**
  * Responsible for reading & writing users.
  */
 export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
-    const { avatarName, name, aboutText, groupMemberRelationships, email, photoUrl, slack, urn, groupOwnerShip } =
-        sideBarData;
+    const {
+        avatarName,
+        name,
+        aboutText,
+        groupMemberRelationships,
+        email,
+        photoUrl,
+        slack,
+        urn,
+        groupOwnerShip: ownership,
+    } = sideBarData;
     const [updateCorpGroupPropertiesMutation] = useUpdateCorpGroupPropertiesMutation();
     const entityRegistry = useEntityRegistry();
 
     const [groupSectionExpanded, setGroupSectionExpanded] = useState(false);
     /* eslint-disable @typescript-eslint/no-unused-vars */
     const [editGroupModal, showEditGroupModal] = useState(false);
-    const me = useGetAuthenticatedUser();
-    const isProfileOwner = me?.corpUser?.urn === urn;
+    const canEditGroup = true; // TODO; Replace this will fine-grained understanding of user permissions.
 
     const getEditModalData = {
         urn,
@@ -92,11 +110,17 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
     return (
         <>
             <SideBar>
-                <SideBarSubSection className={isProfileOwner ? '' : 'fullView'}>
-                    <Name>
-                        <CustomAvatar size={28} photoUrl={photoUrl} name={avatarName} style={AVATAR_STYLE} />
+                <SideBarSubSection className={canEditGroup ? '' : 'fullView'}>
+                    <GroupName>
+                        <CustomAvatar
+                            useDefaultAvatar={false}
+                            size={28}
+                            photoUrl={photoUrl}
+                            name={avatarName}
+                            style={AVATAR_STYLE}
+                        />
                         {name}
-                    </Name>
+                    </GroupName>
                     <Divider className="divider-infoSection" />
                     <SocialDetails>
                         <Space>
@@ -115,7 +139,7 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                         About
                         <AboutSectionText>
                             <Paragraph
-                                editable={isProfileOwner ? { onChange: onSaveAboutMe } : false}
+                                editable={canEditGroup ? { onChange: onSaveAboutMe } : false}
                                 ellipsis={{ rows: 2, expandable: true, symbol: 'Read more' }}
                             >
                                 {aboutText || <EmptyValue />}
@@ -124,7 +148,7 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                     </AboutSection>
                     <Divider className="divider-groupsSection" />
                     <GroupsSection>
-                        <SidebarOwnerSection OwnerData={groupOwnerShip} urn={urn || ''} refetch={refetch} />
+                        <SidebarOwnerSection ownership={ownership} urn={urn || ''} refetch={refetch} />
                     </GroupsSection>
                     <Divider className="divider-groupsSection" />
                     <GroupsSection>
@@ -133,17 +157,19 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                             {groupMemberRelationships?.relationships.length === 0 && <EmptyValue />}
                             {!groupSectionExpanded &&
                                 groupMemberRelationships?.relationships.slice(0, 2).map((item) => {
+                                    const user = item.entity as CorpUser;
                                     return (
                                         <Link to={entityRegistry.getEntityUrl(EntityType.CorpUser, item.entity.urn)}>
                                             <Tags>
                                                 <Tag>
                                                     <CustomAvatar
                                                         size={20}
-                                                        photoUrl={photoUrl}
+                                                        photoUrl={user.editableProperties?.pictureLink || undefined}
                                                         name={entityRegistry.getDisplayName(
-                                                            EntityType.CorpGroup,
+                                                            EntityType.CorpUser,
                                                             item.entity,
                                                         )}
+                                                        useDefaultAvatar={false}
                                                         style={AVATAR_STYLE}
                                                     />
                                                     {entityRegistry.getDisplayName(EntityType.CorpUser, item.entity)}
@@ -155,17 +181,19 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                             {groupSectionExpanded &&
                                 groupMemberRelationships?.relationships.length > 2 &&
                                 groupMemberRelationships?.relationships.map((item) => {
+                                    const user = item.entity as CorpUser;
                                     return (
                                         <Link to={entityRegistry.getEntityUrl(EntityType.CorpUser, item.entity.urn)}>
                                             <Tags>
                                                 <Tag>
                                                     <CustomAvatar
                                                         size={20}
-                                                        photoUrl={photoUrl}
+                                                        photoUrl={user.editableProperties?.pictureLink || undefined}
                                                         name={entityRegistry.getDisplayName(
-                                                            EntityType.CorpGroup,
+                                                            EntityType.CorpUser,
                                                             item.entity,
                                                         )}
+                                                        useDefaultAvatar={false}
                                                         style={AVATAR_STYLE}
                                                     />
                                                     {entityRegistry.getDisplayName(EntityType.CorpUser, item.entity)}
@@ -182,7 +210,7 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                         </TagsSection>
                     </GroupsSection>
                 </SideBarSubSection>
-                {isProfileOwner && (
+                {canEditGroup && (
                     <EditProfileButton>
                         <Button icon={<EditOutlined />} onClick={() => showEditGroupModal(true)}>
                             Edit Group
