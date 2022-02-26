@@ -70,7 +70,9 @@ fragment searchResults on SearchResults {
                     lastName
                     fullName
                 }
-                editableInfo {
+                editableProperties {
+                    displayName
+                    title
                     pictureLink
                 }
             }
@@ -219,11 +221,13 @@ fragment searchResults on SearchResults {
             ... on GlossaryTerm {
                 name
                 hierarchicalName
-                glossaryTermInfo {
-                    definition
+                properties {
+                    name
+                    description
                     termSource
                     sourceRef
                     sourceUrl
+                    rawSchema
                     customProperties {
                         key
                         value
@@ -343,9 +347,14 @@ fragment searchResults on SearchResults {
                 ... on Tag {
                     name
                     description
+                    properties {
+                        colorHex
+                    }
                 }
                 ... on GlossaryTerm {
-                    name
+                    properties {
+                        name
+                    }
                 }
                 ... on DataPlatform {
                     ...platformFields
@@ -363,6 +372,25 @@ fragment searchResults on SearchResults {
                     }
                     properties {
                         name
+                    }
+                }
+                ... on CorpUser {
+                    urn
+                    username
+                    properties {
+                        displayName
+                        fullName
+                    }
+                    editableProperties {
+                        displayName
+                        pictureLink
+                    }
+                }
+                ... on CorpGroup {
+                    urn
+                    name
+                    properties {
+                        displayName
                     }
                 }
             }

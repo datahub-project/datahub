@@ -6,6 +6,8 @@ For context on getting started with ingestion, check out our [metadata ingestion
 
 To install this plugin, run `pip install 'acryl-datahub[athena]'`.
 
+Athena source only works with python 3.7+.
+
 ## Capabilities
 
 This plugin extracts the following:
@@ -71,6 +73,7 @@ As a SQL-based service, the Athena integration is also supported by our SQL prof
 | `view_pattern.deny`         |          |              | List of regex patterns for views to exclude from ingestion.                                                                                                                                                |
 | `view_pattern.ignoreCase`   |          | `True`       | Whether regex matching should ignore case or not                                                                                                                                                           |     |
 | `include_tables`            |          | `True`       | Whether tables should be ingested.                                                                                                                                                                         |
+| `include_views`             |          | `False`      | Whether views should be ingested.                                                                                                                                                                         |
 
 ## Compatibility
 

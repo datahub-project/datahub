@@ -1,17 +1,17 @@
 package com.linkedin.datahub.graphql.types.mlmodel;
 
 import com.google.common.collect.ImmutableSet;
-
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.generated.MLModelGroup;
-import com.linkedin.datahub.graphql.generated.EntityType;
-import com.linkedin.datahub.graphql.generated.FacetFilterInput;
-import com.linkedin.datahub.graphql.generated.SearchResults;
-import com.linkedin.datahub.graphql.generated.BrowseResults;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.BrowsePath;
+import com.linkedin.datahub.graphql.generated.BrowseResults;
+import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.generated.FacetFilterInput;
+import com.linkedin.datahub.graphql.generated.MLModelGroup;
+import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
@@ -19,24 +19,24 @@ import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
-import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLModelGroupSnapshotMapper;
-import com.linkedin.entity.Entity;
+import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLModelGroupMapper;
+import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.execution.DataFetcherResult;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
-import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
+import static com.linkedin.datahub.graphql.Constants.*;
+import static com.linkedin.metadata.Constants.*;
+
 
 public class MLModelGroupType implements SearchableEntityType<MLModelGroup>, BrowsableEntityType<MLModelGroup> {
 
@@ -58,26 +58,24 @@ public class MLModelGroupType implements SearchableEntityType<MLModelGroup>, Bro
     }
 
     @Override
-    public List<DataFetcherResult<MLModelGroup>> batchLoad(final List<String> urns, final QueryContext context) throws Exception {
+    public List<DataFetcherResult<MLModelGroup>> batchLoad(final List<String> urns, @Nonnull final QueryContext context)
+        throws Exception {
         final List<Urn> mlModelGroupUrns = urns.stream()
-            .map(MLModelUtils::getMLModelGroupUrn)
+            .map(UrnUtils::getUrn)
             .collect(Collectors.toList());
 
         try {
-            final Map<Urn, Entity> mlModelMap = _entityClient.batchGet(mlModelGroupUrns
-                .stream()
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet()),
-            context.getAuthentication());
+            final Map<Urn, EntityResponse> mlModelMap = _entityClient.batchGetV2(ML_MODEL_GROUP_ENTITY_NAME,
+                new HashSet<>(mlModelGroupUrns), null, context.getAuthentication());
 
-            final List<Entity> gmsResults = mlModelGroupUrns.stream()
-                .map(modelUrn -> mlModelMap.getOrDefault(modelUrn, null)).collect(Collectors.toList());
+            final List<EntityResponse> gmsResults = mlModelGroupUrns.stream()
+                .map(modelUrn -> mlModelMap.getOrDefault(modelUrn, null))
+                .collect(Collectors.toList());
 
             return gmsResults.stream()
                 .map(gmsMlModelGroup -> gmsMlModelGroup == null ? null
                     : DataFetcherResult.<MLModelGroup>newResult()
-                        .data(MLModelGroupSnapshotMapper.map(gmsMlModelGroup.getValue().getMLModelGroupSnapshot()))
-                        .localContext(AspectExtractor.extractAspects(gmsMlModelGroup.getValue().getMLModelGroupSnapshot()))
+                        .data(MLModelGroupMapper.map(gmsMlModelGroup))
                         .build())
                 .collect(Collectors.toList());
         } catch (Exception e) {

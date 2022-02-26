@@ -28,6 +28,7 @@ base_requirements = {
     # Actual dependencies.
     "typing-inspect",
     "pydantic>=1.5.1",
+    "mixpanel>=4.9.0",
 }
 
 framework_common = {
@@ -38,13 +39,19 @@ framework_common = {
     "entrypoints",
     "docker",
     "expandvars>=0.6.5",
-    "avro-gen3==0.7.1",
+    "avro-gen3==0.7.2",
     "avro>=1.10.2,<1.11",
     "python-dateutil>=2.8.0",
     "stackprinter",
     "tabulate",
     "progressbar2",
+    "termcolor>=1.0.0",
+    "types-termcolor>=1.0.0",
     "psutil>=5.8.0",
+    # Markupsafe breaking change broke Jinja and some other libs
+    # Pinning it to a version which works even though we are not using explicitly
+    # https://github.com/aws/aws-sam-cli/issues/3661
+    "markupsafe==2.0.1",
 }
 
 kafka_common = {
@@ -92,6 +99,21 @@ snowflake_common = {
     "cryptography",
 }
 
+data_lake_base = {
+    *aws_common,
+    "parse>=1.19.0",
+    "pyarrow>=6.0.1",
+    "tableschema>=1.20.2",
+    "ujson>=4.3.0",
+    "types-ujson>=4.2.1",
+    "smart-open[s3]>=5.2.1",
+}
+
+data_lake_profiling = {
+    "pydeequ==1.0.1",
+    "pyspark==3.0.3",
+}
+
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
@@ -102,15 +124,23 @@ plugins: Dict[str, Set[str]] = {
         "apache-airflow >= 1.10.2",
     },
     # Source plugins
-    "athena": sql_common | {"PyAthena[SQLAlchemy]"},
+    # PyAthena is pinned with exact version because we use private method in PyAthena
+    "athena": sql_common | {"PyAthena[SQLAlchemy]==2.4.1"},
     "azure-ad": set(),
     "bigquery": sql_common | bigquery_common | {"pybigquery >= 0.6.0"},
     "bigquery-usage": bigquery_common | {"cachetools"},
+    "clickhouse": sql_common | {"clickhouse-sqlalchemy==0.1.8"},
+    "clickhouse-usage": sql_common | {"clickhouse-sqlalchemy==0.1.8"},
+    "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
-    "data-lake": {*aws_common, "pydeequ==1.0.1", "pyspark==3.0.3", "parse==1.19.0"},
+    "data-lake": {*data_lake_base, *data_lake_profiling},
     "dbt": {"requests"},
     "druid": sql_common | {"pydruid>=0.6.2"},
-    "elasticsearch": {"elasticsearch"},
+    # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
+    # UnsupportedProductError
+    # https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/release-notes.html#rn-7-14-0
+    # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
+    "elasticsearch": {"elasticsearch==7.13.4"},
     "feast": {"docker"},
     "feast-repository": {"feast>=0.18.0"},
     "glue": aws_common,
@@ -147,7 +177,7 @@ plugins: Dict[str, Set[str]] = {
     "snowflake": snowflake_common,
     "snowflake-usage": snowflake_common | {"more-itertools>=8.12.0"},
     "sqlalchemy": sql_common,
-    "superset": {"requests", "sqlalchemy", "great_expectations"},
+    "superset": {"requests", "sqlalchemy", "great_expectations", "greenlet"},
     "tableau": {"tableauserverclient>=0.17.0"},
     "trino": sql_common | {"trino"},
     "starburst-trino-usage": sql_common | {"trino"},
@@ -182,13 +212,16 @@ base_dev_requirements = {
     *base_requirements,
     *framework_common,
     *mypy_stubs,
+    *data_lake_base,
     "black>=21.12b0",
     "coverage>=5.1",
     "flake8>=3.8.3",
     "flake8-tidy-imports>=4.3.0",
     "isort>=5.7.0",
-    # Waiting for https://github.com/samuelcolvin/pydantic/pull/3175 before allowing mypy 0.920.
-    "mypy>=0.901,<0.920",
+    "mypy>=0.920",
+    # pydantic 1.8.2 is incompatible with mypy 0.910.
+    # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
+    "pydantic>=1.9.0",
     "pytest>=6.2.2",
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
@@ -200,12 +233,14 @@ base_dev_requirements = {
     "jsonpickle",
     "build",
     "twine",
-    "pydot",
+    "packaging",
     *list(
         dependency
         for plugin in [
             "bigquery",
             "bigquery-usage",
+            "clickhouse",
+            "clickhouse-usage",
             "elasticsearch",
             "looker",
             "glue",
@@ -241,18 +276,24 @@ dev_requirements = {
     "apache-airflow[snowflake]>=2.0.2",  # snowflake is used in example dags
     "snowflake-sqlalchemy<=1.2.4",  # make constraint consistent with extras
 }
-dev_requirements_airflow_1 = {
-    *base_dev_requirements,
+dev_requirements_airflow_1_base = {
     "apache-airflow==1.10.15",
     "apache-airflow-backport-providers-snowflake",
     "snowflake-sqlalchemy<=1.2.4",  # make constraint consistent with extras
     "WTForms==2.3.3",  # make constraint consistent with extras
+}
+dev_requirements_airflow_1 = {
+    *base_dev_requirements,
+    *dev_requirements_airflow_1_base,
 }
 
 full_test_dev_requirements = {
     *list(
         dependency
         for plugin in [
+            # Only include Athena for Python 3.7 or newer.
+            *(["athena"] if is_py37_or_newer else []),
+            "clickhouse",
             "druid",
             "feast",
             "feast-repository",
@@ -279,6 +320,8 @@ entry_points = {
         "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",
         "bigquery = datahub.ingestion.source.sql.bigquery:BigQuerySource",
         "bigquery-usage = datahub.ingestion.source.usage.bigquery_usage:BigQueryUsageSource",
+        "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
+        "clickhouse-usage = datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource",
         "data-lake = datahub.ingestion.source.data_lake:DataLakeSource",
         "dbt = datahub.ingestion.source.dbt:DBTSource",
         "druid = datahub.ingestion.source.sql.druid:DruidSource",
@@ -293,6 +336,7 @@ entry_points = {
         "ldap = datahub.ingestion.source.ldap:LDAPSource",
         "looker = datahub.ingestion.source.looker:LookerDashboardSource",
         "lookml = datahub.ingestion.source.lookml:LookMLSource",
+        "datahub-lineage-file = datahub.ingestion.source.metadata.lineage:LineageFileSource",
         "datahub-business-glossary = datahub.ingestion.source.metadata.business_glossary:BusinessGlossaryFileSource",
         "mode = datahub.ingestion.source.mode:ModeSource",
         "mongodb = datahub.ingestion.source.mongodb:MongoDBSource",
@@ -396,6 +440,7 @@ setuptools.setup(
             )
         ),
         "dev": list(dev_requirements),
+        "dev-airflow1-base": list(dev_requirements_airflow_1_base),
         "dev-airflow1": list(dev_requirements_airflow_1),
         "integration-tests": list(full_test_dev_requirements),
     },

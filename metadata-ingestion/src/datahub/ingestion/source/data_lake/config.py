@@ -29,6 +29,8 @@ class DataLakeSourceConfig(ConfigModel):
 
     spark_driver_memory: str = "4g"
 
+    max_rows: int = 100
+
     @pydantic.root_validator()
     def ensure_profiling_pattern_is_passed_to_profiling(
         cls, values: Dict[str, Any]

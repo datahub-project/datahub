@@ -277,6 +277,11 @@ type Mutation {
     Update a particular Corp User's editable properties
     """
     updateCorpUserProperties(urn: String!, input: CorpUserUpdateInput!): CorpUser
+
+    """
+    Update a particular Corp Group's editable properties
+    """
+    updateCorpGroupProperties(urn: String!, input: CorpGroupUpdateInput!): CorpGroup
 }
 
 """
@@ -803,6 +808,11 @@ type GlossaryTerm implements Entity {
     ownership: Ownership
 
     """
+    References to internal resources related to the Glossary Term
+    """
+    institutionalMemory: InstitutionalMemory
+
+    """
     A standard Entity Type
     """
     type: EntityType!
@@ -818,7 +828,7 @@ type GlossaryTerm implements Entity {
     hierarchicalName: String!
 
     """
-    Additional read only properties associated with the Glossary Term
+    Additional properties associated with the Glossary Term
     """
     properties: GlossaryTermProperties
 
@@ -858,7 +868,7 @@ type GlossaryTermInfo {
     """
     Description of the glossary term
     """
-    description: String!
+    description: String
 
     """
     Definition of the glossary term. Deprecated - Use 'description' instead.
@@ -898,12 +908,12 @@ type GlossaryTermProperties {
     """
     The name of the Glossary Term
     """
-    name: String
+    name: String!
 
     """
     Description of the glossary term
     """
-    description: String!
+    description: String
 
     """
     Definition of the glossary term. Deprecated - Use 'description' instead.
@@ -2323,7 +2333,6 @@ type CorpUserEditableProperties {
     email: String
 }
 
-
 """
 Arguments provided to update a CorpUser Entity
 """
@@ -2394,9 +2403,19 @@ type CorpGroup implements Entity {
     name: String!
 
     """
+    Ownership metadata of the Corp Group
+    """
+    ownership: Ownership
+
+    """
     Additional read only properties about the group
     """
     properties: CorpGroupProperties
+
+    """
+    Additional read write properties about the group
+    """
+    editableProperties: CorpGroupEditableProperties
 
     """
     Edges extending from this entity
@@ -2467,6 +2486,46 @@ type CorpGroupProperties {
     email of this group
     """
     email: String
+}
+
+"""
+Additional read write properties about a group
+"""
+type CorpGroupEditableProperties {
+  """
+  DataHub description of the group
+  """
+  description: String
+
+  """
+  Slack handle for the group
+  """
+  slack: String
+
+  """
+  Email address for the group
+  """
+  email: String
+}
+
+"""
+Arguments provided to update a CorpGroup Entity
+"""
+input CorpGroupUpdateInput {
+  """
+  DataHub description of the group
+  """
+  description: String
+
+  """
+  Slack handle for the group
+  """
+  slack: String
+
+  """
+  Email address for the group
+  """
+  email: String
 }
 
 """
@@ -2579,7 +2638,7 @@ type TagProperties {
   """
   A display name for the Tag
   """
-  name: String
+  name: String!
 
   """
   A description of the Tag

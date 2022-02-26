@@ -5,6 +5,7 @@ import time
 import pytest
 
 from tests.test_helpers.docker_helpers import docker_compose_runner  # noqa: F401
+from tests.test_helpers.state_helpers import mock_datahub_graph  # noqa: F401
 
 try:
     # See https://github.com/spulec/freezegun/issues/98#issuecomment-590553475.

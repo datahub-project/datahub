@@ -38,7 +38,8 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 @RequiredArgsConstructor
 public class ListRecommendationsResolver implements DataFetcher<CompletableFuture<ListRecommendationsResult>> {
 
-  private static final ListRecommendationsResult EMPTY_RECOMMENDATIONS = new ListRecommendationsResult(Collections.emptyList());
+  private static final ListRecommendationsResult EMPTY_RECOMMENDATIONS =
+      new ListRecommendationsResult(Collections.emptyList());
 
   private final RecommendationsService _recommendationsService;
 
@@ -154,8 +155,11 @@ public class ListRecommendationsResolver implements DataFetcher<CompletableFutur
     }
 
     if (params.hasEntityProfileParams()) {
-      mappedParams.setEntityProfileParams(
-          EntityProfileParams.builder().setUrn(params.getEntityProfileParams().getUrn().toString()).build());
+      Urn profileUrn = params.getEntityProfileParams().getUrn();
+      mappedParams.setEntityProfileParams(EntityProfileParams.builder()
+          .setUrn(profileUrn.toString())
+          .setType(EntityTypeMapper.getType(profileUrn.getEntityType()))
+          .build());
     }
 
     if (params.hasContentParams()) {

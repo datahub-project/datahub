@@ -3,6 +3,11 @@ query getTag($urn: String!) {
         urn
         name
         description
+        properties {
+          name
+          description
+          colorHex
+        }
         ownership {
             ...ownershipFields
         }
