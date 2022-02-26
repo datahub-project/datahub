@@ -14,7 +14,7 @@ class DataLakeSourceConfig(ConfigModel):
 
     env: str = DEFAULT_ENV
     base_path: str
-    platform: str = "file"  # overwritten by validator below
+    platform: str = ""  # overwritten by validator below
 
     use_relative_path: bool = False
     ignore_dotfiles: bool = True
@@ -43,7 +43,7 @@ class DataLakeSourceConfig(ConfigModel):
 
     @pydantic.validator("platform", always=True)
     def validate_platform(cls, value: str, values: Dict[str, Any]) -> Optional[str]:
-        if value is not None:
+        if value != "":
             return value
 
         if is_s3_uri(values["base_path"]):
