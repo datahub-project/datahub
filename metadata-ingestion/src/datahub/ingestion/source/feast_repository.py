@@ -32,6 +32,7 @@ from datahub.metadata.schema_classes import (
     MLFeaturePropertiesClass,
     MLFeatureTablePropertiesClass,
     MLPrimaryKeyPropertiesClass,
+    StatusClass,
 )
 
 _field_type_mapping: Dict[ValueType, str] = {
@@ -165,7 +166,7 @@ class FeastRepositorySource(Source):
 
         entity_snapshot = MLPrimaryKeySnapshot(
             urn=builder.make_ml_primary_key_urn(feature_view_name, entity.name),
-            aspects=[],
+            aspects=[StatusClass(removed=False)],
         )
 
         entity_snapshot.aspects.append(
@@ -193,7 +194,8 @@ class FeastRepositorySource(Source):
         feature_view_name = f"{project}.{feature_view.name}"
 
         feature_snapshot = MLFeatureSnapshot(
-            urn=builder.make_ml_feature_urn(feature_view_name, feature.name), aspects=[]
+            urn=builder.make_ml_feature_urn(feature_view_name, feature.name),
+            aspects=[StatusClass(removed=False)],
         )
 
         feature_sources = []
@@ -247,7 +249,8 @@ class FeastRepositorySource(Source):
             aspects=[
                 BrowsePathsClass(
                     paths=[f"{feature_view_name}", f"feast/{feature_view_name}"]
-                )
+                ),
+                StatusClass(removed=False),
             ],
         )
 
@@ -288,7 +291,8 @@ class FeastRepositorySource(Source):
                         f"{on_demand_feature_view_name}",
                         f"feast/{on_demand_feature_view_name}",
                     ]
-                )
+                ),
+                StatusClass(removed=False),
             ],
         )
 
