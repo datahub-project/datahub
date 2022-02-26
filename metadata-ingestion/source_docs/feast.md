@@ -2,6 +2,12 @@
 
 For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
 
+This source is designed for Feast 0.9 core services.
+
+As of version 0.10+, Feast has changed the architecture from a stack of services to SDK/CLI centric application. Please refer to [Feast 0.9 vs Feast 0.10+](https://docs.feast.dev/project/feast-0.9-vs-feast-0.10+) for further details.
+
+See also [Feast Repository](feast_repository.md) source.
+
 ## Setup
 
 **Note: Feast ingestion requires Docker to be installed.**
@@ -12,10 +18,11 @@ To install this plugin, run `pip install 'acryl-datahub[feast]'`.
 
 This plugin extracts the following:
 
-- List of feature tables (modeled as [`MLFeatureTable`](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/ml/metadata/MLFeatureTableProperties.pdl)s),
-  features ([`MLFeature`](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/ml/metadata/MLFeatureProperties.pdl)s),
-  and entities ([`MLPrimaryKey`](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/ml/metadata/MLPrimaryKeyProperties.pdl)s)
-- Column types associated with each feature and entity
+- Entities as [`MLPrimaryKey`](https://datahubproject.io/docs/graphql/objects#mlprimarykey)
+- Features as [`MLFeature`](https://datahubproject.io/docs/graphql/objects#mlfeature)
+- Feature tables as [`MLFeatureTable`](https://datahubproject.io/docs/graphql/objects#mlfeaturetable)
+- Batch and stream source details as [`Dataset`](https://datahubproject.io/docs/graphql/objects#dataset)
+- Column types associated with each entity and feature
 
 Note: this uses a separate Docker container to extract Feast's metadata into a JSON file, which is then
 parsed to DataHub's native objects. This separation was performed because of a dependency conflict in the `feast` module.
@@ -49,7 +56,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 
 ## Compatibility
 
-Coming soon!
+This source is compatible with [Feast (0.10.5)](https://github.com/feast-dev/feast/releases/tag/v0.10.5).
 
 ## Questions
 
