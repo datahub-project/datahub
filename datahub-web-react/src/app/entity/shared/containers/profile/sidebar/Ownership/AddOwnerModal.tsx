@@ -6,16 +6,9 @@ import { useAddOwnerMutation } from '../../../../../../../graphql/mutations.gene
 import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
 import { CorpUser, EntityType, OwnerEntityType, SearchResult } from '../../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import { useEntityData } from '../../../../EntityContext';
 import { CustomAvatar } from '../../../../../../shared/avatar';
 import analytics, { EventType, EntityActionType } from '../../../../../../analytics';
 import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
-
-type Props = {
-    visible: boolean;
-    onClose: () => void;
-    refetch?: () => Promise<any>;
-};
 
 const SearchResultContainer = styled.div`
     display: flex;
@@ -34,15 +27,22 @@ const SearchResultDisplayName = styled.div`
     margin-left: 12px;
 `;
 
+type Props = {
+    urn: string;
+    type: EntityType;
+    visible: boolean;
+    onClose: () => void;
+    refetch?: () => Promise<any>;
+};
+
 type SelectedActor = {
     displayName: string;
     type: EntityType;
     urn: string;
 };
 
-export const AddOwnerModal = ({ visible, onClose, refetch }: Props) => {
+export const AddOwnerModal = ({ urn, type, visible, onClose, refetch }: Props) => {
     const entityRegistry = useEntityRegistry();
-    const { urn, entityType } = useEntityData();
     const [selectedActor, setSelectedActor] = useState<SelectedActor | undefined>(undefined);
     const [userSearch, { data: userSearchData }] = useGetSearchResultsLazyQuery();
     const [groupSearch, { data: groupSearchData }] = useGetSearchResultsLazyQuery();
