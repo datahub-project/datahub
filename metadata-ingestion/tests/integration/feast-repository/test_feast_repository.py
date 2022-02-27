@@ -1,7 +1,6 @@
-from importlib.machinery import SourceFileLoader
+import sys
 
 import pytest
-from feast import FeatureStore
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
@@ -11,24 +10,10 @@ FROZEN_TIME = "2020-04-14 07:00:00"
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.integration
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="feast requires Python 3.7 or newer.")
 def test_feast_repository_ingest(pytestconfig, tmp_path, mock_time):
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/feast-repository/"
-    repository_path = test_resources_dir / "feature_store"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/feast-repository"
     output_path = tmp_path / "feast_repository_mces.json"
-
-    features = SourceFileLoader(
-        "features", str(repository_path / "features.py")
-    ).load_module()
-    feature_store = FeatureStore(repo_path=repository_path)
-
-    feature_store.apply(
-        [
-            features.driver_entity,
-            features.driver_hourly_stats_view,
-            features.transformed_conv_rate,
-        ]
-    )
 
     pipeline = Pipeline.create(
         {
@@ -36,7 +21,7 @@ def test_feast_repository_ingest(pytestconfig, tmp_path, mock_time):
             "source": {
                 "type": "feast-repository",
                 "config": {
-                    "path": str(repository_path),
+                    "path": str(test_resources_dir / "feature_store"),
                     "environment": "PROD",
                 },
             },
