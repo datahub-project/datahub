@@ -21,6 +21,8 @@ else:
         "The feast-repository plugin requires Python 3.7 or newer."
     )
 
+assert sys.version_info >= (3, 7)  # needed for mypy
+
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import DEFAULT_ENV
