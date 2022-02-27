@@ -173,8 +173,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "feature_store.driver_hourly_stats",
-                            "feast/feature_store.driver_hourly_stats"
+                            "/feast/feature_store/feature_store.driver_hourly_stats"
                         ]
                     }
                 },
@@ -287,8 +286,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "feature_store.transformed_conv_rate",
-                            "feast/feature_store.transformed_conv_rate"
+                            "/feast/feature_store/feature_store.transformed_conv_rate"
                         ]
                     }
                 },
