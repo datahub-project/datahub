@@ -266,9 +266,16 @@ base_dev_requirements = {
 }
 
 if is_py37_or_newer:
-    # The lookml plugin only works on Python 3.7 or newer.
+    # These plugins only work on Python 3.7 or newer.
     base_dev_requirements = base_dev_requirements.union(
-        {dependency for plugin in ["lookml"] for dependency in plugins[plugin]}
+        {
+            dependency
+            for plugin in [
+                "feast-repository",
+                "lookml",
+            ]
+            for dependency in plugins[plugin]
+        }
     )
 
 dev_requirements = {
@@ -291,12 +298,9 @@ full_test_dev_requirements = {
     *list(
         dependency
         for plugin in [
-            # Only include Athena for Python 3.7 or newer.
-            *(["athena"] if is_py37_or_newer else []),
             "clickhouse",
             "druid",
             "feast",
-            "feast-repository",
             "hive",
             "ldap",
             "mongodb",
@@ -310,6 +314,19 @@ full_test_dev_requirements = {
         for dependency in plugins[plugin]
     ),
 }
+
+if is_py37_or_newer:
+    # These plugins only work on Python 3.7 or newer.
+    full_test_dev_requirements = full_test_dev_requirements.union(
+        {
+            dependency
+            for plugin in [
+                "athena",
+                "feast-repository",
+            ]
+            for dependency in plugins[plugin]
+        }
+    )
 
 entry_points = {
     "console_scripts": ["datahub = datahub.entrypoints:main"],
