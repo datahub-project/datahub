@@ -17,7 +17,9 @@ if sys.version_info >= (3, 7):
     )
     from feast.data_source import DataSource, RequestDataSource
 else:
-    raise ModuleNotFoundError("The feast-repository plugin requires Python 3.7 or newer.")
+    raise ModuleNotFoundError(
+        "The feast-repository plugin requires Python 3.7 or newer."
+    )
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
