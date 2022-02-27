@@ -1,8 +1,9 @@
+from datetime import timedelta
+
 import pandas as pd
 from feast import Entity, Feature, FeatureView, FileSource, ValueType
 from feast.data_source import RequestDataSource
 from feast.on_demand_feature_view import on_demand_feature_view
-from google.protobuf.duration_pb2 import Duration
 
 driver_hourly_stats_source = FileSource(
     path="data/driver_stats_with_string.parquet",
@@ -17,7 +18,7 @@ driver_entity = Entity(
 driver_hourly_stats_view = FeatureView(
     name="driver_hourly_stats",
     entities=["driver_id"],
-    ttl=Duration(seconds=86400000),
+    ttl=timedelta(days=7),
     features=[
         Feature(
             name="conv_rate",
@@ -49,7 +50,7 @@ input_request = RequestDataSource(
 )
 
 
-@on_demand_feature_view(
+@on_demand_feature_view( # type: ignore
     inputs={
         "driver_hourly_stats": driver_hourly_stats_view,
         "vals_to_add": input_request,

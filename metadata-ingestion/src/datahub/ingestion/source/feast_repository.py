@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Dict, Iterable, List, Tuple, Union
 
 from feast import (
@@ -62,14 +63,18 @@ class FeastRepositorySourceConfig(ConfigModel):
     environment: str = DEFAULT_ENV
 
 
+@dataclass
 class FeastRepositorySource(Source):
     source_config: FeastRepositorySourceConfig
-    report: SourceReport = SourceReport()
+    report: SourceReport
+    feature_store: FeatureStore
 
     def __init__(self, config: FeastRepositorySourceConfig, ctx: PipelineContext):
         super().__init__(ctx)
 
         self.source_config = config
+        self.report = SourceReport()
+        self.feature_store = FeatureStore(self.source_config.path)
 
     def _get_field_type(self, field_type: str, parent_name: str) -> str:
         """
@@ -120,9 +125,7 @@ class FeastRepositorySource(Source):
 
         return platform, name
 
-    def _get_data_sources(
-        self, project: str, feature_view: Union[FeatureView, OnDemandFeatureView]
-    ) -> List[str]:
+    def _get_data_sources(self, feature_view: FeatureView) -> List[str]:
         """
         Get data source URN list.
         """
@@ -136,7 +139,7 @@ class FeastRepositorySource(Source):
             sources.append(
                 builder.make_dataset_urn(
                     batch_source_platform,
-                    f"{project}.{batch_source_name}",
+                    batch_source_name,
                     self.source_config.environment,
                 )
             )
@@ -148,7 +151,7 @@ class FeastRepositorySource(Source):
             sources.append(
                 builder.make_dataset_urn(
                     stream_source_platform,
-                    f"{project}.{stream_source_name}",
+                    stream_source_name,
                     self.source_config.environment,
                 )
             )
@@ -156,13 +159,13 @@ class FeastRepositorySource(Source):
         return sources
 
     def _get_entity_workunit(
-        self, project: str, feature_view: FeatureView, entity: Entity
+        self, feature_view: FeatureView, entity: Entity
     ) -> MetadataWorkUnit:
         """
         Generate an MLPrimaryKey work unit for a Feast entity.
         """
 
-        feature_view_name = f"{project}.{feature_view.name}"
+        feature_view_name = f"{self.feature_store.project}.{feature_view.name}"
 
         entity_snapshot = MLPrimaryKeySnapshot(
             urn=builder.make_ml_primary_key_urn(feature_view_name, entity.name),
@@ -173,7 +176,7 @@ class FeastRepositorySource(Source):
             MLPrimaryKeyPropertiesClass(
                 description=entity.description,
                 dataType=self._get_field_type(entity.value_type, entity.name),
-                sources=self._get_data_sources(project, feature_view),
+                sources=self._get_data_sources(feature_view),
             )
         )
 
@@ -183,7 +186,6 @@ class FeastRepositorySource(Source):
 
     def _get_feature_workunit(
         self,
-        project: str,
         feature_view: Union[FeatureView, OnDemandFeatureView],
         feature: Feature,
     ) -> MetadataWorkUnit:
@@ -191,7 +193,7 @@ class FeastRepositorySource(Source):
         Generate an MLFeature work unit for a Feast feature.
         """
 
-        feature_view_name = f"{project}.{feature_view.name}"
+        feature_view_name = f"{self.feature_store.project}.{feature_view.name}"
 
         feature_snapshot = MLFeatureSnapshot(
             urn=builder.make_ml_feature_urn(feature_view_name, feature.name),
@@ -201,7 +203,7 @@ class FeastRepositorySource(Source):
         feature_sources = []
 
         if isinstance(feature_view, FeatureView):
-            feature_sources = self._get_data_sources(project, feature_view)
+            feature_sources = self._get_data_sources(feature_view)
         elif isinstance(feature_view, OnDemandFeatureView):
             if feature_view.input_request_data_sources is not None:
                 for request_source in feature_view.input_request_data_sources.values():
@@ -212,16 +214,20 @@ class FeastRepositorySource(Source):
                     feature_sources.append(
                         builder.make_dataset_urn(
                             source_platform,
-                            f"{project}.{source_name}",
+                            source_name,
                             self.source_config.environment,
                         )
                     )
 
-            if feature_view.input_feature_views is not None:
-                for feature_view_source in feature_view.input_feature_views.values():
-                    feature_sources.extend(
-                        self._get_data_sources(project, feature_view_source)
+            if feature_view.input_feature_view_projections is not None:
+                for (
+                    feature_view_projection
+                ) in feature_view.input_feature_view_projections.values():
+                    feature_view_source = self.feature_store.get_feature_view(
+                        feature_view_projection.name
                     )
+
+                    feature_sources.extend(self._get_data_sources(feature_view_source))
 
         feature_snapshot.aspects.append(
             MLFeaturePropertiesClass(
@@ -235,14 +241,12 @@ class FeastRepositorySource(Source):
 
         return MetadataWorkUnit(id=feature.name, mce=mce)
 
-    def _get_feature_view_workunit(
-        self, project: str, feature_view: FeatureView
-    ) -> MetadataWorkUnit:
+    def _get_feature_view_workunit(self, feature_view: FeatureView) -> MetadataWorkUnit:
         """
         Generate an MLFeatureTable work unit for a Feast feature view.
         """
 
-        feature_view_name = f"{project}.{feature_view.name}"
+        feature_view_name = f"{self.feature_store.project}.{feature_view.name}"
 
         feature_view_snapshot = MLFeatureTableSnapshot(
             urn=builder.make_ml_feature_table_urn("feast", feature_view_name),
@@ -275,13 +279,15 @@ class FeastRepositorySource(Source):
         return MetadataWorkUnit(id=feature_view_name, mce=mce)
 
     def _get_on_demand_feature_view_workunit(
-        self, project: str, on_demand_feature_view: OnDemandFeatureView
+        self, on_demand_feature_view: OnDemandFeatureView
     ) -> MetadataWorkUnit:
         """
         Generate an MLFeatureTable work unit for a Feast on-demand feature view.
         """
 
-        on_demand_feature_view_name = f"{project}.{on_demand_feature_view.name}"
+        on_demand_feature_view_name = (
+            f"{self.feature_store.project}.{on_demand_feature_view.name}"
+        )
 
         on_demand_feature_view_snapshot = MLFeatureTableSnapshot(
             urn=builder.make_ml_feature_table_urn("feast", on_demand_feature_view_name),
@@ -319,50 +325,36 @@ class FeastRepositorySource(Source):
         return cls(config, ctx)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        feature_store = FeatureStore(self.source_config.path)
-
-        for feature_view in feature_store.list_feature_views():
+        for feature_view in self.feature_store.list_feature_views():
             for entity_name in feature_view.entities:
-                entity = feature_store.get_entity(entity_name)
-                work_unit = self._get_entity_workunit(
-                    feature_store.project, feature_view, entity
-                )
+                entity = self.feature_store.get_entity(entity_name)
 
+                work_unit = self._get_entity_workunit(feature_view, entity)
                 self.report.report_workunit(work_unit)
 
                 yield work_unit
 
             for feature in feature_view.features:
-                work_unit = self._get_feature_workunit(
-                    feature_store.project, feature_view, feature
-                )
-
+                work_unit = self._get_feature_workunit(feature_view, feature)
                 self.report.report_workunit(work_unit)
 
                 yield work_unit
 
-            work_unit = self._get_feature_view_workunit(
-                feature_store.project, feature_view
-            )
-
+            work_unit = self._get_feature_view_workunit(feature_view)
             self.report.report_workunit(work_unit)
 
             yield work_unit
 
-        for on_demand_feature_view in feature_store.list_on_demand_feature_views():
+        for on_demand_feature_view in self.feature_store.list_on_demand_feature_views():
             for feature in on_demand_feature_view.features:
-                work_unit = self._get_feature_workunit(
-                    feature_store.project, on_demand_feature_view, feature
-                )
-
+                work_unit = self._get_feature_workunit(on_demand_feature_view, feature)
                 self.report.report_workunit(work_unit)
 
                 yield work_unit
 
             work_unit = self._get_on_demand_feature_view_workunit(
-                feature_store.project, on_demand_feature_view
+                on_demand_feature_view
             )
-
             self.report.report_workunit(work_unit)
 
             yield work_unit
