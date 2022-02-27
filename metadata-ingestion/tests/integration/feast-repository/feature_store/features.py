@@ -50,7 +50,7 @@ input_request = RequestDataSource(
 )
 
 
-@on_demand_feature_view( # type: ignore
+@on_demand_feature_view(  # type: ignore
     inputs={
         "driver_hourly_stats": driver_hourly_stats_view,
         "vals_to_add": input_request,
