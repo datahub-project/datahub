@@ -1,19 +1,23 @@
+import sys
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Tuple, Union
 
-from feast import (
-    BigQuerySource,
-    Entity,
-    Feature,
-    FeatureStore,
-    FeatureView,
-    FileSource,
-    KafkaSource,
-    KinesisSource,
-    OnDemandFeatureView,
-    ValueType,
-)
-from feast.data_source import DataSource, RequestDataSource
+if sys.version_info >= (3, 7):
+    from feast import (
+        BigQuerySource,
+        Entity,
+        Feature,
+        FeatureStore,
+        FeatureView,
+        FileSource,
+        KafkaSource,
+        KinesisSource,
+        OnDemandFeatureView,
+        ValueType,
+    )
+    from feast.data_source import DataSource, RequestDataSource
+else:
+    raise ModuleNotFoundError("The feast-repository plugin requires Python 3.7 or newer.")
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
