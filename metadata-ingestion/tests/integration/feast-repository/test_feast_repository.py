@@ -11,7 +11,7 @@ FROZEN_TIME = "2020-04-14 07:00:00"
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.skipif(
-    sys.version_info < (3, 7), reason="feast requires Python 3.7 or newer."
+    sys.version_info < (3, 7), reason="feast requires Python 3.7 or newer"
 )
 def test_feast_repository_ingest(pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/feast-repository"
