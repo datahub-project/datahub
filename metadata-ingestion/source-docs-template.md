@@ -5,79 +5,84 @@
 ![Incubating](https://img.shields.io/badge/support%20status-incubating-blue)
 ![Testing](https://img.shields.io/badge/support%20status-testing-lightgrey)
 
-## Prerequisites
+## Integration Details
 
-In order to ingest metadata from [Source Name], you will need:
+<!-- Plain-language description of what this integration is meant to do.  -->
+<!-- Include details about where metadata is etracted from (ie. logs, source API, manifest, etc.)   -->
 
-* eg. Python version, source version, source access type
+### Concept Mapping
+
+<!-- This should be a manual mapping of concepts from the source to the DataHub Metadata Model -->
+<!-- Authors should provide as much context as possible about how this mapping was generated, including assumptions made, known shortcuts, & any other caveats -->
+
+This ingestion source maps the following Metadata Source Concepts to DataHub Concepts:
+
+| Source Concept | DataHub Concept | Notes |
+| -- | -- | -- |
+| eg. Project | eg. Container | eg. This is automatically extracted from the source |
+| eg. View | eg. Dataset | eg. This is modeled as a Dataset with a View subtype |
+| ... | | | 
+
+
+### Supported Capabilities
+
+<!-- This should be an auto-generated table of supported DataHub features/functionality -->
+<!-- Each capability should link out to a feature guide -->
+
+| Capability | Status | Notes |
+| -- | -- | -- |
+| Data Container | ✅ | Enabled by default |
+| Detect Deleted Entities | ✅ | Requires recipe configuration |
+| Data Domain | ❌ | Requires transformer |
+| Dataset Profiling | ✅ | Requires `acryl-datahub[source-usage]` |
+| Dataset Usage | ✅ | Requires `acryl-datahub[source-usage]` |
+| Extract Descriptions | ✅ | Enabled by default |
+| Extract Lineage | ✅ | Enabled by default |
+| Extract Ownership | ✅ | Enabled by default |
+| Extract Tags | ❌ | Requires transformer |
+| Partition Support | ❌ | Not applicable to source |
+| Platform Instance | ❌ | Not applicable to source |
 
 ## Quickstart
 
-### Setup
+### 1. Prerequisites
 
-To install this plugin, run `pip install 'acryl-datahub[bigquery]'.`
+In order to ingest metadata from [Source Name], you will need:
 
+* eg. Python version, source version, source access requirements
+* eg. Steps to configure source access
 
-### Recipe
+### 2. Install the Plugin
 
-Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
+run `pip install 'acryl-datahub[source_name]'`
 
-For general pointers on writing and running a recipe, see our [main recipe guide](../README.md#recipes).
+### 3. Create an Ingestion Recipe
+
+Use the following recipe to get started with ingestion! See [below](#recipe-configuartion-detials) for full configuration options.
+
+_For general pointers on writing and running a recipe, see our [main recipe guide](../README.md#recipes)._
 
 ```yml
 source:
-  type: bigquery
+  type: source_name
   config:
-    # Coordinates
-    project_id: my_project_id
+    # Required fields
+    option1: value1
 
 sink:
   # sink configs
 ```
 
-### Config Details
+#### Recipe Configuartion Details
 
 | Field | Required | Default | Description |
 | -- | -- | -- | -- |
 | `field1` | ✅ | `default_value` | A required field with a default value |
-| `field2` | | `default_value` | Not required filed with a default value |
-| `field3` | | | Not required filed without a default value |
+| `field2` | | `default_value` | An optional field with a default value |
+| `field3` | | | An optional field without a default value |
 
+### 4. Troubleshooting
 
-| Field                                  | Required                                                                  | Default                                                                 | Description                                                                                                                                                                                                                                                                             |
-|----------------------------------------|---------------------------------------------------------------------------|-------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `project_id`                           |                                                                           | Autodetected                                                            | Project ID to ingest from. If not specified, will infer from environment.                                                                                                                                                                                                               |
-| `env`                                  |                                                                           | `"PROD"`                                                                | Environment to use in namespace when constructing URNs.                                                                                                                                                                                                                                 |
-| `credential.project_id`                | Required if GOOGLE_APPLICATION_CREDENTIALS enviroment variable is not set |                                                                         |                                                                                                                                                                                                                                                                                         |
-| `credential.private_key_id`            | Required if GOOGLE_APPLICATION_CREDENTIALS enviroment variable is not set |                                                                         | Any options specified here will be passed to SQLAlchemy's `create_engine` as kwargs.<br />See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details.                                                                                                 |
-| `credential.private_key`               | Required if GOOGLE_APPLICATION_CREDENTIALS enviroment variable is not set |                                                                         | Any options specified here will be passed to SQLAlchemy's `create_engine` as kwargs.<br />See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details.                                                                                                 |
-| `credential.client_email`              | Required if GOOGLE_APPLICATION_CREDENTIALS enviroment variable is not set |                                                                         | Any options specified here will be passed to SQLAlchemy's `create_engine` as kwargs.<br />See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details.                                                                                                 |
-| `credential.client_id`                 | Required if GOOGLE_APPLICATION_CREDENTIALS enviroment variable is not set |                                                                         | Any options specified here will be passed to SQLAlchemy's `create_engine` as kwargs.<br />See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details.                                                                                                 |
-| `table_pattern.allow`                  |                                                                           |                                                                         | List of regex patterns for tables to include in ingestion.                                                                                                                                                                                                                              |
-| `table_pattern.deny`                   |                                                                           |                                                                         | List of regex patterns for tables to exclude from ingestion.                                                                                                                                                                                                                            |
-| `table_pattern.ignoreCase`             |                                                                           | `True`                                                                  | Whether to ignore case sensitivity during pattern matching.                                                                                                                                                                                                                             |
-| `schema_pattern.allow`                 |                                                                           |                                                                         | List of regex patterns for schemas to include in ingestion.                                                                                                                                                                                                                             |
-| `schema_pattern.deny`                  |                                                                           |                                                                         | List of regex patterns for schemas to exclude from ingestion.                                                                                                                                                                                                                           |
-| `schema_pattern.ignoreCase`            |                                                                           | `True`                                                                  | Whether to ignore case sensitivity during pattern matching.                                                                                                                                                                                                                             |
-| `view_pattern.allow`                   |                                                                           |                                                                         | List of regex patterns for views to include in ingestion.                                                                                                                                                                                                                               |
-| `view_pattern.deny`                    |                                                                           |                                                                         | List of regex patterns for views to exclude from ingestion.                                                                                                                                                                                                                             |
-| `view_pattern.ignoreCase`              |                                                                           | `True`                                                                  | Whether to ignore case sensitivity during pattern matching.                                                                                                                                                                                                                             |
-| `include_tables`                       |                                                                           | `True`                                                                  | Whether tables should be ingested.                                                                                                                                                                                                                                                      |
-| `include_views`                        |                                                                           | `True`                                                                  | Whether views should be ingested.                                                                                                                                                                                                                                                       |
-| `include_table_lineage`                |                                                                           | `True`                                                                  | Whether table level lineage should be ingested and processed.                                                                                                                                                                                                                           |
-| `max_query_duration`                   |                                                                           | `15`                                                                    | A time buffer in minutes to adjust start_time and end_time while querying Bigquery audit logs.                                                                                                                                                                                          |
-| `start_time`                           |                                                                           | Start of last full day in UTC (or hour, depending on `bucket_duration`) | Earliest time of lineage data to consider.                                                                                                                                                                                                                                              |
-| `end_time`                             |                                                                           | End of last full day in UTC (or hour, depending on `bucket_duration`)   | Latest time of lineage data to consider.                                                                                                                                                                                                                                                |
-| `extra_client_options`                 |                                                                           |                                                                         | Additional options to pass to `google.cloud.logging_v2.client.Client`.                                                                                                                                                                                                                  |
-| `use_exported_bigquery_audit_metadata` |                                                                           | `False`                                                                 | When configured, use `BigQueryAuditMetadata` in `bigquery_audit_metadata_datasets` to compute lineage information.                                                                                                                                                                      |
-| `use_date_sharded_audit_log_tables`    |                                                                           | `False`                                                                 | Whether to read date sharded tables or time partitioned tables when extracting lineage from exported audit logs.                                                                                                                                                                        |
-| `bigquery_audit_metadata_datasets`     |                                                                           | None                                                                    | A list of datasets that contain a table named `cloudaudit_googleapis_com_data_access` which contain BigQuery audit logs, specifically, those containing `BigQueryAuditMetadata`. It is recommended that the project of the dataset is also specified, for example, `projectA.datasetB`. |
-| `domain.domain_key.allow`              |                                                                           |                                                                         | List of regex patterns for tables/schemas to set domain_key domain key (domain_key can be any string like `sales`. There can be multiple domain key specified.                                                                                                                          |
-| `domain.domain_key.deny`               |                                                                           |                                                                         | List of regex patterns for tables/schemas to not assign domain_key. There can be multiple domain key specified.                                                                                                                                                                         |
-| `domain.domain_key.ignoreCase`         |                                                                           | `True`                                                                  | Whether to ignore case sensitivity during pattern matching.There can be multiple domain key specified.                                                                                                                                                                                  |
+### [Common Issue]
 
-
-
-
-
-
+[Provide description of common issues with this integration and steps to resolve]
