@@ -68,6 +68,9 @@ function list_markdown_files(): string[] {
     .toString()
     .trim()
     .split("\n");
+
+  console.log(all_generated_markdown_files);
+
   all_markdown_files = [...all_markdown_files, ...all_generated_markdown_files];
 
   if (!process.env.CI) {
@@ -102,6 +105,7 @@ function list_markdown_files(): string[] {
     /^docs\/rfc\/templates\/000-template\.md$/,
     /^docs\/docker\/README\.md/, // This one is just a pointer to another file.
     /^docs\/README\.md/, // This one is just a pointer to the hosted docs site.
+    /^\s*$/, //Empty string
   ];
 
   const markdown_files = all_markdown_files.filter((filepath) => {
@@ -111,7 +115,9 @@ function list_markdown_files(): string[] {
 }
 
 const markdown_files = list_markdown_files();
-// console.log(markdown_files);
+// for (let markdown_file of markdown_files) {
+//   console.log("markdown_file", markdown_file);
+// }
 
 function get_id(filepath: string): string {
   // Removes the file extension (e.g. md).
