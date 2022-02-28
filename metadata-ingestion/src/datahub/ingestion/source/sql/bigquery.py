@@ -321,7 +321,7 @@ class BigQuerySource(SQLAlchemySource):
                 )
 
     def _compute_bigquery_lineage_via_gcp_logging(
-        self, lineage_client_project_id
+        self, lineage_client_project_id: Optional[str]
     ) -> None:
         logger.info("Populating lineage info via GCP audit logs")
         try:
@@ -342,7 +342,7 @@ class BigQuerySource(SQLAlchemySource):
             )
 
     def _compute_bigquery_lineage_via_exported_bigquery_audit_metadata(
-        self, lineage_client_project_id
+        self, lineage_client_project_id: Optional[str]
     ) -> None:
         logger.info("Populating lineage info via exported GCP audit logs")
         try:
@@ -363,7 +363,7 @@ class BigQuerySource(SQLAlchemySource):
             )
 
     def _make_bigquery_client(
-        self, lineage_client_project_id
+        self, lineage_client_project_id: Optional[str]
     ) -> List[GCPLoggingClient]:
         # See https://github.com/googleapis/google-cloud-python/issues/2674 for
         # why we disable gRPC here.
