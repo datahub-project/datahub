@@ -29,6 +29,7 @@ current_terms: Optional[GlossaryTermsClass] = graph.get_aspect(
     entity_urn=dataset_urn,
     aspect="glossaryTerms",
     aspect_type=GlossaryTermsClass,
+    aspect_type_name=None,
 )
 
 term_to_add = make_term_urn("Classification.HighlyConfidential")

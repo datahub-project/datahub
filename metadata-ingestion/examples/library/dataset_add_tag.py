@@ -28,6 +28,7 @@ current_tags: Optional[GlobalTagsClass] = graph.get_aspect(
     entity_urn=dataset_urn,
     aspect="globalTags",
     aspect_type=GlobalTagsClass,
+    aspect_type_name=None,
 )
 
 tag_to_add = make_tag_urn("purchase")

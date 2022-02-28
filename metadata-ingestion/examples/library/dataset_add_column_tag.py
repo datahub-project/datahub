@@ -52,6 +52,7 @@ current_editable_schema_metadata = graph.get_aspect(
     entity_urn=dataset_urn,
     aspect="editableSchemaMetadata",
     aspect_type=EditableSchemaMetadataClass,
+    aspect_type_name=None,
 )
 
 

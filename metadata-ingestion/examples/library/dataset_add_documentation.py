@@ -44,6 +44,7 @@ current_editable_properties = graph.get_aspect(
     entity_urn=dataset_urn,
     aspect="editableDatasetProperties",
     aspect_type=EditableDatasetPropertiesClass,
+    aspect_type_name=None,
 )
 
 need_write = False
@@ -77,6 +78,7 @@ current_institutional_memory = graph.get_aspect(
     entity_urn=dataset_urn,
     aspect="institutionalMemory",
     aspect_type=InstitutionalMemoryClass,
+    aspect_type_name=None,
 )
 
 need_write = False

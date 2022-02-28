@@ -38,6 +38,7 @@ current_owners: Optional[OwnershipClass] = graph.get_aspect(
     entity_urn=dataset_urn,
     aspect="ownership",
     aspect_type=OwnershipClass,
+    aspect_type_name=None,
 )
 
 

@@ -94,8 +94,8 @@ class DataHubGraph(DatahubRestEmitter):
         self,
         entity_urn: str,
         aspect: str,
+        aspect_type_name: Optional[str],
         aspect_type: Type[Aspect],
-        aspect_type_name: Optional[str] = None,
     ) -> Optional[Aspect]:
         url = f"{self._gms_server}/aspects/{urllib.parse.quote(entity_urn)}?aspect={aspect}&version=0"
         response = self._session.get(url)
