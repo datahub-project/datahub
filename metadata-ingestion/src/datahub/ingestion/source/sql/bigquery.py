@@ -307,19 +307,27 @@ class BigQuerySource(SQLAlchemySource):
         if self.config.include_table_lineage:
             lineage_client_project_id = self._get_lineage_client_project_id()
             if self.config.use_exported_bigquery_audit_metadata:
-                self._compute_bigquery_lineage_via_exported_bigquery_audit_metadata(lineage_client_project_id)
+                self._compute_bigquery_lineage_via_exported_bigquery_audit_metadata(
+                    lineage_client_project_id
+                )
             else:
-                self._compute_bigquery_lineage_via_gcp_logging(lineage_client_project_id)
+                self._compute_bigquery_lineage_via_gcp_logging(
+                    lineage_client_project_id
+                )
 
             if self.lineage_metadata is not None:
                 logger.info(
                     f"Built lineage map containing {len(self.lineage_metadata)} entries."
                 )
 
-    def _compute_bigquery_lineage_via_gcp_logging(self, lineage_client_project_id) -> None:
+    def _compute_bigquery_lineage_via_gcp_logging(
+        self, lineage_client_project_id
+    ) -> None:
         logger.info("Populating lineage info via GCP audit logs")
         try:
-            _clients: List[GCPLoggingClient] = self._make_bigquery_client(lineage_client_project_id)
+            _clients: List[GCPLoggingClient] = self._make_bigquery_client(
+                lineage_client_project_id
+            )
             log_entries: Iterable[AuditLogEntry] = self._get_bigquery_log_entries(
                 _clients
             )
@@ -333,7 +341,9 @@ class BigQuerySource(SQLAlchemySource):
                 e,
             )
 
-    def _compute_bigquery_lineage_via_exported_bigquery_audit_metadata(self, lineage_client_project_id) -> None:
+    def _compute_bigquery_lineage_via_exported_bigquery_audit_metadata(
+        self, lineage_client_project_id
+    ) -> None:
         logger.info("Populating lineage info via exported GCP audit logs")
         try:
             _client: BigQueryClient = BigQueryClient(project=lineage_client_project_id)
@@ -352,13 +362,17 @@ class BigQuerySource(SQLAlchemySource):
                 e,
             )
 
-    def _make_bigquery_client(self, lineage_client_project_id) -> List[GCPLoggingClient]:
+    def _make_bigquery_client(
+        self, lineage_client_project_id
+    ) -> List[GCPLoggingClient]:
         # See https://github.com/googleapis/google-cloud-python/issues/2674 for
         # why we disable gRPC here.
         client_options = self.config.extra_client_options.copy()
         client_options["_use_grpc"] = False
         if lineage_client_project_id is not None:
-            return [GCPLoggingClient(**client_options, project=lineage_client_project_id)]
+            return [
+                GCPLoggingClient(**client_options, project=lineage_client_project_id)
+            ]
         else:
             return [GCPLoggingClient(**client_options)]
 
