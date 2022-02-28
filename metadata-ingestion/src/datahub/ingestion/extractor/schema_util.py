@@ -271,7 +271,7 @@ class AvroToMceSchemaConverter:
                 tags = None
                 if "deprecated" in merged_props:
                     description = (
-                        f"<span style=\"color:red\">DEPRECATED: {self._schema.other_props['deprecated']}</span>\n"
+                        f"<span style=\"color:red\">DEPRECATED: {merged_props['deprecated']}</span>\n"
                         + description
                     )
                     tags = GlobalTagsClass(
