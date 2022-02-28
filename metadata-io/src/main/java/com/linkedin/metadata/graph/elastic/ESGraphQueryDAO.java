@@ -26,7 +26,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -39,10 +38,8 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.action.search.SearchScrollRequest;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
@@ -154,7 +151,6 @@ public class ESGraphQueryDAO {
   public LineageResponse getLineage(@Nonnull Urn entityUrn, @Nonnull LineageDirection direction, int offset, int count,
       int maxHops) {
     LineageResponse response = cache.get(Triple.of(entityUrn, direction, maxHops), LineageResponse.class);
-//    LineageResponse response = null;
     if (response == null) {
       List<LineageRelationship> result = new ArrayList<>();
 
