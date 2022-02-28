@@ -24,7 +24,7 @@ type Props = {
     query: string;
 };
 
-const SEARCH_PAGE_SIZE_FOR_DOWNLOAD = 100;
+const SEARCH_PAGE_SIZE_FOR_DOWNLOAD = 1000;
 
 export default function DownloadAsCsvButton({ callSearchOnVariables, entityFilters, filters, query }: Props) {
     const { entityData: entitySearchIsEmbeddedWithin } = useEntityData();
