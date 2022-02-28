@@ -69,7 +69,6 @@ function list_markdown_files(): string[] {
     .trim()
     .split("\n");
 
-
   all_markdown_files = [...all_markdown_files, ...all_generated_markdown_files];
 
   if (!process.env.CI) {
@@ -456,11 +455,13 @@ custom_edit_url: https://github.com/linkedin/datahub/blob/master/docs-website/ge
       body = `View the [release notes](${release.html_url}) for ${release.name} on GitHub.`;
     }
 
-    const info = `## [${release.name}](${release.html_url
-      }) {#${make_link_anchor(release.tag_name)}}
+    const info = `## [${release.name}](${
+      release.html_url
+    }) {#${make_link_anchor(release.tag_name)}}
 
-Released on ${pretty_format_date(release.created_at)} by [@${release.author.login
-      }](${release.author.html_url}).
+Released on ${pretty_format_date(release.created_at)} by [@${
+      release.author.login
+    }](${release.author.html_url}).
 
 ${body}\n\n`;
 
