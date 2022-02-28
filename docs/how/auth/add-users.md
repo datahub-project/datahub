@@ -93,7 +93,7 @@ If you add a new username / password to the `user.props` file, no other informat
 about the user in DataHub (full name, email, bio, etc). This means that you will not be able to search to find the user.
 
 In order to add information about the user in DataHub, you can use our Python Emitter SDK to produce aspects for the CorpUser,
-where the URN will be computed as `urn:li:corpuser:<username>`, where <username> is the identifier defined in the user.props file.
+where the URN will be computed as `urn:li:corpuser:<username>`, where `<username>` is the identifier defined in the user.props file.
 
 For a more comprehensive overview of how users & groups are managed within DataHub, check out [this video](https://www.youtube.com/watch?v=8Osw6p9vDYY).
 
