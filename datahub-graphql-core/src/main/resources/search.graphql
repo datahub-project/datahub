@@ -202,7 +202,7 @@ type SearchResult {
 }
 
 """
-TODO(Gabe)
+Results returned by issueing a search across relationships query
 """
 type SearchAcrossRelationshipsResults {
     """
@@ -232,7 +232,7 @@ type SearchAcrossRelationshipsResults {
 }
 
 """
-TODO(Gabe)
+Individual search result from a search across relationships query (has added metadata about the path)
 """
 type SearchAcrossRelationshipsResult {
     """
@@ -254,6 +254,11 @@ type SearchAcrossRelationshipsResult {
     Optional list of entities between the source and destination node
     """
     path: [Entity]
+
+    """
+    Number of hops to get to entity
+    """
+    numHops: Int!
 }
 
 """

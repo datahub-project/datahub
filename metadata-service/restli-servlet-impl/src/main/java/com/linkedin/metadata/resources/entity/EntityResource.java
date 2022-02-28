@@ -262,7 +262,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     List<String> entityList = entities == null ? Collections.emptyList() : Arrays.asList(entities);
     log.info("GET SEARCH RESULTS ACROSS ENTITIES for {} with query {}", entityList, input);
     return RestliUtil.toTask(
-        () -> _searchService.searchAcrossEntities(entityList, input, filter, sortCriterion, start, count),
+        () -> _searchService.searchAcrossEntities(entityList, input, filter, sortCriterion, start, count, null),
         "searchAcrossEntities");
   }
 

@@ -11,6 +11,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilde
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
+import com.linkedin.metadata.search.utils.ESUtils;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
@@ -109,5 +110,10 @@ public class ElasticSearchService implements EntitySearchService {
   public List<String> getBrowsePaths(@Nonnull String entityName, @Nonnull Urn urn) {
     log.debug(String.format("Getting browse paths for entity entityName: %s, urn: %s", entityName, urn));
     return esBrowseDAO.getBrowsePaths(entityName, urn);
+  }
+
+  @Override
+  public int maxResultSize() {
+    return ESUtils.MAX_RESULT_SIZE;
   }
 }

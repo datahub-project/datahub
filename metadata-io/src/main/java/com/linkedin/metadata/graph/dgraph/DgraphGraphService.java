@@ -8,6 +8,7 @@ import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.LineageDirection;
+import com.linkedin.metadata.graph.LineageRegistry;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.graph.RelatedEntity;
 import com.linkedin.metadata.query.filter.Criterion;
@@ -48,6 +49,7 @@ public class DgraphGraphService implements GraphService {
     private static final int MAX_ATTEMPTS = 160;
 
     private final @Nonnull DgraphExecutor _dgraph;
+    private final @Nonnull LineageRegistry _lineageRegistry;
 
     private static final String URN_RELATIONSHIP_TYPE = "urn";
     private static final String TYPE_RELATIONSHIP_TYPE = "type";
@@ -58,7 +60,8 @@ public class DgraphGraphService implements GraphService {
     // we want to defer initialization of schema (accessing Dgraph server) to the first time accessing _schema
     private final DgraphSchema _schema = getSchema();
 
-    public DgraphGraphService(@Nonnull DgraphClient client) {
+    public DgraphGraphService(@Nonnull LineageRegistry lineageRegistry, @Nonnull DgraphClient client) {
+        _lineageRegistry = lineageRegistry;
         this._dgraph = new DgraphExecutor(client, MAX_ATTEMPTS);
     }
 
@@ -148,6 +151,11 @@ public class DgraphGraphService implements GraphService {
         }).filter(t -> !t.getKey().startsWith("dgraph.")).collect(Collectors.toMap(Pair::getKey, Pair::getValue));
 
         return new DgraphSchema(fieldNames, typeFields);
+    }
+
+    @Override
+    public LineageRegistry getLineageRegistry() {
+        return _lineageRegistry;
     }
 
     @Override
@@ -411,13 +419,6 @@ public class DgraphGraphService implements GraphService {
             total++;
         }
         return new RelatedEntitiesResult(offset, entities.size(), total, entities);
-    }
-
-    @Nonnull
-    @Override
-    public EntityLineageResult getLineage(@Nonnull Urn entityUrn, @Nonnull LineageDirection direction, int offset,
-        int count, int maxHops) {
-        throw new UnsupportedOperationException("getLineage not yet supported for neo4j");
     }
 
     // Creates filter conditions from destination to source nodes

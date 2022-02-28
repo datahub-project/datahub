@@ -12,4 +12,9 @@ record RelationshipSearchEntity includes SearchEntity {
    */
   path: array[Urn] = []
 
+  /**
+   * Number of hops to the entity
+   */
+  numHops: int = 1
+
 }

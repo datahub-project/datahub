@@ -2,7 +2,9 @@ package com.linkedin.metadata.graph.dgraph;
 
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.GraphServiceTestBase;
+import com.linkedin.metadata.graph.LineageRegistry;
 import com.linkedin.metadata.graph.RelatedEntity;
+import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import io.dgraph.DgraphClient;
 import io.dgraph.DgraphGrpc;
@@ -64,6 +66,7 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
 
     @BeforeMethod
     public void connect() {
+        LineageRegistry lineageRegistry = new LineageRegistry(SnapshotEntityRegistry.getInstance());
         _channel = ManagedChannelBuilder
                 .forAddress(_container.getHost(), _container.getGrpcPort())
                 .usePlaintext()
@@ -79,7 +82,7 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
         };
 
         DgraphGrpc.DgraphStub stub = DgraphGrpc.newStub(_channel).withInterceptors(timeoutInterceptor);
-        _service = new DgraphGraphService(new DgraphClient(stub));
+        _service = new DgraphGraphService(lineageRegistry, new DgraphClient(stub));
     }
 
     @AfterMethod

@@ -46,9 +46,13 @@ public class UrnSearchAcrossRelationshipsResultsMapper<T extends RecordTemplate,
   }
 
   private SearchAcrossRelationshipsResult mapResult(RelationshipSearchEntity searchEntity) {
-    return new SearchAcrossRelationshipsResult(UrnToEntityMapper.map(searchEntity.getEntity()),
-        getInsightsFromFeatures(searchEntity.getFeatures()), getMatchedFieldEntry(searchEntity.getMatchedFields()),
-        searchEntity.getPath().stream().map(UrnToEntityMapper::map).collect(Collectors.toList()));
+    return SearchAcrossRelationshipsResult.builder()
+        .setEntity(UrnToEntityMapper.map(searchEntity.getEntity()))
+        .setInsights(getInsightsFromFeatures(searchEntity.getFeatures()))
+        .setMatchedFields(getMatchedFieldEntry(searchEntity.getMatchedFields()))
+        .setPath(searchEntity.getPath().stream().map(UrnToEntityMapper::map).collect(Collectors.toList()))
+        .setNumHops(searchEntity.getNumHops())
+        .build();
   }
 
   private FacetMetadata mapFacet(com.linkedin.metadata.search.AggregationMetadata aggregationMetadata) {

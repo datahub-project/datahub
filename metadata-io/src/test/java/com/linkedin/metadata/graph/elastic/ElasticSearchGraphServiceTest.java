@@ -1,18 +1,14 @@
 package com.linkedin.metadata.graph.elastic;
 
 import com.linkedin.common.urn.Urn;
-
 import com.linkedin.metadata.ElasticSearchTestUtils;
+import com.linkedin.metadata.ElasticTestUtils;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.GraphServiceTestBase;
 import com.linkedin.metadata.graph.LineageRegistry;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.graph.RelatedEntity;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
-import com.linkedin.metadata.ElasticTestUtils;
-import com.linkedin.metadata.graph.elastic.ESGraphQueryDAO;
-import com.linkedin.metadata.graph.elastic.ESGraphWriteDAO;
-import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
@@ -65,12 +61,11 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
 
   @Nonnull
   private ElasticSearchGraphService buildService() {
-    ESGraphQueryDAO readDAO =
-        new ESGraphQueryDAO(_searchClient, new LineageRegistry(SnapshotEntityRegistry.getInstance()), _indexConvention,
-            cacheManager.getCache("test"));
+    LineageRegistry lineageRegistry = new LineageRegistry(SnapshotEntityRegistry.getInstance());
+    ESGraphQueryDAO readDAO = new ESGraphQueryDAO(_searchClient, lineageRegistry, _indexConvention);
     ESGraphWriteDAO writeDAO =
         new ESGraphWriteDAO(_searchClient, _indexConvention, ElasticSearchServiceTest.getBulkProcessor(_searchClient));
-    return new ElasticSearchGraphService(_searchClient, _indexConvention, writeDAO, readDAO,
+    return new ElasticSearchGraphService(lineageRegistry, _searchClient, _indexConvention, writeDAO, readDAO,
         ElasticSearchServiceTest.getIndexBuilder(_searchClient));
   }
 

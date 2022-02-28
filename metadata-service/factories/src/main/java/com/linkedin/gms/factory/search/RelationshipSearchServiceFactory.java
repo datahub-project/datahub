@@ -8,6 +8,7 @@ import com.linkedin.metadata.search.SearchService;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.cache.CacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -28,10 +29,14 @@ public class RelationshipSearchServiceFactory {
   @Qualifier("graphService")
   private GraphService graphService;
 
+  @Autowired
+  private CacheManager cacheManager;
+
   @Bean(name = "relationshipSearchService")
   @Primary
   @Nonnull
   protected RelationshipSearchService getInstance() {
-    return new RelationshipSearchService(searchService, graphService);
+    return new RelationshipSearchService(searchService, graphService,
+        cacheManager.getCache("relationshipSearchService"));
   }
 }
