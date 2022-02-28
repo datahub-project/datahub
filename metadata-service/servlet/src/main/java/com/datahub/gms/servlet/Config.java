@@ -3,6 +3,7 @@ package com.datahub.gms.servlet;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.PluginEntityRegistryLoader;
 import com.linkedin.metadata.models.registry.config.EntityRegistryLoadResult;
@@ -49,16 +50,23 @@ public class Config extends HttpServlet {
     return patchDiagnostics;
   }
 
-  private GitVersion getGitVersion(ServletContext servletContext) {
-    WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(servletContext);
+  private GitVersion getGitVersion(WebApplicationContext ctx) {
     return (GitVersion) ctx.getBean("gitVersion");
+  }
+
+  private boolean checkMultiHopSupport(WebApplicationContext ctx) {
+    return ((GraphService) ctx.getBean("graphService")).supportsMultiHop();
   }
 
   @Override
   protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
     config.put("noCode", "true");
 
-    GitVersion version = getGitVersion(req.getServletContext());
+    WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(req.getServletContext());
+
+    config.put("multiHop", checkMultiHopSupport(ctx));
+
+    GitVersion version = getGitVersion(ctx);
     Map<String, Object> versionConfig = new HashMap<>();
     versionConfig.put("linkedin/datahub", version.toConfig());
     config.put("versions", versionConfig);

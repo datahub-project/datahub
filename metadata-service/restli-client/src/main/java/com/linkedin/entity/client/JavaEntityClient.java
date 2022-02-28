@@ -270,7 +270,7 @@ public class JavaEntityClient implements EntityClient {
         int start,
         int count,
         @Nonnull final Authentication authentication) throws RemoteInvocationException {
-        return _searchService.searchAcrossEntities(entities, input, filter, null, start, count);
+        return _searchService.searchAcrossEntities(entities, input, filter, null, start, count, null);
     }
 
     @Nonnull

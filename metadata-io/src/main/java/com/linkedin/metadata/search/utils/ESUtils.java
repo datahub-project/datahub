@@ -27,6 +27,7 @@ public class ESUtils {
   private static final String DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD = "urn";
 
   public static final String KEYWORD_SUFFIX = ".keyword";
+  public static final int MAX_RESULT_SIZE = 10000;
 
   /*
    * Refer to https://www.elastic.co/guide/en/elasticsearch/reference/current/regexp-syntax.html for list of reserved

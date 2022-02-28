@@ -115,6 +115,11 @@
             },
             "doc" : "Optional list of entities between the source and destination node",
             "default" : [ ]
+          }, {
+            "name" : "numHops",
+            "type" : "int",
+            "doc" : "Number of hops to the entity",
+            "default" : 1
           } ]
         }
       },

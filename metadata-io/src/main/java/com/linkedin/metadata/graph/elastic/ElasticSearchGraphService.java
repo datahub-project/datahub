@@ -8,6 +8,7 @@ import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.LineageDirection;
+import com.linkedin.metadata.graph.LineageRegistry;
 import com.linkedin.metadata.graph.LineageRelationshipArray;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.graph.RelatedEntity;
@@ -50,7 +51,8 @@ import org.elasticsearch.index.reindex.DeleteByQueryRequest;
 @RequiredArgsConstructor
 public class ElasticSearchGraphService implements GraphService {
 
-  private final RestHighLevelClient searchClient;
+  private final LineageRegistry _lineageRegistry;
+  private final RestHighLevelClient _searchClient;
   private final IndexConvention _indexConvention;
   private final ESGraphWriteDAO _graphWriteDAO;
   private final ESGraphQueryDAO _graphReadDAO;
@@ -91,6 +93,11 @@ public class ElasticSearchGraphService implements GraphService {
       e.printStackTrace();
       return rawDocId;
     }
+  }
+
+  @Override
+  public LineageRegistry getLineageRegistry() {
+    return _lineageRegistry;
   }
 
   public void addEdge(@Nonnull final Edge edge) {
@@ -236,9 +243,14 @@ public class ElasticSearchGraphService implements GraphService {
     DeleteByQueryRequest deleteRequest =
         new DeleteByQueryRequest(_indexConvention.getIndexName(INDEX_NAME)).setQuery(QueryBuilders.matchAllQuery());
     try {
-      searchClient.deleteByQuery(deleteRequest, RequestOptions.DEFAULT);
+      _searchClient.deleteByQuery(deleteRequest, RequestOptions.DEFAULT);
     } catch (Exception e) {
       log.error("Failed to clear graph service: {}", e.toString());
     }
+  }
+
+  @Override
+  public boolean supportsMultiHop() {
+    return true;
   }
 }

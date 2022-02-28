@@ -3,7 +3,7 @@ package com.linkedin.metadata.graph.elastic;
 import com.codahale.metrics.Timer;
 import com.datahub.util.exception.ESQueryException;
 import com.google.common.collect.ImmutableList;
-import com.linkedin.common.UrnArray;
+import com.google.common.collect.Lists;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.LineageRegistry;
@@ -15,17 +15,19 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
+import com.linkedin.metadata.utils.ConcurrencyUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -36,19 +38,15 @@ import lombok.SneakyThrows;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.commons.lang3.tuple.Triple;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.action.search.SearchScrollRequest;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
-import org.springframework.cache.Cache;
 
 import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.INDEX_NAME;
 
@@ -63,9 +61,10 @@ public class ESGraphQueryDAO {
   private final RestHighLevelClient client;
   private final LineageRegistry lineageRegistry;
   private final IndexConvention indexConvention;
-  private final Cache cache;
 
   private static final int MAX_ELASTIC_RESULT = 10000;
+  private static final int BATCH_SIZE = 1000;
+  private static final int TIMEOUT_SECS = 10;
   private static final String SOURCE = "source";
   private static final String DESTINATION = "destination";
   private static final String RELATIONSHIP_TYPE = "relationshipType";
@@ -153,29 +152,35 @@ public class ESGraphQueryDAO {
   @WithSpan
   public LineageResponse getLineage(@Nonnull Urn entityUrn, @Nonnull LineageDirection direction, int offset, int count,
       int maxHops) {
-    LineageResponse response = cache.get(Triple.of(entityUrn, direction, maxHops), LineageResponse.class);
-//    LineageResponse response = null;
-    if (response == null) {
-      List<LineageRelationship> result = new ArrayList<>();
+    List<LineageRelationship> result = new ArrayList<>();
+    long currentTime = System.currentTimeMillis();
+    long remainingTime = TIMEOUT_SECS * 1000;
+    long timeoutTime = currentTime + remainingTime;
 
-      // Do a Level-order BFS
-      Map<Urn, List<Urn>> visitedEntitiesWithPath = new HashMap<>();
-      visitedEntitiesWithPath.put(entityUrn, Collections.emptyList());
-      List<Urn> currentLevel = ImmutableList.of(entityUrn);
+    // Do a Level-order BFS
+    Set<Urn> visitedEntities = ConcurrentHashMap.newKeySet();
+    visitedEntities.add(entityUrn);
+    List<Urn> currentLevel = ImmutableList.of(entityUrn);
 
-      for (int i = 0; i < maxHops; i++) {
-        if (currentLevel.isEmpty()) {
-          break;
-        }
-
-        List<LineageRelationship> oneHopRelationships =
-            getLineageRelationships(currentLevel, direction, visitedEntitiesWithPath);
-        result.addAll(oneHopRelationships);
-        currentLevel = oneHopRelationships.stream().map(LineageRelationship::getEntity).collect(Collectors.toList());
+    for (int i = 0; i < maxHops; i++) {
+      if (currentLevel.isEmpty()) {
+        break;
       }
-      response = new LineageResponse(result.size(), result);
-      cache.put(Triple.of(entityUrn, direction, maxHops), response);
+
+      if (remainingTime < 0) {
+        log.info("Timed out while fetching lineage for {} with direction {}, maxHops {}. Returning results so far",
+            entityUrn, direction, maxHops);
+        break;
+      }
+
+      List<LineageRelationship> oneHopRelationships =
+          getLineageRelationshipsInBatches(currentLevel, direction, visitedEntities, i + 1, remainingTime);
+      result.addAll(oneHopRelationships);
+      currentLevel = oneHopRelationships.stream().map(LineageRelationship::getEntity).collect(Collectors.toList());
+      currentTime = System.currentTimeMillis();
+      remainingTime = timeoutTime - currentTime;
     }
+    LineageResponse response = new LineageResponse(result.size(), result);
 
     List<LineageRelationship> subList;
     if (offset >= response.getTotal()) {
@@ -187,10 +192,24 @@ public class ESGraphQueryDAO {
     return new LineageResponse(response.getTotal(), subList);
   }
 
+  // Get 1-hop lineage relationships asynchronously in batches with timeout
+  @WithSpan
+  public List<LineageRelationship> getLineageRelationshipsInBatches(@Nonnull List<Urn> entityUrns,
+      @Nonnull LineageDirection direction, Set<Urn> visitedEntities, int numHops, long remainingTime) {
+    List<List<Urn>> batches = Lists.partition(entityUrns, BATCH_SIZE);
+    return ConcurrencyUtils.getAllCompleted(batches.stream()
+        .map(batchUrns -> CompletableFuture.supplyAsync(
+            () -> getLineageRelationships(batchUrns, direction, visitedEntities, numHops)))
+        .collect(Collectors.toList()), remainingTime, TimeUnit.MILLISECONDS)
+        .stream()
+        .flatMap(List::stream)
+        .collect(Collectors.toList());
+  }
+
   // Get 1-hop lineage relationships
   @WithSpan
   private List<LineageRelationship> getLineageRelationships(@Nonnull List<Urn> entityUrns,
-      @Nonnull LineageDirection direction, Map<Urn, List<Urn>> visitedEntitiesWithPath) {
+      @Nonnull LineageDirection direction, Set<Urn> visitedEntities, int numHops) {
     Map<String, List<Urn>> urnsPerEntityType = entityUrns.stream().collect(Collectors.groupingBy(Urn::getEntityType));
     Map<String, List<EdgeInfo>> edgesPerEntityType = urnsPerEntityType.keySet()
         .stream()
@@ -205,15 +224,15 @@ public class ESGraphQueryDAO {
         .stream()
         .flatMap(entry -> entry.getValue().stream().map(edgeInfo -> Pair.of(entry.getKey(), edgeInfo)))
         .collect(Collectors.toSet());
-    return extractRelationships(entityUrnSet, response, validEdges, visitedEntitiesWithPath);
+    return extractRelationships(entityUrnSet, response, validEdges, visitedEntities, numHops);
   }
 
   // Extract relationships from search response
   @SneakyThrows
   @WithSpan
   private List<LineageRelationship> extractRelationships(@Nonnull Set<Urn> entityUrns,
-      @Nonnull SearchResponse searchResponse, Set<Pair<String, EdgeInfo>> validEdges,
-      Map<Urn, List<Urn>> visitedEntitiesWithPath) {
+      @Nonnull SearchResponse searchResponse, Set<Pair<String, EdgeInfo>> validEdges, Set<Urn> visitedEntities,
+      int numHops) {
     List<LineageRelationship> result = new LinkedList<>();
     for (SearchHit hit : searchResponse.getHits().getHits()) {
       Map<String, Object> document = hit.getSourceAsMap();
@@ -224,27 +243,23 @@ public class ESGraphQueryDAO {
 
       // Potential outgoing edge
       if (entityUrns.contains(sourceUrn)) {
-        List<Urn> pathSoFar = visitedEntitiesWithPath.get(sourceUrn);
         // Skip if already visited
         // Skip if edge is not a valid outgoing edge
-        if (!visitedEntitiesWithPath.containsKey(destinationUrn) && validEdges.contains(
+        if (!visitedEntities.contains(destinationUrn) && validEdges.contains(
             Pair.of(sourceUrn.getEntityType(), new EdgeInfo(type, RelationshipDirection.OUTGOING)))) {
-          visitedEntitiesWithPath.put(destinationUrn,
-              ImmutableList.<Urn>builder().addAll(pathSoFar).add(destinationUrn).build());
-          result.add(
-              new LineageRelationship().setType(type).setEntity(destinationUrn).setPath(new UrnArray(pathSoFar)));
+          visitedEntities.add(destinationUrn);
+          result.add(new LineageRelationship().setType(type).setEntity(destinationUrn).setNumHops(numHops));
         }
       }
 
       // Potential incoming edge
       if (entityUrns.contains(destinationUrn)) {
-        List<Urn> pathSoFar = visitedEntitiesWithPath.get(destinationUrn);
         // Skip if already visited
         // Skip if edge is not a valid outgoing edge
-        if (!visitedEntitiesWithPath.containsKey(sourceUrn) && validEdges.contains(
+        if (!visitedEntities.contains(sourceUrn) && validEdges.contains(
             Pair.of(destinationUrn.getEntityType(), new EdgeInfo(type, RelationshipDirection.INCOMING)))) {
-          visitedEntitiesWithPath.put(sourceUrn, ImmutableList.<Urn>builder().addAll(pathSoFar).add(sourceUrn).build());
-          result.add(new LineageRelationship().setType(type).setEntity(sourceUrn).setPath(new UrnArray(pathSoFar)));
+          visitedEntities.add(sourceUrn);
+          result.add(new LineageRelationship().setType(type).setEntity(sourceUrn).setNumHops(numHops));
         }
       }
     }
@@ -258,6 +273,7 @@ public class ESGraphQueryDAO {
     }
     Map<RelationshipDirection, List<EdgeInfo>> edgesByDirection =
         lineageEdges.stream().collect(Collectors.groupingBy(EdgeInfo::getDirection));
+
     List<EdgeInfo> outgoingEdges =
         edgesByDirection.getOrDefault(RelationshipDirection.OUTGOING, Collections.emptyList());
     if (!outgoingEdges.isEmpty()) {

@@ -29,6 +29,8 @@ import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.client.core.CountRequest;
 
+import static com.linkedin.metadata.search.utils.SearchUtils.EMPTY_SEARCH_RESULT;
+
 
 /**
  * A search DAO for Elasticsearch backend.
@@ -37,12 +39,6 @@ import org.elasticsearch.client.core.CountRequest;
 @RequiredArgsConstructor
 public class ESSearchDAO {
 
-  private static final SearchResult EMPTY_SEARCH_RESULT = new SearchResult().setEntities(new SearchEntityArray(
-      Collections.emptyList()))
-      .setMetadata(new SearchResultMetadata())
-      .setFrom(0)
-      .setPageSize(0)
-      .setNumEntities(0);
   private final EntityRegistry entityRegistry;
   private final RestHighLevelClient client;
   private final IndexConvention indexConvention;

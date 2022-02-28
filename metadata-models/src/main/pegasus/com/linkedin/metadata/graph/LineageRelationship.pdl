@@ -21,4 +21,9 @@ record LineageRelationship {
    * Optional list of entities between the source and destination node
    */
   path: array[Urn] = []
+
+  /**
+   * Number of hops to the entity
+   */
+  numHops: int = 1
 }
