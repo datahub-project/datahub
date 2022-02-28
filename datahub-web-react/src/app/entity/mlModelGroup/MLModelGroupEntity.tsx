@@ -1,11 +1,11 @@
 import * as React from 'react';
 import { CodeSandboxOutlined } from '@ant-design/icons';
-import { MlModelGroup, EntityType, SearchResult, RelationshipDirection } from '../../../types.generated';
+import { MlModelGroup, EntityType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { MLModelGroupProfile } from './profile/MLModelGroupProfile';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { getChildrenFromRelationships } from '../../lineage/utils/getChildren';
+import { EntityAndType } from '../../lineage/types';
 
 /**
  * Definition of the DataHub MlModelGroup entity.

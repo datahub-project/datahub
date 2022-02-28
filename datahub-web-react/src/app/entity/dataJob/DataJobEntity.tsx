@@ -1,9 +1,8 @@
 import * as React from 'react';
 import { ConsoleSqlOutlined } from '@ant-design/icons';
-import { DataJob, EntityType, PlatformType, RelationshipDirection, SearchResult } from '../../../types.generated';
+import { DataJob, EntityType, PlatformType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
-import { getChildrenFromRelationships } from '../../lineage/utils/getChildren';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { GetDataJobQuery, useGetDataJobQuery, useUpdateDataJobMutation } from '../../../graphql/dataJob.generated';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
@@ -17,6 +16,7 @@ import { DataJobFlowTab } from '../shared/tabs/Entity/DataJobFlowTab';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { capitalizeFirstLetter } from '../../shared/textUtil';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { EntityAndType } from '../../lineage/types';
 
 /**
  * Definition of the DataHub DataJob entity.
