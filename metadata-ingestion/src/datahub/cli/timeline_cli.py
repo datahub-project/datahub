@@ -193,7 +193,9 @@ def timeline(
                 datetime.fromtimestamp(change_txn["timestamp"] // 1000)
             )
             change_color = (
-                "green" if change_txn.get("semVerChange") == "MINOR" or change_txn.get("semVerChange") == "PATCH"
+                "green"
+                if change_txn.get("semVerChange") == "MINOR"
+                or change_txn.get("semVerChange") == "PATCH"
                 else "red"
             )
             print(
