@@ -15,6 +15,7 @@ from datahub.cli.ingest_cli import ingest
 from datahub.cli.migrate import migrate
 from datahub.cli.put_cli import put
 from datahub.cli.telemetry import telemetry as telemetry_cli
+from datahub.cli.timeline_cli import timeline
 from datahub.configuration import SensitiveError
 from datahub.telemetry import telemetry
 
@@ -97,6 +98,7 @@ datahub.add_command(get)
 datahub.add_command(put)
 datahub.add_command(telemetry_cli)
 datahub.add_command(migrate)
+datahub.add_command(timeline)
 
 
 def main(**kwargs):

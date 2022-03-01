@@ -8,7 +8,7 @@ import { SidebarHeader } from '../SidebarHeader';
 import { AddOwnerModal } from './AddOwnerModal';
 
 export const SidebarOwnerSection = () => {
-    const { urn, entityData } = useEntityData();
+    const { urn, entityData, entityType } = useEntityData();
     const refetch = useRefetch();
     const [showAddModal, setShowAddModal] = useState(false);
     const ownersEmpty = !entityData?.ownership?.owners?.length;
@@ -36,6 +36,8 @@ export const SidebarOwnerSection = () => {
                 onClose={() => {
                     setShowAddModal(false);
                 }}
+                urn={urn}
+                entityType={entityType}
             />
         </div>
     );
