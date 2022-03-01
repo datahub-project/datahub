@@ -12,7 +12,8 @@ function downloadFile(data: string, title: string) {
 function createCsvContents(fieldNames: string[], rows: string[][]): string {
     let contents = `${fieldNames.join(',')}\n`;
     rows.forEach((row) => {
-        contents = contents.concat(`${row.map((rowEl) => `"${rowEl}"`).join(',')}\n`);
+        // quotes need to be escaped for csvs -> " becomes ""
+        contents = contents.concat(`${row.map((rowEl) => `"${rowEl.replace(/"/g, '""')}"`).join(',')}\n`);
     });
 
     return contents;
