@@ -1,6 +1,6 @@
 import hashlib
 import json
-from typing import Any, Iterable, List, Optional, TypeVar, Union
+from typing import Any, Iterable, List, Optional, TypeVar, Union, Dict
 
 from pydantic.class_validators import root_validator
 from pydantic.fields import Field
@@ -38,7 +38,7 @@ class PlatformKey(DatahubKey):
     environment: Optional[str] = None
 
     @root_validator(pre=True)
-    def check_instance_environment(cls, values):
+    def check_instance_environment(cls, values: Dict[str, Any]):
         assert (
             values.get("instance") is not None or values.get("environment") is not None
         ), "either instance or environment needs to be specified for platform key"
