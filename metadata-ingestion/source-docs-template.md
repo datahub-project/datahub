@@ -8,14 +8,14 @@
 ## Integration Details
 
 <!-- Plain-language description of what this integration is meant to do.  -->
-<!-- Include details about where metadata is etracted from (ie. logs, source API, manifest, etc.)   -->
+<!-- Include details about where metadata is extracted from (ie. logs, source API, manifest, etc.)   -->
 
 ### Concept Mapping
 
 <!-- This should be a manual mapping of concepts from the source to the DataHub Metadata Model -->
 <!-- Authors should provide as much context as possible about how this mapping was generated, including assumptions made, known shortcuts, & any other caveats -->
 
-This ingestion source maps the following Metadata Source Concepts to DataHub Concepts:
+This ingestion source maps the following Source System Concepts to DataHub Concepts:
 
 | Source Concept | DataHub Concept | Notes |
 | -- | -- | -- |
