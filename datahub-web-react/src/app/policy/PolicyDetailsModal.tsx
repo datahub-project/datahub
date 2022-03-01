@@ -11,6 +11,7 @@ type Props = {
     policy: any;
     visible: boolean;
     onClose: () => void;
+    privileges: any;
 };
 
 const PolicyContainer = styled.div`
@@ -44,8 +45,7 @@ const PoliciesTag = styled(Tag)`
  *
  * TODO: Use the "display names" when rendering privileges, instead of raw privilege type.
  */
-export default function PolicyDetailsModal({ policy, visible, onClose }: Props) {
-    console.log('policy', policy);
+export default function PolicyDetailsModal({ policy, visible, onClose, privileges }: Props) {
     const entityRegistry = useEntityRegistry();
 
     const isActive = policy?.state === PolicyState.Active;
@@ -109,8 +109,8 @@ export default function PolicyDetailsModal({ policy, visible, onClose }: Props) 
                 <div>
                     <Typography.Title level={5}>Privileges</Typography.Title>
                     <ThinDivider />
-                    {policy?.privileges?.map((priv) => (
-                        <PoliciesTag>{priv}</PoliciesTag>
+                    {privileges?.map((priv) => (
+                        <PoliciesTag>{priv.name}</PoliciesTag>
                     ))}
                 </div>
                 <div>

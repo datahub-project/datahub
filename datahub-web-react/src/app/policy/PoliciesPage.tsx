@@ -5,8 +5,8 @@ import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 
 import { SearchablePage } from '../search/SearchablePage';
 import PolicyBuilderModal from './PolicyBuilderModal';
-import { Policy, PolicyUpdateInput, PolicyState, EntityType } from '../../types.generated';
-
+import { Policy, PolicyUpdateInput, PolicyState, EntityType, PolicyType, Maybe } from '../../types.generated';
+import { useAppConfig } from '../useAppConfig';
 import PolicyDetailsModal from './PolicyDetailsModal';
 import {
     useCreatePolicyMutation,
@@ -69,6 +69,11 @@ const ActorTag = styled(Tag)`
 `;
 const DEFAULT_PAGE_SIZE = 10;
 
+type PrivilegeOptionType = {
+    type?: string;
+    name?: Maybe<string>;
+};
+
 const toPolicyInput = (policy: Omit<Policy, 'urn'>): PolicyUpdateInput => {
     let policyInput: PolicyUpdateInput = {
         type: policy.type,
@@ -101,6 +106,9 @@ const toPolicyInput = (policy: Omit<Policy, 'urn'>): PolicyUpdateInput => {
 // TODO: Cleanup the styling.
 export const PoliciesPage = () => {
     const entityRegistry = useEntityRegistry();
+    const {
+        config: { policiesConfig },
+    } = useAppConfig();
 
     // Policy list paging.
     const [page, setPage] = useState(1);
@@ -114,6 +122,11 @@ export const PoliciesPage = () => {
     // Focused policy represents a policy being actively viewed, edited, created via a popup modal.
     const [focusPolicyUrn, setFocusPolicyUrn] = useState<undefined | string>(undefined);
     const [focusPolicy, setFocusPolicy] = useState<Omit<Policy, 'urn'>>(EMPTY_POLICY);
+
+    // Construct privilege
+    const [privileges, setPrivileges] = useState<PrivilegeOptionType[] | undefined>([]);
+    const platformPrivileges = policiesConfig?.platformPrivileges || [];
+    const resourcePrivileges = policiesConfig?.resourcePrivileges || [];
 
     const {
         loading: policiesLoading,
@@ -160,10 +173,31 @@ export const PoliciesPage = () => {
         setShowPolicyBuilderModal(false);
     };
 
+    const getPrivileges = (policy: Policy) => {
+        let privilegeOptions: PrivilegeOptionType[] = [];
+        if (policy?.type === PolicyType.Platform) {
+            privilegeOptions = platformPrivileges.map((platformPrivilege) => {
+                return { type: platformPrivilege.type, name: platformPrivilege.displayName };
+            });
+            setPrivileges(privilegeOptions);
+        } else {
+            const privilegeData = resourcePrivileges.filter(
+                (resourcePrivilege) => resourcePrivilege.resourceType === policy?.resources?.type,
+            );
+            privilegeOptions =
+                privilegeData &&
+                privilegeData[0]?.privileges.map((b) => {
+                    return { type: b.type, name: b.displayName };
+                });
+            setPrivileges(privilegeOptions);
+        }
+    };
+
     const onViewPolicy = (policy: Policy) => {
         setShowViewPolicyModal(true);
         setFocusPolicyUrn(policy.urn);
         setFocusPolicy({ ...policy });
+        getPrivileges(policy);
     };
 
     const onCancelViewPolicy = () => {
@@ -399,7 +433,12 @@ export const PoliciesPage = () => {
                 />
             )}
             {showViewPolicyModal && (
-                <PolicyDetailsModal policy={focusPolicy} visible={showViewPolicyModal} onClose={onCancelViewPolicy} />
+                <PolicyDetailsModal
+                    policy={focusPolicy}
+                    visible={showViewPolicyModal}
+                    onClose={onCancelViewPolicy}
+                    privileges={privileges}
+                />
             )}
         </SearchablePage>
     );
