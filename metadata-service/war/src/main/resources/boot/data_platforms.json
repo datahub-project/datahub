@@ -385,5 +385,15 @@
       "type": "OTHERS",
       "logoUrl": "/assets/platforms/elasticsearchlogo.png"
     }
+  },
+  {
+    "urn": "urn:li:dataPlatform:powerbi",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "powerbi",
+      "displayName": "Power BI",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/powerbilogo.png"
+    }
   }
 ]
