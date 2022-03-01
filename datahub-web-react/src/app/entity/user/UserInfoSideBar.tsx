@@ -1,14 +1,10 @@
-import { Divider, message, Space, Button, Tag, Typography } from 'antd';
+import { Divider, message, Space, Button, Typography } from 'antd';
 import React, { useState } from 'react';
 import { EditOutlined, MailOutlined, PhoneOutlined, SlackOutlined } from '@ant-design/icons';
-import { Link } from 'react-router-dom';
 import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
-import { EntityType } from '../../../types.generated';
-
+import { EntityRelationshipsResult } from '../../../types.generated';
 import UserEditProfileModal from './UserEditProfileModal';
-import { ExtendedEntityRelationshipsResult } from './type';
 import CustomAvatar from '../../shared/avatar/CustomAvatar';
-import { useEntityRegistry } from '../../useEntityRegistry';
 import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
 import {
     SideBar,
@@ -19,13 +15,11 @@ import {
     AboutSection,
     AboutSectionText,
     GroupsSection,
-    TagsSection,
-    Tags,
-    GroupsSeeMoreText,
     Name,
     Role,
     Team,
 } from '../shared/SidebarStyledComponents';
+import EntityGroups from '../shared/EntityGroups';
 
 const { Paragraph } = Typography;
 
@@ -39,7 +33,7 @@ type SideBarData = {
     slack: string | undefined;
     phone: string | undefined;
     aboutText: string | undefined;
-    groupsDetails: ExtendedEntityRelationshipsResult;
+    groupsDetails: EntityRelationshipsResult;
     urn: string | undefined;
 };
 
@@ -51,13 +45,12 @@ type Props = {
 const AVATAR_STYLE = { marginTop: '14px' };
 
 /**
- * Responsible for reading & writing users.
+ * UserInfoSideBar- Sidebar section for users profiles.
  */
 export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
     const { name, aboutText, avatarName, email, groupsDetails, phone, photoUrl, role, slack, team, urn } = sideBarData;
 
     const [updateCorpUserPropertiesMutation] = useUpdateCorpUserPropertiesMutation();
-    const entityRegistry = useEntityRegistry();
 
     const [groupSectionExpanded, setGroupSectionExpanded] = useState(false);
     const [editProfileModal, showEditProfileModal] = useState(false);
@@ -140,39 +133,11 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
                     <Divider className="divider-groupsSection" />
                     <GroupsSection>
                         Groups
-                        <TagsSection>
-                            {groupsDetails?.relationships.length === 0 && <EmptyValue />}
-                            {!groupSectionExpanded &&
-                                groupsDetails?.relationships.slice(0, 2).map((item) => {
-                                    return (
-                                        <Link to={entityRegistry.getEntityUrl(EntityType.CorpGroup, item.entity.urn)}>
-                                            <Tags>
-                                                <Tag>
-                                                    {entityRegistry.getDisplayName(EntityType.CorpGroup, item.entity)}
-                                                </Tag>
-                                            </Tags>
-                                        </Link>
-                                    );
-                                })}
-                            {groupSectionExpanded &&
-                                groupsDetails?.relationships.length > 2 &&
-                                groupsDetails?.relationships.map((item) => {
-                                    return (
-                                        <Link to={entityRegistry.getEntityUrl(EntityType.CorpGroup, item.entity.urn)}>
-                                            <Tags>
-                                                <Tag>
-                                                    {entityRegistry.getDisplayName(EntityType.CorpGroup, item.entity)}
-                                                </Tag>
-                                            </Tags>
-                                        </Link>
-                                    );
-                                })}
-                            {!groupSectionExpanded && groupsDetails?.relationships.length > 2 && (
-                                <GroupsSeeMoreText onClick={() => setGroupSectionExpanded(!groupSectionExpanded)}>
-                                    {`+${groupsDetails?.relationships.length - 2} more`}
-                                </GroupsSeeMoreText>
-                            )}
-                        </TagsSection>
+                        <EntityGroups
+                            readMore={groupSectionExpanded}
+                            setReadMore={() => setGroupSectionExpanded(!groupSectionExpanded)}
+                            groupMemberRelationships={groupsDetails}
+                        />
                     </GroupsSection>
                 </SideBarSubSection>
                 {isProfileOwner && (

@@ -158,8 +158,9 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                             {!groupSectionExpanded &&
                                 groupMemberRelationships?.relationships.slice(0, 2).map((item) => {
                                     const user = item.entity as CorpUser;
+                                    const entityUrn = entityRegistry.getEntityUrl(EntityType.CorpUser, item.entity.urn);
                                     return (
-                                        <Link to={entityRegistry.getEntityUrl(EntityType.CorpUser, item.entity.urn)}>
+                                        <Link to={entityUrn} key={entityUrn}>
                                             <Tags>
                                                 <Tag>
                                                     <CustomAvatar
@@ -182,8 +183,9 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                                 groupMemberRelationships?.relationships.length > 2 &&
                                 groupMemberRelationships?.relationships.map((item) => {
                                     const user = item.entity as CorpUser;
+                                    const entityUrn = entityRegistry.getEntityUrl(EntityType.CorpUser, item.entity.urn);
                                     return (
-                                        <Link to={entityRegistry.getEntityUrl(EntityType.CorpUser, item.entity.urn)}>
+                                        <Link to={entityUrn} key={entityUrn}>
                                             <Tags>
                                                 <Tag>
                                                     <CustomAvatar

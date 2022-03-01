@@ -175,36 +175,35 @@ export default function GroupMembers({ urn, initialRelationships, pageSize }: Pr
                 </AddMember>
             </Row>
             <GroupMemberWrapper>
-                <Row className="groupMemberRow" align="middle">
-                    {groupMembers &&
-                        groupMembers.map((item) => {
-                            return (
-                                <>
-                                    <MemberColumn xl={23} lg={23} md={23} sm={23} xs={23}>
-                                        <Link to={entityRegistry.getEntityUrl(EntityType.CorpUser, item.urn)}>
-                                            <MemberNameSection>
-                                                <CustomAvatar
-                                                    useDefaultAvatar={false}
-                                                    size={28}
-                                                    photoUrl={item.editableProperties?.pictureLink || ''}
-                                                    name={entityRegistry.getDisplayName(EntityType.CorpUser, item)}
-                                                    style={AVATAR_STYLE}
-                                                />
-                                                <Name>{entityRegistry.getDisplayName(EntityType.CorpUser, item)}</Name>
-                                            </MemberNameSection>
-                                        </Link>
-                                    </MemberColumn>
-                                    <MemberColumn xl={1} lg={1} md={1} sm={1} xs={1}>
-                                        <MemberEditIcon>
-                                            <Dropdown overlay={menu(item.urn)}>
-                                                <MoreOutlined />
-                                            </Dropdown>
-                                        </MemberEditIcon>
-                                    </MemberColumn>
-                                </>
-                            );
-                        })}
-                </Row>
+                {groupMembers &&
+                    groupMembers.map((item) => {
+                        const entityUrn = entityRegistry.getEntityUrl(EntityType.CorpUser, item.urn);
+                        return (
+                            <Row className="groupMemberRow" align="middle" key={entityUrn}>
+                                <MemberColumn xl={23} lg={23} md={23} sm={23} xs={23}>
+                                    <Link to={entityUrn}>
+                                        <MemberNameSection>
+                                            <CustomAvatar
+                                                useDefaultAvatar={false}
+                                                size={28}
+                                                photoUrl={item.editableProperties?.pictureLink || ''}
+                                                name={entityRegistry.getDisplayName(EntityType.CorpUser, item)}
+                                                style={AVATAR_STYLE}
+                                            />
+                                            <Name>{entityRegistry.getDisplayName(EntityType.CorpUser, item)}</Name>
+                                        </MemberNameSection>
+                                    </Link>
+                                </MemberColumn>
+                                <MemberColumn xl={1} lg={1} md={1} sm={1} xs={1}>
+                                    <MemberEditIcon>
+                                        <Dropdown overlay={menu(item.urn)}>
+                                            <MoreOutlined />
+                                        </Dropdown>
+                                    </MemberEditIcon>
+                                </MemberColumn>
+                            </Row>
+                        );
+                    })}
             </GroupMemberWrapper>
             <Row justify="center" style={{ marginTop: '15px' }}>
                 <Pagination
