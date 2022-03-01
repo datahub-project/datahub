@@ -10,8 +10,6 @@ import com.linkedin.metadata.query.filter.DisjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.FilterValueArray;
-import com.linkedin.metadata.search.RelationshipSearchEntityArray;
-import com.linkedin.metadata.search.RelationshipSearchResult;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;

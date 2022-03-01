@@ -10,6 +10,10 @@ import java.util.Set;
 
 
 public class FilterUtils {
+
+  private FilterUtils() {
+  }
+
   private static final List<String> FILTER_RANKING =
       ImmutableList.of("entity", "typeNames", "platform", "domains", "tags", "glossaryTerms", "container", "owners",
           "origin");

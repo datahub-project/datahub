@@ -3,9 +3,12 @@ package com.linkedin.metadata.graph.elastic;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.ElasticSearchTestUtils;
 import com.linkedin.metadata.ElasticTestUtils;
+import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.GraphServiceTestBase;
+import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.LineageRegistry;
+import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.graph.RelatedEntity;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
@@ -18,10 +21,12 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.springframework.cache.CacheManager;
-import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
 import org.testng.SkipException;
 import org.testng.annotations.AfterTest;
@@ -32,6 +37,7 @@ import org.testng.annotations.Test;
 import static com.linkedin.metadata.DockerTestUtils.checkContainerEngine;
 import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.INDEX_NAME;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 
 public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
@@ -41,7 +47,6 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
   private final IndexConvention _indexConvention = new IndexConventionImpl(null);
   private final String _indexName = _indexConvention.getIndexName(INDEX_NAME);
   private ElasticSearchGraphService _client;
-  private CacheManager cacheManager = new ConcurrentMapCacheManager();
 
   @BeforeTest
   public void setup() {
@@ -202,5 +207,55 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
   public void testConcurrentRemoveNodes() {
     // https://github.com/linkedin/datahub/issues/3118
     throw new SkipException("ElasticSearchGraphService produces duplicates");
+  }
+
+  @Test
+  public void testPopulatedGraphServiceGetLineageMultihop() throws Exception {
+    GraphService service = getLineagePopulatedGraphService();
+
+    EntityLineageResult upstreamLineage = service.getLineage(datasetOneUrn, LineageDirection.UPSTREAM, 0, 1000, 2);
+    assertEquals(upstreamLineage.getTotal().intValue(), 0);
+    assertEquals(upstreamLineage.getRelationships().size(), 0);
+
+    EntityLineageResult downstreamLineage = service.getLineage(datasetOneUrn, LineageDirection.DOWNSTREAM, 0, 1000, 2);
+    assertEquals(downstreamLineage.getTotal().intValue(), 5);
+    assertEquals(downstreamLineage.getRelationships().size(), 5);
+    Map<Urn, LineageRelationship> relationships = downstreamLineage.getRelationships().stream().collect(Collectors.toMap(LineageRelationship::getEntity,
+        Function.identity()));
+    assertTrue(relationships.containsKey(datasetTwoUrn));
+    assertEquals(relationships.get(datasetTwoUrn).getNumHops().intValue(), 1);
+    assertTrue(relationships.containsKey(datasetThreeUrn));
+    assertEquals(relationships.get(datasetThreeUrn).getNumHops().intValue(), 2);
+    assertTrue(relationships.containsKey(datasetFourUrn));
+    assertEquals(relationships.get(datasetFourUrn).getNumHops().intValue(), 2);
+    assertTrue(relationships.containsKey(dataJobOneUrn));
+    assertEquals(relationships.get(dataJobOneUrn).getNumHops().intValue(), 1);
+    assertTrue(relationships.containsKey(dataJobTwoUrn));
+    assertEquals(relationships.get(dataJobTwoUrn).getNumHops().intValue(), 1);
+
+    upstreamLineage = service.getLineage(datasetThreeUrn, LineageDirection.UPSTREAM, 0, 1000, 2);
+    assertEquals(upstreamLineage.getTotal().intValue(), 2);
+    assertEquals(upstreamLineage.getRelationships().size(), 2);
+    relationships = upstreamLineage.getRelationships().stream().collect(Collectors.toMap(LineageRelationship::getEntity,
+        Function.identity()));
+    assertTrue(relationships.containsKey(datasetOneUrn));
+    assertEquals(relationships.get(datasetOneUrn).getNumHops().intValue(), 2);
+    assertTrue(relationships.containsKey(datasetTwoUrn));
+    assertEquals(relationships.get(datasetTwoUrn).getNumHops().intValue(), 1);
+    assertTrue(relationships.containsKey(dataJobOneUrn));
+    assertEquals(relationships.get(dataJobOneUrn).getNumHops().intValue(), 1);
+    assertEquals(upstreamLineage.getRelationships()
+            .stream()
+            .sorted(Comparator.comparing(Object::toString))
+            .collect(Collectors.toList()),
+        Stream.of(new LineageRelationship().setEntity(datasetTwoUrn).setType(downstreamOf).setNumHops(2),
+            new LineageRelationship().setEntity(datasetTwoUrn).setType(downstreamOf),
+            new LineageRelationship().setEntity(dataJobOneUrn).setType(produces))
+            .sorted(Comparator.comparing(Object::toString))
+            .collect(Collectors.toList()));
+
+    downstreamLineage = service.getLineage(datasetThreeUrn, LineageDirection.DOWNSTREAM, 0, 1000, 2);
+    assertEquals(downstreamLineage.getTotal().intValue(), 0);
+    assertEquals(downstreamLineage.getRelationships().size(), 0);
   }
 }
