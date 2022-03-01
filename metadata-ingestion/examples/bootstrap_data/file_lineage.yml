@@ -1,0 +1,31 @@
+---
+version: 1
+lineage:
+  - entity:
+      name: topic3
+      type: dataset
+      env: DEV
+      platform: kafka
+    upstream:
+      - entity:
+          name: topic2
+          type: dataset
+          env: DEV
+          platform: kafka
+      - entity:
+          name: topic1
+          type: dataset
+          env: DEV
+          platform: kafka
+  - entity:
+      name: topic2
+      type: dataset
+      env: DEV
+      platform: kafka
+    upstream:
+      - entity:
+          name: kafka.topic2
+          env: PROD
+          platform: snowflake
+          platform_instance: test
+          type: dataset

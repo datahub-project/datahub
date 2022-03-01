@@ -1,0 +1,12 @@
+{
+    "lastModified": {
+        "actor": "urn:li:corpuser:datahub",
+        "time": 1581407189000
+    },
+    "owners": [
+        {
+            "owner": "urn:li:corpuser:datahub",
+            "type": "DATAOWNER"
+        }
+    ]
+}

@@ -43,6 +43,9 @@ fragment relationshipFields on Entity {
     ... on Chart {
         tool
         chartId
+        platform {
+            ...platformFields
+        }
         properties {
             name
             description
