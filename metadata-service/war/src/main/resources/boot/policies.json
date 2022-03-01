@@ -284,18 +284,18 @@
         "allUsers":false,
         "allGroups":false,
         "users":[
-          "urn:li:corpuser:datahub"
+          "urn:li:corpuser:admin"
         ]
       },
       "privileges":[
         "EDIT_ENTITY"
       ],
-      "displayName":"Root User - Edit All Glossary Terms",
+      "displayName":"Admin - Edit All Glossary Terms",
       "resources":{
         "type":"glossaryTerm",
         "allResources":true
       },
-      "description":"Grants full edit privileges for Glossary Terms to root 'datahub' root user.",
+      "description":"Grants full edit privileges for Glossary Terms to admin",
       "state":"ACTIVE",
       "type":"METADATA",
       "editable":false
@@ -309,18 +309,18 @@
         "allUsers":false,
         "allGroups":false,
         "users":[
-          "urn:li:corpuser:datahub"
+          "urn:li:corpuser:admin"
         ]
       },
       "privileges":[
         "EDIT_ENTITY"
       ],
-      "displayName":"Root User - Edit All Groups",
+      "displayName":"Admin - Edit All Groups",
       "resources":{
         "type":"corpGroup",
         "allResources":true
       },
-      "description":"Grants full edit privileges for Groups to root 'datahub' root user.",
+      "description":"Grants full edit privileges for Groups to admin",
       "state":"ACTIVE",
       "type":"METADATA",
       "editable":false
