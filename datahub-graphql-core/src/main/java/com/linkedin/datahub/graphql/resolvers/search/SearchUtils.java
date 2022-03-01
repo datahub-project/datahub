@@ -6,7 +6,8 @@ import java.util.List;
 
 
 public class SearchUtils {
-  private SearchUtils() {}
+  private SearchUtils() {
+  }
 
   public static final List<EntityType> SEARCHABLE_ENTITY_TYPES =
       ImmutableList.of(EntityType.DATASET, EntityType.DASHBOARD, EntityType.CHART, EntityType.MLMODEL,
