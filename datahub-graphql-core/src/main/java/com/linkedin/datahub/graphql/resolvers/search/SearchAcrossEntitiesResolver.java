@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
-import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.SearchAcrossEntitiesInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
