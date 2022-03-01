@@ -64,7 +64,7 @@ record DatasetAssertionInfo {
     /**
     * Standard parameters required for the assertion. e.g. min_value, max_value, value, columns
     */
-    parameters: optional map[string, string]
+    parameters: optional Assert
 
     /**
     * Native assertion type
@@ -80,19 +80,4 @@ record DatasetAssertionInfo {
     * Logic for the assertion as expressed in the native assertion language. Code fragments, query strings, etc.
     */
     logic: optional string
-
-    /**
-    * Assertion details when scope is DATASET_COLUMN
-    */
-    columnAssertion: optional DatasetColumnAssertion
-
-    /**
-    * Assertion details when scope is DATASET_ROWS
-    */
-    rowsAssertion: optional DatasetRowsAssertion
-
-    /**
-    * Assertion details when scope is DATASET_SCHEMA
-    */
-    schemaAssertion: optional DatasetSchemaAssertion
 }

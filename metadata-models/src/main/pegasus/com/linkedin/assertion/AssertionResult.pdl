@@ -1,7 +1,9 @@
 namespace com.linkedin.assertion
 
+/**
+ * The result of running an assertion
+ */
 record AssertionResult {
-
   /**
   *  The final result, e.g. either SUCCESS or FAILURE.
   */
