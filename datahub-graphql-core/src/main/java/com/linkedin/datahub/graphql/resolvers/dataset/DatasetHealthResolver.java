@@ -165,7 +165,7 @@ public class DatasetHealthResolver implements DataFetcher<CompletableFuture<Heal
 
     // Add filter for result == result
     Criterion startTimeCriterion =
-        new Criterion().setField("status").setCondition(Condition.EQUAL).setValue("COMPLETE");
+        new Criterion().setField("status").setCondition(Condition.EQUAL).setValue(Constants.ASSERTION_RUN_EVENT_STATUS_COMPLETE);
     criteria.add(startTimeCriterion);
 
     filter.setOr(new ConjunctiveCriterionArray(ImmutableList.of(

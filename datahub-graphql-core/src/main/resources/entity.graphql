@@ -287,6 +287,15 @@ type Mutation {
     Update a particular Corp Group's editable properties
     """
     updateCorpGroupProperties(urn: String!, input: CorpGroupUpdateInput!): CorpGroup
+
+    """
+    Remove an assertion associated with an entity. Requires the 'Edit Assertions' privilege on the entity.
+    """
+    deleteAssertion(
+      """
+      The assertion to remove
+      """
+      urn: String!): Boolean
 }
 
 """
