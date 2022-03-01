@@ -21,6 +21,37 @@ query listPolicies($input: ListPoliciesInput!) {
                 allUsers
                 allGroups
                 resourceOwners
+                resolvedUsers {
+                    username
+                    properties {
+                        active
+                        displayName
+                        title
+                        firstName
+                        lastName
+                        fullName
+                        email
+                    }
+                    editableProperties {
+                        displayName
+                        pictureLink
+                        teams
+                        title
+                        skills
+                    }
+                }
+                resolvedGroups {
+                    properties {
+                        displayName
+                        description
+                        email
+                    }
+                    editableProperties {
+                        description
+                        slack
+                        email
+                    }
+                }
             }
             editable
         }
