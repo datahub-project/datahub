@@ -45,7 +45,6 @@ This ingestion source maps the following Metadata Source Concepts to DataHub Con
 
 ## Metadata Ingestion Quickstart
 
-Metadata ingestion is broken into two steps for this connector
 ### Prerequisites
 
 In order to ingest metadata from [Source Name], you will need:
