@@ -1,14 +1,14 @@
 import React from 'react';
-import { Button, Divider, Modal, Tag, Typography } from 'antd';
+import { Button, Col, Divider, Modal, Row, Tag, Typography } from 'antd';
 import styled from 'styled-components';
-import { Link } from 'react-router-dom';
 import { useEntityRegistry } from '../useEntityRegistry';
-import { EntityType, Policy, PolicyState, PolicyType } from '../../types.generated';
+import { EntityType, PolicyState, PolicyType } from '../../types.generated';
 import { useAppConfig } from '../useAppConfig';
 import { mapResourceTypeToDisplayName } from './policyUtils';
+import { CustomAvatar } from '../shared/avatar';
 
 type Props = {
-    policy: Omit<Policy, 'urn'>;
+    policy: any;
     visible: boolean;
     onClose: () => void;
 };
@@ -45,6 +45,7 @@ const PoliciesTag = styled(Tag)`
  * TODO: Use the "display names" when rendering privileges, instead of raw privilege type.
  */
 export default function PolicyDetailsModal({ policy, visible, onClose }: Props) {
+    console.log('policy', policy);
     const entityRegistry = useEntityRegistry();
 
     const isActive = policy?.state === PolicyState.Active;
@@ -115,31 +116,49 @@ export default function PolicyDetailsModal({ policy, visible, onClose }: Props) 
                 <div>
                     <Typography.Title level={5}>Applies to Owners</Typography.Title>
                     <ThinDivider />
-                    <PoliciesTag>{policy?.actors?.resourceOwners ? 'True' : 'False'}</PoliciesTag>
+                    <PoliciesTag>{policy?.resourceOwners ? 'True' : 'False'}</PoliciesTag>
                 </div>
                 <div>
                     <Typography.Title level={5}>Applies to Users</Typography.Title>
                     <ThinDivider />
-                    {policy?.actors?.users?.map((userUrn) => (
-                        <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${userUrn}`} key={userUrn}>
-                            <PoliciesTag>
-                                <Typography.Text underline>{userUrn}</Typography.Text>
-                            </PoliciesTag>
-                        </Link>
-                    ))}
-                    {policy?.actors?.allUsers && <PoliciesTag>All</PoliciesTag>}
+                    <Row>
+                        <Col flex="auto">
+                            {policy?.resolvedUsers?.map((user) => (
+                                <CustomAvatar
+                                    size={28}
+                                    name={user?.username}
+                                    url={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${user.urn}`}
+                                    photoUrl={
+                                        user?.editableProperties?.pictureLink ||
+                                        user?.editableInfo?.pictureLink ||
+                                        undefined
+                                    }
+                                />
+                            ))}
+                        </Col>
+                        <Col flex={1} style={{ display: 'flex', justifyContent: 'end' }}>
+                            {policy?.allUsers ? <Tag>All Users</Tag> : null}
+                        </Col>
+                    </Row>
                 </div>
                 <div>
                     <Typography.Title level={5}>Applies to Groups</Typography.Title>
                     <ThinDivider />
-                    {policy?.actors?.groups?.map((groupUrn) => (
-                        <Link to={`/${entityRegistry.getPathName(EntityType.CorpGroup)}/${groupUrn}`} key={groupUrn}>
-                            <PoliciesTag>
-                                <Typography.Text underline>{groupUrn}</Typography.Text>
-                            </PoliciesTag>
-                        </Link>
-                    ))}
-                    {policy?.actors?.allGroups && <PoliciesTag>All</PoliciesTag>}
+                    <Row>
+                        <Col flex="auto">
+                            {policy?.resolvedGroups?.map((group) => (
+                                <CustomAvatar
+                                    size={28}
+                                    name={group?.name}
+                                    url={`/${entityRegistry.getPathName(EntityType.CorpGroup)}/${group.urn}`}
+                                    isGroup
+                                />
+                            ))}
+                        </Col>
+                        <Col flex={1} style={{ display: 'flex', justifyContent: 'end' }}>
+                            {policy?.allGroups ? <Tag>All Groups</Tag> : null}
+                        </Col>
+                    </Row>
                 </div>
             </PolicyContainer>
         </Modal>

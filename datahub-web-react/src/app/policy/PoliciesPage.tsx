@@ -2,7 +2,6 @@ import React, { useMemo, useState } from 'react';
 import { Button, Col, Empty, message, Modal, Pagination, Row, Tag, Typography } from 'antd';
 import styled from 'styled-components';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
-import { Link } from 'react-router-dom';
 
 import { SearchablePage } from '../search/SearchablePage';
 import PolicyBuilderModal from './PolicyBuilderModal';
@@ -62,6 +61,12 @@ const PoliciesType = styled(Tag)`
     }
 `;
 
+const ActorTag = styled(Tag)`
+    && {
+        display: flex;
+        align-items: center;
+    }
+`;
 const DEFAULT_PAGE_SIZE = 10;
 
 const toPolicyInput = (policy: Omit<Policy, 'urn'>): PolicyUpdateInput => {
@@ -240,39 +245,43 @@ export const PoliciesPage = () => {
         },
         {
             title: 'Actors',
-            dataIndex: 'users',
-            key: 'users',
+            dataIndex: 'actors',
+            key: 'actors',
             render: (_, record: any) => {
                 return (
                     <>
                         <Row>
                             <Col flex="auto">
-                                {record?.users?.map((user) => (
-                                    <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${user}`} key={user}>
-                                        <CustomAvatar
-                                            style={{ color: '#f56a00', backgroundColor: '#fde3cf' }}
-                                            name={user}
-                                            useDefaultAvatar={false}
-                                        />
-                                    </Link>
-                                ))}
-                            </Col>
-                            <Col flex={1} style={{ display: 'flex', justifyContent: 'end' }}>
-                                {record?.allUsers ? <Tag>All Users</Tag> : null}
-                            </Col>
-                        </Row>
-                        <Row>
-                            <Col flex="auto">
-                                {record?.groups?.map((group) => (
+                                {record?.resolvedUsers?.map((user) => (
                                     <CustomAvatar
-                                        style={{ color: '#f56a00', backgroundColor: '#BEBEBE' }}
-                                        name={group}
-                                        useDefaultAvatar={false}
+                                        size={28}
+                                        name={user?.username}
+                                        url={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${user.urn}`}
+                                        photoUrl={
+                                            user?.editableProperties?.pictureLink ||
+                                            user?.editableInfo?.pictureLink ||
+                                            undefined
+                                        }
                                     />
                                 ))}
                             </Col>
                             <Col flex={1} style={{ display: 'flex', justifyContent: 'end' }}>
-                                {record?.allGroups ? <Tag>All Groups</Tag> : null}
+                                {record?.allUsers ? <ActorTag>All Users</ActorTag> : null}
+                            </Col>
+                        </Row>
+                        <Row style={{ marginTop: '5px' }}>
+                            <Col flex="auto">
+                                {record?.resolvedGroups?.map((group) => (
+                                    <CustomAvatar
+                                        size={28}
+                                        name={group?.name}
+                                        url={`/${entityRegistry.getPathName(EntityType.CorpGroup)}/${group.urn}`}
+                                        isGroup
+                                    />
+                                ))}
+                            </Col>
+                            <Col flex={1} style={{ display: 'flex', justifyContent: 'end' }}>
+                                {record?.allGroups ? <ActorTag>All Groups</ActorTag> : null}
                             </Col>
                         </Row>
                     </>
@@ -303,7 +312,7 @@ export const PoliciesPage = () => {
                             onClick={() => onToggleActiveDuplicate(record?.policy)}
                             style={{ color: record?.editable ? 'red' : ANTD_GRAY[6] }}
                         >
-                            Deactivate
+                            DEACTIVATE
                         </Button>
                     ) : (
                         <Button
@@ -311,7 +320,7 @@ export const PoliciesPage = () => {
                             onClick={() => onToggleActiveDuplicate(record?.policy)}
                             style={{ color: record?.editable ? 'green' : ANTD_GRAY[6] }}
                         >
-                            Activate
+                            ACTIVATE
                         </Button>
                     )}
                     <Button onClick={() => onRemovePolicy(record?.policy)} type="text" shape="circle" danger>
@@ -330,10 +339,12 @@ export const PoliciesPage = () => {
         description: policy?.description,
         allUsers: policy?.actors?.allUsers,
         allGroups: policy?.actors?.allGroups,
-        users: policy?.actors?.users,
-        groups: policy?.actors?.groups,
+        resolvedGroups: policy?.actors?.resolvedGroups,
+        resolvedUsers: policy?.actors?.resolvedUsers,
         state: policy?.state,
         editable: policy?.editable,
+        privileges: policy?.privileges,
+        resources: policy?.resources,
     }));
 
     return (
