@@ -4253,7 +4253,6 @@ type PartitionSpec {
 }
 
 enum PartitionType {
-
     FULL_TABLE,
     QUERY,
     PARTITION
@@ -4331,9 +4330,14 @@ Detailed information about a Dataset Assertion
 """
 type DatasetAssertionInfo {
     """
+    The urn of the dataset that the assertion is related to
+    """
+    datasetUrn: String!
+
+    """
     The scope of the Dataset assertion.
     """
-    scope: DatasetAssertionScope
+    scope: DatasetAssertionScope!
 
     """
     The native operator for the assertion. For Great Expectations, this will contain the original expectation name.
@@ -4356,25 +4360,41 @@ type DatasetAssertionInfo {
     schemaAssertion: DatasetSchemaAssertion
 
     """
-    The urns of the schema fields serving as input to the assertion.
+    The fields serving as input to the assertion. Empty if there are none.
     """
-    fieldUrns: [String!]
+    fields: [SchemaFieldRef!]
 
     """
-    The standard paths of the schema fields serving as input to the assertion.
+    Key-Value parameters used in evaluating the assertion. Key names depend on the specific operator associated with the assertion, so see the Operator documentation for more information. Values may be fixed (static) values, or variable references.
     """
-    fieldPaths: [String!]
+    parameters: [StringMapEntry!]!
 
     """
-    Key-Value parameters used in evaluating the assertion. Key names depend on the specific operator associated with the assertion. Values may be fixed (static) values, or variable references.
+    The raw parameters as provided by the native source, such as great expectations.
     """
-    parameters: [StringMapEntry!]
+    nativeParameters: [StringMapEntry!]!
 
     """
     Logic comprising a raw, unstructured assertion.
     """
     logic: String
 }
+
+"""
+A Dataset schema field (i.e. column)
+"""
+type SchemaFieldRef {
+  """
+  A schema field urn
+  """
+  urn: String!
+
+  """
+  A schema field path
+  """
+  path: String!
+}
+
 
 """
 Detailed information about a Dataset Column values Assertion
@@ -4389,7 +4409,6 @@ type DatasetColumnAssertion {
     The standard aggregation / input performed on the input column values.
     """
     stdAggFunc: DatasetColumnStdAggFunc!
-    nativeType: String
 }
 
 """
@@ -4401,13 +4420,11 @@ type DatasetRowsAssertion {
     """
     stdOperator: AssertionStdOperator!
     stdAggFunc: DatasetRowsStdAggFunc!
-    nativeType: String
 }
 
 type DatasetSchemaAssertion {
     stdOperator: AssertionStdOperator!
     stdAggFunc: DatasetSchemaStdAggFunc!
-    nativeType: String
 }
 
 """
@@ -4468,7 +4485,7 @@ type AssertionResult {
     """
     The final result, e.g. either SUCCESS or FAILURE.
     """
-    type:AssertionResultType!
+    type: AssertionResultType!
 
     """
     Number of rows for evaluated batch
@@ -4496,7 +4513,7 @@ type AssertionResult {
     externalUrl: String
     
     """
-    Other results of evaluation
+    Native results / properties of evaluation
     """
     nativeResults: [StringMapEntry!]
 
@@ -4733,6 +4750,11 @@ enum DatasetAssertionScope {
     Assertion applies to schema of a dataset.
     """
     DATASET_SCHEMA
+
+    """
+    The scope of an assertion is unknown.
+    """
+    UNKNOWN
 }
 
 """
