@@ -23,44 +23,51 @@ This ingestion source maps the following Metadata Source Concepts to DataHub Con
 | eg. View | eg. Dataset | eg. This is modeled as a Dataset with a View subtype |
 | ... | | | 
 
-
 ### Supported Capabilities
 
 <!-- This should be an auto-generated table of supported DataHub features/functionality -->
 <!-- Each capability should link out to a feature guide -->
 
 | Capability | Status | Notes |
-| -- | -- | -- |
+| --- | :-: | --- |
 | Data Container | ✅ | Enabled by default |
 | Detect Deleted Entities | ✅ | Requires recipe configuration |
 | Data Domain | ❌ | Requires transformer |
-| Dataset Profiling | ✅ | Requires `acryl-datahub[source-usage]` |
-| Dataset Usage | ✅ | Requires `acryl-datahub[source-usage]` |
+| Dataset Profiling | ✅ | Requires `acryl-datahub[source-usage-name]` |
+| Dataset Usage | ✅ | Requires `acryl-datahub[source-usage-name]` |
 | Extract Descriptions | ✅ | Enabled by default |
 | Extract Lineage | ✅ | Enabled by default |
 | Extract Ownership | ✅ | Enabled by default |
 | Extract Tags | ❌ | Requires transformer |
 | Partition Support | ❌ | Not applicable to source |
 | Platform Instance | ❌ | Not applicable to source |
+| ... | |
 
-## Quickstart
+## Metadata Ingestion Quickstart
 
-### 1. Prerequisites
+Metadata ingestion is broken into two steps for this connector
+### Prerequisites
 
 In order to ingest metadata from [Source Name], you will need:
 
 * eg. Python version, source version, source access requirements
 * eg. Steps to configure source access
+* ...
 
-### 2. Install the Plugin
+### Install the Plugin(s)
 
-run `pip install 'acryl-datahub[source_name]'`
+Run the following commands to install the relevant plugin(s):
 
-### 3. Create an Ingestion Recipe
+`pip install 'acryl-datahub[source-name]'`
+`pip install 'acryl-datahub[source-usage-name]'`
 
-Use the following recipe to get started with ingestion! See [below](#recipe-configuartion-detials) for full configuration options.
+### Configure the Ingestion Recipe(s)
+
+Use the following recipe(s) to get started with ingestion. 
 
 _For general pointers on writing and running a recipe, see our [main recipe guide](../README.md#recipes)._
+
+#### `'acryl-datahub[source-name]'`
 
 ```yml
 source:
@@ -73,15 +80,45 @@ sink:
   # sink configs
 ```
 
-#### Recipe Configuartion Details
+<details>
+  <summary>View All Recipe Configuartion Options</summary>
+  
+  | Field | Required | Default | Description |
+  | --- | :-: | :-: | --- |
+  | `field1` | ✅ | `default_value` | A required field with a default value |
+  | `field2` | ❌ | `default_value` | An optional field with a default value |
+  | `field3` | ❌ | | An optional field without a default value |
+  | ... | | |
+</details>
 
-| Field | Required | Default | Description |
-| -- | -- | -- | -- |
-| `field1` | ✅ | `default_value` | A required field with a default value |
-| `field2` | | `default_value` | An optional field with a default value |
-| `field3` | | | An optional field without a default value |
+#### `'acryl-datahub[source-usage-name]'`
 
-### 4. Troubleshooting
+```yml
+source:
+  type: source-usage-name
+  config:
+    # Required Fields
+    option1: value1
+
+    # Options
+    top_n_queries: 10
+
+sink:
+  # sink configs
+```
+
+<details>
+  <summary>View All Recipe Configuartion Options</summary>
+  
+  | Field | Required | Default | Description |
+  | --- | :-: | :-: | --- |
+  | `field1` | ✅ | `default_value` | A required field with a default value |
+  | `field2` | ❌ | `default_value` | An optional field with a default value |
+  | `field3` | ❌ | | An optional field without a default value |
+  | ... | | |
+</details>
+
+## Troubleshooting
 
 ### [Common Issue]
 
