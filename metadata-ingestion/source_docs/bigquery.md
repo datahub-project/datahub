@@ -171,7 +171,7 @@ Temporary tables are removed after profiling.
 :::note
 
 Due to performance reasons, we only profile the latest partition for Partitioned tables and the latest shard for sharded tables.
-If you want you can set partiton you want partiton by setting `partition.partition_datetime` property. (this will be applied to all partitioned tables)
+You can set partition explicitly with `partition.partition_datetime` property if you want. (partition will be applied to all partitioned tables)
 :::
 
 # BigQuery Usage Stats

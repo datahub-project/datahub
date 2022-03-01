@@ -794,6 +794,7 @@ class DatahubGEProfiler:
             **kwargs,
         }
 
+        # We have to create temporary tables if offset or limit or custom sql is set on Bigquery
         if custom_sql or self.config.limit or self.config.offset:
             if self.config.bigquery_temp_table_schema:
                 bigquery_temp_table = (

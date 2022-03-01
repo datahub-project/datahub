@@ -1163,7 +1163,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 and not self.config.profiling.partition_profiling_enabled
             ):
                 logger.debug(
-                    f"{dataset_name} is skipped because profiling.partition_profiling_enabled property is disabled"
+                    f"{dataset_name} and partition {partition} is skipped because profiling.partition_profiling_enabled property is disabled"
                 )
                 continue
 
