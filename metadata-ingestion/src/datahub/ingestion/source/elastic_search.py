@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from hashlib import md5
@@ -278,6 +279,14 @@ class ElasticsearchSource(Source):
         # 1. Construct and emit the schemaMetadata aspect
         # 1.1 Generate the schema fields from ES mappings.
         index_mappings = raw_index_metadata["mappings"]
+        index_settings = raw_index_metadata["settings"]
+        index_properties: Dict[str, str] = index_settings["index"]
+        if index_properties.__contains__("analysis"):
+            del index_properties["analysis"]
+        if index_properties.__contains__("version"):
+            del index_properties["version"]
+        if index_properties.__contains__("lifecycle"):
+            del index_properties["lifecycle"]
         index_mappings_json_str: str = json.dumps(index_mappings)
         md5_hash = md5(index_mappings_json_str.encode()).hexdigest()
         schema_fields = list(
@@ -330,17 +339,25 @@ class ElasticsearchSource(Source):
         )
 
         # 4. Construct and emit properties if needed
+        properties: Dict[str, str] = {}
         index_aliases = raw_index_metadata.get("aliases", {}).keys()
-        if index_aliases:
-            yield MetadataChangeProposalWrapper(
-                entityType="dataset",
-                entityUrn=dataset_urn,
-                aspectName="datasetProperties",
-                aspect=DatasetPropertiesClass(
-                    customProperties={"aliases": ",".join(index_aliases)}
-                ),
-                changeType=ChangeTypeClass.UPSERT,
-            )
+        aliases: Dict[str, str] = {"aliases": ",".join(index_aliases)}
+        if len(index_aliases) > 0:
+            properties.update(aliases)
+        creation_date = float(index_properties["creation_date"])
+        creation_date_transform = time.strftime(
+            "%Y-%m-%d %H:%M:%S", time.localtime(creation_date / 1000)
+        )
+        index_properties["creation_date"] = creation_date_transform
+        properties.update(index_properties)
+
+        yield MetadataChangeProposalWrapper(
+            entityType="dataset",
+            entityUrn=dataset_urn,
+            aspectName="datasetProperties",
+            aspect=DatasetPropertiesClass(customProperties=properties),
+            changeType=ChangeTypeClass.UPSERT,
+        )
 
         # 5. Construct and emit platform instance aspect
         if self.source_config.platform_instance:
