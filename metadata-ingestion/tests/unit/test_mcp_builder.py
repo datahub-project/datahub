@@ -13,18 +13,35 @@ def test_guid_generator():
 
 def test_guid_generator_with_empty_instance():
     key = builder.SchemaKey(
-        database="test", schema="Test", platform="mysql", instance=None
+        database="test",
+        schema="Test",
+        platform="mysql",
+        instance=None,
+        environment="PROD",
     )
 
     guid = key.guid()
-    assert guid == "693ed953c7192bcf46f8b9db36d71c2b"
+    assert guid == "ff0c29715ad619bf7cf94641920470a9"
+
+
+def test_guid_generator_with_instance_and_env():
+    key = builder.SchemaKey(
+        database="test",
+        schema="Test",
+        platform="mysql",
+        instance="TestInstance",
+        environment="PROD",
+    )
+
+    guid = key.guid()
+    assert guid == "f096b3799fc86a3e5d5d0c083eb1f2a4"
 
 
 def test_guid_generators():
     key = builder.SchemaKey(
         database="test", schema="Test", platform="mysql", instance="PROD"
     )
-    guid_datahub = datahub_guid(key.__dict__)
+    guid_datahub = datahub_guid(key.dict(by_alias=True))
 
     guid = key.guid()
     assert guid == guid_datahub
