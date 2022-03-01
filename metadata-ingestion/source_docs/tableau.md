@@ -18,22 +18,25 @@ on Tableau online.
 Tableau's GraphQL interface is used to extract metadata information. Queries used to extract metadata are located
 in `metadata-ingestion/src/datahub/ingestion/source/tableau_common.py`
 
+- [Workbook](#Workbook)
 - [Dashboard](#Dashboard)
 - [Sheet](#Sheet)
 - [Embedded Data source](#Embedded-Data-Source)
 - [Published Data source](#Published-Data-Source)
 - [Custom SQL Data source](#Custom-SQL-Data-Source)
 
-### Dashboard
-Dashboards from Tableau are ingested as Dashboard in datahub. <br/>
+
+### Workbook
+Workbooks from Tableau are ingested as Container in datahub. <br/>
 - GraphQL query <br/>
-```
+```graphql
 {
   workbooksConnection(first: 15, offset: 0, filter: {projectNameWithin: ["default", "Project 2"]}) {
     nodes {
       id
       name
       luid
+      uri
       projectName
       owner {
         username
@@ -42,6 +45,24 @@ Dashboards from Tableau are ingested as Dashboard in datahub. <br/>
       uri
       createdAt
       updatedAt
+    }
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    totalCount
+  }
+}
+```
+
+### Dashboard
+Dashboards from Tableau are ingested as Dashboard in datahub. <br/>
+- GraphQL query <br/>
+```graphql
+{
+  workbooksConnection(first: 15, offset: 0, filter: {projectNameWithin: ["default", "Project 2"]}) {
+    nodes {
+      .....
       dashboards {
         id
         name
@@ -67,7 +88,7 @@ Dashboards from Tableau are ingested as Dashboard in datahub. <br/>
 ### Sheet
 Sheets from Tableau are ingested as charts in datahub. <br/>
 - GraphQL query <br/>
-```
+```graphql
 {
   workbooksConnection(first: 10, offset: 0, filter: {projectNameWithin: ["default"]}) {
     .....
@@ -149,7 +170,7 @@ Sheets from Tableau are ingested as charts in datahub. <br/>
 Embedded Data source from Tableau is ingested as a Dataset in datahub.
 
 - GraphQL query <br/>
-```
+```graphql
 {
   workbooksConnection(first: 15, offset: 0, filter: {projectNameWithin: ["default"]}) {
     nodes {
@@ -228,7 +249,7 @@ Embedded Data source from Tableau is ingested as a Dataset in datahub.
 Published Data source from Tableau is ingested as a Dataset in datahub.
 
 - GraphQL query <br/>
-```
+```graphql
 {
   publishedDatasourcesConnection(filter: {idWithin: ["00cce29f-b561-bb41-3557-8e19660bb5dd", "618c87db-5959-338b-bcc7-6f5f4cc0b6c6"]}) {
     nodes {
@@ -306,7 +327,7 @@ Published Data source from Tableau is ingested as a Dataset in datahub.
 ### Custom SQL Data Source
 For custom sql data sources, the query is viewable in UI under View Definition tab. <br/>
 - GraphQL query <br/>
-```
+```graphql
 {
   customSQLTablesConnection(filter: {idWithin: ["22b0b4c3-6b85-713d-a161-5a87fdd78f40"]}) {
     nodes {
@@ -397,8 +418,8 @@ sink:
 | `env`                 |          | `"PROD"`  | Environment to use in namespace when constructing URNs.                  |
 | `username`            |          |           | Tableau username, must be set if authenticating using username/password.    |
 | `password`            |          |           | Tableau password, must be set if authenticating using username/password.    |
-| `token_name`          |          |           | Tableau token name, must be set if authenticating using a personal token.  |
-| `token_value`         |          |           | Tableau token value, must be set if authenticating using a personal token. |
+| `token_name`          |          |           | Tableau token name, must be set if authenticating using a personal access token.  |
+| `token_value`         |          |           | Tableau token value, must be set if authenticating using a personal access token. |
 | `projects`            |          | `default` | List of projects                                                         |
 | `workbooks_page_size`            |          | 10 | Number of workbooks to query at a time using Tableau api.                                              |
 | `default_schema_map`* |          |           | Default schema to use when schema is not found.                          |
@@ -417,8 +438,7 @@ and personal token. For more information on Tableau authentication, refer to [Ho
 
 ## Compatibility
 
-Tableau Server Version: 2021.4.0 (20214.22.0114.0959) 64-bit Linux <br/>
-Tableau Pod: prod-ca-a
+Tableau Server Version: 2021.4.0 (20214.22.0114.0959) 64-bit Linux 
 
 
 ## Questions

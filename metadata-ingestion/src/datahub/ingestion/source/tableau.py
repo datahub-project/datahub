@@ -1,3 +1,4 @@
+import dataclasses
 import json
 import logging
 from datetime import datetime
@@ -16,6 +17,11 @@ from tableauserverclient import (
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel, ConfigurationError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import (
+    PlatformKey,
+    add_entity_to_container,
+    gen_containers,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -94,6 +100,11 @@ class TableauConfig(ConfigModel):
     @validator("connect_uri")
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
+
+
+@dataclasses.dataclass
+class WorkbookKey(PlatformKey):
+    workbook_id: str
 
 
 class TableauSource(Source):
@@ -211,6 +222,7 @@ class TableauSource(Source):
             current_count += count
 
             for workbook in workbook_connection.get("nodes", []):
+                yield from self.emit_workbook_as_container(workbook)
                 yield from self.emit_sheets_as_charts(workbook)
                 yield from self.emit_dashboards(workbook)
                 yield from self.emit_embedded_datasource(workbook)
@@ -572,6 +584,11 @@ class TableauSource(Source):
             aspect=SubTypesClass(typeNames=["Data Source"]),
         )
 
+        if datasource.get("__typename") == "EmbeddedDatasource":
+            yield from add_entity_to_container(
+                self.gen_workbook_key(workbook), "dataset", dataset_snapshot.urn
+            )
+
     def emit_published_datasources(self) -> Iterable[MetadataWorkUnit]:
         count_on_query = len(self.datasource_ids_being_used)
         datasource_filter = "idWithin: {}".format(
@@ -732,6 +749,60 @@ class TableauSource(Source):
 
             yield self.get_metadata_change_event(chart_snapshot)
 
+            yield from add_entity_to_container(
+                self.gen_workbook_key(workbook), "chart", chart_snapshot.urn
+            )
+
+    def emit_workbook_as_container(self, workbook: Dict) -> Iterable[MetadataWorkUnit]:
+
+        workbook_container_key = self.gen_workbook_key(workbook)
+        creator = workbook.get("owner", {}).get("username")
+
+        owner_urn = (
+            builder.make_user_urn(creator)
+            if (creator and self.config.ingest_owner)
+            else None
+        )
+
+        site_part = f"/site/{self.config.site}" if self.config.site else ""
+        workbook_uri = workbook.get("uri", "")
+        workbook_part = (
+            workbook_uri[workbook_uri.index("/workbooks/") :]
+            if workbook.get("uri")
+            else None
+        )
+        workbook_external_url = (
+            f"{self.config.connect_uri}/#{site_part}{workbook_part}"
+            if workbook_part
+            else None
+        )
+
+        tag_list = workbook.get("tags", [])
+        tag_list_str = (
+            [t.get("name", "").upper() for t in tag_list if t is not None]
+            if (tag_list and self.config.ingest_tags)
+            else None
+        )
+
+        container_workunits = gen_containers(
+            container_key=workbook_container_key,
+            name=workbook.get("name", ""),
+            sub_types=["Workbook"],
+            description=workbook.get("description"),
+            owner_urn=owner_urn,
+            external_url=workbook_external_url,
+            tags=tag_list_str,
+        )
+
+        for wu in container_workunits:
+            self.report.report_workunit(wu)
+            yield wu
+
+    def gen_workbook_key(self, workbook):
+        return WorkbookKey(
+            platform=self.platform, instance=None, workbook_id=workbook["id"]
+        )
+
     def emit_dashboards(self, workbook: Dict) -> Iterable[MetadataWorkUnit]:
         for dashboard in workbook.get("dashboards", []):
             dashboard_snapshot = DashboardSnapshot(
@@ -777,6 +848,10 @@ class TableauSource(Source):
                 dashboard_snapshot.aspects.append(owner)
 
             yield self.get_metadata_change_event(dashboard_snapshot)
+
+            yield from add_entity_to_container(
+                self.gen_workbook_key(workbook), "dashboard", dashboard_snapshot.urn
+            )
 
     def emit_embedded_datasource(self, workbook: Dict) -> Iterable[MetadataWorkUnit]:
         for datasource in workbook.get("embeddedDatasources", []):

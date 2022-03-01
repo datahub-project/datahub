@@ -28,6 +28,7 @@ workbook_graphql_query = """
       id
       name
       luid
+      uri
       projectName
       owner {
         username
