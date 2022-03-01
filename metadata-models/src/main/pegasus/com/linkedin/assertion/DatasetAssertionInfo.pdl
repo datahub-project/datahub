@@ -64,7 +64,7 @@ record DatasetAssertionInfo {
     /**
     * Standard parameters required for the assertion. e.g. min_value, max_value, value, columns
     */
-    parameters: optional Assert
+    parameters: optional AssertionStdParameters
 
     /**
     * Native assertion type
