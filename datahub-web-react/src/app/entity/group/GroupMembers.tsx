@@ -34,9 +34,18 @@ const AddMember = styled(Col)`
     padding: 13px 30px;
     cursor: pointer;
 
-    &&&.anticon.anticon-user-add {
+    &&& .anticon.anticon-user-add {
         margin-right: 6px;
     }
+`;
+
+const MemberNameSection = styled.div`
+    font-size: 20px;
+    line-height: 28px;
+    color: #262626;
+    display: flex;
+    align-items: center;
+    justify-content: start;
 `;
 
 const GroupMemberWrapper = styled.div`
@@ -166,20 +175,23 @@ export default function GroupMembers({ urn, initialRelationships, pageSize }: Pr
                 </AddMember>
             </Row>
             <GroupMemberWrapper>
-                <Row className="groupMemberRow">
+                <Row className="groupMemberRow" align="middle">
                     {groupMembers &&
                         groupMembers.map((item) => {
                             return (
                                 <>
                                     <MemberColumn xl={23} lg={23} md={23} sm={23} xs={23}>
                                         <Link to={entityRegistry.getEntityUrl(EntityType.CorpUser, item.urn)}>
-                                            <CustomAvatar
-                                                size={24}
-                                                photoUrl={item.editableProperties?.pictureLink || ''}
-                                                name={entityRegistry.getDisplayName(EntityType.CorpUser, item)}
-                                                style={AVATAR_STYLE}
-                                            />
-                                            <Name>{entityRegistry.getDisplayName(EntityType.CorpUser, item)}</Name>
+                                            <MemberNameSection>
+                                                <CustomAvatar
+                                                    useDefaultAvatar={false}
+                                                    size={28}
+                                                    photoUrl={item.editableProperties?.pictureLink || ''}
+                                                    name={entityRegistry.getDisplayName(EntityType.CorpUser, item)}
+                                                    style={AVATAR_STYLE}
+                                                />
+                                                <Name>{entityRegistry.getDisplayName(EntityType.CorpUser, item)}</Name>
+                                            </MemberNameSection>
                                         </Link>
                                     </MemberColumn>
                                     <MemberColumn xl={1} lg={1} md={1} sm={1} xs={1}>

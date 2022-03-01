@@ -24,7 +24,7 @@ const SectionTitle = styled.div`
 `;
 
 const SectionWrapper = styled.div`
-    height: calc(75vh - 464px);
+    // height: calc(75vh - 464px);
 `;
 
 type Props = {
