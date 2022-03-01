@@ -1,10 +1,10 @@
-# How to Search for Information in Datahub
+# Search Guide
 
 ## Introduction 
 
 The search bar is one of the means of finding data in Datahub. In this document, we discuss more effective ways of finding information beyond doing a standard keyword search. This is because keyword searches can return results from almost any part of an entity.
 
-### Search in Specific Fields:  
+### Search in Specific Fields
 
 The following examples are in the format of  
 X: *typical question* :  

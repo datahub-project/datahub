@@ -40,6 +40,7 @@ source:
     #  - "schema.table.column"
     #  deny:
     #  - "*.*.*"
+    #lineage_client_project_id: project-id-1234567
 
 ## see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:

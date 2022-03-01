@@ -38,6 +38,7 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.parquet.SemanticVersion;
 
 import static com.linkedin.metadata.Constants.*;
@@ -220,13 +221,15 @@ public class EbeanTimelineService implements TimelineService {
       String entityType, Set<ChangeCategory> elementNames, boolean rawDiffsRequested) {
     EbeanAspectV2 previousValue = null;
     SortedMap<Long, List<ChangeTransaction>> changeTransactionsMap = new TreeMap<>();
-    long transactionId = FIRST_TRANSACTION_ID;
+    //long transactionId = FIRST_TRANSACTION_ID;
+    long transactionId;
     for (EbeanAspectV2 currentValue : aspectTimeline) {
+      transactionId = currentValue.getCreatedOn().getTime();
       if (previousValue != null) {
         // we skip the first element and only compare once we have two in hand
         changeTransactionsMap.put(transactionId,
             computeDiff(previousValue, currentValue, entityType, elementNames, rawDiffsRequested));
-        ++transactionId;
+        //++transactionId;
       }
       previousValue = currentValue;
     }
@@ -243,8 +246,11 @@ public class EbeanTimelineService implements TimelineService {
       Differ differ = _diffFactory.getDiffer(entityType, element, aspectName);
       if (differ != null) {
         try {
-          semanticChangeTransactions.add(
-              differ.getSemanticDiff(previousValue, currentValue, element, rawDiff, rawDiffsRequested));
+          ChangeTransaction changeTransaction = differ.getSemanticDiff(previousValue, currentValue, element,
+              rawDiff, rawDiffsRequested);
+          if (CollectionUtils.isNotEmpty(changeTransaction.getChangeEvents())) {
+            semanticChangeTransactions.add(changeTransaction);
+          }
         } catch (Exception e) {
           semanticChangeTransactions.add(ChangeTransaction.builder()
               .semVerChange(SemanticChangeType.EXCEPTIONAL)

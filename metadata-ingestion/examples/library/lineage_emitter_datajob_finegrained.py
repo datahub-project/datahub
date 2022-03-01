@@ -18,16 +18,16 @@ def datasetUrn(tbl):
 
 def fldUrn(tbl, fld):
     return builder.make_schema_field_urn(datasetUrn(tbl), fld); 
-    #f"urn:li:schemaField:({datasetUrn(tbl)}, {fld})"
 
-# Lineage of fields in a dataset (view)
-# c1      <-- unknownFunc(bar2.c1, bar4.c1)
-# c2      <-- myfunc(bar3.c2)
-# {c3,c4} <-- unknownFunc(bar2.c2, bar2.c3, bar3.c1)
-# c5      <-- unknownFunc(bar3)
-# {c6,c7} <-- unknownFunc(bar4)
+# Lineage of fields output by a job
+# bar.c1          <-- unknownFunc(bar2.c1, bar4.c1)
+# bar.c2          <-- myfunc(bar3.c2)
+# {bar.c3,bar.c4} <-- unknownFunc(bar2.c2, bar2.c3, bar3.c1)
+# bar.c5          <-- unknownFunc(bar3)
+# {bar.c6,bar.c7} <-- unknownFunc(bar4)
+# bar2.c9 has no upstream i.e. its values are somehow created independently within this job.
 
-# note that the semantic of the "transformOperation" value is contextual.
+# Note that the semantic of the "transformOperation" value is contextual.
 # In above example, it is regarded as some kind of UDF; but it could also be an expression etc.
 
 fineGrainedLineages=[
@@ -61,45 +61,17 @@ fineGrainedLineages=[
             upstreamType=FineGrainedLineageUpstreamType.DATASET,
             upstreams=[datasetUrn("bar4")],
             downstreamType=FineGrainedLineageDownstreamType.FIELD_SET, 
-            downstreams=[fldUrn("bar", "c6"), fldUrn("bar", "c7")])            
+            downstreams=[fldUrn("bar", "c6"), fldUrn("bar", "c7")]),     
+
+        FineGrainedLineage(
+            upstreamType=FineGrainedLineageUpstreamType.NONE,
+            upstreams=[],
+            downstreamType=FineGrainedLineageDownstreamType.FIELD, 
+            downstreams=[fldUrn("bar2", "c9")])                    
     ]
 
-
-# this is just to check if any conflicts with existing Upstream, particularly the DownstreamOf relationship
-upstream = Upstream(dataset=datasetUrn("bar2"), type=DatasetLineageType.TRANSFORMED)
-
-fieldLineages = UpstreamLineage(upstreams=[upstream], fineGrainedLineages=fineGrainedLineages)
-
-viewLineageMcp = MetadataChangeProposalWrapper(
-    entityType="dataset",
-    changeType=ChangeTypeClass.UPSERT,
-    entityUrn=datasetUrn("bar"),
-    aspectName="upstreamLineage",
-    aspect=fieldLineages
-)
-
-# Create an emitter to the GMS REST API.
-emitter = DatahubRestEmitter("http://localhost:8080")
-
-# Emit metadata!
-emitter.emit_mcp(viewLineageMcp)
-
-# Lineage of fields output by a job
-# The lineages are primarily the same as the above example.
-#
-# In addition to the earlier lineages, 
-# 1. the lineage of output col bar.c9 is unknown. So there is no lineage for it.
-# 2. output col bar2.c9 is known to not have any parents i.e. its values are somehow created independently within this job.
-
+# The lineage of output col bar.c9 is unknown. So there is no lineage for it above.
 # Note that bar2 is an input as well as an output dataset, but some fields are inputs while other fields are outputs.
-
-fineGrainedLineages.append(
-    FineGrainedLineage(
-        upstreamType=FineGrainedLineageUpstreamType.NONE,
-        upstreams=[],
-        downstreamType=FineGrainedLineageDownstreamType.FIELD, 
-        downstreams=[fldUrn("bar2", "c9")])        
-)
 
 dataJobInputOutput = DataJobInputOutputClass(
     inputDatasets=[datasetUrn("bar2"), datasetUrn("bar3"), datasetUrn("bar4")], 
@@ -121,4 +93,9 @@ dataJobLineageMcp = MetadataChangeProposalWrapper(
     aspectName="dataJobInputOutput",
     aspect=dataJobInputOutput
 )
+
+# Create an emitter to the GMS REST API.
+emitter = DatahubRestEmitter("http://localhost:8080")
+
+# Emit metadata!
 emitter.emit_mcp(dataJobLineageMcp)
