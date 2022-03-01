@@ -59,6 +59,7 @@ In order to ingest metadata from [Source Name], you will need:
 Run the following commands to install the relevant plugin(s):
 
 `pip install 'acryl-datahub[source-name]'`
+
 `pip install 'acryl-datahub[source-usage-name]'`
 
 ### Configure the Ingestion Recipe(s)
