@@ -17,7 +17,6 @@ import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.cache.EntitySearchServiceCache;
 import com.linkedin.metadata.search.cache.NonEmptyEntitiesCache;
 import com.linkedin.metadata.search.ranker.SearchRanker;
-import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.SearchUtils;
 import com.linkedin.metadata.utils.ConcurrencyUtils;
 import com.linkedin.metadata.utils.SearchUtil;

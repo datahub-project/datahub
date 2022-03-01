@@ -8,7 +8,6 @@ import com.linkedin.metadata.search.aggregator.AllEntitiesSearchAggregator;
 import com.linkedin.metadata.search.cache.AllEntitiesSearchAggregatorCache;
 import com.linkedin.metadata.search.cache.EntitySearchServiceCache;
 import com.linkedin.metadata.search.ranker.SearchRanker;
-import com.linkedin.metadata.search.utils.ESUtils;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
