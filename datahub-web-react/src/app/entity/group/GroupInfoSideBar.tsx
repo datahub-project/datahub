@@ -15,14 +15,14 @@ import {
     SideBarSubSection,
     EmptyValue,
     SocialDetails,
-    EditProfileButton,
+    EditButton,
     AboutSection,
     AboutSectionText,
     GroupsSection,
     TagsSection,
     Tags,
     GroupsSeeMoreText,
-} from '../user/UserInfoSideBar';
+} from '../shared/SidebarStyledComponents';
 
 const { Paragraph } = Typography;
 
@@ -211,11 +211,11 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                     </GroupsSection>
                 </SideBarSubSection>
                 {canEditGroup && (
-                    <EditProfileButton>
+                    <EditButton>
                         <Button icon={<EditOutlined />} onClick={() => showEditGroupModal(true)}>
                             Edit Group
                         </Button>
-                    </EditProfileButton>
+                    </EditButton>
                 )}
             </SideBar>
             {/* Modal */}
