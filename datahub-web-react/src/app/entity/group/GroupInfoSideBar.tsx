@@ -2,7 +2,7 @@ import { Divider, message, Space, Button, Typography, Tag, Row, Col } from 'antd
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { EditOutlined, MailOutlined, SlackOutlined } from '@ant-design/icons';
-import { Link } from 'react-router-dom';
+import { Link, useHistory, useRouteMatch } from 'react-router-dom';
 import { useUpdateCorpGroupPropertiesMutation } from '../../../graphql/group.generated';
 import { EntityType, EntityRelationshipsResult, Ownership, CorpUser } from '../../../types.generated';
 
@@ -79,8 +79,9 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
     } = sideBarData;
     const [updateCorpGroupPropertiesMutation] = useUpdateCorpGroupPropertiesMutation();
     const entityRegistry = useEntityRegistry();
+    const { url } = useRouteMatch();
+    const history = useHistory();
 
-    const [groupSectionExpanded, setGroupSectionExpanded] = useState(false);
     /* eslint-disable @typescript-eslint/no-unused-vars */
     const [editGroupModal, showEditGroupModal] = useState(false);
     const canEditGroup = true; // TODO; Replace this will fine-grained understanding of user permissions.
@@ -163,40 +164,6 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                         <TagsSection>
                             <Row justify="start" align="middle">
                                 {groupMemberRelationships?.relationships.length === 0 && <EmptyValue />}
-                                {/* {!groupSectionExpanded &&
-                                    groupMemberRelationships?.relationships.slice(0, 1).map((item) => {
-                                        const user = item.entity as CorpUser;
-                                        const entityUrn = entityRegistry.getEntityUrl(
-                                            EntityType.CorpUser,
-                                            item.entity.urn,
-                                        );
-                                        return (
-                                            <Col key={entityUrn}>
-                                                <Link to={entityUrn}>
-                                                    <Tags>
-                                                        <Tag>
-                                                            <CustomAvatar
-                                                                size={20}
-                                                                photoUrl={
-                                                                    user.editableProperties?.pictureLink || undefined
-                                                                }
-                                                                name={entityRegistry.getDisplayName(
-                                                                    EntityType.CorpUser,
-                                                                    item.entity,
-                                                                )}
-                                                                useDefaultAvatar={false}
-                                                                style={AVATAR_STYLE}
-                                                            />
-                                                            {entityRegistry.getDisplayName(
-                                                                EntityType.CorpUser,
-                                                                item.entity,
-                                                            )}
-                                                        </Tag>
-                                                    </Tags>
-                                                </Link>
-                                            </Col>
-                                        );
-                                    })} */}
                                 {groupMemberRelationships?.relationships.length > 1 &&
                                     groupMemberRelationships?.relationships.map((item) => {
                                         const user = item.entity as CorpUser;
@@ -231,12 +198,10 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                                             </Col>
                                         );
                                     })}
-                                {!groupSectionExpanded && groupMemberRelationships?.relationships.length > 1 && (
+                                {groupMemberRelationships?.relationships.length > 15 && (
                                     <Col>
-                                        <GroupsSeeMoreText
-                                            onClick={() => setGroupSectionExpanded(!groupSectionExpanded)}
-                                        >
-                                            {`+${groupMemberRelationships?.relationships.length - 2} more`}
+                                        <GroupsSeeMoreText onClick={() => history.push(`${url}/members`)}>
+                                            {`+${groupMemberRelationships?.relationships.length - 15} more`}
                                         </GroupsSeeMoreText>
                                     </Col>
                                 )}
