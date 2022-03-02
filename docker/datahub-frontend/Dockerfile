@@ -25,8 +25,7 @@ RUN cd datahub-src && ./gradlew :datahub-frontend:dist -PenableEmber=${ENABLE_EM
     && cd .. && rm -rf datahub-src && unzip datahub-frontend.zip
 
 FROM base as prod-install
-COPY --from=prod-build /datahub-frontend/ /datahub-frontend/
-
+COPY --from=prod-build /datahub-frontend /datahub-frontend/
 RUN chown -R datahub:datahub /datahub-frontend && chmod 755 /datahub-frontend
 
 FROM base as dev-install
