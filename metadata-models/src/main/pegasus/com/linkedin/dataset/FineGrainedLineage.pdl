@@ -1,0 +1,47 @@
+namespace com.linkedin.dataset
+
+import com.linkedin.common.Urn
+
+/**
+* A fine-grained lineage from upstream fields/datasets to downstream field(s)
+*/
+
+record FineGrainedLineage {
+
+  /**
+  * The type of upstream entity
+  */
+  upstreamType: FineGrainedLineageUpstreamType
+
+  /**
+  * Upstream entities in the lineage
+  */
+
+  // The relationship name is kept same as that of existing relationship in Upstream.pdl
+  upstreams: optional array[Urn]
+
+  /**
+  * The type of downstream field(s)
+  */
+  downstreamType: FineGrainedLineageDownstreamType
+
+  /**
+  * Downstream fields in the lineage
+  */     
+  downstreams: optional array[Urn]
+
+  /**
+  * The transform operation applied to the upstream entities to produce the downstream field(s)
+  */
+  transformOperation: optional string
+
+  /**
+  * The confidence in this lineage between 0 (low confidence) and 1 (high confidence)
+  */
+  confidenceScore: float = 1.0
+
+  // Other information e.g. user who created this lineage etc. can added here.
+
+  // It may be useful to add a "query" field here, but the semantics are tricky. 
+  // To be considered in a future iteration when required.
+}

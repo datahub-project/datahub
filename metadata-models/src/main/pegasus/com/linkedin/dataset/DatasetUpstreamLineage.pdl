@@ -6,6 +6,7 @@ namespace com.linkedin.dataset
 @Aspect = {
   "name": "datasetUpstreamLineage"
 }
+@deprecated = "use UpstreamLineage.fineGrainedLineages instead"
 record DatasetUpstreamLineage {
   /**
    * Upstream to downstream field level lineage mappings

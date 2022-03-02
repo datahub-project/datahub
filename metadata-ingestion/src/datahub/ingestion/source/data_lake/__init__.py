@@ -1,7 +1,8 @@
 import logging
 import os
 from datetime import datetime
-from typing import Any, Iterable, Optional
+from math import log10
+from typing import Any, Dict, Iterable, List, Optional
 
 import parse
 import pydeequ
@@ -29,16 +30,18 @@ from pyspark.sql.types import (
     TimestampType,
 )
 from pyspark.sql.utils import AnalysisException
+from smart_open import open as smart_open
 
 from datahub.emitter.mce_builder import make_data_platform_urn, make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.aws.s3_util import make_s3_urn
+from datahub.ingestion.source.aws.s3_util import is_s3_uri, make_s3_urn, strip_s3_prefix
 from datahub.ingestion.source.data_lake.config import DataLakeSourceConfig
 from datahub.ingestion.source.data_lake.profiling import _SingleTableProfiler
 from datahub.ingestion.source.data_lake.report import DataLakeSourceReport
+from datahub.ingestion.source.schema_inference import avro, csv_tsv, json, parquet
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -48,7 +51,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     NullTypeClass,
     NumberTypeClass,
     RecordTypeClass,
-    SchemaField,
     SchemaFieldDataType,
     SchemaMetadata,
     StringTypeClass,
@@ -60,7 +62,8 @@ from datahub.metadata.schema_classes import (
     MapTypeClass,
     OtherSchemaClass,
 )
-from datahub.telemetry import telemetry
+from datahub.telemetry import stats, telemetry
+from datahub.utilities.perf_timer import PerfTimer
 
 # hide annoying debug errors from py4j
 logging.getLogger("py4j").setLevel(logging.ERROR)
@@ -113,7 +116,14 @@ def get_column_type(
     return SchemaFieldDataType(type=TypeClass())
 
 
-# flags to emit telemetry for
+# config flags to emit telemetry for
+config_options_to_report = [
+    "platform",
+    "use_relative_path",
+    "ignore_dotfiles",
+]
+
+# profiling flags to emit telemetry for
 profiling_flags_to_report = [
     "profile_table_level_only",
     "include_field_null_count",
@@ -129,35 +139,42 @@ profiling_flags_to_report = [
 ]
 
 
+S3_PREFIXES = ["s3://", "s3n://", "s3a://"]
+
+
 class DataLakeSource(Source):
     source_config: DataLakeSourceConfig
-    report = DataLakeSourceReport()
+    report: DataLakeSourceReport
+    profiling_times_taken: List[float]
 
     def __init__(self, config: DataLakeSourceConfig, ctx: PipelineContext):
         super().__init__(ctx)
         self.source_config = config
+        self.report = DataLakeSourceReport()
+        self.profiling_times_taken = []
+
+        config_report = {
+            config_option: config.dict().get(config_option)
+            for config_option in config_options_to_report
+        }
+        config_report = {**config_report, "profiling_enabled": config.profiling.enabled}
 
         telemetry.telemetry_instance.ping(
-            "data_lake_profiling",
-            "config",
-            "enabled",
-            1 if config.profiling.enabled else 0,
+            "data_lake_config",
+            config_report,
         )
 
         if config.profiling.enabled:
+            telemetry.telemetry_instance.ping(
+                "data_lake_profiling_config",
+                {
+                    config_flag: config.profiling.dict().get(config_flag)
+                    for config_flag in profiling_flags_to_report
+                },
+            )
+            self.init_spark()
 
-            for config_flag in profiling_flags_to_report:
-                config_value = getattr(config.profiling, config_flag)
-                config_int = (
-                    1 if config_value else 0
-                )  # convert to int so it can be emitted as a value
-
-                telemetry.telemetry_instance.ping(
-                    "data_lake_profiling",
-                    "config",
-                    config_flag,
-                    config_int,
-                )
+    def init_spark(self):
 
         conf = SparkConf()
 
@@ -188,7 +205,6 @@ class DataLakeSource(Source):
 
                 # see https://hadoop.apache.org/docs/r3.0.3/hadoop-aws/tools/hadoop-aws/index.html#Changing_Authentication_Providers
                 if all(x is not None for x in aws_provided_credentials):
-
                     conf.set(
                         "spark.hadoop.fs.s3a.aws.credentials.provider",
                         "org.apache.hadoop.fs.s3a.TemporaryAWSCredentialsProvider",
@@ -220,7 +236,7 @@ class DataLakeSource(Source):
                 )
 
         conf.set("spark.jars.excludes", pydeequ.f2j_maven_coord)
-        conf.set("spark.driver.memory", config.spark_driver_memory)
+        conf.set("spark.driver.memory", self.source_config.spark_driver_memory)
 
         self.spark = SparkSession.builder.config(conf=conf).getOrCreate()
 
@@ -230,15 +246,11 @@ class DataLakeSource(Source):
 
         return cls(config, ctx)
 
-    def read_file(self, file: str) -> Optional[DataFrame]:
+    def read_file_spark(self, file: str) -> Optional[DataFrame]:
 
         extension = os.path.splitext(file)[1]
 
-        telemetry.telemetry_instance.ping(
-            "data_lake_profiling",
-            "file_extension",
-            extension,
-        )
+        telemetry.telemetry_instance.ping("data_lake_file", {"extension": extension})
 
         if file.endswith(".parquet"):
             df = self.spark.read.parquet(file)
@@ -285,7 +297,7 @@ class DataLakeSource(Source):
         return df.toDF(*(c.replace(".", "_") for c in df.columns))
 
     def get_table_schema(
-        self, dataframe: DataFrame, file_path: str, table_name: str
+        self, file_path: str, table_name: str
     ) -> Iterable[MetadataWorkUnit]:
 
         data_platform_urn = make_data_platform_urn(self.source_config.platform)
@@ -296,7 +308,7 @@ class DataLakeSource(Source):
         dataset_name = os.path.basename(file_path)
 
         # if no path spec is provided and the file is in S3, then use the S3 path to construct an URN
-        if self.source_config.platform == "s3" and self.source_config.path_spec is None:
+        if is_s3_uri(file_path) and self.source_config.path_spec is None:
             dataset_urn = make_s3_urn(file_path, self.source_config.env)
 
         dataset_snapshot = DatasetSnapshot(
@@ -310,25 +322,53 @@ class DataLakeSource(Source):
         )
         dataset_snapshot.aspects.append(dataset_properties)
 
-        column_fields = []
+        if file_path.startswith("s3a://"):
+            if self.source_config.aws_config is None:
+                raise ValueError("AWS config is required for S3 file sources")
 
-        for field in dataframe.schema.fields:
+            s3_client = self.source_config.aws_config.get_s3_client()
 
-            field = SchemaField(
-                fieldPath=field.name,
-                type=get_column_type(self.report, dataset_name, field.dataType),
-                nativeDataType=str(field.dataType),
-                recursive=False,
+            file = smart_open(file_path, "rb", transport_params={"client": s3_client})
+
+        else:
+
+            file = open(file_path, "rb")
+
+        fields = []
+
+        try:
+            if file_path.endswith(".parquet"):
+                fields = parquet.ParquetInferrer().infer_schema(file)
+            elif file_path.endswith(".csv"):
+                fields = csv_tsv.CsvInferrer(
+                    max_rows=self.source_config.max_rows
+                ).infer_schema(file)
+            elif file_path.endswith(".tsv"):
+                fields = csv_tsv.TsvInferrer(
+                    max_rows=self.source_config.max_rows
+                ).infer_schema(file)
+            elif file_path.endswith(".json"):
+                fields = json.JsonInferrer().infer_schema(file)
+            elif file_path.endswith(".avro"):
+                fields = avro.AvroInferrer().infer_schema(file)
+            else:
+                self.report.report_warning(
+                    file_path, f"file {file_path} has unsupported extension"
+                )
+            file.close()
+        except Exception as e:
+            self.report.report_warning(
+                file_path, f"could not infer schema for file {file_path}: {e}"
             )
+            file.close()
 
-            column_fields.append(field)
-
+        fields = sorted(fields, key=lambda f: f.fieldPath)
         schema_metadata = SchemaMetadata(
             schemaName=dataset_name,
             platform=data_platform_urn,
             version=0,
             hash="",
-            fields=column_fields,
+            fields=fields,
             platformSchema=OtherSchemaClass(rawSchema=""),
         )
 
@@ -339,10 +379,16 @@ class DataLakeSource(Source):
         self.report.report_workunit(wu)
         yield wu
 
-    def get_table_name(self, relative_path: str) -> str:
+    def get_table_name(self, relative_path: str, full_path: str) -> str:
 
         if self.source_config.path_spec is None:
-            return relative_path
+            name, extension = os.path.splitext(full_path)
+
+            if extension != "":
+                extension = extension[1:]  # remove the dot
+                return f"{name}_{extension}"
+
+            return name
 
         def warn():
             self.report.report_warning(
@@ -373,53 +419,70 @@ class DataLakeSource(Source):
         self, full_path: str, relative_path: str
     ) -> Iterable[MetadataWorkUnit]:
 
-        table_name = self.get_table_name(relative_path)
-
-        table = self.read_file(full_path)
-
-        # if table is not readable, skip
-        if table is None:
-            return
+        table_name = self.get_table_name(relative_path, full_path)
 
         # yield the table schema first
         logger.debug(
             f"Ingesting {full_path}: making table schemas {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
         )
-        yield from self.get_table_schema(table, full_path, table_name)
+        yield from self.get_table_schema(full_path, table_name)
 
         # If profiling is not enabled, skip the rest
         if not self.source_config.profiling.enabled:
             return
 
-        # init PySpark analysis object
-        logger.debug(
-            f"Profiling {full_path}: reading file and computing nulls+uniqueness {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
-        )
-        table_profiler = _SingleTableProfiler(
-            table, self.spark, self.source_config.profiling, self.report, full_path
-        )
+        # read in the whole table with Spark for profiling
+        table = self.read_file_spark(full_path)
 
-        logger.debug(
-            f"Profiling {full_path}: preparing profilers to run {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
-        )
-        # instead of computing each profile individually, we run them all in a single analyzer.run() call
-        # we use a single call because the analyzer optimizes the number of calls to the underlying profiler
-        # since multiple profiles reuse computations, this saves a lot of time
-        table_profiler.prepare_table_profiles()
+        # if table is not readable, skip
+        if table is None:
+            self.report.report_warning(
+                table_name, f"unable to read table {table_name} from file {full_path}"
+            )
+            return
 
-        # compute the profiles
-        logger.debug(
-            f"Profiling {full_path}: computing profiles {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
-        )
-        analysis_result = table_profiler.analyzer.run()
-        analysis_metrics = AnalyzerContext.successMetricsAsDataFrame(
-            self.spark, analysis_result
-        )
+        with PerfTimer() as timer:
+            # init PySpark analysis object
+            logger.debug(
+                f"Profiling {full_path}: reading file and computing nulls+uniqueness {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+            )
+            table_profiler = _SingleTableProfiler(
+                table,
+                self.spark,
+                self.source_config.profiling,
+                self.report,
+                full_path,
+            )
 
-        logger.debug(
-            f"Profiling {full_path}: extracting profiles {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
-        )
-        table_profiler.extract_table_profiles(analysis_metrics)
+            logger.debug(
+                f"Profiling {full_path}: preparing profilers to run {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+            )
+            # instead of computing each profile individually, we run them all in a single analyzer.run() call
+            # we use a single call because the analyzer optimizes the number of calls to the underlying profiler
+            # since multiple profiles reuse computations, this saves a lot of time
+            table_profiler.prepare_table_profiles()
+
+            # compute the profiles
+            logger.debug(
+                f"Profiling {full_path}: computing profiles {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+            )
+            analysis_result = table_profiler.analyzer.run()
+            analysis_metrics = AnalyzerContext.successMetricsAsDataFrame(
+                self.spark, analysis_result
+            )
+
+            logger.debug(
+                f"Profiling {full_path}: extracting profiles {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+            )
+            table_profiler.extract_table_profiles(analysis_metrics)
+
+            time_taken = timer.elapsed_seconds()
+
+            logger.info(
+                f"Finished profiling {full_path}; took {time_taken:.3f} seconds"
+            )
+
+            self.profiling_times_taken.append(time_taken)
 
         mcp = MetadataChangeProposalWrapper(
             entityType="dataset",
@@ -436,80 +499,115 @@ class DataLakeSource(Source):
         self.report.report_workunit(wu)
         yield wu
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+    def get_workunits_s3(self) -> Iterable[MetadataWorkUnit]:
 
-        s3_prefixes = ["s3://", "s3n://", "s3a://"]
+        plain_base_path = strip_s3_prefix(self.source_config.base_path)
 
-        # check if file is an s3 object
-        if any(
-            self.source_config.base_path.startswith(s3_prefix)
-            for s3_prefix in s3_prefixes
+        # append a trailing slash if it's not there so prefix filtering works
+        if not plain_base_path.endswith("/"):
+            plain_base_path = plain_base_path + "/"
+
+        if self.source_config.aws_config is None:
+            raise ValueError("AWS config is required for S3 file sources")
+
+        s3 = self.source_config.aws_config.get_s3_resource()
+        bucket = s3.Bucket(plain_base_path.split("/")[0])
+
+        unordered_files = []
+
+        for obj in bucket.objects.filter(
+            Prefix=plain_base_path.split("/", maxsplit=1)[1]
         ):
 
-            for s3_prefix in s3_prefixes:
-                if self.source_config.base_path.startswith(s3_prefix):
-                    plain_base_path = self.source_config.base_path.lstrip(s3_prefix)
-                    break
+            s3_path = f"s3://{obj.bucket_name}/{obj.key}"
 
-            # append a trailing slash if it's not there so prefix filtering works
-            if not plain_base_path.endswith("/"):
-                plain_base_path = plain_base_path + "/"
+            # if table patterns do not allow this file, skip
+            if not self.source_config.schema_patterns.allowed(s3_path):
+                continue
 
-            if self.source_config.aws_config is None:
-                raise ValueError("AWS config is required for S3 file sources")
+            # if the file is a directory, skip it
+            if obj.key.endswith("/"):
+                continue
 
-            s3 = self.source_config.aws_config.get_s3_resource()
-            bucket = s3.Bucket(plain_base_path.split("/")[0])
+            file = os.path.basename(obj.key)
 
-            unordered_files = []
+            if self.source_config.ignore_dotfiles and file.startswith("."):
+                continue
 
-            for obj in bucket.objects.filter(
-                Prefix=plain_base_path.split("/", maxsplit=1)[1]
-            ):
+            obj_path = f"s3a://{obj.bucket_name}/{obj.key}"
 
-                s3_path = f"s3://{obj.bucket_name}/{obj.key}"
+            unordered_files.append(obj_path)
 
-                # if table patterns do not allow this file, skip
-                if not self.source_config.schema_patterns.allowed(s3_path):
-                    continue
+        for aws_file in sorted(unordered_files):
 
-                # if the file is a directory, skip it
-                if obj.key.endswith("/"):
-                    continue
+            relative_path = "./" + aws_file[len(f"s3a://{plain_base_path}") :]
 
-                file = os.path.basename(obj.key)
+            # pass in the same relative_path as the full_path for S3 files
+            yield from self.ingest_table(aws_file, relative_path)
+
+    def get_workunits_local(self) -> Iterable[MetadataWorkUnit]:
+        for root, dirs, files in os.walk(self.source_config.base_path):
+            for file in sorted(files):
 
                 if self.source_config.ignore_dotfiles and file.startswith("."):
                     continue
 
-                obj_path = f"s3a://{obj.bucket_name}/{obj.key}"
+                full_path = os.path.join(root, file)
 
-                unordered_files.append(obj_path)
+                relative_path = "./" + os.path.relpath(
+                    full_path, self.source_config.base_path
+                )
 
-            for aws_file in sorted(unordered_files):
+                # if table patterns do not allow this file, skip
+                if not self.source_config.schema_patterns.allowed(full_path):
+                    continue
 
-                relative_path = "./" + aws_file[len(f"s3a://{plain_base_path}") :]
+                yield from self.ingest_table(full_path, relative_path)
 
-                # pass in the same relative_path as the full_path for S3 files
-                yield from self.ingest_table(aws_file, relative_path)
-        else:
-            for root, dirs, files in os.walk(self.source_config.base_path):
-                for file in sorted(files):
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
 
-                    if self.source_config.ignore_dotfiles and file.startswith("."):
-                        continue
+        with PerfTimer() as timer:
 
-                    full_path = os.path.join(root, file)
+            # check if file is an s3 object
+            if is_s3_uri(self.source_config.base_path):
+                yield from self.get_workunits_s3()
 
-                    relative_path = "./" + os.path.relpath(
-                        full_path, self.source_config.base_path
-                    )
+            else:
+                yield from self.get_workunits_local()
 
-                    # if table patterns do not allow this file, skip
-                    if not self.source_config.schema_patterns.allowed(full_path):
-                        continue
+            if not self.source_config.profiling.enabled:
+                return
 
-                    yield from self.ingest_table(full_path, relative_path)
+            total_time_taken = timer.elapsed_seconds()
+
+            logger.info(
+                f"Profiling {len(self.profiling_times_taken)} table(s) finished in {total_time_taken:.3f} seconds"
+            )
+
+            time_percentiles: Dict[str, float] = {}
+
+            if len(self.profiling_times_taken) > 0:
+                percentiles = [50, 75, 95, 99]
+                percentile_values = stats.calculate_percentiles(
+                    self.profiling_times_taken, percentiles
+                )
+
+                time_percentiles = {
+                    f"table_time_taken_p{percentile}": 10
+                    ** int(log10(percentile_values[percentile] + 1))
+                    for percentile in percentiles
+                }
+
+            telemetry.telemetry_instance.ping(
+                "data_lake_profiling_summary",
+                # bucket by taking floor of log of time taken
+                {
+                    "total_time_taken": 10 ** int(log10(total_time_taken + 1)),
+                    "count": 10 ** int(log10(len(self.profiling_times_taken) + 1)),
+                    "platform": self.source_config.platform,
+                    **time_percentiles,
+                },
+            )
 
     def get_report(self):
         return self.report

@@ -1,0 +1,9 @@
+{
+  "description": "desc2",
+  "uri": "https://www.google.com",
+  "tags": [],
+  "customProperties": {
+    "prop1": "fakeprop",
+    "prop2": "pikachu"
+  }
+}

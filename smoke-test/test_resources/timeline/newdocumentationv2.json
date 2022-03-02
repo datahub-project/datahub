@@ -1,0 +1,20 @@
+{
+  "elements": [
+    {
+      "url": "https://www.linkedin.com",
+      "description": "Sample doc",
+      "createStamp": {
+        "time": 1581407189000,
+        "actor": "urn:li:corpuser:jdoe"
+      }
+    },
+    {
+      "url": "https://www.google.com",
+      "description": "Google",
+      "createStamp": {
+        "time": 1581407189001,
+        "actor": "urn:li:corpuser:jdoe"
+      }
+    }
+  ]
+}

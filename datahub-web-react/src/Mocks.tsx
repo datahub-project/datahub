@@ -57,6 +57,11 @@ const user1 = {
                     urn: 'urn:li:tag:abc-sample-tag',
                     name: 'abc-sample-tag',
                     description: 'sample tag',
+                    properties: {
+                        name: 'abc-sample-tag',
+                        description: 'sample tag',
+                        colorHex: 'sample tag color',
+                    },
                 },
             },
         ],
@@ -87,6 +92,11 @@ const user2 = {
                     urn: 'urn:li:tag:abc-sample-tag',
                     name: 'abc-sample-tag',
                     description: 'sample tag',
+                    properties: {
+                        name: 'abc-sample-tag',
+                        description: 'sample tag',
+                        colorHex: 'sample tag color',
+                    },
                 },
             },
         ],
@@ -324,6 +334,11 @@ export const dataset3 = {
                     urn: 'urn:li:tag:abc-sample-tag',
                     name: 'abc-sample-tag',
                     description: 'sample tag',
+                    properties: {
+                        name: 'abc-sample-tag',
+                        description: 'sample tag',
+                        colorHex: 'sample tag color',
+                    },
                 },
             },
         ],
@@ -839,12 +854,16 @@ const glossaryTerm3 = {
         hasRelatedTerms: [
             {
                 urn: 'urn:li:glossaryTerm:example.glossaryterm3',
-                name: 'glossaryterm3',
+                properties: {
+                    name: 'glossaryterm3',
+                },
                 __typename: 'GlossaryTerm',
             },
             {
                 urn: 'urn:li:glossaryTerm:example.glossaryterm4',
-                name: 'glossaryterm4',
+                properties: {
+                    name: 'glossaryterm4',
+                },
                 __typename: 'GlossaryTerm',
             },
         ],
@@ -875,6 +894,11 @@ const sampleTag = {
         lastModified: {
             time: 0,
         },
+    },
+    properties: {
+        name: 'abc-sample-tag',
+        description: 'sample tag description',
+        colorHex: 'sample tag color',
     },
 };
 
@@ -920,6 +944,11 @@ export const dataFlow1 = {
                     urn: 'urn:li:tag:abc-sample-tag',
                     name: 'abc-sample-tag',
                     description: 'sample tag',
+                    properties: {
+                        name: 'abc-sample-tag',
+                        description: 'sample tag',
+                        colorHex: 'sample tag color',
+                    },
                 },
             },
         ],
@@ -977,6 +1006,11 @@ export const dataJob1 = {
                     urn: 'urn:li:tag:abc-sample-tag',
                     name: 'abc-sample-tag',
                     description: 'sample tag',
+                    properties: {
+                        name: 'abc-sample-tag',
+                        description: 'sample tag',
+                        colorHex: 'sample tag color',
+                    },
                 },
             },
         ],
@@ -1045,6 +1079,11 @@ export const dataJob2 = {
                     urn: 'urn:li:tag:abc-sample-tag',
                     name: 'abc-sample-tag',
                     description: 'sample tag',
+                    properties: {
+                        name: 'abc-sample-tag',
+                        description: 'sample tag',
+                        colorHex: 'sample tag color',
+                    },
                 },
             },
         ],
@@ -1099,6 +1138,11 @@ export const dataJob3 = {
                     urn: 'urn:li:tag:abc-sample-tag',
                     name: 'abc-sample-tag',
                     description: 'sample tag',
+                    properties: {
+                        name: 'abc-sample-tag',
+                        description: 'sample tag',
+                        colorHex: 'sample tag color',
+                    },
                 },
             },
         ],
@@ -1165,6 +1209,11 @@ export const mlModel = {
                     urn: 'urn:li:tag:abc-sample-tag',
                     name: 'abc-sample-tag',
                     description: 'sample tag',
+                    properties: {
+                        name: 'abc-sample-tag',
+                        description: 'sample tag',
+                        colorHex: 'sample tag color',
+                    },
                 },
             },
         ],
@@ -1220,6 +1269,11 @@ export const mlModelGroup = {
                     urn: 'urn:li:tag:abc-sample-tag',
                     name: 'abc-sample-tag',
                     description: 'sample tag',
+                    properties: {
+                        name: 'abc-sample-tag',
+                        description: 'sample tag',
+                        colorHex: 'sample tag color',
+                    },
                 },
             },
         ],

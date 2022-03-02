@@ -385,10 +385,18 @@ def get_entity(
     else:
         session, gms_host = cached_session_host
 
-    encoded_urn = urllib.parse.quote(urn, safe="")
+    if urn.startswith("urn%3A"):
+        # we assume the urn is already encoded
+        encoded_urn: str = urn
+    elif urn.startswith("urn:"):
+        encoded_urn = urllib.parse.quote(urn)
+    else:
+        raise Exception(
+            f"urn {urn} does not seem to be a valid raw (starts with urn:) or encoded urn (starts with urn%3A)"
+        )
     endpoint: str = f"/entities/{encoded_urn}"
 
-    if aspect is not None:
+    if aspect:
         endpoint = endpoint + "?aspects=List(" + ",".join(aspect) + ")"
 
     response = session.get(gms_host + endpoint)

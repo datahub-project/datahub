@@ -223,7 +223,7 @@ public class EbeanEntityService extends EntityService {
       List<EnvelopedAspect> aspects = urnToAspects.getOrDefault(urn.toString(), Collections.emptyList());
       EnvelopedAspect keyAspect = getKeyEnvelopedAspect(urn);
       // Add key aspect if it does not exist in the returned aspects
-      if (aspects.isEmpty() || !aspectNames.contains(keyAspect.getName())) {
+      if (aspects.isEmpty() || aspects.stream().noneMatch(aspect -> keyAspect.getName().equals(aspect.getName()))) {
         result.put(urn, ImmutableList.<EnvelopedAspect>builder().addAll(aspects).add(keyAspect).build());
       } else {
         result.put(urn, aspects);
@@ -468,6 +468,7 @@ public class EbeanEntityService extends EntityService {
     return true;
   }
 
+  @Nullable
   public RollbackResult deleteAspect(String urn, String aspectName, Map<String, String> conditions) {
     // Validate pre-conditions before running queries
     try {
@@ -541,15 +542,11 @@ public class EbeanEntityService extends EntityService {
         _entityDao.saveAspect(latest, false);
         _entityDao.deleteAspect(survivingAspect);
       } else {
-        // if this is the key aspect, we also want to delete the entity entirely
         if (isKeyAspect) {
-          if (_entityDao.getEarliestAspect(urn).get().getCreatedOn().equals(latest.getCreatedOn())) {
-            additionalRowsDeleted = _entityDao.deleteUrn(urn);
-            _entityDao.deleteAspect(latest);
-          } else {
-            return null;
-          }
+          // If this is the key aspect, delete the entity entirely.
+          additionalRowsDeleted = _entityDao.deleteUrn(urn);
         } else {
+          // Else, only delete the specific aspect.
           _entityDao.deleteAspect(latest);
         }
       }
@@ -614,21 +611,19 @@ public class EbeanEntityService extends EntityService {
     List<AspectRowSummary> removedAspects = new ArrayList<>();
     Integer rowsDeletedFromEntityDeletion = 0;
 
+    final EntitySpec spec = getEntityRegistry().getEntitySpec(urnToEntityName(urn));
+    final AspectSpec keySpec = spec.getKeyAspectSpec();
     String keyAspectName = getKeyAspectName(urn);
+
     EbeanAspectV2 latestKey = _entityDao.getLatestAspect(urn.toString(), keyAspectName);
     if (latestKey == null || latestKey.getSystemMetadata() == null) {
       return new RollbackRunResult(removedAspects, rowsDeletedFromEntityDeletion);
     }
 
     SystemMetadata latestKeySystemMetadata = parseSystemMetadata(latestKey.getSystemMetadata());
-
     RollbackResult result = deleteAspect(urn.toString(), keyAspectName, Collections.singletonMap("runId", latestKeySystemMetadata.getRunId()));
-    Optional<AspectSpec> aspectSpec = getAspectSpec(result.entityName, result.aspectName);
-    if (!aspectSpec.isPresent()) {
-      log.error("Issue while rolling back: unknown aspect {} for entity {}", result.entityName, result.aspectName);
-    }
 
-    if (result != null && aspectSpec.isPresent()) {
+    if (result != null) {
       AspectRowSummary summary = new AspectRowSummary();
       summary.setUrn(urn.toString());
       summary.setKeyAspect(true);
@@ -638,7 +633,7 @@ public class EbeanEntityService extends EntityService {
 
       rowsDeletedFromEntityDeletion = result.additionalRowsAffected;
       removedAspects.add(summary);
-      produceMetadataChangeLog(result.getUrn(), result.getEntityName(), result.getAspectName(), aspectSpec.get(),
+      produceMetadataChangeLog(result.getUrn(), result.getEntityName(), result.getAspectName(), keySpec,
           result.getOldValue(), result.getNewValue(), result.getOldSystemMetadata(), result.getNewSystemMetadata(),
           result.getChangeType());
     }
