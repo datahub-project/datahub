@@ -67,7 +67,7 @@ def ingest() -> None:
 def run(config: str, dry_run: bool, preview: bool, strict_warnings: bool) -> None:
     """Ingest metadata into DataHub."""
 
-    logger.debug("DataHub CLI version: %s", datahub_package.nice_version_name())
+    logger.info("DataHub CLI version: %s", datahub_package.nice_version_name())
 
     config_file = pathlib.Path(config)
     pipeline_config = load_config_file(config_file)
