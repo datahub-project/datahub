@@ -4,17 +4,15 @@ import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.Assertion;
+import com.linkedin.datahub.graphql.generated.AssertionStdAggregation;
 import com.linkedin.datahub.graphql.generated.AssertionStdOperator;
+import com.linkedin.datahub.graphql.generated.AssertionStdParameter;
+import com.linkedin.datahub.graphql.generated.AssertionStdParameterType;
+import com.linkedin.datahub.graphql.generated.AssertionStdParameters;
 import com.linkedin.datahub.graphql.generated.AssertionType;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.DatasetAssertionInfo;
 import com.linkedin.datahub.graphql.generated.DatasetAssertionScope;
-import com.linkedin.datahub.graphql.generated.DatasetColumnAssertion;
-import com.linkedin.datahub.graphql.generated.DatasetColumnStdAggFunc;
-import com.linkedin.datahub.graphql.generated.DatasetRowsAssertion;
-import com.linkedin.datahub.graphql.generated.DatasetRowsStdAggFunc;
-import com.linkedin.datahub.graphql.generated.DatasetSchemaAssertion;
-import com.linkedin.datahub.graphql.generated.DatasetSchemaStdAggFunc;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.SchemaFieldRef;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
@@ -70,35 +68,6 @@ public class AssertionMapper {
         gmsDatasetAssertion.getDataset().toString());
     datasetAssertion.setScope(
         DatasetAssertionScope.valueOf(gmsDatasetAssertion.getScope().name()));
-    if (gmsDatasetAssertion.hasColumnAssertion()) {
-      DatasetColumnAssertion columnAssertion = new DatasetColumnAssertion();
-      columnAssertion.setStdOperator(AssertionStdOperator.valueOf(
-          gmsDatasetAssertion.getColumnAssertion().getStdOperator().name()));
-      columnAssertion.setStdAggFunc(DatasetColumnStdAggFunc.valueOf(
-          gmsDatasetAssertion.getColumnAssertion().getStdAggFunc().name()));
-      datasetAssertion.setNativeType(
-          gmsDatasetAssertion.getColumnAssertion().getNativeType());
-      datasetAssertion.setColumnAssertion(columnAssertion);
-    }
-    if (gmsDatasetAssertion.hasRowsAssertion()) {
-      DatasetRowsAssertion rowsAssertion = new DatasetRowsAssertion();
-      rowsAssertion.setStdOperator(AssertionStdOperator.valueOf(
-          gmsDatasetAssertion.getRowsAssertion().getStdOperator().name()));
-      rowsAssertion.setStdAggFunc(DatasetRowsStdAggFunc.valueOf(
-          gmsDatasetAssertion.getRowsAssertion().getStdAggFunc().name()));
-      datasetAssertion.setNativeType(gmsDatasetAssertion.getRowsAssertion().getNativeType());
-      datasetAssertion.setRowsAssertion(rowsAssertion);
-    }
-    if (gmsDatasetAssertion.hasSchemaAssertion()) {
-      DatasetSchemaAssertion schemaAssertion = new DatasetSchemaAssertion();
-      schemaAssertion.setStdOperator(AssertionStdOperator.valueOf(
-          gmsDatasetAssertion.getSchemaAssertion().getStdOperator().name()));
-      schemaAssertion.setStdAggFunc(DatasetSchemaStdAggFunc.valueOf(
-          gmsDatasetAssertion.getSchemaAssertion().getStdAggFunc().name()));
-      datasetAssertion.setNativeType(
-          gmsDatasetAssertion.getSchemaAssertion().getNativeType());
-      datasetAssertion.setSchemaAssertion(schemaAssertion);
-    }
     if (gmsDatasetAssertion.hasFields()) {
       datasetAssertion.setFields(gmsDatasetAssertion.getFields()
           .stream()
@@ -107,10 +76,21 @@ public class AssertionMapper {
     } else {
       datasetAssertion.setFields(Collections.emptyList());
     }
+    // Agg
+    if (gmsDatasetAssertion.hasAggregation()) {
+      datasetAssertion.setAggregation(AssertionStdAggregation.valueOf(gmsDatasetAssertion.getAggregation().name()));
+    }
+
+    // Op
+    datasetAssertion.setOperator(AssertionStdOperator.valueOf(gmsDatasetAssertion.getOperator().name()));
+
+    // Params
     if (gmsDatasetAssertion.hasParameters()) {
-      datasetAssertion.setParameters(StringMapMapper.map(gmsDatasetAssertion.getParameters()));
-    } else {
-      datasetAssertion.setParameters(Collections.emptyList());
+      datasetAssertion.setParameters(mapParameters(gmsDatasetAssertion.getParameters()));
+    }
+
+    if (gmsDatasetAssertion.hasNativeType()) {
+      datasetAssertion.setNativeType(gmsDatasetAssertion.getNativeType());
     }
     if (gmsDatasetAssertion.hasNativeParameters()) {
       datasetAssertion.setNativeParameters(StringMapMapper.map(gmsDatasetAssertion.getNativeParameters()));
@@ -132,6 +112,27 @@ public class AssertionMapper {
 
   private static SchemaFieldRef mapDatasetSchemaField(final Urn schemaFieldUrn) {
     return new SchemaFieldRef(schemaFieldUrn.toString(), schemaFieldUrn.getEntityKey().get(1));
+  }
+
+  private static AssertionStdParameters mapParameters(final com.linkedin.assertion.AssertionStdParameters params) {
+    final AssertionStdParameters result = new AssertionStdParameters();
+    if (params.hasValue()) {
+      result.setValue(mapParameter(params.getValue()));
+    }
+    if (params.hasMinValue()) {
+      result.setValue(mapParameter(params.getMinValue()));
+    }
+    if (params.hasMaxValue()) {
+      result.setValue(mapParameter(params.getMaxValue()));
+    }
+    return result;
+  }
+
+  private static AssertionStdParameter mapParameter(final com.linkedin.assertion.AssertionStdParameter param) {
+    final AssertionStdParameter result = new AssertionStdParameter();
+    result.setType(AssertionStdParameterType.valueOf(param.getType().name()));
+    result.setValue(param.getValue());
+    return result;
   }
 
   private AssertionMapper() {

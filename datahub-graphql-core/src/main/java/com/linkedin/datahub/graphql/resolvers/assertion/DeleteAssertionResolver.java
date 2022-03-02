@@ -35,8 +35,14 @@ public class DeleteAssertionResolver implements DataFetcher<CompletableFuture<Bo
   @Override
   public CompletableFuture<Boolean> get(final DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
-    final Urn assertionUrn = Urn.createFromString(environment.getArgument("assertionUrn"));
+    final Urn assertionUrn = Urn.createFromString(environment.getArgument("urn"));
     return CompletableFuture.supplyAsync(() -> {
+
+      // 1. check the entity exists. If not, return false.
+      if (!_entityService.exists(assertionUrn)) {
+        return true;
+      }
+
       if (isAuthorizedToDeleteAssertion(context, assertionUrn)) {
           try {
             _entityClient.deleteEntity(assertionUrn, context.getAuthentication());
@@ -44,7 +50,7 @@ public class DeleteAssertionResolver implements DataFetcher<CompletableFuture<Bo
           } catch (Exception e) {
             throw new RuntimeException(String.format("Failed to perform delete against assertion with urn %s", assertionUrn), e);
           }
-      };
+      }
       throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
     });
   }
@@ -53,11 +59,6 @@ public class DeleteAssertionResolver implements DataFetcher<CompletableFuture<Bo
    * Determine whether the current user is allowed to remove an assertion.
    */
   private boolean isAuthorizedToDeleteAssertion(final QueryContext context, final Urn assertionUrn) {
-
-    // 1. check the entity exists
-    if (!_entityService.exists(assertionUrn)) {
-      throw new IllegalArgumentException(String.format("Failed to remove assertion %s. Assertion does not exist.", assertionUrn));
-    }
 
     // 2. fetch the assertion info
     AssertionInfo info =
@@ -69,6 +70,7 @@ public class DeleteAssertionResolver implements DataFetcher<CompletableFuture<Bo
       final Urn asserteeUrn = getAsserteeUrnFromInfo(info);
       return isAuthorizedToDeleteAssertionFromAssertee(context, asserteeUrn);
     }
+
     return true;
   }
 

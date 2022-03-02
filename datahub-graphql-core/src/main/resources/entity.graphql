@@ -4311,7 +4311,7 @@ type Assertion implements EntityWithRelationships & Entity {
     Lifecycle events detailing individual runs of this assertion. If startTimeMillis & endTimeMillis are not provided, the most
     recent events will be returned.
     """    
-    runEvents(status: String, startTimeMillis: Long, endTimeMillis: Long, limit: Int): AssertionRunEventsResult
+    runEvents(status: AssertionRunStatus, startTimeMillis: Long, endTimeMillis: Long, limit: Int): AssertionRunEventsResult
 
     """
     Edges extending from this entity
@@ -4349,39 +4349,34 @@ type DatasetAssertionInfo {
     scope: DatasetAssertionScope!
 
     """
-    The native operator for the assertion. For Great Expectations, this will contain the original expectation name.
-    """
-    nativeType: String
-
-    """
-    Detailed information about a Dataset Column Assertion.
-    """
-    columnAssertion: DatasetColumnAssertion
-
-    """
-    Detailed information about a Dataset Rows Assertion.
-    """
-    rowsAssertion: DatasetRowsAssertion
-
-    """
-    Detailed information about a Dataset Schema Assertion.
-    """
-    schemaAssertion: DatasetSchemaAssertion
-
-    """
     The fields serving as input to the assertion. Empty if there are none.
     """
     fields: [SchemaFieldRef!]
 
     """
-    Key-Value parameters used in evaluating the assertion. Key names depend on the specific operator associated with the assertion, so see the Operator documentation for more information. Values may be fixed (static) values, or variable references.
+    Standardized assertion operator
     """
-    parameters: [StringMapEntry!]!
+    aggregation: AssertionStdAggregation
 
     """
-    The raw parameters as provided by the native source, such as great expectations.
+    Standardized assertion operator
     """
-    nativeParameters: [StringMapEntry!]!
+    operator: AssertionStdOperator!
+
+    """
+    Standard parameters required for the assertion. e.g. min_value, max_value, value, columns
+    """
+    parameters: AssertionStdParameters
+
+    """
+    The native operator for the assertion. For Great Expectations, this will contain the original expectation name.
+    """
+    nativeType: String
+
+    """
+    Native parameters required for the assertion.
+    """
+    nativeParameters: [StringMapEntry!]
 
     """
     Logic comprising a raw, unstructured assertion.
@@ -4402,38 +4397,6 @@ type SchemaFieldRef {
   A schema field path
   """
   path: String!
-}
-
-
-"""
-Detailed information about a Dataset Column values Assertion
-"""
-type DatasetColumnAssertion {
-    """
-    The standard operator associated with the assertion.
-    """
-    stdOperator: AssertionStdOperator!
-
-    """
-    The standard aggregation / input performed on the input column values.
-    """
-    stdAggFunc: DatasetColumnStdAggFunc!
-}
-
-"""
-Detailed information about a Dataset Column values Assertion
-"""
-type DatasetRowsAssertion {
-    """
-    The standard operator associated with the assertion.
-    """
-    stdOperator: AssertionStdOperator!
-    stdAggFunc: DatasetRowsStdAggFunc!
-}
-
-type DatasetSchemaAssertion {
-    stdOperator: AssertionStdOperator!
-    stdAggFunc: DatasetSchemaStdAggFunc!
 }
 
 """
@@ -4582,7 +4545,7 @@ enum AssertionRunStatus {
 """
 An "aggregation" function that can be applied to column values of a Dataset to create the input to an Assertion Operator.
 """
-enum DatasetColumnStdAggFunc {
+enum AssertionStdAggregation {
     """
     Assertion is applied on individual column value
     """
@@ -4637,39 +4600,22 @@ enum DatasetColumnStdAggFunc {
     Assertion is applied on column sum
     """
     SUM
-    
-    """
-    Other
-    """
-    _NATIVE_
-}
 
-"""
-An "aggregation" function that can be applied to a Dataset Schema to create an input to an Assertion Operator.
-"""
-enum DatasetSchemaStdAggFunc {
     """
     Assertion is applied on all columns
     """
     COLUMNS
+
     """
     Assertion is applied on number of columns
     """
     COLUMN_COUNT
-    """
-    Other
-    """
-    _NATIVE_
-}
 
-"""
-An "aggregation" function that can be applied to the rows of a Dataset to create the input to an Assertion Operator.
-"""
-enum DatasetRowsStdAggFunc {
     """
     Assertion is applied on number of rows
     """
     ROW_COUNT
+
     """
     Other
     """
@@ -4739,6 +4685,52 @@ enum AssertionStdOperator {
     Other
     """  
     _NATIVE_
+}
+
+
+"""
+Parameters for AssertionStdOperators
+"""
+type AssertionStdParameters {
+  """
+  The value parameter of an assertion
+  """
+  value: AssertionStdParameter
+
+  """
+  The maxValue parameter of an assertion
+  """
+  maxValue: AssertionStdParameter
+
+  """
+  The minValue parameter of an assertion
+  """
+  minValue: AssertionStdParameter
+}
+
+"""
+Parameter for AssertionStdOperator.
+"""
+type AssertionStdParameter {
+  """
+  The parameter value
+  """
+  value: String!
+
+  """
+  The type of the parameter
+  """
+  type: AssertionStdParameterType!
+}
+
+"""
+The type of an AssertionStdParameter
+"""
+enum AssertionStdParameterType {
+  STRING
+  NUMBER
+  LIST
+  SET
 }
 
 """

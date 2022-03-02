@@ -2,22 +2,19 @@ package com.linkedin.datahub.graphql.resolvers.assertion;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
+import com.linkedin.assertion.AssertionResult;
+import com.linkedin.assertion.AssertionResultType;
+import com.linkedin.assertion.AssertionRunEvent;
+import com.linkedin.assertion.AssertionRunStatus;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.generated.Container;
+import com.linkedin.datahub.graphql.generated.Assertion;
+import com.linkedin.datahub.graphql.generated.AssertionRunEventsResult;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.query.filter.Condition;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
-import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.query.filter.Filter;
-import com.linkedin.metadata.search.AggregationMetadataArray;
-import com.linkedin.metadata.search.SearchEntity;
-import com.linkedin.metadata.search.SearchEntityArray;
-import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.metadata.search.SearchResultMetadata;
+import com.linkedin.metadata.utils.GenericAspectUtils;
 import graphql.schema.DataFetchingEnvironment;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -26,60 +23,89 @@ import static org.testng.Assert.*;
 
 
 public class AssertionRunEventResolverTest {
-
   @Test
   public void testGetSuccess() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
-    final String childUrn = "urn:li:dataset:(test,test,test)";
-    final String containerUrn = "urn:li:container:test-container";
+    final Urn assertionUrn = Urn.createFromString("urn:li:assertion:guid-1");
+    final Urn asserteeUrn = Urn.createFromString("urn:li:dataset:(test,test,test)");
+    final AssertionRunEvent gmsRunEvent = new AssertionRunEvent()
+        .setTimestampMillis(12L)
+        .setAssertionUrn(assertionUrn)
+        .setRunId("test-id")
+        .setAsserteeUrn(asserteeUrn)
+        .setStatus(AssertionRunStatus.COMPLETE)
+        .setResult(new AssertionResult()
+            .setActualAggValue(10)
+            .setMissingCount(0L)
+            .setRowCount(1L)
+            .setType(AssertionResultType.SUCCESS)
+            .setUnexpectedCount(2L)
+        );
 
-    final Criterion filterCriterion =  new Criterion()
-        .setField("container.keyword")
-        .setCondition(Condition.EQUAL)
-        .setValue(containerUrn);
-
-    Mockito.when(mockClient.searchAcrossEntities(
-        Mockito.eq(ContainerEntitiesResolver.CONTAINABLE_ENTITY_NAMES),
-        Mockito.eq("*"),
-        Mockito.eq(
-            new Filter().setOr(new ConjunctiveCriterionArray(
-                new ConjunctiveCriterion().setAnd(new CriterionArray(ImmutableList.of(filterCriterion)))
-            ))
-        ),
-        Mockito.eq(0),
-        Mockito.eq(20),
+    Mockito.when(mockClient.getTimeseriesAspectValues(
+        Mockito.eq(assertionUrn.toString()),
+        Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
+        Mockito.eq(Constants.ASSERTION_RUN_EVENT_ASPECT_NAME),
+        Mockito.eq(0L),
+        Mockito.eq(10L),
+        Mockito.eq(5),
+        Mockito.eq(false),
+        Mockito.any(Filter.class),
         Mockito.any(Authentication.class)
     )).thenReturn(
-        new SearchResult()
-            .setFrom(0)
-            .setPageSize(1)
-            .setNumEntities(1)
-            .setEntities(new SearchEntityArray(ImmutableSet.of(
-                new SearchEntity()
-                    .setEntity(Urn.createFromString(childUrn))
-            )))
-            .setMetadata(new SearchResultMetadata().setAggregations(new AggregationMetadataArray()))
+        ImmutableList.of(
+            new EnvelopedAspect()
+              .setAspect(GenericAspectUtils.serializeAspect(gmsRunEvent))
+        )
     );
 
-    ContainerEntitiesResolver resolver = new ContainerEntitiesResolver(mockClient);
+    AssertionRunEventResolver resolver = new AssertionRunEventResolver(mockClient);
 
     // Execute resolver
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
-    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
+
+    Mockito.when(mockEnv.getArgumentOrDefault(Mockito.eq("status"), Mockito.eq(null))).thenReturn("COMPLETE");
+    Mockito.when(mockEnv.getArgumentOrDefault(Mockito.eq("startTimeMillis"), Mockito.eq(null))).thenReturn(0L);
+    Mockito.when(mockEnv.getArgumentOrDefault(Mockito.eq("endTimeMillis"), Mockito.eq(null))).thenReturn(10L);
+    Mockito.when(mockEnv.getArgumentOrDefault(Mockito.eq("limit"), Mockito.eq(null))).thenReturn(5);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
-    Container parentContainer = new Container();
-    parentContainer.setUrn(containerUrn);
-    Mockito.when(mockEnv.getSource()).thenReturn(parentContainer);
+    Assertion parentAssertion = new Assertion();
+    parentAssertion.setUrn(assertionUrn.toString());
+    Mockito.when(mockEnv.getSource()).thenReturn(parentAssertion);
 
-    // Data Assertions
-    assertEquals((int) resolver.get(mockEnv).get().getStart(), 0);
-    assertEquals((int) resolver.get(mockEnv).get().getCount(), 1);
-    assertEquals((int) resolver.get(mockEnv).get().getTotal(), 1);
-    assertEquals(resolver.get(mockEnv).get().getSearchResults().size(), 1);
-    assertEquals(resolver.get(mockEnv).get().getSearchResults().get(0).getEntity().getUrn(), childUrn);
+    AssertionRunEventsResult result = resolver.get(mockEnv).get();
+
+    Mockito.verify(mockClient, Mockito.times(1)).getTimeseriesAspectValues(
+        Mockito.eq(assertionUrn.toString()),
+        Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
+        Mockito.eq(Constants.ASSERTION_RUN_EVENT_ASPECT_NAME),
+        Mockito.eq(0L),
+        Mockito.eq(10L),
+        Mockito.eq(5),
+        Mockito.eq(false),
+        Mockito.any(Filter.class),
+        Mockito.any(Authentication.class)
+    );
+
+    // Assert that GraphQL assertion run event matches expectations
+    assertEquals(result.getTotal(), 1);
+    assertEquals(result.getFailed(), 0);
+    assertEquals(result.getSucceeded(), 1);
+
+    com.linkedin.datahub.graphql.generated.AssertionRunEvent graphqlRunEvent = resolver.get(mockEnv).get().getRunEvents().get(0);
+    assertEquals(graphqlRunEvent.getAssertionUrn(), assertionUrn.toString());
+    assertEquals(graphqlRunEvent.getAsserteeUrn(), asserteeUrn.toString());
+    assertEquals(graphqlRunEvent.getRunId(), "test-id");
+    assertEquals(graphqlRunEvent.getStatus(), com.linkedin.datahub.graphql.generated.AssertionRunStatus.COMPLETE);
+    assertEquals((float) graphqlRunEvent.getTimestampMillis(), 12L);
+    assertEquals((float) graphqlRunEvent.getResult().getActualAggValue(), 10);
+    assertEquals((long) graphqlRunEvent.getResult().getMissingCount(), 0L);
+    assertEquals((long) graphqlRunEvent.getResult().getRowCount(), 1L);
+    assertEquals((long) graphqlRunEvent.getResult().getUnexpectedCount(), 2L);
+    assertEquals(graphqlRunEvent.getResult().getType(), com.linkedin.datahub.graphql.generated.AssertionResultType.SUCCESS);
   }
 }
