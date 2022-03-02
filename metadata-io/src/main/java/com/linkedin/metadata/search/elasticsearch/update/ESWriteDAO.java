@@ -4,8 +4,8 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import java.io.IOException;
 import javax.annotation.Nonnull;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.action.bulk.BackoffPolicy;
 import org.elasticsearch.action.bulk.BulkProcessor;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.index.IndexRequest;
@@ -14,33 +14,19 @@ import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.client.indices.GetIndexRequest;
 import org.elasticsearch.client.indices.GetIndexResponse;
-import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.reindex.DeleteByQueryRequest;
 
 
 @Slf4j
+@RequiredArgsConstructor
 public class ESWriteDAO {
 
   private final EntityRegistry entityRegistry;
   private final RestHighLevelClient searchClient;
-  private final BulkProcessor bulkProcessor;
   private final IndexConvention indexConvention;
-
-  public ESWriteDAO(EntityRegistry entityRegistry, RestHighLevelClient searchClient, IndexConvention indexConvention,
-      int bulkRequestsLimit, int bulkFlushPeriod, int numRetries, long retryInterval) {
-    this.entityRegistry = entityRegistry;
-    this.indexConvention = indexConvention;
-    this.searchClient = searchClient;
-    this.bulkProcessor = BulkProcessor.builder(
-        (request, bulkListener) -> searchClient.bulkAsync(request, RequestOptions.DEFAULT, bulkListener),
-        BulkListener.getInstance())
-        .setBulkActions(bulkRequestsLimit)
-        .setFlushInterval(TimeValue.timeValueSeconds(bulkFlushPeriod))
-        .setBackoffPolicy(BackoffPolicy.constantBackoff(TimeValue.timeValueSeconds(retryInterval), numRetries))
-        .build();
-  }
+  private final BulkProcessor bulkProcessor;
 
   /**
    * Updates or inserts the given search document.

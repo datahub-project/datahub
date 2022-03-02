@@ -3,6 +3,7 @@ package com.linkedin.gms.factory.kafka;
 import com.linkedin.gms.factory.kafka.schemaregistry.AwsGlueSchemaRegistryFactory;
 import com.linkedin.gms.factory.kafka.schemaregistry.KafkaSchemaRegistryFactory;
 import com.linkedin.gms.factory.kafka.schemaregistry.SchemaRegistryConfig;
+import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Map;
@@ -18,6 +19,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.context.annotation.PropertySource;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.config.KafkaListenerContainerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
@@ -25,14 +27,15 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 
 @Slf4j
 @Configuration
+@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 @EnableConfigurationProperties(KafkaProperties.class)
 @Import({KafkaSchemaRegistryFactory.class, AwsGlueSchemaRegistryFactory.class})
 public class KafkaEventConsumerFactory {
 
-  @Value("${KAFKA_BOOTSTRAP_SERVER:http://localhost:9092}")
+  @Value("${kafka.bootstrapServers}")
   private String kafkaBootstrapServers;
 
-  @Value("${SCHEMA_REGISTRY_TYPE:KAFKA}")
+  @Value("${kafka.schemaRegistry.type}")
   private String schemaRegistryType;
 
   @Autowired

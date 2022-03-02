@@ -1,44 +1,48 @@
 package com.linkedin.gms.factory.common;
 
+import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import io.ebean.config.ServerConfig;
 import io.ebean.datasource.DataSourceConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.PropertySource;
+
 
 @Slf4j
 @Configuration
+@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class LocalEbeanServerConfigFactory {
 
-  @Value("${EBEAN_DATASOURCE_USERNAME:datahub}")
+  @Value("${ebean.username}")
   private String ebeanDatasourceUsername;
 
-  @Value("${EBEAN_DATASOURCE_PASSWORD:datahub}")
+  @Value("${ebean.password}")
   private String ebeanDatasourcePassword;
 
-  @Value("${EBEAN_DATASOURCE_URL:jdbc:mysql://localhost:3306/datahub}")
+  @Value("${ebean.url}")
   private String ebeanDatasourceUrl;
 
-  @Value("${EBEAN_DATASOURCE_DRIVER:com.mysql.jdbc.Driver}")
+  @Value("${ebean.driver}")
   private String ebeanDatasourceDriver;
 
-  @Value("${EBEAN_MIN_CONNECTIONS:2}")
+  @Value("${ebean.minConnections:2}")
   private Integer ebeanMinConnections;
 
-  @Value("${EBEAN_MAX_CONNECTIONS:50}")
+  @Value("${ebean.maxConnections:50}")
   private Integer ebeanMaxConnections;
 
-  @Value("${EBEAN_MAX_INACTIVE_TIME_IN_SECS:120}")
+  @Value("${ebean.maxInactiveTimeSeconds:120}")
   private Integer ebeanMaxInactiveTimeSecs;
 
-  @Value("${EBEAN_MAX_AGE_MINUTES:120}")
+  @Value("${ebean.maxAgeMinutes:120}")
   private Integer ebeanMaxAgeMinutes;
 
-  @Value("${EBEAN_LEAK_TIME_MINUTES:15}")
+  @Value("${ebean.leakTimeMinutes:15}")
   private Integer ebeanLeakTimeMinutes;
 
-  @Value("${EBEAN_AUTOCREATE:false}")
+  @Value("${ebean.autoCreateDdl:false}")
   private Boolean ebeanAutoCreate;
 
   @Bean(name = "gmsEbeanServiceConfig")

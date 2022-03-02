@@ -1,13 +1,11 @@
 package com.linkedin.metadata;
 
+import com.datahub.util.validator.AspectValidator;
+import com.datahub.util.validator.DeltaValidator;
+import com.datahub.util.validator.SnapshotValidator;
 import com.google.common.reflect.ClassPath;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.UnionTemplate;
-import com.linkedin.metadata.validator.AspectValidator;
-import com.linkedin.metadata.validator.DeltaValidator;
-import com.linkedin.metadata.validator.EntityValidator;
-import com.linkedin.metadata.validator.RelationshipValidator;
-import com.linkedin.metadata.validator.SnapshotValidator;
 import java.io.IOException;
 import java.util.List;
 import java.util.Set;
@@ -22,24 +20,6 @@ import static org.testng.AssertJUnit.*;
 public class ModelValidation {
 
   @Test
-  public void validateEntities() throws Exception {
-    List<? extends Class<? extends RecordTemplate>> entities =
-        getRecordTemplatesInPackage("com.linkedin.metadata.entity", IGNORED_ENTITY_CLASSES);
-
-    assertFalse("Failed to find any entities", entities.isEmpty());
-    entities.forEach(EntityValidator::validateEntitySchema);
-  }
-
-  @Test
-  public void validateRelationships() throws Exception {
-    List<? extends Class<? extends RecordTemplate>> relationships =
-        getRecordTemplatesInPackage("com.linkedin.metadata.relationship", IGNORED_RELATIONSHIP_CLASSES);
-
-    assertFalse("Failed to find any relationships", relationships.isEmpty());
-    relationships.forEach(RelationshipValidator::validateRelationshipSchema);
-  }
-
-  @Test
   public void validateAspects() throws Exception {
     List<? extends Class<? extends UnionTemplate>> aspects =
         getUnionTemplatesInPackage("com.linkedin.metadata.aspect", IGNORED_ASPECT_CLASSES);
@@ -52,7 +32,6 @@ public class ModelValidation {
   public void validateSnapshots() throws Exception {
     List<? extends Class<? extends RecordTemplate>> snapshots =
         getRecordTemplatesInPackage("com.linkedin.metadata.snapshot", IGNORED_SNAPSHOT_CLASSES);
-
 
     assertFalse("Failed to find any snapshots", snapshots.isEmpty());
     snapshots.forEach(SnapshotValidator::validateSnapshotSchema);

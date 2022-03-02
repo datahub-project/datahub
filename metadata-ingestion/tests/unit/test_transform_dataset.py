@@ -1,3 +1,6 @@
+from typing import Dict, List, Union
+from unittest import mock
+
 import pytest
 
 import datahub.emitter.mce_builder as builder
@@ -7,20 +10,32 @@ from datahub.ingestion.transformer.add_dataset_browse_path import (
     AddDatasetBrowsePathTransformer,
 )
 from datahub.ingestion.transformer.add_dataset_ownership import (
+    AddDatasetOwnership,
     PatternAddDatasetOwnership,
     SimpleAddDatasetOwnership,
 )
+from datahub.ingestion.transformer.add_dataset_properties import (
+    AddDatasetProperties,
+    AddDatasetPropertiesResolverBase,
+    SimpleAddDatasetProperties,
+)
 from datahub.ingestion.transformer.add_dataset_tags import (
     AddDatasetTags,
+    PatternAddDatasetTags,
     SimpleAddDatasetTags,
+)
+from datahub.ingestion.transformer.add_dataset_terms import (
+    PatternAddDatasetTerms,
+    SimpleAddDatasetTerms,
 )
 from datahub.ingestion.transformer.mark_dataset_status import MarkDatasetStatus
 from datahub.ingestion.transformer.remove_dataset_ownership import (
     SimpleRemoveDatasetOwnership,
 )
+from datahub.metadata.schema_classes import DatasetSnapshotClass
 
 
-def make_generic_dataset():
+def make_generic_dataset() -> models.MetadataChangeEventClass:
     return models.MetadataChangeEventClass(
         proposedSnapshot=models.DatasetSnapshotClass(
             urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,example1,PROD)",
@@ -31,7 +46,7 @@ def make_generic_dataset():
     )
 
 
-def make_dataset_with_owner():
+def make_dataset_with_owner() -> models.MetadataChangeEventClass:
     return models.MetadataChangeEventClass(
         proposedSnapshot=models.DatasetSnapshotClass(
             urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,example2,PROD)",
@@ -47,6 +62,23 @@ def make_dataset_with_owner():
                         time=1625266033123, actor="urn:li:corpuser:datahub"
                     ),
                 )
+            ],
+        ),
+    )
+
+
+EXISTING_PROPERTIES = {"my_existing_property": "existing property value"}
+
+
+def make_dataset_with_properties() -> models.MetadataChangeEventClass:
+    return models.MetadataChangeEventClass(
+        proposedSnapshot=models.DatasetSnapshotClass(
+            urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,example1,PROD)",
+            aspects=[
+                models.StatusClass(removed=False),
+                models.DatasetPropertiesClass(
+                    customProperties=EXISTING_PROPERTIES.copy()
+                ),
             ],
         ),
     )
@@ -290,6 +322,41 @@ def dummy_tag_resolver_method(dataset_snapshot):
     return []
 
 
+def test_pattern_dataset_tags_transformation(mock_time):
+    dataset_mce = make_generic_dataset()
+
+    transformer = PatternAddDatasetTags.create(
+        {
+            "tag_pattern": {
+                "rules": {
+                    ".*example1.*": [
+                        builder.make_tag_urn("Private"),
+                        builder.make_tag_urn("Legacy"),
+                    ],
+                    ".*example2.*": [builder.make_term_urn("Needs Documentation")],
+                }
+            },
+        },
+        PipelineContext(run_id="test-tags"),
+    )
+
+    outputs = list(
+        transformer.transform(
+            [RecordEnvelope(input, metadata={}) for input in [dataset_mce]]
+        )
+    )
+
+    assert len(outputs) == 1
+    # Check that glossary terms were added.
+    tags_aspect = builder.get_aspect_if_available(
+        outputs[0].record, models.GlobalTagsClass
+    )
+    assert tags_aspect
+    assert len(tags_aspect.tags) == 2
+    assert tags_aspect.tags[0].tag == builder.make_tag_urn("Private")
+    assert builder.make_tag_urn("Needs Documentation") not in tags_aspect.tags
+
+
 def test_import_resolver():
     transformer = AddDatasetTags.create(
         {
@@ -434,3 +501,238 @@ def test_pattern_dataset_ownership_with_invalid_type_transformation(mock_time):
             },
             PipelineContext(run_id="test"),
         )
+
+
+def gen_owners(
+    owners: List[str],
+    ownership_type: Union[
+        str, models.OwnershipTypeClass
+    ] = models.OwnershipTypeClass.DATAOWNER,
+) -> models.OwnershipClass:
+    return models.OwnershipClass(
+        owners=[models.OwnerClass(owner=owner, type=ownership_type) for owner in owners]
+    )
+
+
+def test_ownership_patching_intersect(mock_time):
+    mock_graph = mock.MagicMock()
+    server_ownership = gen_owners(["foo", "bar"])
+    mce_ownership = gen_owners(["baz", "foo"])
+    mock_graph.get_ownership.return_value = server_ownership
+
+    test_ownership = AddDatasetOwnership.get_ownership_to_set(
+        mock_graph, "test_urn", mce_ownership
+    )
+    assert test_ownership and test_ownership.owners
+    assert "foo" in [o.owner for o in test_ownership.owners]
+    assert "bar" in [o.owner for o in test_ownership.owners]
+    assert "baz" in [o.owner for o in test_ownership.owners]
+
+
+def test_ownership_patching_with_nones(mock_time):
+    mock_graph = mock.MagicMock()
+    mce_ownership = gen_owners(["baz", "foo"])
+    mock_graph.get_ownership.return_value = None
+    test_ownership = AddDatasetOwnership.get_ownership_to_set(
+        mock_graph, "test_urn", mce_ownership
+    )
+    assert test_ownership and test_ownership.owners
+    assert "foo" in [o.owner for o in test_ownership.owners]
+    assert "baz" in [o.owner for o in test_ownership.owners]
+
+    server_ownership = gen_owners(["baz", "foo"])
+    mock_graph.get_ownership.return_value = server_ownership
+    test_ownership = AddDatasetOwnership.get_ownership_to_set(
+        mock_graph, "test_urn", None
+    )
+    assert not test_ownership
+
+
+def test_ownership_patching_with_empty_mce_none_server(mock_time):
+    mock_graph = mock.MagicMock()
+    mce_ownership = gen_owners([])
+    mock_graph.get_ownership.return_value = None
+    test_ownership = AddDatasetOwnership.get_ownership_to_set(
+        mock_graph, "test_urn", mce_ownership
+    )
+    # nothing to add, so we omit writing
+    assert test_ownership is None
+
+
+def test_ownership_patching_with_empty_mce_nonempty_server(mock_time):
+    mock_graph = mock.MagicMock()
+    server_ownership = gen_owners(["baz", "foo"])
+    mce_ownership = gen_owners([])
+    mock_graph.get_ownership.return_value = server_ownership
+    test_ownership = AddDatasetOwnership.get_ownership_to_set(
+        mock_graph, "test_urn", mce_ownership
+    )
+    # nothing to add, so we omit writing
+    assert test_ownership is None
+
+
+def test_ownership_patching_with_different_types_1(mock_time):
+    mock_graph = mock.MagicMock()
+    server_ownership = gen_owners(["baz", "foo"], models.OwnershipTypeClass.PRODUCER)
+    mce_ownership = gen_owners(["foo"], models.OwnershipTypeClass.DATAOWNER)
+    mock_graph.get_ownership.return_value = server_ownership
+    test_ownership = AddDatasetOwnership.get_ownership_to_set(
+        mock_graph, "test_urn", mce_ownership
+    )
+    assert test_ownership and test_ownership.owners
+    # nothing to add, so we omit writing
+    assert ("foo", models.OwnershipTypeClass.DATAOWNER) in [
+        (o.owner, o.type) for o in test_ownership.owners
+    ]
+    assert ("baz", models.OwnershipTypeClass.PRODUCER) in [
+        (o.owner, o.type) for o in test_ownership.owners
+    ]
+
+
+def test_ownership_patching_with_different_types_2(mock_time):
+    mock_graph = mock.MagicMock()
+    server_ownership = gen_owners(["baz", "foo"], models.OwnershipTypeClass.PRODUCER)
+    mce_ownership = gen_owners(["foo", "baz"], models.OwnershipTypeClass.DATAOWNER)
+    mock_graph.get_ownership.return_value = server_ownership
+    test_ownership = AddDatasetOwnership.get_ownership_to_set(
+        mock_graph, "test_urn", mce_ownership
+    )
+    assert test_ownership and test_ownership.owners
+    assert len(test_ownership.owners) == 2
+    # nothing to add, so we omit writing
+    assert ("foo", models.OwnershipTypeClass.DATAOWNER) in [
+        (o.owner, o.type) for o in test_ownership.owners
+    ]
+    assert ("baz", models.OwnershipTypeClass.DATAOWNER) in [
+        (o.owner, o.type) for o in test_ownership.owners
+    ]
+
+
+PROPERTIES_TO_ADD = {"my_new_property": "property value"}
+
+
+class DummyPropertiesResolverClass(AddDatasetPropertiesResolverBase):
+    def get_properties_to_add(self, current: DatasetSnapshotClass) -> Dict[str, str]:
+        return PROPERTIES_TO_ADD
+
+
+def test_add_dataset_properties(mock_time):
+    dataset_mce = make_dataset_with_properties()
+
+    transformer = AddDatasetProperties.create(
+        {
+            "add_properties_resolver_class": "tests.unit.test_transform_dataset.DummyPropertiesResolverClass"
+        },
+        PipelineContext(run_id="test-properties"),
+    )
+
+    outputs = list(
+        transformer.transform(
+            [RecordEnvelope(input, metadata={}) for input in [dataset_mce]]
+        )
+    )
+    assert len(outputs) == 1
+
+    custom_properties = builder.get_aspect_if_available(
+        outputs[0].record, models.DatasetPropertiesClass
+    )
+
+    assert custom_properties is not None
+    assert custom_properties.customProperties == {
+        **EXISTING_PROPERTIES,
+        **PROPERTIES_TO_ADD,
+    }
+
+
+def test_simple_add_dataset_properties(mock_time):
+    dataset_mce = make_dataset_with_properties()
+
+    new_properties = {"new-simple-property": "new-value"}
+    transformer = SimpleAddDatasetProperties.create(
+        {
+            "properties": new_properties,
+        },
+        PipelineContext(run_id="test-simple-properties"),
+    )
+
+    outputs = list(
+        transformer.transform(
+            [RecordEnvelope(input, metadata={}) for input in [dataset_mce]]
+        )
+    )
+    assert len(outputs) == 1
+
+    custom_properties = builder.get_aspect_if_available(
+        outputs[0].record, models.DatasetPropertiesClass
+    )
+
+    print(str(custom_properties))
+    assert custom_properties is not None
+    assert custom_properties.customProperties == {
+        **EXISTING_PROPERTIES,
+        **new_properties,
+    }
+
+
+def test_simple_dataset_terms_transformation(mock_time):
+    dataset_mce = make_generic_dataset()
+
+    transformer = SimpleAddDatasetTerms.create(
+        {
+            "term_urns": [
+                builder.make_term_urn("Test"),
+                builder.make_term_urn("Needs Review"),
+            ]
+        },
+        PipelineContext(run_id="test-terms"),
+    )
+
+    outputs = list(
+        transformer.transform(
+            [RecordEnvelope(input, metadata={}) for input in [dataset_mce]]
+        )
+    )
+    assert len(outputs) == 1
+
+    # Check that glossary terms were added.
+    terms_aspect = builder.get_aspect_if_available(
+        outputs[0].record, models.GlossaryTermsClass
+    )
+    assert terms_aspect
+    assert len(terms_aspect.terms) == 2
+    assert terms_aspect.terms[0].urn == builder.make_term_urn("Test")
+
+
+def test_pattern_dataset_terms_transformation(mock_time):
+    dataset_mce = make_generic_dataset()
+
+    transformer = PatternAddDatasetTerms.create(
+        {
+            "term_pattern": {
+                "rules": {
+                    ".*example1.*": [
+                        builder.make_term_urn("AccountBalance"),
+                        builder.make_term_urn("Email"),
+                    ],
+                    ".*example2.*": [builder.make_term_urn("Address")],
+                }
+            },
+        },
+        PipelineContext(run_id="test-terms"),
+    )
+
+    outputs = list(
+        transformer.transform(
+            [RecordEnvelope(input, metadata={}) for input in [dataset_mce]]
+        )
+    )
+
+    assert len(outputs) == 1
+    # Check that glossary terms were added.
+    terms_aspect = builder.get_aspect_if_available(
+        outputs[0].record, models.GlossaryTermsClass
+    )
+    assert terms_aspect
+    assert len(terms_aspect.terms) == 2
+    assert terms_aspect.terms[0].urn == builder.make_term_urn("AccountBalance")
+    assert builder.make_term_urn("AccountBalance") not in terms_aspect.terms

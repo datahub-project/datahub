@@ -51,6 +51,8 @@ jobs:
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
       - name: Docker meta
         id: docker_meta
         uses: crazy-max/ghaction-docker-meta@v1

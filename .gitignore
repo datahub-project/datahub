@@ -39,4 +39,24 @@ MANIFEST
 # Mac OS
 **/.DS_Store
 
+#spark-lineage
+**/spark-lineage/metastore_db/
+**/spark-lineage/**/derby.log
+**/spark-lineage/**/hive/
+**/spark-lineage/**/out.csv/
 .vscode
+
+#spark smoke test
+smoke-test/spark-smoke-test/docker/workspace/
+smoke-test/spark-smoke-test/__pycache__/
+
+# cypress integration test generated files
+**/cypress/videos
+**/cypress/screenshots
+**/cypress/node_modules
+
+# Metadata Ingestion Generated
+metadata-ingestion/generated/**
+
+# docs
+docs/generated/

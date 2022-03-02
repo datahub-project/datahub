@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useHistory } from 'react-router';
-import { Typography, Image, Row, Button, Carousel } from 'antd';
+import { Typography, Image, Row, Button, Tag } from 'antd';
 import styled, { useTheme } from 'styled-components';
 
 import { ManageAccount } from '../shared/ManageAccount';
@@ -13,6 +13,7 @@ import { useGetAllEntitySearchResults } from '../../utils/customGraphQL/useGetAl
 import { EntityType } from '../../types.generated';
 import analytics, { EventType } from '../analytics';
 import { AdminHeaderLinks } from '../shared/admin/AdminHeaderLinks';
+import { ANTD_GRAY } from '../entity/shared/constants';
 
 const Background = styled.div`
     width: 100%;
@@ -29,63 +30,20 @@ const WelcomeText = styled(Typography.Text)`
         props.theme.styles['homepage-text-color'] || props.theme.styles['homepage-background-lower-fade']};
 `;
 
-const SubHeaderText = styled(Typography.Text)`
-    font-size: 20px;
-    font-weight: 500;
-    color: ${(props) =>
-        props.theme.styles['homepage-text-color'] || props.theme.styles['homepage-background-lower-fade']};
-`;
-
-const SubHeaderLabelText = styled(Typography.Text)`
-    font-size: 12px;
-    color: ${(props) =>
-        props.theme.styles['homepage-text-color'] || props.theme.styles['homepage-background-lower-fade']};
-`;
-
-const SubHeaderTextNoResults = styled(Typography.Text)`
-    font-size: 20px;
-    color: ${(props) =>
-        props.theme.styles['homepage-text-color'] || props.theme.styles['homepage-background-lower-fade']};
-    margin-bottom: 108px;
-`;
-
 const styles = {
     navBar: { padding: '24px' },
     searchContainer: { width: '100%', marginTop: '40px' },
     logoImage: { width: 140 },
-    searchBox: { width: 540, margin: '40px 0px' },
+    searchBox: { width: '40vw', minWidth: 400, margin: '40px 0px', marginBottom: '12px' },
     subtitle: { marginTop: '28px', color: '#FFFFFF', fontSize: 12 },
 };
-
-const CarouselElement = styled.div`
-    height: 120px;
-    color: ${(props) =>
-        props.theme.styles['homepage-text-color'] || props.theme.styles['homepage-background-lower-fade']};
-    line-height: 120px;
-    text-align: center;
-`;
-
-const CarouselContainer = styled.div`
-    margin-top: -24px;
-    padding-bottom: 40px;
-    .ant-carousel .slick-dots li button {
-        opacity: 0.4;
-        background-color: ${(props) =>
-            props.theme.styles['homepage-text-color'] || props.theme.styles['homepage-background-lower-fade']};
-    }
-
-    .ant-carousel .slick-dots li.slick-active button {
-        opacity: 1;
-        background-color: ${(props) =>
-            props.theme.styles['homepage-text-color'] || props.theme.styles['homepage-background-lower-fade']};
-    }
-`;
 
 const HeaderContainer = styled.div`
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    margin-bottom: 20px;
 `;
 
 const NavGroup = styled.div`
@@ -95,7 +53,42 @@ const NavGroup = styled.div`
 `;
 
 const SuggestionsContainer = styled.div`
-    height: 140px;
+    padding: 0px 30px;
+    max-width: 540px;
+    display: flex;
+    flex-direction: column;
+    justify-content: left;
+    align-items: start;
+`;
+
+const SuggestionTagContainer = styled.div`
+    display: flex;
+    justify-content: left;
+    align-items: center;
+    flex-wrap: wrap;
+    > div {
+        margin-bottom: 12px;
+    }
+`;
+
+const SuggestionButton = styled(Button)`
+    padding: 0px;
+    margin-bottom: 16px;
+`;
+
+const SuggestionTag = styled(Tag)`
+    font-weight: 500;
+    font-size: 12px;
+    margin-bottom: 20px;
+    && {
+        padding: 8px 16px;
+    }
+`;
+
+const SuggestedQueriesText = styled(Typography.Text)`
+    margin-left: 12px;
+    margin-bottom: 12px;
+    color: ${ANTD_GRAY[8]};
 `;
 
 const SearchBarContainer = styled.div`
@@ -113,9 +106,9 @@ function getSuggestionFieldsFromResult(result: GetSearchResultsQuery | undefined
                     case 'CorpUser':
                         return entity.username;
                     case 'Chart':
-                        return entity.info?.name;
+                        return entity.properties?.name;
                     case 'Dashboard':
-                        return entity.info?.name;
+                        return entity.properties?.name;
                     default:
                         return undefined;
                 }
@@ -211,7 +204,7 @@ export const HomePageHeader = () => {
                 <WelcomeText>
                     {!!user && (
                         <>
-                            Welcome back, <b>{user.info?.firstName || user.username}</b>.
+                            Welcome back, <b>{entityRegistry.getDisplayName(EntityType.CorpUser, user)}</b>.
                         </>
                     )}
                 </WelcomeText>
@@ -219,8 +212,8 @@ export const HomePageHeader = () => {
                     <AdminHeaderLinks />
                     <ManageAccount
                         urn={user?.urn || ''}
-                        pictureLink={user?.editableInfo?.pictureLink || ''}
-                        name={user?.info?.firstName || user?.username || undefined}
+                        pictureLink={user?.editableProperties?.pictureLink || ''}
+                        name={(user && entityRegistry.getDisplayName(EntityType.CorpUser, user)) || undefined}
                     />
                 </NavGroup>
             </Row>
@@ -238,41 +231,30 @@ export const HomePageHeader = () => {
                         autoCompleteStyle={styles.searchBox}
                         entityRegistry={entityRegistry}
                     />
+                    {suggestionsToShow && suggestionsToShow.length > 0 && (
+                        <SuggestionsContainer>
+                            <SuggestedQueriesText strong>Try searching for</SuggestedQueriesText>
+                            <SuggestionTagContainer>
+                                {suggestionsToShow.slice(0, 3).map((suggestion) => (
+                                    <SuggestionButton
+                                        key={suggestion}
+                                        type="link"
+                                        onClick={() =>
+                                            navigateToSearchUrl({
+                                                type: undefined,
+                                                query: `"${suggestion}"`,
+                                                history,
+                                            })
+                                        }
+                                    >
+                                        <SuggestionTag>{truncate(suggestion, 40)}</SuggestionTag>
+                                    </SuggestionButton>
+                                ))}
+                            </SuggestionTagContainer>
+                        </SuggestionsContainer>
+                    )}
                 </SearchBarContainer>
             </HeaderContainer>
-            <SuggestionsContainer>
-                <HeaderContainer>
-                    {suggestionsToShow.length === 0 && !suggestionsLoading && (
-                        <SubHeaderTextNoResults>{themeConfig.content.homepage.homepageMessage}</SubHeaderTextNoResults>
-                    )}
-                    {suggestionsToShow.length > 0 && !suggestionsLoading && (
-                        <SubHeaderLabelText>Try searching for...</SubHeaderLabelText>
-                    )}
-                </HeaderContainer>
-                {suggestionsToShow.length > 0 && !suggestionsLoading && (
-                    <CarouselContainer>
-                        <Carousel autoplay effect="fade">
-                            {suggestionsToShow.length > 0 &&
-                                suggestionsToShow.slice(0, 3).map((suggestion) => (
-                                    <CarouselElement key={suggestion}>
-                                        <Button
-                                            type="text"
-                                            onClick={() =>
-                                                navigateToSearchUrl({
-                                                    type: undefined,
-                                                    query: suggestion,
-                                                    history,
-                                                })
-                                            }
-                                        >
-                                            <SubHeaderText>{truncate(suggestion, 40)}</SubHeaderText>
-                                        </Button>
-                                    </CarouselElement>
-                                ))}
-                        </Carousel>
-                    </CarouselContainer>
-                )}
-            </SuggestionsContainer>
         </Background>
     );
 };

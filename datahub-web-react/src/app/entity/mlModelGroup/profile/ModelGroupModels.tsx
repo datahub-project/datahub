@@ -2,13 +2,13 @@ import { Button, List, Space, Typography } from 'antd';
 import React from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
-import { EntityType, UpstreamEntityRelationships } from '../../../../types.generated';
+import { Entity, EntityType } from '../../../../types.generated';
 import { navigateToLineageUrl } from '../../../lineage/utils/navigateToLineageUrl';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { PreviewType } from '../../Entity';
 
 export type Props = {
-    models?: UpstreamEntityRelationships | null;
+    models?: Entity[];
 };
 
 const ViewRawButtonContainer = styled.div`
@@ -20,8 +20,6 @@ export default function MLGroupModels({ models }: Props) {
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
     const location = useLocation();
-
-    const modelEntities = models?.entities?.map((entityRelationship) => entityRelationship?.entity);
 
     return (
         <>
@@ -36,7 +34,7 @@ export default function MLGroupModels({ models }: Props) {
                 <List
                     style={{ marginTop: '24px', padding: '16px 32px' }}
                     bordered
-                    dataSource={modelEntities}
+                    dataSource={models}
                     header={<Typography.Title level={3}>Models</Typography.Title>}
                     renderItem={(item) => (
                         <List.Item style={{ paddingTop: '20px' }}>

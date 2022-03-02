@@ -5,10 +5,14 @@ node {
 
   // If true, it will download node using above parameters.
   // If false, it will try to use globally installed node.
-  download = true
+  if (project.hasProperty('useSystemNode') && project.getProperty('useSystemNode').toBoolean()) {
+    download = false
+  } else {
+    download = true
+  }
 
   // Version of node to use.
-  version = '14.15.3'
+  version = '16.8.0'
 
   // Version of Yarn to use.
   yarnVersion = '1.22.0'
@@ -59,7 +63,7 @@ task generateGraphQLDocumentation(type: YarnTask, dependsOn: [yarnInstall, gener
   args = ['docusaurus', 'docs:generate:graphql']
 }
 
-task yarnGenerate(type: YarnTask, dependsOn: [yarnInstall, generateGraphQLDocumentation] ) {
+task yarnGenerate(type: YarnTask, dependsOn: [yarnInstall, generateGraphQLDocumentation, ':metadata-ingestion:modelDocGen'] ) {
   inputs.files(projectMdFiles)
   outputs.cacheIf { true }
   args = ['run', 'generate']
@@ -76,6 +80,19 @@ task yarnLint(type: YarnTask, dependsOn: [yarnInstall]) {
   // tell gradle to apply the build cache
   outputs.cacheIf { true }
 }
+
+task yarnLintFix(type: YarnTask, dependsOn: [yarnInstall]) {
+  inputs.files(projectMdFiles)
+  args = ['run', 'lint-fix']
+  outputs.dir("dist")
+  // tell gradle to apply the build cache
+  outputs.cacheIf { true }
+}
+
+task serve(type: YarnTask, dependsOn: [yarnInstall] ) {
+  args = ['run', 'serve']
+}
+
 
 task yarnBuild(type: YarnTask, dependsOn: [yarnLint, yarnGenerate]) {
   inputs.files(projectMdFiles)

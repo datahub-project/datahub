@@ -11,15 +11,32 @@ from datahub.configuration.common import ConfigurationError
 T = TypeVar("T")
 
 
-def import_key(key: str) -> Any:
-    assert "." in key, "import key must contain a ."
-    module_name, item_name = key.rsplit(".", 1)
-    item = getattr(importlib.import_module(module_name), item_name)
+def _is_importable(path: str) -> bool:
+    return "." in path or ":" in path
+
+
+def import_path(path: str) -> Any:
+    """
+    Import an item from a package, where the path is formatted as 'package.module.submodule.ClassName'
+    or 'package.module.submodule:ClassName.classmethod'. The dot-based format assumes that the bit
+    after the last dot is the item to be fetched. In cases where the item to be imported is embedded
+    within another type, the colon-based syntax can be used to disambiguate.
+    """
+    assert _is_importable(path), "path must be in the appropriate format"
+
+    if ":" in path:
+        module_name, object_name = path.rsplit(":", 1)
+    else:
+        module_name, object_name = path.rsplit(".", 1)
+
+    item = importlib.import_module(module_name)
+    for attr in object_name.split("."):
+        item = getattr(item, attr)
     return item
 
 
-class Registry(Generic[T]):
-    _mapping: Dict[str, Union[Type[T], Exception]]
+class PluginRegistry(Generic[T]):
+    _mapping: Dict[str, Union[str, Type[T], Exception]]
 
     def __init__(self) -> None:
         self._mapping = {}
@@ -27,6 +44,7 @@ class Registry(Generic[T]):
     def _get_registered_type(self) -> Type[T]:
         cls = typing_inspect.get_generic_type(self)
         tp = typing_inspect.get_args(cls)[0]
+        assert tp
         return tp
 
     def _check_cls(self, cls: Type[T]) -> None:
@@ -38,52 +56,74 @@ class Registry(Generic[T]):
         if not issubclass(cls, super_cls):
             raise ValueError(f"must be derived from {super_cls}; got {cls}")
 
-    def _register(self, key: str, tp: Union[Type[T], Exception]) -> None:
-        if key in self._mapping:
+    def _register(
+        self, key: str, tp: Union[str, Type[T], Exception], override: bool = False
+    ) -> None:
+        if not override and key in self._mapping:
             raise KeyError(f"key already in use - {key}")
-        if key.find(".") >= 0:
-            raise KeyError(f"key cannot contain '.' - {key}")
+        if _is_importable(key):
+            raise KeyError(f"key cannot contain special characters; got {key}")
         self._mapping[key] = tp
 
-    def register(self, key: str, cls: Type[T]) -> None:
+    def register(self, key: str, cls: Type[T], override: bool = False) -> None:
         self._check_cls(cls)
-        self._register(key, cls)
+        self._register(key, cls, override=override)
 
-    def register_disabled(self, key: str, reason: Exception) -> None:
-        self._register(key, reason)
+    def register_lazy(self, key: str, import_path: str) -> None:
+        self._register(key, import_path)
+
+    def register_disabled(
+        self, key: str, reason: Exception, override: bool = False
+    ) -> None:
+        self._register(key, reason, override=override)
+
+    def _ensure_not_lazy(self, key: str) -> Union[Type[T], Exception]:
+        path = self._mapping[key]
+        if isinstance(path, str):
+            try:
+                plugin_class = import_path(path)
+                self.register(key, plugin_class, override=True)
+                return plugin_class
+            except (AssertionError, ModuleNotFoundError, ImportError) as e:
+                self.register_disabled(key, e, override=True)
+                return e
+        else:
+            return path
 
     def is_enabled(self, key: str) -> bool:
         tp = self._mapping[key]
         return not isinstance(tp, Exception)
 
-    def load(self, entry_point_key: str) -> None:
+    def register_from_entrypoint(self, entry_point_key: str, lazy: bool = True) -> None:
         entry_point: entrypoints.EntryPoint
         for entry_point in entrypoints.get_group_all(entry_point_key):
             name = entry_point.name
 
-            try:
-                plugin_class = entry_point.load()
-            except (AssertionError, ModuleNotFoundError, ImportError) as e:
-                self.register_disabled(name, e)
-                continue
+            if entry_point.object_name is None:
+                path = entry_point.module_name
+            else:
+                path = f"{entry_point.module_name}:{entry_point.object_name}"
 
-            self.register(name, plugin_class)
+            self.register_lazy(name, path)
+            if not lazy:
+                self._ensure_not_lazy(name)
 
     @property
-    def mapping(self) -> Dict[str, Union[Type[T], Exception]]:
+    def mapping(self) -> Dict[str, Union[str, Type[T], Exception]]:
         return self._mapping
 
     def get(self, key: str) -> Type[T]:
-        if key.find(".") >= 0:
-            # If the key contains a dot, we treat it as a import path and attempt
+        if _is_importable(key):
+            # If the key contains a dot or colon, we treat it as a import path and attempt
             # to load it dynamically.
-            MyClass = import_key(key)
+            MyClass = import_path(key)
             self._check_cls(MyClass)
             return MyClass
 
         if key not in self._mapping:
             raise KeyError(f"Did not find a registered class for {key}")
-        tp = self._mapping[key]
+
+        tp = self._ensure_not_lazy(key)
         if isinstance(tp, ModuleNotFoundError):
             raise ConfigurationError(
                 f"{key} is disabled; try running: pip install '{__package_name__}[{key}]'"
@@ -101,19 +141,22 @@ class Registry(Generic[T]):
     ) -> str:
         lines = []
         for key in sorted(self._mapping.keys()):
+            # We want to attempt to load all plugins before printing a summary.
+            self._ensure_not_lazy(key)
+
             line = f"{key}"
             if not self.is_enabled(key):
                 # Plugin is disabled.
-                line += " " * (col_width - len(key))
+                line += " " * max(1, col_width - len(key))
 
                 details = "(disabled)"
                 if verbose:
-                    details += " " * (verbose_col_width - len(details))
+                    details += " " * max(1, verbose_col_width - len(details))
                     details += repr(self._mapping[key])
                 line += details
             elif verbose:
                 # Plugin is enabled.
-                line += " " * (col_width - len(key))
+                line += " " * max(1, col_width - len(key))
                 line += self.get(key).__name__
 
             lines.append(line)

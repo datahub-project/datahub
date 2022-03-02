@@ -6,7 +6,10 @@ source:
     connection:
         bootstrap: "localhost:59092"
         schema_registry_url: "http://localhost:58081"
-
+    domain:
+      sales:
+        allow:
+          - "key_value_topic"
 sink:
   type: file
   config:

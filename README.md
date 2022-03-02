@@ -1,36 +1,32 @@
 <!--HOSTED_DOCS_ONLY
-import ThemedImage from '@theme/ThemedImage';
 import useBaseUrl from '@docusaurus/useBaseUrl';
-import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 
 export const Logo = (props) => {
-  const siteConfig = useDocusaurusContext().siteConfig;
   return (
-    <div style={{display: "flex"}}>
-      <ThemedImage
+    <div style={{ display: "flex", justifyContent: "center", padding: "20px" }}>
+      <img
+        height="150"
         alt="DataHub Logo"
-        sources={{
-            light: useBaseUrl(siteConfig.themeConfig.navbar.logo.src),
-            dark: useBaseUrl(siteConfig.themeConfig.navbar.logo.srcDark),
-        }}
+        src={useBaseUrl("/img/datahub-logo-color-mark.svg")}
         {...props}
       />
     </div>
-  )
+  );
 };
 
-<Logo style={{"maxWidth": "16em", "margin": "0 auto"}} />
+<Logo />
 
 <!--
 HOSTED_DOCS_ONLY-->
 <p align="center">
-<img alt="DataHub" src="docs/imgs/datahub-logo.png" height="200px" />
+<img alt="DataHub" src="docs/imgs/datahub-logo-color-mark.svg" height="150" />
 </p>
 <!-- -->
 
-# DataHub: A Metadata Platform for the Modern Data Stack
-
+# DataHub: The Metadata Platform for the Modern Data Stack
+## Built with ❤️ by <img src="https://datahubproject.io/img/acryl-logo-light-mark.png" width="25"/> [Acryl Data](https://acryldata.io) and <img src="https://datahubproject.io/img/LI-In-Bug.png" width="25"/> [LinkedIn](https://engineering.linkedin.com)
 [![Version](https://img.shields.io/github/v/release/linkedin/datahub?include_prereleases)](https://github.com/linkedin/datahub/releases/latest)
+[![PyPI version](https://badge.fury.io/py/acryl-datahub.svg)](https://badge.fury.io/py/acryl-datahub)
 [![build & test](https://github.com/linkedin/datahub/workflows/build%20&%20test/badge.svg?branch=master&event=push)](https://github.com/linkedin/datahub/actions?query=workflow%3A%22build+%26+test%22+branch%3Amaster+event%3Apush)
 [![Docker Pulls](https://img.shields.io/docker/pulls/linkedin/datahub-gms.svg)](https://hub.docker.com/r/linkedin/datahub-gms)
 [![Slack](https://img.shields.io/badge/slack-join_chat-white.svg?logo=slack&style=social)](https://slack.datahubproject.io)
@@ -40,6 +36,7 @@ HOSTED_DOCS_ONLY-->
 [![YouTube](https://img.shields.io/youtube/channel/subscribers/UC3qFQC5IiwR5fvWEqi_tJ5w?style=social)](https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w)
 [![Medium](https://img.shields.io/badge/Medium-12100E?style=for-the-badge&logo=medium&logoColor=white)](https://medium.com/datahub-project)
 [![Follow](https://img.shields.io/twitter/follow/datahubproject?label=Follow&style=social)](https://twitter.com/datahubproject)
+### 🏠 Project Homepage: [datahubproject.io](https://datahubproject.io/)
 
 ---
 
@@ -52,17 +49,17 @@ HOSTED_DOCS_ONLY-->
 [Town Hall](https://datahubproject.io/docs/townhalls)
 
 ---
-
-> 📣 Next DataHub town hall meeting on Sep 24th, 9am-10am PDT ([convert to your local time](https://greenwichmeantime.com/time/to/pacific-local/))
+> 📣 Next DataHub town hall meeting on Feb 25th, 9am-10am PDT ([convert to your local time](https://greenwichmeantime.com/time/to/pacific-local/))
 >
 > - Topic Proposals: [submit here](https://docs.google.com/forms/d/1v2ynbAXjJlqY97xE_X1DAntNrXDznOFiNfryUkMPtkI/)
-> - Signup to get a calendar invite: [here](https://docs.google.com/forms/d/1r9bObXKS3tgKpISqqO3rw4yQog5zwuaFxg8IrJGUbvQ/)
+> - Signup to get a calendar invite: [here](https://www.addevent.com/event/lD12111844)
 > - Town-hall Zoom link: [zoom.datahubproject.io](https://zoom.datahubproject.io)
 > - [Meeting details](docs/townhalls.md) & [past recordings](docs/townhall-history.md)
 
 > ✨ Latest Update:
 >
-> - Monthly project update: [July 2021 Edition](https://medium.com/datahub-project/datahub-project-updates-f4299cd3602e?source=friends_link&sk=27af7637f7ae44786ede694c3af512a5).
+> - Read our Monthly Project Updates [here](https://blog.datahubproject.io/tagged/project-updates).
+> - Bringing The Power Of The DataHub Real-Time Metadata Graph To Everyone At Acryl Data: [Data Engineering Podcast](https://www.dataengineeringpodcast.com/acryl-data-datahub-metadata-graph-episode-230/)
 > - Unleashing Excellent DataOps with LinkedIn DataHub: [DataOps Unleashed Talk](https://www.youtube.com/watch?v=ccsIKK9nVxk).
 > - Latest blog post [DataHub: Popular Metadata Architectures Explained](https://engineering.linkedin.com/blog/2020/datahub-popular-metadata-architectures-explained) @ LinkedIn Engineering Blog.
 > - We're on [Slack](docs/slack.md) now! Ask questions and keep up with the latest announcements.
@@ -80,12 +77,11 @@ Please follow the [DataHub Quickstart Guide](https://datahubproject.io/docs/quic
 
 There's a [hosted demo environment](https://datahubproject.io/docs/demo) where you can play around with DataHub before installing.
 
-[![DataHub Demo GIF](docs/imgs/demo_large.gif)](https://datahubproject.io/docs/demo)
+[![DataHub Demo GIF](docs/imgs/entity.png)](https://datahubproject.io/docs/demo)
 
 ## Source Code and Repositories
 
-- [linkedin/datahub](https://github.com/linkedin/datahub): This repository contains the complete source code for both DataHub's frontend & backend services.
-- [linkedin/datahub-gma](https://github.com/linkedin/datahub-gma): This repository contains the source code for DataHub's metadata infrastructure libraries (Generalized Metadata Architecture, or GMA).
+- [linkedin/datahub](https://github.com/linkedin/datahub): This repository contains the complete source code for DataHub's metadata model, metadata services, integration connectors and the web application.
 
 ## Documentation
 
@@ -97,7 +93,7 @@ See [Releases](https://github.com/linkedin/datahub/releases) page for more detai
 
 ## Features & Roadmap
 
-Check out DataHub's [Features](docs/features.md) & [Roadmap](docs/roadmap.md).
+Check out DataHub's [Features](docs/features.md) & [Roadmap](https://feature-requests.datahubproject.io/roadmap).
 
 ## Contributing
 
@@ -111,6 +107,7 @@ Join our [slack workspace](https://slack.datahubproject.io) for discussions and 
 
 Here are the companies that have officially adopted DataHub. Please feel free to add yours to the list if we missed it.
 
+- [Adevinta](https://www.adevinta.com/)
 - [Banksalad](https://www.banksalad.com)
 - [DefinedCrowd](http://www.definedcrowd.com)
 - [DFDS](https://www.dfds.com/)
@@ -118,36 +115,39 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 - [Experius](https://www.experius.nl)
 - [Geotab](https://www.geotab.com)
 - [Grofers](https://grofers.com)
+- [Haibo Technology](https://www.botech.com.cn)
+- [hipages](https://hipages.com.au/)
+- [IOMED](https://iomed.health)
 - [Klarna](https://www.klarna.com)
 - [LinkedIn](http://linkedin.com)
+- [Moloco](https://www.moloco.com/en)
+- [Peloton](https://www.onepeloton.com)
 - [Saxo Bank](https://www.home.saxo)
+- [Stash](https://www.stash.com)
 - [Shanghai HuaRui Bank](https://www.shrbank.com)
 - [ThoughtWorks](https://www.thoughtworks.com)
 - [TypeForm](http://typeform.com)
 - [Uphold](https://uphold.com)
 - [Viasat](https://viasat.com)
 - [Wolt](https://wolt.com)
-
+- [Zynga](https://www.zynga.com)
 
 
 ## Select Articles & Talks
 
-- [DataHub: A Generalized Metadata Search & Discovery Tool](https://engineering.linkedin.com/blog/2019/data-hub)
+- [DataHub Blog](https://blog.datahubproject.io/)
+- [DataHub YouTube Channel](https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w)
+- [Saxo Bank: Enabling Data Discovery in Data Mesh](https://medium.com/datahub-project/enabling-data-discovery-in-a-data-mesh-the-saxo-journey-451b06969c8f)
+- Bringing The Power Of The DataHub Real-Time Metadata Graph To Everyone At Acryl Data: [Data Engineering Podcast](https://www.dataengineeringpodcast.com/acryl-data-datahub-metadata-graph-episode-230/)
 - [DataHub: Popular Metadata Architectures Explained](https://engineering.linkedin.com/blog/2020/datahub-popular-metadata-architectures-explained)
-- [Open sourcing DataHub: LinkedIn’s metadata search and discovery platform](https://engineering.linkedin.com/blog/2020/open-sourcing-datahub--linkedins-metadata-search-and-discovery-p)
 - [Driving DataOps Culture with LinkedIn DataHub](https://www.youtube.com/watch?v=ccsIKK9nVxk) @ [DataOps Unleashed 2021](https://dataopsunleashed.com/#shirshanka-session)
-- [DataHub: Powering LinkedIn's Metadata](docs/demo/DataHub_-_Powering_LinkedIn_Metadata.pdf) @ [Budapest Data Forum 2020](https://budapestdata.hu/2020/en/)
-- [Taming the Data Beast Using DataHub](https://www.youtube.com/watch?v=bo4OhiPro7Y) @ [Data Engineering Melbourne Meetup November 2020](https://www.meetup.com/Data-Engineering-Melbourne/events/kgnvlrybcpbjc/)
-- [Metadata Management And Integration At LinkedIn With DataHub](https://www.dataengineeringpodcast.com/datahub-metadata-management-episode-147/) @ [Data Engineering Podcast](https://www.dataengineeringpodcast.com)
 - [The evolution of metadata: LinkedIn’s story](https://speakerdeck.com/shirshanka/the-evolution-of-metadata-linkedins-journey-strata-nyc-2019) @ [Strata Data Conference 2019](https://conferences.oreilly.com/strata/strata-ny-2019.html)
 - [Journey of metadata at LinkedIn](https://www.youtube.com/watch?v=OB-O0Y6OYDE) @ [Crunch Data Conference 2019](https://crunchconf.com/2019)
 - [DataHub Journey with Expedia Group](https://www.youtube.com/watch?v=ajcRdB22s5o)
-- [Saxo Bank's Data Workbench](https://www.slideshare.net/SheetalPratik/linkedinsaxobankdataworkbench)
 - [Data Discoverability at SpotHero](https://www.slideshare.net/MaggieHays/data-discoverability-at-spothero)
 - [Data Catalogue — Knowing your data](https://medium.com/albert-franzi/data-catalogue-knowing-your-data-15f7d0724900)
-- [LinkedIn DataHub Application Architecture Quick Understanding](https://medium.com/@liangjunjiang/linkedin-datahub-application-architecture-quick-understanding-a5b7868ee205)
-- [A Dive Into Metadata Hubs](https://www.holistics.io/blog/a-dive-into-metadata-hubs/)
-- [25 Hot New Data Tools and What They DON’T Do](https://blog.amplifypartners.com/25-hot-new-data-tools-and-what-they-dont-do/)
+- [DataHub: A Generalized Metadata Search & Discovery Tool](https://engineering.linkedin.com/blog/2019/data-hub)
+- [Open sourcing DataHub: LinkedIn’s metadata search and discovery platform](https://engineering.linkedin.com/blog/2020/open-sourcing-datahub--linkedins-metadata-search-and-discovery-p)
 - [Emerging Architectures for Modern Data Infrastructure](https://a16z.com/2020/10/15/the-emerging-architectures-for-modern-data-infrastructure/)
 
 See the full list [here](docs/links.md).

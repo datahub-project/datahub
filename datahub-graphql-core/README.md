@@ -1,4 +1,6 @@
-Notice: `datahub-graphql-core` is currently in beta, and as such is currently subject to backwards incompatible changes. 
+---
+title: "datahub-graphql-core"
+---
 
 # DataHub GraphQL Core
 DataHub GraphQL API is a shared lib module containing a GraphQL API on top of the GMS service layer. It exposes a graph-based representation
@@ -24,7 +26,7 @@ We've chosen to place these components in a library module so that GraphQL serve
 
 When extending the GMS graph, the following steps should be followed:
 
-1. Extend `gms.graphql` schema with new `types` (Queries) or `inputs` (Mutations). 
+1. Extend `entity.graphql` schema with new `types` (Queries) or `inputs` (Mutations). 
    
 These should generally mirror the GMS models exactly, with notable exceptions:
 

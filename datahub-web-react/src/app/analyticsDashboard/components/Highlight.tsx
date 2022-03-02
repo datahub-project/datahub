@@ -4,6 +4,7 @@ import { Card, Typography } from 'antd';
 import styled from 'styled-components';
 
 import { Highlight as HighlightType } from '../../../types.generated';
+import { formatNumber } from '../../shared/formatNumber';
 
 type Props = {
     highlight: HighlightType;
@@ -39,18 +40,11 @@ const BodyContainer = styled.div`
     margin-top: 8px;
 `;
 
-function convertNumber(n) {
-    if (n < 1e3) return n;
-    if (n >= 1e3 && n < 1e6) return `${+(n / 1e3).toFixed(1)}K`;
-    if (n >= 1e6) return `${+(n / 1e6).toFixed(1)}M`;
-    return '';
-}
-
 export const Highlight = ({ highlight, shortenValue }: Props) => {
     return (
         <HighlightCard>
             <Typography.Title level={1}>
-                {(shortenValue && convertNumber(highlight.value)) || highlight.value}
+                {(shortenValue && formatNumber(highlight.value)) || highlight.value}
             </Typography.Title>
             <TitleContainer>
                 <TitleText strong>{highlight.title}</TitleText>

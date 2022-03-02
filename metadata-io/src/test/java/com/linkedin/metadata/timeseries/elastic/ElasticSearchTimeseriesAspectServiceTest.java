@@ -1,5 +1,7 @@
 package com.linkedin.metadata.timeseries.elastic;
 
+import com.datahub.test.BatchType;
+import com.datahub.test.ComplexNestedRecord;
 import com.datahub.test.TestEntityComponentProfile;
 import com.datahub.test.TestEntityComponentProfileArray;
 import com.datahub.test.TestEntityProfile;
@@ -11,6 +13,9 @@ import com.linkedin.common.urn.TestEntityUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringArrayArray;
+import com.linkedin.data.template.StringMap;
+import com.linkedin.data.template.StringMapArray;
+import com.linkedin.metadata.ElasticTestUtils;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.DataSchemaFactory;
@@ -19,7 +24,9 @@ import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.elasticsearch.ElasticSearchServiceTest;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.TimeseriesAspectIndexBuilders;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
@@ -40,16 +47,13 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
-import org.apache.http.HttpHost;
-import org.apache.http.impl.nio.reactor.IOReactorConfig;
-import org.elasticsearch.client.RestClient;
-import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
 import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
+import static com.linkedin.metadata.DockerTestUtils.*;
 import static com.linkedin.metadata.ElasticSearchTestUtils.*;
 import static org.testng.Assert.*;
 
@@ -57,8 +61,6 @@ import static org.testng.Assert.*;
 public class ElasticSearchTimeseriesAspectServiceTest {
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-  private static final String IMAGE_NAME = "docker.elastic.co/elasticsearch/elasticsearch:7.9.3";
-  private static final int HTTP_PORT = 9200;
   private static final String ENTITY_NAME = "testEntity";
   private static final String ASPECT_NAME = "testEntityProfile";
   private static final Urn TEST_URN = new TestEntityUrn("acryl", "testElasticSearchTimeseriesAspectService", "table1");
@@ -88,9 +90,10 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     _entityRegistry = new ConfigEntityRegistry(new DataSchemaFactory("com.datahub.test"),
         TestEntityProfile.class.getClassLoader().getResourceAsStream("test-entity-registry.yml"));
     _indexConvention = new IndexConventionImpl(null);
-    _elasticsearchContainer = new ElasticsearchContainer(IMAGE_NAME);
+    _elasticsearchContainer = ElasticTestUtils.getNewElasticsearchContainer();
+    checkContainerEngine(_elasticsearchContainer.getDockerClient());
     _elasticsearchContainer.start();
-    _searchClient = buildRestClient();
+    _searchClient = ElasticTestUtils.buildRestClient(_elasticsearchContainer);
     _elasticSearchTimeseriesAspectService = buildService();
     _elasticSearchTimeseriesAspectService.configure();
     EntitySpec entitySpec = _entityRegistry.getEntitySpec(ENTITY_NAME);
@@ -98,22 +101,10 @@ public class ElasticSearchTimeseriesAspectServiceTest {
   }
 
   @Nonnull
-  private RestHighLevelClient buildRestClient() {
-    final RestClientBuilder builder =
-        RestClient.builder(new HttpHost("localhost", _elasticsearchContainer.getMappedPort(HTTP_PORT), "http"))
-            .setHttpClientConfigCallback(httpAsyncClientBuilder -> httpAsyncClientBuilder.setDefaultIOReactorConfig(
-                IOReactorConfig.custom().setIoThreadCount(1).build()));
-
-    builder.setRequestConfigCallback(requestConfigBuilder -> requestConfigBuilder.setConnectionRequestTimeout(3000));
-
-    return new RestHighLevelClient(builder);
-  }
-
-  @Nonnull
   private ElasticSearchTimeseriesAspectService buildService() {
     return new ElasticSearchTimeseriesAspectService(_searchClient, _indexConvention,
-        new TimeseriesAspectIndexBuilders(_entityRegistry, _searchClient, _indexConvention), _entityRegistry, 1, 1, 3,
-        1);
+        new TimeseriesAspectIndexBuilders(ElasticSearchServiceTest.getIndexBuilder(_searchClient), _entityRegistry,
+            _indexConvention), _entityRegistry, ElasticSearchServiceTest.getBulkProcessor(_searchClient));
   }
 
   @AfterTest
@@ -125,22 +116,23 @@ public class ElasticSearchTimeseriesAspectServiceTest {
    * Tests for upsertDocument API
    */
 
-  private void upsertDocument(TestEntityProfile dp) throws JsonProcessingException {
-    Map<String, JsonNode> documents = TimeseriesAspectTransformer.transform(TEST_URN, dp, _aspectSpec, null);
+  private void upsertDocument(TestEntityProfile dp, Urn urn) throws JsonProcessingException {
+    Map<String, JsonNode> documents = TimeseriesAspectTransformer.transform(urn, dp, _aspectSpec, null);
     assertEquals(documents.size(), 3);
-    documents.entrySet().forEach(document -> {
-      _elasticSearchTimeseriesAspectService.upsertDocument(ENTITY_NAME, ASPECT_NAME, document.getKey(),
-          document.getValue());
-    });
+    documents.forEach(
+        (key, value) -> _elasticSearchTimeseriesAspectService.upsertDocument(ENTITY_NAME, ASPECT_NAME, key, value));
   }
 
-  private TestEntityProfile makeTestProfile(long eventTime, long stat) {
+  private TestEntityProfile makeTestProfile(long eventTime, long stat, String messageId) {
     TestEntityProfile testEntityProfile = new TestEntityProfile();
     testEntityProfile.setTimestampMillis(eventTime);
     testEntityProfile.setStat(stat);
     testEntityProfile.setStrStat(String.valueOf(stat));
     testEntityProfile.setStrArray(new StringArray("sa_" + stat, "sa_" + (stat + 1)));
     testEntityProfile.setEventGranularity(new TimeWindowSize().setUnit(CalendarInterval.DAY).setMultiple(1));
+    if (messageId != null) {
+      testEntityProfile.setMessageId(messageId);
+    }
 
     // Add a couple of component profiles with cooked up stats.
     TestEntityComponentProfile componentProfile1 = new TestEntityComponentProfile();
@@ -150,6 +142,15 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     componentProfile2.setKey("col2");
     componentProfile2.setStat(stat + 2);
     testEntityProfile.setComponentProfiles(new TestEntityComponentProfileArray(componentProfile1, componentProfile2));
+
+    StringMap stringMap1 = new StringMap();
+    stringMap1.put("p_key1", "p_val1");
+    StringMap stringMap2 = new StringMap();
+    stringMap2.put("p_key2", "p_val2");
+    ComplexNestedRecord nestedRecord = new ComplexNestedRecord().setType(BatchType.PARTITION_BATCH)
+        .setPartitions(new StringMapArray(stringMap1, stringMap2));
+    testEntityProfile.setAComplexNestedRecord(nestedRecord);
+
     return testEntityProfile;
   }
 
@@ -159,9 +160,10 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     _startTime = Calendar.getInstance().getTimeInMillis();
     _startTime = _startTime - _startTime % 86400000;
     // Create the testEntity profiles that we would like to use for testing.
-    TestEntityProfile firstProfile = makeTestProfile(_startTime, 20);
+    TestEntityProfile firstProfile = makeTestProfile(_startTime, 20, null);
     Stream<TestEntityProfile> testEntityProfileStream = Stream.iterate(firstProfile,
-        (TestEntityProfile prev) -> makeTestProfile(prev.getTimestampMillis() + TIME_INCREMENT, prev.getStat() + 10));
+        (TestEntityProfile prev) -> makeTestProfile(prev.getTimestampMillis() + TIME_INCREMENT, prev.getStat() + 10,
+            null));
 
     _testEntityProfiles = testEntityProfileStream.limit(NUM_PROFILES)
         .collect(Collectors.toMap(TestEntityProfile::getTimestampMillis, Function.identity()));
@@ -173,13 +175,44 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     // Upsert the documents into the index.
     _testEntityProfiles.values().forEach(x -> {
       try {
-        upsertDocument(x);
+        upsertDocument(x, TEST_URN);
       } catch (JsonProcessingException jsonProcessingException) {
         jsonProcessingException.printStackTrace();
       }
     });
 
     syncAfterWrite(_searchClient);
+  }
+
+  @Test(groups = "upsertUniqueMessageId")
+  public void testUpsertProfilesWithUniqueMessageIds() throws Exception {
+    // Create the testEntity profiles that have the same value for timestampMillis, but use unique message ids.
+    // We should preserve all the documents we are going to upsert in the index.
+    final long curTimeMillis = Calendar.getInstance().getTimeInMillis();
+    final long startTime = curTimeMillis - curTimeMillis % 86400000;
+    final TestEntityProfile firstProfile = makeTestProfile(startTime, 20, "20");
+    Stream<TestEntityProfile> testEntityProfileStream = Stream.iterate(firstProfile,
+        (TestEntityProfile prev) -> makeTestProfile(prev.getTimestampMillis(), prev.getStat() + 10,
+            String.valueOf(prev.getStat() + 10)));
+
+    final List<TestEntityProfile> testEntityProfiles = testEntityProfileStream.limit(3).collect(Collectors.toList());
+
+    // Upsert the documents into the index.
+    final Urn urn = new TestEntityUrn("acryl", "testElasticSearchTimeseriesAspectService", "table2");
+    testEntityProfiles.forEach(x -> {
+      try {
+        upsertDocument(x, urn);
+      } catch (JsonProcessingException jsonProcessingException) {
+        jsonProcessingException.printStackTrace();
+      }
+    });
+
+    syncAfterWrite(_searchClient);
+
+    List<EnvelopedAspect> resultAspects =
+        _elasticSearchTimeseriesAspectService.getAspectValues(urn, ENTITY_NAME, ASPECT_NAME, null, null,
+            testEntityProfiles.size(), false, null);
+    assertEquals(resultAspects.size(), testEntityProfiles.size());
   }
 
   /*
@@ -205,8 +238,19 @@ public class ElasticSearchTimeseriesAspectServiceTest {
   public void testGetAspectTimeseriesValuesAll() {
     List<EnvelopedAspect> resultAspects =
         _elasticSearchTimeseriesAspectService.getAspectValues(TEST_URN, ENTITY_NAME, ASPECT_NAME, null, null,
-            NUM_PROFILES);
+            NUM_PROFILES, false, null);
     validateAspectValues(resultAspects, NUM_PROFILES);
+  }
+
+  @Test(groups = "getAspectValues", dependsOnGroups = "upsert")
+  public void testGetAspectTimeseriesValuesWithFilter() {
+    Filter filter = new Filter();
+    Criterion hasStatEqualsTwenty = new Criterion().setField("stat").setCondition(Condition.EQUAL).setValue("20");
+    filter.setCriteria(new CriterionArray(hasStatEqualsTwenty));
+    List<EnvelopedAspect> resultAspects =
+        _elasticSearchTimeseriesAspectService.getAspectValues(TEST_URN, ENTITY_NAME, ASPECT_NAME, null, null,
+            NUM_PROFILES, false, filter);
+    validateAspectValues(resultAspects, 1);
   }
 
   @Test(groups = "getAspectValues", dependsOnGroups = "upsert")
@@ -214,7 +258,7 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     int expectedNumRows = 10;
     List<EnvelopedAspect> resultAspects =
         _elasticSearchTimeseriesAspectService.getAspectValues(TEST_URN, ENTITY_NAME, ASPECT_NAME, _startTime,
-            _startTime + TIME_INCREMENT * (expectedNumRows - 1), expectedNumRows);
+            _startTime + TIME_INCREMENT * (expectedNumRows - 1), expectedNumRows, false, null);
     validateAspectValues(resultAspects, expectedNumRows);
   }
 
@@ -224,7 +268,17 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     List<EnvelopedAspect> resultAspects =
         _elasticSearchTimeseriesAspectService.getAspectValues(TEST_URN, ENTITY_NAME, ASPECT_NAME,
             _startTime + TIME_INCREMENT / 2, _startTime + TIME_INCREMENT * expectedNumRows + TIME_INCREMENT / 2,
-            expectedNumRows);
+            expectedNumRows, false, null);
+    validateAspectValues(resultAspects, expectedNumRows);
+  }
+
+  @Test(groups = "getAspectValues", dependsOnGroups = "upsert")
+  public void testGetAspectTimeseriesValuesSubRangeExclusiveOverlapLatestValueOnly() {
+    int expectedNumRows = 1;
+    List<EnvelopedAspect> resultAspects =
+        _elasticSearchTimeseriesAspectService.getAspectValues(TEST_URN, ENTITY_NAME, ASPECT_NAME,
+            _startTime + TIME_INCREMENT / 2, _startTime + TIME_INCREMENT * expectedNumRows + TIME_INCREMENT / 2,
+            expectedNumRows, true, null);
     validateAspectValues(resultAspects, expectedNumRows);
   }
 
@@ -233,7 +287,7 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     int expectedNumRows = 1;
     List<EnvelopedAspect> resultAspects =
         _elasticSearchTimeseriesAspectService.getAspectValues(TEST_URN, ENTITY_NAME, ASPECT_NAME,
-            _startTime + TIME_INCREMENT / 2, _startTime + TIME_INCREMENT * 3 / 2, expectedNumRows);
+            _startTime + TIME_INCREMENT / 2, _startTime + TIME_INCREMENT * 3 / 2, expectedNumRows, false, null);
     validateAspectValues(resultAspects, expectedNumRows);
   }
 
@@ -242,7 +296,7 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     Urn nonExistingUrn = new TestEntityUrn("missing", "missing", "missing");
     List<EnvelopedAspect> resultAspects =
         _elasticSearchTimeseriesAspectService.getAspectValues(nonExistingUrn, ENTITY_NAME, ASPECT_NAME, null, null,
-            NUM_PROFILES);
+            NUM_PROFILES, false, null);
     validateAspectValues(resultAspects, 0);
   }
 
@@ -263,7 +317,8 @@ public class ElasticSearchTimeseriesAspectServiceTest {
         .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
         .setValue(String.valueOf(_startTime + 23 * TIME_INCREMENT));
 
-    Filter filter = QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
+    Filter filter =
+        QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
 
     // Aggregate on latest stat value
     AggregationSpec latestStatAggregationSpec =
@@ -288,6 +343,50 @@ public class ElasticSearchTimeseriesAspectServiceTest {
   }
 
   @Test(groups = {"getAggregatedStats"}, dependsOnGroups = {"upsert"})
+  public void testGetAggregatedStatsLatestAComplexNestedRecordForDay1() {
+    // Filter is only on the urn
+    Criterion hasUrnCriterion =
+        new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
+    Criterion startTimeCriterion = new Criterion().setField(ES_FILED_TIMESTAMP)
+        .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
+        .setValue(_startTime.toString());
+    Criterion endTimeCriterion = new Criterion().setField(ES_FILED_TIMESTAMP)
+        .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
+        .setValue(String.valueOf(_startTime + 23 * TIME_INCREMENT));
+
+    Filter filter =
+        QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
+
+    // Aggregate on latest stat value
+    AggregationSpec latestStatAggregationSpec =
+        new AggregationSpec().setAggregationType(AggregationType.LATEST).setFieldPath("aComplexNestedRecord");
+
+    // Grouping bucket is only timestamp filed.
+    GroupingBucket timestampBucket = new GroupingBucket().setKey(ES_FILED_TIMESTAMP)
+        .setType(GroupingBucketType.DATE_GROUPING_BUCKET)
+        .setTimeWindowSize(new TimeWindowSize().setMultiple(1).setUnit(CalendarInterval.DAY));
+
+    GenericTable resultTable = _elasticSearchTimeseriesAspectService.getAggregatedStats(ENTITY_NAME, ASPECT_NAME,
+        new AggregationSpec[]{latestStatAggregationSpec}, filter, new GroupingBucket[]{timestampBucket});
+    // Validate column names
+    assertEquals(resultTable.getColumnNames(), new StringArray(ES_FILED_TIMESTAMP, "latest_aComplexNestedRecord"));
+    // Validate column types
+    assertEquals(resultTable.getColumnTypes(), new StringArray("long", "record"));
+    // Validate rows
+    assertNotNull(resultTable.getRows());
+    assertEquals(resultTable.getRows().size(), 1);
+    assertEquals(resultTable.getRows().get(0).get(0), _startTime.toString());
+    try {
+      ComplexNestedRecord latestAComplexNestedRecord =
+          OBJECT_MAPPER.readValue(resultTable.getRows().get(0).get(1), ComplexNestedRecord.class);
+      assertEquals(latestAComplexNestedRecord,
+          _testEntityProfiles.get(_startTime + 23 * TIME_INCREMENT).getAComplexNestedRecord());
+    } catch (JsonProcessingException e) {
+      fail("Unexpected exception thrown" + e);
+    }
+  }
+
+  @Test(groups = {"getAggregatedStats"}, dependsOnGroups = {"upsert"})
   public void testGetAggregatedStatsLatestStrArrayDay1() {
     // Filter is only on the urn
     Criterion hasUrnCriterion =
@@ -299,7 +398,8 @@ public class ElasticSearchTimeseriesAspectServiceTest {
         .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
         .setValue(String.valueOf(_startTime + 23 * TIME_INCREMENT));
 
-    Filter filter = QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
+    Filter filter =
+        QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
 
     // Aggregate on latest stat value
     AggregationSpec latestStatAggregationSpec =
@@ -343,7 +443,8 @@ public class ElasticSearchTimeseriesAspectServiceTest {
         .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
         .setValue(String.valueOf(_startTime + 47 * TIME_INCREMENT));
 
-    Filter filter = QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
+    Filter filter =
+        QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
 
     // Aggregate on latest stat value
     AggregationSpec latestStatAggregationSpec =
@@ -382,7 +483,8 @@ public class ElasticSearchTimeseriesAspectServiceTest {
         .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
         .setValue(String.valueOf(_startTime + 9 * TIME_INCREMENT));
 
-    Filter filter = QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
+    Filter filter =
+        QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
 
     // Aggregate on latest stat value
     AggregationSpec latestStatAggregationSpec =
@@ -420,7 +522,8 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     Criterion hasCol1 =
         new Criterion().setField("componentProfiles.key").setCondition(Condition.EQUAL).setValue("col1");
 
-    Filter filter = QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, hasCol1, startTimeCriterion, endTimeCriterion));
+    Filter filter = QueryUtils.getFilterFromCriteria(
+        ImmutableList.of(hasUrnCriterion, hasCol1, startTimeCriterion, endTimeCriterion));
 
     // Aggregate on latest stat value
     AggregationSpec latestStatAggregationSpec =
@@ -461,7 +564,8 @@ public class ElasticSearchTimeseriesAspectServiceTest {
         .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
         .setValue(String.valueOf(lastEntryTimeStamp));
 
-    Filter filter = QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
+    Filter filter =
+        QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
 
     // Aggregate on latest stat value
     AggregationSpec latestStatAggregationSpec =
@@ -506,7 +610,8 @@ public class ElasticSearchTimeseriesAspectServiceTest {
         .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
         .setValue(String.valueOf(_startTime + 9 * TIME_INCREMENT));
 
-    Filter filter = QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
+    Filter filter =
+        QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
 
     // Aggregate the sum of stat value
     AggregationSpec sumAggregationSpec =
@@ -526,7 +631,7 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     // Validate rows
     assertNotNull(resultTable.getRows());
     assertEquals(resultTable.getRows().size(), 1);
-    // value is 20+30+40+... upto 10 terms = 650
+    // value is 20+30+40+... up to 10 terms = 650
     // TODO: Compute this caching the documents.
     assertEquals(resultTable.getRows(),
         new StringArrayArray(new StringArray(_startTime.toString(), String.valueOf(650))));
@@ -546,7 +651,8 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     Criterion hasCol2 =
         new Criterion().setField("componentProfiles.key").setCondition(Condition.EQUAL).setValue("col2");
 
-    Filter filter = QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, hasCol2, startTimeCriterion, endTimeCriterion));
+    Filter filter = QueryUtils.getFilterFromCriteria(
+        ImmutableList.of(hasUrnCriterion, hasCol2, startTimeCriterion, endTimeCriterion));
 
     // Aggregate the sum of stat value
     AggregationSpec sumStatAggregationSpec =
@@ -589,7 +695,8 @@ public class ElasticSearchTimeseriesAspectServiceTest {
         .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
         .setValue(String.valueOf(_startTime + 23 * TIME_INCREMENT));
 
-    Filter filter = QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
+    Filter filter =
+        QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
 
     // Aggregate on latest stat value
     AggregationSpec cardinalityStatAggregationSpec =
@@ -624,7 +731,8 @@ public class ElasticSearchTimeseriesAspectServiceTest {
         .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
         .setValue(String.valueOf(_startTime + 23 * TIME_INCREMENT));
 
-    Filter filter = QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
+    Filter filter =
+        QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
 
     // Aggregate on latest stat value
     AggregationSpec cardinalityStatAggregationSpec =

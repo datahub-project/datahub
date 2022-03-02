@@ -1,0 +1,10 @@
+namespace com.linkedin.retention
+
+/**
+ * Base class that encapsulates different retention policies.
+ * Only one of the fields should be set
+ */
+record Retention {
+  version: optional VersionBasedRetention
+  time: optional TimeBasedRetention
+}

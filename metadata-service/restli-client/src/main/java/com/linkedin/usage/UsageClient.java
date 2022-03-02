@@ -1,5 +1,6 @@
 package com.linkedin.usage;
 
+import com.datahub.authentication.Authentication;
 import com.linkedin.common.EntityRelationships;
 
 import com.linkedin.common.WindowDuration;
@@ -12,11 +13,12 @@ import javax.annotation.Nonnull;
 
 public class UsageClient extends BaseClient {
 
-    public UsageClient(@Nonnull Client restliClient) {
+    private static final UsageStatsRequestBuilders USAGE_STATS_REQUEST_BUILDERS =
+        new UsageStatsRequestBuilders();
+
+    public UsageClient(@Nonnull final Client restliClient) {
         super(restliClient);
     }
-    private static final UsageStatsRequestBuilders USAGE_STATS_REQUEST_BUILDERS =
-            new UsageStatsRequestBuilders();
 
     /**
      * Gets a specific version of downstream {@link EntityRelationships} for the given dataset.
@@ -25,12 +27,12 @@ public class UsageClient extends BaseClient {
     public UsageQueryResult getUsageStats(
         @Nonnull String resource,
         @Nonnull UsageTimeRange range,
-        @Nonnull String actor
+        @Nonnull Authentication authentication
     ) throws RemoteInvocationException, URISyntaxException {
         final UsageStatsDoQueryRangeRequestBuilder requestBuilder = USAGE_STATS_REQUEST_BUILDERS.actionQueryRange()
             .resourceParam(resource)
             .durationParam(WindowDuration.DAY)
             .rangeFromEndParam(range);
-        return sendClientRequest(requestBuilder, actor).getEntity();
+        return sendClientRequest(requestBuilder, authentication).getEntity();
     }
 }

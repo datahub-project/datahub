@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.types.corpuser.mappers;
 
-import com.linkedin.datahub.graphql.generated.CorpUserEditableInfo;
+import com.linkedin.datahub.graphql.generated.CorpUserEditableProperties;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 
 import javax.annotation.Nonnull;
@@ -10,20 +10,25 @@ import javax.annotation.Nonnull;
  *
  * To be replaced by auto-generated mappers implementations
  */
-public class CorpUserEditableInfoMapper implements ModelMapper<com.linkedin.identity.CorpUserEditableInfo, CorpUserEditableInfo> {
+public class CorpUserEditableInfoMapper implements ModelMapper<com.linkedin.identity.CorpUserEditableInfo, CorpUserEditableProperties> {
 
     public static final CorpUserEditableInfoMapper INSTANCE = new CorpUserEditableInfoMapper();
 
-    public static CorpUserEditableInfo map(@Nonnull final com.linkedin.identity.CorpUserEditableInfo info) {
+    public static CorpUserEditableProperties map(@Nonnull final com.linkedin.identity.CorpUserEditableInfo info) {
         return INSTANCE.apply(info);
     }
 
     @Override
-    public CorpUserEditableInfo apply(@Nonnull final com.linkedin.identity.CorpUserEditableInfo info) {
-        final CorpUserEditableInfo result = new CorpUserEditableInfo();
+    public CorpUserEditableProperties apply(@Nonnull final com.linkedin.identity.CorpUserEditableInfo info) {
+        final CorpUserEditableProperties result = new CorpUserEditableProperties();
+        result.setDisplayName(info.getDisplayName());
+        result.setTitle(info.getTitle());
         result.setAboutMe(info.getAboutMe());
         result.setSkills(info.getSkills());
         result.setTeams(info.getTeams());
+        result.setEmail(info.getEmail());
+        result.setPhone(info.getPhone());
+        result.setSlack(info.getSlack());
         if (info.hasPictureLink()) {
             result.setPictureLink(info.getPictureLink().toString());
         }

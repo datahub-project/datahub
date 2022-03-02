@@ -1,18 +1,144 @@
 entities:
+  - name: dataPlatform
+    category: core
+    keyAspect: dataPlatformKey
+    aspects:
+      - dataPlatformInfo
   - name: dataset
+    doc: Datasets represent logical or physical data assets stored or represented in various data platforms. Tables, Views, Streams are all instances of datasets.
+    category: core
     keyAspect: datasetKey
     aspects:
       - viewProperties
       - subTypes
       - datasetProfile
       - datasetUsageStatistics
+      - operation
+      - domains
+      - schemaMetadata
+      - status
+      - container
+      - assertionRunEvent
+      - deprecation
   - name: dataHubPolicy
+    doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
+    category: internal
     keyAspect: dataHubPolicyKey
     aspects:
       - dataHubPolicyInfo
+  - name: dataJob
+    keyAspect: dataJobKey
+    aspects:
+      - datahubIngestionRunSummary
+      - datahubIngestionCheckpoint
+      - domains
+      - deprecation
+  - name: dataFlow
+    category: core
+    keyAspect: dataFlowKey
+    aspects:
+      - domains
+      - deprecation
+  - name: chart
+    keyAspect: chartKey
+    aspects:
+      - domains
+      - container
+      - deprecation
+  - name: dashboard
+    keyAspect: dashboardKey
+    aspects:
+      - domains
+      - container
+      - deprecation
   - name: corpuser
+    doc: CorpUser represents an identity of a person (or an account) in the enterprise.
     keyAspect: corpUserKey
     aspects:
       - corpUserInfo
       - corpUserEditableInfo
       - corpUserStatus
+      - groupMembership
+      - globalTags
+      - status
+  - name: corpGroup
+    doc: CorpGroup represents an identity of a group of users in the enterprise.
+    keyAspect: corpGroupKey
+    aspects:
+      - corpGroupInfo
+      - corpGroupEditableInfo
+      - globalTags
+      - ownership
+      - status
+  - name: domain
+    doc: A data domain within an organization.
+    keyAspect: domainKey
+    aspects:
+      - domainProperties
+      - institutionalMemory
+      - ownership
+  - name: container
+    doc: A container of related data assets.
+    keyAspect: containerKey
+    aspects:
+      - containerProperties
+      - editableContainerProperties
+      - dataPlatformInstance
+      - subTypes
+      - ownership
+      - container
+      - globalTags
+      - glossaryTerms
+      - institutionalMemory
+      - browsePaths # unclear if this will be used
+      - status
+      - domains
+  - name: tag
+    keyAspect: tagKey
+    aspects:
+      - tagProperties
+      - ownership
+      - deprecation
+  - name: glossaryTerm
+    keyAspect: glossaryTermKey
+    aspects:
+      - glossaryTermInfo
+      - institutionalMemory
+      - schemaMetadata
+      - ownership
+      - deprecation
+  - name: glossaryNode
+    keyAspect: glossaryNodeKey
+    aspects:
+      - glossaryNodeInfo
+      - ownership
+      - status
+  - name: dataHubIngestionSource
+    category: internal
+    keyAspect: dataHubIngestionSourceKey
+    aspects:
+      - dataHubIngestionSourceInfo
+  - name: dataHubSecret
+    category: internal
+    keyAspect: dataHubSecretKey
+    aspects:
+      - dataHubSecretValue
+  - name: dataHubExecutionRequest
+    category: internal
+    keyAspect: dataHubExecutionRequestKey
+    aspects:
+      - dataHubExecutionRequestInput
+      - dataHubExecutionRequestSignal
+      - dataHubExecutionRequestResult
+  - name: assertion
+    doc: Assertion represents a data quality rule applied on one or more dataset.
+    category: core
+    keyAspect: assertionKey
+    aspects:
+      - assertionInfo
+      - dataPlatformInstance
+  - name: dataHubRetention
+    category: internal
+    keyAspect: dataHubRetentionKey
+    aspects:
+      - dataHubRetentionConfig

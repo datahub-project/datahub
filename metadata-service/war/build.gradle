@@ -4,9 +4,11 @@ ext.apiProject = project(':metadata-service:restli-api')
 
 dependencies {
   runtime project(':metadata-service:factories')
+  runtime project(':metadata-service:auth-filter')
   runtime project(':metadata-service:servlet')
-  runtime project(':metadata-service:auth')
-  runtime project(':metadata-service:graphql-api')
+  runtime project(':metadata-service:auth-servlet-impl')
+  runtime project(':metadata-service:graphql-servlet-impl')
+  runtime project(':metadata-service:openapi-servlet')
   runtime project(':metadata-jobs:mce-consumer')
   runtime project(':metadata-jobs:mae-consumer')
 
@@ -19,6 +21,8 @@ dependencies {
 
   runtime spec.product.pegasus.restliDocgen
   runtime spec.product.pegasus.restliSpringBridge
+
+  implementation externalDependency.awsMskIamAuth
 }
 
 configurations {

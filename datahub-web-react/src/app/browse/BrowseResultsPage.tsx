@@ -57,7 +57,7 @@ export const BrowseResultsPage = () => {
 
     return (
         <SearchablePage>
-            <Affix offsetTop={64}>
+            <Affix offsetTop={60}>
                 <LegacyBrowsePath type={entityType} path={path} isBrowsable />
             </Affix>
             {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}

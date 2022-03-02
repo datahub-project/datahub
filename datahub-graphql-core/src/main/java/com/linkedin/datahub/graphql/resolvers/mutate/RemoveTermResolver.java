@@ -38,7 +38,8 @@ public class RemoveTermResolver implements DataFetcher<CompletableFuture<Boolean
           input.getSubResource(),
           input.getSubResourceType(),
           "glossaryTerm",
-          _entityService
+          _entityService,
+          true
       );
 
       try {
@@ -49,7 +50,7 @@ public class RemoveTermResolver implements DataFetcher<CompletableFuture<Boolean
         }
 
         log.info(String.format("Removing Term. input: {}", input));
-        Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActor());
+        Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActorUrn());
         LabelUtils.removeTermFromTarget(
             termUrn,
             targetUrn,

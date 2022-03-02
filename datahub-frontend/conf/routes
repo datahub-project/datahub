@@ -21,6 +21,14 @@ GET           /logOut                                                         co
 # Proxies API requests to the metadata service api
 GET           /api/*path                                                      controllers.Application.proxy(path)
 POST          /api/*path                                                      controllers.Application.proxy(path)
+DELETE        /api/*path                                                      controllers.Application.proxy(path)
+PUT           /api/*path                                                      controllers.Application.proxy(path)
+
+# Proxies API requests to the metadata service api
+GET           /openapi/*path                                                  controllers.Application.proxy(path)
+POST          /openapi/*path                                                  controllers.Application.proxy(path)
+DELETE        /openapi/*path                                                  controllers.Application.proxy(path)
+PUT           /openapi/*path                                                  controllers.Application.proxy(path)
 
 # Map static resources from the /public folder to the /assets URL path
 GET           /assets/*file                                                   controllers.Assets.at(path="/public", file)

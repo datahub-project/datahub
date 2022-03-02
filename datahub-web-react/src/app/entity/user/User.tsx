@@ -2,6 +2,7 @@ import { UserOutlined } from '@ant-design/icons';
 import * as React from 'react';
 import { CorpUser, EntityType, SearchResult } from '../../../types.generated';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
+import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { Preview } from './preview/Preview';
 import UserProfile from './UserProfile';
 
@@ -49,8 +50,8 @@ export class UserEntity implements Entity<CorpUser> {
     renderPreview = (_: PreviewType, data: CorpUser) => (
         <Preview
             urn={data.urn}
-            name={data.info?.displayName || data.username}
-            title={data.info?.title || ''}
+            name={this.displayName(data)}
+            title={data.editableProperties?.title || data.info?.title || ''}
             photoUrl={data.editableInfo?.pictureLink || undefined}
         />
     );
@@ -60,6 +61,17 @@ export class UserEntity implements Entity<CorpUser> {
     };
 
     displayName = (data: CorpUser) => {
-        return data.info?.displayName || data.info?.fullName || data.username;
+        return (
+            data.editableProperties?.displayName ||
+            data.properties?.displayName ||
+            data.properties?.fullName ||
+            data.info?.displayName || // Deprecated info field
+            data.info?.fullName || // Deprecated info field
+            data.username
+        );
+    };
+
+    getGenericEntityProperties = (user: CorpUser) => {
+        return getDataForEntityType({ data: user, entityType: this.type, getOverrideProperties: (data) => data });
     };
 }

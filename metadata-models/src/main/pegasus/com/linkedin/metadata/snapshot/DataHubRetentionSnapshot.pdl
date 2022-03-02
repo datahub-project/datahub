@@ -1,0 +1,24 @@
+namespace com.linkedin.metadata.snapshot
+
+import com.linkedin.common.Urn
+import com.linkedin.metadata.aspect.DataHubRetentionAspect
+
+/**
+ * A metadata snapshot for DataHub Access Policy data.
+ */
+@Entity = {
+  "name": "dataHubRetention",
+  "keyAspect": "dataHubRetentionKey"
+}
+record DataHubRetentionSnapshot {
+
+  /**
+   * URN for the entity the metadata snapshot is associated with.
+   */
+  urn: Urn
+
+  /**
+   * The list of metadata aspects associated with the DataHub access policy.
+   */
+  aspects: array[DataHubRetentionAspect]
+}

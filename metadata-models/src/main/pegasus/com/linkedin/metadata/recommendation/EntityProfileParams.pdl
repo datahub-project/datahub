@@ -1,0 +1,13 @@
+namespace com.linkedin.metadata.recommendation
+
+import com.linkedin.common.Urn
+
+/**
+ * Context to define the entity profile page
+ */
+record EntityProfileParams {
+  /**
+   * Urn of the entity being shown
+   */
+  urn: Urn
+}

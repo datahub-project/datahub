@@ -1,0 +1,17 @@
+namespace com.datahub.test.testing
+
+/**
+ * For unit tests
+ */
+record EntityValue {
+
+  /**
+   * For unit tests
+   */
+  foo: optional AspectFoo
+
+  /**
+   * For unit tests
+   */
+  bar: optional AspectBar
+}

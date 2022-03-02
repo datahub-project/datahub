@@ -1,0 +1,37 @@
+namespace com.linkedin.metadata.recommendation
+
+/**
+ * Enum that defines how the modules should be rendered.
+ * There should be two frontend implementation of large and small modules per type.
+ */
+enum RecommendationRenderType {
+  /**
+   * Simple list of entities
+   */
+  ENTITY_NAME_LIST,
+
+  /**
+   * List of platforms to search
+   */
+  PLATFORM_SEARCH_LIST,
+
+  /**
+   * Tag search list
+   */
+  TAG_SEARCH_LIST,
+
+  /**
+   * Glossary term search list
+   */
+  GLOSSARY_TERM_SEARCH_LIST,
+
+  /**
+   * A list of recommended searches
+   */
+  SEARCH_QUERY_LIST,
+
+  /**
+   * List of domains to search
+   */
+  DOMAIN_SEARCH_LIST
+}

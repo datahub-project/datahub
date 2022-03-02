@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.common;
 
+import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import org.apache.http.ssl.SSLContextBuilder;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -16,36 +17,38 @@ import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
+import org.springframework.context.annotation.PropertySource;
 
 
 @Configuration
+@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class ElasticsearchSSLContextFactory {
 
-    @Value("${ELASTICSEARCH_SSL_PROTOCOL:#{null}}")
+    @Value("${elasticsearch.sslContext.protocol}")
     private String sslProtocol;
 
-    @Value("${ELASTICSEARCH_SSL_SECURE_RANDOM_IMPL:#{null}}")
+    @Value("${elasticsearch.sslContext.secureRandomImplementation}")
     private String sslSecureRandomImplementation;
 
-    @Value("${ELASTICSEARCH_SSL_TRUSTSTORE_FILE:#{null}}")
+    @Value("${elasticsearch.sslContext.trustStoreFile}")
     private String sslTrustStoreFile;
 
-    @Value("${ELASTICSEARCH_SSL_TRUSTSTORE_TYPE:#{null}}")
+    @Value("${elasticsearch.sslContext.trustStoreType}")
     private String sslTrustStoreType;
 
-    @Value("${ELASTICSEARCH_SSL_TRUSTSTORE_PASSWORD:#{null}}")
+    @Value("${elasticsearch.sslContext.trustStorePassword}")
     private String sslTrustStorePassword;
 
-    @Value("${ELASTICSEARCH_SSL_KEYSTORE_FILE:#{null}}")
+    @Value("${elasticsearch.sslContext.keyStoreFile}")
     private String sslKeyStoreFile;
 
-    @Value("${ELASTICSEARCH_SSL_KEYSTORE_TYPE:#{null}}")
+    @Value("${elasticsearch.sslContext.keyStoreType}")
     private String sslKeyStoreType;
 
-    @Value("${ELASTICSEARCH_SSL_KEYSTORE_PASSWORD:#{null}}")
+    @Value("${elasticsearch.sslContext.keyStorePassword}")
     private String sslKeyStorePassword;
 
-    @Value("${ELASTICSEARCH_SSL_KEY_PASSWORD:#{null}}")
+    @Value("${elasticsearch.sslContext.keyPassword}")
     private String sslKeyPassword;
 
     @Bean(name = "elasticSearchSSLContext")

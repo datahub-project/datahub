@@ -1,0 +1,18 @@
+namespace com.linkedin.metadata.recommendation
+
+import com.linkedin.metadata.query.filter.Criterion
+
+/**
+ * Context that defines a search page requesting recommendations
+ */
+record SearchRequestContext {
+  /**
+   * Search query
+   */
+  query: string
+
+  /**
+   * filters applied to search results
+   */
+  filters: array[Criterion] = []
+}

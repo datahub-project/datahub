@@ -1,4 +1,8 @@
-# DataHub Frontend
+---
+title: "datahub-frontend"
+---
+
+# DataHub Frontend Proxy
 DataHub frontend is a [Play](https://www.playframework.com/) service written in Java. It is served as a mid-tier
 between [DataHub GMS](../metadata-service) which is the backend service and [DataHub Web](../datahub-web-react/README.md).
 
@@ -22,25 +26,6 @@ However, if you only want to build `DataHub Frontend` specifically:
 Before starting `DataHub Frontend`, you need to make sure that [DataHub GMS](../metadata-service) and
 all its dependencies have already started and running.
 
-Also, user information should already be registered into the DB,
-otherwise user will not be able to sign in.
-To do that, first create a file named `user.dat` containing below line and filling the parts `<<something>>`
-with your information:
-```
-{"auditHeader": None, "proposedSnapshot": ("com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot", {"urn": "urn:li:corpuser:<<username>>", "aspects": [{"active": True, "fullName": "<<Full Name>>", "email": "<<e-mail address>>"}, {}]}), "proposedDelta": None}
-```
-And run `mce producer` script as below:
-```
-python metadata-ingestion/mce_cli.py produce -d user.dat
-```
-
-Or, you can run the script without providing any data file. In this case, the script will use `bootstrap_mce.dat` file
-to bootstrap some sample users and datasets:
-```
-python metadata-ingestion/mce_cli.py produce
-```
-This will create a default user with username `datahub`. You can sign in to the app using `datahub` as your username.
-
 ## Start via Docker image
 Quickest way to try out `DataHub Frontend` is running the [Docker image](../docker/datahub-frontend).
 
@@ -55,9 +40,10 @@ cd datahub-frontend/run && ./run-local-frontend
 After starting your application in one of the two ways mentioned above, you can connect to it by typing below
 into your favorite web browser:
 ```
-http://localhost:9001
+http://localhost:9002
 ```
-To be able to sign in, you need to provide your user name. You don't need to type any password.
+
+To be able to sign in, you need to provide your user name. The default account is `datahub`, password `datahub`.
 
 ## Authentication
 DataHub frontend leverages [Java Authentication and Authorization Service (JAAS)](https://docs.oracle.com/javase/7/docs/technotes/guides/security/jaas/JAASRefGuide.html) to perform the authentication. By default we provided a [DummyLoginModule](app/security/DummyLoginModule.java) which will accept any username/password combination. You can update [jaas.conf](conf/jaas.conf) to match your authentication requirement. For example, use the following config for LDAP-based authentication,
@@ -83,7 +69,7 @@ see the [OIDC in React](../docs/how/auth/sso/configure-oidc-react.md) document.
 Most DataHub frontend API endpoints are protected using [Play Authentication](https://www.playframework.com/documentation/2.1.0/JavaGuide4), which means it requires authentication information stored in the cookie for the request to go through. This makes debugging using curl difficult. One option is to first make a curl call against the `/authenticate` endpoint and stores the authentication info in a cookie file like this
 
 ```
-curl -c cookie.txt -d '{"username":"datahub", "password":"datahub"}' -H 'Content-Type: application/json' http://localhost:9001/authenticate
+curl -c cookie.txt -d '{"username":"datahub", "password":"datahub"}' -H 'Content-Type: application/json' http://localhost:9002/authenticate
 ```
 
 You can then make all subsequent calls using the same cookie file to pass the authentication check.

@@ -12,6 +12,14 @@ record SubTypes {
   /**
    * The names of the specific types.
    **/
+   @Searchable = {
+     "/*": {
+      "fieldType": "KEYWORD",
+      "addToFilters": true,
+      "filterNameOverride": "Sub Type",
+      "queryByDefault": true
+     }
+   }
   typeNames: array[string]
 
 }

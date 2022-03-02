@@ -1,5 +1,6 @@
 query appConfig {
     appConfig {
+        appVersion
         policiesConfig {
             enabled
             platformPrivileges {
@@ -23,6 +24,18 @@ query appConfig {
         }
         identityManagementConfig {
             enabled
+        }
+        managedIngestionConfig {
+            enabled
+        }
+    }
+}
+
+query getEntityCounts($input: EntityCountInput) {
+    getEntityCounts(input: $input) {
+        counts {
+            entityType
+            count
         }
     }
 }

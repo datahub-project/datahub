@@ -7,11 +7,8 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
-import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nonnull;
@@ -103,14 +100,8 @@ public class EntityKeyUtils {
     final DataMap dataMap = new DataMap();
     for (int i = 0; i < urn.getEntityKey().getParts().size(); i++) {
       final String urnPart = urn.getEntityKey().get(i);
-      try {
-        final String decodedUrnPart = URLDecoder.decode(urnPart, StandardCharsets.UTF_8.toString());
-        final RecordDataSchema.Field field = keySchema.getFields().get(i);
-        dataMap.put(field.getName(), decodedUrnPart);
-      } catch (UnsupportedEncodingException e) {
-        throw new RuntimeException(
-            String.format("Failed to convert URN to Entity Key. Unable to URL decoded urn part %s", urnPart), e);
-      }
+      final RecordDataSchema.Field field = keySchema.getFields().get(i);
+      dataMap.put(field.getName(), urnPart);
     }
 
     // #3. Finally, instantiate the record template with the newly created DataMap.
@@ -139,7 +130,7 @@ public class EntityKeyUtils {
     final List<String> urnParts = new ArrayList<>();
     for (RecordDataSchema.Field field : keyAspect.schema().getFields()) {
       Object value = keyAspect.data().get(field.getName());
-      String valueString = value.toString();
+      String valueString = value == null ? "" : value.toString();
       urnParts.add(valueString); // TODO: Determine whether all fields, including urns, should be URL encoded.
     }
     return Urn.createFromTuple(entityName, urnParts);

@@ -60,6 +60,16 @@ type Query {
     glossaryTerm(urn: String!): GlossaryTerm
 
     """
+    Fetch an Entity Container by primary key (urn)
+    """
+    container(urn: String!): Container
+
+    """
+    Fetch a Domain by primary key (urn)
+    """
+    domain(urn: String!): Domain
+
+    """
     List all DataHub Access Policies
     """
     listPolicies(input: ListPoliciesInput!): ListPoliciesResult
@@ -98,6 +108,16 @@ type Query {
     List all DataHub Groups
     """
     listGroups(input: ListGroupsInput!): ListGroupsResult
+
+    """
+    Fetches the number of entities ingested by type
+    """
+    getEntityCounts(input: EntityCountInput): EntityCountResults
+
+    """
+    List all DataHub Domains
+    """
+    listDomains(input: ListDomainsInput!): ListDomainsResult
 }
 
 """
@@ -134,6 +154,11 @@ type Mutation {
     Update the information about a particular Entity Tag
     """
     updateTag(urn: String!, input: TagUpdateInput!): Tag
+
+    """
+    Set the hex color associated with an existing Tag
+    """
+    setTagColor(urn: String!, colorHex: String!): Boolean
 
     """
     Create a policy and returns the resulting urn
@@ -191,7 +216,7 @@ type Mutation {
     removeLink(input: RemoveLinkInput!): Boolean
 
     """
-    Incubating. Updates the description of a resource. Currently only supports Dataset Schema Fields
+    Incubating. Updates the description of a resource. Currently only supports Dataset Schema Fields, Containers
     """
     updateDescription(input: DescriptionUpdateInput!): Boolean
 
@@ -221,9 +246,42 @@ type Mutation {
     removeGroupMembers(input: RemoveGroupMembersInput!): Boolean
 
     """
-    Create a new group. Returns the urn of the newly created group. Requires Manage Users & Groups Platform Privilege
+    Create a new group. Returns the urn of the newly created group. Requires the Manage Users & Groups Platform Privilege
     """
     createGroup(input: CreateGroupInput!): String
+
+    """
+    Create a new Domain. Returns the urn of the newly created Domain. Requires the Manage Domains privilege. If a domain with the provided ID already exists,
+    it will be overwritten.
+    """
+    createDomain(input: CreateDomainInput!): String
+
+    """
+    Sets the Domain for a Dataset, Chart, Dashboard, Data Flow (Pipeline), or Data Job (Task). Returns true if the Domain was successfully added, or already exists. Requires the Edit Domains privilege for the Entity.
+    """
+    setDomain(entityUrn: String!, domainUrn: String!): Boolean
+
+    """
+    Sets the Domain for a Dataset, Chart, Dashboard, Data Flow (Pipeline), or Data Job (Task). Returns true if the Domain was successfully removed, or was already removed. Requires the Edit Domains privilege for an asset.
+    """
+    unsetDomain(entityUrn: String!): Boolean
+
+    """
+    Sets the Deprecation status for a Metadata Entity. Requires the Edit Deprecation status privilege for an entity.
+    """
+    updateDeprecation(
+      "Input required to set deprecation for an Entity."
+      input: UpdateDeprecationInput!): Boolean
+
+    """
+    Update a particular Corp User's editable properties
+    """
+    updateCorpUserProperties(urn: String!, input: CorpUserUpdateInput!): CorpUser
+
+    """
+    Update a particular Corp Group's editable properties
+    """
+    updateCorpGroupProperties(urn: String!, input: CorpGroupUpdateInput!): CorpGroup
 }
 
 """
@@ -250,6 +308,11 @@ interface Entity {
 A top level Metadata Entity Type
 """
 enum EntityType {
+    """
+    A Domain containing Metadata Entities
+    """
+    DOMAIN
+
     """
     The Dataset Entity
     """
@@ -301,6 +364,11 @@ enum EntityType {
     GLOSSARY_TERM
 
     """
+    A container of Metadata Entities
+    """
+    CONTAINER
+
+    """
     The ML Model Entity
     """
     MLMODEL
@@ -324,6 +392,23 @@ enum EntityType {
     The ML Primary Key Entity
     """
     MLPRIMARY_KEY
+
+    """
+    A DataHub Managed Ingestion Source
+    """
+    INGESTION_SOURCE
+
+    """
+    A DataHub ExecutionRequest
+    """
+    EXECUTION_REQUEST
+}
+
+"""
+Input for the get entity counts endpoint
+"""
+input EntityCountInput {
+    types: [EntityType!]
 }
 
 """
@@ -452,16 +537,6 @@ interface EntityWithRelationships implements Entity {
     type: EntityType!
 
     """
-    Entities upstream of the given entity
-    """
-    upstreamLineage: UpstreamEntityRelationships
-
-    """
-    Entities downstream of the given entity
-    """
-    downstreamLineage: DownstreamEntityRelationships
-
-    """
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
@@ -487,6 +562,11 @@ type Dataset implements EntityWithRelationships & Entity {
     platform: DataPlatform!
 
     """
+    The parent container in which the entity resides
+    """
+    container: Container
+
+    """
     The Dataset display name
     """
     name: String!
@@ -507,7 +587,7 @@ type Dataset implements EntityWithRelationships & Entity {
     ownership: Ownership
 
     """
-    The deprecation status
+    The deprecation status of the dataset
     """
     deprecation: Deprecation
 
@@ -542,6 +622,11 @@ type Dataset implements EntityWithRelationships & Entity {
     glossaryTerms: GlossaryTerms
 
     """
+    The Domain associated with the Dataset
+    """
+    domain: Domain
+
+    """
     Statistics about how this Dataset is used
     """
     usageStats(resource: String!, range: TimeRange): UsageQueryResult
@@ -551,6 +636,11 @@ type Dataset implements EntityWithRelationships & Entity {
     If no start or end time are provided, the most recent events will be returned
     """
     datasetProfiles(startTimeMillis: Long, endTimeMillis: Long, limit: Int): [DatasetProfile!]
+    """
+
+    Operational events for an entity.
+    """
+    operations(startTimeMillis: Long, endTimeMillis: Long, limit: Int): [Operation!]
 
     """
     Edges extending from this entity
@@ -595,18 +685,6 @@ type Dataset implements EntityWithRelationships & Entity {
     uri: String @deprecated
 
     """
-    Deprecated, use relationships DownstreamOf, UpstreamOf instead
-    Entities upstream of the given entity
-    """
-    upstreamLineage: UpstreamEntityRelationships @deprecated
-
-    """
-    Deprecated, use relationships DownstreamOf, UpstreamOf instead
-    Entities downstream of the given entity
-    """
-    downstreamLineage: DownstreamEntityRelationships @deprecated
-
-    """
     Deprecated, use tags field instead
     The structured tags associated with the dataset
     """
@@ -618,15 +696,79 @@ type Dataset implements EntityWithRelationships & Entity {
     subTypes: SubTypes
 
     """
-    View related properties. Only relevant if subtypes field contains VIEW.
+    View related properties. Only relevant if subtypes field contains view.
     """
     viewProperties: ViewProperties
+
+    """
+    Experimental API.
+    For fetching extra entities that do not have custom UI code yet
+    """
+    aspects(input: AspectParams): [RawAspect!]
+}
+
+
+"""
+Params to configure what list of aspects should be fetched by the aspects property
+"""
+input AspectParams {
+    """
+    Only fetch auto render aspects
+    """
+    autoRenderOnly: Boolean
+}
+
+
+"""
+Payload representing data about a single aspect
+"""
+type RawAspect {
+    """
+    The name of the aspect
+    """
+    aspectName: String!
+
+    """
+    JSON string containing the aspect's payload
+    """
+    payload: String
+
+    """
+    Details for the frontend on how the raw aspect should be rendered
+    """
+    renderSpec: AspectRenderSpec
+}
+
+"""
+Details for the frontend on how the raw aspect should be rendered
+"""
+type AspectRenderSpec {
+    """
+    Format the aspect should be displayed in for the UI. Powered by the renderSpec annotation on the aspect model
+    """
+    displayType: String
+
+    """
+    Name to refer to the aspect type by for the UI. Powered by the renderSpec annotation on the aspect model
+    """
+    displayName: String
+
+    """
+    Field in the aspect payload to index into for rendering.
+    """
+    key: String
 }
 
 """
 Additional read only properties about a Dataset
 """
 type DatasetProperties {
+
+    """
+    The name of the dataset used in display
+    """
+    name: String
+
     """
     Environment in which the dataset belongs to or where it was generated
     Note that this field will soon be deprecated in favor of a more standardized concept of Environment
@@ -661,9 +803,14 @@ type GlossaryTerm implements Entity {
     urn: String!
 
     """
-    Ownership metadata of the dataset
+    Ownership metadata of the glossary term
     """
     ownership: Ownership
+
+    """
+    References to internal resources related to the Glossary Term
+    """
+    institutionalMemory: InstitutionalMemory
 
     """
     A standard Entity Type
@@ -671,9 +818,9 @@ type GlossaryTerm implements Entity {
     type: EntityType!
 
     """
-    Display name of the glossary term
+    Name / id of the glossary term
     """
-    name: String!
+    name: String! @deprecated
 
     """
     hierarchicalName of glossary term
@@ -681,7 +828,7 @@ type GlossaryTerm implements Entity {
     hierarchicalName: String!
 
     """
-    Additional read only properties associated with the Glossary Term
+    Additional properties associated with the Glossary Term
     """
     properties: GlossaryTermProperties
 
@@ -689,12 +836,23 @@ type GlossaryTerm implements Entity {
     Deprecated, use properties field instead
     Details of the Glossary Term
     """
-    glossaryTermInfo: GlossaryTermInfo!
+    glossaryTermInfo: GlossaryTermInfo
+
+    """
+    The deprecation status of the Glossary Term
+    """
+    deprecation: Deprecation
 
     """
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Schema metadata of the dataset
+    """
+    schemaMetadata(version: Long): SchemaMetadata
+
 }
 
 """
@@ -703,9 +861,19 @@ Information about a glossary term
 """
 type GlossaryTermInfo {
     """
-    Definition of the glossary term
+    The name of the Glossary Term
     """
-    definition: String!
+    name: String
+
+    """
+    Description of the glossary term
+    """
+    description: String
+
+    """
+    Definition of the glossary term. Deprecated - Use 'description' instead.
+    """
+    definition: String! @deprecated
 
     """
     Term Source of the glossary term
@@ -738,9 +906,19 @@ Additional read only properties about a Glossary Term
 """
 type GlossaryTermProperties {
     """
-    Definition of the glossary term
+    The name of the Glossary Term
     """
-    definition: String!
+    name: String!
+
+    """
+    Description of the glossary term
+    """
+    description: String
+
+    """
+    Definition of the glossary term. Deprecated - Use 'description' instead.
+    """
+    definition: String! @deprecated
 
     """
     Term Source of the glossary term
@@ -804,6 +982,36 @@ type DataPlatform implements Entity {
     Additional properties associated with a data platform
     """
     info: DataPlatformInfo @deprecated
+
+    """
+    Edges extending from this entity
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+}
+
+"""
+A Data Platform instance represents an instance of a 3rd party platform like Looker, Snowflake, etc.
+"""
+type DataPlatformInstance implements Entity {
+    """
+    Urn of the data platform
+    """
+    urn: String!
+
+    """
+    A standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    Name of the data platform
+    """
+    platform: DataPlatform!
+
+    """
+    The platform instance id
+    """
+    instanceId: String!
 
     """
     Edges extending from this entity
@@ -924,9 +1132,33 @@ enum FabricType {
     DEV
 
     """
-    Designates early integration or staging fabrics
+    Designates testing fabrics
+    """
+    TEST
+
+    """
+    Designates quality assurance fabrics
+    """
+    QA
+
+    """
+    Designates user acceptance testing fabrics
+    """
+    UAT
+
+    """
+    Designates early integration fabrics
     """
     EI
+    """
+    Designates staging fabrics
+    """
+    STG
+
+    """
+    Designates non-production fabrics
+    """
+    NON_PROD
 
     """
     Designates production fabrics
@@ -937,6 +1169,146 @@ enum FabricType {
     Designates corporation fabrics
     """
     CORP
+}
+
+"""
+A container of other Metadata Entities
+"""
+type Container implements Entity {
+    """
+    The primary key of the container
+    """
+    urn: String!
+
+    """
+    A standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    Standardized platform.
+    """
+    platform: DataPlatform!
+
+    """
+    Fetch an Entity Container by primary key (urn)
+    """
+    container: Container
+
+    """
+    Read-only properties that originate in the source data platform
+    """
+    properties: ContainerProperties
+
+    """
+    Read-write properties that originate in DataHub
+    """
+    editableProperties: ContainerEditableProperties
+
+    """
+    Ownership metadata of the dataset
+    """
+    ownership: Ownership
+
+    """
+    References to internal resources related to the dataset
+    """
+    institutionalMemory: InstitutionalMemory
+
+    """
+    Tags used for searching dataset
+    """
+    tags: GlobalTags
+
+    """
+    The structured glossary terms associated with the dataset
+    """
+    glossaryTerms: GlossaryTerms
+
+    """
+    Sub types of the container, e.g. "Database" etc
+    """
+    subTypes: SubTypes
+
+    """
+    The Domain associated with the Dataset
+    """
+    domain: Domain
+
+    """
+    The deprecation status of the dashboard
+    """
+    deprecation: Deprecation
+
+    """
+    Children entities inside of the Container
+    """
+    entities(input: ContainerEntitiesInput): SearchResults
+
+    """
+    Edges extending from this entity
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+}
+
+"""
+Read-only properties that originate in the source data platform
+"""
+type ContainerProperties {
+  """
+  Display name of the Container
+  """
+  name: String!
+
+  """
+  System description of the Container
+  """
+  description: String
+
+  """
+  Custom properties of the Dataset
+  """
+  customProperties: [StringMapEntry!]
+
+  """
+  Native platform URL of the dashboard
+  """
+  externalUrl: String
+}
+
+"""
+Read-write properties that originate in DataHub
+"""
+type ContainerEditableProperties {
+  """
+  DataHub description of the Container
+  """
+  description: String
+}
+
+"""
+Input required to fetch the entities inside of a container.
+"""
+input ContainerEntitiesInput {
+  """
+  Optional query filter for particular entities inside the container
+  """
+  query: String
+
+  """
+  The offset of the result set
+  """
+  start: Int
+
+  """
+  The number of entities to include in result set
+  """
+  count: Int
+
+  """
+  Optional Facet filters to apply to the result set
+  """
+  filters: [FacetFilterInput!]
 }
 
 """
@@ -1508,46 +1880,6 @@ type DataFlowDataJobsRelationships {
 }
 
 """
-Deprecated, use relationships query instead
-"""
-type UpstreamLineage {
-    """
-    List of upstream datasets
-    """
-    upstreams: [RelatedDataset!]!
-}
-
-"""
-Deprecated, use relationships query instead
-"""
-type DownstreamLineage {
-    """
-    List of downstream datasets
-    """
-    downstreams: [RelatedDataset!]!
-}
-
-"""
-Deprecated, use relationships query instead
-"""
-type RelatedDataset {
-    """
-    The upstream dataset the lineage points to
-    """
-    dataset: Dataset!
-
-    """
-    The type of the lineage
-    """
-    type: DatasetLineageType!
-
-    """
-    When the lineage was created
-    """
-    created: AuditStamp!
-}
-
-"""
 Deprecated
 The type of an edge between two Datasets
 """
@@ -1921,6 +2253,16 @@ Additional read write info about a user
 """
 type CorpUserEditableInfo {
     """
+    Display name to show on DataHub
+    """
+    displayName: String
+
+    """
+    Title to show on DataHub
+    """
+    title: String
+
+    """
     About me section of the user
     """
     aboutMe: String
@@ -1946,6 +2288,16 @@ Additional read write properties about a user
 """
 type CorpUserEditableProperties {
     """
+    Display name to show on DataHub
+    """
+    displayName: String
+
+    """
+    Title to show on DataHub
+    """
+    title: String
+
+    """
     About me section of the user
     """
     aboutMe: String
@@ -1964,6 +2316,71 @@ type CorpUserEditableProperties {
     A URL which points to a picture which user wants to set as a profile photo
     """
     pictureLink: String
+
+    """
+    The slack handle of the user
+    """
+    slack: String
+
+    """
+    Phone number for the user
+    """
+    phone: String
+
+    """
+    Email address for the user
+    """
+    email: String
+}
+
+"""
+Arguments provided to update a CorpUser Entity
+"""
+input CorpUserUpdateInput {
+    """
+    Display name to show on DataHub
+    """
+    displayName: String
+
+    """
+    Title to show on DataHub
+    """
+    title: String
+
+    """
+    About me section of the user
+    """
+    aboutMe: String
+
+    """
+    Teams that the user belongs to
+    """
+    teams: [String!]
+
+    """
+    Skills that the user possesses
+    """
+    skills: [String!]
+
+    """
+    A URL which points to a picture which user wants to set as a profile photo
+    """
+    pictureLink: String
+
+    """
+    The slack handle of the user
+    """
+    slack: String
+
+    """
+    Phone number for the user
+    """
+    phone: String
+
+    """
+    Email address for the user
+    """
+    email: String
 }
 
 """
@@ -1986,9 +2403,19 @@ type CorpGroup implements Entity {
     name: String!
 
     """
+    Ownership metadata of the Corp Group
+    """
+    ownership: Ownership
+
+    """
     Additional read only properties about the group
     """
     properties: CorpGroupProperties
+
+    """
+    Additional read write properties about the group
+    """
+    editableProperties: CorpGroupEditableProperties
 
     """
     Edges extending from this entity
@@ -2062,6 +2489,46 @@ type CorpGroupProperties {
 }
 
 """
+Additional read write properties about a group
+"""
+type CorpGroupEditableProperties {
+  """
+  DataHub description of the group
+  """
+  description: String
+
+  """
+  Slack handle for the group
+  """
+  slack: String
+
+  """
+  Email address for the group
+  """
+  email: String
+}
+
+"""
+Arguments provided to update a CorpGroup Entity
+"""
+input CorpGroupUpdateInput {
+  """
+  DataHub description of the group
+  """
+  description: String
+
+  """
+  Slack handle for the group
+  """
+  slack: String
+
+  """
+  Email address for the group
+  """
+  email: String
+}
+
+"""
 An owner of a Metadata Entity, either a user or group
 """
 union OwnerType = CorpUser | CorpGroup
@@ -2117,14 +2584,20 @@ type Tag implements Entity {
     type: EntityType!
 
     """
-    The display name of the tag
+    The name / id of the tag. Use properties.name instead.
     """
-    name: String!
+    name: String! @deprecated
+
+    """
+    Additional properties about the Tag
+    """
+    properties: TagProperties
 
     """
     Additional read write properties about the Tag
+    Deprecated! Use 'properties' field instead.
     """
-    editableProperties: EditableTagProperties
+    editableProperties: EditableTagProperties @deprecated
 
     """
     Ownership metadata of the dataset
@@ -2137,21 +2610,47 @@ type Tag implements Entity {
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
     """
-    Deprecated, use editableProperties field instead
-    Description of the tag
+    Deprecated, use properties.description field instead
     """
     description: String @deprecated
 }
 
 """
 Additional read write Tag properties
+Deprecated! Replaced by TagProperties.
 """
 type EditableTagProperties {
+  """
+  A display name for the Tag
+  """
+  name: String
+
   """
   A description of the Tag
   """
   description: String
 }
+
+"""
+Properties for a DataHub Tag
+"""
+type TagProperties {
+  """
+  A display name for the Tag
+  """
+  name: String!
+
+  """
+  A description of the Tag
+  """
+  description: String
+
+  """
+  An optional RGB hex code for a Tag color, e.g. #FFFFFF
+  """
+  colorHex: String
+}
+
 
 """
 An edge between a Metadata Entity and a Tag Modeled as a struct to permit
@@ -2574,6 +3073,11 @@ type Dashboard implements EntityWithRelationships & Entity {
     type: EntityType!
 
     """
+    The parent container in which the entity resides
+    """
+    container: Container
+
+    """
     The dashboard tool name
     Note that this will soon be deprecated in favor of a standardized notion of Data Platform
     """
@@ -2605,6 +3109,11 @@ type Dashboard implements EntityWithRelationships & Entity {
     status: Status
 
     """
+    The deprecation status of the dashboard
+    """
+    deprecation: Deprecation
+
+    """
     The tags associated with the dashboard
     """
     tags: GlobalTags
@@ -2618,6 +3127,11 @@ type Dashboard implements EntityWithRelationships & Entity {
     The structured glossary terms associated with the dashboard
     """
     glossaryTerms: GlossaryTerms
+
+    """
+    The Domain associated with the Dashboard
+    """
+    domain: Domain
 
     """
     Edges extending from this entity
@@ -2643,16 +3157,9 @@ type Dashboard implements EntityWithRelationships & Entity {
     globalTags: GlobalTags @deprecated
 
     """
-    Deprecated, use relationships DownstreamOf, UpstreamOf instead
-    Entities upstream of the given entity
+    Standardized platform urn where the dashboard is defined
     """
-    upstreamLineage: UpstreamEntityRelationships @deprecated
-
-    """
-    Deprecated, use relationships DownstreamOf, UpstreamOf instead
-    Entities downstream of the given entity
-    """
-    downstreamLineage: DownstreamEntityRelationships @deprecated
+    platform: DataPlatform!
 }
 
 """
@@ -2779,6 +3286,11 @@ type Chart implements EntityWithRelationships & Entity {
     type: EntityType!
 
     """
+    The parent container in which the entity resides
+    """
+    container: Container
+
+    """
     The chart tool name
     Note that this field will soon be deprecated in favor a unified notion of Data Platform
     """
@@ -2815,6 +3327,11 @@ type Chart implements EntityWithRelationships & Entity {
     status: Status
 
     """
+    The deprecation status of the chart
+    """
+    deprecation: Deprecation
+
+    """
     The tags associated with the chart
     """
     tags: GlobalTags
@@ -2828,6 +3345,11 @@ type Chart implements EntityWithRelationships & Entity {
     The structured glossary terms associated with the dashboard
     """
     glossaryTerms: GlossaryTerms
+
+    """
+    The Domain associated with the Chart
+    """
+    domain: Domain
 
     """
     Edges extending from this entity
@@ -2853,16 +3375,9 @@ type Chart implements EntityWithRelationships & Entity {
     globalTags: GlobalTags @deprecated
 
     """
-    Deprecated, use relationships DownstreamOf, UpstreamOf instead
-    Entities upstream of the given entity
+    Standardized platform urn where the chart is defined
     """
-    upstreamLineage: UpstreamEntityRelationships @deprecated
-
-    """
-    Deprecated, use relationships DownstreamOf, UpstreamOf instead
-    Entities downstream of the given entity
-    """
-    downstreamLineage: DownstreamEntityRelationships @deprecated
+    platform: DataPlatform!
 }
 
 """
@@ -3134,6 +3649,11 @@ type DataFlow implements Entity {
     status: Status
 
     """
+    The deprecation status of the Data Flow
+    """
+    deprecation: Deprecation
+
+    """
     References to internal resources related to the dashboard
     """
     institutionalMemory: InstitutionalMemory
@@ -3142,6 +3662,11 @@ type DataFlow implements Entity {
     The structured glossary terms associated with the dashboard
     """
     glossaryTerms: GlossaryTerms
+
+    """
+    The Domain associated with the DataFlow
+    """
+    domain: Domain
 
     """
     Edges extending from this entity
@@ -3165,6 +3690,11 @@ type DataFlow implements Entity {
     Data Jobs
     """
     dataJobs: DataFlowDataJobsRelationships @deprecated
+
+    """
+    Standardized platform urn where the datflow is defined
+    """
+    platform: DataPlatform!
 }
 
 """
@@ -3280,6 +3810,11 @@ type DataJob implements EntityWithRelationships & Entity {
     status: Status
 
     """
+    The deprecation status of the Data Flow
+    """
+    deprecation: Deprecation
+
+    """
     References to internal resources related to the dashboard
     """
     institutionalMemory: InstitutionalMemory
@@ -3288,6 +3823,11 @@ type DataJob implements EntityWithRelationships & Entity {
     The structured glossary terms associated with the dashboard
     """
     glossaryTerms: GlossaryTerms
+
+    """
+    The Domain associated with the Data Job
+    """
+    domain: Domain
 
     """
     Edges extending from this entity
@@ -3306,17 +3846,6 @@ type DataJob implements EntityWithRelationships & Entity {
     """
     inputOutput: DataJobInputOutput @deprecated
 
-    """
-    Deprecated, use relationships Produces, Consumes, DownstreamOf instead
-    Entities upstream of the given entity
-    """
-    upstreamLineage: UpstreamEntityRelationships @deprecated
-
-    """
-    Deprecated, use relationships Produces, Consumes, DownstreamOf instead
-    Entities downstream of the given entity
-    """
-    downstreamLineage: DownstreamEntityRelationships @deprecated
 
     """
     Deprecated, use the tags field instead
@@ -3713,6 +4242,64 @@ type TimeWindow {
 }
 
 """
+Operational info for an entity.
+"""
+type Operation implements TimeSeriesAspect {
+    """
+    The time at which the profile was reported
+    """
+    timestampMillis: Long!
+
+    """
+    When the entity was last updated.
+    """
+    lastUpdatedTimestamp: Long!
+
+    """
+    Actor who issued this operation.
+    """
+    actor: String
+
+    """
+    Operation type of change.
+    """
+    operationType: OperationType!
+
+    """
+    How many rows were affected by this operation.
+    """
+    numAffectedRows: Long
+
+    """
+    Which other datasets were affected by this operation.
+    """
+    affectedDatasets: [String!]
+}
+
+"""
+Enum to define the operation type when an entity changes.
+"""
+enum OperationType {
+    """
+    When data is inserted.
+    """
+    INSERT
+
+    """
+    When data is updated.
+    """
+    UPDATE
+    """
+    When data is deleted.
+    """
+    DELETE
+    """
+    When data is created.
+    """
+    CREATE
+}
+
+"""
 Information about Metadata Entity deprecation status
 """
 type Deprecation {
@@ -3729,7 +4316,7 @@ type Deprecation {
     """
     Additional information about the entity deprecation plan
     """
-    note: String!
+    note: String
 
     """
     The user who will be credited for modifying this deprecation content
@@ -3902,9 +4489,34 @@ input DescriptionUpdateInput {
     subResourceType: SubResourceType
 
     """
-    A sub resource identitifer, eg dataset field path
+    A sub resource identifier, eg dataset field path
     """
     subResource: String
+}
+
+"""
+Input provided when setting the Deprecation status for an Entity.
+"""
+input UpdateDeprecationInput {
+    """
+    The urn of the Entity to set deprecation for.
+    """
+    urn: String!
+
+    """
+    Whether the Entity is marked as deprecated.
+    """
+    deprecated: Boolean!
+
+    """
+    Optional - The time user plan to decommission this entity
+    """
+    decommissionTime: Long
+
+    """
+    Optional - Additional information about the entity deprecation plan
+    """
+    note: String
 }
 
 """
@@ -4112,6 +4724,16 @@ type ActorFilter {
   Whether the filter should apply to all groups
   """
   allGroups: Boolean!
+
+  """
+  The list of users on the Policy, resolved.
+  """
+  resolvedUsers: [CorpUser!]
+
+  """
+  The list of groups on the Policy, resolved.
+  """
+  resolvedGroups: [CorpGroup!]
 }
 
 """
@@ -4261,6 +4883,15 @@ input ListGroupsInput {
   count: Int
 }
 
+type EntityCountResults {
+    counts: [EntityCountResult!]
+}
+
+type EntityCountResult {
+    entityType: EntityType!
+    count: Int!
+}
+
 """
 The result obtained when listing DataHub Groups
 """
@@ -4305,6 +4936,11 @@ type AuditStamp {
 Input for creating a new group
 """
 input CreateGroupInput {
+  """
+  Optional! A custom id to use as the primary key identifier for the group. If not provided, a random UUID will be generated as the id.
+  """
+  id: String
+
   """
   The display name of the group
   """
@@ -4437,18 +5073,6 @@ type MLModel implements EntityWithRelationships & Entity {
     deprecation: Deprecation
 
     """
-    Deprecated, use relationships DownstreamOf, UpstreamOf instead
-    Entities upstream of the given entity
-    """
-    upstreamLineage: UpstreamEntityRelationships @deprecated
-
-    """
-    Deprecated, use relationships DownstreamOf, UpstreamOf instead
-    Entities downstream of the given entity
-    """
-    downstreamLineage: DownstreamEntityRelationships @deprecated
-
-    """
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
@@ -4508,18 +5132,6 @@ type MLModelGroup implements EntityWithRelationships & Entity {
     Deprecation
     """
     deprecation: Deprecation
-
-    """
-    Deprecated, use relationships DownstreamOf, UpstreamOf instead
-    Entities upstream of the given entity
-    """
-    upstreamLineage: UpstreamEntityRelationships @deprecated
-
-    """
-    Deprecated, use relationships DownstreamOf, UpstreamOf instead
-    Entities downstream of the given entity
-    """
-    downstreamLineage: DownstreamEntityRelationships @deprecated
 
     """
     Edges extending from this entity
@@ -5079,4 +5691,149 @@ type SubTypes {
     The sub-types that this entity implements. e.g. Datasets that are views will implement the "view" subtype
    """
    typeNames: [String!]
+}
+
+"""
+A domain, or a logical grouping of Metadata Entities
+"""
+type Domain implements Entity {
+    """
+    The primary key of the domain
+    """
+    urn: String!
+
+    """
+    A standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    Id of the domain
+    """
+    id: String!
+
+    """
+    Properties about a domain
+    """
+    properties: DomainProperties
+
+    """
+    Ownership metadata of the dataset
+    """
+    ownership: Ownership
+
+    """
+    References to internal resources related to the dataset
+    """
+    institutionalMemory: InstitutionalMemory
+
+    """
+    Children entities inside of the Domain
+    """
+    entities(input: DomainEntitiesInput): SearchResults
+
+    """
+    Edges extending from this entity
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+}
+
+"""
+Properties about a domain
+"""
+type DomainProperties {
+  """
+  Display name of the domain
+  """
+  name: String!
+
+  """
+  Description of the Domain
+  """
+  description: String
+}
+
+"""
+Input required to fetch the entities inside of a Domain.
+"""
+input DomainEntitiesInput {
+  """
+  Optional query filter for particular entities inside the domain
+  """
+  query: String
+
+  """
+  The offset of the result set
+  """
+  start: Int
+
+  """
+  The number of entities to include in result set
+  """
+  count: Int
+
+  """
+  Optional Facet filters to apply to the result set
+  """
+  filters: [FacetFilterInput!]
+}
+
+"""
+Input required to create a new Domain.
+"""
+input CreateDomainInput {
+  """
+  Optional! A custom id to use as the primary key identifier for the domain. If not provided, a random UUID will be generated as the id.
+  """
+  id: String
+
+  """
+  Display name for the Domain
+  """
+  name: String!
+
+  """
+  Optional description for the Domain
+  """
+  description: String
+}
+
+"""
+Input required when listing DataHub Domains
+"""
+input ListDomainsInput {
+  """
+  The starting offset of the result set returned
+  """
+  start: Int
+
+  """
+  The maximum number of Domains to be returned in the result set
+  """
+  count: Int
+}
+
+"""
+The result obtained when listing DataHub Domains
+"""
+type ListDomainsResult {
+  """
+  The starting offset of the result set returned
+  """
+  start: Int!
+
+  """
+  The number of Domains in the returned result set
+  """
+  count: Int!
+
+  """
+  The total number of Domains in the result set
+  """
+  total: Int!
+
+  """
+  The Domains themselves
+  """
+  domains: [Domain!]!
 }

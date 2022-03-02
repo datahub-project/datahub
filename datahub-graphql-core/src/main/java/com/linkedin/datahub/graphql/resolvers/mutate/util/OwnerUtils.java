@@ -44,7 +44,7 @@ public class OwnerUtils {
         entityService,
         new Ownership());
     addOwner(ownershipAspect, ownerUrn);
-    persistAspect(resourceUrn, ownershipAspect, actor, entityService);
+    persistAspect(resourceUrn, Constants.OWNERSHIP_ASPECT_NAME, ownershipAspect, actor, entityService);
   }
 
   public static void removeOwner(
@@ -60,7 +60,7 @@ public class OwnerUtils {
         new Ownership());
     ownershipAspect.setLastModified(getAuditStamp(actor));
     removeOwner(ownershipAspect, ownerUrn);
-    persistAspect(resourceUrn, ownershipAspect, actor, entityService);
+    persistAspect(resourceUrn, Constants.OWNERSHIP_ASPECT_NAME, ownershipAspect, actor, entityService);
   }
 
   private static void addOwner(Ownership ownershipAspect, Urn ownerUrn) {
@@ -99,7 +99,7 @@ public class OwnerUtils {
 
     return AuthorizationUtils.isAuthorized(
         context.getAuthorizer(),
-        context.getActor(),
+        context.getActorUrn(),
         resourceUrn.getEntityType(),
         resourceUrn.toString(),
         orPrivilegeGroups);

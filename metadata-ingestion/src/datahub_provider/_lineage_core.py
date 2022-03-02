@@ -1,7 +1,6 @@
 import json
 from typing import TYPE_CHECKING, Dict, List
 
-import dateutil.parser
 from airflow.configuration import conf
 
 import datahub.emitter.mce_builder as builder
@@ -14,6 +13,8 @@ if TYPE_CHECKING:
     from airflow.models.baseoperator import BaseOperator
 
     from datahub_provider.hooks.datahub import DatahubGenericHook
+
+from datahub_provider.hooks.datahub import AIRFLOW_1
 
 
 def _entities_to_urn_list(iolets: List[_Entity]) -> List[str]:
@@ -55,6 +56,72 @@ def send_lineage_to_datahub(
 
     dag: "DAG" = context["dag"]
     task: "BaseOperator" = context["task"]
+
+    # resolve URNs for upstream nodes in subdags upstream of the current task.
+    upstream_subdag_task_urns: List[str] = []
+
+    for upstream_task_id in task.upstream_task_ids:
+        upstream_task = dag.task_dict[upstream_task_id]
+
+        # if upstream task is not a subdag, then skip it
+        if upstream_task.subdag is None:
+            continue
+
+        # else, link the leaf tasks of the upstream subdag as upstream tasks
+        upstream_subdag = upstream_task.subdag
+
+        upstream_subdag_flow_urn = builder.make_data_flow_urn(
+            "airflow", upstream_subdag.dag_id, config.cluster
+        )
+
+        for upstream_subdag_task_id in upstream_subdag.task_dict:
+            upstream_subdag_task = upstream_subdag.task_dict[upstream_subdag_task_id]
+
+            upstream_subdag_task_urn = builder.make_data_job_urn_with_flow(
+                upstream_subdag_flow_urn, upstream_subdag_task_id
+            )
+
+            # if subdag task is a leaf task, then link it as an upstream task
+            if len(upstream_subdag_task._downstream_task_ids) == 0:
+
+                upstream_subdag_task_urns.append(upstream_subdag_task_urn)
+
+    # resolve URNs for upstream nodes that trigger the subdag containing the current task.
+    # (if it is in a subdag at all)
+    upstream_subdag_triggers: List[str] = []
+
+    # subdags are always named with 'parent.child' style or Airflow won't run them
+    # add connection from subdag trigger(s) if subdag task has no upstreams
+    if (
+        dag.is_subdag
+        and dag.parent_dag is not None
+        and len(task._upstream_task_ids) == 0
+    ):
+
+        # filter through the parent dag's tasks and find the subdag trigger(s)
+        subdags = [x for x in dag.parent_dag.task_dict.values() if x.subdag is not None]
+        matched_subdags = [
+            x for x in subdags if getattr(getattr(x, "subdag"), "dag_id") == dag.dag_id
+        ]
+
+        # id of the task containing the subdag
+        subdag_task_id = matched_subdags[0].task_id
+
+        parent_dag_urn = builder.make_data_flow_urn(
+            "airflow", dag.parent_dag.dag_id, config.cluster
+        )
+
+        # iterate through the parent dag's tasks and find the ones that trigger the subdag
+        for upstream_task_id in dag.parent_dag.task_dict:
+            upstream_task = dag.parent_dag.task_dict[upstream_task_id]
+
+            upstream_task_urn = builder.make_data_job_urn_with_flow(
+                parent_dag_urn, upstream_task_id
+            )
+
+            # if the task triggers the subdag, link it to this node in the subdag
+            if subdag_task_id in upstream_task._downstream_task_ids:
+                upstream_subdag_triggers.append(upstream_task_urn)
 
     # TODO: capture context
     # context dag_run
@@ -125,7 +192,6 @@ def send_lineage_to_datahub(
     }
 
     if config.capture_ownership_info:
-        timestamp = int(dateutil.parser.parse(context["ts"]).timestamp() * 1000)
         ownership = models.OwnershipClass(
             owners=[
                 models.OwnerClass(
@@ -138,7 +204,7 @@ def send_lineage_to_datahub(
                 )
             ],
             lastModified=models.AuditStampClass(
-                time=timestamp, actor=builder.make_user_urn("airflow")
+                time=0, actor=builder.make_user_urn("airflow")
             ),
         )
         # operator.log.info(f"{ownership=}")
@@ -174,6 +240,29 @@ def send_lineage_to_datahub(
         )
     )
 
+    # exclude subdag operator tasks since these are not emitted, resulting in empty metadata
+    upstream_tasks = (
+        [
+            builder.make_data_job_urn_with_flow(flow_urn, task_id)
+            for task_id in task.upstream_task_ids
+            if dag.task_dict[task_id].subdag is None
+        ]
+        + upstream_subdag_task_urns
+        + upstream_subdag_triggers
+    )
+
+    job_doc = (
+        (
+            operator.doc
+            or operator.doc_md
+            or operator.doc_json
+            or operator.doc_yaml
+            or operator.doc_rst
+        )
+        if not AIRFLOW_1
+        else None
+    )
+
     job_mce = models.MetadataChangeEventClass(
         proposedSnapshot=models.DataJobSnapshotClass(
             urn=job_urn,
@@ -181,17 +270,14 @@ def send_lineage_to_datahub(
                 models.DataJobInfoClass(
                     name=task.task_id,
                     type=models.AzkabanJobTypeClass.COMMAND,
-                    description=None,
+                    description=job_doc,
                     customProperties=job_property_bag,
                     externalUrl=job_url,
                 ),
                 models.DataJobInputOutputClass(
                     inputDatasets=_entities_to_urn_list(inlets or []),
                     outputDatasets=_entities_to_urn_list(outlets or []),
-                    inputDatajobs=[
-                        builder.make_data_job_urn_with_flow(flow_urn, task_id)
-                        for task_id in task.upstream_task_ids
-                    ],
+                    inputDatajobs=upstream_tasks,
                 ),
                 *ownership_aspect,
                 *tags_aspect,

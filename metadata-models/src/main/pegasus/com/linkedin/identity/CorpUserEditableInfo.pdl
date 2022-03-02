@@ -40,4 +40,34 @@ record CorpUserEditableInfo {
    * A URL which points to a picture which user wants to set as a profile photo
    */
   pictureLink: Url = "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/default_avatar.png"
+
+  /**
+   * DataHub-native display name
+   */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "queryByDefault": true,
+    "boostScore": 10.0
+  }
+  displayName: optional string
+
+  /**
+   * DataHub-native Title, e.g. 'Software Engineer'
+   */
+  title: optional string
+
+  /**
+   * Slack handle for the user
+   */
+  slack: optional string
+
+  /**
+   * Phone number to contact the user
+   */
+  phone: optional string
+
+  /**
+   * Email address to contact the user
+   */
+  email: optional string
 }

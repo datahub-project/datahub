@@ -16,7 +16,6 @@ dependencies {
         exclude group: 'org.neo4j.test'
     }
     compile project(':metadata-utils')
-    compile project(':metadata-builders')
     compile project(':metadata-events:mxe-schemas')
     compile project(':metadata-events:mxe-avro-1.7')
     compile project(':metadata-events:mxe-registration')
@@ -35,6 +34,7 @@ dependencies {
 
     annotationProcessor externalDependency.lombok
 
+    implementation externalDependency.awsMskIamAuth
 }
 
 task avroSchemaSources(type: Copy) {

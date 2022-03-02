@@ -12,12 +12,16 @@ import javax.annotation.Nonnull;
 public class MappingsBuilder {
 
   public static final String URN_FIELD = "urn";
+  public static final String MESSAGE_ID_FIELD = "messageId";
   public static final String TIMESTAMP_FIELD = "@timestamp";
   public static final String TIMESTAMP_MILLIS_FIELD = "timestampMillis";
   public static final String EVENT_GRANULARITY = "eventGranularity";
   public static final String EVENT_FIELD = "event";
   public static final String SYSTEM_METADATA_FIELD = "systemMetadata";
   public static final String IS_EXPLODED_FIELD = "isExploded";
+  public static final String PARTITION_SPEC = "partitionSpec";
+  public static final String PARTITION_SPEC_PARTITION = "partition";
+  public static final String PARTITION_SPEC_TIME_PARTITION = "timePartition";
 
   private MappingsBuilder() {
   }
@@ -31,9 +35,13 @@ public class MappingsBuilder {
     Map<String, Object> mappings = new HashMap<>();
 
     mappings.put(URN_FIELD, ImmutableMap.of("type", "keyword"));
+    mappings.put(MESSAGE_ID_FIELD, ImmutableMap.of("type", "keyword"));
     mappings.put(TIMESTAMP_FIELD, ImmutableMap.of("type", "date"));
     mappings.put(TIMESTAMP_MILLIS_FIELD, ImmutableMap.of("type", "date"));
     mappings.put(EVENT_GRANULARITY, ImmutableMap.of("type", "keyword"));
+    mappings.put(PARTITION_SPEC, ImmutableMap.of("properties",
+        ImmutableMap.of(PARTITION_SPEC_PARTITION, ImmutableMap.of("type", "keyword"), PARTITION_SPEC_TIME_PARTITION,
+            ImmutableMap.of("type", "keyword"))));
     mappings.put(EVENT_FIELD, ImmutableMap.of("type", "object", "enabled", false));
     mappings.put(SYSTEM_METADATA_FIELD, ImmutableMap.of("type", "object", "enabled", false));
     mappings.put(IS_EXPLODED_FIELD, ImmutableMap.of("type", "boolean"));

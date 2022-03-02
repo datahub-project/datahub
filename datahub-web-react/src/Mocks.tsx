@@ -21,11 +21,17 @@ import {
     MlModel,
     MlModelGroup,
     SchemaFieldDataType,
+    ScenarioType,
+    RecommendationRenderType,
+    RelationshipDirection,
 } from './types.generated';
 import { GetTagDocument } from './graphql/tag.generated';
 import { GetMlModelDocument } from './graphql/mlModel.generated';
 import { GetMlModelGroupDocument } from './graphql/mlModelGroup.generated';
 import { GetGlossaryTermDocument, GetGlossaryTermQuery } from './graphql/glossaryTerm.generated';
+import { GetEntityCountsDocument } from './graphql/app.generated';
+import { GetMeDocument } from './graphql/me.generated';
+import { ListRecommendationsDocument } from './graphql/recommendations.generated';
 
 const user1 = {
     username: 'sdas',
@@ -51,6 +57,11 @@ const user1 = {
                     urn: 'urn:li:tag:abc-sample-tag',
                     name: 'abc-sample-tag',
                     description: 'sample tag',
+                    properties: {
+                        name: 'abc-sample-tag',
+                        description: 'sample tag',
+                        colorHex: 'sample tag color',
+                    },
                 },
             },
         ],
@@ -81,9 +92,26 @@ const user2 = {
                     urn: 'urn:li:tag:abc-sample-tag',
                     name: 'abc-sample-tag',
                     description: 'sample tag',
+                    properties: {
+                        name: 'abc-sample-tag',
+                        description: 'sample tag',
+                        colorHex: 'sample tag color',
+                    },
                 },
             },
         ],
+    },
+};
+
+const dataPlatform = {
+    urn: 'urn:li:dataPlatform:hdfs',
+    name: 'HDFS',
+    type: EntityType.DataPlatform,
+    properties: {
+        displayName: 'HDFS',
+        type: PlatformType.FileSystem,
+        datasetNameDelimiter: '.',
+        logoUrl: '',
     },
 };
 
@@ -94,7 +122,7 @@ const dataset1 = {
         urn: 'urn:li:dataPlatform:hdfs',
         name: 'HDFS',
         type: EntityType.DataPlatform,
-        info: {
+        properties: {
             displayName: 'HDFS',
             type: PlatformType.FileSystem,
             datasetNameDelimiter: '.',
@@ -105,18 +133,20 @@ const dataset1 = {
     name: 'The Great Test Dataset',
     origin: 'PROD',
     tags: ['Private', 'PII'],
-    description: 'This is the greatest dataset in the world, youre gonna love it!',
     uri: 'www.google.com',
-    properties: [
-        {
-            key: 'TestProperty',
-            value: 'My property value.',
-        },
-        {
-            key: 'AnotherTestProperty',
-            value: 'My other property value.',
-        },
-    ],
+    properties: {
+        description: 'This is the greatest dataset in the world, youre gonna love it!',
+        customProperties: [
+            {
+                key: 'TestProperty',
+                value: 'My property value.',
+            },
+            {
+                key: 'AnotherTestProperty',
+                value: 'My other property value.',
+            },
+        ],
+    },
     editableProperties: null,
     created: {
         time: 0,
@@ -168,6 +198,8 @@ const dataset1 = {
             ],
         },
     ],
+    domain: null,
+    container: null,
 };
 
 const dataset2 = {
@@ -188,9 +220,11 @@ const dataset2 = {
     name: 'Some Other Dataset',
     origin: 'PROD',
     tags: ['Outdated'],
-    description: 'This is some other dataset, so who cares!',
     uri: 'www.google.com',
-    properties: [],
+    properties: {
+        description: 'This is some other dataset, so who cares!',
+        customProperties: [],
+    },
     editableProperties: null,
     created: {
         time: 0,
@@ -236,6 +270,8 @@ const dataset2 = {
             ],
         },
     ],
+    domain: null,
+    container: null,
 };
 
 export const dataset3 = {
@@ -256,9 +292,9 @@ export const dataset3 = {
     platformNativeType: 'STREAM',
     name: 'Yet Another Dataset',
     origin: 'PROD',
-    description: 'This and here we have yet another Dataset (YAN). Are there more?',
     uri: 'www.google.com',
     properties: {
+        description: 'This and here we have yet another Dataset (YAN). Are there more?',
         origin: 'PROD',
         customProperties: [{ key: 'propertyAKey', value: 'propertyAValue' }],
         externalUrl: 'https://data.hub',
@@ -298,6 +334,11 @@ export const dataset3 = {
                     urn: 'urn:li:tag:abc-sample-tag',
                     name: 'abc-sample-tag',
                     description: 'sample tag',
+                    properties: {
+                        name: 'abc-sample-tag',
+                        description: 'sample tag',
+                        colorHex: 'sample tag color',
+                    },
                 },
             },
         ],
@@ -310,7 +351,9 @@ export const dataset3 = {
                     urn: 'urn:li:glossaryTerm:sample-glossary-term',
                     name: 'sample-glossary-term',
                     hierarchicalName: 'example.sample-glossary-term',
-                    glossaryTermInfo: {
+                    properties: {
+                        name: 'sample-glossary-term',
+                        description: 'sample definition',
                         definition: 'sample definition',
                         termSource: 'sample term source',
                     },
@@ -318,8 +361,8 @@ export const dataset3 = {
             },
         ],
     },
-    upstreamLineage: null,
-    downstreamLineage: null,
+    incoming: null,
+    outgoing: null,
     institutionalMemory: {
         elements: [
             {
@@ -386,6 +429,7 @@ export const dataset3 = {
     editableSchemaMetadata: null,
     deprecation: null,
     usageStats: null,
+    operations: null,
     datasetProfiles: [
         {
             rowCount: 10,
@@ -410,6 +454,19 @@ export const dataset3 = {
     ],
     subTypes: null,
     viewProperties: null,
+    autoRenderAspects: [
+        {
+            aspectName: 'autoRenderAspect',
+            payload: '{ "values": [{ "autoField1": "autoValue1", "autoField2": "autoValue2" }] }',
+            renderSpec: {
+                displayType: 'tabular',
+                displayName: 'Auto Render Aspect Custom Tab Name',
+                key: 'values',
+            },
+        },
+    ],
+    domain: null,
+    container: null,
 } as Dataset;
 
 export const dataset4 = {
@@ -438,45 +495,53 @@ export const dataset7 = {
 
 export const dataset3WithLineage = {
     ...dataset3,
-    upstreamLineage: {
-        entities: [
+    outgoing: {
+        start: 0,
+        count: 2,
+        total: 2,
+        relationships: [
             {
-                created: {
-                    time: 0,
-                },
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
                 entity: dataset7,
             },
             {
-                created: {
-                    time: 0,
-                },
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
                 entity: dataset4,
             },
         ],
     },
+    incoming: null,
 };
 
 export const dataset4WithLineage = {
     ...dataset4,
-    upstreamLineage: {
-        entities: [
+    outgoing: {
+        start: 0,
+        count: 2,
+        total: 2,
+        relationships: [
             {
-                created: {
-                    time: 0,
-                },
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
                 entity: dataset6,
             },
             {
-                created: {
-                    time: 0,
-                },
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
                 entity: dataset5,
             },
         ],
     },
-    downstreamLineage: {
-        entities: [
+    incoming: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
                 entity: dataset3,
             },
         ],
@@ -485,23 +550,27 @@ export const dataset4WithLineage = {
 
 export const dataset5WithCyclicalLineage = {
     ...dataset5,
-    upstreamLineage: {
-        entities: [
+    outgoing: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
                 entity: dataset3,
             },
         ],
     },
-    downstreamLineage: {
-        entities: [
+    incoming: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
                 entity: dataset7,
-            },
-            {
-                entity: dataset6,
-            },
-            {
-                entity: dataset4,
             },
         ],
     },
@@ -509,16 +578,25 @@ export const dataset5WithCyclicalLineage = {
 
 export const dataset5WithLineage = {
     ...dataset5,
-    upstreamLineage: null,
-    downstreamLineage: {
-        entities: [
+    outgoing: null,
+    incoming: {
+        start: 0,
+        count: 3,
+        total: 3,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
                 entity: dataset7,
             },
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
                 entity: dataset6,
             },
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
                 entity: dataset4,
             },
         ],
@@ -527,16 +605,26 @@ export const dataset5WithLineage = {
 
 export const dataset6WithLineage = {
     ...dataset6,
-    upstreamLineage: {
-        entities: [
+    outgoing: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
                 entity: dataset5,
             },
         ],
     },
-    downstreamLineage: {
-        entities: [
+    incoming: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
                 entity: dataset4,
             },
         ],
@@ -545,16 +633,26 @@ export const dataset6WithLineage = {
 
 export const dataset7WithLineage = {
     ...dataset7,
-    upstreamLineage: {
-        entities: [
+    outgoing: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
                 entity: dataset5,
             },
         ],
     },
-    downstreamLineage: {
-        entities: [
+    incoming: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
                 entity: dataset3,
             },
         ],
@@ -563,22 +661,36 @@ export const dataset7WithLineage = {
 
 export const dataset7WithSelfReferentialLineage = {
     ...dataset7,
-    upstreamLineage: {
-        entities: [
+    outgoing: {
+        start: 0,
+        count: 2,
+        total: 2,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
                 entity: dataset5,
             },
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
                 entity: dataset7,
             },
         ],
     },
-    downstreamLineage: {
-        entities: [
+    incoming: {
+        start: 0,
+        count: 2,
+        total: 2,
+        relationships: [
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
                 entity: dataset3,
             },
             {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
                 entity: dataset7,
             },
         ],
@@ -609,6 +721,16 @@ const glossaryTerm1 = {
         },
     },
     glossaryTermInfo: {
+        name: 'Another glossary term',
+        description: 'New glossary term',
+        definition: 'New glossary term',
+        termSource: 'termSource',
+        sourceRef: 'sourceRef',
+        sourceURI: 'sourceURI',
+    },
+    properties: {
+        name: 'Another glossary term',
+        description: 'New glossary term',
         definition: 'New glossary term',
         termSource: 'termSource',
         sourceRef: 'sourceRef',
@@ -623,6 +745,8 @@ const glossaryTerm2 = {
     hierarchicalName: 'example.glossaryterm1',
     ownership: null,
     glossaryTermInfo: {
+        name: 'glossaryterm1',
+        description: 'is A relation glossary term 1',
         definition: 'is A relation glossary term 1',
         termSource: 'INTERNAL',
         sourceRef: 'TERM_SOURCE_SAXO',
@@ -636,6 +760,23 @@ const glossaryTerm2 = {
             },
         ],
         __typename: 'GlossaryTermInfo',
+    },
+    properties: {
+        name: 'glossaryterm1',
+        description: 'is A relation glossary term 1',
+        definition: 'is A relation glossary term 1',
+        termSource: 'INTERNAL',
+        sourceRef: 'TERM_SOURCE_SAXO',
+        sourceUrl: '',
+        rawSchema: 'sample proto schema',
+        customProperties: [
+            {
+                key: 'keyProperty',
+                value: 'valueProperty',
+                __typename: 'StringMapEntry',
+            },
+        ],
+        __typename: 'GlossaryTermProperties',
     },
     isRealtedTerms: {
         start: 0,
@@ -675,6 +816,8 @@ const glossaryTerm3 = {
     hierarchicalName: 'example.glossaryterm2',
     ownership: null,
     glossaryTermInfo: {
+        name: 'glossaryterm2',
+        description: 'has A relation glossary term 2',
         definition: 'has A relation glossary term 2',
         termSource: 'INTERNAL',
         sourceRef: 'TERM_SOURCE_SAXO',
@@ -689,17 +832,38 @@ const glossaryTerm3 = {
         ],
         __typename: 'GlossaryTermInfo',
     },
+    properties: {
+        name: 'glossaryterm2',
+        description: 'has A relation glossary term 2',
+        definition: 'has A relation glossary term 2',
+        termSource: 'INTERNAL',
+        sourceRef: 'TERM_SOURCE_SAXO',
+        sourceUrl: '',
+        rawSchema: 'sample proto schema',
+        customProperties: [
+            {
+                key: 'keyProperty',
+                value: 'valueProperty',
+                __typename: 'StringMapEntry',
+            },
+        ],
+        __typename: 'GlossaryTermProperties',
+    },
     glossaryRelatedTerms: {
         isRelatedTerms: null,
         hasRelatedTerms: [
             {
                 urn: 'urn:li:glossaryTerm:example.glossaryterm3',
-                name: 'glossaryterm3',
+                properties: {
+                    name: 'glossaryterm3',
+                },
                 __typename: 'GlossaryTerm',
             },
             {
                 urn: 'urn:li:glossaryTerm:example.glossaryterm4',
-                name: 'glossaryterm4',
+                properties: {
+                    name: 'glossaryterm4',
+                },
                 __typename: 'GlossaryTerm',
             },
         ],
@@ -731,6 +895,11 @@ const sampleTag = {
             time: 0,
         },
     },
+    properties: {
+        name: 'abc-sample-tag',
+        description: 'sample tag description',
+        colorHex: 'sample tag color',
+    },
 };
 
 export const dataFlow1 = {
@@ -740,8 +909,7 @@ export const dataFlow1 = {
     orchestrator: 'Airflow',
     flowId: 'flowId1',
     cluster: 'cluster1',
-    info: {
-        __typename: 'DataFlowInfo',
+    properties: {
         name: 'DataFlowInfoName',
         description: 'DataFlowInfo1 Description',
         project: 'DataFlowInfo1 project',
@@ -776,10 +944,19 @@ export const dataFlow1 = {
                     urn: 'urn:li:tag:abc-sample-tag',
                     name: 'abc-sample-tag',
                     description: 'sample tag',
+                    properties: {
+                        name: 'abc-sample-tag',
+                        description: 'sample tag',
+                        colorHex: 'sample tag color',
+                    },
                 },
             },
         ],
     },
+    platform: {
+        ...dataPlatform,
+    },
+    domain: null,
 } as DataFlow;
 
 export const dataJob1 = {
@@ -808,8 +985,7 @@ export const dataJob1 = {
             time: 0,
         },
     },
-    info: {
-        __typename: 'DataJobInfo',
+    properties: {
         name: 'DataJobInfoName',
         description: 'DataJobInfo1 Description',
         externalUrl: null,
@@ -822,8 +998,6 @@ export const dataJob1 = {
         outputDatasets: [dataset3],
         inputDatajobs: [],
     },
-    upstreamLineage: null,
-    downstreamLineage: null,
     globalTags: {
         tags: [
             {
@@ -832,10 +1006,30 @@ export const dataJob1 = {
                     urn: 'urn:li:tag:abc-sample-tag',
                     name: 'abc-sample-tag',
                     description: 'sample tag',
+                    properties: {
+                        name: 'abc-sample-tag',
+                        description: 'sample tag',
+                        colorHex: 'sample tag color',
+                    },
                 },
             },
         ],
     },
+    incoming: null,
+    outgoing: null,
+    parentFlow: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
+            {
+                type: 'IsPartOf',
+                direction: RelationshipDirection.Outgoing,
+                entity: dataFlow1,
+            },
+        ],
+    },
+    domain: null,
 } as DataJob;
 
 export const dataJob2 = {
@@ -864,8 +1058,7 @@ export const dataJob2 = {
             time: 0,
         },
     },
-    info: {
-        __typename: 'DataJobInfo',
+    properties: {
         name: 'DataJobInfoName2',
         description: 'DataJobInfo2 Description',
         externalUrl: null,
@@ -878,8 +1071,6 @@ export const dataJob2 = {
         outputDatasets: [dataset3],
         inputDatajobs: [dataJob1],
     },
-    upstreamLineage: null,
-    downstreamLineage: null,
     globalTags: {
         tags: [
             {
@@ -888,10 +1079,16 @@ export const dataJob2 = {
                     urn: 'urn:li:tag:abc-sample-tag',
                     name: 'abc-sample-tag',
                     description: 'sample tag',
+                    properties: {
+                        name: 'abc-sample-tag',
+                        description: 'sample tag',
+                        colorHex: 'sample tag color',
+                    },
                 },
             },
         ],
     },
+    domain: null,
 } as DataJob;
 
 export const dataJob3 = {
@@ -920,8 +1117,7 @@ export const dataJob3 = {
             time: 0,
         },
     },
-    info: {
-        __typename: 'DataJobInfo',
+    properties: {
         name: 'DataJobInfoName3',
         description: 'DataJobInfo3 Description',
         externalUrl: null,
@@ -934,8 +1130,6 @@ export const dataJob3 = {
         outputDatasets: [dataset3],
         inputDatajobs: [dataJob2],
     },
-    upstreamLineage: null,
-    downstreamLineage: null,
     globalTags: {
         tags: [
             {
@@ -944,22 +1138,17 @@ export const dataJob3 = {
                     urn: 'urn:li:tag:abc-sample-tag',
                     name: 'abc-sample-tag',
                     description: 'sample tag',
+                    properties: {
+                        name: 'abc-sample-tag',
+                        description: 'sample tag',
+                        colorHex: 'sample tag color',
+                    },
                 },
             },
         ],
     },
+    domain: null,
 } as DataJob;
-
-dataJob1.upstreamLineage = {
-    entities: [
-        {
-            created: {
-                time: 0,
-            },
-            entity: dataJob3,
-        },
-    ],
-};
 
 export const mlModel = {
     __typename: 'MLModel',
@@ -1020,10 +1209,17 @@ export const mlModel = {
                     urn: 'urn:li:tag:abc-sample-tag',
                     name: 'abc-sample-tag',
                     description: 'sample tag',
+                    properties: {
+                        name: 'abc-sample-tag',
+                        description: 'sample tag',
+                        colorHex: 'sample tag color',
+                    },
                 },
             },
         ],
     },
+    incoming: null,
+    outgoing: null,
 } as MlModel;
 
 export const mlModelGroup = {
@@ -1073,11 +1269,72 @@ export const mlModelGroup = {
                     urn: 'urn:li:tag:abc-sample-tag',
                     name: 'abc-sample-tag',
                     description: 'sample tag',
+                    properties: {
+                        name: 'abc-sample-tag',
+                        description: 'sample tag',
+                        colorHex: 'sample tag color',
+                    },
                 },
             },
         ],
     },
+    incoming: null,
+    outgoing: null,
 } as MlModelGroup;
+
+export const recommendationModules = [
+    {
+        title: 'Most Popular',
+        moduleId: 'MostPopular',
+        renderType: RecommendationRenderType.EntityNameList,
+        content: [
+            {
+                entity: {
+                    ...dataset2,
+                },
+            },
+        ],
+    },
+    {
+        title: 'Top Platforms',
+        moduleId: 'TopPlatforms',
+        renderType: RecommendationRenderType.PlatformSearchList,
+        content: [
+            {
+                entity: {
+                    urn: 'urn:li:dataPlatform:snowflake',
+                    type: EntityType.DataPlatform,
+                    name: 'snowflake',
+                    properties: {
+                        displayName: 'Snowflake',
+                        datasetNameDelimiter: '.',
+                        logoUrl: null,
+                    },
+                    displayName: null,
+                    info: null,
+                },
+                params: {
+                    contentParams: {
+                        count: 1,
+                    },
+                },
+            },
+        ],
+    },
+    {
+        title: 'Popular Tags',
+        moduleId: 'PopularTags',
+        renderType: RecommendationRenderType.TagSearchList,
+        content: [
+            {
+                entity: {
+                    urn: 'urn:li:tag:TestTag',
+                    name: 'TestTag',
+                },
+            },
+        ],
+    },
+];
 
 /*
     Define mock data to be returned by Apollo MockProvider. 
@@ -2458,6 +2715,175 @@ export const mocks = [
                     ],
                 },
             } as GetSearchResultsForMultipleQuery,
+        },
+    },
+    {
+        request: {
+            query: GetEntityCountsDocument,
+            variables: {
+                input: {
+                    types: [EntityType.Dataset],
+                },
+            },
+        },
+        result: {
+            data: {
+                getEntityCounts: {
+                    counts: [
+                        {
+                            entityType: EntityType.Dataset,
+                            count: 10,
+                        },
+                    ],
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetMeDocument,
+            variables: {},
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                me: {
+                    __typename: 'AuthenticatedUser',
+                    corpUser: { ...user2 },
+                    platformPrivileges: {
+                        viewAnalytics: true,
+                        managePolicies: true,
+                        manageIdentities: true,
+                    },
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: ListRecommendationsDocument,
+            variables: {
+                input: {
+                    userUrn: user2.urn,
+                    requestContext: {
+                        scenario: ScenarioType.Home,
+                    },
+                    limit: 10,
+                },
+            },
+        },
+        result: {
+            data: {
+                listRecommendations: {
+                    modules: [...recommendationModules],
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: ListRecommendationsDocument,
+            variables: {
+                input: {
+                    userUrn: user2.urn,
+                    requestContext: {
+                        scenario: ScenarioType.EntityProfile,
+                        entityRequestContext: {
+                            urn: dataset3.urn,
+                            type: EntityType.Dataset,
+                        },
+                    },
+                    limit: 3,
+                },
+            },
+        },
+        result: {
+            data: {
+                listRecommendations: {
+                    modules: [...recommendationModules],
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: ListRecommendationsDocument,
+            variables: {
+                input: {
+                    userUrn: user2.urn,
+                    requestContext: {
+                        scenario: ScenarioType.SearchResults,
+                        searchRequestContext: {
+                            query: 'noresults',
+                            filters: [],
+                        },
+                    },
+                    limit: 3,
+                },
+            },
+        },
+        result: {
+            data: {
+                listRecommendations: {
+                    modules: [...recommendationModules],
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsForMultipleDocument,
+            variables: {
+                input: {
+                    types: [],
+                    query: 'noresults',
+                    start: 0,
+                    count: 10,
+                    filters: [],
+                },
+            },
+        },
+        result: {
+            data: {
+                search: {
+                    start: 0,
+                    count: 0,
+                    total: 0,
+                    searchResults: [],
+                    facets: [],
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetEntityCountsDocument,
+            variables: {
+                input: {
+                    types: [
+                        EntityType.Dataset,
+                        EntityType.Chart,
+                        EntityType.Dashboard,
+                        EntityType.DataFlow,
+                        EntityType.GlossaryTerm,
+                        EntityType.MlfeatureTable,
+                        EntityType.Mlmodel,
+                        EntityType.MlmodelGroup,
+                    ],
+                },
+            },
+        },
+        result: {
+            data: {
+                getEntityCounts: {
+                    counts: [
+                        {
+                            entityType: EntityType.Dataset,
+                            count: 670,
+                        },
+                    ],
+                },
+            },
         },
     },
 ];

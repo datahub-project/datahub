@@ -4,7 +4,10 @@ query getChart($urn: String!) {
         type
         tool
         chartId
-        info {
+        platform {
+            ...platformFields
+        }
+        properties {
             name
             description
             externalUrl
@@ -32,101 +35,26 @@ query getChart($urn: String!) {
         globalTags {
             ...globalTagsFields
         }
-        downstreamLineage {
-            ...downstreamRelationshipFields
-        }
-        upstreamLineage {
-            ...upstreamRelationshipFields
-        }
         editableProperties {
             description
         }
         institutionalMemory {
-            elements {
-                url
-                author {
-                    urn
-                    username
-                }
-                label
-                created {
-                    time
-                    actor
-                }
-            }
+            ...institutionalMemoryFields
         }
         glossaryTerms {
             ...glossaryTerms
         }
+        domain {
+            ...entityDomain
+        }
         inputs: relationships(input: { types: ["Consumes"], direction: OUTGOING, start: 0, count: 100 }) {
-            start
-            count
-            total
-            relationships {
-                entity {
-                    ... on Dataset {
-                        urn
-                        type
-                        name
-                        origin
-                        description
-                        platform {
-                            name
-                            info {
-                                logoUrl
-                            }
-                        }
-                        editableProperties {
-                            description
-                        }
-                        ownership {
-                            ...ownershipFields
-                        }
-                        globalTags {
-                            ...globalTagsFields
-                        }
-                        glossaryTerms {
-                            ...glossaryTerms
-                        }
-                    }
-                }
-            }
+            ...fullRelationshipResults
         }
         dashboards: relationships(input: { types: ["Contains"], direction: INCOMING, start: 0, count: 100 }) {
-            start
-            count
-            total
-            relationships {
-                entity {
-                    ... on Dashboard {
-                        urn
-                        type
-                        tool
-                        dashboardId
-                        info {
-                            name
-                            description
-                            externalUrl
-                            access
-                            lastModified {
-                                time
-                            }
-                        }
-                        ownership {
-                            ...ownershipFields
-                        }
-                        globalTags {
-                            ...globalTagsFields
-                        }
-                        glossaryTerms {
-                            ...glossaryTerms
-                        }
-                        editableProperties {
-                            description
-                        }
-                    }
-                }
-            }
+            ...fullRelationshipResults
+        }
+        container {
+            ...entityContainer
         }
     }
 }
@@ -134,45 +62,5 @@ query getChart($urn: String!) {
 mutation updateChart($urn: String!, $input: ChartUpdateInput!) {
     updateChart(urn: $urn, input: $input) {
         urn
-        type
-        tool
-        chartId
-        info {
-            name
-            description
-            externalUrl
-            type
-            access
-            lastRefreshed
-            lastModified {
-                time
-            }
-            created {
-                time
-            }
-            customProperties {
-                key
-                value
-            }
-        }
-        query {
-            rawQuery
-            type
-        }
-        editableProperties {
-            description
-        }
-        ownership {
-            ...ownershipFields
-        }
-        globalTags {
-            ...globalTagsFields
-        }
-        downstreamLineage {
-            ...downstreamRelationshipFields
-        }
-        upstreamLineage {
-            ...upstreamRelationshipFields
-        }
     }
 }
