@@ -16,10 +16,14 @@ We apply a Support Status to each Metadata Source to help you understand the rel
 
 #### Dataset Sources/SQL Sources
 
+| Capability | Status | Notes |
+| --- | :-: | --- |
+| Data Container | ✅ | Enabled by default |
 
 | ![Certified](https://img.shields.io/badge/support%20status-certified-brightgreen) | ![Incubating](https://img.shields.io/badge/support%20status-incubating-blue) | ![Testing](https://img.shields.io/badge/support%20status-testing-lightgrey) |
-| *-* | *-* | *-* |
-| <img src="/docs-website/static/img/logos/platforms/athena.svg" alt="Athena" width="30"/> <br>Athena | | |
+| --- | --- | --- |
+| <img src="/docs-website/static/img/logos/platforms/athena.svg" alt="Athena" width="30"/> | | |
+
 
 ## Getting Started
 
