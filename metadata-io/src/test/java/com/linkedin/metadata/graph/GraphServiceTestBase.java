@@ -15,11 +15,13 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import javax.annotation.Nonnull;
@@ -64,20 +66,7 @@ abstract public class GraphServiceTestBase {
     }
   }
 
-  private static class LineageRelationshipComparator implements Comparator<LineageRelationship> {
-    @Override
-    public int compare(LineageRelationship left, LineageRelationship right) {
-      int cmp = left.getEntity().toString().compareTo(right.getEntity().toString());
-      if (cmp != 0) {
-        return cmp;
-      }
-      return left.getType().compareTo(right.getType());
-    }
-  }
-
   protected static final RelatedEntityComparator RELATED_ENTITY_COMPARATOR = new RelatedEntityComparator();
-  protected static final LineageRelationshipComparator LINEAGE_RELATIONSHIP_COMPARATOR =
-      new LineageRelationshipComparator();
 
   /**
    * Some test URN types.
@@ -415,17 +404,24 @@ abstract public class GraphServiceTestBase {
     EntityLineageResult downstreamLineage = service.getLineage(datasetOneUrn, LineageDirection.DOWNSTREAM, 0, 1000, 1);
     assertEquals(downstreamLineage.getTotal().intValue(), 3);
     assertEquals(downstreamLineage.getRelationships().size(), 3);
-    assertEqualsAnyOrder(downstreamLineage.getRelationships(),
-        Arrays.asList(new LineageRelationship().setEntity(datasetTwoUrn).setType(downstreamOf),
-            new LineageRelationship().setEntity(dataJobOneUrn).setType(consumes),
-            new LineageRelationship().setEntity(dataJobTwoUrn).setType(consumes)), LINEAGE_RELATIONSHIP_COMPARATOR);
+    Map<Urn, LineageRelationship> relationships = downstreamLineage.getRelationships().stream().collect(Collectors.toMap(LineageRelationship::getEntity,
+        Function.identity()));
+    assertTrue(relationships.containsKey(datasetTwoUrn));
+    assertEquals(relationships.get(datasetTwoUrn).getType(), downstreamOf);
+    assertTrue(relationships.containsKey(dataJobOneUrn));
+    assertEquals(relationships.get(dataJobOneUrn).getType(), consumes);
+    assertTrue(relationships.containsKey(dataJobTwoUrn));
+    assertEquals(relationships.get(dataJobTwoUrn).getType(), consumes);
 
     upstreamLineage = service.getLineage(datasetThreeUrn, LineageDirection.UPSTREAM, 0, 1000, 1);
     assertEquals(upstreamLineage.getTotal().intValue(), 2);
     assertEquals(upstreamLineage.getRelationships().size(), 2);
-    assertEqualsAnyOrder(upstreamLineage.getRelationships(),
-        Arrays.asList(new LineageRelationship().setEntity(datasetTwoUrn).setType(downstreamOf),
-            new LineageRelationship().setEntity(dataJobOneUrn).setType(produces)), LINEAGE_RELATIONSHIP_COMPARATOR);
+    relationships = upstreamLineage.getRelationships().stream().collect(Collectors.toMap(LineageRelationship::getEntity,
+        Function.identity()));
+    assertTrue(relationships.containsKey(datasetTwoUrn));
+    assertEquals(relationships.get(datasetTwoUrn).getType(), downstreamOf);
+    assertTrue(relationships.containsKey(dataJobOneUrn));
+    assertEquals(relationships.get(dataJobOneUrn).getType(), produces);
 
     downstreamLineage = service.getLineage(datasetThreeUrn, LineageDirection.DOWNSTREAM, 0, 1000, 1);
     assertEquals(downstreamLineage.getTotal().intValue(), 0);
