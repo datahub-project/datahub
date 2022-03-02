@@ -258,8 +258,15 @@ export const PoliciesPage = () => {
             title: 'Name',
             dataIndex: 'name',
             key: 'name',
-            render: (name: string, policy) => {
-                return <PolicyName onClick={() => onViewPolicy(policy)}>{name}</PolicyName>;
+            render: (_, record: any) => {
+                return (
+                    <PolicyName
+                        onClick={() => onViewPolicy(record)}
+                        style={{ color: record?.editable ? '#000000' : '#8C8C8C' }}
+                    >
+                        {record?.name}
+                    </PolicyName>
+                );
             },
         },
         {
@@ -337,7 +344,11 @@ export const PoliciesPage = () => {
             key: 'x',
             render: (_, record: any) => (
                 <ActionButtonContainer>
-                    <Button style={{ marginRight: 16 }} onClick={() => onEditPolicy(record?.policy)}>
+                    <Button
+                        disabled={!record?.editable}
+                        style={{ marginRight: 16 }}
+                        onClick={() => onEditPolicy(record?.policy)}
+                    >
                         EDIT
                     </Button>
                     {record?.state === PolicyState.Active ? (
@@ -357,7 +368,13 @@ export const PoliciesPage = () => {
                             ACTIVATE
                         </Button>
                     )}
-                    <Button onClick={() => onRemovePolicy(record?.policy)} type="text" shape="circle" danger>
+                    <Button
+                        disabled={!record?.editable}
+                        onClick={() => onRemovePolicy(record?.policy)}
+                        type="text"
+                        shape="circle"
+                        danger
+                    >
                         <DeleteOutlined />
                     </Button>
                 </ActionButtonContainer>

@@ -40,6 +40,17 @@ const PoliciesTag = styled(Tag)`
     }
 `;
 
+const PrivilegeTag = styled(Tag)`
+    && {
+        border-radius: 2px !important;
+    }
+`;
+const Privileges = styled.div`
+    & ${PrivilegeTag}:nth-child(n+1) {
+        margin-top: 5px !important;
+    }
+`;
+
 /**
  * Component used for displaying the details about an existing Policy.
  *
@@ -106,13 +117,13 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
                         </div>
                     </>
                 )}
-                <div>
+                <Privileges>
                     <Typography.Title level={5}>Privileges</Typography.Title>
                     <ThinDivider />
                     {privileges?.map((priv) => (
-                        <PoliciesTag>{priv.name}</PoliciesTag>
+                        <PrivilegeTag>{priv.name}</PrivilegeTag>
                     ))}
-                </div>
+                </Privileges>
                 <div>
                     <Typography.Title level={5}>Applies to Owners</Typography.Title>
                     <ThinDivider />
