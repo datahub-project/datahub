@@ -256,9 +256,8 @@ class GlueSource(Source):
                 # append S3 format if different ones exist
                 if len(s3_formats[s3_uri]) > 1:
                     node_urn = make_s3_urn(
-                        s3_uri,
+                        f"{s3_uri}.{node_args.get('format')}",
                         self.env,
-                        suffix=node_args.get("format"),
                     )
 
                 else:

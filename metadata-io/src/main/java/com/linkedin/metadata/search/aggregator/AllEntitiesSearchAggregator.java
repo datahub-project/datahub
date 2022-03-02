@@ -52,10 +52,11 @@ public class AllEntitiesSearchAggregator {
       "entity",
       "typeNames",
       "platform",
-      "domain",
+      "domains",
       "tags",
       "glossaryTerms",
       "container",
+      "owners",
       "origin");
 
   public AllEntitiesSearchAggregator(EntityRegistry entityRegistry, EntitySearchService entitySearchService,

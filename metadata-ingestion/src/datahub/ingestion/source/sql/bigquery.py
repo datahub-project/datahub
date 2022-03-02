@@ -70,8 +70,6 @@ AND
         AND NOT
         protoPayload.serviceData.jobCompletedEvent.job.jobStatus.error.code:*
         AND
-        protoPayload.serviceData.jobCompletedEvent.job.jobConfiguration.query.destinationTable.datasetId !~ "^_.*"
-        AND
         protoPayload.serviceData.jobCompletedEvent.job.jobStatistics.referencedTables:*
     )
 )
@@ -238,6 +236,7 @@ def create_credential_temp_file(credential: BigQueryCredential) -> str:
 class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
     scheme: str = "bigquery"
     project_id: Optional[str] = None
+    lineage_client_project_id: Optional[str] = None
 
     log_page_size: Optional[pydantic.PositiveInt] = 1000
     credential: Optional[BigQueryCredential]
@@ -306,20 +305,29 @@ class BigQuerySource(SQLAlchemySource):
 
     def _compute_big_query_lineage(self) -> None:
         if self.config.include_table_lineage:
+            lineage_client_project_id = self._get_lineage_client_project_id()
             if self.config.use_exported_bigquery_audit_metadata:
-                self._compute_bigquery_lineage_via_exported_bigquery_audit_metadata()
+                self._compute_bigquery_lineage_via_exported_bigquery_audit_metadata(
+                    lineage_client_project_id
+                )
             else:
-                self._compute_bigquery_lineage_via_gcp_logging()
+                self._compute_bigquery_lineage_via_gcp_logging(
+                    lineage_client_project_id
+                )
 
             if self.lineage_metadata is not None:
                 logger.info(
                     f"Built lineage map containing {len(self.lineage_metadata)} entries."
                 )
 
-    def _compute_bigquery_lineage_via_gcp_logging(self) -> None:
+    def _compute_bigquery_lineage_via_gcp_logging(
+        self, lineage_client_project_id: Optional[str]
+    ) -> None:
         logger.info("Populating lineage info via GCP audit logs")
         try:
-            _clients: List[GCPLoggingClient] = self._make_bigquery_client()
+            _clients: List[GCPLoggingClient] = self._make_bigquery_client(
+                lineage_client_project_id
+            )
             log_entries: Iterable[AuditLogEntry] = self._get_bigquery_log_entries(
                 _clients
             )
@@ -333,10 +341,12 @@ class BigQuerySource(SQLAlchemySource):
                 e,
             )
 
-    def _compute_bigquery_lineage_via_exported_bigquery_audit_metadata(self) -> None:
+    def _compute_bigquery_lineage_via_exported_bigquery_audit_metadata(
+        self, lineage_client_project_id: Optional[str]
+    ) -> None:
         logger.info("Populating lineage info via exported GCP audit logs")
         try:
-            _client: BigQueryClient = BigQueryClient(project=self.config.project_id)
+            _client: BigQueryClient = BigQueryClient(project=lineage_client_project_id)
             exported_bigquery_audit_metadata: Iterable[
                 BigQueryAuditMetadata
             ] = self._get_exported_bigquery_audit_metadata(_client)
@@ -352,16 +362,27 @@ class BigQuerySource(SQLAlchemySource):
                 e,
             )
 
-    def _make_bigquery_client(self) -> List[GCPLoggingClient]:
+    def _make_bigquery_client(
+        self, lineage_client_project_id: Optional[str]
+    ) -> List[GCPLoggingClient]:
         # See https://github.com/googleapis/google-cloud-python/issues/2674 for
         # why we disable gRPC here.
         client_options = self.config.extra_client_options.copy()
         client_options["_use_grpc"] = False
-        project_id = self.config.project_id
-        if project_id is not None:
-            return [GCPLoggingClient(**client_options, project=project_id)]
+        if lineage_client_project_id is not None:
+            return [
+                GCPLoggingClient(**client_options, project=lineage_client_project_id)
+            ]
         else:
             return [GCPLoggingClient(**client_options)]
+
+    def _get_lineage_client_project_id(self) -> Optional[str]:
+        project_id: Optional[str] = (
+            self.config.lineage_client_project_id
+            if self.config.lineage_client_project_id
+            else self.config.project_id
+        )
+        return project_id
 
     def _get_bigquery_log_entries(
         self, clients: List[GCPLoggingClient]
@@ -495,12 +516,9 @@ class BigQuerySource(SQLAlchemySource):
         num_entries: int = 0
         num_skipped_entries: int = 0
         for e in entries:
+            logger.warning(f"Entry:{e}")
             num_entries += 1
-            if (
-                e.destinationTable is None
-                or e.destinationTable.is_anonymous()
-                or not e.referencedTables
-            ):
+            if e.destinationTable is None or not e.referencedTables:
                 num_skipped_entries += 1
                 continue
             entry_consumed: bool = False
@@ -673,6 +691,29 @@ WHERE
                         yield lineage_wu
                         self.report.report_workunit(lineage_wu)
 
+    def get_upstream_tables(
+        self, bq_table: str, tables_seen: List[str] = []
+    ) -> Set[BigQueryTableRef]:
+        upstreams: Set[BigQueryTableRef] = set()
+        assert self.lineage_metadata
+        for ref_table in self.lineage_metadata[str(bq_table)]:
+            upstream_table = BigQueryTableRef.from_string_name(ref_table)
+            if upstream_table.is_temporary_table():
+                # making sure we don't process a table twice and not get into a recurisve loop
+                if ref_table in tables_seen:
+                    logger.debug(
+                        f"Skipping table {ref_table} because it was seen already"
+                    )
+                    continue
+                tables_seen.append(ref_table)
+                if ref_table in self.lineage_metadata:
+                    upstreams = upstreams.union(
+                        self.get_upstream_tables(ref_table, tables_seen=tables_seen)
+                    )
+            else:
+                upstreams.add(upstream_table)
+        return upstreams
+
     def get_lineage_mcp(
         self, dataset_urn: str
     ) -> Optional[MetadataChangeProposalWrapper]:
@@ -687,8 +728,9 @@ WHERE
             upstream_list: List[UpstreamClass] = []
             # Sorting the list of upstream lineage events in order to avoid creating multiple aspects in backend
             # even if the lineage is same but the order is different.
-            for ref_table in sorted(self.lineage_metadata[str(bq_table)]):
-                upstream_table = BigQueryTableRef.from_string_name(ref_table)
+            for upstream_table in sorted(
+                self.get_upstream_tables(str(bq_table), tables_seen=[])
+            ):
                 upstream_table_class = UpstreamClass(
                     mce_builder.make_dataset_urn_with_platform_instance(
                         self.platform,

@@ -4,6 +4,9 @@ fragment globalTagsFields on GlobalTags {
             urn
             name
             description
+            properties {
+                colorHex
+            }
         }
     }
 }
@@ -36,7 +39,9 @@ fragment ownershipFields on Ownership {
                     lastName
                     fullName
                 }
-                editableInfo {
+                editableProperties {
+                    displayName
+                    title
                     pictureLink
                 }
             }

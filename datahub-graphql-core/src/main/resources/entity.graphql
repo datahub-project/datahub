@@ -277,6 +277,11 @@ type Mutation {
     Update a particular Corp User's editable properties
     """
     updateCorpUserProperties(urn: String!, input: CorpUserUpdateInput!): CorpUser
+
+    """
+    Update a particular Corp Group's editable properties
+    """
+    updateCorpGroupProperties(urn: String!, input: CorpGroupUpdateInput!): CorpGroup
 }
 
 """
@@ -2328,7 +2333,6 @@ type CorpUserEditableProperties {
     email: String
 }
 
-
 """
 Arguments provided to update a CorpUser Entity
 """
@@ -2399,9 +2403,19 @@ type CorpGroup implements Entity {
     name: String!
 
     """
+    Ownership metadata of the Corp Group
+    """
+    ownership: Ownership
+
+    """
     Additional read only properties about the group
     """
     properties: CorpGroupProperties
+
+    """
+    Additional read write properties about the group
+    """
+    editableProperties: CorpGroupEditableProperties
 
     """
     Edges extending from this entity
@@ -2472,6 +2486,46 @@ type CorpGroupProperties {
     email of this group
     """
     email: String
+}
+
+"""
+Additional read write properties about a group
+"""
+type CorpGroupEditableProperties {
+  """
+  DataHub description of the group
+  """
+  description: String
+
+  """
+  Slack handle for the group
+  """
+  slack: String
+
+  """
+  Email address for the group
+  """
+  email: String
+}
+
+"""
+Arguments provided to update a CorpGroup Entity
+"""
+input CorpGroupUpdateInput {
+  """
+  DataHub description of the group
+  """
+  description: String
+
+  """
+  Slack handle for the group
+  """
+  slack: String
+
+  """
+  Email address for the group
+  """
+  email: String
 }
 
 """
@@ -4670,6 +4724,16 @@ type ActorFilter {
   Whether the filter should apply to all groups
   """
   allGroups: Boolean!
+
+  """
+  The list of users on the Policy, resolved.
+  """
+  resolvedUsers: [CorpUser!]
+
+  """
+  The list of groups on the Policy, resolved.
+  """
+  resolvedGroups: [CorpGroup!]
 }
 
 """

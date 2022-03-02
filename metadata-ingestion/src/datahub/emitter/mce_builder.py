@@ -5,7 +5,7 @@ import re
 import time
 from enum import Enum
 from hashlib import md5
-from typing import Any, List, Optional, Set, Type, TypeVar, Union, cast, get_type_hints
+from typing import Any, List, Optional, Type, TypeVar, Union, cast, get_type_hints
 
 import typing_inspect
 from avrogen.dict_wrapper import DictWrapper
@@ -27,6 +27,7 @@ from datahub.metadata.schema_classes import (
     OwnershipSourceClass,
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
+    SchemaFieldKeyClass,
     TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
@@ -35,20 +36,7 @@ from datahub.metadata.schema_classes import (
 DEFAULT_ENV = DEFAULT_ENV_CONFIGURATION
 DEFAULT_FLOW_CLUSTER = "prod"
 UNKNOWN_USER = "urn:li:corpuser:unknown"
-SQL_STYLE_PLATFORMS: Set[str] = {
-    "athena",
-    "bigquery",
-    "druid",
-    "hive",
-    "mariadb",
-    "mssql",
-    "mysql",
-    "oracle",
-    "postgres",
-    "redshift",
-    "snowflake",
-    "trino",
-}
+
 
 logger = logging.getLogger(__name__)
 
@@ -70,9 +58,6 @@ def make_data_platform_urn(platform: str) -> str:
 
 
 def make_dataset_urn(platform: str, name: str, env: str = DEFAULT_ENV) -> str:
-    # Use lower-case name for all SQL style datasets
-    if platform in SQL_STYLE_PLATFORMS:
-        name = name.lower()
     return f"urn:li:dataset:({make_data_platform_urn(platform)},{name},{env})"
 
 
@@ -86,12 +71,7 @@ def make_dataplatform_instance_urn(platform: str, instance: str) -> str:
 def make_dataset_urn_with_platform_instance(
     platform: str, name: str, platform_instance: Optional[str], env: str = DEFAULT_ENV
 ) -> str:
-
     if platform_instance:
-        # Use lower-case name for all SQL style datasets
-        if platform in SQL_STYLE_PLATFORMS:
-            name = name.lower()
-
         return f"urn:li:dataset:({make_data_platform_urn(platform)},{platform_instance}.{name},{env})"
     else:
         return make_dataset_urn(platform=platform, name=name, env=env)
@@ -100,6 +80,16 @@ def make_dataset_urn_with_platform_instance(
 def make_schema_field_urn(parent_urn: str, field_path: str) -> str:
     assert parent_urn.startswith("urn:li:"), "Schema field's parent must be an urn"
     return f"urn:li:schemaField:({parent_urn},{field_path})"
+
+
+def schema_field_urn_to_key(schema_field_urn: str) -> Optional[SchemaFieldKeyClass]:
+    pattern = r"urn:li:schemaField:\((.*),(.*)\)"
+    results = re.search(pattern, schema_field_urn)
+    if results is not None:
+        dataset_urn: str = results.group(1)
+        field_path: str = results.group(2)
+        return SchemaFieldKeyClass(parent=dataset_urn, fieldPath=field_path)
+    return None
 
 
 def dataset_urn_to_key(dataset_urn: str) -> Optional[DatasetKeyClass]:
@@ -211,6 +201,7 @@ def make_domain_urn(domain: str) -> str:
 
 
 def make_ml_primary_key_urn(feature_table_name: str, primary_key_name: str) -> str:
+
     return f"urn:li:mlPrimaryKey:({feature_table_name},{primary_key_name})"
 
 
@@ -218,6 +209,7 @@ def make_ml_feature_urn(
     feature_table_name: str,
     feature_name: str,
 ) -> str:
+
     return f"urn:li:mlFeature:({feature_table_name},{feature_name})"
 
 
