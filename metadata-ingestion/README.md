@@ -6,18 +6,20 @@
 
 We apply a Support Status to each Metadata Source to help you understand the reliability of the source at a glance
 
-![Certified](https://img.shields.io/badge/support%20status-certified-brightgreen): Certified Sources are well-tested & widely-adopted by the DataHub Community. We expect the integration to be stable with few user-facing issues. 
-![Incubating](https://img.shields.io/badge/support%20status-incubating-blue): Incubating Sources are ready for DataHub Community adoption but have not been tested for a wide variety of edge-cases. We eagerly solicit feedback from the Community to streghten the connector; minor version changes may arise in future releases.
-![Testing](https://img.shields.io/badge/support%20status-testing-lightgrey): Testing Sources are available for experiementation by DataHub Community members, but may change without notice. 
+![Certified](https://img.shields.io/badge/support%20status-certified-brightgreen): Certified Sources are well-tested & widely-adopted by the DataHub Community. We expect the integration to be stable with few user-facing issues.
 
+![Incubating](https://img.shields.io/badge/support%20status-incubating-blue): Incubating Sources are ready for DataHub Community adoption but have not been tested for a wide variety of edge-cases. We eagerly solicit feedback from the Community to streghten the connector; minor version changes may arise in future releases.
+
+![Testing](https://img.shields.io/badge/support%20status-testing-lightgrey): Testing Sources are available for experiementation by DataHub Community members, but may change without notice. 
 
 ### Supported Metadata Ingestion Sources
 
 #### Dataset Sources/SQL Sources
 
-| ![Athena](/docs-website/static/img/logos/platforms/athena.svg) ![Certified](https://img.shields.io/badge/support%20status-certified-brightgreen) | 
 
-
+| ![Certified](https://img.shields.io/badge/support%20status-certified-brightgreen) | ![Incubating](https://img.shields.io/badge/support%20status-incubating-blue) | ![Testing](https://img.shields.io/badge/support%20status-testing-lightgrey) |
+| *-* | *-* |
+| <img src="/docs-website/static/img/logos/platforms/athena.svg" alt="Athena" width="200"/> <br>Athena | |
 
 ## Getting Started
 
