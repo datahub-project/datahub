@@ -116,6 +116,8 @@ services:
       - "9002:9002"
     depends_on:
       - datahub-gms
+    volumes:
+      - ${HOME}/.datahub/plugins:/etc/datahub/plugins
 
   datahub-actions:
     image: public.ecr.aws/datahub/acryl-datahub-actions:${ACTIONS_VERSION:-head}
