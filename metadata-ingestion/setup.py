@@ -52,6 +52,8 @@ framework_common = {
     # Pinning it to a version which works even though we are not using explicitly
     # https://github.com/aws/aws-sam-cli/issues/3661
     "markupsafe==2.0.1",
+    "Deprecated",
+    "types-Deprecated",
 }
 
 kafka_common = {
