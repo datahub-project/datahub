@@ -42,7 +42,7 @@ A constraint applied to a set of entities in datahub that must meet some require
 """
 type Constraint {
     """
-    The type of the constriant
+    The type of the constraint
     """
     type: ConstraintType
 
@@ -60,6 +60,16 @@ type Constraint {
     Optional description of the constraint
     """
     description: String
+
+    """
+    Whether or not the constraint is satisfied
+    """
+    isSatisfied: Boolean
+
+    """
+    Optional reason for why the constraint is satisfied
+    """
+    reason: String
 }
 
 """

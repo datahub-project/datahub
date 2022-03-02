@@ -9,22 +9,22 @@ type Props = {
     constraint?: ConstraintType;
 };
 
-const ConstraintPopoverContent = styled.div`
+const UnsatisfiedConstraintPopoverContent = styled.div`
     max-width: 300px;
 `;
 
 const GLOSSARY_BROWSE_PATH_ROOT = '/browse/glossary/';
 
-export default function Constraint({ constraint }: Props) {
+export default function UnsatisfiedConstraint({ constraint }: Props) {
     const content = (
-        <ConstraintPopoverContent>
+        <UnsatisfiedConstraintPopoverContent>
             <p>{constraint?.description}</p>
             Please attach a term from the{' '}
             <Link to={`${GLOSSARY_BROWSE_PATH_ROOT}${constraint?.params?.hasGlossaryTermInNodeParams?.nodeName}`}>
                 {constraint?.params?.hasGlossaryTermInNodeParams?.nodeName}
             </Link>{' '}
             node.
-        </ConstraintPopoverContent>
+        </UnsatisfiedConstraintPopoverContent>
     );
 
     return (

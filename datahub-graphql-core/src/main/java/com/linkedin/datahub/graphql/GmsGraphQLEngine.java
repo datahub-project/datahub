@@ -800,7 +800,7 @@ public class GmsGraphQLEngine {
                 )
                 .dataFetcher("constraints", new AuthenticatedResolver<>(
                     new ConstraintsResolver(
-                        (env) -> ((Entity) env.getSource()).getUrn(), entityClient))
+                        (env) -> ((Entity) env.getSource()).getUrn(), entityService, entityClient))
                 )
                 .dataFetcher("datasetProfiles", new AuthenticatedResolver<>(
                     new TimeSeriesAspectResolver(

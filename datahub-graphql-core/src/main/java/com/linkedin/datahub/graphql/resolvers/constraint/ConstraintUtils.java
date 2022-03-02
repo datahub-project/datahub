@@ -4,6 +4,7 @@ import com.datahub.authorization.ResourceSpec;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
+import com.linkedin.container.Container;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.urn.GlossaryNodeUrn;
 import com.linkedin.common.urn.Urn;
@@ -22,14 +23,18 @@ import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.policy.DataHubResourceFilter;
 import com.linkedin.r2.RemoteInvocationException;
+import com.linkedin.util.Pair;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.SneakyThrows;
 
+import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
+import static com.linkedin.metadata.Constants.*;
 
 public class ConstraintUtils {
   public static final String GLOSSARY_TERMS_ASPECT = "glossaryTerms";
@@ -38,42 +43,24 @@ public class ConstraintUtils {
 
   private ConstraintUtils() { }
 
-  private static boolean isEntityFailingGlossaryTermConstraint(
-      @Nonnull String urn,
-      @Nonnull  final EntityClient entityClient,
-      @Nonnull final Authentication authentication,
-      @Nonnull ConstraintInfo constraintInfo
-  ) throws RemoteInvocationException {
-      Optional<GlossaryTerms> glossaryTerms =
-      entityClient.getVersionedAspect(urn, GLOSSARY_TERMS_ASPECT, 0L, GlossaryTerms.class, authentication);
-
-        return !isGlossaryTermConstraintSatisfied(
-      constraintInfo.getParams().getHasGlossaryTermInNodeParams(),
-            glossaryTerms.orElse(new GlossaryTerms()), entityClient, authentication
-        );
-  }
-
   @SneakyThrows
-  public static boolean isEntityFailingConstraint(
-      @Nonnull String urn,
-      @Nonnull ResourceSpec spec,
-      @Nonnull ConstraintInfo constraintInfo,
-      @Nonnull  final EntityClient entityClient,
-      @Nonnull final Authentication authentication
-  ) {
+  private static Pair<Boolean, String> isEntityConstraintSatisfied(@Nonnull String urn, @Nonnull ResourceSpec spec,
+      @Nonnull ConstraintInfo constraintInfo, @Nonnull final EntityService entityService,
+      @Nonnull final EntityClient entityClient, @Nonnull final Authentication authentication) {
     Objects.requireNonNull(urn, "Urn provided to check constraint is null");
     Objects.requireNonNull(constraintInfo, "ConstraintInfo provided to check constraint is null");
     Objects.requireNonNull(entityClient, "entityClient provided to check constraint is null");
     Objects.requireNonNull(authentication, "authentication provided to check constraint is null");
 
+    // By default, the constraint does not apply to this entity - the entity cannot be failing the constraint then
     if (isResourceMatch(constraintInfo.getResources(), spec)) {
       if (constraintInfo.getParams().hasHasGlossaryTermInNodeParams()) {
-        return isEntityFailingGlossaryTermConstraint(urn, entityClient, authentication, constraintInfo);
+        return isDatasetOrContainerGlossaryTermConstraintSatisfied(urn, entityService, entityClient, authentication,
+            constraintInfo);
       }
     }
 
-    // the constraint does not apply to this entity- the entity cannot be failing the constraint then
-    return false;
+    return Pair.of(false, "");
   }
 
   /**
@@ -88,37 +75,75 @@ public class ConstraintUtils {
       return true;
     }
 
-    final boolean resourceTypesMatch = resourceFilter.hasType() && resourceFilter.getType().equals(resourceSpec.getType());
+    final boolean resourceTypesMatch =
+        resourceFilter.hasType() && resourceFilter.getType().equals(resourceSpec.getType());
 
     final boolean resourceIdentityMatch =
-        resourceFilter.isAllResources()
-            || (resourceFilter.hasResources() && Objects.requireNonNull(resourceFilter.getResources())
-            .stream()
-            .anyMatch(resource -> resource.equals(resourceSpec.getResource())));
+        resourceFilter.isAllResources() || (resourceFilter.hasResources() && Objects.requireNonNull(
+            resourceFilter.getResources()).stream().anyMatch(resource -> resource.equals(resourceSpec.getResource())));
 
     // If the resource's type and identity match, then the resource matches the constraint.
     return resourceTypesMatch && resourceIdentityMatch;
   }
 
+  private static Pair<Boolean, String> isDatasetOrContainerGlossaryTermConstraintSatisfied(@Nonnull String urn,
+      @Nonnull final EntityService entityService, @Nonnull final EntityClient entityClient,
+      @Nonnull final Authentication authentication, @Nonnull ConstraintInfo constraintInfo)
+      throws RemoteInvocationException {
+
+    String glossaryNode =
+        constraintInfo.getParams().getHasGlossaryTermInNodeParams().getGlossaryNode().getEntityKey().get(0);
+
+    Pair<Boolean, String> datasetConstraintSatisfied =
+        isEntityGlossaryTermConstraintSatisfied(urn, entityClient, authentication, constraintInfo);
+
+    if (datasetConstraintSatisfied.getFirst()) {
+      return Pair.of(true,
+          String.format("Constraint requiring %s is satisfied by the dataset Glossary Term %s", glossaryNode,
+              datasetConstraintSatisfied.getSecond()));
+    }
+
+    Container container = (Container) getAspectFromEntity(urn, CONTAINER_ASPECT_NAME, entityService, new Container());
+    Urn containerUrn = container.getContainer();
+    Pair<Boolean, String> containerConstraintSatisfied =
+        isEntityGlossaryTermConstraintSatisfied(containerUrn.toString(), entityClient, authentication, constraintInfo);
+    if (containerConstraintSatisfied.getFirst()) {
+      return Pair.of(true,
+          String.format("Constraint requiring %s is satisfied by the container Glossary Term %s", glossaryNode,
+              containerConstraintSatisfied.getSecond()));
+    }
+    return Pair.of(false, "");
+  }
+
+  private static Pair<Boolean, String> isEntityGlossaryTermConstraintSatisfied(@Nonnull String urn,
+      @Nonnull final EntityClient entityClient, @Nonnull final Authentication authentication,
+      @Nonnull ConstraintInfo constraintInfo) throws RemoteInvocationException {
+    Optional<GlossaryTerms> glossaryTerms =
+        entityClient.getVersionedAspect(urn, GLOSSARY_TERMS_ASPECT, 0L, GlossaryTerms.class, authentication);
+
+    return isGlossaryTermConstraintSatisfied(constraintInfo.getParams().getHasGlossaryTermInNodeParams(),
+        glossaryTerms.orElse(new GlossaryTerms()), entityClient, authentication);
+  }
+
   /**
-   * Returns true if the entity passses constraint's glossary term param configuration
+   * If the entity passes constraint's glossary term param configuration, returns the glossary term that satisfies the
+   * constraint.
    */
-  private static boolean isGlossaryTermConstraintSatisfied(
-      final @Nonnull GlossaryTermInNodeConstraint params,
-      final @Nonnull GlossaryTerms glossaryTerms,
-      final @Nonnull EntityClient entityClient,
-      final @Nonnull Authentication authentication
-  ) {
+  private static Pair<Boolean, String> isGlossaryTermConstraintSatisfied(
+      final @Nonnull GlossaryTermInNodeConstraint params, final @Nonnull GlossaryTerms glossaryTerms,
+      final @Nonnull EntityClient entityClient, final @Nonnull Authentication authentication) {
     if (!glossaryTerms.hasTerms()) {
-      return false;
+      return Pair.of(false, "");
     }
     Urn glossaryNodeUrn = params.getGlossaryNode();
-    return glossaryTerms.getTerms().stream().filter(glossaryTermAssociation -> isGlossaryNodeInTermsAncestry(
-        glossaryTermAssociation.getUrn(),
-        glossaryNodeUrn,
-        entityClient,
-        authentication
-    )).count() > 0;
+    return glossaryTerms.getTerms()
+        .stream()
+        .filter(
+            glossaryTermAssociation -> isGlossaryNodeInTermsAncestry(glossaryTermAssociation.getUrn(), glossaryNodeUrn,
+                entityClient, authentication))
+        .findFirst()
+        .map(glossaryTermAssociation -> Pair.of(true, glossaryTermAssociation.getUrn().getEntityKey().get(0)))
+        .orElse(Pair.of(false, ""));
   }
 
   private static boolean isGlossaryNodeInTermsAncestry(
@@ -172,7 +197,9 @@ public class ConstraintUtils {
     }
   }
 
-  public static Constraint mapConstraintInfoToConstraint(final @Nonnull ConstraintInfo constraintInfo) {
+  public static Constraint mapConstraintInfoToConstraint(@Nonnull String urn, @Nonnull ResourceSpec spec,
+      @Nonnull ConstraintInfo constraintInfo, @Nonnull final EntityService entityService,
+      @Nonnull final EntityClient entityClient, @Nonnull final Authentication authentication) {
     Constraint constraint = new Constraint();
     constraint.setType(ConstraintType.valueOf(constraintInfo.getType()));
     constraint.setDisplayName(constraintInfo.getDisplayName());
@@ -182,12 +209,18 @@ public class ConstraintUtils {
     if (constraintInfo.getType().equals(ConstraintType.HAS_GLOSSARY_TERM_IN_NODE.toString())) {
       GlossaryTermInNodeConstraintParams graphqlParams = new GlossaryTermInNodeConstraintParams();
       graphqlParams.setNodeName(
-          constraintInfo.getParams().getHasGlossaryTermInNodeParams().getGlossaryNode().getEntityKey().get(0)
-      );
+          constraintInfo.getParams().getHasGlossaryTermInNodeParams().getGlossaryNode().getEntityKey().get(0));
       graphqlParamsContainer.setHasGlossaryTermInNodeParams(graphqlParams);
     }
 
     constraint.setParams(graphqlParamsContainer);
+
+    Pair<Boolean, String> entityConstraintSatisfied =
+        ConstraintUtils.isEntityConstraintSatisfied(urn, spec, constraintInfo, entityService, entityClient,
+            authentication);
+    constraint.setIsSatisfied(entityConstraintSatisfied.getFirst());
+    constraint.setReason(entityConstraintSatisfied.getSecond());
+
     return constraint;
   }
 
