@@ -28,6 +28,7 @@ import com.linkedin.timeseries.GroupingBucketType;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -48,7 +49,7 @@ import lombok.AllArgsConstructor;
 public class DatasetHealthResolver implements DataFetcher<CompletableFuture<Health>> {
 
   private static final String ASSERTS_RELATIONSHIP_NAME = "Asserts";
-  private static final String SUCCEEDED_RESULT_TYPE = "SUCCESS";
+  private static final String ASSERTION_RUN_EVENT_SUCCESS_TYPE = "SUCCESS";
   private static final CachedHealth NO_HEALTH = new CachedHealth(false, null);
 
   private final GraphClient _graphClient;
@@ -60,8 +61,8 @@ public class DatasetHealthResolver implements DataFetcher<CompletableFuture<Heal
     _graphClient = graphClient;
     _timeseriesAspectService = timeseriesAspectService;
     _statusCache = CacheBuilder.newBuilder()
-        .maximumSize(10000)
-        .expireAfterWrite(30, TimeUnit.SECONDS)
+        .maximumSize(50000)
+        .expireAfterWrite(5, TimeUnit.MINUTES)
         .build();
   }
 
@@ -112,11 +113,12 @@ public class DatasetHealthResolver implements DataFetcher<CompletableFuture<Heal
         RelationshipDirection.INCOMING,
         0,
         500,
-        context.getActor().toUrnStr()
+        context.getActorUrn()
     );
 
     if (relationships.getTotal() > 0) {
 
+      // If there are assertions defined, then we should return a non-null health for this asset.
       final Set<String> activeAssertionUrns = relationships.getRelationships()
           .stream()
           .map(relationship -> relationship.getEntity().toString()).collect(Collectors.toSet());
@@ -134,6 +136,8 @@ public class DatasetHealthResolver implements DataFetcher<CompletableFuture<Heal
         health.setStatus(HealthStatus.PASS);
         health.setMessage("Dataset is passing all assertions.");
       }
+      return health;
+
     }
     return null;
   }
@@ -147,8 +151,8 @@ public class DatasetHealthResolver implements DataFetcher<CompletableFuture<Heal
         createAssertionsFilter(asserteeUrn),
         createAssertionGroupingBuckets());
     if (!result.hasRows()) {
-      // No completed assertion runs found. Return null.
-      return null;
+      // No completed assertion runs found. Return empty list.
+      return Collections.emptyList();
     }
     // Create the buckets based on the result
     return resultToFailedAssertionUrns(result.getRows(), candidateAssertionUrns);
@@ -203,7 +207,7 @@ public class DatasetHealthResolver implements DataFetcher<CompletableFuture<Heal
       final String resultType = row.get(1);
 
       // If assertion is "active" (not deleted) & is failing, then we report a degradation in health.
-      if (activeAssertionUrns.contains(assertionUrn) && !SUCCEEDED_RESULT_TYPE.equals(resultType)) {
+      if (activeAssertionUrns.contains(assertionUrn) && !ASSERTION_RUN_EVENT_SUCCESS_TYPE.equals(resultType)) {
         failedAssertionUrns.add(assertionUrn);
       }
     }
