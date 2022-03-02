@@ -393,7 +393,7 @@ sink:
 | Field                 | Required | Default   | Description                                                              |
 |-----------------------|----------|-----------|--------------------------------------------------------------------------|
 | `connect_uri`         | ✅        |           | Tableau host URL.                                                        |
-| `site`                | ✅        |           | Tableau Site. Use emptystring "" to connect with Default site on Tableau Server  |
+| `site`                |          |  `""`    | Tableau Site. Always required for Tableau Online. Use emptystring "" to connect with Default site on Tableau Server.   |
 | `env`                 |          | `"PROD"`  | Environment to use in namespace when constructing URNs.                  |
 | `username`            |          |           | Tableau username, must be set if authenticating using username/password.    |
 | `password`            |          |           | Tableau password, must be set if authenticating using username/password.    |

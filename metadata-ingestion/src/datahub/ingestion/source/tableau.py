@@ -82,7 +82,7 @@ class TableauConfig(ConfigModel):
     token_name: Optional[str] = None
     token_value: Optional[str] = None
 
-    site: str
+    site: str = ""
     projects: Optional[List] = ["default"]
     default_schema_map: dict = {}
     ingest_tags: Optional[bool] = False
