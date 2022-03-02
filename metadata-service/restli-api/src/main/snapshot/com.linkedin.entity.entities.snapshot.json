@@ -564,7 +564,7 @@
     "type" : "record",
     "name" : "DataPlatformInstance",
     "namespace" : "com.linkedin.common",
-    "doc" : "Tag aspect used for applying tags to an entity",
+    "doc" : "The specific instance of the data platform that this entity belongs to",
     "fields" : [ {
       "name" : "platform",
       "type" : "Urn",
@@ -727,12 +727,13 @@
     "name" : "FabricType",
     "namespace" : "com.linkedin.common",
     "doc" : "Fabric group type",
-    "symbols" : [ "DEV", "TEST", "QA", "UAT", "EI", "STG", "NON_PROD", "PROD", "CORP" ],
+    "symbols" : [ "DEV", "TEST", "QA", "UAT", "EI", "PRE", "STG", "NON_PROD", "PROD", "CORP" ],
     "symbolDocs" : {
       "CORP" : "Designates corporation fabrics",
       "DEV" : "Designates development fabrics",
       "EI" : "Designates early-integration fabrics",
       "NON_PROD" : "Designates non-production fabrics",
+      "PRE" : "Designates pre-production fabrics",
       "PROD" : "Designates production fabrics",
       "QA" : "Designates quality assurance fabrics",
       "STG" : "Designates staging fabrics",
@@ -1027,8 +1028,10 @@
         "name" : "OwnedBy"
       },
       "Searchable" : {
+        "addToFilters" : true,
         "fieldName" : "owners",
         "fieldType" : "URN",
+        "filterNameOverride" : "Owned By",
         "hasValuesFieldName" : "hasOwners",
         "queryByDefault" : false
       }
@@ -1965,11 +1968,11 @@
                   "type" : "record",
                   "name" : "CorpGroupInfo",
                   "namespace" : "com.linkedin.identity",
-                  "doc" : "group of corpUser, it may contains nested group",
+                  "doc" : "Information about a Corp Group ingested from a third party source",
                   "fields" : [ {
                     "name" : "displayName",
                     "type" : "string",
-                    "doc" : "The name to use when displaying the group.",
+                    "doc" : "The name of the group.",
                     "optional" : true,
                     "Searchable" : {
                       "fieldType" : "TEXT_PARTIAL"
@@ -1985,39 +1988,42 @@
                       "type" : "array",
                       "items" : "com.linkedin.common.CorpuserUrn"
                     },
-                    "doc" : "owners of this group",
+                    "doc" : "owners of this group\nDeprecated! Replaced by Ownership aspect.",
                     "Relationship" : {
                       "/*" : {
                         "entityTypes" : [ "corpUser" ],
                         "name" : "OwnedBy"
                       }
-                    }
+                    },
+                    "deprecated" : true
                   }, {
                     "name" : "members",
                     "type" : {
                       "type" : "array",
                       "items" : "com.linkedin.common.CorpuserUrn"
                     },
-                    "doc" : "List of ldap urn in this group.",
+                    "doc" : "List of ldap urn in this group.\nDeprecated! Replaced by GroupMembership aspect.",
                     "Relationship" : {
                       "/*" : {
                         "entityTypes" : [ "corpUser" ],
                         "name" : "IsPartOf"
                       }
-                    }
+                    },
+                    "deprecated" : true
                   }, {
                     "name" : "groups",
                     "type" : {
                       "type" : "array",
                       "items" : "com.linkedin.common.CorpGroupUrn"
                     },
-                    "doc" : "List of groups in this group.",
+                    "doc" : "List of groups in this group.\nDeprecated! This field is unused.",
                     "Relationship" : {
                       "/*" : {
                         "entityTypes" : [ "corpGroup" ],
                         "name" : "IsPartOf"
                       }
-                    }
+                    },
+                    "deprecated" : true
                   }, {
                     "name" : "description",
                     "type" : "string",
@@ -2213,7 +2219,12 @@
                     "name" : "displayName",
                     "type" : "string",
                     "doc" : "DataHub-native display name",
-                    "optional" : true
+                    "optional" : true,
+                    "Searchable" : {
+                      "boostScore" : 10.0,
+                      "fieldType" : "TEXT_PARTIAL",
+                      "queryByDefault" : true
+                    }
                   }, {
                     "name" : "title",
                     "type" : "string",
