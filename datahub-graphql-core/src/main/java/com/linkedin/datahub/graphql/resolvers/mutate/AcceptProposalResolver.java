@@ -58,14 +58,12 @@ public class AcceptProposalResolver implements DataFetcher<CompletableFuture<Boo
       try {
         log.info("Accepting term proposal. Proposal urn: {}", proposalUrn);
         Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActorUrn());
+        String subResource = proposal.getSubResource();
 
-        if (!ProposalUtils.isAuthorizedToAcceptProposal(
-            environment.getContext(),
-            proposal.getType(),
-            Urn.createFromString(proposal.getEntity().getUrn()),
-            proposal.getSubResource())
-        ) {
-          throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+        if (!ProposalUtils.isAuthorizedToAcceptProposal(environment.getContext(), proposal.getType(),
+            Urn.createFromString(proposal.getEntity().getUrn()), subResource)) {
+          throw new AuthorizationException(
+              "Unauthorized to perform this action. Please contact your DataHub administrator.");
         }
 
         if (!proposal.getStatus().equals(ActionRequestStatus.PENDING)) {
@@ -74,21 +72,17 @@ public class AcceptProposalResolver implements DataFetcher<CompletableFuture<Boo
         }
 
         if (proposal.getType().equals(ActionRequestType.TAG_ASSOCIATION)) {
-          LabelUtils.addTagToTarget(
-              Urn.createFromString(proposal.getParams().getTagProposal().getTag().getUrn()),
-              Urn.createFromString(proposal.getEntity().getUrn()),
-              proposal.getSubResource(),
-              actor,
-              _entityService
-          );
+          Urn tagUrn = Urn.createFromString(proposal.getParams().getTagProposal().getTag().getUrn());
+          Urn targetUrn = Urn.createFromString(proposal.getEntity().getUrn());
+          LabelUtils.addTagToTarget(tagUrn, targetUrn, subResource, actor, _entityService);
+          ProposalUtils.deleteTagFromEntityOrSchemaProposalsAspect(actor, tagUrn, targetUrn, subResource,
+              _entityService);
         } else if (proposal.getType().equals(ActionRequestType.TERM_ASSOCIATION)) {
-          LabelUtils.addTermToTarget(
-              Urn.createFromString(proposal.getParams().getGlossaryTermProposal().getGlossaryTerm().getUrn()),
-              Urn.createFromString(proposal.getEntity().getUrn()),
-              proposal.getSubResource(),
-              actor,
-              _entityService
-          );
+          Urn termUrn = Urn.createFromString(proposal.getParams().getGlossaryTermProposal().getGlossaryTerm().getUrn());
+          Urn targetUrn = Urn.createFromString(proposal.getEntity().getUrn());
+          LabelUtils.addTermToTarget(termUrn, targetUrn, subResource, actor, _entityService);
+          ProposalUtils.deleteTermFromEntityOrSchemaProposalsAspect(actor, termUrn, targetUrn, subResource,
+              _entityService);
         } else {
           log.error("Cannot accept proposal- proposal is not acceptable");
           return false;

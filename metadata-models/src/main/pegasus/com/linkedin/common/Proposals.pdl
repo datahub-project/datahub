@@ -1,0 +1,35 @@
+namespace com.linkedin.common
+
+/**
+ * Proposals aspect for proposed tags and glossary terms for an entity.
+ * These are secondary indices and ActionRequests remain the source of truth.
+ */
+@Aspect = {
+    "name": "proposals"
+}
+record Proposals {
+    /**
+    * Proposed tags for a given entity
+    */
+    @Searchable = {
+        "/*" : {
+            "fieldName": "proposedTags",
+            "fieldType": "URN",
+            "addToFilters": true,
+            "filterNameOverride": "Proposed Tag"
+        }
+    }
+    proposedTags: optional array[Urn]
+    /**
+    * Proposed glossary terms for a given entity
+    */
+    @Searchable = {
+        "/*" : {
+            "fieldName": "proposedGlossaryTerms",
+            "fieldType": "URN",
+            "addToFilters": true,
+            "filterNameOverride": "Proposed Glossary Term"
+        }
+    }
+    proposedGlossaryTerms: optional array[Urn]
+}

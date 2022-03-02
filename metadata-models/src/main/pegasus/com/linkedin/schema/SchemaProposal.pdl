@@ -1,0 +1,40 @@
+namespace com.linkedin.schema
+
+import com.linkedin.common.Urn
+
+/**
+ * Schema proposal aspect for proposed schema tags and proposed schema glossary terms
+ * These are secondary indices and ActionRequests remain the source of truth.
+ */
+record SchemaProposal {
+    /**
+    * FieldPath uniquely identifying the SchemaField this metadata is associated with
+    */
+    fieldPath: string
+
+    /**
+     * Proposed tags for a given entity
+     */
+    @Searchable = {
+        "/*" : {
+            "fieldName": "proposedSchemaTags",
+            "fieldType": "URN",
+            "addToFilters": true,
+            "filterNameOverride": "Proposed Schema Tag"
+        }
+    }
+    proposedSchemaTags: optional array[Urn]
+
+    /**
+     * Proposed glossary terms for a given entity
+     */
+    @Searchable = {
+        "/*" : {
+            "fieldName": "proposedSchemaGlossaryTerms",
+            "fieldType": "URN",
+            "addToFilters": true,
+            "filterNameOverride": "Proposed Schema Glossary Term"
+        }
+    }
+    proposedSchemaGlossaryTerms: optional array[Urn]
+}

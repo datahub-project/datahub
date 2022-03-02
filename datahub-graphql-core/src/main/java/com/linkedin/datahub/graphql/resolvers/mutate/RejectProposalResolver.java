@@ -56,12 +56,14 @@ public class RejectProposalResolver implements DataFetcher<CompletableFuture<Boo
       try {
         log.info("Rejecting term proposal. Proposal urn: {}", proposalUrn);
         Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActorUrn());
+        Urn targetUrn = Urn.createFromString(proposal.getEntity().getUrn());
+        String subResource = proposal.getSubResource();
 
         if (!ProposalUtils.isAuthorizedToAcceptProposal(
             environment.getContext(),
             proposal.getType(),
-            Urn.createFromString(proposal.getEntity().getUrn()),
-            proposal.getSubResource())
+            targetUrn,
+            subResource)
         ) {
           throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
         }
@@ -88,6 +90,16 @@ public class RejectProposalResolver implements DataFetcher<CompletableFuture<Boo
         Entity entity = new Entity();
         entity.setValue(Snapshot.create(snapshot));
         _entityService.ingestEntity(entity, auditStamp);
+
+        if (proposal.getType().equals(ActionRequestType.TAG_ASSOCIATION)) {
+          Urn tagUrn = Urn.createFromString(proposal.getParams().getTagProposal().getTag().getUrn());
+          ProposalUtils.deleteTagFromEntityOrSchemaProposalsAspect(actor, tagUrn, targetUrn, subResource,
+              _entityService);
+        } else if (proposal.getType().equals(ActionRequestType.TERM_ASSOCIATION)) {
+          Urn termUrn = Urn.createFromString(proposal.getParams().getGlossaryTermProposal().getGlossaryTerm().getUrn());
+          ProposalUtils.deleteTermFromEntityOrSchemaProposalsAspect(actor, termUrn, targetUrn, subResource,
+              _entityService);
+        }
 
         return true;
       } catch (Exception e) {

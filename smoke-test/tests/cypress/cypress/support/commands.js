@@ -25,6 +25,13 @@ Cypress.Commands.add('deleteUrn', (urn) => {
         "Content-Type": "application/json",
     }})
 })
+
+Cypress.Commands.add('typeSearchDisableCache', {prevSubject: 'element'}, (subject, input) => {
+    const randomStrGenerator = () => Cypress._.random(0, 1e9);
+    const randomStr = randomStrGenerator();
+    const combinedStr = `${input} OR ${randomStr}{enter}`
+    cy.get(subject.selector).type(combinedStr);
+})
 //
 //
 // -- This is a child command --

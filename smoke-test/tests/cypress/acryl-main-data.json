@@ -145,10 +145,12 @@
           },
           {
             "com.linkedin.pegasus2avro.common.Ownership": {
-              "owners": [{
-                "owner": "urn:li:corpuser:jdoe",
-                "type": "DATAOWNER"
-              }],
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER"
+                }
+              ],
               "lastModified": {
                 "time": 1581407189000,
                 "actor": "urn:li:corpuser:jdoe"

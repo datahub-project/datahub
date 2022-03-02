@@ -13,6 +13,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTermAssociationArray;
 import com.linkedin.common.GlossaryTerms;
+import com.linkedin.common.Proposals;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -28,6 +29,7 @@ import com.linkedin.datahub.graphql.resolvers.actionrequest.ActionRequestUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.ActionRequestAspect;
 import com.linkedin.metadata.aspect.ActionRequestAspectArray;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -39,9 +41,15 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.snapshot.ActionRequestSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaMetadata;
+import com.linkedin.schema.SchemaProposal;
+import com.linkedin.schema.SchemaProposalArray;
+import com.linkedin.schema.SchemaProposals;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -58,10 +66,12 @@ import lombok.extern.slf4j.Slf4j;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
-
 @Slf4j
 // TODO(Gabe): Unit test this file
 public class ProposalUtils {
+  public static final String PROPOSALS_ASPECT_NAME = "proposals";
+  public static final String SCHEMA_PROPOSALS_ASPECT_NAME = "schemaProposals";
+
   private static final ConjunctivePrivilegeGroup ALL_PRIVILEGES_GROUP = new ConjunctivePrivilegeGroup(ImmutableList.of(
       PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()
   ));
@@ -170,7 +180,7 @@ public class ProposalUtils {
       SubResourceType subResourceType,
       EntityService entityService,
       AuthorizationManager authorizationManager
-  ) {
+  ) throws URISyntaxException {
     AuthorizationManager.AuthorizedActors actors = null;
 
     ResourceSpec spec = new ResourceSpec(targetUrn.getEntityType(), targetUrn.toString());
@@ -179,11 +189,15 @@ public class ProposalUtils {
           PoliciesConfig.MANAGE_DATASET_COL_TAGS_PRIVILEGE.getType(),
           Optional.of(spec)
       );
+
+      addTagToSchemaProposalsAspect(creator, tagUrn, targetUrn, subResource, entityService);
     } else {
       actors = authorizationManager.authorizedActors(
           PoliciesConfig.MANAGE_ENTITY_TAGS_PRIVILEGE.getType(),
           Optional.of(spec)
       );
+
+      addTagToEntityProposalsAspect(creator, tagUrn, targetUrn, entityService);
     }
 
     List<Urn> assignedUsers = new ArrayList<>();
@@ -256,7 +270,7 @@ public class ProposalUtils {
       SubResourceType subResourceType,
       EntityService entityService,
       AuthorizationManager authorizationManager
-  ) {
+  ) throws URISyntaxException {
     AuthorizationManager.AuthorizedActors actors = null;
 
     if (subResource != null && subResource.length() > 0) {
@@ -265,12 +279,16 @@ public class ProposalUtils {
           PoliciesConfig.MANAGE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE.getType(),
           Optional.of(spec)
       );
+
+      addTermToSchemaProposalsAspect(creator, termUrn, targetUrn, subResource, entityService);
     } else {
       ResourceSpec spec = new ResourceSpec(targetUrn.getEntityType(), targetUrn.toString());
       actors = authorizationManager.authorizedActors(
           PoliciesConfig.MANAGE_ENTITY_GLOSSARY_TERMS_PRIVILEGE.getType(),
           Optional.of(spec)
       );
+
+      addTermToEntityProposalsAspect(creator, termUrn, targetUrn, entityService);
     }
 
     List<Urn> assignedUsers = new ArrayList<>();
@@ -300,6 +318,249 @@ public class ProposalUtils {
     entityService.ingestEntity(entity, auditStamp);
 
     return true;
+  }
+
+  private static void ingestEntityProposalsUpdate(Urn creator, Urn targetUrn, EntityService entityService,
+      Proposals proposals) {
+    final MetadataChangeProposal metadataChangeProposal = new MetadataChangeProposal();
+    metadataChangeProposal.setAspect(GenericAspectUtils.serializeAspect(proposals));
+    metadataChangeProposal.setEntityUrn(targetUrn);
+    metadataChangeProposal.setEntityType(DATASET_ENTITY_NAME);
+    metadataChangeProposal.setAspectName(PROPOSALS_ASPECT_NAME);
+    metadataChangeProposal.setChangeType(ChangeType.UPSERT);
+
+    ingestMetadataChangeProposal(creator, entityService, metadataChangeProposal);
+  }
+
+  private static void ingestSchemaProposalsUpdate(Urn creator, Urn targetUrn, EntityService entityService,
+      SchemaProposals schemaProposals) {
+    final MetadataChangeProposal metadataChangeProposal = new MetadataChangeProposal();
+    metadataChangeProposal.setAspect(GenericAspectUtils.serializeAspect(schemaProposals));
+    metadataChangeProposal.setEntityUrn(targetUrn);
+    metadataChangeProposal.setEntityType(DATASET_ENTITY_NAME);
+    metadataChangeProposal.setAspectName(SCHEMA_PROPOSALS_ASPECT_NAME);
+    metadataChangeProposal.setChangeType(ChangeType.UPSERT);
+
+    final AuditStamp auditStamp = new AuditStamp();
+    auditStamp.setActor(creator, SetMode.IGNORE_NULL);
+    auditStamp.setTime(System.currentTimeMillis());
+
+    ingestMetadataChangeProposal(creator, entityService, metadataChangeProposal);
+  }
+
+  private static void ingestMetadataChangeProposal(Urn creator, EntityService entityService,
+      MetadataChangeProposal metadataChangeProposal) {
+    final AuditStamp auditStamp = new AuditStamp();
+    auditStamp.setActor(creator, SetMode.IGNORE_NULL);
+    auditStamp.setTime(System.currentTimeMillis());
+
+    System.out.println(String.format("About to ingest %s", metadataChangeProposal));
+    try {
+      entityService.ingestProposal(metadataChangeProposal, auditStamp);
+    } catch (Exception e) {
+      throw new RuntimeException(String.format("Failed to ingest %s", metadataChangeProposal), e);
+    }
+  }
+
+  private static void addTagToEntityProposalsAspect(Urn creator, Urn tagUrn, Urn targetUrn,
+      EntityService entityService) {
+    Proposals proposals =
+        (Proposals) getAspectFromEntity(targetUrn.toString(), PROPOSALS_ASPECT_NAME, entityService, new Proposals());
+    if (!proposals.hasProposedTags()) {
+      proposals.setProposedTags(new UrnArray());
+    }
+
+    UrnArray tagUrnArray = proposals.getProposedTags();
+    if (tagUrnArray.stream().anyMatch(proposedTag -> proposedTag.equals(tagUrn))) {
+      return;
+    }
+    tagUrnArray.add(tagUrn);
+
+    ingestEntityProposalsUpdate(creator, targetUrn, entityService, proposals);
+  }
+
+  private static void addTagToSchemaProposalsAspect(Urn creator, Urn tagUrn, Urn targetUrn, String subResource,
+      EntityService entityService) {
+
+    SchemaProposals schemaProposals =
+        (SchemaProposals) getAspectFromEntity(targetUrn.toString(), SCHEMA_PROPOSALS_ASPECT_NAME, entityService,
+            new SchemaProposals());
+
+    if (!schemaProposals.hasSchemaProposals()) {
+      schemaProposals.setSchemaProposals(new SchemaProposalArray());
+    }
+
+    Optional<SchemaProposal> schemaProposalOptional =
+        schemaProposals.getSchemaProposals().stream().filter(s -> s.getFieldPath().equals(subResource)).findFirst();
+
+    SchemaProposal schemaProposal;
+    if (schemaProposalOptional.isPresent()) {
+      schemaProposal = schemaProposalOptional.get();
+    } else {
+      schemaProposal = new SchemaProposal();
+      schemaProposals.getSchemaProposals().add(schemaProposal);
+    }
+    schemaProposal.setFieldPath(subResource);
+
+    if (!schemaProposal.hasProposedSchemaTags()) {
+      schemaProposal.setProposedSchemaTags(new UrnArray());
+    }
+
+    UrnArray tagUrnArray = schemaProposal.getProposedSchemaTags();
+    if (tagUrnArray.stream().anyMatch(proposedTag -> proposedTag.equals(tagUrn))) {
+      return;
+    }
+    tagUrnArray.add(tagUrn);
+
+    ingestSchemaProposalsUpdate(creator, targetUrn, entityService, schemaProposals);
+  }
+
+  public static void deleteTagFromEntityOrSchemaProposalsAspect(Urn creator, Urn tagUrn, Urn targetUrn,
+      String subResource, EntityService entityService) {
+    if (subResource != null && subResource.length() > 0) {
+      deleteTagFromSchemaProposalsAspect(creator, tagUrn, targetUrn, subResource, entityService);
+    } else {
+      deleteTagFromEntityProposalsAspect(creator, tagUrn, targetUrn, entityService);
+    }
+  }
+
+  private static void deleteTagFromEntityProposalsAspect(Urn creator, Urn tagUrn, Urn targetUrn,
+      EntityService entityService) {
+    Proposals proposals =
+        (Proposals) getAspectFromEntity(targetUrn.toString(), PROPOSALS_ASPECT_NAME, entityService, new Proposals());
+    if (!proposals.hasProposedTags()) {
+      return;
+    }
+
+    UrnArray tagUrnArray = proposals.getProposedTags();
+    tagUrnArray.remove(tagUrn);
+    proposals.setProposedTags(tagUrnArray);
+
+    ingestEntityProposalsUpdate(creator, targetUrn, entityService, proposals);
+  }
+
+  private static void deleteTagFromSchemaProposalsAspect(Urn creator, Urn tagUrn, Urn targetUrn, String subResource,
+      EntityService entityService) {
+    SchemaProposals schemaProposals =
+        (SchemaProposals) getAspectFromEntity(targetUrn.toString(), SCHEMA_PROPOSALS_ASPECT_NAME, entityService,
+            new SchemaProposals());
+    if (!schemaProposals.hasSchemaProposals()) {
+      return;
+    }
+
+    Optional<SchemaProposal> schemaProposalOptional =
+        schemaProposals.getSchemaProposals().stream().filter(s -> s.getFieldPath().equals(subResource)).findFirst();
+    if (!schemaProposalOptional.isPresent()) {
+      return;
+    }
+
+    SchemaProposal schemaProposal = schemaProposalOptional.get();
+    UrnArray tagUrnArray = schemaProposal.getProposedSchemaTags();
+    tagUrnArray.remove(tagUrn);
+    schemaProposal.setProposedSchemaTags(tagUrnArray);
+
+    ingestSchemaProposalsUpdate(creator, targetUrn, entityService, schemaProposals);
+  }
+
+  private static void addTermToEntityProposalsAspect(Urn creator, Urn termUrn, Urn targetUrn,
+      EntityService entityService) {
+    Proposals proposals =
+        (Proposals) getAspectFromEntity(targetUrn.toString(), PROPOSALS_ASPECT_NAME, entityService, new Proposals());
+    if (!proposals.hasProposedGlossaryTerms()) {
+      proposals.setProposedGlossaryTerms(new UrnArray());
+    }
+
+    UrnArray glossaryTermUrnArray = proposals.getProposedGlossaryTerms();
+    if (glossaryTermUrnArray.stream().anyMatch(proposedGlossaryTerm -> proposedGlossaryTerm.equals(termUrn))) {
+      return;
+    }
+    glossaryTermUrnArray.add(termUrn);
+
+    ingestEntityProposalsUpdate(creator, targetUrn, entityService, proposals);
+  }
+
+  private static void addTermToSchemaProposalsAspect(Urn creator, Urn termUrn, Urn targetUrn, String subResource,
+      EntityService entityService) {
+
+    SchemaProposals schemaProposals =
+        (SchemaProposals) getAspectFromEntity(targetUrn.toString(), SCHEMA_PROPOSALS_ASPECT_NAME, entityService,
+            new SchemaProposals());
+
+    if (!schemaProposals.hasSchemaProposals()) {
+      schemaProposals.setSchemaProposals(new SchemaProposalArray());
+    }
+
+    Optional<SchemaProposal> schemaProposalOptional =
+        schemaProposals.getSchemaProposals().stream().filter(s -> s.getFieldPath().equals(subResource)).findFirst();
+
+    SchemaProposal schemaProposal;
+    if (schemaProposalOptional.isPresent()) {
+      schemaProposal = schemaProposalOptional.get();
+    } else {
+      schemaProposal = new SchemaProposal();
+      schemaProposals.getSchemaProposals().add(schemaProposal);
+    }
+    schemaProposal.setFieldPath(subResource);
+
+    if (!schemaProposal.hasProposedSchemaGlossaryTerms()) {
+      schemaProposal.setProposedSchemaGlossaryTerms(new UrnArray());
+    }
+
+    UrnArray glossaryTermUrnArray = schemaProposal.getProposedSchemaGlossaryTerms();
+    if (glossaryTermUrnArray.stream().anyMatch(proposedGlossaryTerm -> proposedGlossaryTerm.equals(termUrn))) {
+      return;
+    }
+    glossaryTermUrnArray.add(termUrn);
+
+    ingestSchemaProposalsUpdate(creator, targetUrn, entityService, schemaProposals);
+  }
+
+  public static void deleteTermFromEntityOrSchemaProposalsAspect(Urn creator, Urn termUrn, Urn targetUrn,
+      String subResource, EntityService entityService) {
+    if (subResource != null && subResource.length() > 0) {
+      deleteTermFromSchemaProposalsAspect(creator, termUrn, targetUrn, subResource, entityService);
+    } else {
+      deleteTermFromEntityProposalsAspect(creator, termUrn, targetUrn, entityService);
+    }
+  }
+
+  private static void deleteTermFromEntityProposalsAspect(Urn creator, Urn termUrn, Urn targetUrn,
+      EntityService entityService) {
+    Proposals proposals =
+        (Proposals) getAspectFromEntity(targetUrn.toString(), PROPOSALS_ASPECT_NAME, entityService, new Proposals());
+    if (!proposals.hasProposedGlossaryTerms()) {
+      return;
+    }
+
+    UrnArray glossaryTermUrnArray = proposals.getProposedGlossaryTerms();
+    glossaryTermUrnArray.remove(termUrn);
+    proposals.setProposedGlossaryTerms(glossaryTermUrnArray);
+
+    ingestEntityProposalsUpdate(creator, targetUrn, entityService, proposals);
+  }
+
+  private static void deleteTermFromSchemaProposalsAspect(Urn creator, Urn termUrn, Urn targetUrn, String subResource,
+      EntityService entityService) {
+    SchemaProposals schemaProposals =
+        (SchemaProposals) getAspectFromEntity(targetUrn.toString(), SCHEMA_PROPOSALS_ASPECT_NAME, entityService,
+            new SchemaProposals());
+    if (!schemaProposals.hasSchemaProposals()) {
+      return;
+    }
+
+    Optional<SchemaProposal> schemaProposalOptional =
+        schemaProposals.getSchemaProposals().stream().filter(s -> s.getFieldPath().equals(subResource)).findFirst();
+    if (!schemaProposalOptional.isPresent()) {
+      return;
+    }
+
+    SchemaProposal schemaProposal = schemaProposalOptional.get();
+
+    UrnArray glossaryTermUrnArray = schemaProposal.getProposedSchemaGlossaryTerms();
+    glossaryTermUrnArray.remove(termUrn);
+    schemaProposal.setProposedSchemaGlossaryTerms(glossaryTermUrnArray);
+
+    ingestSchemaProposalsUpdate(creator, targetUrn, entityService, schemaProposals);
   }
 
   private static ActionRequestSnapshot createTermProposalRequest(
