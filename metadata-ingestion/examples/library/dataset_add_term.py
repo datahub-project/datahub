@@ -25,11 +25,10 @@ graph = DataHubGraph(DatahubClientConfig(server=gms_endpoint))
 
 dataset_urn = make_dataset_urn(platform="hive", name="realestate_db.sales", env="PROD")
 
-current_terms: Optional[GlossaryTermsClass] = graph.get_aspect(
+current_terms: Optional[GlossaryTermsClass] = graph.get_aspect_v2(
     entity_urn=dataset_urn,
     aspect="glossaryTerms",
     aspect_type=GlossaryTermsClass,
-    aspect_type_name=None,
 )
 
 term_to_add = make_term_urn("Classification.HighlyConfidential")
