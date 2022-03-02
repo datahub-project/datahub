@@ -45,7 +45,7 @@ type Props = {
 
 const AVATAR_STYLE = { margin: '3px 5px 3px -4px' };
 
-const GroupName = styled.div`
+const GroupNameHeader = styled.div`
     font-size: 20px;
     line-height: 28px;
     color: #262626;
@@ -53,7 +53,12 @@ const GroupName = styled.div`
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 100px;
+    min-height: 100px;
+`;
+
+const GroupName = styled.div`
+    margin-left: 20px;
+    max-width: 240px;
 `;
 
 /**
@@ -111,16 +116,16 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
         <>
             <SideBar>
                 <SideBarSubSection className={canEditGroup ? '' : 'fullView'}>
-                    <GroupName>
+                    <GroupNameHeader>
                         <CustomAvatar
                             useDefaultAvatar={false}
-                            size={28}
+                            size={60}
                             photoUrl={photoUrl}
                             name={avatarName}
                             style={AVATAR_STYLE}
                         />
-                        {name}
-                    </GroupName>
+                        <GroupName>{name}</GroupName>
+                    </GroupNameHeader>
                     <Divider className="divider-infoSection" />
                     <SocialDetails>
                         <Space>
