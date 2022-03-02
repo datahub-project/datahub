@@ -17,11 +17,36 @@
 
 This ingestion source maps the following Source System Concepts to DataHub Concepts:
 
+<!-- Remove all unnecessary/irrevant DataHub Concepts -->
+
 | Source Concept | DataHub Concept | Notes |
 | -- | -- | -- |
-| eg. Project | eg. Container | eg. This is automatically extracted from the source |
-| eg. View | eg. Dataset | eg. This is modeled as a Dataset with a View subtype |
-| ... | | | 
+| | [Data Platform](docs/generated/metamodel/entities/dataPlatform.md) | |
+| | [Dataset](docs/generated/metamodel/entities/dataset.md) | |
+| | [Data Job](docs/generated/metamodel/entities/dataJob.md) | |
+| | [Data Flow](docs/generated/metamodel/entities/dataFlow.md) | |
+| | [Chart](docs/generated/metamodel/entities/chart.md) | |
+| | [Dashboard](docs/generated/metamodel/entities/dashboard.md) | |
+| | [User (a.k.a CorpUser)](docs/generated/metamodel/entities/corpuser.md) | |
+| | CorpGroup | |
+| | Domain | |
+| | Container | | 
+| | Tag | | 
+| | GlossaryTerm | | 
+| | GlossaryNode | | 
+| | Assertion | | 
+| | DataProcess | | 
+| | MlFeature | | 
+| | MlFeatureTable | | 
+| | MlModel | | 
+| | MlModelDeployment | | 
+| | MlPrimaryKey | | 
+| | SchemaField | | 
+| | DataHubPolicy | | 
+| | DataHubIngestionSource | | 
+| | DataHubSecret | | 
+| | DataHubExecutionRequest | | 
+| | DataHubREtention | | 
 
 ### Supported Capabilities
 

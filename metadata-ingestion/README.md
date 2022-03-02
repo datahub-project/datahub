@@ -1,16 +1,31 @@
-# Intro to Metadata Ingestion
+# Introduction to Metadata Ingestion
 
 ![Python version 3.6+](https://img.shields.io/badge/python-3.6%2B-blue)
 
-This module hosts an extensible Python-based metadata ingestion system for DataHub.
-This supports sending data to DataHub using Kafka or through the REST API.
-It can be used through our CLI tool, with an orchestrator like Airflow, or as a library.
+## Metadata Ingestion Sources
+
+We apply a Support Status to each Metadata Source to help you understand the reliability of the source at a glance
+
+![Certified](https://img.shields.io/badge/support%20status-certified-brightgreen): Certified Sources are well-tested & widely-adopted by the DataHub Community. We expect the integration to be stable with few user-facing issues. 
+![Incubating](https://img.shields.io/badge/support%20status-incubating-blue): Incubating Sources are ready for DataHub Community adoption but have not been tested for a wide variety of edge-cases. We eagerly solicit feedback from the Community to streghten the connector; minor version changes may arise in future releases.
+![Testing](https://img.shields.io/badge/support%20status-testing-lightgrey): Testing Sources are available for experiementation by DataHub Community members, but may change without notice. 
+
+
+### Supported Metadata Ingestion Sources
+
+#### Dataset Sources/SQL Sources
+
+| ![Athena](/docs-website/static/img/logos/platforms/athena.svg) ![Certified](https://img.shields.io/badge/support%20status-certified-brightgreen) | 
+
+
 
 ## Getting Started
 
 ### Prerequisites
 
 Before running any metadata ingestion job, you should make sure that DataHub backend services are all running. If you are trying this out locally check out the [CLI](../docs/cli.md) to install the CLI and understand the options available in the CLI. You can reference the CLI usage guide given there as you go through this page.
+
+### Core Concepts
 
 ## Recipes
 
