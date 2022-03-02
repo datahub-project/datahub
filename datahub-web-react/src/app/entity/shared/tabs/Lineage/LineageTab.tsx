@@ -11,6 +11,7 @@ import { getEntityPath } from '../../containers/profile/utils';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
 import { LineageTable } from './LineageTable';
 import { ImpactAnalysis } from './ImpactAnalysis';
+import { useAppConfig } from '../../../../useAppConfig';
 
 const ImpactAnalysisIcon = styled(VscGraphLeft)`
     transform: scaleX(-1);
@@ -23,6 +24,7 @@ export const LineageTab = () => {
     const entityRegistry = useEntityRegistry();
     const lineage = useLineageData();
     const [showImpactAnalysis, setShowImpactAnalysis] = useState(false);
+    const appConfig = useAppConfig();
 
     const routeToLineage = useCallback(() => {
         history.push(getEntityPath(entityType, urn, entityRegistry, true));
@@ -38,21 +40,22 @@ export const LineageTab = () => {
                         <PartitionOutlined />
                         Visualize Lineage
                     </Button>
-                    {showImpactAnalysis ? (
-                        <Button type="text" onClick={() => setShowImpactAnalysis(false)}>
-                            <span className="anticon">
-                                <BarsOutlined />
-                            </span>
-                            Direct Dependencies
-                        </Button>
-                    ) : (
-                        <Button type="text" onClick={() => setShowImpactAnalysis(true)}>
-                            <span className="anticon">
-                                <ImpactAnalysisIcon />
-                            </span>
-                            Impact Analysis
-                        </Button>
-                    )}
+                    {appConfig.config.lineageConfig.supportsMultiHop &&
+                        (showImpactAnalysis ? (
+                            <Button type="text" onClick={() => setShowImpactAnalysis(false)}>
+                                <span className="anticon">
+                                    <BarsOutlined />
+                                </span>
+                                Direct Dependencies
+                            </Button>
+                        ) : (
+                            <Button type="text" onClick={() => setShowImpactAnalysis(true)}>
+                                <span className="anticon">
+                                    <ImpactAnalysisIcon />
+                                </span>
+                                Impact Analysis
+                            </Button>
+                        ))}
                 </div>
             </TabToolbar>
             {showImpactAnalysis ? (

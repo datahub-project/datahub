@@ -23,10 +23,9 @@ const searchCsvDownloadHeader = [
 export const getSearchCsvDownloadHeader = (sampleResult?: SearchResultInterface) => {
     let result = searchCsvDownloadHeader;
 
-    // arrays are typeof 'object' in javascript :D
-    // this is checking if the path field is filled out- if it is that
+    // this is checking if the numHops field is filled out- if it is that
     // means the caller is interested in level of dependency.
-    if (typeof sampleResult?.path === 'object') {
+    if (typeof sampleResult?.numHops === 'number') {
         result = [...result, 'level of dependency'];
     }
     return result;
@@ -49,12 +48,15 @@ export const transformGenericEntityPropertiesToCsvRow = (
         // user owners
         properties?.ownership?.owners
             ?.filter((owner) => owner.owner.type === EntityType.CorpUser)
-            .map((owner) => (owner.owner as CorpUser).username)
+            .map((owner) => (owner.owner as CorpUser).properties?.fullName)
             .join(',') || '',
         // user owner emails
         properties?.ownership?.owners
             ?.filter((owner) => owner.owner.type === EntityType.CorpUser)
-            .map((owner) => (owner.owner as CorpUser).properties?.email)
+            .map(
+                (owner) =>
+                    (owner.owner as CorpUser).editableProperties?.email || (owner.owner as CorpUser).properties?.email,
+            )
             .join(',') || '',
         // group owners
         properties?.ownership?.owners
@@ -64,7 +66,9 @@ export const transformGenericEntityPropertiesToCsvRow = (
         // group owner emails
         properties?.ownership?.owners
             ?.filter((owner) => owner.owner.type === EntityType.CorpGroup)
-            .map((owner) => (owner.owner as CorpGroup).properties?.email)
+            .map(
+                (owner) => (owner.owner as CorpGroup).properties?.email || (owner.owner as CorpGroup).properties?.email,
+            )
             .join(',') || '',
         // tags
         properties?.globalTags?.tags?.map((tag) => tag.tag.name).join(',') || '',
@@ -79,9 +83,9 @@ export const transformGenericEntityPropertiesToCsvRow = (
         // entity url
         window.location.origin + entityUrl,
     ];
-    if (typeof result.path === 'object') {
+    if (typeof result.numHops === 'number') {
         // optional level of dependency
-        row = [...row, String(result?.path?.length)];
+        row = [...row, String(result?.numHops)];
     }
     return row;
 };

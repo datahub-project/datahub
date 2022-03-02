@@ -549,7 +549,7 @@ type LineageRelationship {
     """
     Optional list of entities between the source and destination node
     """
-    path: [Entity]
+    numHops: Int
 }
 
 """

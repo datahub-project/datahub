@@ -420,10 +420,7 @@ fragment searchAcrossRelationshipResults on SearchAcrossRelationshipsResults {
             text
             icon
         }
-        path {
-            type
-            urn
-        }
+        numHops
     }
     facets {
         ...facetFields

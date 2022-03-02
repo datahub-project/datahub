@@ -196,6 +196,7 @@ public class GmsGraphQLEngine {
     private final TokenService tokenService;
     private final SecretService secretService;
     private final GitVersion gitVersion;
+    private final boolean supportsMultiHop;
 
     private final IngestionConfiguration ingestionConfiguration;
 
@@ -258,7 +259,8 @@ public class GmsGraphQLEngine {
             null,
             null,
             null,
-            null);
+            null,
+            false);
     }
 
     public GmsGraphQLEngine(
@@ -272,7 +274,8 @@ public class GmsGraphQLEngine {
         final EntityRegistry entityRegistry,
         final SecretService secretService,
         final IngestionConfiguration ingestionConfiguration,
-        final GitVersion gitVersion
+        final GitVersion gitVersion,
+        final boolean supportsMultiHop
         ) {
 
         this.entityClient = entityClient;
@@ -286,6 +289,7 @@ public class GmsGraphQLEngine {
         this.secretService = secretService;
         this.entityRegistry = entityRegistry;
         this.gitVersion = gitVersion;
+        this.supportsMultiHop = supportsMultiHop;
 
         this.ingestionConfiguration = Objects.requireNonNull(ingestionConfiguration);
 
@@ -509,7 +513,7 @@ public class GmsGraphQLEngine {
     private void configureQueryResolvers(final RuntimeWiring.Builder builder) {
         builder.type("Query", typeWiring -> typeWiring
             .dataFetcher("appConfig",
-                new AppConfigResolver(gitVersion, analyticsService != null, this.ingestionConfiguration))
+                new AppConfigResolver(gitVersion, analyticsService != null, this.ingestionConfiguration, supportsMultiHop))
             .dataFetcher("me", new AuthenticatedResolver<>(
                     new MeResolver(this.entityClient)))
             .dataFetcher("search", new AuthenticatedResolver<>(

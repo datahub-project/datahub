@@ -20,7 +20,7 @@ export type SearchResultInterface = {
     insights?: Maybe<Array<SearchInsight>>;
     /** Matched field hint */
     matchedFields: Array<MatchedField>;
-    path?: Maybe<Array<Maybe<Entity>>>;
+    numHops?: Maybe<Number>;
 } & Record<string, any>;
 
 export type SearchResultsInterface = {

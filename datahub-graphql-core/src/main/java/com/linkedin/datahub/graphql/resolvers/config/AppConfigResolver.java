@@ -6,6 +6,7 @@ import com.linkedin.datahub.graphql.generated.AnalyticsConfig;
 import com.linkedin.datahub.graphql.generated.AppConfig;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.IdentityManagementConfig;
+import com.linkedin.datahub.graphql.generated.LineageConfig;
 import com.linkedin.datahub.graphql.generated.ManagedIngestionConfig;
 import com.linkedin.datahub.graphql.generated.PoliciesConfig;
 import com.linkedin.datahub.graphql.generated.Privilege;
@@ -26,11 +27,17 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
   private final GitVersion _gitVersion;
   private final boolean _isAnalyticsEnabled;
   private final IngestionConfiguration _ingestionConfiguration;
+  private final boolean _supportsMultiHop;
 
-  public AppConfigResolver(final GitVersion gitVersion, final boolean isAnalyticsEnabled, final IngestionConfiguration ingestionConfiguration) {
+  public AppConfigResolver(
+      final GitVersion gitVersion,
+      final boolean isAnalyticsEnabled,
+      final IngestionConfiguration ingestionConfiguration,
+      final boolean supportsMultiHop) {
     _gitVersion = gitVersion;
     _isAnalyticsEnabled = isAnalyticsEnabled;
     _ingestionConfiguration = ingestionConfiguration;
+    _supportsMultiHop = supportsMultiHop;
   }
 
   @Override
@@ -41,6 +48,10 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     final AppConfig appConfig = new AppConfig();
 
     appConfig.setAppVersion(_gitVersion.getVersion());
+
+    final LineageConfig lineageConfig = new LineageConfig();
+    lineageConfig.setSupportsMultiHop(_supportsMultiHop);
+    appConfig.setLineageConfig(lineageConfig);
 
     final AnalyticsConfig analyticsConfig = new AnalyticsConfig();
     analyticsConfig.setEnabled(_isAnalyticsEnabled);

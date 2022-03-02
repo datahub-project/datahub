@@ -16,6 +16,9 @@ export const DEFAULT_APP_CONFIG = {
     managedIngestionConfig: {
         enabled: false,
     },
+    lineageConfig: {
+        supportsMultiHop: false,
+    },
 };
 
 export const AppConfigContext = React.createContext<{

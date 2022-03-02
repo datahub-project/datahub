@@ -10,7 +10,6 @@ import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.metadata.graph.GraphClient;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
@@ -65,11 +64,7 @@ public class EntityLineageResultResolver implements DataFetcher<CompletableFutur
       result.setEntity(partialEntity);
     }
     result.setType(lineageRelationship.getType());
-    result.setPath(lineageRelationship.getPath()
-        .stream()
-        .map(UrnToEntityMapper::map)
-        .filter(Objects::nonNull)
-        .collect(Collectors.toList()));
+    result.setNumHops(lineageRelationship.getNumHops());
     return result;
   }
 }
