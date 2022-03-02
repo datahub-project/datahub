@@ -156,3 +156,12 @@ export const GroupsSeeMoreText = styled.span`
     color: #1890ff;
     cursor: pointer;
 `;
+
+export const DisplayCount = styled.span`
+    font-family: Manrope;
+    font-style: normal;
+    font-weight: 500;
+    font-size: 12px;
+    line-height: 20px;
+    color: #8c8c8c;
+`;

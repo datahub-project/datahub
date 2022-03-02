@@ -1,4 +1,4 @@
-import { Divider, message, Space, Button, Typography, Tag } from 'antd';
+import { Divider, message, Space, Button, Typography, Tag, Row, Col } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { EditOutlined, MailOutlined, SlackOutlined } from '@ant-design/icons';
@@ -9,6 +9,7 @@ import { EntityType, EntityRelationshipsResult, Ownership, CorpUser } from '../.
 import GroupEditModal from './GroupEditModal';
 import CustomAvatar from '../../shared/avatar/CustomAvatar';
 import { useEntityRegistry } from '../../useEntityRegistry';
+import SidebarOwnerSection from './SidebarOwnerSection';
 import {
     SideBar,
     SideBarSubSection,
@@ -21,8 +22,8 @@ import {
     TagsSection,
     Tags,
     GroupsSeeMoreText,
+    DisplayCount,
 } from '../shared/SidebarStyledComponents';
-import GroupOwnersSidebarSection from './GroupOwnersSidebarSection';
 
 const { Paragraph } = Typography;
 
@@ -34,7 +35,7 @@ type SideBarData = {
     slack: string | undefined;
     aboutText: string | undefined;
     groupMemberRelationships: EntityRelationshipsResult;
-    groupOwnership: Ownership;
+    groupOwnerShip: Ownership;
     urn: string | undefined;
 };
 
@@ -44,8 +45,13 @@ type Props = {
 };
 
 const AVATAR_STYLE = { margin: '3px 5px 3px -4px' };
+const TEXT = {
+    about: 'About',
+    members: 'Members ',
+    editGroup: 'Edit Group',
+};
 
-const GroupNameHeader = styled.div`
+const GroupName = styled.div`
     font-size: 20px;
     line-height: 28px;
     color: #262626;
@@ -53,12 +59,7 @@ const GroupNameHeader = styled.div`
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 100px;
-`;
-
-const GroupName = styled.div`
-    margin-left: 20px;
-    max-width: 240px;
+    height: 100px;
 `;
 
 /**
@@ -74,7 +75,7 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
         photoUrl,
         slack,
         urn,
-        groupOwnership: ownership,
+        groupOwnerShip: ownership,
     } = sideBarData;
     const [updateCorpGroupPropertiesMutation] = useUpdateCorpGroupPropertiesMutation();
     const entityRegistry = useEntityRegistry();
@@ -116,16 +117,16 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
         <>
             <SideBar>
                 <SideBarSubSection className={canEditGroup ? '' : 'fullView'}>
-                    <GroupNameHeader>
+                    <GroupName>
                         <CustomAvatar
                             useDefaultAvatar={false}
-                            size={60}
+                            size={28}
                             photoUrl={photoUrl}
                             name={avatarName}
                             style={AVATAR_STYLE}
                         />
-                        <GroupName>{name}</GroupName>
-                    </GroupNameHeader>
+                        {name}
+                    </GroupName>
                     <Divider className="divider-infoSection" />
                     <SocialDetails>
                         <Space>
@@ -141,7 +142,7 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                     </SocialDetails>
                     <Divider className="divider-aboutSection" />
                     <AboutSection>
-                        About
+                        {TEXT.about}
                         <AboutSectionText>
                             <Paragraph
                                 editable={canEditGroup ? { onChange: onSaveAboutMe } : false}
@@ -153,74 +154,100 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                     </AboutSection>
                     <Divider className="divider-groupsSection" />
                     <GroupsSection>
-                        <GroupOwnersSidebarSection ownership={ownership} urn={urn || ''} refetch={refetch} />
+                        <SidebarOwnerSection ownership={ownership} urn={urn || ''} refetch={refetch} />
                     </GroupsSection>
                     <Divider className="divider-groupsSection" />
                     <GroupsSection>
-                        Members
+                        {TEXT.members}
+                        <DisplayCount>{groupMemberRelationships?.relationships?.length || ''}</DisplayCount>
                         <TagsSection>
-                            {groupMemberRelationships?.relationships.length === 0 && <EmptyValue />}
-                            {!groupSectionExpanded &&
-                                groupMemberRelationships?.relationships.slice(0, 2).map((item) => {
-                                    const user = item.entity as CorpUser;
-                                    const entityUrn = entityRegistry.getEntityUrl(EntityType.CorpUser, item.entity.urn);
-                                    return (
-                                        <Link to={entityUrn} key={entityUrn}>
-                                            <Tags>
-                                                <Tag>
-                                                    <CustomAvatar
-                                                        size={20}
-                                                        photoUrl={user.editableProperties?.pictureLink || undefined}
-                                                        name={entityRegistry.getDisplayName(
-                                                            EntityType.CorpUser,
-                                                            item.entity,
-                                                        )}
-                                                        useDefaultAvatar={false}
-                                                        style={AVATAR_STYLE}
-                                                    />
-                                                    {entityRegistry.getDisplayName(EntityType.CorpUser, item.entity)}
-                                                </Tag>
-                                            </Tags>
-                                        </Link>
-                                    );
-                                })}
-                            {groupSectionExpanded &&
-                                groupMemberRelationships?.relationships.length > 2 &&
-                                groupMemberRelationships?.relationships.map((item) => {
-                                    const user = item.entity as CorpUser;
-                                    const entityUrn = entityRegistry.getEntityUrl(EntityType.CorpUser, item.entity.urn);
-                                    return (
-                                        <Link to={entityUrn} key={entityUrn}>
-                                            <Tags>
-                                                <Tag>
-                                                    <CustomAvatar
-                                                        size={20}
-                                                        photoUrl={user.editableProperties?.pictureLink || undefined}
-                                                        name={entityRegistry.getDisplayName(
-                                                            EntityType.CorpUser,
-                                                            item.entity,
-                                                        )}
-                                                        useDefaultAvatar={false}
-                                                        style={AVATAR_STYLE}
-                                                    />
-                                                    {entityRegistry.getDisplayName(EntityType.CorpUser, item.entity)}
-                                                </Tag>
-                                            </Tags>
-                                        </Link>
-                                    );
-                                })}
-                            {!groupSectionExpanded && groupMemberRelationships?.relationships.length > 2 && (
-                                <GroupsSeeMoreText onClick={() => setGroupSectionExpanded(!groupSectionExpanded)}>
-                                    {`+${groupMemberRelationships?.relationships.length - 2} more`}
-                                </GroupsSeeMoreText>
-                            )}
+                            <Row justify="start" align="middle">
+                                {groupMemberRelationships?.relationships.length === 0 && <EmptyValue />}
+                                {/* {!groupSectionExpanded &&
+                                    groupMemberRelationships?.relationships.slice(0, 1).map((item) => {
+                                        const user = item.entity as CorpUser;
+                                        const entityUrn = entityRegistry.getEntityUrl(
+                                            EntityType.CorpUser,
+                                            item.entity.urn,
+                                        );
+                                        return (
+                                            <Col key={entityUrn}>
+                                                <Link to={entityUrn}>
+                                                    <Tags>
+                                                        <Tag>
+                                                            <CustomAvatar
+                                                                size={20}
+                                                                photoUrl={
+                                                                    user.editableProperties?.pictureLink || undefined
+                                                                }
+                                                                name={entityRegistry.getDisplayName(
+                                                                    EntityType.CorpUser,
+                                                                    item.entity,
+                                                                )}
+                                                                useDefaultAvatar={false}
+                                                                style={AVATAR_STYLE}
+                                                            />
+                                                            {entityRegistry.getDisplayName(
+                                                                EntityType.CorpUser,
+                                                                item.entity,
+                                                            )}
+                                                        </Tag>
+                                                    </Tags>
+                                                </Link>
+                                            </Col>
+                                        );
+                                    })} */}
+                                {groupMemberRelationships?.relationships.length > 1 &&
+                                    groupMemberRelationships?.relationships.map((item) => {
+                                        const user = item.entity as CorpUser;
+                                        const entityUrn = entityRegistry.getEntityUrl(
+                                            EntityType.CorpUser,
+                                            item.entity.urn,
+                                        );
+                                        return (
+                                            <Col key={entityUrn}>
+                                                <Link to={entityUrn} key={entityUrn}>
+                                                    <Tags>
+                                                        <Tag>
+                                                            <CustomAvatar
+                                                                size={20}
+                                                                photoUrl={
+                                                                    user.editableProperties?.pictureLink || undefined
+                                                                }
+                                                                name={entityRegistry.getDisplayName(
+                                                                    EntityType.CorpUser,
+                                                                    item.entity,
+                                                                )}
+                                                                useDefaultAvatar={false}
+                                                                style={AVATAR_STYLE}
+                                                            />
+                                                            {entityRegistry.getDisplayName(
+                                                                EntityType.CorpUser,
+                                                                item.entity,
+                                                            )}
+                                                        </Tag>
+                                                    </Tags>
+                                                </Link>
+                                            </Col>
+                                        );
+                                    })}
+                                {!groupSectionExpanded && groupMemberRelationships?.relationships.length > 1 && (
+                                    <Col>
+                                        <GroupsSeeMoreText
+                                            onClick={() => setGroupSectionExpanded(!groupSectionExpanded)}
+                                        >
+                                            {`+${groupMemberRelationships?.relationships.length - 2} more`}
+                                        </GroupsSeeMoreText>
+                                    </Col>
+                                )}
+                            </Row>
                         </TagsSection>
                     </GroupsSection>
                 </SideBarSubSection>
                 {canEditGroup && (
                     <EditButton>
                         <Button icon={<EditOutlined />} onClick={() => showEditGroupModal(true)}>
-                            Edit Group
+                            {TEXT.editGroup}
                         </Button>
                     </EditButton>
                 )}

@@ -57,6 +57,14 @@ export default function GroupProfile() {
     const getTabs = () => {
         return [
             {
+                name: TabType.Assets,
+                path: TabType.Assets.toLocaleLowerCase(),
+                content: <GroupAssets urn={urn} />,
+                display: {
+                    enabled: () => true,
+                },
+            },
+            {
                 name: TabType.Members,
                 path: TabType.Members.toLocaleLowerCase(),
                 content: (
@@ -66,14 +74,6 @@ export default function GroupProfile() {
                         pageSize={MEMBER_PAGE_SIZE}
                     />
                 ),
-                display: {
-                    enabled: () => true,
-                },
-            },
-            {
-                name: TabType.Assets,
-                path: TabType.Assets.toLocaleLowerCase(),
-                content: <GroupAssets urn={urn} />,
                 display: {
                     enabled: () => true,
                 },
@@ -93,7 +93,7 @@ export default function GroupProfile() {
         slack: data?.corpGroup?.editableProperties?.slack || undefined,
         aboutText: data?.corpGroup?.editableProperties?.description || undefined,
         groupMemberRelationships: groupMemberRelationships as EntityRelationshipsResult,
-        groupOwnership: data?.corpGroup?.ownership as Ownership,
+        groupOwnerShip: data?.corpGroup?.ownership as Ownership,
         urn,
     };
 
@@ -117,3 +117,4 @@ export default function GroupProfile() {
         </>
     );
 }
+
