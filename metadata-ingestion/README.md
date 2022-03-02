@@ -16,16 +16,37 @@ We apply a Support Status to each Metadata Source to help you understand the rel
 
 #### Dataset Sources/SQL Sources
 
+**Option 1**
+
 | ![Certified](https://img.shields.io/badge/support%20status-certified-brightgreen) | ![Incubating](https://img.shields.io/badge/support%20status-incubating-blue) | ![Testing](https://img.shields.io/badge/support%20status-testing-lightgrey) |
 | --- | --- | --- |
 | <img src="/docs-website/static/img/logos/platforms/athena.svg" alt="Athena" width="30"/> | <img src="/docs-website/static/img/logos/platforms/elasticsearch.svg" alt="Elastic Search" width="30"/> | |
 
+**Option 2** 
+
+| Support Status | Dataset Sources/SQL Sources |
+| --- | --- |
+| ![Certified](https://img.shields.io/badge/support%20status-certified-brightgreen) | <img src="/docs-website/static/img/logos/platforms/athena.svg" alt="Athena" width="30"/> |
+| ![Incubating](https://img.shields.io/badge/support%20status-incubating-blue) | <img src="/docs-website/static/img/logos/platforms/elasticsearch.svg" alt="Elastic Search" width="30"/> |
+| ![Testing](https://img.shields.io/badge/support%20status-testing-lightgrey) | |
+
 
 #### BI Tools
+
+**Option 1**
 
 | ![Certified](https://img.shields.io/badge/support%20status-certified-brightgreen) | ![Incubating](https://img.shields.io/badge/support%20status-incubating-blue) | ![Testing](https://img.shields.io/badge/support%20status-testing-lightgrey) |
 | --- | --- | --- |
 | <img src="/docs-website/static/img/logos/platforms/looker.svg" alt="Looker" width="30"/> <img src="/docs-website/static/img/logos/platforms/superset.svg" alt="Superset" width="30"/> | <img src="/docs-website/static/img/logos/platforms/metabase.svg" alt="Metabase" width="30"/> | <img src="/docs-website/static/img/logos/platforms/tableau.png" alt="Tableau" width="30"/> |
+
+**Option 2**
+
+| Support Status | BI Tools |
+| --- | --- |
+| ![Certified](https://img.shields.io/badge/support%20status-certified-brightgreen) | <img src="/docs-website/static/img/logos/platforms/looker.svg" alt="Looker" width="30"/> <img src="/docs-website/static/img/logos/platforms/superset.svg" alt="Superset" width="30"/> |
+| ![Incubating](https://img.shields.io/badge/support%20status-incubating-blue) | <img src="/docs-website/static/img/logos/platforms/metabase.svg" alt="Metabase" width="30"/> |
+| ![Testing](https://img.shields.io/badge/support%20status-testing-lightgrey) | <img src="/docs-website/static/img/logos/platforms/tableau.png" alt="Tableau" width="30"/> |
+
 
 
 ## Getting Started
