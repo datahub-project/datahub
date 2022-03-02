@@ -58,7 +58,7 @@ You'll need to create a Kubernetes secret, then mount the file as a volume to th
 
 First, create a secret from your local `user.props` file
 
-```aidl
+```shell
 kubectl create secret generic datahub-users-secret --from-file=user.props=./<path-to-your-user.props>
 ```
 
@@ -78,6 +78,12 @@ datahub-frontend:
       subPath: user.props
 ```
 
+Note that if you update the secret you will need to restart the `datahub-frontend` pods so the changes are reflected. To update the secret in-place you can run something like this.
+
+```shell
+kubectl create secret generic datahub-users-secret --from-file=user.props=./<path-to-your-user.props> -o yaml --dry-run=client | kubectl apply -f -
+```
+
 ## URNs
 
 URNs are identifiers that uniquely identify an Entity on DataHub. The usernames defined in the `user.props` file will be used to generate the DataHub user "urn", which uniquely identifies
@@ -93,7 +99,7 @@ If you add a new username / password to the `user.props` file, no other informat
 about the user in DataHub (full name, email, bio, etc). This means that you will not be able to search to find the user.
 
 In order to add information about the user in DataHub, you can use our Python Emitter SDK to produce aspects for the CorpUser,
-where the URN will be computed as `urn:li:corpuser:<username>`, where <username> is the identifier defined in the user.props file.
+where the URN will be computed as `urn:li:corpuser:<username>`, where `<username>` is the identifier defined in the user.props file.
 
 For a more comprehensive overview of how users & groups are managed within DataHub, check out [this video](https://www.youtube.com/watch?v=8Osw6p9vDYY).
 

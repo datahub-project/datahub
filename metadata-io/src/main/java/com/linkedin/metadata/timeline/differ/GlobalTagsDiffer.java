@@ -118,7 +118,7 @@ public class GlobalTagsDiffer implements Differ {
         .equals(GLOBAL_TAGS_ASPECT_NAME)) {
       throw new IllegalArgumentException("Aspect is not " + GLOBAL_TAGS_ASPECT_NAME);
     }
-    assert (currentValue != null);
+
     GlobalTags baseGlobalTags = getGlobalTagsFromAspect(previousValue);
     GlobalTags targetGlobalTags = getGlobalTagsFromAspect(currentValue);
     List<ChangeEvent> changeEvents = new ArrayList<>();

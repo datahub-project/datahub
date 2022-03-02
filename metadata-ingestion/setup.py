@@ -99,6 +99,10 @@ snowflake_common = {
     "cryptography",
 }
 
+microsoft_common = {
+    "msal==1.16.0"
+}
+
 data_lake_base = {
     *aws_common,
     "parse>=1.19.0",
@@ -182,6 +186,7 @@ plugins: Dict[str, Set[str]] = {
     "trino": sql_common | {"trino"},
     "starburst-trino-usage": sql_common | {"trino"},
     "nifi": {"requests", "packaging"},
+    "powerbi": {"orderedset"} | microsoft_common
 }
 
 all_exclude_plugins: Set[str] = {
@@ -259,6 +264,7 @@ base_dev_requirements = {
             "trino",
             "hive",
             "starburst-trino-usage",
+            "powerbi"
             # airflow is added below
         ]
         for dependency in plugins[plugin]
@@ -375,6 +381,7 @@ entry_points = {
         "trino = datahub.ingestion.source.sql.trino:TrinoSource",
         "starburst-trino-usage = datahub.ingestion.source.usage.starburst_trino_usage:TrinoUsageSource",
         "nifi = datahub.ingestion.source.nifi:NifiSource",
+        "powerbi = datahub.ingestion.source.powerbi:PowerBiDashboardSource",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",
