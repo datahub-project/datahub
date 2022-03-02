@@ -31,12 +31,13 @@ from datahub.metadata.schema_classes import (
     AssertionResultTypeClass,
     AssertionRunEventClass,
     AssertionRunStatusClass,
+    AssertionStdParameterClass,
+    AssertionStdParametersClass,
     AssertionTypeClass,
     BatchSpecClass,
     DataPlatformInstanceClass,
     DatasetAssertionInfoClass,
     DatasetAssertionScopeClass,
-    DatasetRowsAssertionClass,
     PartitionSpecClass,
 )
 
@@ -168,26 +169,30 @@ def test_DatahubValidationAction_basic(
                 MetadataChangeProposalWrapper(
                     entityType="assertion",
                     changeType="UPSERT",
-                    entityUrn="urn:li:assertion:e7299c1e76b53a263d89729862437802",
+                    entityUrn="urn:li:assertion:8f25f50da43bf7434137dd5ab6fbdb09",
                     aspectName="assertionInfo",
                     aspect=AssertionInfoClass(
                         type=AssertionTypeClass.DATASET,
                         customProperties={"expectation_suite_name": "asset.default"},
                         datasetAssertion=DatasetAssertionInfoClass(
                             scope=DatasetAssertionScopeClass.DATASET_ROWS,
-                            datasets=[
-                                "urn:li:dataset:(urn:li:dataPlatform:postgres,test.public.foo2,PROD)"
-                            ],
-                            rowsAssertion=DatasetRowsAssertionClass(
-                                stdOperator="BETWEEN",
-                                nativeType="expect_table_row_count_to_be_between",
-                                stdAggFunc="ROW_COUNT",
+                            dataset="urn:li:dataset:(urn:li:dataPlatform:postgres,test.public.foo2,PROD)",
+                            operator="BETWEEN",
+                            nativeType="expect_table_row_count_to_be_between",
+                            aggregation="ROW_COUNT",
+                            parameters=AssertionStdParametersClass(
+                                maxValue=AssertionStdParameterClass(
+                                    value="10000", type="STRING"
+                                ),
+                                minValue=AssertionStdParameterClass(
+                                    value="10000", type="STRING"
+                                ),
                             ),
+                            nativeParameters={
+                                "max_value": "10000",
+                                "min_value": "10000",
+                            },
                         ),
-                        parameters={
-                            "max_value": "10000",
-                            "min_value": "10000",
-                        },
                     ),
                 ),
             ),
@@ -196,10 +201,10 @@ def test_DatahubValidationAction_basic(
                 MetadataChangeProposalWrapper(
                     entityType="assertion",
                     changeType="UPSERT",
-                    entityUrn="urn:li:assertion:e7299c1e76b53a263d89729862437802",
+                    entityUrn="urn:li:assertion:8f25f50da43bf7434137dd5ab6fbdb09",
                     aspectName="dataPlatformInstance",
                     aspect=DataPlatformInstanceClass(
-                        platform="urn:li:dataPlatform:greatExpectations"
+                        platform="urn:li:dataPlatform:great-expectations"
                     ),
                 ),
             ),
@@ -208,18 +213,18 @@ def test_DatahubValidationAction_basic(
                 MetadataChangeProposalWrapper(
                     entityType="assertion",
                     changeType="UPSERT",
-                    entityUrn="urn:li:assertion:e7299c1e76b53a263d89729862437802",
+                    entityUrn="urn:li:assertion:8f25f50da43bf7434137dd5ab6fbdb09",
                     entityKeyAspect=None,
                     aspectName="assertionRunEvent",
                     aspect=AssertionRunEventClass(
-                        timestampMillis=1640701702000,
+                        timestampMillis=mock.ANY,
                         runId="2021-12-28T14:28:22Z",
                         partitionSpec=PartitionSpecClass(
                             type="FULL_TABLE",
                             partition="FULL_TABLE_SNAPSHOT",
                             timePartition=None,
                         ),
-                        assertionUrn="urn:li:assertion:e7299c1e76b53a263d89729862437802",
+                        assertionUrn="urn:li:assertion:8f25f50da43bf7434137dd5ab6fbdb09",
                         asserteeUrn="urn:li:dataset:(urn:li:dataPlatform:postgres,test.public.foo2,PROD)",
                         batchSpec=BatchSpecClass(
                             customProperties={"data_asset_name": "foo2"},

@@ -9,12 +9,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
     AssertionResultType,
     AssertionRunEvent,
     AssertionRunStatus,
-    DatasetAssertionScope,
+    AssertionStdAggregation,
     AssertionStdOperator,
     AssertionType,
     DatasetAssertionInfo,
-    DatasetColumnAssertion,
-    DatasetColumnStdAggFunc,
+    DatasetAssertionScope,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.events.metadata import ChangeType
 from datahub.metadata.schema_classes import AssertionRunEventClass, PartitionSpecClass
@@ -51,15 +50,13 @@ assertion_maxVal = AssertionInfo(
     type=AssertionType.DATASET,
     datasetAssertion=DatasetAssertionInfo(
         scope=DatasetAssertionScope.DATASET_COLUMN,
-        columnAssertion=DatasetColumnAssertion(
-            stdOperator=AssertionStdOperator.LESS_THAN,
-            nativeType="column_value_is_less_than",
-            stdAggFunc=DatasetColumnStdAggFunc.IDENTITY,
-        ),
+        operator=AssertionStdOperator.LESS_THAN,
+        nativeType="column_value_is_less_than",
+        aggregation=AssertionStdAggregation.IDENTITY,
         fields=[fldUrn("bazTable", "col1")],
-        datasets=[datasetUrn("bazTable")],
+        dataset=datasetUrn("bazTable"),
+        nativeParameters={"max_value": "99"},
     ),
-    parameters={"max_value": "99"},
     customProperties={"suite_name": "demo_suite"},
 )
 

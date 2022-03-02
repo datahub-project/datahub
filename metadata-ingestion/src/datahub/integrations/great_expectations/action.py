@@ -1,5 +1,7 @@
+import json
 import logging
 import time
+from dataclasses import dataclass
 from datetime import timezone
 from typing import Any, Dict, List, Optional, Union
 
@@ -35,17 +37,15 @@ from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
     AssertionResultType,
     AssertionRunEvent,
     AssertionRunStatus,
+    AssertionStdAggregation,
     AssertionStdOperator,
+    AssertionStdParameter,
+    AssertionStdParameters,
+    AssertionStdParameterType,
     AssertionType,
     BatchSpec,
     DatasetAssertionInfo,
     DatasetAssertionScope,
-    DatasetColumnAssertion,
-    DatasetColumnStdAggFunc,
-    DatasetRowsAssertion,
-    DatasetRowsStdAggFunc,
-    DatasetSchemaAssertion,
-    DatasetSchemaStdAggFunc,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import DataPlatformInstance
 from datahub.metadata.com.linkedin.pegasus2avro.events.metadata import ChangeType
@@ -53,6 +53,8 @@ from datahub.metadata.schema_classes import PartitionSpecClass, PartitionTypeCla
 from datahub.utilities.sql_parser import MetadataSQLSQLParser
 
 logger = logging.getLogger(__name__)
+
+GE_PLATFORM_NAME = "great-expectations"
 
 
 class DatahubValidationAction(ValidationAction):
@@ -189,7 +191,7 @@ class DatahubValidationAction(ValidationAction):
     ):
 
         dataPlatformInstance = DataPlatformInstance(
-            platform=builder.make_data_platform_urn("greatExpectations")
+            platform=builder.make_data_platform_urn(GE_PLATFORM_NAME)
         )
         docs_link = None
         if payload:
@@ -226,23 +228,21 @@ class DatahubValidationAction(ValidationAction):
             assertionUrn = builder.make_assertion_urn(
                 builder.datahub_guid(
                     {
-                        "platform": dataPlatformInstance.platform,
-                        "datasets": assertion_datasets,
-                        "fields": assertion_fields,
+                        "platform": GE_PLATFORM_NAME,
                         "nativeType": expectation_type,
-                        "parameters": kwargs,
+                        "nativeParameters": kwargs,
+                        "dataset": assertion_datasets[0],
+                        "fields": assertion_fields,
                     }
                 )
             )
             assertionInfo: AssertionInfo = self.get_assertion_info(
-                expectation_type, kwargs
+                expectation_type,
+                kwargs,
+                assertion_datasets[0],
+                assertion_fields,
+                expectation_suite_name,
             )
-            assertionInfo.datasetAssertion.datasets = assertion_datasets  # type:ignore
-            assertionInfo.datasetAssertion.fields = assertion_fields  # type:ignore
-
-            assertionInfo.customProperties = {
-                "expectation_suite_name": expectation_suite_name
-            }
 
             # TODO: Understand why their run time is incorrect.
             run_time = run_id.run_time.astimezone(timezone.utc)
@@ -269,30 +269,30 @@ class DatahubValidationAction(ValidationAction):
                 else None
             )
 
-            for dset in datasets:
-                # https://docs.greatexpectations.io/docs/reference/expectations/result_format/
-                assertionResult = AssertionRunEvent(
-                    timestampMillis=int(round(time.time() * 1000)),
-                    assertionUrn=assertionUrn,
-                    asserteeUrn=dset["dataset_urn"],
-                    runId=run_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                    result=AssertionResult(
-                        type=AssertionResultType.SUCCESS
-                        if success
-                        else AssertionResultType.FAILURE,
-                        rowCount=result.get("element_count"),
-                        missingCount=result.get("missing_count"),
-                        unexpectedCount=result.get("unexpected_count"),
-                        actualAggValue=actualAggValue,
-                        externalUrl=docs_link,
-                        nativeResults=nativeResults,
-                    ),
-                    batchSpec=dset["batchSpec"],
-                    status=AssertionRunStatus.COMPLETE,
-                )
-                if dset.get("partitionSpec") is not None:
-                    assertionResult.partitionSpec = dset.get("partitionSpec")
-                assertionResults.append(assertionResult)
+            dset = datasets[0]
+            # https://docs.greatexpectations.io/docs/reference/expectations/result_format/
+            assertionResult = AssertionRunEvent(
+                timestampMillis=int(round(time.time() * 1000)),
+                assertionUrn=assertionUrn,
+                asserteeUrn=dset["dataset_urn"],
+                runId=run_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                result=AssertionResult(
+                    type=AssertionResultType.SUCCESS
+                    if success
+                    else AssertionResultType.FAILURE,
+                    rowCount=result.get("element_count"),
+                    missingCount=result.get("missing_count"),
+                    unexpectedCount=result.get("unexpected_count"),
+                    actualAggValue=actualAggValue,
+                    externalUrl=docs_link,
+                    nativeResults=nativeResults,
+                ),
+                batchSpec=dset["batchSpec"],
+                status=AssertionRunStatus.COMPLETE,
+            )
+            if dset.get("partitionSpec") is not None:
+                assertionResult.partitionSpec = dset.get("partitionSpec")
+            assertionResults.append(assertionResult)
 
             assertions_withresults.append(
                 {
@@ -304,198 +304,217 @@ class DatahubValidationAction(ValidationAction):
             )
         return assertions_withresults
 
-    def get_assertion_info(self, expectation_type, kwargs):
+    def get_assertion_info(
+        self, expectation_type, kwargs, dataset, fields, expectation_suite_name
+    ):
 
-        column_expectations = {
+        # TODO - can we find exact type of min and max value
+        def get_min_max(kwargs):
+            return AssertionStdParameters(
+                minValue=AssertionStdParameter(
+                    value=json.dumps(kwargs.get("min_value")),
+                    type=AssertionStdParameterType.STRING,
+                ),
+                maxValue=AssertionStdParameter(
+                    value=json.dumps(kwargs.get("max_value")),
+                    type=AssertionStdParameterType.STRING,
+                ),
+            )
+
+        known_expectations: dict[str, DatahubStdAssertion] = {
             # column aggregate expectations
-            "expect_column_min_to_be_between": DatasetColumnAssertion(
-                stdOperator=AssertionStdOperator.BETWEEN,
-                nativeType=expectation_type,
-                stdAggFunc=DatasetColumnStdAggFunc.MIN,
+            "expect_column_min_to_be_between": DatahubStdAssertion(
+                scope=DatasetAssertionScope.DATASET_COLUMN,
+                operator=AssertionStdOperator.BETWEEN,
+                aggregation=AssertionStdAggregation.MIN,
+                parameters=get_min_max(kwargs),
             ),
-            "expect_column_max_to_be_between": DatasetColumnAssertion(
-                stdOperator=AssertionStdOperator.BETWEEN,
-                nativeType=expectation_type,
-                stdAggFunc=DatasetColumnStdAggFunc.MAX,
+            "expect_column_max_to_be_between": DatahubStdAssertion(
+                scope=DatasetAssertionScope.DATASET_COLUMN,
+                operator=AssertionStdOperator.BETWEEN,
+                aggregation=AssertionStdAggregation.MAX,
+                parameters=get_min_max(kwargs),
             ),
-            "expect_column_median_to_be_between": DatasetColumnAssertion(
-                stdOperator=AssertionStdOperator.BETWEEN,
-                nativeType=expectation_type,
-                stdAggFunc=DatasetColumnStdAggFunc.MEDIAN,
+            "expect_column_median_to_be_between": DatahubStdAssertion(
+                scope=DatasetAssertionScope.DATASET_COLUMN,
+                operator=AssertionStdOperator.BETWEEN,
+                aggregation=AssertionStdAggregation.MEDIAN,
+                parameters=get_min_max(kwargs),
             ),
-            "expect_column_stdev_to_be_between": DatasetColumnAssertion(
-                stdOperator=AssertionStdOperator.BETWEEN,
-                nativeType=expectation_type,
-                stdAggFunc=DatasetColumnStdAggFunc.STDDEV,
+            "expect_column_stdev_to_be_between": DatahubStdAssertion(
+                scope=DatasetAssertionScope.DATASET_COLUMN,
+                operator=AssertionStdOperator.BETWEEN,
+                aggregation=AssertionStdAggregation.STDDEV,
+                parameters=get_min_max(kwargs),
             ),
-            "expect_column_mean_to_be_between": DatasetColumnAssertion(
-                stdOperator=AssertionStdOperator.BETWEEN,
-                nativeType=expectation_type,
-                stdAggFunc=DatasetColumnStdAggFunc.MEAN,
+            "expect_column_mean_to_be_between": DatahubStdAssertion(
+                scope=DatasetAssertionScope.DATASET_COLUMN,
+                operator=AssertionStdOperator.BETWEEN,
+                aggregation=AssertionStdAggregation.MEAN,
+                parameters=get_min_max(kwargs),
             ),
-            "expect_column_unique_value_count_to_be_between": DatasetColumnAssertion(
-                stdOperator=AssertionStdOperator.BETWEEN,
-                nativeType=expectation_type,
-                stdAggFunc=DatasetColumnStdAggFunc.UNIQUE_COUNT,
+            "expect_column_unique_value_count_to_be_between": DatahubStdAssertion(
+                scope=DatasetAssertionScope.DATASET_COLUMN,
+                operator=AssertionStdOperator.BETWEEN,
+                aggregation=AssertionStdAggregation.UNIQUE_COUNT,
+                parameters=get_min_max(kwargs),
             ),
-            "expect_column_proportion_of_unique_values_to_be_between": DatasetColumnAssertion(
-                stdOperator=AssertionStdOperator.BETWEEN,
-                nativeType=expectation_type,
-                stdAggFunc=DatasetColumnStdAggFunc.UNIQUE_PROPOTION,
+            "expect_column_proportion_of_unique_values_to_be_between": DatahubStdAssertion(
+                scope=DatasetAssertionScope.DATASET_COLUMN,
+                operator=AssertionStdOperator.BETWEEN,
+                aggregation=AssertionStdAggregation.UNIQUE_PROPOTION,
+                parameters=get_min_max(kwargs),
             ),
-            "expect_column_sum_to_be_between": DatasetColumnAssertion(
-                stdOperator=AssertionStdOperator.BETWEEN,
-                nativeType=expectation_type,
-                stdAggFunc=DatasetColumnStdAggFunc.SUM,
+            "expect_column_sum_to_be_between": DatahubStdAssertion(
+                scope=DatasetAssertionScope.DATASET_COLUMN,
+                operator=AssertionStdOperator.BETWEEN,
+                aggregation=AssertionStdAggregation.SUM,
+                parameters=get_min_max(kwargs),
             ),
-            "expect_column_quantile_values_to_be_between": DatasetColumnAssertion(
-                stdOperator=AssertionStdOperator.BETWEEN,
-                nativeType=expectation_type,
-                stdAggFunc=DatasetColumnStdAggFunc._NATIVE_,
+            "expect_column_quantile_values_to_be_between": DatahubStdAssertion(
+                scope=DatasetAssertionScope.DATASET_COLUMN,
+                operator=AssertionStdOperator.BETWEEN,
+                aggregation=AssertionStdAggregation._NATIVE_,
             ),
             # column map expectations
-            "expect_column_values_to_not_be_null": DatasetColumnAssertion(
-                stdOperator=AssertionStdOperator.NOT_NULL,
-                nativeType=expectation_type,
-                stdAggFunc=DatasetColumnStdAggFunc.IDENTITY,
-            ),
-            "expect_column_values_to_be_in_set": DatasetColumnAssertion(
-                stdOperator=AssertionStdOperator.IN,
-                nativeType=expectation_type,
-                stdAggFunc=DatasetColumnStdAggFunc.IDENTITY,
-            ),
-            "expect_column_values_to_be_between": DatasetColumnAssertion(
-                stdOperator=AssertionStdOperator.BETWEEN,
-                nativeType=expectation_type,
-                stdAggFunc=DatasetColumnStdAggFunc.IDENTITY,
-            ),
-            "expect_column_values_to_match_regex": DatasetColumnAssertion(
-                stdOperator=AssertionStdOperator.REGEX_MATCH,
-                nativeType=expectation_type,
-                stdAggFunc=DatasetColumnStdAggFunc.IDENTITY,
-            ),
-            "expect_column_values_to_match_regex_list": DatasetColumnAssertion(
-                stdOperator=AssertionStdOperator.REGEX_MATCH,
-                nativeType=expectation_type,
-                stdAggFunc=DatasetColumnStdAggFunc.IDENTITY,
-            ),
-        }
-
-        table_schema_expectations = {
-            "expect_table_columns_to_match_ordered_list": DatasetSchemaAssertion(
-                stdOperator=AssertionStdOperator.EQUAL_TO,
-                nativeType=expectation_type,
-                stdAggFunc=DatasetSchemaStdAggFunc.COLUMNS,
-            ),
-            "expect_table_columns_to_match_set": DatasetSchemaAssertion(
-                stdOperator=AssertionStdOperator.EQUAL_TO,
-                nativeType=expectation_type,
-                stdAggFunc=DatasetSchemaStdAggFunc.COLUMNS,
-            ),
-            "expect_table_column_count_to_be_between": DatasetSchemaAssertion(
-                stdOperator=AssertionStdOperator.BETWEEN,
-                nativeType=expectation_type,
-                stdAggFunc=DatasetSchemaStdAggFunc.COLUMN_COUNT,
-            ),
-            "expect_table_column_count_to_equal": DatasetSchemaAssertion(
-                stdOperator=AssertionStdOperator.EQUAL_TO,
-                nativeType=expectation_type,
-                stdAggFunc=DatasetSchemaStdAggFunc.COLUMN_COUNT,
-            ),
-            "expect_column_to_exist": DatasetSchemaAssertion(
-                stdOperator=AssertionStdOperator._NATIVE_,
-                nativeType=expectation_type,
-                stdAggFunc=DatasetSchemaStdAggFunc._NATIVE_,
-            ),
-        }
-
-        table_expectations = {
-            "expect_table_row_count_to_equal": DatasetRowsAssertion(
-                stdOperator=AssertionStdOperator.EQUAL_TO,
-                nativeType=expectation_type,
-                stdAggFunc=DatasetRowsStdAggFunc.ROW_COUNT,
-            ),
-            "expect_table_row_count_to_be_between": DatasetRowsAssertion(
-                stdOperator=AssertionStdOperator.BETWEEN,
-                nativeType=expectation_type,
-                stdAggFunc=DatasetRowsStdAggFunc.ROW_COUNT,
-            ),
-        }
-
-        if expectation_type in column_expectations.keys():
-            datasetAssertionInfo = DatasetAssertionInfo(
+            "expect_column_values_to_not_be_null": DatahubStdAssertion(
                 scope=DatasetAssertionScope.DATASET_COLUMN,
-                columnAssertion=column_expectations[expectation_type],
-            )
-        elif expectation_type in table_schema_expectations.keys():
-            datasetAssertionInfo = DatasetAssertionInfo(
+                operator=AssertionStdOperator.NOT_NULL,
+                aggregation=AssertionStdAggregation.IDENTITY,
+            ),
+            "expect_column_values_to_be_in_set": DatahubStdAssertion(
+                scope=DatasetAssertionScope.DATASET_COLUMN,
+                operator=AssertionStdOperator.IN,
+                aggregation=AssertionStdAggregation.IDENTITY,
+                parameters=AssertionStdParameters(
+                    value=AssertionStdParameter(
+                        value=json.dumps(kwargs.get("value_set")),
+                        type=AssertionStdParameterType.SET,
+                    )
+                ),
+            ),
+            "expect_column_values_to_be_between": DatahubStdAssertion(
+                scope=DatasetAssertionScope.DATASET_COLUMN,
+                operator=AssertionStdOperator.BETWEEN,
+                aggregation=AssertionStdAggregation.IDENTITY,
+                parameters=get_min_max(kwargs),
+            ),
+            "expect_column_values_to_match_regex": DatahubStdAssertion(
+                scope=DatasetAssertionScope.DATASET_COLUMN,
+                operator=AssertionStdOperator.REGEX_MATCH,
+                aggregation=AssertionStdAggregation.IDENTITY,
+                parameters=AssertionStdParameters(
+                    value=AssertionStdParameter(
+                        value=kwargs.get("regex"),
+                        type=AssertionStdParameterType.STRING,
+                    )
+                ),
+            ),
+            "expect_column_values_to_match_regex_list": DatahubStdAssertion(
+                scope=DatasetAssertionScope.DATASET_COLUMN,
+                operator=AssertionStdOperator.REGEX_MATCH,
+                aggregation=AssertionStdAggregation.IDENTITY,
+                parameters=AssertionStdParameters(
+                    value=AssertionStdParameter(
+                        value=json.dumps(kwargs.get("regex_list")),
+                        type=AssertionStdParameterType.LIST,
+                    )
+                ),
+            ),
+            "expect_table_columns_to_match_ordered_list": DatahubStdAssertion(
                 scope=DatasetAssertionScope.DATASET_SCHEMA,
-                schemaAssertion=table_schema_expectations[expectation_type],
-            )
-        elif expectation_type in table_expectations.keys():
-            datasetAssertionInfo = DatasetAssertionInfo(
+                operator=AssertionStdOperator.EQUAL_TO,
+                aggregation=AssertionStdAggregation.COLUMNS,
+                parameters=AssertionStdParameters(
+                    value=AssertionStdParameter(
+                        value=json.dumps(kwargs.get("column_list")),
+                        type=AssertionStdParameterType.LIST,
+                    )
+                ),
+            ),
+            "expect_table_columns_to_match_set": DatahubStdAssertion(
+                scope=DatasetAssertionScope.DATASET_SCHEMA,
+                operator=AssertionStdOperator.EQUAL_TO,
+                aggregation=AssertionStdAggregation.COLUMNS,
+                parameters=AssertionStdParameters(
+                    value=AssertionStdParameter(
+                        value=json.dumps(kwargs.get("column_set")),
+                        type=AssertionStdParameterType.SET,
+                    )
+                ),
+            ),
+            "expect_table_column_count_to_be_between": DatahubStdAssertion(
+                scope=DatasetAssertionScope.DATASET_SCHEMA,
+                operator=AssertionStdOperator.BETWEEN,
+                aggregation=AssertionStdAggregation.COLUMN_COUNT,
+                parameters=get_min_max(kwargs),
+            ),
+            "expect_table_column_count_to_equal": DatahubStdAssertion(
+                scope=DatasetAssertionScope.DATASET_SCHEMA,
+                operator=AssertionStdOperator.EQUAL_TO,
+                aggregation=AssertionStdAggregation.COLUMN_COUNT,
+                parameters=AssertionStdParameters(
+                    value=AssertionStdParameter(
+                        value=json.dumps(kwargs.get("value")),
+                        type=AssertionStdParameterType.NUMBER,
+                    )
+                ),
+            ),
+            "expect_column_to_exist": DatahubStdAssertion(
+                scope=DatasetAssertionScope.DATASET_SCHEMA,
+                operator=AssertionStdOperator._NATIVE_,
+                aggregation=AssertionStdAggregation._NATIVE_,
+            ),
+            "expect_table_row_count_to_equal": DatahubStdAssertion(
                 scope=DatasetAssertionScope.DATASET_ROWS,
-                rowsAssertion=table_expectations[expectation_type],
-            )
+                operator=AssertionStdOperator.EQUAL_TO,
+                aggregation=AssertionStdAggregation.ROW_COUNT,
+                parameters=AssertionStdParameters(
+                    value=AssertionStdParameter(
+                        value=json.dumps(kwargs.get("value")),
+                        type=AssertionStdParameterType.NUMBER,
+                    )
+                ),
+            ),
+            "expect_table_row_count_to_be_between": DatahubStdAssertion(
+                scope=DatasetAssertionScope.DATASET_ROWS,
+                operator=AssertionStdOperator.BETWEEN,
+                aggregation=AssertionStdAggregation.ROW_COUNT,
+                parameters=get_min_max(kwargs),
+            ),
+        }
+
+        datasetAssertionInfo = DatasetAssertionInfo(
+            dataset=dataset,
+            operator=AssertionStdOperator._NATIVE_,
+            aggregation=AssertionStdAggregation._NATIVE_,
+            nativeType=expectation_type,
+            nativeParameters={k: json.dumps(v) for k, v in kwargs.items()},
+            scope=DatasetAssertionScope.DATASET_ROWS,
+        )
+
+        if expectation_type in known_expectations.keys():
+            assertion = known_expectations[expectation_type]
+            datasetAssertionInfo.scope = assertion.scope
+            datasetAssertionInfo.aggregation = assertion.aggregation
+            datasetAssertionInfo.operator = assertion.operator
+            datasetAssertionInfo.parameters = assertion.parameters
+
         # Heuristically mapping other expectations
         else:
             if "column" in kwargs and expectation_type.startswith(
                 "expect_column_value"
             ):
-                datasetAssertionInfo = DatasetAssertionInfo(
-                    scope=DatasetAssertionScope.DATASET_COLUMN,
-                    columnAssertion=DatasetColumnAssertion(
-                        stdOperator=AssertionStdOperator._NATIVE_,
-                        nativeType=expectation_type,
-                        stdAggFunc=DatasetColumnStdAggFunc.IDENTITY,
-                    ),
-                )
+                datasetAssertionInfo.scope = DatasetAssertionScope.DATASET_COLUMN
+                datasetAssertionInfo.aggregation = AssertionStdAggregation.IDENTITY
             elif "column" in kwargs:
-                datasetAssertionInfo = DatasetAssertionInfo(
-                    scope=DatasetAssertionScope.DATASET_COLUMN,
-                    columnAssertion=DatasetColumnAssertion(
-                        stdOperator=AssertionStdOperator._NATIVE_,
-                        nativeType=expectation_type,
-                        stdAggFunc=DatasetColumnStdAggFunc._NATIVE_,
-                    ),
-                )
-            else:
-                datasetAssertionInfo = DatasetAssertionInfo(
-                    scope=DatasetAssertionScope.DATASET_ROWS,
-                    rowsAssertion=DatasetRowsAssertion(
-                        stdOperator=AssertionStdOperator._NATIVE_,
-                        nativeType=expectation_type,
-                        stdAggFunc=DatasetRowsStdAggFunc._NATIVE_,
-                    ),
-                )
-
-        # 1. keys `max_val`, `min_val` for to_be_between expectations,
-        # except for expect_column_quantile_values_to_be_between having `quantile_ranges`
-        # 2. key `value` for singular equal_to, to_be_in_set etc expectations
-        # 3. other keys may also be present for unhandled native expectations
-        datasetAssertionParameters = {
-            (
-                "value"
-                if k
-                in [
-                    "values",
-                    "value_set",
-                    "values_set",
-                    "column_list",
-                    "column_set",
-                    "regex",
-                    "regex_list",
-                ]
-                else k
-            ): str(v)
-            for k, v in kwargs.items()
-            if k not in ["column"]
-        }
+                datasetAssertionInfo.scope = DatasetAssertionScope.DATASET_COLUMN
+                datasetAssertionInfo.aggregation = AssertionStdAggregation._NATIVE_
 
         return AssertionInfo(
             type=AssertionType.DATASET,
             datasetAssertion=datasetAssertionInfo,
-            parameters=datasetAssertionParameters,
+            customProperties={"expectation_suite_name": expectation_suite_name},
         )
 
     def get_dataset_partitions(self, batch_identifier, data_asset):
@@ -535,7 +554,9 @@ class DatahubValidationAction(ValidationAction):
                     and splitter_method != "_split_on_whole_table"
                 ):
                     batch_identifiers = ge_batch_spec.get("batch_identifiers", {})
-                    partitionSpec = PartitionSpecClass(partition=str(batch_identifiers))
+                    partitionSpec = PartitionSpecClass(
+                        partition=json.dumps(batch_identifiers)
+                    )
                 sampling_method = ge_batch_spec.get("sampling_method", "")
                 if sampling_method == "_sample_using_limit":
                     batchSpec.limit = ge_batch_spec["sampling_kwargs"]["n"]
@@ -642,3 +663,11 @@ def make_dataset_urn(sqlalchemy_uri, schema_name, table_name, env):
         platform=data_platform, name=dataset_name, env=env
     )
     return dataset_urn
+
+
+@dataclass
+class DatahubStdAssertion:
+    scope: Union[str, DatasetAssertionScope]
+    operator: Union[str, AssertionStdOperator]
+    aggregation: Union[str, AssertionStdAggregation]
+    parameters: Optional[AssertionStdParameters] = None
