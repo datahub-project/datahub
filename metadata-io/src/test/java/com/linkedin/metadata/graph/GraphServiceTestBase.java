@@ -27,6 +27,7 @@ import java.util.stream.IntStream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.testng.Assert;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -153,7 +154,7 @@ abstract public class GraphServiceTestBase {
       return Duration.ofMinutes(1);
   }
 
-  @BeforeTest
+  @BeforeMethod
   public void disableAssert() {
     PathSpecBasedSchemaAnnotationVisitor.class.getClassLoader()
         .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
