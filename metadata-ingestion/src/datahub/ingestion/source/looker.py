@@ -1,3 +1,9 @@
+import sys
+
+# restrict python to <=3.9.9 due to https://github.com/looker-open-source/sdk-codegen/issues/944
+if (sys.version_info.major, sys.version_info.minor, sys.version_info.micro) > (3, 9, 9):
+    raise Exception("Looker module can only run on python <= 3.9.9")
+
 import concurrent.futures
 import datetime
 import json
