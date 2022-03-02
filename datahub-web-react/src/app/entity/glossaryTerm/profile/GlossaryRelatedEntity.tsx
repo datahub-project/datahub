@@ -14,7 +14,7 @@ export default function GlossaryRelatedEntity() {
     const glossaryTermHierarchicalName = entityData?.hierarchicalName;
     const entitySearchResult = useGetEntitySearchResults(
         {
-            query: `glossaryTerms:"${glossaryTermHierarchicalName}" OR fieldGlossaryTerms:"${glossaryTermHierarchicalName}" OR editedFieldGlossaryTerms:"${glossaryTermHierarchicalName}"`,
+            query: `glossaryTerms:(${glossaryTermHierarchicalName}) OR fieldGlossaryTerms:(${glossaryTermHierarchicalName}) OR editedFieldGlossaryTerms:(${glossaryTermHierarchicalName})`,
         },
         searchTypes,
     );

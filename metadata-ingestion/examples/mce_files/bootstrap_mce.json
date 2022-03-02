@@ -2857,6 +2857,41 @@
         },
       "proposedDelta": null
 	},
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
+        "urn": "urn:li:glossaryTerm:Customer Thing.Customer Account",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
+              "definition": "account that represents an identified, named collection of balances and cumulative totals used to summarize customer transaction-related activity over a designated period of time",
+              "parentNode": "urn:li:glossaryNode:Customer Thing",
+              "sourceRef": "FIBO",
+              "termSource": "EXTERNAL",
+              "sourceUrl": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/CustomerAccount",
+              "customProperties": {
+                "FQDN": "CustomerAccount"
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [{
+                "owner": "urn:li:corpuser:jdoe",
+                "type": "DATAOWNER"
+              }],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
 	{
       "auditHeader": null,
       "proposedSnapshot": {
@@ -2930,7 +2965,7 @@
       "auditHeader": null,
       "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryNodeSnapshot": {
-          "urn": "urn:li:glossaryNode:ClientsAndAccounts",
+          "urn": "urn:li:glossaryNode:Customer Thing",
           "aspects": [{
             "com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo": {
               "definition": "Provides basic concepts such as account, account holder, account provider, relationship manager that are commonly used by financial services providers to describe customers and to determine counterparty identities"
