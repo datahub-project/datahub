@@ -9,7 +9,6 @@ import { EntityType, EntityRelationshipsResult, Ownership, CorpUser } from '../.
 import GroupEditModal from './GroupEditModal';
 import CustomAvatar from '../../shared/avatar/CustomAvatar';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import SidebarOwnerSection from './SidebarOwnerSection';
 import {
     SideBar,
     SideBarSubSection,
@@ -23,6 +22,7 @@ import {
     Tags,
     GroupsSeeMoreText,
 } from '../shared/SidebarStyledComponents';
+import GroupOwnersSidebarSection from './GroupOwnersSidebarSection';
 
 const { Paragraph } = Typography;
 
@@ -34,7 +34,7 @@ type SideBarData = {
     slack: string | undefined;
     aboutText: string | undefined;
     groupMemberRelationships: EntityRelationshipsResult;
-    groupOwnerShip: Ownership;
+    groupOwnership: Ownership;
     urn: string | undefined;
 };
 
@@ -69,7 +69,7 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
         photoUrl,
         slack,
         urn,
-        groupOwnerShip: ownership,
+        groupOwnership: ownership,
     } = sideBarData;
     const [updateCorpGroupPropertiesMutation] = useUpdateCorpGroupPropertiesMutation();
     const entityRegistry = useEntityRegistry();
@@ -148,7 +148,7 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                     </AboutSection>
                     <Divider className="divider-groupsSection" />
                     <GroupsSection>
-                        <SidebarOwnerSection ownership={ownership} urn={urn || ''} refetch={refetch} />
+                        <GroupOwnersSidebarSection ownership={ownership} urn={urn || ''} refetch={refetch} />
                     </GroupsSection>
                     <Divider className="divider-groupsSection" />
                     <GroupsSection>

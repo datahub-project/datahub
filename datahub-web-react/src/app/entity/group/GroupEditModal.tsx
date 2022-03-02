@@ -102,19 +102,19 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                     hasFeedback
                 >
                     <Input
-                        placeholder="john.smith@example.com"
+                        placeholder="engineering@example.com"
                         value={data.email}
                         onChange={(event) => setData({ ...data, email: event.target.value })}
                     />
                 </Form.Item>
                 <Form.Item
                     name="slack"
-                    label={<Typography.Text strong>Slack</Typography.Text>}
+                    label={<Typography.Text strong>Slack Channel</Typography.Text>}
                     rules={[{ whitespace: true }, { min: 2, max: 50 }]}
                     hasFeedback
                 >
                     <Input
-                        placeholder="john_smith"
+                        placeholder="#engineering"
                         value={data.slack}
                         onChange={(event) => setData({ ...data, slack: event.target.value })}
                     />

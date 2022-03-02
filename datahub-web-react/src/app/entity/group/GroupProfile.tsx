@@ -93,7 +93,7 @@ export default function GroupProfile() {
         slack: data?.corpGroup?.editableProperties?.slack || undefined,
         aboutText: data?.corpGroup?.editableProperties?.description || undefined,
         groupMemberRelationships: groupMemberRelationships as EntityRelationshipsResult,
-        groupOwnerShip: data?.corpGroup?.ownership as Ownership,
+        groupOwnership: data?.corpGroup?.ownership as Ownership,
         urn,
     };
 

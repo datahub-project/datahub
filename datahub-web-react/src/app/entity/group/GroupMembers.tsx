@@ -46,6 +46,7 @@ const MemberNameSection = styled.div`
     display: flex;
     align-items: center;
     justify-content: start;
+    padding-left: 12px;
 `;
 
 const GroupMemberWrapper = styled.div`
@@ -72,6 +73,7 @@ const Name = styled.span`
     font-size: 14px;
     line-height: 22px;
     color: #262626;
+    margin-left: 8px;
 `;
 
 export default function GroupMembers({ urn, initialRelationships, pageSize }: Props) {
