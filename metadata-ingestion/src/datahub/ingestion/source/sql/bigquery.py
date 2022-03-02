@@ -292,9 +292,10 @@ class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
 
     @pydantic.validator("platform_instance")
     def bigquery_doesnt_need_platform_instance(cls, v):
-        raise ConfigurationError(
-            "BigQuery project ids are globally unique. You do not need to specify a platform instance."
-        )
+        if v is not None:
+            raise ConfigurationError(
+                "BigQuery project ids are globally unique. You do not need to specify a platform instance."
+            )
 
     @pydantic.validator("platform")
     def platform_is_always_bigquery(cls, v):
