@@ -4,11 +4,10 @@ import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from hashlib import md5
-from typing import Any, Dict, Generator, Iterable, List, Optional, Type
-
+from typing import Any, Dict, Generator, Iterable, List, Optional, Type, Union
 from elasticsearch import Elasticsearch
 from pydantic import validator
-
+from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.configuration.source_common import DatasetSourceConfigBase
 from datahub.emitter.mce_builder import (
@@ -17,6 +16,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -229,10 +229,15 @@ class ElasticsearchSource(Source):
             self.report.report_index_scanned(index)
 
             if self.source_config.index_pattern.allowed(index):
-                for mcp in self._extract_mcps(index):
-                    wu = MetadataWorkUnit(id=f"index-{index}", mcp=mcp)
-                    self.report.report_workunit(wu)
-                    yield wu
+                for mc in self._extract_mcps(index):
+                    if isinstance(mc, MetadataChangeProposalWrapper):
+                        wu = MetadataWorkUnit(id=f"index-mcp-{index}", mcp=mc)
+                        self.report.report_workunit(wu)
+                        yield wu
+                    if isinstance(mc, MetadataChangeEvent):
+                        wu = MetadataWorkUnit(id=f"index-mce-{index}", mce=mc)
+                        self.report.report_workunit(wu)
+                        yield wu
             else:
                 self.report.report_dropped(index)
 
@@ -261,7 +266,7 @@ class ElasticsearchSource(Source):
                 changeType=ChangeTypeClass.UPSERT,
             )
 
-    def _extract_mcps(self, index: str) -> Iterable[MetadataChangeProposalWrapper]:
+    def _extract_mcps(self, index: str) -> Iterable[Union[MetadataChangeProposalWrapper, MetadataChangeEvent]]:
         logger.debug(f"index = {index}")
         raw_index = self.client.indices.get(index=index)
         raw_index_metadata = raw_index[index]
@@ -275,13 +280,25 @@ class ElasticsearchSource(Source):
                 # This is a duplicate, skip processing it further.
                 return
 
-        # 1. Construct and emit the schemaMetadata aspect
+        # 1. Construct the schemaMetadata aspect
         # 1.1 Generate the schema fields from ES mappings.
         index_mappings = raw_index_metadata["mappings"]
         index_mappings_json_str: str = json.dumps(index_mappings)
         md5_hash = md5(index_mappings_json_str.encode()).hexdigest()
         schema_fields = list(
             ElasticToSchemaFieldConverter.get_schema_fields(index_mappings)
+        )
+
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=index,
+            platform_instance=self.source_config.platform_instance,
+            env=self.source_config.env
+        )
+
+        dataset_snapshot = DatasetSnapshot(
+            urn=dataset_urn,
+            aspects=[],
         )
 
         # 1.2 Generate the SchemaMetadata aspect
@@ -293,32 +310,34 @@ class ElasticsearchSource(Source):
             platformSchema=OtherSchemaClass(rawSchema=index_mappings_json_str),
             fields=schema_fields,
         )
+        dataset_snapshot.aspects.append(schema_metadata)
 
-        # 1.3 Emit the mcp
-        dataset_urn: str = make_dataset_urn_with_platform_instance(
-            platform=self.platform,
-            name=index,
-            platform_instance=self.source_config.platform_instance,
-            env=self.source_config.env,
+        # 2. Construct the status aspect.
+        status_class = StatusClass(
+            removed=False
         )
-        yield MetadataChangeProposalWrapper(
-            entityType="dataset",
-            entityUrn=dataset_urn,
-            aspectName="schemaMetadata",
-            aspect=schema_metadata,
-            changeType=ChangeTypeClass.UPSERT,
-        )
+        dataset_snapshot.aspects.append(status_class)
 
-        # 2. Construct and emit the status aspect.
-        yield MetadataChangeProposalWrapper(
-            entityType="dataset",
-            entityUrn=dataset_urn,
-            aspectName="status",
-            aspect=StatusClass(removed=False),
-            changeType=ChangeTypeClass.UPSERT,
-        )
+        # 3. Construct properties if needed
+        index_aliases = raw_index_metadata.get("aliases", {}).keys()
+        if index_aliases:
+            properties = DatasetPropertiesClass(
+                    customProperties={"aliases": ",".join(index_aliases)}
 
-        # 3. Construct and emit subtype
+            )
+            dataset_snapshot.aspects.append(properties)
+
+        # 4. Construct platform instance aspect
+        if self.source_config.platform_instance:
+            data_platform_instance = DataPlatformInstanceClass(
+                platform=make_data_platform_urn(self.platform),
+                instance=make_dataplatform_instance_urn(
+                    self.platform, self.source_config.platform_instance
+                )
+            )
+            dataset_snapshot.aspects.append(data_platform_instance)
+
+        # 5. Construct and emit subtype
         yield MetadataChangeProposalWrapper(
             entityType="dataset",
             entityUrn=dataset_urn,
@@ -329,33 +348,10 @@ class ElasticsearchSource(Source):
             changeType=ChangeTypeClass.UPSERT,
         )
 
-        # 4. Construct and emit properties if needed
-        index_aliases = raw_index_metadata.get("aliases", {}).keys()
-        if index_aliases:
-            yield MetadataChangeProposalWrapper(
-                entityType="dataset",
-                entityUrn=dataset_urn,
-                aspectName="datasetProperties",
-                aspect=DatasetPropertiesClass(
-                    customProperties={"aliases": ",".join(index_aliases)}
-                ),
-                changeType=ChangeTypeClass.UPSERT,
-            )
-
-        # 5. Construct and emit platform instance aspect
-        if self.source_config.platform_instance:
-            yield MetadataChangeProposalWrapper(
-                entityType="dataset",
-                entityUrn=dataset_urn,
-                aspectName="dataPlatformInstance",
-                aspect=DataPlatformInstanceClass(
-                    platform=make_data_platform_urn(self.platform),
-                    instance=make_dataplatform_instance_urn(
-                        self.platform, self.source_config.platform_instance
-                    ),
-                ),
-                changeType=ChangeTypeClass.UPSERT,
-            )
+        # 6. Emit dataset mce
+        yield MetadataChangeEvent(
+            proposedSnapshot=dataset_snapshot
+        )
 
     def get_report(self):
         return self.report
