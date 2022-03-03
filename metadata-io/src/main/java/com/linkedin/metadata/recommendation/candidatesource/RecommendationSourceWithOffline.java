@@ -20,7 +20,7 @@ public interface RecommendationSourceWithOffline extends RecommendationSource {
   /**
    * Whether or not to fetch recommendations from offline source
    */
-  boolean fetchOffline();
+  boolean shouldFetchFromOffline();
 
   /**
    * Get the recommendation module urn given the input userUrn and request context to be used when fetching recommendation module offline
@@ -42,7 +42,7 @@ public interface RecommendationSourceWithOffline extends RecommendationSource {
     }
 
     // If fetch offline is set, fetch the module based on the returned urn
-    if (fetchOffline()) {
+    if (shouldFetchFromOffline()) {
       EnvelopedAspect moduleAspect;
       try {
         moduleAspect = getEntityService().getLatestEnvelopedAspect(Constants.RECOMMENDATION_MODULE_ENTITY_NAME,

@@ -74,7 +74,7 @@ public class TopTermsSource extends EntitySearchAggregationSource implements Rec
   }
 
   @Override
-  public boolean fetchOffline() {
+  public boolean shouldFetchFromOffline() {
     return _fetchOffline;
   }
 

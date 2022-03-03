@@ -145,7 +145,7 @@ public class MostPopularSource implements RecommendationSourceWithOffline {
   }
 
   @Override
-  public boolean fetchOffline() {
+  public boolean shouldFetchFromOffline() {
     return _fetchOffline;
   }
 

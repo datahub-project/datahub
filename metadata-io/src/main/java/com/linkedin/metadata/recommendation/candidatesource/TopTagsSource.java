@@ -74,7 +74,7 @@ public class TopTagsSource extends EntitySearchAggregationSource implements Reco
   }
 
   @Override
-  public boolean fetchOffline() {
+  public boolean shouldFetchFromOffline() {
     return _fetchOffline;
   }
 
