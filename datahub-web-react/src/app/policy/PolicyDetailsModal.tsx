@@ -2,16 +2,21 @@ import React from 'react';
 import { Button, Col, Divider, Modal, Row, Tag, Typography } from 'antd';
 import styled from 'styled-components';
 import { useEntityRegistry } from '../useEntityRegistry';
-import { EntityType, PolicyState, PolicyType } from '../../types.generated';
+import { EntityType, Maybe, PolicyState, PolicyType } from '../../types.generated';
 import { useAppConfig } from '../useAppConfig';
 import { mapResourceTypeToDisplayName } from './policyUtils';
 import { CustomAvatar } from '../shared/avatar';
+
+type PrivilegeOptionType = {
+    type?: string;
+    name?: Maybe<string>;
+};
 
 type Props = {
     policy: any;
     visible: boolean;
     onClose: () => void;
-    privileges: any;
+    privileges: PrivilegeOptionType[] | undefined;
 };
 
 const PolicyContainer = styled.div`
@@ -121,7 +126,7 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
                     <Typography.Title level={5}>Privileges</Typography.Title>
                     <ThinDivider />
                     {privileges?.map((priv) => (
-                        <PrivilegeTag>{priv.name}</PrivilegeTag>
+                        <PrivilegeTag>{priv?.name}</PrivilegeTag>
                     ))}
                 </Privileges>
                 <div>

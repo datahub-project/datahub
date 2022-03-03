@@ -44,10 +44,6 @@ const PaginationContainer = styled.div`
     display: flex;
     justify-content: center;
 `;
-const ActionButtonContainer = styled.div`
-    display: flex;
-    justify-content: right;
-`;
 
 const PolicyName = styled.span`
     cursor: pointer;
@@ -67,6 +63,16 @@ const ActorTag = styled(Tag)`
         align-items: center;
     }
 `;
+
+const ActionButtonContainer = styled.div`
+    display: flex;
+    justify-content: right;
+`;
+
+const EditPolicyButton = styled(Button)`
+    margin-right: 16px;
+`;
+
 const DEFAULT_PAGE_SIZE = 10;
 
 type PrivilegeOptionType = {
@@ -123,8 +129,7 @@ export const PoliciesPage = () => {
     const [focusPolicyUrn, setFocusPolicyUrn] = useState<undefined | string>(undefined);
     const [focusPolicy, setFocusPolicy] = useState<Omit<Policy, 'urn'>>(EMPTY_POLICY);
 
-    // Construct privilege
-    const [privileges, setPrivileges] = useState<PrivilegeOptionType[] | undefined>([]);
+    // Construct privileges
     const platformPrivileges = policiesConfig?.platformPrivileges || [];
     const resourcePrivileges = policiesConfig?.resourcePrivileges || [];
 
@@ -173,13 +178,12 @@ export const PoliciesPage = () => {
         setShowPolicyBuilderModal(false);
     };
 
-    const getPrivileges = (policy: Policy) => {
+    const getPrivilegeNames = (policy: Omit<Policy, 'urn'>) => {
         let privilegeOptions: PrivilegeOptionType[] = [];
         if (policy?.type === PolicyType.Platform) {
             privilegeOptions = platformPrivileges.map((platformPrivilege) => {
                 return { type: platformPrivilege.type, name: platformPrivilege.displayName };
             });
-            setPrivileges(privilegeOptions);
         } else {
             const privilegeData = resourcePrivileges.filter(
                 (resourcePrivilege) => resourcePrivilege.resourceType === policy?.resources?.type,
@@ -189,15 +193,14 @@ export const PoliciesPage = () => {
                 privilegeData[0]?.privileges.map((b) => {
                     return { type: b.type, name: b.displayName };
                 });
-            setPrivileges(privilegeOptions);
         }
+        return privilegeOptions;
     };
 
     const onViewPolicy = (policy: Policy) => {
         setShowViewPolicyModal(true);
         setFocusPolicyUrn(policy.urn);
         setFocusPolicy({ ...policy });
-        getPrivileges(policy);
     };
 
     const onCancelViewPolicy = () => {
@@ -344,13 +347,9 @@ export const PoliciesPage = () => {
             key: 'x',
             render: (_, record: any) => (
                 <ActionButtonContainer>
-                    <Button
-                        disabled={!record?.editable}
-                        style={{ marginRight: 16 }}
-                        onClick={() => onEditPolicy(record?.policy)}
-                    >
+                    <EditPolicyButton disabled={!record?.editable} onClick={() => onEditPolicy(record?.policy)}>
                         EDIT
-                    </Button>
+                    </EditPolicyButton>
                     {record?.state === PolicyState.Active ? (
                         <Button
                             disabled={!record?.editable}
@@ -384,7 +383,6 @@ export const PoliciesPage = () => {
 
     const tableData = policies?.map((policy) => ({
         urn: policy?.urn,
-        policy,
         name: policy?.name,
         type: policy?.type,
         description: policy?.description,
@@ -407,7 +405,7 @@ export const PoliciesPage = () => {
                 <PoliciesHeaderContainer>
                     <PoliciesTitle level={2}>Manage Policies</PoliciesTitle>
                     <Typography.Paragraph type="secondary">
-                        Manage access for users & groups of DataHub using Policies.
+                        Manage access for Users & Groups of DataHub using Policies.
                     </Typography.Paragraph>
                 </PoliciesHeaderContainer>
             </PoliciesContainer>
@@ -454,7 +452,7 @@ export const PoliciesPage = () => {
                     policy={focusPolicy}
                     visible={showViewPolicyModal}
                     onClose={onCancelViewPolicy}
-                    privileges={privileges}
+                    privileges={getPrivilegeNames(focusPolicy)}
                 />
             )}
         </SearchablePage>
