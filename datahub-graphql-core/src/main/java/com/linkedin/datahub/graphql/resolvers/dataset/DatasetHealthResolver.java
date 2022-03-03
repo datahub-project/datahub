@@ -44,7 +44,6 @@ import lombok.AllArgsConstructor;
  * Currently, the health status is calculated via the validation on a Dataset. If there are no validations found, the
  * health status will be undefined for the Dataset.
  *
- * TODO: We should consider caching the
  */
 public class DatasetHealthResolver implements DataFetcher<CompletableFuture<Health>> {
 
