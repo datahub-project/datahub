@@ -104,14 +104,18 @@ public class ConstraintUtils {
     }
 
     Container container = (Container) getAspectFromEntity(urn, CONTAINER_ASPECT_NAME, entityService, new Container());
-    Urn containerUrn = container.getContainer();
-    Pair<Boolean, String> containerConstraintSatisfied =
-        isEntityGlossaryTermConstraintSatisfied(containerUrn.toString(), entityClient, authentication, constraintInfo);
-    if (containerConstraintSatisfied.getFirst()) {
-      return Pair.of(true,
-          String.format("Constraint requiring %s is satisfied by the container Glossary Term %s", glossaryNode,
-              containerConstraintSatisfied.getSecond()));
+    if (container != null && container.hasContainer()) {
+      Urn containerUrn = container.getContainer();
+      Pair<Boolean, String> containerConstraintSatisfied =
+          isEntityGlossaryTermConstraintSatisfied(containerUrn.toString(), entityClient, authentication,
+              constraintInfo);
+      if (containerConstraintSatisfied.getFirst()) {
+        return Pair.of(true,
+            String.format("Constraint requiring %s is satisfied by the container Glossary Term %s", glossaryNode,
+                containerConstraintSatisfied.getSecond()));
+      }
     }
+
     return Pair.of(false, "");
   }
 
