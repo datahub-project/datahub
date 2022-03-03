@@ -31,6 +31,11 @@ enum FabricType {
   EI
   
   /**
+   * Designates pre-production fabrics
+   */
+  PRE
+  
+  /**
    * Designates staging fabrics
    */
   STG

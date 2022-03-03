@@ -1,4 +1,4 @@
-# OIDC Authentication in React
+# OIDC Authentication
 
 The DataHub React application supports OIDC authentication built on top of the [Pac4j Play](https://github.com/pac4j/play-pac4j) library. 
 This enables operators of DataHub to integrate with 3rd party identity providers like Okta, Google, Keycloak, & more to authenticate their users.
