@@ -24,7 +24,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
@@ -234,8 +233,8 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
     assertEquals(relationships.get(dataJobTwoUrn).getNumHops().intValue(), 1);
 
     upstreamLineage = service.getLineage(datasetThreeUrn, LineageDirection.UPSTREAM, 0, 1000, 2);
-    assertEquals(upstreamLineage.getTotal().intValue(), 2);
-    assertEquals(upstreamLineage.getRelationships().size(), 2);
+    assertEquals(upstreamLineage.getTotal().intValue(), 3);
+    assertEquals(upstreamLineage.getRelationships().size(), 3);
     relationships = upstreamLineage.getRelationships().stream().collect(Collectors.toMap(LineageRelationship::getEntity,
         Function.identity()));
     assertTrue(relationships.containsKey(datasetOneUrn));
@@ -244,15 +243,6 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
     assertEquals(relationships.get(datasetTwoUrn).getNumHops().intValue(), 1);
     assertTrue(relationships.containsKey(dataJobOneUrn));
     assertEquals(relationships.get(dataJobOneUrn).getNumHops().intValue(), 1);
-    assertEquals(upstreamLineage.getRelationships()
-            .stream()
-            .sorted(Comparator.comparing(Object::toString))
-            .collect(Collectors.toList()),
-        Stream.of(new LineageRelationship().setEntity(datasetTwoUrn).setType(downstreamOf).setNumHops(2),
-            new LineageRelationship().setEntity(datasetTwoUrn).setType(downstreamOf),
-            new LineageRelationship().setEntity(dataJobOneUrn).setType(produces))
-            .sorted(Comparator.comparing(Object::toString))
-            .collect(Collectors.toList()));
 
     downstreamLineage = service.getLineage(datasetThreeUrn, LineageDirection.DOWNSTREAM, 0, 1000, 2);
     assertEquals(downstreamLineage.getTotal().intValue(), 0);

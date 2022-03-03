@@ -63,9 +63,9 @@ public class LineageRegistry {
     return entityRegistry.getEntitySpecs()
         .keySet()
         .stream()
-        .collect(Collectors.toMap(Function.identity(), entityName -> new LineageSpec(
-            new ArrayList<>(upstreamPerEntity.getOrDefault(entityName, Collections.emptySet())),
-            new ArrayList<>(downstreamPerEntity.getOrDefault(entityName, Collections.emptySet())))));
+        .collect(Collectors.toMap(String::toLowerCase, entityName -> new LineageSpec(
+            new ArrayList<>(upstreamPerEntity.getOrDefault(entityName.toLowerCase(), Collections.emptySet())),
+            new ArrayList<>(downstreamPerEntity.getOrDefault(entityName.toLowerCase(), Collections.emptySet())))));
   }
 
   private Stream<LineageEdge> getLineageEdgesFromRelationshipAnnotation(String sourceEntity,
@@ -79,7 +79,7 @@ public class LineageRegistry {
   }
 
   public LineageSpec getLineageSpec(String entityName) {
-    return _lineageSpecMap.get(entityName);
+    return _lineageSpecMap.get(entityName.toLowerCase());
   }
 
   public List<EdgeInfo> getLineageRelationships(String entityName, LineageDirection direction) {

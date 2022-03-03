@@ -112,7 +112,7 @@ public interface GraphService {
           edgesByDirection.get(true).stream().map(LineageRegistry.EdgeInfo::getType).collect(Collectors.toList());
       // Fetch outgoing edges
       RelatedEntitiesResult outgoingEdges =
-          findRelatedEntities("", newFilter("urn", entityUrn.toString()), "", QueryUtils.EMPTY_FILTER,
+          findRelatedEntities(null, newFilter("urn", entityUrn.toString()), null, QueryUtils.EMPTY_FILTER,
               relationshipTypes, newRelationshipFilter(QueryUtils.EMPTY_FILTER, RelationshipDirection.OUTGOING), offset,
               count);
 
@@ -137,7 +137,7 @@ public interface GraphService {
       List<String> relationshipTypes =
           edgesByDirection.get(false).stream().map(LineageRegistry.EdgeInfo::getType).collect(Collectors.toList());
       RelatedEntitiesResult incomingEdges =
-          findRelatedEntities("", newFilter("urn", entityUrn.toString()), "", QueryUtils.EMPTY_FILTER,
+          findRelatedEntities(null, newFilter("urn", entityUrn.toString()), null, QueryUtils.EMPTY_FILTER,
               relationshipTypes, newRelationshipFilter(QueryUtils.EMPTY_FILTER, RelationshipDirection.INCOMING), offset,
               count);
       result.setTotal(result.getTotal() + incomingEdges.getTotal());
