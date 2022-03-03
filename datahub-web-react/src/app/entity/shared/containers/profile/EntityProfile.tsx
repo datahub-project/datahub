@@ -56,6 +56,7 @@ const ContentContainer = styled.div`
 const HeaderAndTabs = styled.div`
     flex-basis: 70%;
     min-width: 640px;
+    height: 100%;
 `;
 const HeaderAndTabsFlex = styled.div`
     display: flex;
@@ -244,7 +245,7 @@ export const EntityProfile = <T, U>({
                             defaultSize={window.innerWidth - 400}
                             resizerStyle={resizerStyles}
                             style={{
-                                height: 'auto',
+                                height: '100%',
                                 overflow: 'auto',
                             }}
                         >
