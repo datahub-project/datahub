@@ -1,15 +1,14 @@
-import { Divider, message, Space, Button, Typography, Tag, Row, Col } from 'antd';
+import { Divider, message, Space, Button, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { EditOutlined, MailOutlined, SlackOutlined } from '@ant-design/icons';
-import { Link, useHistory, useRouteMatch } from 'react-router-dom';
+import { useHistory, useRouteMatch } from 'react-router-dom';
 import { useUpdateCorpGroupPropertiesMutation } from '../../../graphql/group.generated';
-import { EntityType, EntityRelationshipsResult, Ownership, CorpUser } from '../../../types.generated';
+import { EntityRelationshipsResult, Ownership } from '../../../types.generated';
 
 import GroupEditModal from './GroupEditModal';
 import CustomAvatar from '../../shared/avatar/CustomAvatar';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import SidebarOwnerSection from './SidebarOwnerSection';
+import GroupOwnerSideBarSection from './GroupOwnerSideBarSection';
 import {
     SideBar,
     SideBarSubSection,
@@ -19,11 +18,8 @@ import {
     AboutSection,
     AboutSectionText,
     GroupsSection,
-    TagsSection,
-    Tags,
-    GroupsSeeMoreText,
-    DisplayCount,
 } from '../shared/SidebarStyledComponents';
+import GroupMembersSideBarSection from './GroupMembersSideBarSection';
 
 const { Paragraph } = Typography;
 
@@ -44,22 +40,28 @@ type Props = {
     refetch: () => Promise<any>;
 };
 
-const AVATAR_STYLE = { margin: '3px 5px 3px -4px' };
-const TEXT = {
+const AVATAR_STYLE = { margin: '3px 5px 3px 0px' };
+
+const TITLES = {
     about: 'About',
     members: 'Members ',
     editGroup: 'Edit Group',
 };
 
-const GroupName = styled.div`
+const GroupNameHeader = styled.div`
     font-size: 20px;
     line-height: 28px;
     color: #262626;
-    margin: 13px 0 7px 0;
+    margin: 16px 16px 8px 8px;
     display: flex;
     align-items: center;
-    justify-content: center;
-    height: 100px;
+    justify-content: left;
+    min-height: 100px;
+`;
+
+const GroupName = styled.div`
+    margin-left: 12px;
+    max-width: 260px;
 `;
 
 /**
@@ -78,7 +80,6 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
         groupOwnerShip: ownership,
     } = sideBarData;
     const [updateCorpGroupPropertiesMutation] = useUpdateCorpGroupPropertiesMutation();
-    const entityRegistry = useEntityRegistry();
     const { url } = useRouteMatch();
     const history = useHistory();
 
@@ -118,16 +119,16 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
         <>
             <SideBar>
                 <SideBarSubSection className={canEditGroup ? '' : 'fullView'}>
-                    <GroupName>
+                    <GroupNameHeader>
                         <CustomAvatar
                             useDefaultAvatar={false}
-                            size={28}
+                            size={64}
                             photoUrl={photoUrl}
                             name={avatarName}
                             style={AVATAR_STYLE}
                         />
-                        {name}
-                    </GroupName>
+                        <GroupName>{name}</GroupName>
+                    </GroupNameHeader>
                     <Divider className="divider-infoSection" />
                     <SocialDetails>
                         <Space>
@@ -143,7 +144,7 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                     </SocialDetails>
                     <Divider className="divider-aboutSection" />
                     <AboutSection>
-                        {TEXT.about}
+                        {TITLES.about}
                         <AboutSectionText>
                             <Paragraph
                                 editable={canEditGroup ? { onChange: onSaveAboutMe } : false}
@@ -155,64 +156,21 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                     </AboutSection>
                     <Divider className="divider-groupsSection" />
                     <GroupsSection>
-                        <SidebarOwnerSection ownership={ownership} urn={urn || ''} refetch={refetch} />
+                        <GroupOwnerSideBarSection ownership={ownership} urn={urn || ''} refetch={refetch} />
                     </GroupsSection>
                     <Divider className="divider-groupsSection" />
                     <GroupsSection>
-                        {TEXT.members}
-                        <DisplayCount>{groupMemberRelationships?.relationships?.length || ''}</DisplayCount>
-                        <TagsSection>
-                            <Row justify="start" align="middle">
-                                {groupMemberRelationships?.relationships.length === 0 && <EmptyValue />}
-                                {groupMemberRelationships?.relationships.length > 1 &&
-                                    groupMemberRelationships?.relationships.map((item) => {
-                                        const user = item.entity as CorpUser;
-                                        const entityUrn = entityRegistry.getEntityUrl(
-                                            EntityType.CorpUser,
-                                            item.entity.urn,
-                                        );
-                                        return (
-                                            <Col key={entityUrn}>
-                                                <Link to={entityUrn} key={entityUrn}>
-                                                    <Tags>
-                                                        <Tag>
-                                                            <CustomAvatar
-                                                                size={20}
-                                                                photoUrl={
-                                                                    user.editableProperties?.pictureLink || undefined
-                                                                }
-                                                                name={entityRegistry.getDisplayName(
-                                                                    EntityType.CorpUser,
-                                                                    item.entity,
-                                                                )}
-                                                                useDefaultAvatar={false}
-                                                                style={AVATAR_STYLE}
-                                                            />
-                                                            {entityRegistry.getDisplayName(
-                                                                EntityType.CorpUser,
-                                                                item.entity,
-                                                            )}
-                                                        </Tag>
-                                                    </Tags>
-                                                </Link>
-                                            </Col>
-                                        );
-                                    })}
-                                {groupMemberRelationships?.relationships.length > 15 && (
-                                    <Col>
-                                        <GroupsSeeMoreText onClick={() => history.push(`${url}/members`)}>
-                                            {`+${groupMemberRelationships?.relationships.length - 15} more`}
-                                        </GroupsSeeMoreText>
-                                    </Col>
-                                )}
-                            </Row>
-                        </TagsSection>
+                        <GroupMembersSideBarSection
+                            total={groupMemberRelationships?.total || 0}
+                            relationships={groupMemberRelationships?.relationships || []}
+                            onSeeMore={() => history.push(`${url}/members`)}
+                        />
                     </GroupsSection>
                 </SideBarSubSection>
                 {canEditGroup && (
                     <EditButton>
                         <Button icon={<EditOutlined />} onClick={() => showEditGroupModal(true)}>
-                            {TEXT.editGroup}
+                            {TITLES.editGroup}
                         </Button>
                     </EditButton>
                 )}

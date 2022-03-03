@@ -1,5 +1,5 @@
-import { Alert, Col, Row } from 'antd';
 import React from 'react';
+import { Alert, Col, Row } from 'antd';
 import styled from 'styled-components';
 import { useGetGroupQuery } from '../../../graphql/group.generated';
 import useUserParams from '../../shared/entitySearch/routingUtils/useUserParams';
@@ -20,7 +20,7 @@ export enum TabType {
 
 const ENABLED_TAB_TYPES = [TabType.Assets, TabType.Members];
 
-const MEMBER_PAGE_SIZE = 20;
+const MEMBER_PAGE_SIZE = 15;
 
 /**
  * Styled Components
@@ -70,8 +70,10 @@ export default function GroupProfile() {
                 content: (
                     <GroupMembers
                         urn={urn}
-                        initialRelationships={groupMemberRelationships}
                         pageSize={MEMBER_PAGE_SIZE}
+                        onChangeMembers={() => {
+                            setTimeout(() => refetch(), 2000);
+                        }}
                     />
                 ),
                 display: {

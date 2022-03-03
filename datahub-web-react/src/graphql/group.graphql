@@ -64,6 +64,9 @@ query getGroupMembers($urn: String!, $start: Int!, $count: Int!) {
                             lastName
                             fullName
                         }
+                        properties {
+                            displayName
+                        }
                         editableInfo {
                             displayName
                             pictureLink

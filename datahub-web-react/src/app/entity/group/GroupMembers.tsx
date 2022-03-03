@@ -1,19 +1,13 @@
-import { MoreOutlined, UserAddOutlined, UserDeleteOutlined } from '@ant-design/icons';
-import { Col, Dropdown, Menu, message, Modal, Pagination, Row } from 'antd';
 import React, { useState } from 'react';
+import { MoreOutlined, UserAddOutlined, UserDeleteOutlined } from '@ant-design/icons';
+import { Col, Dropdown, Menu, message, Modal, Pagination, Row, Empty } from 'antd';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { useGetGroupMembersLazyQuery, useRemoveGroupMembersMutation } from '../../../graphql/group.generated';
-import { CorpUser, EntityRelationshipsResult, EntityType } from '../../../types.generated';
+import { useGetGroupMembersQuery, useRemoveGroupMembersMutation } from '../../../graphql/group.generated';
+import { CorpUser, EntityType } from '../../../types.generated';
 import { CustomAvatar } from '../../shared/avatar';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { AddGroupMembersModal } from './AddGroupMembersModal';
-
-type Props = {
-    urn: string;
-    initialRelationships?: EntityRelationshipsResult | null;
-    pageSize: number;
-};
 
 const ADD_MEMBER_STYLE = {
     backGround: '#ffffff',
@@ -76,19 +70,30 @@ const Name = styled.span`
     margin-left: 8px;
 `;
 
-export default function GroupMembers({ urn, initialRelationships, pageSize }: Props) {
+const NoGroupMembers = styled(Empty)`
+    padding: 40px;
+`;
+
+type Props = {
+    urn: string;
+    pageSize: number;
+    onChangeMembers?: () => void;
+};
+
+export default function GroupMembers({ urn, pageSize, onChangeMembers }: Props) {
     const entityRegistry = useEntityRegistry();
 
     const [page, setPage] = useState(1);
     /* eslint-disable @typescript-eslint/no-unused-vars */
     const [isEditingMembers, setIsEditingMembers] = useState(false);
-    const [getMembers, { data: membersData }] = useGetGroupMembersLazyQuery();
+    const start = (page - 1) * pageSize;
+    const { data: membersData, refetch } = useGetGroupMembersQuery({
+        variables: { urn, start, count: pageSize },
+    });
     const [removeGroupMembersMutation] = useRemoveGroupMembersMutation();
 
     const onChangeMembersPage = (newPage: number) => {
         setPage(newPage);
-        const start = (newPage - 1) * pageSize;
-        getMembers({ variables: { urn, start, count: pageSize } });
     };
 
     const removeGroupMember = (userUrn: string) => {
@@ -98,20 +103,20 @@ export default function GroupMembers({ urn, initialRelationships, pageSize }: Pr
                 userUrns: [userUrn],
             },
         })
+            .then(({ errors }) => {
+                if (!errors) {
+                    message.success({ content: 'Removed Group Member!', duration: 2 });
+                    onChangeMembers?.();
+                    // Hack to deal with eventual consistency
+                    setTimeout(function () {
+                        // Reload the page.
+                        refetch();
+                    }, 2000);
+                }
+            })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to remove group member!: \n ${e.message || ''}`, duration: 3 });
-            })
-            .finally(() => {
-                message.success({
-                    content: `Removed group member!`,
-                    duration: 3,
-                });
-                // Hack to deal with eventual consistency
-                setTimeout(function () {
-                    // Reload the page.
-                    onChangeMembersPage(page);
-                }, 2000);
+                message.error({ content: `Failed to remove group member: \n ${e.message || ''}`, duration: 3 });
             });
     };
 
@@ -120,10 +125,11 @@ export default function GroupMembers({ urn, initialRelationships, pageSize }: Pr
     };
 
     const onAddMembers = () => {
+        onChangeMembers?.();
         setTimeout(function () {
             // Reload the page.
-            onChangeMembersPage(page);
-        }, 3000);
+            refetch();
+        }, 2000);
     };
 
     const onRemoveMember = (memberUrn: string) => {
@@ -140,7 +146,7 @@ export default function GroupMembers({ urn, initialRelationships, pageSize }: Pr
         });
     };
 
-    const relationships = membersData ? membersData.corpGroup?.relationships : initialRelationships;
+    const relationships = membersData && membersData.corpGroup?.relationships;
     const total = relationships?.total || 0;
     const groupMembers = relationships?.relationships?.map((rel) => rel.entity as CorpUser) || [];
 
@@ -177,6 +183,7 @@ export default function GroupMembers({ urn, initialRelationships, pageSize }: Pr
                 </AddMember>
             </Row>
             <GroupMemberWrapper>
+                {groupMembers.length === 0 && <NoGroupMembers description="No members in this group yet." />}
                 {groupMembers &&
                     groupMembers.map((item) => {
                         const entityUrn = entityRegistry.getEntityUrl(EntityType.CorpUser, item.urn);

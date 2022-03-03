@@ -17,7 +17,7 @@ type Props = {
 /** Regex Validations */
 export const USER_NAME_REGEX = new RegExp('^[a-zA-Z ]*$');
 
-export default function UserEditProfileModal({ visible, onClose, onSave, editModalData }: Props) {
+export default function GroupEditModal({ visible, onClose, onSave, editModalData }: Props) {
     const [updateCorpGroupPropertiesMutation] = useUpdateCorpGroupPropertiesMutation();
     const [form] = Form.useForm();
 

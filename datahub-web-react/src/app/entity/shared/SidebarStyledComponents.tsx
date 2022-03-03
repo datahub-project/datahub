@@ -136,7 +136,7 @@ export const GroupsSection = styled.div`
 
 export const TagsSection = styled.div`
     height: calc(75vh - 460px);
-    padding: 5px 5px 5px 0;
+    padding: 0px 5px 5px 0;
 `;
 
 export const NoDataFound = styled.span`
@@ -164,4 +164,12 @@ export const DisplayCount = styled.span`
     font-size: 12px;
     line-height: 20px;
     color: #8c8c8c;
+`;
+
+export const GroupSectionTitle = styled.span`
+    margin-right: 8px;
+`;
+
+export const GroupSectionHeader = styled.div`
+    padding-bottom: 12px;
 `;
