@@ -17,5 +17,6 @@ record AssertionStdParameter {
     NUMBER
     LIST
     SET
+    UNKNOWN
   }
 }

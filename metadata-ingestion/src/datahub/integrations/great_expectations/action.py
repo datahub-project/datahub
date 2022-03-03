@@ -249,7 +249,7 @@ class DatahubValidationAction(ValidationAction):
             assertionResults = []
 
             nativeResults = {
-                k: str(v)
+                k: convert_to_string(v)
                 for k, v in result.items()
                 if (
                     k
@@ -312,12 +312,12 @@ class DatahubValidationAction(ValidationAction):
         def get_min_max(kwargs):
             return AssertionStdParameters(
                 minValue=AssertionStdParameter(
-                    value=json.dumps(kwargs.get("min_value")),
-                    type=AssertionStdParameterType.STRING,
+                    value=convert_to_string(kwargs.get("min_value")),
+                    type=AssertionStdParameterType.UNKNOWN,
                 ),
                 maxValue=AssertionStdParameter(
-                    value=json.dumps(kwargs.get("max_value")),
-                    type=AssertionStdParameterType.STRING,
+                    value=convert_to_string(kwargs.get("max_value")),
+                    type=AssertionStdParameterType.UNKNOWN,
                 ),
             )
 
@@ -388,7 +388,7 @@ class DatahubValidationAction(ValidationAction):
                 aggregation=AssertionStdAggregation.IDENTITY,
                 parameters=AssertionStdParameters(
                     value=AssertionStdParameter(
-                        value=json.dumps(kwargs.get("value_set")),
+                        value=convert_to_string(kwargs.get("value_set")),
                         type=AssertionStdParameterType.SET,
                     )
                 ),
@@ -416,7 +416,7 @@ class DatahubValidationAction(ValidationAction):
                 aggregation=AssertionStdAggregation.IDENTITY,
                 parameters=AssertionStdParameters(
                     value=AssertionStdParameter(
-                        value=json.dumps(kwargs.get("regex_list")),
+                        value=convert_to_string(kwargs.get("regex_list")),
                         type=AssertionStdParameterType.LIST,
                     )
                 ),
@@ -427,7 +427,7 @@ class DatahubValidationAction(ValidationAction):
                 aggregation=AssertionStdAggregation.COLUMNS,
                 parameters=AssertionStdParameters(
                     value=AssertionStdParameter(
-                        value=json.dumps(kwargs.get("column_list")),
+                        value=convert_to_string(kwargs.get("column_list")),
                         type=AssertionStdParameterType.LIST,
                     )
                 ),
@@ -438,7 +438,7 @@ class DatahubValidationAction(ValidationAction):
                 aggregation=AssertionStdAggregation.COLUMNS,
                 parameters=AssertionStdParameters(
                     value=AssertionStdParameter(
-                        value=json.dumps(kwargs.get("column_set")),
+                        value=convert_to_string(kwargs.get("column_set")),
                         type=AssertionStdParameterType.SET,
                     )
                 ),
@@ -455,7 +455,7 @@ class DatahubValidationAction(ValidationAction):
                 aggregation=AssertionStdAggregation.COLUMN_COUNT,
                 parameters=AssertionStdParameters(
                     value=AssertionStdParameter(
-                        value=json.dumps(kwargs.get("value")),
+                        value=convert_to_string(kwargs.get("value")),
                         type=AssertionStdParameterType.NUMBER,
                     )
                 ),
@@ -471,7 +471,7 @@ class DatahubValidationAction(ValidationAction):
                 aggregation=AssertionStdAggregation.ROW_COUNT,
                 parameters=AssertionStdParameters(
                     value=AssertionStdParameter(
-                        value=json.dumps(kwargs.get("value")),
+                        value=convert_to_string(kwargs.get("value")),
                         type=AssertionStdParameterType.NUMBER,
                     )
                 ),
@@ -486,10 +486,11 @@ class DatahubValidationAction(ValidationAction):
 
         datasetAssertionInfo = DatasetAssertionInfo(
             dataset=dataset,
+            fields=fields,
             operator=AssertionStdOperator._NATIVE_,
             aggregation=AssertionStdAggregation._NATIVE_,
             nativeType=expectation_type,
-            nativeParameters={k: json.dumps(v) for k, v in kwargs.items()},
+            nativeParameters={k: convert_to_string(v) for k, v in kwargs.items()},
             scope=DatasetAssertionScope.DATASET_ROWS,
         )
 
@@ -555,7 +556,7 @@ class DatahubValidationAction(ValidationAction):
                 ):
                     batch_identifiers = ge_batch_spec.get("batch_identifiers", {})
                     partitionSpec = PartitionSpecClass(
-                        partition=json.dumps(batch_identifiers)
+                        partition=convert_to_string(batch_identifiers)
                     )
                 sampling_method = ge_batch_spec.get("sampling_method", "")
                 if sampling_method == "_sample_using_limit":
@@ -671,3 +672,7 @@ class DatahubStdAssertion:
     operator: Union[str, AssertionStdOperator]
     aggregation: Union[str, AssertionStdAggregation]
     parameters: Optional[AssertionStdParameters] = None
+
+
+def convert_to_string(var):
+    return str(var) if isinstance(var, (str, int, float)) else json.dumps(var)

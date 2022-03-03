@@ -7,7 +7,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
-        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\", \"scope\": \"DATASET_SCHEMA\", \"aggregation\": \"_NATIVE_\", \"operator\": \"_NATIVE_\", \"nativeType\": \"expect_column_to_exist\", \"nativeParameters\": {\"column\": \"\\\"id\\\"\"}}}",
+        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\", \"scope\": \"DATASET_SCHEMA\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD),id)\"], \"aggregation\": \"_NATIVE_\", \"operator\": \"_NATIVE_\", \"nativeType\": \"expect_column_to_exist\", \"nativeParameters\": {\"column\": \"id\"}}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -46,7 +46,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
-        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\", \"scope\": \"DATASET_COLUMN\", \"aggregation\": \"MIN\", \"operator\": \"BETWEEN\", \"parameters\": {\"maxValue\": {\"value\": \"5\", \"type\": \"STRING\"}, \"minValue\": {\"value\": \"1\", \"type\": \"STRING\"}}, \"nativeType\": \"expect_column_min_to_be_between\", \"nativeParameters\": {\"column\": \"\\\"id\\\"\", \"max_value\": \"5\", \"min_value\": \"1\"}}}",
+        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD),id)\"], \"aggregation\": \"MIN\", \"operator\": \"BETWEEN\", \"parameters\": {\"maxValue\": {\"value\": \"5\", \"type\": \"UNKNOWN\"}, \"minValue\": {\"value\": \"1\", \"type\": \"UNKNOWN\"}}, \"nativeType\": \"expect_column_min_to_be_between\", \"nativeParameters\": {\"column\": \"id\", \"max_value\": \"5\", \"min_value\": \"1\"}}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -85,7 +85,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
-        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\", \"scope\": \"DATASET_ROWS\", \"aggregation\": \"ROW_COUNT\", \"operator\": \"BETWEEN\", \"parameters\": {\"maxValue\": {\"value\": \"5\", \"type\": \"STRING\"}, \"minValue\": {\"value\": \"1\", \"type\": \"STRING\"}}, \"nativeType\": \"expect_table_row_count_to_be_between\", \"nativeParameters\": {\"max_value\": \"5\", \"min_value\": \"1\"}}}",
+        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\", \"scope\": \"DATASET_ROWS\", \"aggregation\": \"ROW_COUNT\", \"operator\": \"BETWEEN\", \"parameters\": {\"maxValue\": {\"value\": \"5\", \"type\": \"UNKNOWN\"}, \"minValue\": {\"value\": \"1\", \"type\": \"UNKNOWN\"}}, \"nativeType\": \"expect_table_row_count_to_be_between\", \"nativeParameters\": {\"max_value\": \"5\", \"min_value\": \"1\"}}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -124,7 +124,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
-        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\", \"scope\": \"DATASET_COLUMN\", \"aggregation\": \"IDENTITY\", \"operator\": \"NOT_NULL\", \"nativeType\": \"expect_column_values_to_not_be_null\", \"nativeParameters\": {\"column\": \"\\\"name\\\"\"}}}",
+        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD),name)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"NOT_NULL\", \"nativeType\": \"expect_column_values_to_not_be_null\", \"nativeParameters\": {\"column\": \"name\"}}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -163,7 +163,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
-        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\", \"scope\": \"DATASET_SCHEMA\", \"aggregation\": \"_NATIVE_\", \"operator\": \"_NATIVE_\", \"nativeType\": \"expect_column_to_exist\", \"nativeParameters\": {\"column\": \"\\\"id\\\"\"}}}",
+        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\", \"scope\": \"DATASET_SCHEMA\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD),id)\"], \"aggregation\": \"_NATIVE_\", \"operator\": \"_NATIVE_\", \"nativeType\": \"expect_column_to_exist\", \"nativeParameters\": {\"column\": \"id\"}}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -202,7 +202,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
-        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\", \"scope\": \"DATASET_COLUMN\", \"aggregation\": \"MIN\", \"operator\": \"BETWEEN\", \"parameters\": {\"maxValue\": {\"value\": \"5\", \"type\": \"STRING\"}, \"minValue\": {\"value\": \"1\", \"type\": \"STRING\"}}, \"nativeType\": \"expect_column_min_to_be_between\", \"nativeParameters\": {\"column\": \"\\\"id\\\"\", \"max_value\": \"5\", \"min_value\": \"1\"}}}",
+        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD),id)\"], \"aggregation\": \"MIN\", \"operator\": \"BETWEEN\", \"parameters\": {\"maxValue\": {\"value\": \"5\", \"type\": \"UNKNOWN\"}, \"minValue\": {\"value\": \"1\", \"type\": \"UNKNOWN\"}}, \"nativeType\": \"expect_column_min_to_be_between\", \"nativeParameters\": {\"column\": \"id\", \"max_value\": \"5\", \"min_value\": \"1\"}}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -241,7 +241,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
-        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\", \"scope\": \"DATASET_ROWS\", \"aggregation\": \"ROW_COUNT\", \"operator\": \"BETWEEN\", \"parameters\": {\"maxValue\": {\"value\": \"5\", \"type\": \"STRING\"}, \"minValue\": {\"value\": \"1\", \"type\": \"STRING\"}}, \"nativeType\": \"expect_table_row_count_to_be_between\", \"nativeParameters\": {\"max_value\": \"5\", \"min_value\": \"1\"}}}",
+        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\", \"scope\": \"DATASET_ROWS\", \"aggregation\": \"ROW_COUNT\", \"operator\": \"BETWEEN\", \"parameters\": {\"maxValue\": {\"value\": \"5\", \"type\": \"UNKNOWN\"}, \"minValue\": {\"value\": \"1\", \"type\": \"UNKNOWN\"}}, \"nativeType\": \"expect_table_row_count_to_be_between\", \"nativeParameters\": {\"max_value\": \"5\", \"min_value\": \"1\"}}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -280,7 +280,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
-        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\", \"scope\": \"DATASET_COLUMN\", \"aggregation\": \"IDENTITY\", \"operator\": \"NOT_NULL\", \"nativeType\": \"expect_column_values_to_not_be_null\", \"nativeParameters\": {\"column\": \"\\\"name\\\"\"}}}",
+        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo1,PROD),name)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"NOT_NULL\", \"nativeType\": \"expect_column_values_to_not_be_null\", \"nativeParameters\": {\"column\": \"name\"}}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -319,7 +319,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
-        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\", \"scope\": \"DATASET_SCHEMA\", \"aggregation\": \"_NATIVE_\", \"operator\": \"_NATIVE_\", \"nativeType\": \"expect_column_to_exist\", \"nativeParameters\": {\"column\": \"\\\"id\\\"\"}}}",
+        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\", \"scope\": \"DATASET_SCHEMA\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD),id)\"], \"aggregation\": \"_NATIVE_\", \"operator\": \"_NATIVE_\", \"nativeType\": \"expect_column_to_exist\", \"nativeParameters\": {\"column\": \"id\"}}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -358,7 +358,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
-        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\", \"scope\": \"DATASET_COLUMN\", \"aggregation\": \"MIN\", \"operator\": \"BETWEEN\", \"parameters\": {\"maxValue\": {\"value\": \"5\", \"type\": \"STRING\"}, \"minValue\": {\"value\": \"1\", \"type\": \"STRING\"}}, \"nativeType\": \"expect_column_min_to_be_between\", \"nativeParameters\": {\"column\": \"\\\"id\\\"\", \"max_value\": \"5\", \"min_value\": \"1\"}}}",
+        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD),id)\"], \"aggregation\": \"MIN\", \"operator\": \"BETWEEN\", \"parameters\": {\"maxValue\": {\"value\": \"5\", \"type\": \"UNKNOWN\"}, \"minValue\": {\"value\": \"1\", \"type\": \"UNKNOWN\"}}, \"nativeType\": \"expect_column_min_to_be_between\", \"nativeParameters\": {\"column\": \"id\", \"max_value\": \"5\", \"min_value\": \"1\"}}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -397,7 +397,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
-        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\", \"scope\": \"DATASET_ROWS\", \"aggregation\": \"ROW_COUNT\", \"operator\": \"BETWEEN\", \"parameters\": {\"maxValue\": {\"value\": \"5\", \"type\": \"STRING\"}, \"minValue\": {\"value\": \"1\", \"type\": \"STRING\"}}, \"nativeType\": \"expect_table_row_count_to_be_between\", \"nativeParameters\": {\"max_value\": \"5\", \"min_value\": \"1\"}}}",
+        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\", \"scope\": \"DATASET_ROWS\", \"aggregation\": \"ROW_COUNT\", \"operator\": \"BETWEEN\", \"parameters\": {\"maxValue\": {\"value\": \"5\", \"type\": \"UNKNOWN\"}, \"minValue\": {\"value\": \"1\", \"type\": \"UNKNOWN\"}}, \"nativeType\": \"expect_table_row_count_to_be_between\", \"nativeParameters\": {\"max_value\": \"5\", \"min_value\": \"1\"}}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -436,7 +436,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
-        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\", \"scope\": \"DATASET_COLUMN\", \"aggregation\": \"IDENTITY\", \"operator\": \"NOT_NULL\", \"nativeType\": \"expect_column_values_to_not_be_null\", \"nativeParameters\": {\"column\": \"\\\"name\\\"\"}}}",
+        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD),name)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"NOT_NULL\", \"nativeType\": \"expect_column_values_to_not_be_null\", \"nativeParameters\": {\"column\": \"name\"}}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -475,7 +475,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
-        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\", \"scope\": \"DATASET_SCHEMA\", \"aggregation\": \"_NATIVE_\", \"operator\": \"_NATIVE_\", \"nativeType\": \"expect_column_to_exist\", \"nativeParameters\": {\"column\": \"\\\"id\\\"\"}}}",
+        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\", \"scope\": \"DATASET_SCHEMA\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD),id)\"], \"aggregation\": \"_NATIVE_\", \"operator\": \"_NATIVE_\", \"nativeType\": \"expect_column_to_exist\", \"nativeParameters\": {\"column\": \"id\"}}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -514,7 +514,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
-        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\", \"scope\": \"DATASET_COLUMN\", \"aggregation\": \"MIN\", \"operator\": \"BETWEEN\", \"parameters\": {\"maxValue\": {\"value\": \"5\", \"type\": \"STRING\"}, \"minValue\": {\"value\": \"1\", \"type\": \"STRING\"}}, \"nativeType\": \"expect_column_min_to_be_between\", \"nativeParameters\": {\"column\": \"\\\"id\\\"\", \"max_value\": \"5\", \"min_value\": \"1\"}}}",
+        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD),id)\"], \"aggregation\": \"MIN\", \"operator\": \"BETWEEN\", \"parameters\": {\"maxValue\": {\"value\": \"5\", \"type\": \"UNKNOWN\"}, \"minValue\": {\"value\": \"1\", \"type\": \"UNKNOWN\"}}, \"nativeType\": \"expect_column_min_to_be_between\", \"nativeParameters\": {\"column\": \"id\", \"max_value\": \"5\", \"min_value\": \"1\"}}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -553,7 +553,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
-        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\", \"scope\": \"DATASET_ROWS\", \"aggregation\": \"ROW_COUNT\", \"operator\": \"BETWEEN\", \"parameters\": {\"maxValue\": {\"value\": \"5\", \"type\": \"STRING\"}, \"minValue\": {\"value\": \"1\", \"type\": \"STRING\"}}, \"nativeType\": \"expect_table_row_count_to_be_between\", \"nativeParameters\": {\"max_value\": \"5\", \"min_value\": \"1\"}}}",
+        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\", \"scope\": \"DATASET_ROWS\", \"aggregation\": \"ROW_COUNT\", \"operator\": \"BETWEEN\", \"parameters\": {\"maxValue\": {\"value\": \"5\", \"type\": \"UNKNOWN\"}, \"minValue\": {\"value\": \"1\", \"type\": \"UNKNOWN\"}}, \"nativeType\": \"expect_table_row_count_to_be_between\", \"nativeParameters\": {\"max_value\": \"5\", \"min_value\": \"1\"}}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -592,7 +592,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
-        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\", \"scope\": \"DATASET_COLUMN\", \"aggregation\": \"IDENTITY\", \"operator\": \"NOT_NULL\", \"nativeType\": \"expect_column_values_to_not_be_null\", \"nativeParameters\": {\"column\": \"\\\"name\\\"\"}}}",
+        "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.foo2,PROD),name)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"NOT_NULL\", \"nativeType\": \"expect_column_values_to_not_be_null\", \"nativeParameters\": {\"column\": \"name\"}}}",
         "contentType": "application/json"
     },
     "systemMetadata": null

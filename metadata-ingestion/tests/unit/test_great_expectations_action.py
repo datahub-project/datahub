@@ -182,10 +182,10 @@ def test_DatahubValidationAction_basic(
                             aggregation="ROW_COUNT",
                             parameters=AssertionStdParametersClass(
                                 maxValue=AssertionStdParameterClass(
-                                    value="10000", type="STRING"
+                                    value="10000", type="UNKNOWN"
                                 ),
                                 minValue=AssertionStdParameterClass(
-                                    value="10000", type="STRING"
+                                    value="10000", type="UNKNOWN"
                                 ),
                             ),
                             nativeParameters={
