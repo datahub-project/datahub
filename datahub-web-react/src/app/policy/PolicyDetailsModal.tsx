@@ -1,11 +1,11 @@
 import React from 'react';
-import { Button, Col, Divider, Modal, Row, Tag, Typography } from 'antd';
+import { Button, Divider, Modal, Tag, Typography } from 'antd';
 import styled from 'styled-components';
 import { useEntityRegistry } from '../useEntityRegistry';
-import { EntityType, Maybe, PolicyState, PolicyType } from '../../types.generated';
+import { Maybe, Policy, PolicyState, PolicyType } from '../../types.generated';
 import { useAppConfig } from '../useAppConfig';
 import { mapResourceTypeToDisplayName } from './policyUtils';
-import { CustomAvatar } from '../shared/avatar';
+import AvatarsGroup from './AvatarsGroup';
 
 type PrivilegeOptionType = {
     type?: string;
@@ -13,7 +13,7 @@ type PrivilegeOptionType = {
 };
 
 type Props = {
-    policy: any;
+    policy: Omit<Policy, 'urn'>;
     visible: boolean;
     onClose: () => void;
     privileges: PrivilegeOptionType[] | undefined;
@@ -58,8 +58,6 @@ const Privileges = styled.div`
 
 /**
  * Component used for displaying the details about an existing Policy.
- *
- * TODO: Use the "display names" when rendering privileges, instead of raw privilege type.
  */
 export default function PolicyDetailsModal({ policy, visible, onClose, privileges }: Props) {
     const entityRegistry = useEntityRegistry();
@@ -110,10 +108,11 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
                         <div>
                             <Typography.Title level={5}>Assets</Typography.Title>
                             <ThinDivider />
-                            {policy?.resources?.resources?.map((urn) => {
+                            {policy?.resources?.resources?.map((urn, key) => {
                                 // TODO: Wrap in a link for entities.
                                 return (
-                                    <PoliciesTag>
+                                    // eslint-disable-next-line react/no-array-index-key
+                                    <PoliciesTag key={`${urn}-${key}`}>
                                         <Typography.Text>{urn}</Typography.Text>
                                     </PoliciesTag>
                                 );
@@ -125,56 +124,37 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
                 <Privileges>
                     <Typography.Title level={5}>Privileges</Typography.Title>
                     <ThinDivider />
-                    {privileges?.map((priv) => (
-                        <PrivilegeTag>{priv?.name}</PrivilegeTag>
+                    {privileges?.map((priv, key) => (
+                        // eslint-disable-next-line react/no-array-index-key
+                        <PrivilegeTag key={`${priv}-${key}`}>{priv?.name}</PrivilegeTag>
                     ))}
                 </Privileges>
                 <div>
                     <Typography.Title level={5}>Applies to Owners</Typography.Title>
                     <ThinDivider />
-                    <PoliciesTag>{policy?.resourceOwners ? 'True' : 'False'}</PoliciesTag>
+                    <PoliciesTag>{policy?.actors?.resourceOwners ? 'True' : 'False'}</PoliciesTag>
                 </div>
                 <div>
                     <Typography.Title level={5}>Applies to Users</Typography.Title>
                     <ThinDivider />
-                    <Row>
-                        <Col flex="auto">
-                            {policy?.resolvedUsers?.map((user) => (
-                                <CustomAvatar
-                                    size={28}
-                                    name={user?.username}
-                                    url={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${user.urn}`}
-                                    photoUrl={
-                                        user?.editableProperties?.pictureLink ||
-                                        user?.editableInfo?.pictureLink ||
-                                        undefined
-                                    }
-                                />
-                            ))}
-                        </Col>
-                        <Col flex={1} style={{ display: 'flex', justifyContent: 'end' }}>
-                            {policy?.allUsers ? <Tag>All Users</Tag> : null}
-                        </Col>
-                    </Row>
+                    <AvatarsGroup
+                        users={policy?.actors?.resolvedUsers}
+                        entityRegistry={entityRegistry}
+                        maxCount={3}
+                        size={28}
+                    />
+                    {policy?.actors?.allUsers ? <Tag>All Users</Tag> : null}
                 </div>
                 <div>
                     <Typography.Title level={5}>Applies to Groups</Typography.Title>
                     <ThinDivider />
-                    <Row>
-                        <Col flex="auto">
-                            {policy?.resolvedGroups?.map((group) => (
-                                <CustomAvatar
-                                    size={28}
-                                    name={group?.name}
-                                    url={`/${entityRegistry.getPathName(EntityType.CorpGroup)}/${group.urn}`}
-                                    isGroup
-                                />
-                            ))}
-                        </Col>
-                        <Col flex={1} style={{ display: 'flex', justifyContent: 'end' }}>
-                            {policy?.allGroups ? <Tag>All Groups</Tag> : null}
-                        </Col>
-                    </Row>
+                    <AvatarsGroup
+                        groups={policy?.actors?.resolvedGroups}
+                        entityRegistry={entityRegistry}
+                        maxCount={3}
+                        size={28}
+                    />
+                    {policy?.actors?.allGroups ? <Tag>All Groups</Tag> : null}
                 </div>
             </PolicyContainer>
         </Modal>

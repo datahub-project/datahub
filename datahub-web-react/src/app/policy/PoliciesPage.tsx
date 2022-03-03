@@ -1,11 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { Button, Col, Empty, message, Modal, Pagination, Row, Tag, Typography } from 'antd';
+import { Button, Empty, message, Modal, Pagination, Tag, Typography } from 'antd';
 import styled from 'styled-components';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 
 import { SearchablePage } from '../search/SearchablePage';
 import PolicyBuilderModal from './PolicyBuilderModal';
-import { Policy, PolicyUpdateInput, PolicyState, EntityType, PolicyType, Maybe } from '../../types.generated';
+import { Policy, PolicyUpdateInput, PolicyState, PolicyType, Maybe } from '../../types.generated';
 import { useAppConfig } from '../useAppConfig';
 import PolicyDetailsModal from './PolicyDetailsModal';
 import {
@@ -18,7 +18,7 @@ import { Message } from '../shared/Message';
 import { EMPTY_POLICY } from './policyUtils';
 import TabToolbar from '../entity/shared/components/styled/TabToolbar';
 import { StyledTable } from '../entity/shared/components/styled/StyledTable';
-import { CustomAvatar } from '../shared/avatar';
+import AvatarsGroup from './AvatarsGroup';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { ANTD_GRAY } from '../entity/shared/constants';
 
@@ -59,8 +59,8 @@ const PoliciesType = styled(Tag)`
 
 const ActorTag = styled(Tag)`
     && {
-        display: flex;
-        align-items: center;
+        display: inline-block;
+        text-align: center;
     }
 `;
 
@@ -199,7 +199,7 @@ export const PoliciesPage = () => {
 
     const onViewPolicy = (policy: Policy) => {
         setShowViewPolicyModal(true);
-        setFocusPolicyUrn(policy.urn);
+        setFocusPolicyUrn(policy?.urn);
         setFocusPolicy({ ...policy });
     };
 
@@ -214,7 +214,7 @@ export const PoliciesPage = () => {
             title: `Delete ${policy?.name}`,
             content: `Are you sure you want to remove policy?`,
             onOk() {
-                deletePolicy({ variables: { urn: policy.urn as string } }); // There must be a focus policy urn.
+                deletePolicy({ variables: { urn: policy?.urn as string } }); // There must be a focus policy urn.
                 onCancelViewPolicy();
             },
             onCancel() {},
@@ -226,7 +226,7 @@ export const PoliciesPage = () => {
 
     const onEditPolicy = (policy: Policy) => {
         setShowPolicyBuilderModal(true);
-        setFocusPolicyUrn(policy.urn);
+        setFocusPolicyUrn(policy?.urn);
         setFocusPolicy({ ...policy });
     };
 
@@ -264,7 +264,7 @@ export const PoliciesPage = () => {
             render: (_, record: any) => {
                 return (
                     <PolicyName
-                        onClick={() => onViewPolicy(record)}
+                        onClick={() => onViewPolicy(record.policy)}
                         style={{ color: record?.editable ? '#000000' : '#8C8C8C' }}
                     >
                         {record?.name}
@@ -294,40 +294,15 @@ export const PoliciesPage = () => {
             render: (_, record: any) => {
                 return (
                     <>
-                        <Row>
-                            <Col flex="auto">
-                                {record?.resolvedUsers?.map((user) => (
-                                    <CustomAvatar
-                                        size={28}
-                                        name={user?.username}
-                                        url={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${user.urn}`}
-                                        photoUrl={
-                                            user?.editableProperties?.pictureLink ||
-                                            user?.editableInfo?.pictureLink ||
-                                            undefined
-                                        }
-                                    />
-                                ))}
-                            </Col>
-                            <Col flex={1} style={{ display: 'flex', justifyContent: 'end' }}>
-                                {record?.allUsers ? <ActorTag>All Users</ActorTag> : null}
-                            </Col>
-                        </Row>
-                        <Row style={{ marginTop: '5px' }}>
-                            <Col flex="auto">
-                                {record?.resolvedGroups?.map((group) => (
-                                    <CustomAvatar
-                                        size={28}
-                                        name={group?.name}
-                                        url={`/${entityRegistry.getPathName(EntityType.CorpGroup)}/${group.urn}`}
-                                        isGroup
-                                    />
-                                ))}
-                            </Col>
-                            <Col flex={1} style={{ display: 'flex', justifyContent: 'end' }}>
-                                {record?.allGroups ? <ActorTag>All Groups</ActorTag> : null}
-                            </Col>
-                        </Row>
+                        <AvatarsGroup
+                            users={record?.resolvedUsers}
+                            groups={record?.resolvedGroups}
+                            entityRegistry={entityRegistry}
+                            maxCount={3}
+                            size={28}
+                        />
+                        {record?.allUsers ? <ActorTag>All Users</ActorTag> : null}
+                        {record?.allGroups ? <ActorTag>All Groups</ActorTag> : null}
                     </>
                 );
             },
@@ -382,18 +357,19 @@ export const PoliciesPage = () => {
     ];
 
     const tableData = policies?.map((policy) => ({
-        urn: policy?.urn,
-        name: policy?.name,
-        type: policy?.type,
-        description: policy?.description,
-        allUsers: policy?.actors?.allUsers,
         allGroups: policy?.actors?.allGroups,
+        allUsers: policy?.actors?.allUsers,
+        description: policy?.description,
+        editable: policy?.editable,
+        name: policy?.name,
+        privileges: policy?.privileges,
+        policy,
         resolvedGroups: policy?.actors?.resolvedGroups,
         resolvedUsers: policy?.actors?.resolvedUsers,
-        state: policy?.state,
-        editable: policy?.editable,
-        privileges: policy?.privileges,
         resources: policy?.resources,
+        state: policy?.state,
+        type: policy?.type,
+        urn: policy?.urn,
     }));
 
     return (
