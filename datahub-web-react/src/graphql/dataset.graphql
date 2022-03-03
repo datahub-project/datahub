@@ -158,72 +158,6 @@ fragment viewProperties on Dataset {
     }
 }
 
-fragment assertionDetails on Assertion {
-    urn
-    type
-    platform {
-        urn
-        properties {
-            displayName
-            logoUrl
-        }
-        info {
-            displayName
-            logoUrl
-        }
-    }
-    info {
-        type
-        datasetAssertion {
-            scope
-            columnAssertion {
-                nativeType
-                stdOperator
-                stdAggFunc
-            }
-            rowsAssertion {
-                nativeType
-                stdOperator
-                stdAggFunc
-            }
-            schemaAssertion {
-                nativeType
-                stdOperator
-                stdAggFunc
-            }
-            fieldUrns
-            fieldPaths
-            parameters {
-                key
-                value
-            }
-            logic
-        }
-    }
-}
-
-fragment assertionRunEventDetails on AssertionRunEvent {
-  timestampMillis
-  assertionUrn
-  status
-  result {
-      type
-      actualAggValue
-      rowCount
-      missingCount
-      unexpectedCount
-      externalUrl
-      nativeResults {
-          key
-          value
-      }
-      runtimeContext {
-          key
-          value
-      }
-  }
-}
-
 query getDatasetAssertions($urn: String!) {
     dataset(urn: $urn) {
         assertions(start: 0, count: 100) {
@@ -232,29 +166,14 @@ query getDatasetAssertions($urn: String!) {
             total
             assertions {
                 ...assertionDetails
-                runEvents(status: "COMPLETE", limit: 1) {
+                runEvents(status: COMPLETE, limit: 1) {
                     total
                     failed
                     succeeded
                     runEvents {
-                      ...assertionRunEventDetails
+                        ...assertionRunEventDetails
                     }
                 }
-            }
-        }
-    }
-}
-
-query getAssertionRuns($assertionUrn: String!, $startTime: Long, $endTime: Long, $limit: Int) {
-    assertion(urn: $assertionUrn) {
-        urn
-        ...assertionDetails
-        runEvents(status: "COMPLETE", startTimeMillis: $startTime, endTimeMillis: $endTime, limit: $limit) {
-            total
-            failed
-            succeeded
-            runEvents {
-                ...assertionRunEventDetails
             }
         }
     }

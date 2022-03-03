@@ -25,7 +25,7 @@ import { SidebarViewDefinitionSection } from '../shared/containers/profile/sideb
 import { SidebarRecommendationsSection } from '../shared/containers/profile/sidebar/Recommendations/SidebarRecommendationsSection';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { AssertionTab } from '../shared/tabs/Dataset/Assertions/AssertionsTab';
+import { ValidationsTab } from '../shared/tabs/Dataset/Validations/ValidationsTab';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -138,7 +138,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 },
                 {
                     name: 'Validation',
-                    component: AssertionTab,
+                    component: ValidationsTab,
                     display: {
                         visible: (_, _1) => true,
                         enabled: (_, dataset: GetDatasetQuery) => {
