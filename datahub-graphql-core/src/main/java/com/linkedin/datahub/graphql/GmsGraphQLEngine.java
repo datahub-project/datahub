@@ -1137,8 +1137,10 @@ public class GmsGraphQLEngine {
     }
 
     private void configureAssertionResolvers(final RuntimeWiring.Builder builder) {
-        builder.type("Assertion", typeWiring -> typeWiring.dataFetcher("relationships", new AuthenticatedResolver<>(new EntityRelationshipsResultResolver(graphClient)))
-            .dataFetcher("platform", new AuthenticatedResolver<>(new LoadableTypeResolver<>(dataPlatformType, (env) -> ((Assertion) env.getSource()).getPlatform().getUrn())))
+        builder.type("Assertion", typeWiring -> typeWiring.dataFetcher("relationships",
+            new AuthenticatedResolver<>(new EntityRelationshipsResultResolver(graphClient)))
+            .dataFetcher("platform", new AuthenticatedResolver<>(
+                new LoadableTypeResolver<>(dataPlatformType, (env) -> ((Assertion) env.getSource()).getPlatform().getUrn())))
             .dataFetcher("runEvents", new AssertionRunEventResolver(entityClient)));
     }
 
