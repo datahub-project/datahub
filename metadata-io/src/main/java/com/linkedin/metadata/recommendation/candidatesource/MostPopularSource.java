@@ -7,6 +7,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventConstants;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.key.RecommendationModuleKey;
 import com.linkedin.metadata.recommendation.EntityProfileParams;
 import com.linkedin.metadata.recommendation.RecommendationContent;
 import com.linkedin.metadata.recommendation.RecommendationParams;

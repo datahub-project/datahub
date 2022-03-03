@@ -3,6 +3,7 @@ package com.linkedin.metadata.recommendation.candidatesource;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.key.RecommendationModuleKey;
 import com.linkedin.metadata.recommendation.RecommendationRenderType;
 import com.linkedin.metadata.recommendation.RecommendationRequestContext;
 import com.linkedin.metadata.recommendation.ScenarioType;
