@@ -725,6 +725,10 @@ class KafkaConnectSource(Source):
         )
 
         # Test the connection
+        if self.config.username is not None and self.config.password is not None:
+            logger.info(f"Connection to {self.config.connect_uri} using Basic Auth")
+            self.session.auth = (self.config.username, self.config.password)
+
         test_response = self.session.get(f"{self.config.connect_uri}")
         test_response.raise_for_status()
         logger.info(f"Connection to {self.config.connect_uri} is ok")
