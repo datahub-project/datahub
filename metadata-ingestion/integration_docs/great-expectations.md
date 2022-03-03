@@ -38,6 +38,7 @@ This integration does not support
     **Configuration options:**
     - `server_url` (required): URL of DataHub GMS endpoint
     - `env` (optional, defaults to "PROD"): Environment to use in namespace when constructing dataset URNs.
+    - `platform_instance_map` (optional): Platform instance mapping to use when constructing dataset URNs. e.g. `platform_instance_map: { "datasource_name": "warehouse" }`
     - `graceful_exceptions` (defaults to true): If set to true, most runtime errors in the lineage backend will be suppressed and will not cause the overall checkpoint to fail. Note that configuration issues will still throw exceptions.
     - `token` (optional): Bearer token used for authentication.
     - `timeout_sec` (optional): Per-HTTP request timeout.

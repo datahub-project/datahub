@@ -4489,10 +4489,6 @@ type AssertionResult {
     """
     nativeResults: [StringMapEntry!]
 
-    """
-    Runtime context for the evaluation
-    """
-    runtimeContext: [StringMapEntry!]
 }
 
 type BatchSpec {

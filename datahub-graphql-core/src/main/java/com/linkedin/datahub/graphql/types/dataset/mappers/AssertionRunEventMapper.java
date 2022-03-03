@@ -78,9 +78,7 @@ public class AssertionRunEventMapper
     if (gmsResult.hasNativeResults()) {
       datasetAssertionResult.setNativeResults(StringMapMapper.map(gmsResult.getNativeResults()));
     }
-    if (gmsResult.hasRuntimeContext()) {
-      datasetAssertionResult.setRuntimeContext(StringMapMapper.map(gmsResult.getRuntimeContext()));
-    }
+
     return datasetAssertionResult;
   }
 

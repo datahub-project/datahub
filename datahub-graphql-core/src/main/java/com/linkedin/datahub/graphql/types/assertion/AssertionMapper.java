@@ -120,10 +120,10 @@ public class AssertionMapper {
       result.setValue(mapParameter(params.getValue()));
     }
     if (params.hasMinValue()) {
-      result.setValue(mapParameter(params.getMinValue()));
+      result.setMinValue(mapParameter(params.getMinValue()));
     }
     if (params.hasMaxValue()) {
-      result.setValue(mapParameter(params.getMaxValue()));
+      result.setMaxValue(mapParameter(params.getMaxValue()));
     }
     return result;
   }

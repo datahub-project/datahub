@@ -49,8 +49,4 @@ record AssertionResult {
    */
   externalUrl: optional string
 
-  /**
-  * Runtime context for the evaluation
-  */
-  runtimeContext: optional map[string, string]
 }

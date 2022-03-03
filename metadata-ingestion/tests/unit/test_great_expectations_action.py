@@ -182,10 +182,10 @@ def test_DatahubValidationAction_basic(
                             aggregation="ROW_COUNT",
                             parameters=AssertionStdParametersClass(
                                 maxValue=AssertionStdParameterClass(
-                                    value="10000", type="UNKNOWN"
+                                    value="10000", type="NUMBER"
                                 ),
                                 minValue=AssertionStdParameterClass(
-                                    value="10000", type="UNKNOWN"
+                                    value="10000", type="NUMBER"
                                 ),
                             ),
                             nativeParameters={
@@ -227,7 +227,10 @@ def test_DatahubValidationAction_basic(
                         assertionUrn="urn:li:assertion:8f25f50da43bf7434137dd5ab6fbdb09",
                         asserteeUrn="urn:li:dataset:(urn:li:dataPlatform:postgres,test.public.foo2,PROD)",
                         batchSpec=BatchSpecClass(
-                            customProperties={"data_asset_name": "foo2"},
+                            customProperties={
+                                "data_asset_name": "foo2",
+                                "datasource_name": "my_postgresql_datasource",
+                            },
                             nativeBatchId="010ef8c1cd417910b971f4468f024ec5",
                         ),
                         status=AssertionRunStatusClass.COMPLETE,

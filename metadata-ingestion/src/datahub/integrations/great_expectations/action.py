@@ -63,6 +63,7 @@ class DatahubValidationAction(ValidationAction):
         data_context: DataContext,
         server_url: str,
         env: str = builder.DEFAULT_ENV,
+        platform_instance_map: Optional[Dict[str, str]] = None,
         graceful_exceptions: bool = True,
         token: Optional[str] = None,
         timeout_sec: Optional[float] = None,
@@ -73,6 +74,7 @@ class DatahubValidationAction(ValidationAction):
         super().__init__(data_context)
         self.server_url = server_url
         self.env = env
+        self.platform_instance_map = platform_instance_map
         self.graceful_exceptions = graceful_exceptions
         self.token = token
         self.timeout_sec = timeout_sec
@@ -225,6 +227,9 @@ class DatahubValidationAction(ValidationAction):
 
             # Be careful what fields to consider for creating assertion urn.
             # Any change in fields below would lead to a new assertion
+            # FIXME - Currently, when using evaluation parameters, new assertion is
+            # created when runtime resolved kwargs are different,
+            # possibly for each validation run
             assertionUrn = builder.make_assertion_urn(
                 builder.datahub_guid(
                     {
@@ -247,6 +252,15 @@ class DatahubValidationAction(ValidationAction):
             # TODO: Understand why their run time is incorrect.
             run_time = run_id.run_time.astimezone(timezone.utc)
             assertionResults = []
+
+            evaluation_parameters = (
+                {
+                    k: convert_to_string(v)
+                    for k, v in validation_result_suite.evaluation_parameters.items()
+                }
+                if validation_result_suite.evaluation_parameters
+                else None
+            )
 
             nativeResults = {
                 k: convert_to_string(v)
@@ -289,6 +303,7 @@ class DatahubValidationAction(ValidationAction):
                 ),
                 batchSpec=dset["batchSpec"],
                 status=AssertionRunStatus.COMPLETE,
+                runtimeContext=evaluation_parameters,
             )
             if dset.get("partitionSpec") is not None:
                 assertionResult.partitionSpec = dset.get("partitionSpec")
@@ -309,15 +324,15 @@ class DatahubValidationAction(ValidationAction):
     ):
 
         # TODO - can we find exact type of min and max value
-        def get_min_max(kwargs):
+        def get_min_max(kwargs, type=AssertionStdParameterType.UNKNOWN):
             return AssertionStdParameters(
                 minValue=AssertionStdParameter(
                     value=convert_to_string(kwargs.get("min_value")),
-                    type=AssertionStdParameterType.UNKNOWN,
+                    type=type,
                 ),
                 maxValue=AssertionStdParameter(
                     value=convert_to_string(kwargs.get("max_value")),
-                    type=AssertionStdParameterType.UNKNOWN,
+                    type=type,
                 ),
             )
 
@@ -345,31 +360,31 @@ class DatahubValidationAction(ValidationAction):
                 scope=DatasetAssertionScope.DATASET_COLUMN,
                 operator=AssertionStdOperator.BETWEEN,
                 aggregation=AssertionStdAggregation.STDDEV,
-                parameters=get_min_max(kwargs),
+                parameters=get_min_max(kwargs, AssertionStdParameterType.NUMBER),
             ),
             "expect_column_mean_to_be_between": DatahubStdAssertion(
                 scope=DatasetAssertionScope.DATASET_COLUMN,
                 operator=AssertionStdOperator.BETWEEN,
                 aggregation=AssertionStdAggregation.MEAN,
-                parameters=get_min_max(kwargs),
+                parameters=get_min_max(kwargs, AssertionStdParameterType.NUMBER),
             ),
             "expect_column_unique_value_count_to_be_between": DatahubStdAssertion(
                 scope=DatasetAssertionScope.DATASET_COLUMN,
                 operator=AssertionStdOperator.BETWEEN,
                 aggregation=AssertionStdAggregation.UNIQUE_COUNT,
-                parameters=get_min_max(kwargs),
+                parameters=get_min_max(kwargs, AssertionStdParameterType.NUMBER),
             ),
             "expect_column_proportion_of_unique_values_to_be_between": DatahubStdAssertion(
                 scope=DatasetAssertionScope.DATASET_COLUMN,
                 operator=AssertionStdOperator.BETWEEN,
                 aggregation=AssertionStdAggregation.UNIQUE_PROPOTION,
-                parameters=get_min_max(kwargs),
+                parameters=get_min_max(kwargs, AssertionStdParameterType.NUMBER),
             ),
             "expect_column_sum_to_be_between": DatahubStdAssertion(
                 scope=DatasetAssertionScope.DATASET_COLUMN,
                 operator=AssertionStdOperator.BETWEEN,
                 aggregation=AssertionStdAggregation.SUM,
-                parameters=get_min_max(kwargs),
+                parameters=get_min_max(kwargs, AssertionStdParameterType.NUMBER),
             ),
             "expect_column_quantile_values_to_be_between": DatahubStdAssertion(
                 scope=DatasetAssertionScope.DATASET_COLUMN,
@@ -447,7 +462,7 @@ class DatahubValidationAction(ValidationAction):
                 scope=DatasetAssertionScope.DATASET_SCHEMA,
                 operator=AssertionStdOperator.BETWEEN,
                 aggregation=AssertionStdAggregation.COLUMN_COUNT,
-                parameters=get_min_max(kwargs),
+                parameters=get_min_max(kwargs, AssertionStdParameterType.NUMBER),
             ),
             "expect_table_column_count_to_equal": DatahubStdAssertion(
                 scope=DatasetAssertionScope.DATASET_SCHEMA,
@@ -480,7 +495,7 @@ class DatahubValidationAction(ValidationAction):
                 scope=DatasetAssertionScope.DATASET_ROWS,
                 operator=AssertionStdOperator.BETWEEN,
                 aggregation=AssertionStdAggregation.ROW_COUNT,
-                parameters=get_min_max(kwargs),
+                parameters=get_min_max(kwargs, AssertionStdParameterType.NUMBER),
             ),
         }
 
@@ -527,23 +542,28 @@ class DatahubValidationAction(ValidationAction):
         ):
             ge_batch_spec = data_asset.active_batch_spec
             partitionSpec = None
-
+            batchSpecProperties = {
+                "data_asset_name": str(
+                    data_asset.active_batch_definition.data_asset_name
+                ),
+                "datasource_name": str(
+                    data_asset.active_batch_definition.datasource_name
+                ),
+            }
             if isinstance(ge_batch_spec, SqlAlchemyDatasourceBatchSpec):
                 # e.g. ConfiguredAssetSqlDataConnector with splitter_method or sampling_method
                 schema_name = ge_batch_spec.get("schema_name")
                 table_name = ge_batch_spec.get("table_name")
 
-                dataset_urn = make_dataset_urn(
+                dataset_urn = make_dataset_urn_from_sqlalchemy_uri(
                     data_asset.execution_engine.engine.url,
                     schema_name,
                     table_name,
                     self.env,
+                    self.get_platform_instance(
+                        data_asset.active_batch_definition.datasource_name
+                    ),
                 )
-                batchSpecProperties = {}
-                if data_asset.active_batch_definition.data_asset_name:
-                    batchSpecProperties[
-                        "data_asset_name"
-                    ] = data_asset.active_batch_definition.data_asset_name
                 batchSpec = BatchSpec(
                     nativeBatchId=batch_identifier,
                     customProperties=batchSpecProperties,
@@ -580,14 +600,22 @@ class DatahubValidationAction(ValidationAction):
                 batchSpec = BatchSpec(
                     nativeBatchId=batch_identifier,
                     query=query,
+                    customProperties=batchSpecProperties,
                 )
                 tables = MetadataSQLSQLParser(query).get_tables()
+                if len(set(tables)) != 1:
+                    warn(
+                        "DatahubValidationAction does not support cross dataset assertions."
+                    )
                 for table in tables:
-                    dataset_urn = make_dataset_urn(
+                    dataset_urn = make_dataset_urn_from_sqlalchemy_uri(
                         data_asset.execution_engine.engine.url,
                         None,
                         table,
                         self.env,
+                        self.get_platform_instance(
+                            data_asset.active_batch_definition.datasource_name
+                        ),
                     )
                     dataset_partitions.append(
                         {
@@ -597,20 +625,31 @@ class DatahubValidationAction(ValidationAction):
                         }
                     )
             else:
-                logger.warning(
+                warn(
                     f"DatahubValidationAction does not recognize this GE batch spec type- {type(ge_batch_spec)}."
                 )
         else:
             # TODO - v2-spec - SqlAlchemyDataset support
-            logger.warning(
+            warn(
                 f"DatahubValidationAction does not recognize this GE data asset type - {type(data_asset)}. \
                         This is either using v2-api or execution engine other than sqlalchemy."
             )
 
         return dataset_partitions
 
+    def get_platform_instance(self, datasource_name):
+        if self.platform_instance_map and datasource_name in self.platform_instance_map:
+            return self.platform_instance_map[datasource_name]
+        if datasource_name:
+            warn(
+                f"Datasource {datasource_name} is not present in platform_instance_map"
+            )
+        return None
 
-def make_dataset_urn(sqlalchemy_uri, schema_name, table_name, env):
+
+def make_dataset_urn_from_sqlalchemy_uri(
+    sqlalchemy_uri, schema_name, table_name, env, platform_instance=None
+):
 
     data_platform = get_platform_from_sqlalchemy_uri(str(sqlalchemy_uri))
     url_instance = make_url(sqlalchemy_uri)
@@ -621,7 +660,7 @@ def make_dataset_urn(sqlalchemy_uri, schema_name, table_name, env):
     if data_platform in ["redshift", "postgres"]:
         schema_name = schema_name if schema_name else "public"
         if url_instance.database is None:
-            logger.warning(
+            warn(
                 f"DatahubValidationAction failed to locate database name for {data_platform}."
             )
             return None
@@ -629,14 +668,14 @@ def make_dataset_urn(sqlalchemy_uri, schema_name, table_name, env):
     elif data_platform == "mssql":
         schema_name = schema_name if schema_name else "dbo"
         if url_instance.database is None:
-            logger.warning(
+            warn(
                 f"DatahubValidationAction failed to locate database name for {data_platform}."
             )
             return None
         schema_name = "{}.{}".format(url_instance.database, schema_name)
     elif data_platform in ["trino", "snowflake"]:
         if schema_name is None or url_instance.database is None:
-            logger.warning(
+            warn(
                 f"DatahubValidationAction failed to locate schema name and/or database name \
                     for {data_platform}."
             )
@@ -644,7 +683,7 @@ def make_dataset_urn(sqlalchemy_uri, schema_name, table_name, env):
         schema_name = "{}.{}".format(url_instance.database, schema_name)
     elif data_platform == "bigquery":
         if url_instance.host is None or url_instance.database is None:
-            logger.warning(
+            warn(
                 f"DatahubValidationAction failed to locate host and/or database name for \
                     {data_platform}. "
             )
@@ -653,15 +692,18 @@ def make_dataset_urn(sqlalchemy_uri, schema_name, table_name, env):
 
     schema_name = schema_name if schema_name else url_instance.database
     if schema_name is None:
-        logger.warning(
+        warn(
             f"DatahubValidationAction failed to locate schema name for {data_platform}."
         )
         return None
 
     dataset_name = "{}.{}".format(schema_name, table_name)
 
-    dataset_urn = builder.make_dataset_urn(
-        platform=data_platform, name=dataset_name, env=env
+    dataset_urn = builder.make_dataset_urn_with_platform_instance(
+        platform=data_platform,
+        name=dataset_name,
+        platform_instance=platform_instance,
+        env=env,
     )
     return dataset_urn
 
@@ -676,3 +718,7 @@ class DatahubStdAssertion:
 
 def convert_to_string(var):
     return str(var) if isinstance(var, (str, int, float)) else json.dumps(var)
+
+
+def warn(msg):
+    logger.warning(msg)
