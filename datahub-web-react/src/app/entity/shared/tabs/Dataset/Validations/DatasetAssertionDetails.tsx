@@ -37,7 +37,7 @@ const ContentContainer = styled.div`
 `;
 
 const EvaluationsDetails = styled.div`
-    width: ${RESULT_CHART_WIDTH_PX};
+    width: ${RESULT_CHART_WIDTH_PX}px;
     padding-top: 12px;
 `;
 
@@ -79,7 +79,7 @@ export const DatasetAssertionDetails = ({ urn, lastEvaluatedAtMillis }: Props) =
     const [lookbackWindow, setLookbackWindow] = useState(LOOKBACK_WINDOWS.WEEK);
     useEffect(() => {
         getAssertionRuns({
-            variables: { assertionUrn: urn, ...lookbackWindow },
+            variables: { assertionUrn: urn, ...getFixedLookbackWindow(lookbackWindow.windowSize) },
         });
     }, [urn, lookbackWindow, getAssertionRuns]);
 
@@ -90,7 +90,6 @@ export const DatasetAssertionDetails = ({ urn, lastEvaluatedAtMillis }: Props) =
         const newLookbackWindow = Object.values(LOOKBACK_WINDOWS).filter((window) => window.text === value?.valueOf());
         setLookbackWindow(newLookbackWindow[0]);
     };
-
     const selectedWindow = getFixedLookbackWindow(lookbackWindow.windowSize);
     const selectedWindowTimeRange = {
         startMs: selectedWindow.startTime,
@@ -177,11 +176,9 @@ export const DatasetAssertionDetails = ({ urn, lastEvaluatedAtMillis }: Props) =
         <ContentContainer>
             <div>
                 <Typography.Title level={5}>Evaluations</Typography.Title>
-                <div>
-                    <Tooltip title={lastEvaluatedTimeGMT}>
-                        <LastEvaluatedAtLabel>{lastEvaluatedTimeLocal}</LastEvaluatedAtLabel>
-                    </Tooltip>
-                </div>
+                <Tooltip placement="topLeft" title={lastEvaluatedTimeGMT}>
+                    <LastEvaluatedAtLabel>{lastEvaluatedTimeLocal}</LastEvaluatedAtLabel>
+                </Tooltip>
                 <EvaluationsDetails>
                     <EvaluationsHeader>
                         <EvaluationsSummary>

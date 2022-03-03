@@ -61,8 +61,8 @@ public class DatasetHealthResolver implements DataFetcher<CompletableFuture<Heal
     _graphClient = graphClient;
     _timeseriesAspectService = timeseriesAspectService;
     _statusCache = CacheBuilder.newBuilder()
-        .maximumSize(50000)
-        .expireAfterWrite(5, TimeUnit.MINUTES)
+        .maximumSize(10000)
+        .expireAfterWrite(1, TimeUnit.MINUTES)
         .build();
   }
 

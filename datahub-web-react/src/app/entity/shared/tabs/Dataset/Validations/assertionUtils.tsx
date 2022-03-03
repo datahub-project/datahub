@@ -38,7 +38,7 @@ export const getResultText = (result: AssertionResultType) => {
 /**
  * Returns the display color assoociated with an AssertionResultType
  */
-const SUCCESS_COLOR_HEX = '#52C41A';
+const SUCCESS_COLOR_HEX = '#4db31b';
 const FAILURE_COLOR_HEX = '#F5222D';
 export const getResultColor = (result: AssertionResultType) => {
     switch (result) {

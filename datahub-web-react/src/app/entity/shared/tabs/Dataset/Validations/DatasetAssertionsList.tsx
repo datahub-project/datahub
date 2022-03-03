@@ -1,4 +1,4 @@
-import { Button, Empty, Image, message, Tag, Tooltip, Typography } from 'antd';
+import { Button, Empty, Image, message, Modal, Tag, Tooltip, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { DeleteOutlined, DownOutlined, RightOutlined, StopOutlined } from '@ant-design/icons';
@@ -58,6 +58,20 @@ export const DatasetAssertionsList = ({ assertions, onDelete }: Props) => {
         onDelete?.(urn);
     };
 
+    const onDeleteAssertion = (urn: string) => {
+        Modal.confirm({
+            title: `Confirm Assertion Removal`,
+            content: `Are you sure you want to remove this assertion from the dataset?`,
+            onOk() {
+                deleteAssertion(urn);
+            },
+            onCancel() {},
+            okText: 'Yes',
+            maskClosable: true,
+            closable: true,
+        });
+    };
+
     const assertionsTableData = assertions.map((assertion) => ({
         urn: assertion.urn,
         type: assertion.info?.type,
@@ -85,7 +99,7 @@ export const DatasetAssertionsList = ({ assertions, onDelete }: Props) => {
                     <ResultContainer>
                         <div>
                             <Tooltip title={(localTime && `Last evaluated on ${localTime}`) || 'No Evaluations'}>
-                                <Tag color={resultColor}>
+                                <Tag style={{ borderColor: resultColor }}>
                                     {resultIcon}
                                     <ResultTypeText style={{ color: resultColor }}>{resultText}</ResultTypeText>
                                 </Tag>
@@ -114,7 +128,7 @@ export const DatasetAssertionsList = ({ assertions, onDelete }: Props) => {
                             )) || <Typography.Text>{record.platform.properties?.displayName}</Typography.Text>}
                         </PlatformContainer>
                     </Tooltip>
-                    <Button onClick={() => deleteAssertion(record.urn)} type="text" shape="circle" danger>
+                    <Button onClick={() => onDeleteAssertion(record.urn)} type="text" shape="circle" danger>
                         <DeleteOutlined />
                     </Button>
                 </ActionButtonContainer>

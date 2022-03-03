@@ -40,7 +40,7 @@ const getAssertionsStatusSummary = (assertions: Array<Assertion>) => {
  */
 export const ValidationsTab = () => {
     const { urn, entityData } = useEntityData();
-    const { data } = useGetDatasetAssertionsQuery({ variables: { urn } });
+    const { data, refetch } = useGetDatasetAssertionsQuery({ variables: { urn } });
 
     const assertions = (data && data.dataset?.assertions?.assertions?.map((assertion) => assertion as Assertion)) || [];
     const totalAssertions = data?.dataset?.assertions?.total || 0;
@@ -59,7 +59,7 @@ export const ValidationsTab = () => {
                 </div>
             </TabToolbar>
             <DatasetAssertionsSummary summary={getAssertionsStatusSummary(assertions)} />
-            {entityData && <DatasetAssertionsList assertions={assertions} />}
+            {entityData && <DatasetAssertionsList assertions={assertions} onDelete={() => refetch()} />}
         </>
     );
 };

@@ -57,7 +57,7 @@ logger = logging.getLogger(__name__)
 GE_PLATFORM_NAME = "great-expectations"
 
 
-class DatahubValidationAction(ValidationAction):
+class DataHubValidationAction(ValidationAction):
     def __init__(
         self,
         data_context: DataContext,
@@ -127,11 +127,11 @@ class DatahubValidationAction(ValidationAction):
             datasets = self.get_dataset_partitions(batch_identifier, data_asset)
 
             if len(datasets) == 0 or datasets[0]["dataset_urn"] is None:
-                logger.info("Metadata not sent to datahub.")
+                logger.info("Metadata not sent to datahub. No datasets found.")
                 return {"datahub_notification_result": "none required"}
 
             # Returns assertion info and assertion results
-            assertions = self.get_assertions_withresults(
+            assertions = self.get_assertions_with_results(
                 validation_result_suite,
                 expectation_suite_name,
                 run_id,
@@ -172,9 +172,9 @@ class DatahubValidationAction(ValidationAction):
                     # Emit Result! (timseries aspect)
                     emitter.emit_mcp(dataset_assertionResult_mcp)
 
-            result = "Datahub notification succeeded"
+            result = "DataHub notification succeeded"
         except Exception as e:
-            result = "Datahub notification failed"
+            result = "DataHub notification failed"
             if self.graceful_exceptions:
                 logger.error(e)
                 logger.info("Supressing error because graceful_exceptions is set")
@@ -183,7 +183,7 @@ class DatahubValidationAction(ValidationAction):
 
         return {"datahub_notification_result": result}
 
-    def get_assertions_withresults(
+    def get_assertions_with_results(
         self,
         validation_result_suite,
         expectation_suite_name,
@@ -205,7 +205,7 @@ class DatahubValidationAction(ValidationAction):
                         if "file://" not in docs_link_val and docs_link_key != "class":
                             docs_link = docs_link_val
 
-        assertions_withresults = []
+        assertions_with_results = []
         for result in validation_result_suite.results:
             expectation_config = result["expectation_config"]
             expectation_type = expectation_config["expectation_type"]
@@ -283,12 +283,12 @@ class DatahubValidationAction(ValidationAction):
                 else None
             )
 
-            dset = datasets[0]
+            ds = datasets[0]
             # https://docs.greatexpectations.io/docs/reference/expectations/result_format/
             assertionResult = AssertionRunEvent(
                 timestampMillis=int(round(time.time() * 1000)),
                 assertionUrn=assertionUrn,
-                asserteeUrn=dset["dataset_urn"],
+                asserteeUrn=ds["dataset_urn"],
                 runId=run_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
                 result=AssertionResult(
                     type=AssertionResultType.SUCCESS
@@ -301,15 +301,15 @@ class DatahubValidationAction(ValidationAction):
                     externalUrl=docs_link,
                     nativeResults=nativeResults,
                 ),
-                batchSpec=dset["batchSpec"],
+                batchSpec=ds["batchSpec"],
                 status=AssertionRunStatus.COMPLETE,
                 runtimeContext=evaluation_parameters,
             )
-            if dset.get("partitionSpec") is not None:
-                assertionResult.partitionSpec = dset.get("partitionSpec")
+            if ds.get("partitionSpec") is not None:
+                assertionResult.partitionSpec = ds.get("partitionSpec")
             assertionResults.append(assertionResult)
 
-            assertions_withresults.append(
+            assertions_with_results.append(
                 {
                     "assertionUrn": assertionUrn,
                     "assertionInfo": assertionInfo,
@@ -317,7 +317,7 @@ class DatahubValidationAction(ValidationAction):
                     "assertionResults": assertionResults,
                 }
             )
-        return assertions_withresults
+        return assertions_with_results
 
     def get_assertion_info(
         self, expectation_type, kwargs, dataset, fields, expectation_suite_name
@@ -336,68 +336,68 @@ class DatahubValidationAction(ValidationAction):
                 ),
             )
 
-        known_expectations: dict[str, DatahubStdAssertion] = {
+        known_expectations: dict[str, DataHubStdAssertion] = {
             # column aggregate expectations
-            "expect_column_min_to_be_between": DatahubStdAssertion(
+            "expect_column_min_to_be_between": DataHubStdAssertion(
                 scope=DatasetAssertionScope.DATASET_COLUMN,
                 operator=AssertionStdOperator.BETWEEN,
                 aggregation=AssertionStdAggregation.MIN,
                 parameters=get_min_max(kwargs),
             ),
-            "expect_column_max_to_be_between": DatahubStdAssertion(
+            "expect_column_max_to_be_between": DataHubStdAssertion(
                 scope=DatasetAssertionScope.DATASET_COLUMN,
                 operator=AssertionStdOperator.BETWEEN,
                 aggregation=AssertionStdAggregation.MAX,
                 parameters=get_min_max(kwargs),
             ),
-            "expect_column_median_to_be_between": DatahubStdAssertion(
+            "expect_column_median_to_be_between": DataHubStdAssertion(
                 scope=DatasetAssertionScope.DATASET_COLUMN,
                 operator=AssertionStdOperator.BETWEEN,
                 aggregation=AssertionStdAggregation.MEDIAN,
                 parameters=get_min_max(kwargs),
             ),
-            "expect_column_stdev_to_be_between": DatahubStdAssertion(
+            "expect_column_stdev_to_be_between": DataHubStdAssertion(
                 scope=DatasetAssertionScope.DATASET_COLUMN,
                 operator=AssertionStdOperator.BETWEEN,
                 aggregation=AssertionStdAggregation.STDDEV,
                 parameters=get_min_max(kwargs, AssertionStdParameterType.NUMBER),
             ),
-            "expect_column_mean_to_be_between": DatahubStdAssertion(
+            "expect_column_mean_to_be_between": DataHubStdAssertion(
                 scope=DatasetAssertionScope.DATASET_COLUMN,
                 operator=AssertionStdOperator.BETWEEN,
                 aggregation=AssertionStdAggregation.MEAN,
                 parameters=get_min_max(kwargs, AssertionStdParameterType.NUMBER),
             ),
-            "expect_column_unique_value_count_to_be_between": DatahubStdAssertion(
+            "expect_column_unique_value_count_to_be_between": DataHubStdAssertion(
                 scope=DatasetAssertionScope.DATASET_COLUMN,
                 operator=AssertionStdOperator.BETWEEN,
                 aggregation=AssertionStdAggregation.UNIQUE_COUNT,
                 parameters=get_min_max(kwargs, AssertionStdParameterType.NUMBER),
             ),
-            "expect_column_proportion_of_unique_values_to_be_between": DatahubStdAssertion(
+            "expect_column_proportion_of_unique_values_to_be_between": DataHubStdAssertion(
                 scope=DatasetAssertionScope.DATASET_COLUMN,
                 operator=AssertionStdOperator.BETWEEN,
                 aggregation=AssertionStdAggregation.UNIQUE_PROPOTION,
                 parameters=get_min_max(kwargs, AssertionStdParameterType.NUMBER),
             ),
-            "expect_column_sum_to_be_between": DatahubStdAssertion(
+            "expect_column_sum_to_be_between": DataHubStdAssertion(
                 scope=DatasetAssertionScope.DATASET_COLUMN,
                 operator=AssertionStdOperator.BETWEEN,
                 aggregation=AssertionStdAggregation.SUM,
                 parameters=get_min_max(kwargs, AssertionStdParameterType.NUMBER),
             ),
-            "expect_column_quantile_values_to_be_between": DatahubStdAssertion(
+            "expect_column_quantile_values_to_be_between": DataHubStdAssertion(
                 scope=DatasetAssertionScope.DATASET_COLUMN,
                 operator=AssertionStdOperator.BETWEEN,
                 aggregation=AssertionStdAggregation._NATIVE_,
             ),
             # column map expectations
-            "expect_column_values_to_not_be_null": DatahubStdAssertion(
+            "expect_column_values_to_not_be_null": DataHubStdAssertion(
                 scope=DatasetAssertionScope.DATASET_COLUMN,
                 operator=AssertionStdOperator.NOT_NULL,
                 aggregation=AssertionStdAggregation.IDENTITY,
             ),
-            "expect_column_values_to_be_in_set": DatahubStdAssertion(
+            "expect_column_values_to_be_in_set": DataHubStdAssertion(
                 scope=DatasetAssertionScope.DATASET_COLUMN,
                 operator=AssertionStdOperator.IN,
                 aggregation=AssertionStdAggregation.IDENTITY,
@@ -408,13 +408,13 @@ class DatahubValidationAction(ValidationAction):
                     )
                 ),
             ),
-            "expect_column_values_to_be_between": DatahubStdAssertion(
+            "expect_column_values_to_be_between": DataHubStdAssertion(
                 scope=DatasetAssertionScope.DATASET_COLUMN,
                 operator=AssertionStdOperator.BETWEEN,
                 aggregation=AssertionStdAggregation.IDENTITY,
                 parameters=get_min_max(kwargs),
             ),
-            "expect_column_values_to_match_regex": DatahubStdAssertion(
+            "expect_column_values_to_match_regex": DataHubStdAssertion(
                 scope=DatasetAssertionScope.DATASET_COLUMN,
                 operator=AssertionStdOperator.REGEX_MATCH,
                 aggregation=AssertionStdAggregation.IDENTITY,
@@ -425,7 +425,7 @@ class DatahubValidationAction(ValidationAction):
                     )
                 ),
             ),
-            "expect_column_values_to_match_regex_list": DatahubStdAssertion(
+            "expect_column_values_to_match_regex_list": DataHubStdAssertion(
                 scope=DatasetAssertionScope.DATASET_COLUMN,
                 operator=AssertionStdOperator.REGEX_MATCH,
                 aggregation=AssertionStdAggregation.IDENTITY,
@@ -436,7 +436,7 @@ class DatahubValidationAction(ValidationAction):
                     )
                 ),
             ),
-            "expect_table_columns_to_match_ordered_list": DatahubStdAssertion(
+            "expect_table_columns_to_match_ordered_list": DataHubStdAssertion(
                 scope=DatasetAssertionScope.DATASET_SCHEMA,
                 operator=AssertionStdOperator.EQUAL_TO,
                 aggregation=AssertionStdAggregation.COLUMNS,
@@ -447,7 +447,7 @@ class DatahubValidationAction(ValidationAction):
                     )
                 ),
             ),
-            "expect_table_columns_to_match_set": DatahubStdAssertion(
+            "expect_table_columns_to_match_set": DataHubStdAssertion(
                 scope=DatasetAssertionScope.DATASET_SCHEMA,
                 operator=AssertionStdOperator.EQUAL_TO,
                 aggregation=AssertionStdAggregation.COLUMNS,
@@ -458,13 +458,13 @@ class DatahubValidationAction(ValidationAction):
                     )
                 ),
             ),
-            "expect_table_column_count_to_be_between": DatahubStdAssertion(
+            "expect_table_column_count_to_be_between": DataHubStdAssertion(
                 scope=DatasetAssertionScope.DATASET_SCHEMA,
                 operator=AssertionStdOperator.BETWEEN,
                 aggregation=AssertionStdAggregation.COLUMN_COUNT,
                 parameters=get_min_max(kwargs, AssertionStdParameterType.NUMBER),
             ),
-            "expect_table_column_count_to_equal": DatahubStdAssertion(
+            "expect_table_column_count_to_equal": DataHubStdAssertion(
                 scope=DatasetAssertionScope.DATASET_SCHEMA,
                 operator=AssertionStdOperator.EQUAL_TO,
                 aggregation=AssertionStdAggregation.COLUMN_COUNT,
@@ -475,12 +475,12 @@ class DatahubValidationAction(ValidationAction):
                     )
                 ),
             ),
-            "expect_column_to_exist": DatahubStdAssertion(
+            "expect_column_to_exist": DataHubStdAssertion(
                 scope=DatasetAssertionScope.DATASET_SCHEMA,
                 operator=AssertionStdOperator._NATIVE_,
                 aggregation=AssertionStdAggregation._NATIVE_,
             ),
-            "expect_table_row_count_to_equal": DatahubStdAssertion(
+            "expect_table_row_count_to_equal": DataHubStdAssertion(
                 scope=DatasetAssertionScope.DATASET_ROWS,
                 operator=AssertionStdOperator.EQUAL_TO,
                 aggregation=AssertionStdAggregation.ROW_COUNT,
@@ -491,7 +491,7 @@ class DatahubValidationAction(ValidationAction):
                     )
                 ),
             ),
-            "expect_table_row_count_to_be_between": DatahubStdAssertion(
+            "expect_table_row_count_to_be_between": DataHubStdAssertion(
                 scope=DatasetAssertionScope.DATASET_ROWS,
                 operator=AssertionStdOperator.BETWEEN,
                 aggregation=AssertionStdAggregation.ROW_COUNT,
@@ -605,7 +605,7 @@ class DatahubValidationAction(ValidationAction):
                 tables = MetadataSQLSQLParser(query).get_tables()
                 if len(set(tables)) != 1:
                     warn(
-                        "DatahubValidationAction does not support cross dataset assertions."
+                        "DataHubValidationAction does not support cross dataset assertions."
                     )
                 for table in tables:
                     dataset_urn = make_dataset_urn_from_sqlalchemy_uri(
@@ -626,12 +626,12 @@ class DatahubValidationAction(ValidationAction):
                     )
             else:
                 warn(
-                    f"DatahubValidationAction does not recognize this GE batch spec type- {type(ge_batch_spec)}."
+                    f"DataHubValidationAction does not recognize this GE batch spec type- {type(ge_batch_spec)}."
                 )
         else:
             # TODO - v2-spec - SqlAlchemyDataset support
             warn(
-                f"DatahubValidationAction does not recognize this GE data asset type - {type(data_asset)}. \
+                f"DataHubValidationAction does not recognize this GE data asset type - {type(data_asset)}. \
                         This is either using v2-api or execution engine other than sqlalchemy."
             )
 
@@ -661,7 +661,7 @@ def make_dataset_urn_from_sqlalchemy_uri(
         schema_name = schema_name if schema_name else "public"
         if url_instance.database is None:
             warn(
-                f"DatahubValidationAction failed to locate database name for {data_platform}."
+                f"DataHubValidationAction failed to locate database name for {data_platform}."
             )
             return None
         schema_name = "{}.{}".format(url_instance.database, schema_name)
@@ -669,14 +669,14 @@ def make_dataset_urn_from_sqlalchemy_uri(
         schema_name = schema_name if schema_name else "dbo"
         if url_instance.database is None:
             warn(
-                f"DatahubValidationAction failed to locate database name for {data_platform}."
+                f"DataHubValidationAction failed to locate database name for {data_platform}."
             )
             return None
         schema_name = "{}.{}".format(url_instance.database, schema_name)
     elif data_platform in ["trino", "snowflake"]:
         if schema_name is None or url_instance.database is None:
             warn(
-                f"DatahubValidationAction failed to locate schema name and/or database name \
+                f"DataHubValidationAction failed to locate schema name and/or database name \
                     for {data_platform}."
             )
             return None
@@ -684,7 +684,7 @@ def make_dataset_urn_from_sqlalchemy_uri(
     elif data_platform == "bigquery":
         if url_instance.host is None or url_instance.database is None:
             warn(
-                f"DatahubValidationAction failed to locate host and/or database name for \
+                f"DataHubValidationAction failed to locate host and/or database name for \
                     {data_platform}. "
             )
             return None
@@ -693,7 +693,7 @@ def make_dataset_urn_from_sqlalchemy_uri(
     schema_name = schema_name if schema_name else url_instance.database
     if schema_name is None:
         warn(
-            f"DatahubValidationAction failed to locate schema name for {data_platform}."
+            f"DataHubValidationAction failed to locate schema name for {data_platform}."
         )
         return None
 
@@ -709,7 +709,7 @@ def make_dataset_urn_from_sqlalchemy_uri(
 
 
 @dataclass
-class DatahubStdAssertion:
+class DataHubStdAssertion:
     scope: Union[str, DatasetAssertionScope]
     operator: Union[str, AssertionStdOperator]
     aggregation: Union[str, AssertionStdAggregation]

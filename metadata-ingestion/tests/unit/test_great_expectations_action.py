@@ -24,7 +24,7 @@ from great_expectations.execution_engine.sqlalchemy_execution_engine import (
 from great_expectations.validator.validator import Validator
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.integrations.great_expectations.action import DatahubValidationAction
+from datahub.integrations.great_expectations.action import DataHubValidationAction
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
     AssertionResultClass,
@@ -142,7 +142,7 @@ def ge_validation_result_suite_id() -> ValidationResultIdentifier:
 
 
 @mock.patch("datahub.emitter.rest_emitter.DatahubRestEmitter.emit_mcp", autospec=True)
-def test_DatahubValidationAction_basic(
+def test_DataHubValidationAction_basic(
     mock_emitter: mock.MagicMock,
     ge_data_context: DataContext,
     ge_validator_sqlalchemy: Validator,
@@ -152,7 +152,7 @@ def test_DatahubValidationAction_basic(
 
     server_url = "http://localhost:9999"
 
-    datahub_action = DatahubValidationAction(
+    datahub_action = DataHubValidationAction(
         data_context=ge_data_context, server_url=server_url
     )
 
@@ -246,7 +246,7 @@ def test_DatahubValidationAction_basic(
     )
 
 
-def test_DatahubValidationAction_graceful_failure(
+def test_DataHubValidationAction_graceful_failure(
     ge_data_context: DataContext,
     ge_validator_sqlalchemy: Validator,
     ge_validation_result_suite: ExpectationSuiteValidationResult,
@@ -255,7 +255,7 @@ def test_DatahubValidationAction_graceful_failure(
 
     server_url = "http://localhost:9999"
 
-    datahub_action = DatahubValidationAction(
+    datahub_action = DataHubValidationAction(
         data_context=ge_data_context, server_url=server_url
     )
 
@@ -266,7 +266,7 @@ def test_DatahubValidationAction_graceful_failure(
     ) == {"datahub_notification_result": "Datahub notification failed"}
 
 
-def test_DatahubValidationAction_not_supported(
+def test_DataHubValidationAction_not_supported(
     ge_data_context: DataContext,
     ge_validator_pandas: Validator,
     ge_validation_result_suite: ExpectationSuiteValidationResult,
@@ -275,7 +275,7 @@ def test_DatahubValidationAction_not_supported(
 
     server_url = "http://localhost:99199"
 
-    datahub_action = DatahubValidationAction(
+    datahub_action = DataHubValidationAction(
         data_context=ge_data_context, server_url=server_url
     )
 

@@ -308,7 +308,9 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
                     <ColorPicker>
                         <ColorPickerButton style={{ backgroundColor: colorValue }} onClick={handlePickerClick} />
                     </ColorPicker>
-                    <TitleText>{data?.tag?.properties?.name}</TitleText>
+                    <TitleText>
+                        {(data?.tag && entityRegistry.getDisplayName(EntityType.Tag, data?.tag)) || ''}
+                    </TitleText>
                 </TagName>
                 {displayColorPicker && (
                     <ColorPickerPopOver ref={colorPickerRef}>

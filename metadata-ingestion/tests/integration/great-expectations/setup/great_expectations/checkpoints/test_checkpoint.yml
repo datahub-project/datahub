@@ -20,7 +20,7 @@ action_list:
   - name: datahub_action
     action:
       module_name: datahub.integrations.great_expectations.action
-      class_name: DatahubValidationAction
+      class_name: DataHubValidationAction
       server_url: http://localhost:8080
       graceful_exceptions: False
       platform_instance_map:

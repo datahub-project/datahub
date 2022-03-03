@@ -26,14 +26,23 @@ type Props = {
  *
  * Schema assertions require an aggregation.
  */
-const getSchemaAggregationText = (aggregation: AssertionStdAggregation | undefined | null) => {
+const getSchemaAggregationText = (
+    aggregation: AssertionStdAggregation | undefined | null,
+    fields: Array<SchemaFieldRef> | undefined | null,
+) => {
     switch (aggregation) {
         case AssertionStdAggregation.ColumnCount:
             return <Typography.Text>Dataset column count is</Typography.Text>;
         case AssertionStdAggregation.Columns:
             return <Typography.Text>Dataset columns are</Typography.Text>;
-        case AssertionStdAggregation.Native:
-            return <Typography.Text>{aggregation} is</Typography.Text>;
+        case AssertionStdAggregation.Native: {
+            const fieldNames = fields?.map((field) => field.path) || [];
+            return (
+                <Typography.Text>
+                    Dataset columns <Typography.Text strong>{JSON.stringify(fieldNames)}</Typography.Text> are
+                </Typography.Text>
+            );
+        }
         default:
             throw new Error(`Unsupported schema aggregation assertion ${aggregation} provided.`);
     }
@@ -50,7 +59,7 @@ const getRowsAggregationText = (aggregation: AssertionStdAggregation | undefined
         case AssertionStdAggregation.RowCount:
             return <Typography.Text>Dataset row count is</Typography.Text>;
         case AssertionStdAggregation.Native:
-            return <Typography.Text>{aggregation} is</Typography.Text>;
+            return <Typography.Text>Dataset rows are</Typography.Text>;
         default:
             throw new Error(`Unsupported Dataset Rows Aggregation ${aggregation} provided`);
     }
@@ -161,7 +170,7 @@ const getAggregationText = (
 ) => {
     switch (scope) {
         case DatasetAssertionScope.DatasetSchema:
-            return getSchemaAggregationText(aggregation);
+            return getSchemaAggregationText(aggregation, fields);
         case DatasetAssertionScope.DatasetRows:
             return getRowsAggregationText(aggregation);
         case DatasetAssertionScope.DatasetColumn:
@@ -311,8 +320,10 @@ export const DatasetAssertionDescription = ({ assertionInfo }: Props) => {
      */
     const description = (
         <>
-            {getAggregationText(scope, aggregation, fields)}{' '}
-            {getOperatorText(operator, parameters || undefined, nativeType || undefined)}
+            <Typography.Text>
+                {getAggregationText(scope, aggregation, fields)}{' '}
+                {getOperatorText(operator, parameters || undefined, nativeType || undefined)}
+            </Typography.Text>
         </>
     );
 
@@ -331,7 +342,7 @@ export const DatasetAssertionDescription = ({ assertionInfo }: Props) => {
                 </>
             }
         >
-            {(logic && <SqlText>{logic}</SqlText>) || description}
+            <div>{(logic && <SqlText>{logic}</SqlText>) || description}</div>
         </Popover>
     );
 };

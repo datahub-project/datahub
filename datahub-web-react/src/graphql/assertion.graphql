@@ -50,6 +50,10 @@ fragment assertionRunEventDetails on AssertionRunEvent {
     timestampMillis
     assertionUrn
     status
+    runtimeContext {
+        key
+        value
+    }
     result {
         type
         actualAggValue
@@ -58,10 +62,6 @@ fragment assertionRunEventDetails on AssertionRunEvent {
         unexpectedCount
         externalUrl
         nativeResults {
-            key
-            value
-        }
-        runtimeContext {
             key
             value
         }
