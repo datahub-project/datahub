@@ -12,7 +12,7 @@ Option 1 is useful for running proof-of-concept exercises, or just getting DataH
 
 ## Create a user.props file
 
-To define a set of username / password combinations that should be allowed to log in to DataHub, create a new file called `user.props` at the file path `${HOME}/.datahub/plugins/auth/user.props`. 
+To define a set of username / password combinations that should be allowed to log in to DataHub, create a new file called `user.props` at the file path `${HOME}/.datahub/plugins/frontend/auth/user.props`. 
 This file should contain username:password combinations, with 1 user per line. For example, to create 2 new users,
 with usernames "janesmith" and "johndoe", we would define the following file:
 
@@ -31,14 +31,14 @@ If you want to customize the location of the `user.props` file, or if you're dep
 ## (Advanced) Mount custom user.props file to container
 
 This step is only required when mounting custom credentials into a Kubernetes pod (e.g. Helm) **or** if you want to change
-the default filesystem location where DataHub checks for a custom `user.props` file (`${HOME}/.datahub/plugins/auth/user.props)`. 
+the default filesystem location from which DataHub mounts a custom `user.props` file (`${HOME}/.datahub/plugins/frontend/auth/user.props)`. 
 
 If you are deploying with `datahub docker quickstart`, or running using Docker Compose, you can most likely skip this step.
 
 ### Docker Compose
 
 You'll need to modify the `docker-compose.yml` file to mount a container volume mapping your custom user.props to the standard location inside the container 
-(`/etc/datahub/plugins/auth/user.props`).
+(`/etc/datahub/plugins/frontend/auth/user.props`).
 
 For example, to mount a user.props file that is stored on my local filesystem at `/tmp/datahub/user.props`, we'd modify the YAML for the 
 `datahub-web-react` config to look like the following:
@@ -53,7 +53,7 @@ For example, to mount a user.props file that is stored on my local filesystem at
     # The new stuff
     volumes:
       - ${HOME}/.datahub/plugins:/etc/datahub/plugins
-      - /tmp/datahub:/etc/datahub/plugins/auth
+      - /tmp/datahub:/etc/datahub/plugins/frontend/auth
 ```
 
 Once you've made this change, restarting DataHub enable authentication for the configured users.
@@ -80,7 +80,7 @@ datahub-frontend:
         secretName:  datahub-users-secret
   extraVolumeMounts:
     - name: datahub-users
-      mountPath: /etc/datahub/plugins/auth/user.props
+      mountPath: /etc/datahub/plugins/frontend/auth/user.props
       subPath: user.props
 ```
 
