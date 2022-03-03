@@ -61,7 +61,11 @@ searchService:
 
 recommendationService:
   mostPopular:
-    source: ${RECOMMENDATION_MOST_POPULAR_CANDIDATE_SOURCE:MostPopularSource}
+    offline: ${MOST_POPULAR_RECOMMENDATIONS_OFFLINE:false}
+  topTags:
+    offline: ${TOP_TAGS_RECOMMENDATIONS_OFFLINE:false}
+  topTerms:
+    offline: ${TOP_TERMS_RECOMMENDATIONS_OFFLINE:false}
 
 configEntityRegistry:
   # TODO: Change to read from resources on classpath.

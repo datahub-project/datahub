@@ -10,7 +10,6 @@ import com.linkedin.gms.factory.recommendation.candidatesource.TopTermsCandidate
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.recommendation.candidatesource.DomainsCandidateSource;
-import com.linkedin.metadata.recommendation.candidatesource.MostPopularOfflineSource;
 import com.linkedin.metadata.recommendation.candidatesource.MostPopularSource;
 import com.linkedin.metadata.recommendation.candidatesource.RecentlyViewedSource;
 import com.linkedin.metadata.recommendation.candidatesource.RecommendationSource;
@@ -49,10 +48,6 @@ public class RecommendationServiceFactory {
   private MostPopularSource mostPopularCandidateSource;
 
   @Autowired
-  @Qualifier("mostPopularOfflineCandidateSource")
-  private MostPopularOfflineSource mostPopularOfflineCandidateSource;
-
-  @Autowired
   @Qualifier("topTagsCandidateSource")
   private TopTagsSource topTagsCandidateSource;
 
@@ -64,22 +59,14 @@ public class RecommendationServiceFactory {
   @Qualifier("domainsCandidateSource")
   private DomainsCandidateSource domainsCandidateSource;
 
-  @Value("${recommendationService.mostPopular.source}")
-  private String mostPopularSourceName;
-
   @Bean
   @Nonnull
   protected RecommendationsService getInstance() {
-    RecommendationSource mostPopularSource = mostPopularCandidateSource;
-    if (mostPopularSourceName.equals("MostPopularOfflineSource")) {
-      mostPopularSource = mostPopularOfflineCandidateSource;
-    }
-
     // TODO: Make this class-name pluggable to minimize merge conflict potential.
     // This is where you can add new recommendation modules.
     final List<RecommendationSource> candidateSources =
         ImmutableList.of(topPlatformsCandidateSource, domainsCandidateSource, recentlyViewedCandidateSource,
-            mostPopularSource, topTagsCandidateSource, topTermsCandidateSource);
+            mostPopularCandidateSource, topTagsCandidateSource, topTermsCandidateSource);
     return new RecommendationsService(candidateSources, new SimpleRecommendationRanker());
   }
 }
