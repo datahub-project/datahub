@@ -3,7 +3,7 @@
 source:
   type: "file"
   config:
-    filename: "./examples/mce_files/assertion_test.json"
+    filename: "./tests/integration/great-expectations/ge_mcps_golden.json"
 
 # see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:
