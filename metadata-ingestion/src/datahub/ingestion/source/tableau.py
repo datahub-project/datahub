@@ -541,7 +541,8 @@ class TableauSource(Source):
 
         # Dataset properties
         dataset_props = DatasetPropertiesClass(
-            description=datasource.get("name", ""),
+            name=datasource.get("name"),
+            description=datasource.get("description"),
             customProperties={
                 "hasExtracts": str(datasource.get("hasExtracts", "")),
                 "extractLastRefreshTime": datasource.get("extractLastRefreshTime", "")

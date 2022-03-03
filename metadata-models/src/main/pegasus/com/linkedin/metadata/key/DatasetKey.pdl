@@ -16,8 +16,9 @@ record DatasetKey {
   platform: Urn
 
   /**
-  * Dataset native name e.g. <db>.<table>, /dir/subdir/<name>, or <name>
+  * Unique guid for dataset
   */
+  //This is no longer to be used for Dataset native name. Use name, qualifiedName from DatasetProperties instead.
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
     "enableAutocomplete": true,
