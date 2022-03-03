@@ -160,7 +160,7 @@ def test_DataHubValidationAction_basic(
         validation_result_suite_identifier=ge_validation_result_suite_id,
         validation_result_suite=ge_validation_result_suite,
         data_asset=ge_validator_sqlalchemy,
-    ) == {"datahub_notification_result": "Datahub notification succeeded"}
+    ) == {"datahub_notification_result": "DataHub notification succeeded"}
 
     mock_emitter.assert_has_calls(
         [
@@ -263,7 +263,7 @@ def test_DataHubValidationAction_graceful_failure(
         validation_result_suite_identifier=ge_validation_result_suite_id,
         validation_result_suite=ge_validation_result_suite,
         data_asset=ge_validator_sqlalchemy,
-    ) == {"datahub_notification_result": "Datahub notification failed"}
+    ) == {"datahub_notification_result": "DataHub notification failed"}
 
 
 def test_DataHubValidationAction_not_supported(
