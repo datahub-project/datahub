@@ -336,7 +336,7 @@ class DataHubValidationAction(ValidationAction):
                 ),
             )
 
-        known_expectations: dict[str, DataHubStdAssertion] = {
+        known_expectations: Dict[str, DataHubStdAssertion] = {
             # column aggregate expectations
             "expect_column_min_to_be_between": DataHubStdAssertion(
                 scope=DatasetAssertionScope.DATASET_COLUMN,
