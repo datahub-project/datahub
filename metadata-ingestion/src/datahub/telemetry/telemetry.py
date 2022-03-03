@@ -24,8 +24,6 @@ ENV_ENABLED = os.environ.get("DATAHUB_TELEMETRY_ENABLED", "true").lower() == "tr
 TIMEOUT = int(os.environ.get("DATAHUB_TELEMETRY_TIMEOUT", "10"))
 MIXPANEL_TOKEN = "5ee83d940754d63cacbf7d34daa6f44a"
 
-mp = Mixpanel(MIXPANEL_TOKEN, consumer=Consumer(request_timeout=int(TIMEOUT)))
-
 
 class Telemetry:
 
@@ -42,15 +40,23 @@ class Telemetry:
         else:
             self.load_config()
 
-        # send updated user-level prop{erties
-        mp.people_set(
-            self.client_id,
-            {
-                "datahub_version": datahub_package.nice_version_name(),
-                "os": platform.system(),
-                "python_version": platform.python_version(),
-            },
-        )
+        # send updated user-level properties
+        self.mp = None
+        if self.enabled:
+            try:
+                self.mp = Mixpanel(
+                    MIXPANEL_TOKEN, consumer=Consumer(request_timeout=int(TIMEOUT))
+                )
+                self.mp.people_set(
+                    self.client_id,
+                    {
+                        "datahub_version": datahub_package.nice_version_name(),
+                        "os": platform.system(),
+                        "python_version": platform.python_version(),
+                    },
+                )
+            except Exception as e:
+                logger.debug(f"Error connecting to mixpanel: {e}")
 
     def update_config(self) -> None:
         """
@@ -133,12 +139,12 @@ class Telemetry:
             value (Optional[int], optional): value for the event
         """
 
-        if not self.enabled:
+        if not self.enabled or self.mp is None:
             return
 
         # send event
         try:
-            mp.track(self.client_id, action, properties)
+            self.mp.track(self.client_id, action, properties)
 
         except Exception as e:
             logger.debug(f"Error reporting telemetry: {e}")

@@ -5295,6 +5295,16 @@ type ActorFilter {
   Whether the filter should apply to all groups
   """
   allGroups: Boolean!
+
+  """
+  The list of users on the Policy, resolved.
+  """
+  resolvedUsers: [CorpUser!]
+
+  """
+  The list of groups on the Policy, resolved.
+  """
+  resolvedGroups: [CorpGroup!]
 }
 
 """

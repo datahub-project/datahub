@@ -8,6 +8,7 @@ import com.linkedin.datahub.graphql.analytics.resolver.GetHighlightsResolver;
 import com.linkedin.datahub.graphql.analytics.resolver.GetMetadataAnalyticsResolver;
 import com.linkedin.datahub.graphql.analytics.resolver.IsAnalyticsEnabledResolver;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
+import com.linkedin.datahub.graphql.generated.ActorFilter;
 import com.linkedin.datahub.graphql.generated.AggregationMetadata;
 import com.linkedin.datahub.graphql.generated.Aspect;
 import com.linkedin.datahub.graphql.generated.Assertion;
@@ -470,6 +471,7 @@ public class GmsGraphQLEngine {
         configureGlossaryTermResolvers(builder);
         configureDomainResolvers(builder);
         configureAssertionResolvers(builder);
+        configurePolicyResolvers(builder);
     }
 
     public GraphQLEngine.Builder builder() {
@@ -1135,15 +1137,26 @@ public class GmsGraphQLEngine {
     }
 
     private void configureAssertionResolvers(final RuntimeWiring.Builder builder) {
-        builder.type("Assertion", typeWiring -> typeWiring
-            .dataFetcher("relationships", new AuthenticatedResolver<>(
-                new EntityRelationshipsResultResolver(graphClient)
+        builder.type("Assertion", typeWiring -> typeWiring.dataFetcher("relationships", new AuthenticatedResolver<>(new EntityRelationshipsResultResolver(graphClient)))
+            .dataFetcher("platform", new AuthenticatedResolver<>(new LoadableTypeResolver<>(dataPlatformType, (env) -> ((Assertion) env.getSource()).getPlatform().getUrn())))
+            .dataFetcher("runEvents", new AssertionRunEventResolver(entityClient)));
+    }
+
+    private void configurePolicyResolvers(final RuntimeWiring.Builder builder) {
+        // Register resolvers for "resolvedUsers" and "resolvedGroups" field of the Policy type.
+        builder.type("ActorFilter", typeWiring -> typeWiring
+            .dataFetcher("resolvedUsers", new LoadableTypeBatchResolver<>(corpUserType,
+                (env) -> {
+                    final ActorFilter filter = env.getSource();
+                    return filter.getUsers();
+                }
             ))
-            .dataFetcher("platform", new AuthenticatedResolver<>(
-                new LoadableTypeResolver<>(dataPlatformType,
-                    (env) -> ((Assertion) env.getSource()).getPlatform().getUrn()))
-            )
-            .dataFetcher("runEvents", new AssertionRunEventResolver(entityClient))
+            .dataFetcher("resolvedGroups", new LoadableTypeBatchResolver<>(corpGroupType,
+                    (env) -> {
+                        final ActorFilter filter = env.getSource();
+                        return filter.getGroups();
+                    }
+            ))
         );
     }
 
