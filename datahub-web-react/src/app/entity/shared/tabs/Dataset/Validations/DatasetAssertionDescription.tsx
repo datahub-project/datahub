@@ -263,7 +263,8 @@ const getOperatorText = (
             const operatorText = 'starts with';
             return (
                 <Typography.Text>
-                    {operatorText} <Typography.Text strong>{parameters?.value}</Typography.Text>
+                    {operatorText}{' '}
+                    <Typography.Text strong>{getFormattedParameterValue(parameters?.value)}</Typography.Text>
                 </Typography.Text>
             );
         }
@@ -271,7 +272,8 @@ const getOperatorText = (
             const operatorText = 'ends with';
             return (
                 <Typography.Text>
-                    {operatorText} <Typography.Text strong>{parameters?.value} </Typography.Text>
+                    {operatorText}{' '}
+                    <Typography.Text strong>{getFormattedParameterValue(parameters?.value)} </Typography.Text>
                 </Typography.Text>
             );
         }
@@ -283,7 +285,14 @@ const getOperatorText = (
             );
         }
         default:
-            throw new Error(`Unsupported assertion operator ${op} provided.`);
+            return (
+                <Typography.Text>
+                    passing operator{' '}
+                    <Typography.Text strong>
+                        {op} with value ${getFormattedParameterValue(parameters?.value)}
+                    </Typography.Text>
+                </Typography.Text>
+            );
     }
 };
 
