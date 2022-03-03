@@ -40,7 +40,7 @@ institutional_memory_element = InstitutionalMemoryMetadataClass(
 gms_endpoint = "http://localhost:8080"
 graph = DataHubGraph(config=DatahubClientConfig(server=gms_endpoint))
 
-current_editable_properties = graph.get_aspect(
+current_editable_properties = graph.get_aspect_v2(
     entity_urn=dataset_urn,
     aspect="editableDatasetProperties",
     aspect_type=EditableDatasetPropertiesClass,
@@ -73,7 +73,7 @@ else:
     log.info("Documentation already exists and is identical, omitting write")
 
 
-current_institutional_memory = graph.get_aspect(
+current_institutional_memory = graph.get_aspect_v2(
     entity_urn=dataset_urn,
     aspect="institutionalMemory",
     aspect_type=InstitutionalMemoryClass,
