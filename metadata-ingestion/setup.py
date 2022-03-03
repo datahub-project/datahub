@@ -273,6 +273,8 @@ base_dev_requirements = {
     ),
 }
 
+base_dev_requirements_airflow_1 = base_dev_requirements.copy()
+
 if is_py37_or_newer:
     # These plugins only work on Python 3.7 or newer.
     base_dev_requirements = base_dev_requirements.union(
@@ -280,6 +282,17 @@ if is_py37_or_newer:
             dependency
             for plugin in [
                 "feast-repository",
+                "lookml",
+            ]
+            for dependency in plugins[plugin]
+        }
+    )
+    
+    # These plugins are compatible with Airflow 1.
+    base_dev_requirements_airflow_1 = base_dev_requirements_airflow_1.union(
+        {
+            dependency
+            for plugin in [
                 "lookml",
             ]
             for dependency in plugins[plugin]
@@ -298,7 +311,7 @@ dev_requirements_airflow_1_base = {
     "WTForms==2.3.3",  # make constraint consistent with extras
 }
 dev_requirements_airflow_1 = {
-    *base_dev_requirements,
+    *base_dev_requirements_airflow_1,
     *dev_requirements_airflow_1_base,
 }
 
