@@ -20,9 +20,6 @@ public class AspectExtractorTest {
   @Test
   public void testExtractor() {
     TestEntitySnapshot snapshot = new TestEntitySnapshot();
-    // Empty snapshot should return empty map
-    assertEquals(AspectExtractor.extractAspectRecords(new TestEntitySnapshot()), ImmutableMap.of());
-
     Urn urn = TestEntityUtil.getTestEntityUrn();
     TestEntityKey testEntityKey = TestEntityUtil.getTestEntityKey(urn);
     TestEntityInfo testEntityInfo = TestEntityUtil.getTestEntityInfo(urn);
