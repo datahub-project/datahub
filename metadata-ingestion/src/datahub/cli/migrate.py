@@ -270,12 +270,24 @@ def dataplatform2instance_func(
 
     print(f"{migration_report}")
     migrate_containers(
-        dry_run, env, hard, instance, keep, rest_emitter
+        dry_run=dry_run,
+        env=env,
+        hard=hard,
+        instance=instance,
+        platform=platform,
+        keep=keep,
+        rest_emitter=rest_emitter,
     )
 
 
 def migrate_containers(
-    dry_run, env, hard, instance, keep, rest_emitter
+    dry_run: bool,
+    env: str,
+    platform: str,
+    hard: bool,
+    instance: str,
+    keep: bool,
+    rest_emitter,
 ):
     run_id: str = f"container-migrate-{uuid.uuid4()}"
     migration_report = MigrationReport(run_id, dry_run, keep)
@@ -298,7 +310,14 @@ def migrate_containers(
         customProperties = container["aspects"]["containerProperties"]["value"][
             "customProperties"
         ]
-        log.warn(f"CustomProperties: {customProperties}")
+        if (env is not None and customProperties["instance"] != env) or (
+            platform is not None and customProperties["platform"] != platform
+        ):
+            log.debug(
+                f"{container['urn']} does not match filter criteria, skipping.. {customProperties} {env} {platform}"
+            )
+            continue
+
         try:
             if subType == "Schema":
                 newKey = SchemaKey.parse_obj(customProperties)
