@@ -1,6 +1,6 @@
 import hashlib
 import json
-from typing import Any, Iterable, List, Optional, TypeVar, Union, Dict
+from typing import Any, Dict, Iterable, List, Optional, TypeVar, Union
 
 from pydantic.class_validators import root_validator
 from pydantic.fields import Field
@@ -38,13 +38,18 @@ class PlatformKey(DatahubKey):
     environment: Optional[str] = None
 
     @root_validator(pre=True)
-    def check_instance_environment(cls, values: Dict[str, Any]):
+    def check_instance_environment(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         assert (
             values.get("instance") is not None or values.get("environment") is not None
         ), "either instance or environment needs to be specified for platform key"
         # Either instance or environment needs to be specified but not both
         if values.get("instance") is not None and values.get("environment") is not None:
             del values["environment"]
+        # if environment set but instance is not then use environment for instance to make backward compatible
+        elif values.get("environment") is not None and values.get("instance") is None:
+            values["instance"] = values["environment"]
+            del values["environment"]
+
         return values
 
 
@@ -100,7 +105,8 @@ def gen_containers(
         # entityKeyAspect=ContainerKeyClass(guid=schema_container_key.guid()),
         aspectName="containerProperties",
         aspect=ContainerProperties(
-            name=name, customProperties=container_key.dict(exclude_none=True)
+            name=name,
+            customProperties=container_key.dict(exclude_none=True, by_alias=True),
         ),
     )
     wu = MetadataWorkUnit(id=f"container-info-{name}-{container_urn}", mcp=mcp)

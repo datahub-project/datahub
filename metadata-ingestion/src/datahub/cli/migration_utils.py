@@ -9,6 +9,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     ChartInfoClass,
+    ContainerClass,
     DataJobInputOutputClass,
     DataProcessInfoClass,
     MLFeaturePropertiesClass,
@@ -19,6 +20,29 @@ from datahub.metadata.schema_classes import (
 )
 
 log = logging.getLogger(__name__)
+
+all_aspects = [
+    "schemaMetadata",
+    "datasetProperties",
+    "viewProperties",
+    "subTypes",
+    "editableDatasetProperties",
+    "ownership",
+    "datasetDeprecation",
+    "institutionalMemory",
+    "editableSchemaMetadata",
+    "globalTags",
+    "glossaryTerms",
+    "upstreamLineage",
+    "datasetUpstreamLineage",
+    "status",
+    "containerProperties",
+    "dataPlatformInstance",
+    "containerKey",
+    "container",
+    "domains",
+    "containerProperties" "editableContainerProperties",
+]
 
 
 def get_aspect_name_from_relationship_type_and_entity(
@@ -45,6 +69,12 @@ def get_aspect_name_from_relationship_type_and_entity(
             return "mlFeatureProperties"
         if entity_type.lower() == "mlprimarykey":
             return "mlPrimaryKeyProperties"
+    if relationship_type == "IsPartOf":
+        if entity_type.lower() == "container":
+            return "container"
+        if entity_type.lower() == "dataset":
+            return "container"
+
     raise Exception(
         f"Unable to map aspect name from relationship_type {relationship_type} and entity_type {entity_type}"
     )
@@ -119,6 +149,13 @@ def modify_urn_list_for_aspect(
             new_urn if source == old_urn else source for source in ml_pk_aspect.sources
         ]
         return ml_pk_aspect
+    if aspect_name == "container":
+        assert isinstance(aspect, ContainerClass)
+        container: ContainerClass = aspect
+        container.container = (
+            new_urn if container.container == old_urn else container.container
+        )
+        return container
     raise Exception(
         f"Unable to map aspect_name: {aspect_name}, relationship_type {relationship_type}"
     )
@@ -126,6 +163,7 @@ def modify_urn_list_for_aspect(
 
 def clone_aspect(
     src_urn: str,
+    entity_type: str,
     aspect_names: List[str],
     dst_urn: str,
     run_id: str = str(uuid.uuid4()),
@@ -135,6 +173,7 @@ def clone_aspect(
     aspect_map = cli_utils.get_aspects_for_entity(
         entity_urn=src_urn, aspects=aspect_names, typed=True
     )
+
     if aspect_names is not None:
         for a in aspect_names:
             if a in aspect_map:
@@ -142,7 +181,7 @@ def clone_aspect(
                 assert isinstance(aspect_value, DictWrapper)
                 new_mcp = MetadataChangeProposalWrapper(
                     entityUrn=dst_urn,
-                    entityType="dataset",
+                    entityType=entity_type,
                     changeType=ChangeTypeClass.UPSERT,
                     aspectName=a,
                     aspect=aspect_value,
@@ -168,5 +207,20 @@ def get_incoming_relationships_dataset(urn: str) -> Iterable[Dict]:
             "Produces",
             "ForeignKeyToDataset",
             "DerivedFrom",
+            "IsPartOf",
+        ],
+    )
+
+
+def get_outgoing_relationships_dataset(urn: str) -> Iterable[Dict]:
+    yield from cli_utils.get_outgoing_relationships(
+        urn,
+        types=[
+            "DownstreamOf",
+            "Consumes",
+            "Produces",
+            "ForeignKeyToDataset",
+            "DerivedFrom",
+            "IsPartOf",
         ],
     )

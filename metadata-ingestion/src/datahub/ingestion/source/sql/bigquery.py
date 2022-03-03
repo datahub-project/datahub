@@ -302,12 +302,10 @@ class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
         return "bigquery"
 
 
-@dataclasses.dataclass
 class ProjectIdKey(PlatformKey):
     project_id: str
 
 
-@dataclasses.dataclass
 class BigQueryDatasetKey(ProjectIdKey):
     dataset_id: str
 
