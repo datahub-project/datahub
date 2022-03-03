@@ -3,12 +3,21 @@ import { message, Button, Modal, Select, Typography } from 'antd';
 import styled from 'styled-components';
 
 import { useGetSearchResultsLazyQuery } from '../../../graphql/search.generated';
-import { GlobalTags, EntityType, GlossaryTerms, SubResourceType, SearchResult } from '../../../types.generated';
+import {
+    GlobalTags,
+    EntityType,
+    GlossaryTerms,
+    SubResourceType,
+    SearchResult,
+    Tag,
+    GlossaryTerm,
+} from '../../../types.generated';
 import CreateTagModal from './CreateTagModal';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { IconStyleType } from '../../entity/Entity';
 import { useAddTagMutation, useAddTermMutation } from '../../../graphql/mutations.generated';
 import analytics, { EventType, EntityActionType } from '../../analytics';
+import { useEnterKeyListener } from '../useEnterKeyListener';
 
 type AddTagModalProps = {
     globalTags?: GlobalTags | null;
@@ -75,15 +84,15 @@ export default function AddTagTermModal({
     const entityRegistry = useEntityRegistry();
     const [addTagMutation] = useAddTagMutation();
     const [addTermMutation] = useAddTermMutation();
-    const [tagSearch, { data: tagSearchData }] = useGetSearchResultsLazyQuery();
-    const tagSearchResults = tagSearchData?.search?.searchResults || [];
+    const [tagTermSearch, { data: tagTermSearchData }] = useGetSearchResultsLazyQuery();
+    const tagSearchResults = tagTermSearchData?.search?.searchResults || [];
 
     const handleSearch = (text: string) => {
         if (text.length > 0) {
-            tagSearch({
+            tagTermSearch({
                 variables: {
                     input: {
-                        type: EntityType.Tag,
+                        type,
                         query: text,
                         start: 0,
                         count: 10,
@@ -94,7 +103,10 @@ export default function AddTagTermModal({
     };
 
     const renderSearchResult = (result: SearchResult) => {
-        const displayName = entityRegistry.getDisplayName(result.entity.type, result.entity);
+        const displayName =
+            result.entity.type === EntityType.Tag
+                ? (result.entity as Tag).name
+                : (result.entity as GlossaryTerm).hierarchicalName;
         const item = renderItem(
             displayName,
             entityRegistry.getIcon(result.entity.type, 14, IconStyleType.ACCENT),
@@ -137,7 +149,7 @@ export default function AddTagTermModal({
         }
         if (selectedType === EntityType.GlossaryTerm) {
             mutation = addTermMutation;
-            if (glossaryTerms?.terms?.some((term) => term.term.name === selectedName)) {
+            if (glossaryTerms?.terms?.some((term) => term.term.hierarchicalName === selectedName)) {
                 onClose();
                 return;
             }
@@ -212,6 +224,11 @@ export default function AddTagTermModal({
             });
     };
 
+    // Handle the Enter press
+    useEnterKeyListener({
+        querySelectorToExecuteClick: '#addTagButton',
+    });
+
     if (showCreateModal) {
         return (
             <CreateTagModal
@@ -238,6 +255,7 @@ export default function AddTagTermModal({
                         Cancel
                     </Button>
                     <Button
+                        id="addTagButton"
                         data-testid="add-tag-term-from-modal-btn"
                         onClick={onOk}
                         disabled={selectedValue.length === 0 || disableAdd}

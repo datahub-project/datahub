@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { message, Button, Input, Modal, Typography, Form, Collapse, Tag } from 'antd';
 import { useCreateDomainMutation } from '../../graphql/domain.generated';
+import { useEnterKeyListener } from '../shared/useEnterKeyListener';
 
 const SuggestedNamesGroup = styled.div`
     margin-top: 12px;
@@ -54,6 +55,11 @@ export default function CreateDomainModal({ visible, onClose, onCreate }: Props)
         onClose();
     };
 
+    // Handle the Enter press
+    useEnterKeyListener({
+        querySelectorToExecuteClick: '#createDomainButton',
+    });
+
     return (
         <Modal
             title="Create new Domain"
@@ -64,7 +70,7 @@ export default function CreateDomainModal({ visible, onClose, onCreate }: Props)
                     <Button onClick={onClose} type="text">
                         Cancel
                     </Button>
-                    <Button onClick={onCreateDomain} disabled={stagedName === ''}>
+                    <Button id="createDomainButton" onClick={onCreateDomain} disabled={stagedName === ''}>
                         Create
                     </Button>
                 </>

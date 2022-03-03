@@ -1,17 +1,35 @@
-from typing import Optional
+import os
+
+S3_PREFIXES = ["s3://", "s3n://", "s3a://"]
 
 
-def make_s3_urn(s3_uri: str, env: str, suffix: Optional[str] = None) -> str:
+def is_s3_uri(uri: str) -> bool:
+    return any(uri.startswith(prefix) for prefix in S3_PREFIXES)
 
-    if not s3_uri.startswith("s3://"):
-        raise ValueError("S3 URIs should begin with 's3://'")
+
+def strip_s3_prefix(s3_uri: str) -> str:
     # remove S3 prefix (s3://)
-    s3_name = s3_uri[5:]
+    for s3_prefix in S3_PREFIXES:
+        if s3_uri.startswith(s3_prefix):
+            plain_base_path = s3_uri[len(s3_prefix) :]
+            return plain_base_path
+
+    raise ValueError(
+        f"Not an S3 URI. Must start with one of the following prefixes: {str(S3_PREFIXES)}"
+    )
+
+
+def make_s3_urn(s3_uri: str, env: str) -> str:
+
+    s3_name = strip_s3_prefix(s3_uri)
 
     if s3_name.endswith("/"):
         s3_name = s3_name[:-1]
 
-    if suffix is not None:
-        return f"urn:li:dataset:(urn:li:dataPlatform:s3,{s3_name}_{suffix},{env})"
+    name, extension = os.path.splitext(s3_name)
+
+    if extension != "":
+        extension = extension[1:]  # remove the dot
+        return f"urn:li:dataset:(urn:li:dataPlatform:s3,{name}_{extension},{env})"
 
     return f"urn:li:dataset:(urn:li:dataPlatform:s3,{s3_name},{env})"

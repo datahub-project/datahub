@@ -93,7 +93,7 @@ public class GraphQLEngineFactory {
           _entityClient,
           _graphClient,
           _usageClient,
-          new AnalyticsService(elasticClient, indexConvention.getPrefix()),
+          new AnalyticsService(elasticClient, indexConvention),
           _entityService,
           _recommendationsService,
           _tokenService,

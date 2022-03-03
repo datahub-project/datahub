@@ -63,3 +63,115 @@ def test_bigquery_uri_with_credential():
         if config._credentials_path:
             os.unlink(str(config._credentials_path))
         raise e
+
+
+@pytest.mark.integration
+def test_simple_upstream_table_generation():
+    from datahub.ingestion.api.common import PipelineContext
+    from datahub.ingestion.source.sql.bigquery import BigQueryConfig, BigQuerySource
+    from datahub.ingestion.source.usage.bigquery_usage import BigQueryTableRef
+
+    a: BigQueryTableRef = BigQueryTableRef(
+        project="test-project", dataset="test-dataset", table="a"
+    )
+    b: BigQueryTableRef = BigQueryTableRef(
+        project="test-project", dataset="test-dataset", table="b"
+    )
+
+    config = BigQueryConfig.parse_obj(
+        {
+            "project_id": "test-project",
+        }
+    )
+    source = BigQuerySource(config=config, ctx=PipelineContext(run_id="test"))
+    source.lineage_metadata = {str(a): set([str(b)])}
+    upstreams = source.get_upstream_tables(str(a), [])
+    assert list(upstreams) == [b]
+
+
+@pytest.mark.integration
+def test_upstream_table_generation_with_temporary_table_without_temp_upstream():
+    from datahub.ingestion.api.common import PipelineContext
+    from datahub.ingestion.source.sql.bigquery import BigQueryConfig, BigQuerySource
+    from datahub.ingestion.source.usage.bigquery_usage import BigQueryTableRef
+
+    a: BigQueryTableRef = BigQueryTableRef(
+        project="test-project", dataset="test-dataset", table="a"
+    )
+    b: BigQueryTableRef = BigQueryTableRef(
+        project="test-project", dataset="_temp-dataset", table="b"
+    )
+
+    config = BigQueryConfig.parse_obj(
+        {
+            "project_id": "test-project",
+        }
+    )
+    source = BigQuerySource(config=config, ctx=PipelineContext(run_id="test"))
+    source.lineage_metadata = {str(a): set([str(b)])}
+    upstreams = source.get_upstream_tables(str(a), [])
+    assert list(upstreams) == []
+
+
+@pytest.mark.integration
+def test_upstream_table_generation_with_temporary_table_with_temp_upstream():
+    from datahub.ingestion.api.common import PipelineContext
+    from datahub.ingestion.source.sql.bigquery import BigQueryConfig, BigQuerySource
+    from datahub.ingestion.source.usage.bigquery_usage import BigQueryTableRef
+
+    a: BigQueryTableRef = BigQueryTableRef(
+        project="test-project", dataset="test-dataset", table="a"
+    )
+    b: BigQueryTableRef = BigQueryTableRef(
+        project="test-project", dataset="_temp-dataset", table="b"
+    )
+    c: BigQueryTableRef = BigQueryTableRef(
+        project="test-project", dataset="test-dataset", table="c"
+    )
+
+    config = BigQueryConfig.parse_obj(
+        {
+            "project_id": "test-project",
+        }
+    )
+    source = BigQuerySource(config=config, ctx=PipelineContext(run_id="test"))
+    source.lineage_metadata = {str(a): set([str(b)]), str(b): set([str(c)])}
+    upstreams = source.get_upstream_tables(str(a), [])
+    assert list(upstreams) == [c]
+
+
+@pytest.mark.integration
+def test_upstream_table_generation_with_temporary_table_with_multiple_temp_upstream():
+    from datahub.ingestion.api.common import PipelineContext
+    from datahub.ingestion.source.sql.bigquery import BigQueryConfig, BigQuerySource
+    from datahub.ingestion.source.usage.bigquery_usage import BigQueryTableRef
+
+    a: BigQueryTableRef = BigQueryTableRef(
+        project="test-project", dataset="test-dataset", table="a"
+    )
+    b: BigQueryTableRef = BigQueryTableRef(
+        project="test-project", dataset="_temp-dataset", table="b"
+    )
+    c: BigQueryTableRef = BigQueryTableRef(
+        project="test-project", dataset="test-dataset", table="c"
+    )
+    d: BigQueryTableRef = BigQueryTableRef(
+        project="test-project", dataset="_test-dataset", table="d"
+    )
+    e: BigQueryTableRef = BigQueryTableRef(
+        project="test-project", dataset="test-dataset", table="e"
+    )
+
+    config = BigQueryConfig.parse_obj(
+        {
+            "project_id": "test-project",
+        }
+    )
+    source = BigQuerySource(config=config, ctx=PipelineContext(run_id="test"))
+    source.lineage_metadata = {
+        str(a): set([str(b)]),
+        str(b): set([str(c), str(d)]),
+        str(d): set([str(e)]),
+    }
+    upstreams = source.get_upstream_tables(str(a), [])
+    assert list(upstreams).sort() == [c, e].sort()

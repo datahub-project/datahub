@@ -25,7 +25,9 @@ query getGroup($urn: String!, $membersCount: Int!) {
                             lastName
                             fullName
                         }
-                        editableInfo {
+                        editableProperties {
+                            displayName
+                            title
                             pictureLink
                         }
                     }

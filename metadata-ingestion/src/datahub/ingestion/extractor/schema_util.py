@@ -271,7 +271,7 @@ class AvroToMceSchemaConverter:
                 tags = None
                 if "deprecated" in merged_props:
                     description = (
-                        f"<span style=\"color:red\">DEPRECATED: {self._schema.other_props['deprecated']}</span>\n"
+                        f"<span style=\"color:red\">DEPRECATED: {merged_props['deprecated']}</span>\n"
                         + description
                     )
                     tags = GlobalTagsClass(
@@ -447,9 +447,7 @@ class AvroToMceSchemaConverter:
         :param is_key_schema: True if it is a key-schema.
         :return: An MCE SchemaField generator.
         """
-        # Prefer the `parse` function over the deprecated `Parse` function.
-        avro_schema_parse_fn = getattr(avro.schema, "parse", "Parse")
-        avro_schema = avro_schema_parse_fn(avro_schema_string)
+        avro_schema = avro.schema.parse(avro_schema_string)
         converter = cls(is_key_schema, default_nullable)
         yield from converter._to_mce_fields(avro_schema)
 

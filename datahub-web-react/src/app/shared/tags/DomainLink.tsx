@@ -16,13 +16,14 @@ export type Props = {
     name: string;
     closable?: boolean;
     onClose?: (e: any) => void;
+    tagStyle?: any | undefined;
 };
 
-export const DomainLink = ({ urn, name, closable, onClose }: Props): JSX.Element => {
+export const DomainLink = ({ urn, name, closable, onClose, tagStyle }: Props): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
         <DomainLinkContainer to={entityRegistry.getEntityUrl(EntityType.Domain, urn)}>
-            <Tag closable={closable} onClose={onClose}>
+            <Tag style={tagStyle} closable={closable} onClose={onClose}>
                 <span style={{ paddingRight: '4px' }}>
                     {entityRegistry.getIcon(EntityType.Domain, 10, IconStyleType.ACCENT)}
                 </span>

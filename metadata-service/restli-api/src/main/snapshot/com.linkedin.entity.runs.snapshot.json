@@ -445,7 +445,7 @@
     "type" : "record",
     "name" : "DataPlatformInstance",
     "namespace" : "com.linkedin.common",
-    "doc" : "Tag aspect used for applying tags to an entity",
+    "doc" : "The specific instance of the data platform that this entity belongs to",
     "fields" : [ {
       "name" : "platform",
       "type" : "Urn",
@@ -506,12 +506,13 @@
     "name" : "FabricType",
     "namespace" : "com.linkedin.common",
     "doc" : "Fabric group type",
-    "symbols" : [ "DEV", "TEST", "QA", "UAT", "EI", "STG", "NON_PROD", "PROD", "CORP" ],
+    "symbols" : [ "DEV", "TEST", "QA", "UAT", "EI", "PRE", "STG", "NON_PROD", "PROD", "CORP" ],
     "symbolDocs" : {
       "CORP" : "Designates corporation fabrics",
       "DEV" : "Designates development fabrics",
       "EI" : "Designates early-integration fabrics",
       "NON_PROD" : "Designates non-production fabrics",
+      "PRE" : "Designates pre-production fabrics",
       "PROD" : "Designates production fabrics",
       "QA" : "Designates quality assurance fabrics",
       "STG" : "Designates staging fabrics",
@@ -770,8 +771,10 @@
         "name" : "OwnedBy"
       },
       "Searchable" : {
+        "addToFilters" : true,
         "fieldName" : "owners",
         "fieldType" : "URN",
+        "filterNameOverride" : "Owned By",
         "hasValuesFieldName" : "hasOwners",
         "queryByDefault" : false
       }
@@ -1120,6 +1123,105 @@
           "name" : "DownstreamOf"
         }
       }
+    }, {
+      "name" : "inputDatasetFields",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.Urn"
+      },
+      "doc" : "Fields of the input datasets used by this job.",
+      "optional" : true,
+      "Searchable" : {
+        "/*" : {
+          "fieldName" : "inputFields",
+          "fieldType" : "URN",
+          "numValuesFieldName" : "numInputFields",
+          "queryByDefault" : false
+        }
+      }
+    }, {
+      "name" : "outputDatasetFields",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.Urn"
+      },
+      "doc" : "Fields of the output datasets this job writes to.",
+      "optional" : true,
+      "Searchable" : {
+        "/*" : {
+          "fieldName" : "outputFields",
+          "fieldType" : "URN",
+          "numValuesFieldName" : "numOutputFields",
+          "queryByDefault" : false
+        }
+      }
+    }, {
+      "name" : "fineGrainedLineages",
+      "type" : {
+        "type" : "array",
+        "items" : {
+          "type" : "record",
+          "name" : "FineGrainedLineage",
+          "namespace" : "com.linkedin.dataset",
+          "doc" : "A fine-grained lineage from upstream fields/datasets to downstream field(s).",
+          "fields" : [ {
+            "name" : "upstreamType",
+            "type" : {
+              "type" : "enum",
+              "name" : "FineGrainedLineageUpstreamType",
+              "doc" : "The type of upstream entity in a fine-grained lineage.",
+              "symbols" : [ "FIELD_SET", "DATASET", "NONE" ],
+              "symbolDocs" : {
+                "DATASET" : " Indicates that this lineage is originating from upstream dataset(s).",
+                "FIELD_SET" : " Indicates that this lineage is originating from upstream field(s).",
+                "NONE" : " Indicates that there is no upstream lineage i.e. the downstream field is not a derived field."
+              }
+            },
+            "doc" : "The type of upstream entity"
+          }, {
+            "name" : "upstreams",
+            "type" : {
+              "type" : "array",
+              "items" : "com.linkedin.common.Urn"
+            },
+            "doc" : "Upstream entities in the lineage",
+            "optional" : true
+          }, {
+            "name" : "downstreamType",
+            "type" : {
+              "type" : "enum",
+              "name" : "FineGrainedLineageDownstreamType",
+              "doc" : "The type of downstream field(s) in a fine-grained lineage.",
+              "symbols" : [ "FIELD", "FIELD_SET" ],
+              "symbolDocs" : {
+                "FIELD" : " Indicates that the lineage is for a single, specific, downstream field.",
+                "FIELD_SET" : " Indicates that the lineage is for a set of downstream fields."
+              }
+            },
+            "doc" : "The type of downstream field(s)"
+          }, {
+            "name" : "downstreams",
+            "type" : {
+              "type" : "array",
+              "items" : "com.linkedin.common.Urn"
+            },
+            "doc" : "Downstream fields in the lineage",
+            "optional" : true
+          }, {
+            "name" : "transformOperation",
+            "type" : "string",
+            "doc" : "The transform operation applied to the upstream entities to produce the downstream field(s).",
+            "optional" : true
+          }, {
+            "name" : "confidenceScore",
+            "type" : "float",
+            "doc" : "The confidence in this lineage between 0 (low confidence) and 1 (high confidence).",
+            "default" : 1.0
+          } ]
+        }
+      },
+      "doc" : "Fine-grained column-level lineages.",
+      "optional" : true
     } ],
     "Aspect" : {
       "name" : "dataJobInputOutput"
@@ -1201,7 +1303,7 @@
     "Aspect" : {
       "name" : "datasetProperties"
     }
-  }, {
+  }, "com.linkedin.dataset.FineGrainedLineage", "com.linkedin.dataset.FineGrainedLineageDownstreamType", "com.linkedin.dataset.FineGrainedLineageUpstreamType", {
     "type" : "typeref",
     "name" : "SchemaFieldPath",
     "namespace" : "com.linkedin.dataset",
@@ -1251,6 +1353,14 @@
         "items" : "Upstream"
       },
       "doc" : "List of upstream dataset lineage information"
+    }, {
+      "name" : "fineGrainedLineages",
+      "type" : {
+        "type" : "array",
+        "items" : "FineGrainedLineage"
+      },
+      "doc" : " List of fine-grained lineage information, including field-level lineage",
+      "optional" : true
     } ],
     "Aspect" : {
       "name" : "upstreamLineage"
@@ -1281,9 +1391,19 @@
     "doc" : "Properties associated with a GlossaryTerm",
     "include" : [ "com.linkedin.common.CustomProperties" ],
     "fields" : [ {
+      "name" : "name",
+      "type" : "string",
+      "doc" : "Display name of the term",
+      "optional" : true,
+      "Searchable" : {
+        "boostScore" : 10.0,
+        "enableAutocomplete" : true,
+        "fieldType" : "TEXT_PARTIAL"
+      }
+    }, {
       "name" : "definition",
       "type" : "string",
-      "doc" : "Definition of business term",
+      "doc" : "Definition of business term.",
       "Searchable" : { }
     }, {
       "name" : "parentNode",
@@ -1324,11 +1444,11 @@
     "type" : "record",
     "name" : "CorpGroupInfo",
     "namespace" : "com.linkedin.identity",
-    "doc" : "group of corpUser, it may contains nested group",
+    "doc" : "Information about a Corp Group ingested from a third party source",
     "fields" : [ {
       "name" : "displayName",
       "type" : "string",
-      "doc" : "The name to use when displaying the group.",
+      "doc" : "The name of the group.",
       "optional" : true,
       "Searchable" : {
         "fieldType" : "TEXT_PARTIAL"
@@ -1344,39 +1464,42 @@
         "type" : "array",
         "items" : "com.linkedin.common.CorpuserUrn"
       },
-      "doc" : "owners of this group",
+      "doc" : "owners of this group\nDeprecated! Replaced by Ownership aspect.",
       "Relationship" : {
         "/*" : {
           "entityTypes" : [ "corpUser" ],
           "name" : "OwnedBy"
         }
-      }
+      },
+      "deprecated" : true
     }, {
       "name" : "members",
       "type" : {
         "type" : "array",
         "items" : "com.linkedin.common.CorpuserUrn"
       },
-      "doc" : "List of ldap urn in this group.",
+      "doc" : "List of ldap urn in this group.\nDeprecated! Replaced by GroupMembership aspect.",
       "Relationship" : {
         "/*" : {
           "entityTypes" : [ "corpUser" ],
           "name" : "IsPartOf"
         }
-      }
+      },
+      "deprecated" : true
     }, {
       "name" : "groups",
       "type" : {
         "type" : "array",
         "items" : "com.linkedin.common.CorpGroupUrn"
       },
-      "doc" : "List of groups in this group.",
+      "doc" : "List of groups in this group.\nDeprecated! This field is unused.",
       "Relationship" : {
         "/*" : {
           "entityTypes" : [ "corpGroup" ],
           "name" : "IsPartOf"
         }
-      }
+      },
+      "deprecated" : true
     }, {
       "name" : "description",
       "type" : "string",
@@ -1431,6 +1554,21 @@
       "type" : "com.linkedin.common.Url",
       "doc" : "A URL which points to a picture which user wants to set as a profile photo",
       "default" : "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/default_avatar.png"
+    }, {
+      "name" : "displayName",
+      "type" : "string",
+      "doc" : "DataHub-native display name",
+      "optional" : true,
+      "Searchable" : {
+        "boostScore" : 10.0,
+        "fieldType" : "TEXT_PARTIAL",
+        "queryByDefault" : true
+      }
+    }, {
+      "name" : "title",
+      "type" : "string",
+      "doc" : "DataHub-native Title, e.g. 'Software Engineer'",
+      "optional" : true
     }, {
       "name" : "slack",
       "type" : "string",
@@ -2251,8 +2389,10 @@
       "fields" : [ {
         "name" : "name",
         "type" : "string",
+        "doc" : "The term name, which serves as a unique id",
         "Searchable" : {
           "enableAutocomplete" : true,
+          "fieldName" : "id",
           "fieldType" : "TEXT_PARTIAL"
         }
       } ],
@@ -2888,10 +3028,11 @@
       "fields" : [ {
         "name" : "name",
         "type" : "string",
-        "doc" : "The unique tag name",
+        "doc" : "The tag name, which serves as a unique id",
         "Searchable" : {
           "boostScore" : 10.0,
           "enableAutocomplete" : true,
+          "fieldName" : "id",
           "fieldType" : "TEXT_PARTIAL"
         }
       } ],
@@ -2906,11 +3047,22 @@
       "fields" : [ {
         "name" : "name",
         "type" : "string",
-        "doc" : "Name of the tag"
+        "doc" : "Display name of the tag",
+        "Searchable" : {
+          "boostScore" : 10.0,
+          "enableAutocomplete" : true,
+          "fieldType" : "TEXT_PARTIAL"
+        }
       }, {
         "name" : "description",
         "type" : "string",
         "doc" : "Documentation of the tag",
+        "optional" : true,
+        "Searchable" : { }
+      }, {
+        "name" : "colorHex",
+        "type" : "string",
+        "doc" : "The color associated with the Tag in Hex. For example #FFFFFF.",
         "optional" : true
       } ],
       "Aspect" : {

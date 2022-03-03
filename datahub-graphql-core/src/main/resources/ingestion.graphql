@@ -19,13 +19,13 @@ extend type Query {
 
   """
   Fetch a specific ingestion source
-  urn: The primary key associated with the ingestion execution request.
+  urn: The primary key associated with the ingestion source.
   """
   ingestionSource(urn: String!): IngestionSource
 
   """
-  Create a request to execute an ingestion job
-  urn: The primary key associated with the ingestion execution request.
+  Get an execution request
+  urn: The primary key associated with the execution request.
   """
   executionRequest(urn: String!): ExecutionRequest
 }
