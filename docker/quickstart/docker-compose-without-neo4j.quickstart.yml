@@ -82,7 +82,7 @@ services:
     ports:
     - 8080:8080
     volumes:
-    - ${HOME}/.datahub/plugins:/etc/datahub/plugins
+    - ${HOME}/.datahub:/etc/datahub
   elasticsearch:
     container_name: elasticsearch
     environment:
