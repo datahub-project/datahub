@@ -5193,9 +5193,9 @@
       "doc" : "Optional list of entities between the source and destination node",
       "default" : [ ]
     }, {
-      "name" : "numHops",
+      "name" : "degree",
       "type" : "int",
-      "doc" : "Number of hops to the entity",
+      "doc" : "Degree of relationship (number of hops to get to entity)",
       "default" : 1
     } ]
   }, {

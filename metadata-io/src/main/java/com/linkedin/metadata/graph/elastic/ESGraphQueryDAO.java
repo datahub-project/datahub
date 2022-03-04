@@ -247,7 +247,7 @@ public class ESGraphQueryDAO {
         if (!visitedEntities.contains(destinationUrn) && validEdges.contains(
             Pair.of(sourceUrn.getEntityType(), new EdgeInfo(type, RelationshipDirection.OUTGOING)))) {
           visitedEntities.add(destinationUrn);
-          result.add(new LineageRelationship().setType(type).setEntity(destinationUrn).setNumHops(numHops));
+          result.add(new LineageRelationship().setType(type).setEntity(destinationUrn).setDegree(numHops));
         }
       }
 
@@ -258,7 +258,7 @@ public class ESGraphQueryDAO {
         if (!visitedEntities.contains(sourceUrn) && validEdges.contains(
             Pair.of(destinationUrn.getEntityType(), new EdgeInfo(type, RelationshipDirection.INCOMING)))) {
           visitedEntities.add(sourceUrn);
-          result.add(new LineageRelationship().setType(type).setEntity(sourceUrn).setNumHops(numHops));
+          result.add(new LineageRelationship().setType(type).setEntity(sourceUrn).setDegree(numHops));
         }
       }
     }

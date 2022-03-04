@@ -138,7 +138,7 @@ public class RelationshipSearchServiceTest {
 
     when(_graphService.getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
         anyInt())).thenReturn(
-        mockResult(ImmutableList.of(new LineageRelationship().setEntity(TEST_URN).setType("test").setNumHops(1))));
+        mockResult(ImmutableList.of(new LineageRelationship().setEntity(TEST_URN).setType("test").setDegree(1))));
     searchResult = _relationshipSearchService.searchAcrossRelationships(TEST_URN, LineageDirection.DOWNSTREAM,
         ImmutableList.of(ENTITY_NAME), "test", null, null, 0, 10);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
@@ -168,20 +168,20 @@ public class RelationshipSearchServiceTest {
 
     when(_graphService.getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
         anyInt())).thenReturn(
-        mockResult(ImmutableList.of(new LineageRelationship().setEntity(urn).setType("test").setNumHops(1))));
+        mockResult(ImmutableList.of(new LineageRelationship().setEntity(urn).setType("test").setDegree(1))));
     searchResult =
         _relationshipSearchService.searchAcrossRelationships(TEST_URN, LineageDirection.DOWNSTREAM, ImmutableList.of(),
             "test", null, null, 0, 10);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
-    assertEquals(searchResult.getEntities().get(0).getNumHops().intValue(), 1);
+    assertEquals(searchResult.getEntities().get(0).getDegree().intValue(), 1);
 
     searchResult =
         _relationshipSearchService.searchAcrossRelationships(TEST_URN, LineageDirection.DOWNSTREAM, ImmutableList.of(),
             "test", QueryUtils.newFilter("level.keyword", "1"), null, 0, 10);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
-    assertEquals(searchResult.getEntities().get(0).getNumHops().intValue(), 1);
+    assertEquals(searchResult.getEntities().get(0).getDegree().intValue(), 1);
 
     searchResult =
         _relationshipSearchService.searchAcrossRelationships(TEST_URN, LineageDirection.DOWNSTREAM, ImmutableList.of(),
@@ -208,7 +208,7 @@ public class RelationshipSearchServiceTest {
 
     when(_graphService.getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
         anyInt())).thenReturn(
-        mockResult(ImmutableList.of(new LineageRelationship().setEntity(urn2).setType("test").setNumHops(1))));
+        mockResult(ImmutableList.of(new LineageRelationship().setEntity(urn2).setType("test").setDegree(1))));
     searchResult =
         _relationshipSearchService.searchAcrossRelationships(TEST_URN, LineageDirection.DOWNSTREAM, ImmutableList.of(),
             "test", null, null, 0, 10);
@@ -222,7 +222,7 @@ public class RelationshipSearchServiceTest {
 
     when(_graphService.getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
         anyInt())).thenReturn(
-        mockResult(ImmutableList.of(new LineageRelationship().setEntity(urn).setType("test").setNumHops(1))));
+        mockResult(ImmutableList.of(new LineageRelationship().setEntity(urn).setType("test").setDegree(1))));
     searchResult =
         _relationshipSearchService.searchAcrossRelationships(TEST_URN, LineageDirection.DOWNSTREAM, ImmutableList.of(),
             "test", null, null, 0, 10);

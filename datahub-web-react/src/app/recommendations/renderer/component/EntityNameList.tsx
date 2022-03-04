@@ -39,7 +39,7 @@ const ThinDivider = styled(Divider)`
 `;
 
 type AdditionalProperties = {
-    numHops?: number;
+    degree?: number;
 };
 
 type Props = {
@@ -96,7 +96,7 @@ export const EntityNameList = ({ additionalPropertiesList, entities, onClick }: 
                                 domain={genericProps?.domain}
                                 onClick={() => onClick?.(index)}
                                 entityCount={entityCount}
-                                numHops={additionalProperties?.numHops}
+                                degree={additionalProperties?.degree}
                             />
                         </ListItem>
                         <ThinDivider />

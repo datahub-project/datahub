@@ -149,7 +149,7 @@ interface Props {
     onClick?: () => void;
     // this is provided by the impact analysis view. it is used to display
     // how the listed node is connected to the source node
-    numHops?: number;
+    degree?: number;
 }
 
 export default function DefaultPreviewCard({
@@ -175,7 +175,7 @@ export default function DefaultPreviewCard({
     titleSizePx,
     dataTestID,
     onClick,
-    numHops,
+    degree,
 }: Props) {
     // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
     // in those cases, we may want to enrich the preview w/ context about the container entity
@@ -224,15 +224,15 @@ export default function DefaultPreviewCard({
                                     <EntityCountText>{entityCount.toLocaleString()} entities</EntityCountText>
                                 </>
                             ) : null}
-                            {numHops !== undefined && numHops !== null && (
+                            {degree !== undefined && degree !== null && (
                                 <span>
                                     <PlatformDivider />
                                     <Tooltip
-                                        title={`This entity is a ${getNumberWithOrdinal(
-                                            numHops,
-                                        )} degree connection to ${entityData?.name || 'the source entity'}`}
+                                        title={`This entity is a ${getNumberWithOrdinal(degree)} degree connection to ${
+                                            entityData?.name || 'the source entity'
+                                        }`}
                                     >
-                                        <PlatformText>{getNumberWithOrdinal(numHops)}</PlatformText>
+                                        <PlatformText>{getNumberWithOrdinal(degree)}</PlatformText>
                                     </Tooltip>
                                 </span>
                             )}

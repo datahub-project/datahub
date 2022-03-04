@@ -18,7 +18,8 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
 
 /**
- * GraphQL Resolver responsible for fetching relationships between entities in the DataHub graph.
+ * GraphQL Resolver responsible for fetching lineage relationships between entities in the DataHub graph.
+ * Lineage relationship denote whether an entity is directly upstream or downstream of another entity
  */
 public class EntityLineageResultResolver implements DataFetcher<CompletableFuture<EntityLineageResult>> {
 
@@ -67,7 +68,7 @@ public class EntityLineageResultResolver implements DataFetcher<CompletableFutur
       result.setEntity(partialEntity);
     }
     result.setType(lineageRelationship.getType());
-    result.setNumHops(lineageRelationship.getNumHops());
+    result.setDegree(lineageRelationship.getDegree());
     return result;
   }
 }

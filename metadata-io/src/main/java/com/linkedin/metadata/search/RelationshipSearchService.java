@@ -171,7 +171,7 @@ public class RelationshipSearchService {
             .collect(Collectors.toList());
         if (!levelFilter.isEmpty()) {
           Predicate<Integer> levelPredicate = convertFilterToPredicate(levelFilter);
-          return relationshipsFilteredByEntities.filter(relationship -> levelPredicate.test(relationship.getNumHops()))
+          return relationshipsFilteredByEntities.filter(relationship -> levelPredicate.test(relationship.getDegree()))
               .collect(Collectors.toList());
         }
       }
@@ -227,7 +227,7 @@ public class RelationshipSearchService {
     RelationshipSearchEntity entity = new RelationshipSearchEntity(searchEntity.data());
     if (lineageRelationship != null) {
       entity.setPath(lineageRelationship.getPath());
-      entity.setNumHops(lineageRelationship.getNumHops());
+      entity.setDegree(lineageRelationship.getDegree());
     }
     return entity;
   }

@@ -547,9 +547,9 @@ type LineageRelationship {
     entity: Entity!
 
     """
-    Optional list of entities between the source and destination node
+    Degree of relationship (number of hops to get to entity)
     """
-    numHops: Int
+    degree: Int!
 }
 
 """

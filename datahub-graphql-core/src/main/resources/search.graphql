@@ -253,12 +253,12 @@ type SearchAcrossRelationshipsResult {
     """
     Optional list of entities between the source and destination node
     """
-    path: [Entity]
+    path: [Entity!]
 
     """
-    Number of hops to get to entity
+    Degree of relationship (number of hops to get to entity)
     """
-    numHops: Int!
+    degree: Int!
 }
 
 """

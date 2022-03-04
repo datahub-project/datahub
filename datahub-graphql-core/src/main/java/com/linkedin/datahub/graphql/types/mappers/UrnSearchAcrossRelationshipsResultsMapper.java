@@ -47,7 +47,7 @@ public class UrnSearchAcrossRelationshipsResultsMapper<T extends RecordTemplate,
         .setInsights(getInsightsFromFeatures(searchEntity.getFeatures()))
         .setMatchedFields(getMatchedFieldEntry(searchEntity.getMatchedFields()))
         .setPath(searchEntity.getPath().stream().map(UrnToEntityMapper::map).collect(Collectors.toList()))
-        .setNumHops(searchEntity.getNumHops())
+        .setDegree(searchEntity.getDegree())
         .build();
   }
 
@@ -59,14 +59,14 @@ public class UrnSearchAcrossRelationshipsResultsMapper<T extends RecordTemplate,
         Optional.ofNullable(aggregationMetadata.getDisplayName()).orElse(aggregationMetadata.getName()));
     facetMetadata.setAggregations(aggregationMetadata.getFilterValues()
         .stream()
-        .map(filterValue -> new AggregationMetadata(convertFilterValue(filterValue.getValue(), isEntityTypeFilter),
+        .map(filterValue -> new AggregationMetadata(convertEntityFilterValue(filterValue.getValue(), isEntityTypeFilter),
             filterValue.getFacetCount(),
             filterValue.getEntity() == null ? null : UrnToEntityMapper.map(filterValue.getEntity())))
         .collect(Collectors.toList()));
     return facetMetadata;
   }
 
-  private String convertFilterValue(String filterValue, boolean isEntityType) {
+  private String convertEntityFilterValue(String filterValue, boolean isEntityType) {
     if (isEntityType) {
       return EntityTypeMapper.getType(filterValue).toString();
     }

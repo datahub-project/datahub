@@ -26,7 +26,7 @@ query appConfig {
             enabled
         }
         lineageConfig {
-            supportsMultiHop
+            supportsImpactAnalysis
         }
         managedIngestionConfig {
             enabled

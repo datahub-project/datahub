@@ -13,8 +13,8 @@ record RelationshipSearchEntity includes SearchEntity {
   path: array[Urn] = []
 
   /**
-   * Number of hops to the entity
+   * Degree of relationship (number of hops to get to entity)
    */
-  numHops: int = 1
+  degree: int = 1
 
 }
