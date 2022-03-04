@@ -22,7 +22,9 @@ from datahub.ingestion.source.sql.bigquery import BigQueryDatasetKey, ProjectIdK
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DataPlatformInstanceClass,
-    SystemMetadataClass, ContainerPropertiesClass, ContainerKeyClass,
+    SystemMetadataClass,
+    ContainerPropertiesClass,
+    ContainerKeyClass,
 )
 from datahub.telemetry import telemetry
 

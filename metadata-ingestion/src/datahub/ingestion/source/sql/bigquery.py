@@ -547,7 +547,6 @@ class BigQuerySource(SQLAlchemySource):
         num_entries: int = 0
         num_skipped_entries: int = 0
         for e in entries:
-            logger.warning(f"Entry:{e}")
             num_entries += 1
             if e.destinationTable is None or not e.referencedTables:
                 num_skipped_entries += 1
