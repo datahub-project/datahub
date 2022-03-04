@@ -10,14 +10,6 @@ import { CustomAvatar } from '../../../../../../shared/avatar';
 import analytics, { EventType, EntityActionType } from '../../../../../../analytics';
 import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
 
-type Props = {
-    visible: boolean;
-    onClose: () => void;
-    refetch?: () => Promise<any>;
-    urn: string;
-    entityType: EntityType;
-};
-
 const SearchResultContainer = styled.div`
     display: flex;
     justify-content: space-between;
@@ -35,13 +27,21 @@ const SearchResultDisplayName = styled.div`
     margin-left: 12px;
 `;
 
+type Props = {
+    urn: string;
+    type: EntityType;
+    visible: boolean;
+    onClose: () => void;
+    refetch?: () => Promise<any>;
+};
+
 type SelectedActor = {
     displayName: string;
     type: EntityType;
     urn: string;
 };
 
-export const AddOwnerModal = ({ visible, onClose, refetch, urn, entityType }: Props) => {
+export const AddOwnerModal = ({ urn, type, visible, onClose, refetch }: Props) => {
     const entityRegistry = useEntityRegistry();
     const [selectedActor, setSelectedActor] = useState<SelectedActor | undefined>(undefined);
     const [userSearch, { data: userSearchData }] = useGetSearchResultsLazyQuery();
@@ -75,7 +75,7 @@ export const AddOwnerModal = ({ visible, onClose, refetch, urn, entityType }: Pr
             analytics.event({
                 type: EventType.EntityActionEvent,
                 actionType: EntityActionType.UpdateOwnership,
-                entityType,
+                entityType: type,
                 entityUrn: urn,
             });
         } catch (e: unknown) {
@@ -113,12 +113,12 @@ export const AddOwnerModal = ({ visible, onClose, refetch, urn, entityType }: Pr
     };
 
     // Invokes the search API as the user types
-    const handleSearch = (type: EntityType, text: string, searchQuery: any) => {
+    const handleSearch = (entityType: EntityType, text: string, searchQuery: any) => {
         if (text.length > 2) {
             searchQuery({
                 variables: {
                     input: {
-                        type,
+                        type: entityType,
                         query: text,
                         start: 0,
                         count: 5,

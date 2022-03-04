@@ -247,6 +247,11 @@ fragment entityPreview on Entity {
     ... on Tag {
         name
         description
+        properties {
+            name
+            description
+            colorHex
+        }
     }
     ... on DataPlatform {
         ...nonConflictingPlatformFields
