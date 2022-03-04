@@ -4,6 +4,7 @@ import com.codahale.metrics.Timer;
 import com.datahub.util.RecordUtils;
 import com.datahub.util.exception.ModelConversionException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.BrowsePaths;
@@ -104,6 +105,7 @@ public abstract class EntityService {
   public static final String DEFAULT_RUN_ID = "no-run-id-provided";
   public static final String BROWSE_PATHS = "browsePaths";
   public static final String DATA_PLATFORM_INSTANCE = "dataPlatformInstance";
+  protected static final int MAX_KEYS_PER_QUERY = 500;
 
   protected EntityService(@Nonnull final EntityEventProducer producer, @Nonnull final EntityRegistry entityRegistry) {
     _producer = producer;
@@ -180,10 +182,16 @@ public abstract class EntityService {
    * @param aspectName name of the aspect to fetch
    * @return {@link EnvelopedAspect} object, or null if one cannot be found
    */
-  public abstract EnvelopedAspect getLatestEnvelopedAspect(
+  public EnvelopedAspect getLatestEnvelopedAspect(
       @Nonnull final String entityName,
       @Nonnull final Urn urn,
-      @Nonnull final String aspectName) throws Exception;
+      @Nonnull final String aspectName) throws Exception {
+    return getLatestEnvelopedAspects(entityName, ImmutableSet.of(urn), ImmutableSet.of(aspectName)).getOrDefault(urn, Collections.emptyList())
+        .stream()
+        .filter(envelopedAspect -> envelopedAspect.getName().equals(aspectName))
+        .findFirst()
+        .orElse(null);
+  }
 
   /**
    * Retrieves the specific version of the aspect for the given urn
@@ -219,6 +227,7 @@ public abstract class EntityService {
    * @param count the count of the aspects to be returned, used in pagination
    * @return a {@link ListResult} of {@link RecordTemplate}s representing the requested aspect.
    */
+  @Nonnull
   public abstract ListResult<RecordTemplate> listLatestAspects(@Nonnull final String entityName,
       @Nonnull final String aspectName, final int start, int count);
 
@@ -847,5 +856,27 @@ public abstract class EntityService {
   public static class IngestProposalResult {
     Urn urn;
     boolean didUpdate;
+  }
+
+  protected boolean filterMatch(SystemMetadata systemMetadata, Map<String, String> conditions) {
+    String runIdCondition = conditions.getOrDefault("runId", null);
+    if (runIdCondition != null) {
+      if (!runIdCondition.equals(systemMetadata.getRunId())) {
+        return false;
+      }
+    }
+    String registryNameCondition = conditions.getOrDefault("registryName", null);
+    if (registryNameCondition != null) {
+      if (!registryNameCondition.equals(systemMetadata.getRegistryName())) {
+        return false;
+      }
+    }
+    String registryVersionCondition = conditions.getOrDefault("registryVersion", null);
+    if (registryVersionCondition != null) {
+      if (!registryVersionCondition.equals(systemMetadata.getRegistryVersion())) {
+        return false;
+      }
+    }
+    return true;
   }
 }

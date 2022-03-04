@@ -13,8 +13,8 @@ create table datahub.metadata_aspect_v2 (
   createdby                     varchar,
   createdfor                    varchar,
   entity                        varchar,
-  PRIMARY KEY (urn,aspect,version)
-);
+  primary key ((urn), aspect, version))
+with clustering order by (aspect asc, version asc);
 
 insert into datahub.metadata_aspect_v2 (urn, aspect, version, metadata, createdon, createdby, entity) values(
   'urn:li:corpuser:datahub',

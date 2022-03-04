@@ -28,8 +28,9 @@ else
 fi
 
 WAIT_FOR_EBEAN=""
-if [[ $ENTITY_SERVICE_IMPL != datastax ]] && [[ $SKIP_EBEAN_CHECK != true ]]; then
-  WAIT_FOR_EBEAN=" -wait tcp://$EBEAN_DATASOURCE_HOST "
+if [[ $SKIP_EBEAN_CHECK != true ]]; then
+  if [[ $ENTITY_SERVICE_IMPL == ebean ]] || [[ -z $ENTITY_SERVICE_IMPL ]]; then
+    WAIT_FOR_EBEAN=" -wait tcp://$EBEAN_DATASOURCE_HOST "
 fi
 
 WAIT_FOR_DATASTAX=""

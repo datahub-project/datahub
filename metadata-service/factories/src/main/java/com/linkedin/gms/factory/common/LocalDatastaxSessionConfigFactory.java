@@ -11,7 +11,7 @@ import org.springframework.context.annotation.Configuration;
 
 @Slf4j
 @Configuration
-public class LocalDatastaxServerConfigFactory {
+public class LocalDatastaxSessionConfigFactory {
 
   @Value("${DATASTAX_DATASOURCE_USERNAME:cassandra}")
   private String datastaxDatasourceUsername;
