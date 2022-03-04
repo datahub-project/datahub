@@ -14,8 +14,7 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 from unittest.mock import patch
 
 # This import verifies that the dependencies are available.
-import pybigquery  # noqa: F401
-import pybigquery.sqlalchemy_bigquery
+import sqlalchemy_bigquery
 import pydantic
 from dateutil import parser
 from google.cloud.bigquery import Client as BigQueryClient
@@ -48,6 +47,7 @@ from datahub.ingestion.source.usage.bigquery_usage import (
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.key import DatasetKey
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.metadata.com.linkedin.pegasus2avro.schema import RecordTypeClass
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DatasetLineageTypeClass,
@@ -142,11 +142,19 @@ FROM `{project_id}.{schema}.__TABLES_SUMMARY__`
 WHERE table_id LIKE '{table}%'
 """.strip()
 
+
 # The existing implementation of this method can be found here:
-# https://github.com/googleapis/python-bigquery-sqlalchemy/blob/e0f1496c99dd627e0ed04a0c4e89ca5b14611be2/pybigquery/sqlalchemy_bigquery.py#L967-L974.
+# https://github.com/googleapis/python-bigquery-sqlalchemy/blob/main/sqlalchemy_bigquery/base.py#L1018-L1025.
 # The existing implementation does not use the schema parameter and hence
 # does not properly resolve the view definitions. As such, we must monkey
 # patch the implementation.
+
+def get_view_definition(self, connection, view_name, schema=None, **kw):
+    view = self._get_table(connection, view_name, schema)
+    return view.view_query
+
+
+sqlalchemy_bigquery.BigQueryDialect.get_view_definition = get_view_definition
 
 
 def bigquery_audit_metadata_query_template(
@@ -203,18 +211,14 @@ def bigquery_audit_metadata_query_template(
     return textwrap.dedent(query)
 
 
-def get_view_definition(self, connection, view_name, schema=None, **kw):
-    view = self._get_table(connection, view_name, schema)
-    return view.view_query
-
-
-pybigquery.sqlalchemy_bigquery.BigQueryDialect.get_view_definition = get_view_definition
-
 # Handle the GEOGRAPHY type. We will temporarily patch the _type_map
 # in the get_workunits method of the source.
 GEOGRAPHY = make_sqlalchemy_type("GEOGRAPHY")
 register_custom_type(GEOGRAPHY)
-assert pybigquery.sqlalchemy_bigquery._type_map
+assert sqlalchemy_bigquery._types._type_map
+# STRUCT is a custom sqlalchemy data type defined by the sqlalchemy_bigquery library
+# https://github.com/googleapis/python-bigquery-sqlalchemy/blob/934e25f705fd9f226e438d075c7e00e495cce04e/sqlalchemy_bigquery/_types.py#L47
+register_custom_type(sqlalchemy_bigquery.STRUCT, output=RecordTypeClass)
 
 
 class BigQueryCredential(ConfigModel):
@@ -287,7 +291,7 @@ class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
             return f"{self.scheme}://{self.project_id}"
         # When project_id is not set, we will attempt to detect the project ID
         # based on the credentials or environment variables.
-        # See https://github.com/mxmzdlv/pybigquery#authentication.
+        # See https://github.com/googleapis/python-bigquery-sqlalchemy#authentication.
         return f"{self.scheme}://"
 
     @pydantic.validator("platform_instance")
@@ -705,7 +709,7 @@ WHERE
         if self.lineage_metadata is None:
             self._compute_big_query_lineage()
         with patch.dict(
-            "pybigquery.sqlalchemy_bigquery._type_map",
+            "sqlalchemy_bigquery._types._type_map",
             {"GEOGRAPHY": GEOGRAPHY},
             clear=False,
         ):
