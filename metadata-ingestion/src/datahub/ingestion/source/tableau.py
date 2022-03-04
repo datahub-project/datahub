@@ -338,6 +338,12 @@ class TableauSource(Source):
                 )
                 dataset_snapshot.aspects.append(browse_paths)
 
+                dataset_properties = DatasetPropertiesClass(
+                    name=csql.get("name"), description=csql.get("description")
+                )
+
+                dataset_snapshot.aspects.append(dataset_properties)
+
                 view_properties = ViewPropertiesClass(
                     materialized=False,
                     viewLanguage="SQL",

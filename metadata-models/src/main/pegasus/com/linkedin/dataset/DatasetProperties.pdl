@@ -26,11 +26,13 @@ record DatasetProperties includes CustomProperties, ExternalReference {
    * Fully-qualified name of the Dataset
    */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL",
+    "fieldType": "TEXT",
+    "addToFilters": false,
     "enableAutocomplete": true,
     "boostScore": 10.0
   }
   qualifiedName: optional string
+
   /**
    * Documentation of the dataset
    */
