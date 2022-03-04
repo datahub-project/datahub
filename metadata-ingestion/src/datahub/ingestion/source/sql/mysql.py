@@ -1,6 +1,9 @@
 # This import verifies that the dependencies are available.
+from typing import Any
+
 import pymysql  # noqa: F401
 from sqlalchemy.dialects.mysql import base
+from sqlalchemy.engine.reflection import Inspector
 
 from datahub.ingestion.source.sql.sql_common import (
     BasicSQLAlchemyConfig,
@@ -42,3 +45,13 @@ class MySQLSource(SQLAlchemySource):
     def create(cls, config_dict, ctx):
         config = MySQLConfig.parse_obj(config_dict)
         return cls(config, ctx)
+
+    def get_identifier(
+        self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any
+    ) -> str:
+        if self.config.database_alias:
+            return f"{self.config.database_alias}.{entity}"
+        else:
+            return super().get_identifier(
+                schema=schema, entity=entity, inspector=inspector
+            )
