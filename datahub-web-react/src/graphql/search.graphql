@@ -404,7 +404,7 @@ fragment searchResults on SearchResults {
     }
 }
 
-fragment searchAcrossRelationshipResults on SearchAcrossRelationshipsResults {
+fragment searchAcrossRelationshipResults on SearchAcrossLineageResults {
     start
     count
     total
@@ -439,8 +439,8 @@ query getSearchResultsForMultiple($input: SearchAcrossEntitiesInput!) {
     }
 }
 
-query searchAcrossRelationships($input: SearchAcrossRelationshipsInput!) {
-    searchAcrossRelationships(input: $input) {
+query searchAcrossLineage($input: SearchAcrossLineageInput!) {
+    searchAcrossLineage(input: $input) {
         ...searchAcrossRelationshipResults
     }
 }

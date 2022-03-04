@@ -1,4 +1,4 @@
-import { useSearchAcrossRelationshipsQuery } from '../../../../../graphql/search.generated';
+import { useSearchAcrossLineageQuery } from '../../../../../graphql/search.generated';
 import { LineageDirection } from '../../../../../types.generated';
 import { GetSearchResultsParams } from '../../components/styled/search/types';
 
@@ -9,14 +9,14 @@ export default function generateUseSearchResultsViaRelationshipHook({
     urn: string;
     direction: LineageDirection;
 }) {
-    return function useGetSearchResultsViaSearchAcrossRelationships(params: GetSearchResultsParams) {
+    return function useGetSearchResultsViaSearchAcrossLineage(params: GetSearchResultsParams) {
         const {
             variables: {
                 input: { types, query, start, count, filters },
             },
         } = params;
 
-        const { data, loading, error, refetch } = useSearchAcrossRelationshipsQuery({
+        const { data, loading, error, refetch } = useSearchAcrossLineageQuery({
             variables: {
                 input: {
                     urn,
@@ -31,7 +31,7 @@ export default function generateUseSearchResultsViaRelationshipHook({
         });
 
         return {
-            data: data?.searchAcrossRelationships,
+            data: data?.searchAcrossLineage,
             loading,
             error,
             refetch: (refetchParams: GetSearchResultsParams['variables']) => {
@@ -54,7 +54,7 @@ export default function generateUseSearchResultsViaRelationshipHook({
                         count: refetchCount,
                         filters: refetchFilters,
                     },
-                }).then((res) => res.data.searchAcrossRelationships);
+                }).then((res) => res.data.searchAcrossLineage);
             },
         };
     };

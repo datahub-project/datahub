@@ -4978,19 +4978,6 @@
     } ]
   }, "com.linkedin.metadata.query.filter.Criterion", {
     "type" : "record",
-    "name" : "DisjunctiveCriterion",
-    "namespace" : "com.linkedin.metadata.query.filter",
-    "doc" : "A list of criterion or'd together.",
-    "fields" : [ {
-      "name" : "or",
-      "type" : {
-        "type" : "array",
-        "items" : "ConjunctiveCriterion"
-      },
-      "doc" : "A list of disjunctive criterion for the filter. (or operation to combine filters)"
-    } ]
-  }, {
-    "type" : "record",
     "name" : "Filter",
     "namespace" : "com.linkedin.metadata.query.filter",
     "doc" : "The filter for finding a record or a collection of records",
@@ -5000,15 +4987,7 @@
         "type" : "array",
         "items" : "ConjunctiveCriterion"
       },
-      "doc" : "A list of disjunctive criterion for the filter. (or operation to combine filters)\nNOTE only one of \"or\" and \"and\" fields can be set",
-      "optional" : true
-    }, {
-      "name" : "and",
-      "type" : {
-        "type" : "array",
-        "items" : "DisjunctiveCriterion"
-      },
-      "doc" : "A list of conjunctive criterion for the filter. (and operation to combine filters)\nNOTE only one of \"or\" and \"and\" fields can be set",
+      "doc" : "A list of disjunctive criterion for the filter. (or operation to combine filters)",
       "optional" : true
     }, {
       "name" : "criteria",
@@ -5143,22 +5122,9 @@
     } ]
   }, "com.linkedin.metadata.search.FilterValue", {
     "type" : "record",
-    "name" : "MatchedField",
+    "name" : "LineageSearchEntity",
     "namespace" : "com.linkedin.metadata.search",
-    "fields" : [ {
-      "name" : "name",
-      "type" : "string",
-      "doc" : "Matched field name"
-    }, {
-      "name" : "value",
-      "type" : "string",
-      "doc" : "Matched field value"
-    } ]
-  }, {
-    "type" : "record",
-    "name" : "RelationshipSearchEntity",
-    "namespace" : "com.linkedin.metadata.search",
-    "doc" : "The model for each entity returned by the relationship search query",
+    "doc" : "The model for each entity returned by the lineage search query",
     "include" : [ {
       "type" : "record",
       "name" : "SearchEntity",
@@ -5171,7 +5137,19 @@
         "name" : "matchedFields",
         "type" : {
           "type" : "array",
-          "items" : "MatchedField"
+          "items" : {
+            "type" : "record",
+            "name" : "MatchedField",
+            "fields" : [ {
+              "name" : "name",
+              "type" : "string",
+              "doc" : "Matched field name"
+            }, {
+              "name" : "value",
+              "type" : "string",
+              "doc" : "Matched field value"
+            } ]
+          }
         },
         "doc" : "Matched field name and values",
         "default" : [ ]
@@ -5200,14 +5178,14 @@
     } ]
   }, {
     "type" : "record",
-    "name" : "RelationshipSearchResult",
+    "name" : "LineageSearchResult",
     "namespace" : "com.linkedin.metadata.search",
-    "doc" : "The model for the result of a relationship search query",
+    "doc" : "The model for the result of a lineage search query",
     "fields" : [ {
       "name" : "entities",
       "type" : {
         "type" : "array",
-        "items" : "RelationshipSearchEntity"
+        "items" : "LineageSearchEntity"
       },
       "doc" : "A list of entities returned from the search results"
     }, {
@@ -5240,7 +5218,7 @@
       "type" : "int",
       "doc" : "The total number of entities directly under searched path"
     } ]
-  }, "com.linkedin.metadata.search.SearchEntity", {
+  }, "com.linkedin.metadata.search.MatchedField", "com.linkedin.metadata.search.SearchEntity", {
     "type" : "record",
     "name" : "SearchResult",
     "namespace" : "com.linkedin.metadata.search",
@@ -5539,7 +5517,7 @@
         } ],
         "returns" : "com.linkedin.metadata.search.SearchResult"
       }, {
-        "name" : "searchAcrossRelationships",
+        "name" : "searchAcrossLineage",
         "parameters" : [ {
           "name" : "urn",
           "type" : "string"
@@ -5569,7 +5547,7 @@
           "name" : "count",
           "type" : "int"
         } ],
-        "returns" : "com.linkedin.metadata.search.RelationshipSearchResult"
+        "returns" : "com.linkedin.metadata.search.LineageSearchResult"
       }, {
         "name" : "setWritable",
         "parameters" : [ {

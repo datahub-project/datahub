@@ -166,27 +166,7 @@
               } ]
             }
           },
-          "doc" : "A list of disjunctive criterion for the filter. (or operation to combine filters)\nNOTE only one of \"or\" and \"and\" fields can be set",
-          "optional" : true
-        }, {
-          "name" : "and",
-          "type" : {
-            "type" : "array",
-            "items" : {
-              "type" : "record",
-              "name" : "DisjunctiveCriterion",
-              "doc" : "A list of criterion or'd together.",
-              "fields" : [ {
-                "name" : "or",
-                "type" : {
-                  "type" : "array",
-                  "items" : "ConjunctiveCriterion"
-                },
-                "doc" : "A list of disjunctive criterion for the filter. (or operation to combine filters)"
-              } ]
-            }
-          },
-          "doc" : "A list of conjunctive criterion for the filter. (and operation to combine filters)\nNOTE only one of \"or\" and \"and\" fields can be set",
+          "doc" : "A list of disjunctive criterion for the filter. (or operation to combine filters)",
           "optional" : true
         }, {
           "name" : "criteria",
@@ -3379,7 +3359,7 @@
       "name" : "version",
       "type" : "long"
     } ]
-  }, "com.linkedin.metadata.key.ChartKey", "com.linkedin.metadata.key.CorpGroupKey", "com.linkedin.metadata.key.CorpUserKey", "com.linkedin.metadata.key.DashboardKey", "com.linkedin.metadata.key.DataFlowKey", "com.linkedin.metadata.key.DataJobKey", "com.linkedin.metadata.key.GlossaryNodeKey", "com.linkedin.metadata.key.GlossaryTermKey", "com.linkedin.metadata.key.MLFeatureKey", "com.linkedin.metadata.key.MLModelKey", "com.linkedin.metadata.key.TagKey", "com.linkedin.metadata.query.filter.Condition", "com.linkedin.metadata.query.filter.ConjunctiveCriterion", "com.linkedin.metadata.query.filter.Criterion", "com.linkedin.metadata.query.filter.DisjunctiveCriterion", "com.linkedin.metadata.query.filter.Filter", "com.linkedin.ml.metadata.BaseData", "com.linkedin.ml.metadata.CaveatDetails", "com.linkedin.ml.metadata.CaveatsAndRecommendations", "com.linkedin.ml.metadata.EthicalConsiderations", "com.linkedin.ml.metadata.EvaluationData", "com.linkedin.ml.metadata.HyperParameterValueType", "com.linkedin.ml.metadata.IntendedUse", "com.linkedin.ml.metadata.IntendedUserType", "com.linkedin.ml.metadata.MLFeatureProperties", "com.linkedin.ml.metadata.MLHyperParam", "com.linkedin.ml.metadata.MLMetric", "com.linkedin.ml.metadata.MLModelFactorPrompts", "com.linkedin.ml.metadata.MLModelFactors", "com.linkedin.ml.metadata.MLModelProperties", "com.linkedin.ml.metadata.Metrics", "com.linkedin.ml.metadata.QuantitativeAnalyses", "com.linkedin.ml.metadata.ResultsType", "com.linkedin.ml.metadata.SourceCode", "com.linkedin.ml.metadata.SourceCodeUrl", "com.linkedin.ml.metadata.SourceCodeUrlType", "com.linkedin.ml.metadata.TrainingData", "com.linkedin.mxe.GenericAspect", {
+  }, "com.linkedin.metadata.key.ChartKey", "com.linkedin.metadata.key.CorpGroupKey", "com.linkedin.metadata.key.CorpUserKey", "com.linkedin.metadata.key.DashboardKey", "com.linkedin.metadata.key.DataFlowKey", "com.linkedin.metadata.key.DataJobKey", "com.linkedin.metadata.key.GlossaryNodeKey", "com.linkedin.metadata.key.GlossaryTermKey", "com.linkedin.metadata.key.MLFeatureKey", "com.linkedin.metadata.key.MLModelKey", "com.linkedin.metadata.key.TagKey", "com.linkedin.metadata.query.filter.Condition", "com.linkedin.metadata.query.filter.ConjunctiveCriterion", "com.linkedin.metadata.query.filter.Criterion", "com.linkedin.metadata.query.filter.Filter", "com.linkedin.ml.metadata.BaseData", "com.linkedin.ml.metadata.CaveatDetails", "com.linkedin.ml.metadata.CaveatsAndRecommendations", "com.linkedin.ml.metadata.EthicalConsiderations", "com.linkedin.ml.metadata.EvaluationData", "com.linkedin.ml.metadata.HyperParameterValueType", "com.linkedin.ml.metadata.IntendedUse", "com.linkedin.ml.metadata.IntendedUserType", "com.linkedin.ml.metadata.MLFeatureProperties", "com.linkedin.ml.metadata.MLHyperParam", "com.linkedin.ml.metadata.MLMetric", "com.linkedin.ml.metadata.MLModelFactorPrompts", "com.linkedin.ml.metadata.MLModelFactors", "com.linkedin.ml.metadata.MLModelProperties", "com.linkedin.ml.metadata.Metrics", "com.linkedin.ml.metadata.QuantitativeAnalyses", "com.linkedin.ml.metadata.ResultsType", "com.linkedin.ml.metadata.SourceCode", "com.linkedin.ml.metadata.SourceCodeUrl", "com.linkedin.ml.metadata.SourceCodeUrlType", "com.linkedin.ml.metadata.TrainingData", "com.linkedin.mxe.GenericAspect", {
     "type" : "record",
     "name" : "MetadataChangeProposal",
     "namespace" : "com.linkedin.mxe",

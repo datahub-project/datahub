@@ -18,6 +18,10 @@ import lombok.Value;
 import org.apache.commons.lang3.tuple.Triple;
 
 
+/**
+ * The Lineage Registry provides a mechanism to retrieve metadata about the lineage relationships between different entities
+ * Lineage relationship denotes whether an entity is directly upstream or downstream of another entity
+ */
 public class LineageRegistry {
 
   private final Map<String, LineageSpec> _lineageSpecMap;
@@ -44,8 +48,8 @@ public class LineageRegistry {
     // 2. Figure out the upstream and downstream edges of each entity type
     Map<String, Set<EdgeInfo>> upstreamPerEntity = new HashMap<>();
     Map<String, Set<EdgeInfo>> downstreamPerEntity = new HashMap<>();
-    // A downstreamOf B  ---> A -> upstream (downstreamOf, OUTGOING), B -> downstream (downstreamOf, INCOMING)
-    // A produces B ---> A -> downstream (produces, OUTGOING), B -> upstream (produces, INCOMING)
+    // A downstreamOf B : A -> upstream (downstreamOf, OUTGOING), B -> downstream (downstreamOf, INCOMING)
+    // A produces B :     A -> downstream (produces, OUTGOING), B -> upstream (produces, INCOMING)
     for (LineageEdge edge : lineageEdges) {
       if (edge.isUpstream()) {
         upstreamPerEntity.computeIfAbsent(edge.sourceEntity, (k) -> new HashSet<>())

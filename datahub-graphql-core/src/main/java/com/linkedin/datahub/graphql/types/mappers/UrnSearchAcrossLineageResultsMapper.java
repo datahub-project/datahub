@@ -6,14 +6,14 @@ import com.linkedin.datahub.graphql.generated.AggregationMetadata;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.FacetMetadata;
 import com.linkedin.datahub.graphql.generated.MatchedField;
-import com.linkedin.datahub.graphql.generated.SearchAcrossRelationshipsResult;
-import com.linkedin.datahub.graphql.generated.SearchAcrossRelationshipsResults;
+import com.linkedin.datahub.graphql.generated.SearchAcrossLineageResult;
+import com.linkedin.datahub.graphql.generated.SearchAcrossLineageResults;
 import com.linkedin.datahub.graphql.generated.SearchInsight;
 import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.util.SearchInsightsUtil;
-import com.linkedin.metadata.search.RelationshipSearchEntity;
-import com.linkedin.metadata.search.RelationshipSearchResult;
+import com.linkedin.metadata.search.LineageSearchEntity;
+import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import java.util.Collections;
 import java.util.List;
@@ -21,14 +21,14 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 
-public class UrnSearchAcrossRelationshipsResultsMapper<T extends RecordTemplate, E extends Entity> {
-  public static <T extends RecordTemplate, E extends Entity> SearchAcrossRelationshipsResults map(
-      RelationshipSearchResult searchResult) {
-    return new UrnSearchAcrossRelationshipsResultsMapper<T, E>().apply(searchResult);
+public class UrnSearchAcrossLineageResultsMapper<T extends RecordTemplate, E extends Entity> {
+  public static <T extends RecordTemplate, E extends Entity> SearchAcrossLineageResults map(
+      LineageSearchResult searchResult) {
+    return new UrnSearchAcrossLineageResultsMapper<T, E>().apply(searchResult);
   }
 
-  public SearchAcrossRelationshipsResults apply(RelationshipSearchResult input) {
-    final SearchAcrossRelationshipsResults result = new SearchAcrossRelationshipsResults();
+  public SearchAcrossLineageResults apply(LineageSearchResult input) {
+    final SearchAcrossLineageResults result = new SearchAcrossLineageResults();
 
     result.setStart(input.getFrom());
     result.setCount(input.getPageSize());
@@ -41,8 +41,8 @@ public class UrnSearchAcrossRelationshipsResultsMapper<T extends RecordTemplate,
     return result;
   }
 
-  private SearchAcrossRelationshipsResult mapResult(RelationshipSearchEntity searchEntity) {
-    return SearchAcrossRelationshipsResult.builder()
+  private SearchAcrossLineageResult mapResult(LineageSearchEntity searchEntity) {
+    return SearchAcrossLineageResult.builder()
         .setEntity(UrnToEntityMapper.map(searchEntity.getEntity()))
         .setInsights(getInsightsFromFeatures(searchEntity.getFeatures()))
         .setMatchedFields(getMatchedFieldEntry(searchEntity.getMatchedFields()))
@@ -59,9 +59,10 @@ public class UrnSearchAcrossRelationshipsResultsMapper<T extends RecordTemplate,
         Optional.ofNullable(aggregationMetadata.getDisplayName()).orElse(aggregationMetadata.getName()));
     facetMetadata.setAggregations(aggregationMetadata.getFilterValues()
         .stream()
-        .map(filterValue -> new AggregationMetadata(convertEntityFilterValue(filterValue.getValue(), isEntityTypeFilter),
-            filterValue.getFacetCount(),
-            filterValue.getEntity() == null ? null : UrnToEntityMapper.map(filterValue.getEntity())))
+        .map(
+            filterValue -> new AggregationMetadata(convertEntityFilterValue(filterValue.getValue(), isEntityTypeFilter),
+                filterValue.getFacetCount(),
+                filterValue.getEntity() == null ? null : UrnToEntityMapper.map(filterValue.getEntity())))
         .collect(Collectors.toList()));
     return facetMetadata;
   }

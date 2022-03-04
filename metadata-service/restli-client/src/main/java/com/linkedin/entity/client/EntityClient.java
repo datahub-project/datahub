@@ -16,7 +16,7 @@ import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
-import com.linkedin.metadata.search.RelationshipSearchResult;
+import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
@@ -177,7 +177,7 @@ public interface EntityClient {
    * @return a {@link SearchResult} that contains a list of matched documents and related search result metadata
    */
   @Nonnull
-  public RelationshipSearchResult searchAcrossRelationships(@Nonnull Urn sourceUrn, @Nonnull LineageDirection direction,
+  public LineageSearchResult searchAcrossLineage(@Nonnull Urn sourceUrn, @Nonnull LineageDirection direction,
       @Nonnull List<String> entities, @Nullable String input, @Nullable Filter filter,
       @Nullable SortCriterion sortCriterion, int start, int count, @Nonnull final Authentication authentication)
       throws RemoteInvocationException;

@@ -4,11 +4,11 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.LineageDirection;
-import com.linkedin.datahub.graphql.generated.SearchAcrossRelationshipsInput;
-import com.linkedin.datahub.graphql.generated.SearchAcrossRelationshipsResults;
+import com.linkedin.datahub.graphql.generated.SearchAcrossLineageInput;
+import com.linkedin.datahub.graphql.generated.SearchAcrossLineageResults;
 import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
-import com.linkedin.datahub.graphql.types.mappers.UrnSearchAcrossRelationshipsResultsMapper;
+import com.linkedin.datahub.graphql.types.mappers.UrnSearchAcrossLineageResultsMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
@@ -29,8 +29,8 @@ import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHAB
  */
 @Slf4j
 @RequiredArgsConstructor
-public class SearchAcrossRelationshipsResolver
-    implements DataFetcher<CompletableFuture<SearchAcrossRelationshipsResults>> {
+public class SearchAcrossLineageResolver
+    implements DataFetcher<CompletableFuture<SearchAcrossLineageResults>> {
 
   private static final int DEFAULT_START = 0;
   private static final int DEFAULT_COUNT = 10;
@@ -38,10 +38,10 @@ public class SearchAcrossRelationshipsResolver
   private final EntityClient _entityClient;
 
   @Override
-  public CompletableFuture<SearchAcrossRelationshipsResults> get(DataFetchingEnvironment environment)
+  public CompletableFuture<SearchAcrossLineageResults> get(DataFetchingEnvironment environment)
       throws URISyntaxException {
-    final SearchAcrossRelationshipsInput input =
-        bindArgument(environment.getArgument("input"), SearchAcrossRelationshipsInput.class);
+    final SearchAcrossLineageInput input =
+        bindArgument(environment.getArgument("input"), SearchAcrossLineageInput.class);
 
     final QueryContext context = environment.getContext();
     final Urn urn = Urn.createFromString(input.getUrn());
@@ -65,8 +65,8 @@ public class SearchAcrossRelationshipsResolver
         log.debug(
             "Executing search across relationships: source urn {}, direction {}, entity types {}, query {}, filters: {}, start: {}, count: {}",
             urn, resolvedDirection, input.getTypes(), input.getQuery(), input.getFilters(), start, count);
-        return UrnSearchAcrossRelationshipsResultsMapper.map(
-            _entityClient.searchAcrossRelationships(urn, resolvedDirection, entityNames, sanitizedQuery,
+        return UrnSearchAcrossLineageResultsMapper.map(
+            _entityClient.searchAcrossLineage(urn, resolvedDirection, entityNames, sanitizedQuery,
                 ResolverUtils.buildFilter(input.getFilters()), null, start, count,
                 ResolverUtils.getAuthentication(environment)));
       } catch (RemoteInvocationException e) {

@@ -173,6 +173,7 @@ public class ESGraphQueryDAO {
         break;
       }
 
+      // Do one hop on the lineage graph
       List<LineageRelationship> oneHopRelationships =
           getLineageRelationshipsInBatches(currentLevel, direction, visitedEntities, i + 1, remainingTime);
       result.addAll(oneHopRelationships);
@@ -216,10 +217,12 @@ public class ESGraphQueryDAO {
         .collect(Collectors.toMap(Function.identity(),
             entityType -> lineageRegistry.getLineageRelationships(entityType, direction)));
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
+    // Get all relation types relevant to the set of urns to hop from
     urnsPerEntityType.forEach((entityType, urns) -> finalQuery.should(
         getQueryForLineage(urns, edgesPerEntityType.getOrDefault(entityType, Collections.emptyList()))));
     SearchResponse response = executeSearchQuery(finalQuery, 0, MAX_ELASTIC_RESULT);
     Set<Urn> entityUrnSet = new HashSet<>(entityUrns);
+    // Get all valid edges given the set of urns to hop from
     Set<Pair<String, EdgeInfo>> validEdges = edgesPerEntityType.entrySet()
         .stream()
         .flatMap(entry -> entry.getValue().stream().map(edgeInfo -> Pair.of(entry.getKey(), edgeInfo)))
@@ -227,7 +230,7 @@ public class ESGraphQueryDAO {
     return extractRelationships(entityUrnSet, response, validEdges, visitedEntities, numHops);
   }
 
-  // Extract relationships from search response
+  // Given set of edges and the search response, extract all valid edges that originate from the input entityUrns
   @WithSpan
   private List<LineageRelationship> extractRelationships(@Nonnull Set<Urn> entityUrns,
       @Nonnull SearchResponse searchResponse, Set<Pair<String, EdgeInfo>> validEdges, Set<Urn> visitedEntities,
@@ -265,6 +268,7 @@ public class ESGraphQueryDAO {
     return result;
   }
 
+  // Get search query for given list of edges and source urns
   public QueryBuilder getQueryForLineage(List<Urn> urns, List<EdgeInfo> lineageEdges) {
     BoolQueryBuilder query = QueryBuilders.boolQuery();
     if (lineageEdges.isEmpty()) {

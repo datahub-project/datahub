@@ -24,8 +24,8 @@ import com.linkedin.metadata.run.AspectRowSummaryArray;
 import com.linkedin.metadata.run.DeleteEntityResponse;
 import com.linkedin.metadata.run.RollbackResponse;
 import com.linkedin.metadata.search.EntitySearchService;
-import com.linkedin.metadata.search.RelationshipSearchResult;
-import com.linkedin.metadata.search.RelationshipSearchService;
+import com.linkedin.metadata.search.LineageSearchResult;
+import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
@@ -90,7 +90,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private static final String ACTION_SEARCH = "search";
   private static final String ACTION_LIST = "list";
   private static final String ACTION_SEARCH_ACROSS_ENTITIES = "searchAcrossEntities";
-  private static final String ACTION_SEARCH_ACROSS_RELATIONSHIPS = "searchAcrossRelationships";
+  private static final String ACTION_SEARCH_ACROSS_LINEAGE = "searchAcrossLineage";
   private static final String ACTION_BATCH_INGEST = "batchIngest";
   private static final String ACTION_LIST_URNS = "listUrns";
   private static final String ACTION_FILTER = "filter";
@@ -120,7 +120,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
   @Inject
   @Named("relationshipSearchService")
-  private RelationshipSearchService _relationshipSearchService;
+  private LineageSearchService _lineageSearchService;
 
   /**
    * Retrieves the value for an entity that is made up of latest versions of specified aspects.
@@ -266,10 +266,10 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         "searchAcrossEntities");
   }
 
-  @Action(name = ACTION_SEARCH_ACROSS_RELATIONSHIPS)
+  @Action(name = ACTION_SEARCH_ACROSS_LINEAGE)
   @Nonnull
   @WithSpan
-  public Task<RelationshipSearchResult> searchAcrossRelationships(@ActionParam(PARAM_URN) @Nonnull String urnStr,
+  public Task<LineageSearchResult> searchAcrossLineage(@ActionParam(PARAM_URN) @Nonnull String urnStr,
       @ActionParam(PARAM_DIRECTION) String direction,
       @ActionParam(PARAM_ENTITIES) @Optional @Nullable String[] entities,
       @ActionParam(PARAM_INPUT) @Optional @Nullable String input, @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
@@ -280,7 +280,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     log.info("GET SEARCH RESULTS ACROSS RELATIONSHIPS for source urn {}, direction {}, entities {} with query {}",
         urnStr, direction, entityList, input);
     return RestliUtil.toTask(
-        () -> _relationshipSearchService.searchAcrossRelationships(urn, LineageDirection.valueOf(direction), entityList,
+        () -> _lineageSearchService.searchAcrossLineage(urn, LineageDirection.valueOf(direction), entityList,
             input, filter, sortCriterion, start, count), "searchAcrossRelationships");
   }
 

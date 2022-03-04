@@ -42,7 +42,7 @@ import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKeyProperties;
 import com.linkedin.datahub.graphql.generated.Owner;
 import com.linkedin.datahub.graphql.generated.RecommendationContent;
-import com.linkedin.datahub.graphql.generated.SearchAcrossRelationshipsResult;
+import com.linkedin.datahub.graphql.generated.SearchAcrossLineageResult;
 import com.linkedin.datahub.graphql.generated.SearchResult;
 import com.linkedin.datahub.graphql.generated.UsageQueryResult;
 import com.linkedin.datahub.graphql.generated.UserUsageCounts;
@@ -105,7 +105,7 @@ import com.linkedin.datahub.graphql.resolvers.recommendation.ListRecommendations
 import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteForMultipleResolver;
 import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossEntitiesResolver;
-import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossRelationshipsResolver;
+import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossLineageResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchResolver;
 import com.linkedin.datahub.graphql.resolvers.tag.SetTagColorResolver;
 import com.linkedin.datahub.graphql.resolvers.type.AspectInterfaceTypeResolver;
@@ -506,8 +506,8 @@ public class GmsGraphQLEngine {
                     new SearchResolver(this.entityClient)))
             .dataFetcher("searchAcrossEntities",
                 new SearchAcrossEntitiesResolver(this.entityClient))
-            .dataFetcher("searchAcrossRelationships",
-                new SearchAcrossRelationshipsResolver(this.entityClient))
+            .dataFetcher("searchAcrossLineage",
+                new SearchAcrossLineageResolver(this.entityClient))
             .dataFetcher("autoComplete", new AuthenticatedResolver<>(
                     new AutoCompleteResolver(searchableTypes)))
             .dataFetcher("autoCompleteForMultiple", new AuthenticatedResolver<>(
@@ -643,11 +643,11 @@ public class GmsGraphQLEngine {
                         (env) -> ((SearchResult) env.getSource()).getEntity()))
                 )
             )
-            .type("SearchAcrossRelationshipsResult", typeWiring -> typeWiring
+            .type("SearchAcrossLineageResult", typeWiring -> typeWiring
                 .dataFetcher("entity", new AuthenticatedResolver<>(
                     new EntityTypeResolver(
                         entityTypes.stream().collect(Collectors.toList()),
-                        (env) -> ((SearchAcrossRelationshipsResult) env.getSource()).getEntity()))
+                        (env) -> ((SearchAcrossLineageResult) env.getSource()).getEntity()))
                 )
             )
             .type("AggregationMetadata", typeWiring -> typeWiring

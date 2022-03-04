@@ -18,7 +18,6 @@ import org.elasticsearch.search.sort.ScoreSortBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 
 import static com.linkedin.metadata.search.utils.SearchUtils.isUrn;
-import static com.linkedin.metadata.search.utils.SearchUtils.validateFilter;
 
 
 @Slf4j
@@ -53,16 +52,9 @@ public class ESUtils {
     if (filter == null) {
       return finalQueryBuilder;
     }
-    validateFilter(filter);
     if (filter.getOr() != null) {
       // If caller is using the new Filters API, build boolean query from that.
       filter.getOr().forEach(or -> finalQueryBuilder.should(ESUtils.buildConjunctiveFilterQuery(or)));
-    } else if (filter.getAnd() != null) {
-      filter.getAnd().forEach(and -> {
-        BoolQueryBuilder andQueryBuilder = QueryBuilders.boolQuery();
-        and.getOr().forEach(or -> andQueryBuilder.should(ESUtils.buildConjunctiveFilterQuery(or)));
-        finalQueryBuilder.must(andQueryBuilder);
-      });
     } else if (filter.getCriteria() != null) {
       // Otherwise, build boolean query from the deprecated "criteria" field.
       log.warn("Received query Filter with a deprecated field 'criteria'. Use 'or' instead.");
