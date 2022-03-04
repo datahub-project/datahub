@@ -8,7 +8,6 @@ import { SearchPage } from '../SearchPage';
 import TestPageContainer from '../../../utils/test-utils/TestPageContainer';
 import { mocks } from '../../../Mocks';
 import { PageRoutes } from '../../../conf/Global';
-import { InMemoryCache } from '@apollo/client/cache/inmemory/inMemoryCache';
 
 describe('SearchPage', () => {
     it('renders loading', async () => {
