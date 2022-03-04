@@ -586,7 +586,8 @@ type Dataset implements EntityWithRelationships & Entity {
     container: Container
 
     """
-    The Dataset display name
+    Unique guid for dataset
+    No longer to be used as the Dataset display name. Use properties.name instead
     """
     name: String!
 
@@ -796,7 +797,12 @@ type DatasetProperties {
     """
     The name of the dataset used in display
     """
-    name: String
+    name: String!
+
+    """
+    Fully-qualified name of the Dataset
+    """
+    qualifiedName: String
 
     """
     Environment in which the dataset belongs to or where it was generated
