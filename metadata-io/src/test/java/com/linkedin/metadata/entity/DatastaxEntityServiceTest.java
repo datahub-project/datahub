@@ -335,6 +335,7 @@ public class DatastaxEntityServiceTest extends EntityServiceTestBase<DatastaxAsp
 
   @Test
   public void testIngestListLatestAspects() throws Exception {
+    // TODO: this test should be in the base class but with current schema cassandra limitations make it difficult to achieve the same ordering as in ebean land
     Urn entityUrn1 = Urn.createFromString("urn:li:corpuser:test1");
     Urn entityUrn2 = Urn.createFromString("urn:li:corpuser:test2");
     Urn entityUrn3 = Urn.createFromString("urn:li:corpuser:test3");
@@ -375,6 +376,7 @@ public class DatastaxEntityServiceTest extends EntityServiceTestBase<DatastaxAsp
 
   @Test
   public void testIngestListUrns() throws Exception {
+    // TODO: this test should be in the base class but with current schema cassandra limitations make it difficult to achieve the same ordering as in ebean land
     Urn entityUrn1 = Urn.createFromString("urn:li:corpuser:test1");
     Urn entityUrn2 = Urn.createFromString("urn:li:corpuser:test2");
     Urn entityUrn3 = Urn.createFromString("urn:li:corpuser:test3");
