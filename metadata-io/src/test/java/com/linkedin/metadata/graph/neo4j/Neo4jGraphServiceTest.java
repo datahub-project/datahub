@@ -1,5 +1,11 @@
-package com.linkedin.metadata.graph;
+package com.linkedin.metadata.graph.neo4j;
 
+import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.graph.GraphServiceTestBase;
+import com.linkedin.metadata.graph.LineageRegistry;
+import com.linkedin.metadata.graph.RelatedEntitiesResult;
+import com.linkedin.metadata.graph.RelatedEntity;
+import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.GraphDatabase;
@@ -27,7 +33,7 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBase {
     _serverBuilder = new Neo4jTestServerBuilder();
     _serverBuilder.newServer();
     _driver = GraphDatabase.driver(_serverBuilder.boltURI());
-    _client = new Neo4jGraphService(_driver);
+    _client = new Neo4jGraphService(new LineageRegistry(SnapshotEntityRegistry.getInstance()), _driver);
   }
 
   @AfterMethod
@@ -50,8 +56,8 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBase {
     // https://github.com/linkedin/datahub/issues/3118
     // Neo4jGraphService produces duplicates, which is here ignored until fixed
     // actual.count and actual.total not tested due to duplicates
-    assertEquals(actual.start, expected.start);
-    assertEqualsAnyOrder(actual.entities, expected.entities, RELATED_ENTITY_COMPARATOR);
+    assertEquals(actual.getStart(), expected.getStart());
+    assertEqualsAnyOrder(actual.getEntities(), expected.getEntities(), RELATED_ENTITY_COMPARATOR);
   }
 
   @Override

@@ -1,4 +1,4 @@
-package com.linkedin.metadata.graph;
+package com.linkedin.metadata.graph.dgraph;
 
 import io.dgraph.DgraphClient;
 import io.dgraph.TxnConflictException;

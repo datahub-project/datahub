@@ -1,0 +1,17 @@
+namespace com.linkedin.metadata.graph
+
+/**
+ * Direction between two nodes in the lineage graph
+ */
+enum LineageDirection {
+
+  /**
+   * Upstream, or left-to-right in the lineage visualization
+   */
+  UPSTREAM,
+
+  /**
+   * Downstream, or right-to-left in the lineage visualization
+   */
+  DOWNSTREAM
+}
