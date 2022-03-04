@@ -66,7 +66,7 @@ public class SearchAcrossRelationshipsResolver
             "Executing search across relationships: source urn {}, direction {}, entity types {}, query {}, filters: {}, start: {}, count: {}",
             urn, resolvedDirection, input.getTypes(), input.getQuery(), input.getFilters(), start, count);
         return UrnSearchAcrossRelationshipsResultsMapper.map(
-            _entityClient.searchAcrossRelationships(urn, resolvedDirection, entityNames, sanitizedQuery,
+            _entityClient.searchAcrossLineage(urn, resolvedDirection, entityNames, sanitizedQuery,
                 ResolverUtils.buildFilter(input.getFilters()), null, start, count,
                 ResolverUtils.getAuthentication(environment)));
       } catch (RemoteInvocationException e) {

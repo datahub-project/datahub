@@ -24,10 +24,10 @@ public interface GraphClient {
       String actor);
 
   /**
-   * Returns a list of related entities for a given entity, set of edge types, and direction relative to the
-   * source node
+   * Returns lineage relationships for given entity in the DataHub graph.
+   * Lineage relationship denotes whether an entity is directly upstream or downstream of another entity
    */
   @Nonnull
   EntityLineageResult getLineageEntities(String rawUrn, LineageDirection direction, @Nullable Integer start,
-      @Nullable Integer count, String actor, int maxHops);
+      @Nullable Integer count, int maxHops, String actor);
 }

@@ -5143,22 +5143,9 @@
     } ]
   }, "com.linkedin.metadata.search.FilterValue", {
     "type" : "record",
-    "name" : "MatchedField",
+    "name" : "LineageSearchEntity",
     "namespace" : "com.linkedin.metadata.search",
-    "fields" : [ {
-      "name" : "name",
-      "type" : "string",
-      "doc" : "Matched field name"
-    }, {
-      "name" : "value",
-      "type" : "string",
-      "doc" : "Matched field value"
-    } ]
-  }, {
-    "type" : "record",
-    "name" : "RelationshipSearchEntity",
-    "namespace" : "com.linkedin.metadata.search",
-    "doc" : "The model for each entity returned by the relationship search query",
+    "doc" : "The model for each entity returned by the lineage search query",
     "include" : [ {
       "type" : "record",
       "name" : "SearchEntity",
@@ -5171,7 +5158,19 @@
         "name" : "matchedFields",
         "type" : {
           "type" : "array",
-          "items" : "MatchedField"
+          "items" : {
+            "type" : "record",
+            "name" : "MatchedField",
+            "fields" : [ {
+              "name" : "name",
+              "type" : "string",
+              "doc" : "Matched field name"
+            }, {
+              "name" : "value",
+              "type" : "string",
+              "doc" : "Matched field value"
+            } ]
+          }
         },
         "doc" : "Matched field name and values",
         "default" : [ ]
@@ -5200,14 +5199,14 @@
     } ]
   }, {
     "type" : "record",
-    "name" : "RelationshipSearchResult",
+    "name" : "LineageSearchResult",
     "namespace" : "com.linkedin.metadata.search",
-    "doc" : "The model for the result of a relationship search query",
+    "doc" : "The model for the result of a lineage search query",
     "fields" : [ {
       "name" : "entities",
       "type" : {
         "type" : "array",
-        "items" : "RelationshipSearchEntity"
+        "items" : "LineageSearchEntity"
       },
       "doc" : "A list of entities returned from the search results"
     }, {
@@ -5240,7 +5239,7 @@
       "type" : "int",
       "doc" : "The total number of entities directly under searched path"
     } ]
-  }, "com.linkedin.metadata.search.SearchEntity", {
+  }, "com.linkedin.metadata.search.MatchedField", "com.linkedin.metadata.search.SearchEntity", {
     "type" : "record",
     "name" : "SearchResult",
     "namespace" : "com.linkedin.metadata.search",
@@ -5539,7 +5538,7 @@
         } ],
         "returns" : "com.linkedin.metadata.search.SearchResult"
       }, {
-        "name" : "searchAcrossRelationships",
+        "name" : "searchAcrossLineage",
         "parameters" : [ {
           "name" : "urn",
           "type" : "string"
@@ -5569,7 +5568,7 @@
           "name" : "count",
           "type" : "int"
         } ],
-        "returns" : "com.linkedin.metadata.search.RelationshipSearchResult"
+        "returns" : "com.linkedin.metadata.search.LineageSearchResult"
       }, {
         "name" : "setWritable",
         "parameters" : [ {

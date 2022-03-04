@@ -231,7 +231,7 @@
       } ],
       "returns" : "com.linkedin.metadata.search.SearchResult"
     }, {
-      "name" : "searchAcrossRelationships",
+      "name" : "searchAcrossLineage",
       "parameters" : [ {
         "name" : "urn",
         "type" : "string"
@@ -261,7 +261,7 @@
         "name" : "count",
         "type" : "int"
       } ],
-      "returns" : "com.linkedin.metadata.search.RelationshipSearchResult"
+      "returns" : "com.linkedin.metadata.search.LineageSearchResult"
     }, {
       "name" : "setWritable",
       "parameters" : [ {

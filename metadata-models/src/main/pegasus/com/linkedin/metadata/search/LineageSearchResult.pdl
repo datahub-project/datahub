@@ -3,14 +3,14 @@ namespace com.linkedin.metadata.search
 import com.linkedin.common.Urn
 
 /**
- * The model for the result of a relationship search query
+ * The model for the result of a lineage search query
  */
-record RelationshipSearchResult {
+record LineageSearchResult {
 
   /**
    * A list of entities returned from the search results
    */
-  entities: array[RelationshipSearchEntity]
+  entities: array[LineageSearchEntity]
 
   /**
    * Metadata specific to the browse result of the queried path

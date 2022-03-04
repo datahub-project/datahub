@@ -19,7 +19,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
 /**
  * GraphQL Resolver responsible for fetching lineage relationships between entities in the DataHub graph.
- * Lineage relationship denote whether an entity is directly upstream or downstream of another entity
+ * Lineage relationship denotes whether an entity is directly upstream or downstream of another entity
  */
 public class EntityLineageResultResolver implements DataFetcher<CompletableFuture<EntityLineageResult>> {
 
@@ -44,7 +44,7 @@ public class EntityLineageResultResolver implements DataFetcher<CompletableFutur
     com.linkedin.metadata.graph.LineageDirection resolvedDirection =
         com.linkedin.metadata.graph.LineageDirection.valueOf(lineageDirection.toString());
     return CompletableFuture.supplyAsync(() -> mapEntityRelationships(lineageDirection,
-        _graphClient.getLineageEntities(urn, resolvedDirection, start, count, context.getActorUrn(), 1)));
+        _graphClient.getLineageEntities(urn, resolvedDirection, start, count, 1, context.getActorUrn())));
   }
 
   private EntityLineageResult mapEntityRelationships(final LineageDirection lineageDirection,

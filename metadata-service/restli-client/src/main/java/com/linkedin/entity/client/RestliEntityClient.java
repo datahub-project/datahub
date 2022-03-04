@@ -24,7 +24,7 @@ import com.linkedin.entity.EntitiesDoIngestRequestBuilder;
 import com.linkedin.entity.EntitiesDoListRequestBuilder;
 import com.linkedin.entity.EntitiesDoListUrnsRequestBuilder;
 import com.linkedin.entity.EntitiesDoSearchAcrossEntitiesRequestBuilder;
-import com.linkedin.entity.EntitiesDoSearchAcrossRelationshipsRequestBuilder;
+import com.linkedin.entity.EntitiesDoSearchAcrossLineageRequestBuilder;
 import com.linkedin.entity.EntitiesDoSearchRequestBuilder;
 import com.linkedin.entity.EntitiesDoSetWritableRequestBuilder;
 import com.linkedin.entity.EntitiesRequestBuilders;
@@ -42,7 +42,7 @@ import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
-import com.linkedin.metadata.search.RelationshipSearchResult;
+import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
@@ -358,13 +358,13 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
 
   @Nonnull
   @Override
-  public RelationshipSearchResult searchAcrossRelationships(@Nonnull Urn sourceUrn, @Nonnull LineageDirection direction,
+  public LineageSearchResult searchAcrossLineage(@Nonnull Urn sourceUrn, @Nonnull LineageDirection direction,
       @Nonnull List<String> entities, @Nonnull String input, @Nullable Filter filter,
       @Nullable SortCriterion sortCriterion, int start, int count, @Nonnull final Authentication authentication)
       throws RemoteInvocationException {
 
-    final EntitiesDoSearchAcrossRelationshipsRequestBuilder requestBuilder =
-        ENTITIES_REQUEST_BUILDERS.actionSearchAcrossRelationships()
+    final EntitiesDoSearchAcrossLineageRequestBuilder requestBuilder =
+        ENTITIES_REQUEST_BUILDERS.actionSearchAcrossLineage()
             .urnParam(sourceUrn.toString())
             .directionParam(direction.name())
             .inputParam(input)

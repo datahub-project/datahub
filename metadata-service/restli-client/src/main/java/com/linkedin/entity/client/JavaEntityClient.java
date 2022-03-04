@@ -27,8 +27,8 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.resources.entity.AspectUtils;
 import com.linkedin.metadata.resources.entity.EntityResource;
 import com.linkedin.metadata.search.EntitySearchService;
-import com.linkedin.metadata.search.RelationshipSearchResult;
-import com.linkedin.metadata.search.RelationshipSearchService;
+import com.linkedin.metadata.search.LineageSearchResult;
+import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -64,7 +64,7 @@ public class JavaEntityClient implements EntityClient {
     private final EntitySearchService _entitySearchService;
     private final SearchService _searchService;
     private final TimeseriesAspectService _timeseriesAspectService;
-    private final RelationshipSearchService _relationshipSearchService;
+    private final LineageSearchService _lineageSearchService;
 
     @Nonnull
     public Entity get(@Nonnull final Urn urn, @Nonnull final Authentication authentication) {
@@ -275,11 +275,11 @@ public class JavaEntityClient implements EntityClient {
 
     @Nonnull
     @Override
-    public RelationshipSearchResult searchAcrossRelationships(@Nonnull Urn sourceUrn, @Nonnull LineageDirection direction,
+    public LineageSearchResult searchAcrossLineage(@Nonnull Urn sourceUrn, @Nonnull LineageDirection direction,
         @Nonnull List<String> entities, @Nullable String input, @Nullable Filter filter,
         @Nullable SortCriterion sortCriterion, int start, int count, @Nonnull final Authentication authentication)
         throws RemoteInvocationException {
-        return _relationshipSearchService.searchAcrossRelationships(sourceUrn, direction, entities, input, filter,
+        return _lineageSearchService.searchAcrossLineage(sourceUrn, direction, entities, input, filter,
             sortCriterion, start, count);
     }
 

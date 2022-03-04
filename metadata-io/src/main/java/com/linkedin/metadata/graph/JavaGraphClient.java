@@ -28,12 +28,6 @@ public class JavaGraphClient implements GraphClient {
   /**
    * Returns a list of related entities for a given entity, set of edge types, and direction relative to the
    * source node
-   * @param rawUrn
-   * @param relationshipTypes
-   * @param direction
-   * @param start
-   * @param count
-   * @return
    */
   @Nonnull
   @Override
@@ -78,19 +72,13 @@ public class JavaGraphClient implements GraphClient {
   }
 
   /**
-   * Returns a list of related entities for a given entity, set of edge types, and direction relative to the
-   * source node
-   * @param rawUrn
-   * @param direction
-   * @param start
-   * @param count
-   * @param actor
-   * @param maxHops
+   * Returns lineage relationships for given entity in the DataHub graph.
+   * Lineage relationship denotes whether an entity is directly upstream or downstream of another entity
    */
   @Nonnull
   @Override
   public EntityLineageResult getLineageEntities(String rawUrn, LineageDirection direction, @Nullable Integer start,
-      @Nullable Integer count, String actor, int maxHops) {
+      @Nullable Integer count, int maxHops, String actor) {
     return _graphService.getLineage(UrnUtils.getUrn(rawUrn), direction, start != null ? start : 0,
         count != null ? count : 100, maxHops);
   }

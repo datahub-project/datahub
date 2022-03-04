@@ -12,8 +12,8 @@ import com.linkedin.datahub.graphql.generated.SearchInsight;
 import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.util.SearchInsightsUtil;
-import com.linkedin.metadata.search.RelationshipSearchEntity;
-import com.linkedin.metadata.search.RelationshipSearchResult;
+import com.linkedin.metadata.search.LineageSearchEntity;
+import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import java.util.Collections;
 import java.util.List;
@@ -23,11 +23,11 @@ import java.util.stream.Collectors;
 
 public class UrnSearchAcrossRelationshipsResultsMapper<T extends RecordTemplate, E extends Entity> {
   public static <T extends RecordTemplate, E extends Entity> SearchAcrossRelationshipsResults map(
-      RelationshipSearchResult searchResult) {
+      LineageSearchResult searchResult) {
     return new UrnSearchAcrossRelationshipsResultsMapper<T, E>().apply(searchResult);
   }
 
-  public SearchAcrossRelationshipsResults apply(RelationshipSearchResult input) {
+  public SearchAcrossRelationshipsResults apply(LineageSearchResult input) {
     final SearchAcrossRelationshipsResults result = new SearchAcrossRelationshipsResults();
 
     result.setStart(input.getFrom());
@@ -41,7 +41,7 @@ public class UrnSearchAcrossRelationshipsResultsMapper<T extends RecordTemplate,
     return result;
   }
 
-  private SearchAcrossRelationshipsResult mapResult(RelationshipSearchEntity searchEntity) {
+  private SearchAcrossRelationshipsResult mapResult(LineageSearchEntity searchEntity) {
     return SearchAcrossRelationshipsResult.builder()
         .setEntity(UrnToEntityMapper.map(searchEntity.getEntity()))
         .setInsights(getInsightsFromFeatures(searchEntity.getFeatures()))

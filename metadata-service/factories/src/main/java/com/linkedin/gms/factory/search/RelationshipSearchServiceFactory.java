@@ -3,7 +3,7 @@ package com.linkedin.gms.factory.search;
 import com.linkedin.gms.factory.common.GraphServiceFactory;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.graph.GraphService;
-import com.linkedin.metadata.search.RelationshipSearchService;
+import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.SearchService;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,8 +35,8 @@ public class RelationshipSearchServiceFactory {
   @Bean(name = "relationshipSearchService")
   @Primary
   @Nonnull
-  protected RelationshipSearchService getInstance() {
-    return new RelationshipSearchService(searchService, graphService,
+  protected LineageSearchService getInstance() {
+    return new LineageSearchService(searchService, graphService,
         cacheManager.getCache("relationshipSearchService"));
   }
 }

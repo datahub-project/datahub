@@ -39,15 +39,15 @@ import org.springframework.cache.Cache;
 
 
 @RequiredArgsConstructor
-public class RelationshipSearchService {
+public class LineageSearchService {
   private final SearchService _searchService;
   private final GraphService _graphService;
   private final Cache cache;
 
-  private static final String LEVEL_FILTER = "level";
-  private static final String LEVEL_FILTER_INPUT = "level.keyword";
-  private static final AggregationMetadata LEVEL_FILTER_GROUP = new AggregationMetadata().setName(LEVEL_FILTER)
-      .setDisplayName("Level of Dependencies")
+  private static final String DEGREE_FILTER = "degree";
+  private static final String DEGREE_FILTER_INPUT = "degree.keyword";
+  private static final AggregationMetadata DEGREE_FILTER_GROUP = new AggregationMetadata().setName(DEGREE_FILTER)
+      .setDisplayName("Degree of Dependencies")
       .setFilterValues(new FilterValueArray(ImmutableList.of(new FilterValue().setValue("1").setFacetCount(0),
           new FilterValue().setValue("2").setFacetCount(0), new FilterValue().setValue("3+").setFacetCount(0))));
   private static final int MAX_RELATIONSHIPS = 1000000;
@@ -65,11 +65,11 @@ public class RelationshipSearchService {
    * @param sortCriterion {@link SortCriterion} to be applied to search results
    * @param from index to start the search from
    * @param size the number of search hits to return
-   * @return a {@link RelationshipSearchResult} that contains a list of matched documents and related search result metadata
+   * @return a {@link LineageSearchResult} that contains a list of matched documents and related search result metadata
    */
   @Nonnull
   @WithSpan
-  public RelationshipSearchResult searchAcrossRelationships(@Nonnull Urn sourceUrn, @Nonnull LineageDirection direction,
+  public LineageSearchResult searchAcrossLineage(@Nonnull Urn sourceUrn, @Nonnull LineageDirection direction,
       @Nonnull List<String> entities, @Nullable String input, @Nullable Filter inputFilters,
       @Nullable SortCriterion sortCriterion, int from, int size) {
     // Cache multihop result for faster performance
@@ -87,10 +87,10 @@ public class RelationshipSearchService {
   }
 
   // Search service can only take up to 50K term filter, so query search service in batches
-  private RelationshipSearchResult getSearchResultInBatches(List<LineageRelationship> lineageRelationships,
+  private LineageSearchResult getSearchResultInBatches(List<LineageRelationship> lineageRelationships,
       @Nonnull String input, @Nullable Filter inputFilters, @Nullable SortCriterion sortCriterion, int from, int size) {
-    RelationshipSearchResult finalResult =
-        new RelationshipSearchResult().setEntities(new RelationshipSearchEntityArray(Collections.emptyList()))
+    LineageSearchResult finalResult =
+        new LineageSearchResult().setEntities(new LineageSearchEntityArray(Collections.emptyList()))
             .setMetadata(new SearchResultMetadata().setAggregations(new AggregationMetadataArray()))
             .setFrom(from)
             .setPageSize(size)
@@ -106,7 +106,7 @@ public class RelationshipSearchService {
       Map<Urn, LineageRelationship> urnToRelationship =
           lineageRelationships.stream().collect(Collectors.toMap(LineageRelationship::getEntity, Function.identity()));
       Filter finalFilter = buildFilter(urnToRelationship.keySet(), inputFilters);
-      RelationshipSearchResult resultForBatch = buildRelationshipSearchResult(
+      LineageSearchResult resultForBatch = buildLineageSearchResult(
           _searchService.searchAcrossEntities(entitiesToQuery, input, finalFilter, sortCriterion, queryFrom, querySize,
               SKIP_CACHE), urnToRelationship);
       queryFrom = Math.max(0, from - resultForBatch.getNumEntities());
@@ -114,13 +114,13 @@ public class RelationshipSearchService {
       finalResult = merge(finalResult, resultForBatch);
     }
 
-    finalResult.getMetadata().getAggregations().add(0, LEVEL_FILTER_GROUP);
+    finalResult.getMetadata().getAggregations().add(0, DEGREE_FILTER_GROUP);
     return finalResult.setFrom(from).setPageSize(size);
   }
 
   @SneakyThrows
-  public static RelationshipSearchResult merge(RelationshipSearchResult one, RelationshipSearchResult two) {
-    RelationshipSearchResult finalResult = one.clone();
+  public static LineageSearchResult merge(LineageSearchResult one, LineageSearchResult two) {
+    LineageSearchResult finalResult = one.clone();
     finalResult.getEntities().addAll(two.getEntities());
     finalResult.setNumEntities(one.getNumEntities() + two.getNumEntities());
 
@@ -139,8 +139,8 @@ public class RelationshipSearchService {
     return finalResult;
   }
 
-  private Predicate<Integer> convertFilterToPredicate(List<String> levelFilterValues) {
-    return levelFilterValues.stream().map(value -> {
+  private Predicate<Integer> convertFilterToPredicate(List<String> degreeFilterValues) {
+    return degreeFilterValues.stream().map(value -> {
       switch (value) {
         case "1":
           return (Predicate<Integer>) (Integer numHops) -> (numHops == 1);
@@ -149,7 +149,7 @@ public class RelationshipSearchService {
         case "3+":
           return (Predicate<Integer>) (Integer numHops) -> (numHops > 2);
         default:
-          throw new IllegalArgumentException(String.format("%s is not a valid filter value for level filters", value));
+          throw new IllegalArgumentException(String.format("%s is not a valid filter value for degree filters", value));
       }
     }).reduce(x -> false, Predicate::or);
   }
@@ -164,14 +164,14 @@ public class RelationshipSearchService {
     if (inputFilters != null && !CollectionUtils.isEmpty(inputFilters.getOr())) {
       ConjunctiveCriterion conjunctiveCriterion = inputFilters.getOr().get(0);
       if (conjunctiveCriterion.hasAnd()) {
-        List<String> levelFilter = conjunctiveCriterion.getAnd()
+        List<String> degreeFilter = conjunctiveCriterion.getAnd()
             .stream()
-            .filter(criterion -> criterion.getField().equals(LEVEL_FILTER_INPUT))
+            .filter(criterion -> criterion.getField().equals(DEGREE_FILTER_INPUT))
             .map(Criterion::getValue)
             .collect(Collectors.toList());
-        if (!levelFilter.isEmpty()) {
-          Predicate<Integer> levelPredicate = convertFilterToPredicate(levelFilter);
-          return relationshipsFilteredByEntities.filter(relationship -> levelPredicate.test(relationship.getDegree()))
+        if (!degreeFilter.isEmpty()) {
+          Predicate<Integer> degreePredicate = convertFilterToPredicate(degreeFilter);
+          return relationshipsFilteredByEntities.filter(relationship -> degreePredicate.test(relationship.getDegree()))
               .collect(Collectors.toList());
         }
       }
@@ -190,7 +190,7 @@ public class RelationshipSearchService {
     }
     SearchUtils.validateFilter(inputFilters);
     Filter reducedFilters =
-        SearchUtils.removeCriteria(inputFilters, criterion -> criterion.getField().equals(LEVEL_FILTER_INPUT));
+        SearchUtils.removeCriteria(inputFilters, criterion -> criterion.getField().equals(DEGREE_FILTER_INPUT));
 
     // If or filter is set, create a new filter that has two and clauses:
     // one with the original or filters and one with the urn filter
@@ -208,13 +208,12 @@ public class RelationshipSearchService {
     return new Filter().setOr(urnFilter);
   }
 
-  private RelationshipSearchResult buildRelationshipSearchResult(@Nonnull SearchResult searchResult,
+  private LineageSearchResult buildLineageSearchResult(@Nonnull SearchResult searchResult,
       Map<Urn, LineageRelationship> urnToRelationship) {
     AggregationMetadataArray aggregations = new AggregationMetadataArray(searchResult.getMetadata().getAggregations());
-    return new RelationshipSearchResult().setEntities(new RelationshipSearchEntityArray(searchResult.getEntities()
+    return new LineageSearchResult().setEntities(new LineageSearchEntityArray(searchResult.getEntities()
         .stream()
-        .map(searchEntity -> buildRelationshipSearchEntity(searchEntity,
-            urnToRelationship.get(searchEntity.getEntity())))
+        .map(searchEntity -> buildLineageSearchEntity(searchEntity, urnToRelationship.get(searchEntity.getEntity())))
         .collect(Collectors.toList())))
         .setMetadata(new SearchResultMetadata().setAggregations(aggregations))
         .setFrom(searchResult.getFrom())
@@ -222,9 +221,9 @@ public class RelationshipSearchService {
         .setNumEntities(searchResult.getNumEntities());
   }
 
-  private RelationshipSearchEntity buildRelationshipSearchEntity(@Nonnull SearchEntity searchEntity,
+  private LineageSearchEntity buildLineageSearchEntity(@Nonnull SearchEntity searchEntity,
       @Nullable LineageRelationship lineageRelationship) {
-    RelationshipSearchEntity entity = new RelationshipSearchEntity(searchEntity.data());
+    LineageSearchEntity entity = new LineageSearchEntity(searchEntity.data());
     if (lineageRelationship != null) {
       entity.setPath(lineageRelationship.getPath());
       entity.setDegree(lineageRelationship.getDegree());
