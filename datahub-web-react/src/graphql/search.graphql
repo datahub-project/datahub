@@ -35,6 +35,7 @@ fragment searchResults on SearchResults {
                 }
                 platformNativeType
                 properties {
+                    name
                     description
                     customProperties {
                         key

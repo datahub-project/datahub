@@ -213,7 +213,7 @@
                     "owner": {
                         "username": "jawadqu@gmail.com"
                     },
-                    "description": "",
+                    "description": "description for test publish datasource",
                     "uri": "sites/4989/datasources/155429",
                     "projectName": "default"
                 },
@@ -814,7 +814,7 @@
                     "owner": {
                         "username": "jawadqu@gmail.com"
                     },
-                    "description": "",
+                    "description": "Description for Superstore dataset",
                     "uri": "sites/4989/datasources/136096",
                     "projectName": "Samples"
                 }

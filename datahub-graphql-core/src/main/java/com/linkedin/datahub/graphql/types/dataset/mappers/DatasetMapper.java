@@ -108,7 +108,12 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
             properties.setExternalUrl(gmsProperties.getExternalUrl().toString());
         }
         properties.setCustomProperties(StringMapMapper.map(gmsProperties.getCustomProperties()));
-        properties.setName(dataset.getName()); // TODO: Move to using a display name produced by ingestion soures
+        if (gmsProperties.getName() != null) {
+            properties.setName(gmsProperties.getName());
+        } else {
+            properties.setName(dataset.getName());
+        }
+        properties.setQualifiedName(gmsProperties.getQualifiedName());
         dataset.setProperties(properties);
         dataset.setDescription(properties.getDescription());
         if (gmsProperties.getUri() != null) {
