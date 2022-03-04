@@ -179,14 +179,14 @@ public class LineageSearchServiceTest {
 
     searchResult =
         _lineageSearchService.searchAcrossLineage(TEST_URN, LineageDirection.DOWNSTREAM, ImmutableList.of(), "test",
-            QueryUtils.newFilter("level.keyword", "1"), null, 0, 10);
+            QueryUtils.newFilter("degree.keyword", "1"), null, 0, 10);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
     assertEquals(searchResult.getEntities().get(0).getDegree().intValue(), 1);
 
     searchResult =
         _lineageSearchService.searchAcrossLineage(TEST_URN, LineageDirection.DOWNSTREAM, ImmutableList.of(), "test",
-            QueryUtils.newFilter("level.keyword", "2"), null, 0, 10);
+            QueryUtils.newFilter("degree.keyword", "2"), null, 0, 10);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     assertEquals(searchResult.getEntities().size(), 0);
     clearCache();
