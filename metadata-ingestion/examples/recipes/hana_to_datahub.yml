@@ -1,0 +1,21 @@
+---
+# see https://datahubproject.io/docs/metadata-ingestion/source_docs/hana for complete documentation
+source:
+  type: "hana"
+  config:
+    host_port: localhost:39041
+    database: HXE
+    username: SYSTEM
+    password: HXEHana1
+    schema_pattern:
+        allow: 
+            - "LOCALDEV"
+        ignoreCase: true
+    include_tables: true
+    include_views: true   
+
+# see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"
