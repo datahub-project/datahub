@@ -16,7 +16,9 @@ import com.linkedin.metadata.entity.datastax.DatastaxAspectDao;
 import com.linkedin.metadata.entity.datastax.DatastaxEntityService;
 import com.linkedin.metadata.entity.datastax.DatastaxRetentionService;
 import com.linkedin.metadata.event.EntityEventProducer;
+import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
+import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -53,6 +55,7 @@ import static org.testng.Assert.assertTrue;
 public class DatastaxEntityServiceTest extends EntityServiceTestBase<DatastaxAspectDao, DatastaxEntityService, DatastaxRetentionService> {
 
   private CassandraContainer _cassandraContainer;
+  private CqlSession _cqlSession;
   private static final String KEYSPACE_NAME = "test";
 
   public DatastaxEntityServiceTest() throws EntityRegistryException {
@@ -152,10 +155,12 @@ public class DatastaxEntityServiceTest extends EntityServiceTestBase<DatastaxAsp
       assertEquals(rs.size(), 0);
     }
 
-    DatastaxAspectDao aspectDao = new DatastaxAspectDao(createTestSession());
-    _aspectDao = aspectDao;
+    _cqlSession = createTestSession();
+    _aspectDao = new DatastaxAspectDao(_cqlSession);
     _mockProducer = mock(EntityEventProducer.class);
-    _entityService = new DatastaxEntityService(aspectDao, _mockProducer, _testEntityRegistry);
+    _entityService = new DatastaxEntityService(_aspectDao, _mockProducer, _testEntityRegistry);
+    _retentionService = new DatastaxRetentionService(_entityService, _cqlSession, 1000);
+    _entityService.setRetentionService(_retentionService);
   }
 
   @Test
@@ -326,5 +331,88 @@ public class DatastaxEntityServiceTest extends EntityServiceTestBase<DatastaxAsp
         Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
 
     verifyNoMoreInteractions(_mockProducer);
+  }
+
+  @Test
+  public void testIngestListLatestAspects() throws Exception {
+    Urn entityUrn1 = Urn.createFromString("urn:li:corpuser:test1");
+    Urn entityUrn2 = Urn.createFromString("urn:li:corpuser:test2");
+    Urn entityUrn3 = Urn.createFromString("urn:li:corpuser:test3");
+
+    SystemMetadata metadata1 = new SystemMetadata();
+    metadata1.setLastObserved(1625792689);
+    metadata1.setRunId("run-123");
+
+    String aspectName = PegasusUtils.getAspectNameFromSchema(new CorpUserInfo().schema());
+
+    // Ingest CorpUserInfo Aspect #1
+    CorpUserInfo writeAspect1 = createCorpUserInfo("email@test.com");
+    _entityService.ingestAspect(entityUrn1, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
+
+    // Ingest CorpUserInfo Aspect #2
+    CorpUserInfo writeAspect2 = createCorpUserInfo("email2@test.com");
+    _entityService.ingestAspect(entityUrn2, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata1);
+
+    // Ingest CorpUserInfo Aspect #3
+    CorpUserInfo writeAspect3 = createCorpUserInfo("email3@test.com");
+    _entityService.ingestAspect(entityUrn3, aspectName, writeAspect3, TEST_AUDIT_STAMP, metadata1);
+
+    // List aspects
+    ListResult<RecordTemplate> batch1 = _entityService.listLatestAspects(entityUrn1.getEntityType(), aspectName, 0, 2);
+
+    assertEquals(2, batch1.getNextStart());
+    assertEquals(2, batch1.getPageSize());
+    assertEquals(3, batch1.getTotalCount());
+    assertEquals(2, batch1.getTotalPageCount());
+    assertEquals(2, batch1.getValues().size());
+    assertTrue(DataTemplateUtil.areEqual(writeAspect1, batch1.getValues().get(0)));
+    assertTrue(DataTemplateUtil.areEqual(writeAspect3, batch1.getValues().get(1)));
+
+    ListResult<RecordTemplate> batch2 = _entityService.listLatestAspects(entityUrn1.getEntityType(), aspectName, 2, 2);
+    assertEquals(1, batch2.getValues().size());
+    assertTrue(DataTemplateUtil.areEqual(writeAspect2, batch2.getValues().get(0)));
+  }
+
+  @Test
+  public void testIngestListUrns() throws Exception {
+    Urn entityUrn1 = Urn.createFromString("urn:li:corpuser:test1");
+    Urn entityUrn2 = Urn.createFromString("urn:li:corpuser:test2");
+    Urn entityUrn3 = Urn.createFromString("urn:li:corpuser:test3");
+
+    SystemMetadata metadata1 = new SystemMetadata();
+    metadata1.setLastObserved(1625792689);
+    metadata1.setRunId("run-123");
+
+    String aspectName = PegasusUtils.getAspectNameFromSchema(new CorpUserKey().schema());
+
+    // Ingest CorpUserInfo Aspect #1
+    RecordTemplate writeAspect1 = createCorpUserKey(entityUrn1);
+    _entityService.ingestAspect(entityUrn1, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
+
+    // Ingest CorpUserInfo Aspect #2
+    RecordTemplate writeAspect2 = createCorpUserKey(entityUrn2);
+    _entityService.ingestAspect(entityUrn2, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata1);
+
+    // Ingest CorpUserInfo Aspect #3
+    RecordTemplate writeAspect3 = createCorpUserKey(entityUrn3);
+    _entityService.ingestAspect(entityUrn3, aspectName, writeAspect3, TEST_AUDIT_STAMP, metadata1);
+
+    // List aspects urns
+    ListUrnsResult batch1 = _entityService.listUrns(entityUrn1.getEntityType(), 0, 2);
+
+    assertEquals(0, (int) batch1.getStart());
+    assertEquals(2, (int) batch1.getCount());
+    assertEquals(3, (int) batch1.getTotal());
+    assertEquals(2, batch1.getEntities().size());
+    assertEquals(entityUrn1.toString(), batch1.getEntities().get(0).toString());
+    assertEquals(entityUrn3.toString(), batch1.getEntities().get(1).toString());
+
+    ListUrnsResult batch2 = _entityService.listUrns(entityUrn1.getEntityType(), 2, 2);
+
+    assertEquals(2, (int) batch2.getStart());
+    assertEquals(1, (int) batch2.getCount());
+    assertEquals(3, (int) batch2.getTotal());
+    assertEquals(1, batch2.getEntities().size());
+    assertEquals(entityUrn2.toString(), batch2.getEntities().get(0).toString());
   }
 }
