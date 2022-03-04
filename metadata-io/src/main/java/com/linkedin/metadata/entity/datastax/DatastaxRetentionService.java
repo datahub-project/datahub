@@ -119,9 +119,9 @@ public class DatastaxRetentionService extends RetentionService {
     long largestVersion = maxVersionFromUpdate.orElseGet(() -> getMaxVersion(urn, aspectName));
 
     SimpleStatement ss = deleteFrom(DatastaxAspect.TABLE_NAME)
-        .whereColumn(DatastaxAspect.URN_COLUMN).isEqualTo(literal(urn))
+        .whereColumn(DatastaxAspect.URN_COLUMN).isEqualTo(literal(urn.toString()))
         .whereColumn(DatastaxAspect.ASPECT_COLUMN).isEqualTo(literal(aspectName))
-        .whereColumn(DatastaxAspect.VERSION_COLUMN).isNotEqualTo(literal(ASPECT_LATEST_VERSION))
+        .whereColumn(DatastaxAspect.VERSION_COLUMN).isGreaterThan(literal(ASPECT_LATEST_VERSION))
         .whereColumn(DatastaxAspect.VERSION_COLUMN).isLessThanOrEqualTo(literal(largestVersion - retention.getMaxVersions() + 1L))
         .build();
 
@@ -160,10 +160,11 @@ public class DatastaxRetentionService extends RetentionService {
             Selector.column(DatastaxAspect.URN_COLUMN),
             Selector.column(DatastaxAspect.ASPECT_COLUMN),
             Selector.function("max", Selector.column(DatastaxAspect.VERSION_COLUMN)).as(DatastaxAspect.VERSION_COLUMN))
-        .whereColumn(DatastaxAspect.VERSION_COLUMN).isGreaterThan(literal(ASPECT_LATEST_VERSION));
+        .allowFiltering();
     if (aspectName != null) {
       select = select.whereColumn(DatastaxAspect.ASPECT_COLUMN).isEqualTo(literal(aspectName));
     }
+    select = select.whereColumn(DatastaxAspect.VERSION_COLUMN).isGreaterThan(literal(ASPECT_LATEST_VERSION));
     if (entityName != null) {
       select = select.whereColumn(DatastaxAspect.ENTITY_COLUMN).isEqualTo(literal(entityName));
     }
@@ -178,6 +179,7 @@ public class DatastaxRetentionService extends RetentionService {
         .all()
         .whereColumn(DatastaxAspect.ASPECT_COLUMN).isEqualTo(literal(DATAHUB_RETENTION_ASPECT))
         .whereColumn(DatastaxAspect.VERSION_COLUMN).isEqualTo(literal(ASPECT_LATEST_VERSION))
+        .allowFiltering()
         .build();
     ResultSet rs = _cqlSession.execute(ss);
     return rs.all().stream()
