@@ -10,14 +10,11 @@ import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
-import com.linkedin.metadata.query.filter.CriterionArray;
-import com.linkedin.metadata.query.filter.DisjunctiveCriterion;
-import com.linkedin.metadata.query.filter.DisjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.utils.FilterUtils;
+import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.search.utils.SearchUtils;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.Collections;
@@ -183,29 +180,20 @@ public class LineageSearchService {
     Criterion urnMatchCriterion = new Criterion().setField("urn")
         .setValue("")
         .setValues(new StringArray(urns.stream().map(Object::toString).collect(Collectors.toList())));
-    ConjunctiveCriterionArray urnFilter = new ConjunctiveCriterionArray(
-        ImmutableList.of(new ConjunctiveCriterion().setAnd(new CriterionArray(ImmutableList.of(urnMatchCriterion)))));
     if (inputFilters == null) {
-      return new Filter().setOr(urnFilter);
+      return QueryUtils.newFilter(urnMatchCriterion);
     }
-    SearchUtils.validateFilter(inputFilters);
     Filter reducedFilters =
         SearchUtils.removeCriteria(inputFilters, criterion -> criterion.getField().equals(DEGREE_FILTER_INPUT));
 
-    // If or filter is set, create a new filter that has two and clauses:
-    // one with the original or filters and one with the urn filter
-    if (reducedFilters.getOr() != null) {
-      return new Filter().setAnd(new DisjunctiveCriterionArray(
-          ImmutableList.of(new DisjunctiveCriterion().setOr(reducedFilters.getOr()),
-              new DisjunctiveCriterion().setOr(urnFilter))));
+    // Add urn match criterion to each or clause
+    if (!CollectionUtils.isEmpty(reducedFilters.getOr())) {
+      for (ConjunctiveCriterion conjunctiveCriterion : reducedFilters.getOr()) {
+        conjunctiveCriterion.getAnd().add(urnMatchCriterion);
+      }
+      return reducedFilters;
     }
-    if (reducedFilters.getAnd() != null) {
-      // If and filter is set, append urn filter to the list of and filters
-      DisjunctiveCriterionArray andFilters = new DisjunctiveCriterionArray(reducedFilters.getAnd());
-      andFilters.add(new DisjunctiveCriterion().setOr(urnFilter));
-      return new Filter().setAnd(andFilters);
-    }
-    return new Filter().setOr(urnFilter);
+    return QueryUtils.newFilter(urnMatchCriterion);
   }
 
   private LineageSearchResult buildLineageSearchResult(@Nonnull SearchResult searchResult,

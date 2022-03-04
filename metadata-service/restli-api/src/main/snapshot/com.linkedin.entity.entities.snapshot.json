@@ -4978,19 +4978,6 @@
     } ]
   }, "com.linkedin.metadata.query.filter.Criterion", {
     "type" : "record",
-    "name" : "DisjunctiveCriterion",
-    "namespace" : "com.linkedin.metadata.query.filter",
-    "doc" : "A list of criterion or'd together.",
-    "fields" : [ {
-      "name" : "or",
-      "type" : {
-        "type" : "array",
-        "items" : "ConjunctiveCriterion"
-      },
-      "doc" : "A list of disjunctive criterion for the filter. (or operation to combine filters)"
-    } ]
-  }, {
-    "type" : "record",
     "name" : "Filter",
     "namespace" : "com.linkedin.metadata.query.filter",
     "doc" : "The filter for finding a record or a collection of records",
@@ -5000,15 +4987,7 @@
         "type" : "array",
         "items" : "ConjunctiveCriterion"
       },
-      "doc" : "A list of disjunctive criterion for the filter. (or operation to combine filters)\nNOTE only one of \"or\" and \"and\" fields can be set",
-      "optional" : true
-    }, {
-      "name" : "and",
-      "type" : {
-        "type" : "array",
-        "items" : "DisjunctiveCriterion"
-      },
-      "doc" : "A list of conjunctive criterion for the filter. (and operation to combine filters)\nNOTE only one of \"or\" and \"and\" fields can be set",
+      "doc" : "A list of disjunctive criterion for the filter. (or operation to combine filters)",
       "optional" : true
     }, {
       "name" : "criteria",

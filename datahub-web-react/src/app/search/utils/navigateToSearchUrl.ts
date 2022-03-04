@@ -38,7 +38,7 @@ export const navigateToSearchUrl = ({
     });
 };
 
-export const navigateToSearchRelationshipsUrl = ({
+export const navigateToSearchLineageUrl = ({
     entityUrl,
     query: newQuery,
     page: newPage = 1,

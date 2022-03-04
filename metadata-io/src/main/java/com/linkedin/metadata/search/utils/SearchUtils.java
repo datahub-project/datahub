@@ -5,8 +5,6 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
-import com.linkedin.metadata.query.filter.DisjunctiveCriterion;
-import com.linkedin.metadata.query.filter.DisjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.FilterValueArray;
@@ -97,36 +95,16 @@ public class SearchUtils {
     }
   }
 
-  public static void validateFilter(@Nonnull Filter filter) {
-    if (filter.getOr() != null && filter.getAnd() != null) {
-      log.error("Filter cannot have both or and and fields set {}", filter);
-      throw new IllegalArgumentException(
-          String.format("Filter cannot have both or and and fields set %s", filter.toString()));
-    }
-  }
-
   @Nonnull
   public static Filter removeCriteria(@Nonnull Filter originalFilter, Predicate<Criterion> shouldRemove) {
     if (originalFilter.getOr() != null) {
       return new Filter().setOr(new ConjunctiveCriterionArray(originalFilter.getOr()
           .stream()
           .map(criteria -> removeCriteria(criteria, shouldRemove))
-          .collect(Collectors.toList())));
-    } else if (originalFilter.getAnd() != null) {
-      return new Filter().setAnd(new DisjunctiveCriterionArray(originalFilter.getAnd()
-          .stream()
-          .map(criteria -> removeCriteria(criteria, shouldRemove))
+          .filter(criteria -> !criteria.getAnd().isEmpty())
           .collect(Collectors.toList())));
     }
     return originalFilter;
-  }
-
-  private static DisjunctiveCriterion removeCriteria(@Nonnull DisjunctiveCriterion disjunctiveCriterion,
-      Predicate<Criterion> shouldRemove) {
-    return new DisjunctiveCriterion().setOr(new ConjunctiveCriterionArray(disjunctiveCriterion.getOr()
-        .stream()
-        .map(criteria -> removeCriteria(criteria, shouldRemove))
-        .collect(Collectors.toList())));
   }
 
   private static ConjunctiveCriterion removeCriteria(@Nonnull ConjunctiveCriterion conjunctiveCriterion,

@@ -19,7 +19,7 @@ import org.springframework.context.annotation.PropertySource;
 @Configuration
 @Import({GraphServiceFactory.class})
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
-public class RelationshipSearchServiceFactory {
+public class LineageSearchServiceFactory {
 
   @Autowired
   @Qualifier("searchService")

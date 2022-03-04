@@ -54,7 +54,7 @@ public class Config extends HttpServlet {
     return (GitVersion) ctx.getBean("gitVersion");
   }
 
-  private boolean checkMultiHopSupport(WebApplicationContext ctx) {
+  private boolean checkImpactAnalysisSupport(WebApplicationContext ctx) {
     return ((GraphService) ctx.getBean("graphService")).supportsMultiHop();
   }
 
@@ -64,7 +64,7 @@ public class Config extends HttpServlet {
 
     WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(req.getServletContext());
 
-    config.put("multiHop", checkMultiHopSupport(ctx));
+    config.put("supportsImpactAnalysis", checkImpactAnalysisSupport(ctx));
 
     GitVersion version = getGitVersion(ctx);
     Map<String, Object> versionConfig = new HashMap<>();

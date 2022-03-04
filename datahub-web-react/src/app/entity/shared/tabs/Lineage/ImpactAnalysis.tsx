@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router';
 
-import { useSearchAcrossRelationshipsQuery } from '../../../../../graphql/search.generated';
+import { useSearchAcrossLineageQuery } from '../../../../../graphql/search.generated';
 import { EntityType, FacetFilterInput, LineageDirection } from '../../../../../types.generated';
 import { ENTITY_FILTER_NAME } from '../../../../search/utils/constants';
 import useFilters from '../../../../search/utils/useFilters';
@@ -29,7 +29,7 @@ export const ImpactAnalysis = ({ urn }: Props) => {
         .filter((filter) => filter.field === ENTITY_FILTER_NAME)
         .map((filter) => filter.value.toUpperCase() as EntityType);
 
-    const { data, loading } = useSearchAcrossRelationshipsQuery({
+    const { data, loading } = useSearchAcrossLineageQuery({
         variables: {
             input: {
                 urn,
@@ -46,9 +46,9 @@ export const ImpactAnalysis = ({ urn }: Props) => {
     useEffect(() => {
         if (!loading) {
             analytics.event({
-                type: EventType.SearchAcrossRelationshipsResultsViewEvent,
+                type: EventType.SearchAcrossLineageResultsViewEvent,
                 query,
-                total: data?.searchAcrossRelationships?.count || 0,
+                total: data?.searchAcrossLineage?.count || 0,
             });
         }
     }, [query, data, loading]);
