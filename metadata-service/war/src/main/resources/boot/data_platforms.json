@@ -168,7 +168,7 @@
     }
   },
   {
-    "urn": "urn:li:dataPlatform:openapi",
+    "urn": "urn:li:dataPlatform:OpenApi",
     "aspect": {
       "datasetNameDelimiter": ".",
       "name": "openapi",
