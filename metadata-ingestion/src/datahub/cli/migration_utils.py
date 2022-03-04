@@ -76,6 +76,7 @@ def get_aspect_name_from_relationship_type_and_entity(
 
 
 class UrnListModifier:
+    @staticmethod
     def dataJobInputOutput_modifier(
         aspect: DictWrapper,
         relationship_type: str,
@@ -97,6 +98,11 @@ class UrnListModifier:
             ]
             return dataJobInputOutput
 
+        raise Exception(
+            f"Unable to map aspect_name: dataJobInputOutput, relationship_type {relationship_type}"
+        )
+
+    @staticmethod
     def chartInfo_modifier(
         aspect: DictWrapper,
         relationship_type: str,
@@ -110,6 +116,7 @@ class UrnListModifier:
         ]
         return chartInfo
 
+    @staticmethod
     def dataProcessInfo_modifier(
         aspect: DictWrapper,
         relationship_type: str,
@@ -124,6 +131,7 @@ class UrnListModifier:
             ]
         return dataProcessInfo
 
+    @staticmethod
     def upstreamLineage_modifier(
         aspect: DictWrapper,
         relationship_type: str,
@@ -137,6 +145,7 @@ class UrnListModifier:
                 upstream.dataset = new_urn
         return upstreamLineage
 
+    @staticmethod
     def schemaMetadata_modifier(
         aspect: DictWrapper,
         relationship_type: str,
@@ -153,6 +162,7 @@ class UrnListModifier:
                 foreignKey.foreignDataset = new_urn
         return schemaMetadata
 
+    @staticmethod
     def mlFeatureProperties_modifier(
         aspect: DictWrapper,
         relationship_type: str,
@@ -167,6 +177,7 @@ class UrnListModifier:
         ]
         return mlFeatureProperties
 
+    @staticmethod
     def mlPrimaryKeyProperties_modifier(
         aspect: DictWrapper,
         relationship_type: str,
@@ -180,6 +191,7 @@ class UrnListModifier:
         ]
         return ml_pk_aspect
 
+    @staticmethod
     def container_modifier(
         aspect: DictWrapper,
         relationship_type: str,

@@ -1,7 +1,7 @@
 import logging
 import random
 import uuid
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Union
 
 import click
 import progressbar
@@ -22,7 +22,7 @@ from datahub.ingestion.source.sql.bigquery import BigQueryDatasetKey, ProjectIdK
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DataPlatformInstanceClass,
-    SystemMetadataClass,
+    SystemMetadataClass, ContainerPropertiesClass, ContainerKeyClass,
 )
 from datahub.telemetry import telemetry
 
@@ -287,8 +287,8 @@ def migrate_containers(
     hard: bool,
     instance: str,
     keep: bool,
-    rest_emitter,
-):
+    rest_emitter: DatahubRestEmitter,
+) -> None:
     run_id: str = f"container-migrate-{uuid.uuid4()}"
     migration_report = MigrationReport(run_id, dry_run, keep)
 
@@ -311,6 +311,7 @@ def migrate_containers(
             continue
 
         try:
+            newKey: Union[SchemaKey, DatabaseKey, ProjectIdKey, BigQueryDatasetKey]
             if subType == "Schema":
                 newKey = SchemaKey.parse_obj(customProperties)
             elif subType == "Database":
@@ -346,15 +347,20 @@ def migrate_containers(
             run_id=run_id,
         ):
             migration_report.on_entity_create(mcp.entityUrn, mcp.aspectName)  # type: ignore
-
+            assert mcp.aspect
             # Update containerProperties to reflect the new key
             if mcp.aspectName == "containerProperties":
-                mcp.aspect.customProperties = newKey.dict(
+                assert isinstance(mcp.aspect, ContainerPropertiesClass)
+                containerProperties: ContainerPropertiesClass = mcp.aspect
+                containerProperties.customProperties = newKey.dict(
                     by_alias=True, exclude_none=True
                 )
+                mcp.aspect = containerProperties
             elif mcp.aspectName == "containerKey":
-                mcp.aspect.guid = newKey.guid()
-
+                assert isinstance(mcp.aspect, ContainerKeyClass)
+                containerKey: ContainerKeyClass = mcp.aspect
+                containerKey.guid = newKey.guid()
+                mcp.aspect = containerKey
             if not dry_run:
                 rest_emitter.emit_mcp(mcp)
                 migration_report.on_entity_affected(mcp.entityUrn, mcp.aspectName)  # type: ignore
@@ -400,7 +406,7 @@ def process_container_relationships(
     dst_urn: str,
     migration_report: MigrationReport,
     rest_emitter: DatahubRestEmitter,
-):
+) -> None:
     relationships = migration_utils.get_incoming_relationships_dataset(urn=src_urn)
     for relationship in relationships:
         log.debug(f"Incoming Relationship: {relationship}")
