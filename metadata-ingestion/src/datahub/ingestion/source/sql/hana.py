@@ -7,13 +7,13 @@ from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource
 )
 
-class hanaConfig(BasicSQLAlchemyConfig):
+class HanaConfig(BasicSQLAlchemyConfig):
     # defaults
     host_port = "localhost:39041"
-    scheme = "hana+hdcli"
+    scheme = "hana+hdbcli"
 
 
-class hanaSource(SQLAlchemySource):
+class HanaSource(SQLAlchemySource):
     def __init__(self, config, ctx):
         super().__init__(config, ctx, self.get_platform())
 
