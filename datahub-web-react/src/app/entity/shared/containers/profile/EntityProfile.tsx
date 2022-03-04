@@ -58,6 +58,7 @@ const HeaderAndTabs = styled.div`
     min-width: 640px;
     height: 100%;
 `;
+
 const HeaderAndTabsFlex = styled.div`
     display: flex;
     flex-direction: column;
