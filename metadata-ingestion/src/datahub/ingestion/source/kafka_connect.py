@@ -36,6 +36,7 @@ class KafkaConnectSourceConfig(DatasetLineageProviderConfigBase):
     construct_lineage_workunits: bool = True
     connector_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
     provided_configs: Optional[List[ProvidedConfig]] = None
+    prefix_server_to_table_name: Optional[str] = None
 
 
 @dataclass
@@ -434,8 +435,11 @@ class ConfluentJDBCSourceConnector:
 class DebeziumSourceConnector:
     connector_manifest: ConnectorManifest
 
-    def __init__(self, connector_manifest: ConnectorManifest) -> None:
+    def __init__(
+        self, connector_manifest: ConnectorManifest, config: KafkaConnectSourceConfig
+    ) -> None:
         self.connector_manifest = connector_manifest
+        self.config = config
         self._extract_lineages()
 
     @dataclass
@@ -524,11 +528,20 @@ class DebeziumSourceConnector:
             found = re.search(re.compile(topic_naming_pattern), topic)
 
             if found:
-                table_name = (
-                    database_name + "." + found.group(2)
-                    if database_name
-                    else found.group(2)
-                )
+                if (
+                    database_name
+                    and self.config.prefix_server_to_table_name
+                    and server_name
+                ):
+                    table_name = (
+                        server_name + "." + database_name + "." + found.group(2)
+                    )
+                elif database_name:
+                    table_name = database_name + "." + found.group(2)
+                else:
+                    table_name = found.group(2)
+
+                logger.info(f"Topic Name: {topic},  Table Name: {table_name}")
 
                 lineage = KafkaConnectLineage(
                     source_dataset=table_name,
@@ -796,7 +809,7 @@ class KafkaConnectSource(Source):
                     # Debezium Source Connector lineages
                     try:
                         connector_manifest = DebeziumSourceConnector(
-                            connector_manifest=connector_manifest
+                            connector_manifest=connector_manifest, config=self.config
                         ).connector_manifest
 
                     except ValueError as err:
