@@ -21,10 +21,10 @@ from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.source.sql.bigquery import BigQueryDatasetKey, ProjectIdKey
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
+    ContainerKeyClass,
+    ContainerPropertiesClass,
     DataPlatformInstanceClass,
     SystemMetadataClass,
-    ContainerPropertiesClass,
-    ContainerKeyClass,
 )
 from datahub.telemetry import telemetry
 
