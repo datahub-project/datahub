@@ -271,7 +271,7 @@ public class GmsGraphQLEngine {
             null,
             null,
             null,
-            null);
+            false);
     }
 
     public GmsGraphQLEngine(
