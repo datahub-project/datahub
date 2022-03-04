@@ -23,9 +23,9 @@ const searchCsvDownloadHeader = [
 export const getSearchCsvDownloadHeader = (sampleResult?: SearchResultInterface) => {
     let result = searchCsvDownloadHeader;
 
-    // this is checking if the numHops field is filled out- if it is that
+    // this is checking if the degree field is filled out- if it is that
     // means the caller is interested in level of dependency.
-    if (typeof sampleResult?.numHops === 'number') {
+    if (typeof sampleResult?.degree === 'number') {
         result = [...result, 'level of dependency'];
     }
     return result;
@@ -83,9 +83,9 @@ export const transformGenericEntityPropertiesToCsvRow = (
         // entity url
         window.location.origin + entityUrl,
     ];
-    if (typeof result.numHops === 'number') {
+    if (typeof result.degree === 'number') {
         // optional level of dependency
-        row = [...row, String(result?.numHops)];
+        row = [...row, String(result?.degree)];
     }
     return row;
 };

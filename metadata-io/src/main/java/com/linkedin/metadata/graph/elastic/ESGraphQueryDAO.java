@@ -5,6 +5,7 @@ import com.datahub.util.exception.ESQueryException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.LineageRegistry;
 import com.linkedin.metadata.graph.LineageRegistry.EdgeInfo;
@@ -34,7 +35,6 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
-import lombok.SneakyThrows;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
@@ -228,7 +228,6 @@ public class ESGraphQueryDAO {
   }
 
   // Extract relationships from search response
-  @SneakyThrows
   @WithSpan
   private List<LineageRelationship> extractRelationships(@Nonnull Set<Urn> entityUrns,
       @Nonnull SearchResponse searchResponse, Set<Pair<String, EdgeInfo>> validEdges, Set<Urn> visitedEntities,
@@ -236,9 +235,9 @@ public class ESGraphQueryDAO {
     List<LineageRelationship> result = new LinkedList<>();
     for (SearchHit hit : searchResponse.getHits().getHits()) {
       Map<String, Object> document = hit.getSourceAsMap();
-      Urn sourceUrn = Urn.createFromString(((Map<String, Object>) document.get(SOURCE)).get("urn").toString());
+      Urn sourceUrn = UrnUtils.getUrn(((Map<String, Object>) document.get(SOURCE)).get("urn").toString());
       Urn destinationUrn =
-          Urn.createFromString(((Map<String, Object>) document.get(DESTINATION)).get("urn").toString());
+          UrnUtils.getUrn(((Map<String, Object>) document.get(DESTINATION)).get("urn").toString());
       String type = document.get(RELATIONSHIP_TYPE).toString();
 
       // Potential outgoing edge
@@ -248,7 +247,7 @@ public class ESGraphQueryDAO {
         if (!visitedEntities.contains(destinationUrn) && validEdges.contains(
             Pair.of(sourceUrn.getEntityType(), new EdgeInfo(type, RelationshipDirection.OUTGOING)))) {
           visitedEntities.add(destinationUrn);
-          result.add(new LineageRelationship().setType(type).setEntity(destinationUrn).setNumHops(numHops));
+          result.add(new LineageRelationship().setType(type).setEntity(destinationUrn).setDegree(numHops));
         }
       }
 
@@ -259,7 +258,7 @@ public class ESGraphQueryDAO {
         if (!visitedEntities.contains(sourceUrn) && validEdges.contains(
             Pair.of(destinationUrn.getEntityType(), new EdgeInfo(type, RelationshipDirection.INCOMING)))) {
           visitedEntities.add(sourceUrn);
-          result.add(new LineageRelationship().setType(type).setEntity(sourceUrn).setNumHops(numHops));
+          result.add(new LineageRelationship().setType(type).setEntity(sourceUrn).setDegree(numHops));
         }
       }
     }

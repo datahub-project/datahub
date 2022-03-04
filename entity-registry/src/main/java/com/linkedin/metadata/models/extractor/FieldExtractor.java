@@ -1,4 +1,4 @@
-package com.linkedin.metadata.extractor;
+package com.linkedin.metadata.models.extractor;
 
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.template.RecordTemplate;

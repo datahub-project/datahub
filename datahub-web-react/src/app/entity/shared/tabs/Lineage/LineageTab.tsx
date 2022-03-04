@@ -40,7 +40,7 @@ export const LineageTab = () => {
                         <PartitionOutlined />
                         Visualize Lineage
                     </Button>
-                    {appConfig.config.lineageConfig.supportsMultiHop &&
+                    {appConfig.config.lineageConfig.supportsImpactAnalysis &&
                         (showImpactAnalysis ? (
                             <Button type="text" onClick={() => setShowImpactAnalysis(false)}>
                                 <span className="anticon">

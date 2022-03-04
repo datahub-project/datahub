@@ -163,5 +163,12 @@
     "displayName": "Looker",
     "type": "OTHERS",
     "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/lookerlogo.png"
+  },
+  "urn:li:dataPlatform:powerbi": {
+    "datasetNameDelimiter": ".",
+    "name": "powerbi",
+    "displayName": "Power BI",
+    "type": "OTHERS",
+    "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/powerbilogo.png"
   }
 }

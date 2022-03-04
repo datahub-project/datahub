@@ -222,15 +222,15 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
     Map<Urn, LineageRelationship> relationships = downstreamLineage.getRelationships().stream().collect(Collectors.toMap(LineageRelationship::getEntity,
         Function.identity()));
     assertTrue(relationships.containsKey(datasetTwoUrn));
-    assertEquals(relationships.get(datasetTwoUrn).getNumHops().intValue(), 1);
+    assertEquals(relationships.get(datasetTwoUrn).getDegree().intValue(), 1);
     assertTrue(relationships.containsKey(datasetThreeUrn));
-    assertEquals(relationships.get(datasetThreeUrn).getNumHops().intValue(), 2);
+    assertEquals(relationships.get(datasetThreeUrn).getDegree().intValue(), 2);
     assertTrue(relationships.containsKey(datasetFourUrn));
-    assertEquals(relationships.get(datasetFourUrn).getNumHops().intValue(), 2);
+    assertEquals(relationships.get(datasetFourUrn).getDegree().intValue(), 2);
     assertTrue(relationships.containsKey(dataJobOneUrn));
-    assertEquals(relationships.get(dataJobOneUrn).getNumHops().intValue(), 1);
+    assertEquals(relationships.get(dataJobOneUrn).getDegree().intValue(), 1);
     assertTrue(relationships.containsKey(dataJobTwoUrn));
-    assertEquals(relationships.get(dataJobTwoUrn).getNumHops().intValue(), 1);
+    assertEquals(relationships.get(dataJobTwoUrn).getDegree().intValue(), 1);
 
     upstreamLineage = service.getLineage(datasetThreeUrn, LineageDirection.UPSTREAM, 0, 1000, 2);
     assertEquals(upstreamLineage.getTotal().intValue(), 3);
@@ -238,11 +238,11 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
     relationships = upstreamLineage.getRelationships().stream().collect(Collectors.toMap(LineageRelationship::getEntity,
         Function.identity()));
     assertTrue(relationships.containsKey(datasetOneUrn));
-    assertEquals(relationships.get(datasetOneUrn).getNumHops().intValue(), 2);
+    assertEquals(relationships.get(datasetOneUrn).getDegree().intValue(), 2);
     assertTrue(relationships.containsKey(datasetTwoUrn));
-    assertEquals(relationships.get(datasetTwoUrn).getNumHops().intValue(), 1);
+    assertEquals(relationships.get(datasetTwoUrn).getDegree().intValue(), 1);
     assertTrue(relationships.containsKey(dataJobOneUrn));
-    assertEquals(relationships.get(dataJobOneUrn).getNumHops().intValue(), 1);
+    assertEquals(relationships.get(dataJobOneUrn).getDegree().intValue(), 1);
 
     downstreamLineage = service.getLineage(datasetThreeUrn, LineageDirection.DOWNSTREAM, 0, 1000, 2);
     assertEquals(downstreamLineage.getTotal().intValue(), 0);

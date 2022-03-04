@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Empty, message, Modal, Typography } from 'antd';
+import { CopyOutlined } from '@ant-design/icons';
+import { Button, Empty, message, Modal, Typography, Tooltip } from 'antd';
 import styled from 'styled-components';
 import {
     useGetIngestionSourceQuery,
@@ -160,6 +161,17 @@ export const IngestionSourceExecutionList = ({ urn, lastRefresh, onRefresh }: Pr
             key: 'x',
             render: (_, record: any) => (
                 <div style={{ display: 'flex', justifyContent: 'right' }}>
+                    {record.urn && (
+                        <Tooltip title="Copy Execution Request URN">
+                            <Button
+                                style={{ marginRight: 16 }}
+                                icon={<CopyOutlined />}
+                                onClick={() => {
+                                    navigator.clipboard.writeText(record.urn);
+                                }}
+                            />
+                        </Tooltip>
+                    )}
                     {record.duration && (
                         <Button style={{ marginRight: 16 }} onClick={() => handleViewDetails(record.urn)}>
                             DETAILS

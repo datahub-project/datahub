@@ -4,6 +4,7 @@ import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationshipArray;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import java.net.URISyntaxException;
@@ -90,13 +91,7 @@ public class JavaGraphClient implements GraphClient {
   @Override
   public EntityLineageResult getLineageEntities(String rawUrn, LineageDirection direction, @Nullable Integer start,
       @Nullable Integer count, String actor, int maxHops) {
-    Urn urn;
-    try {
-      urn = Urn.createFromString(rawUrn);
-    } catch (URISyntaxException e) {
-      throw new RuntimeException(String.format("Error parsing urn %s", rawUrn));
-    }
-    return _graphService.getLineage(urn, direction, start != null ? start : 0, count != null ? count : 100,
-        maxHops);
+    return _graphService.getLineage(UrnUtils.getUrn(rawUrn), direction, start != null ? start : 0,
+        count != null ? count : 100, maxHops);
   }
 }

@@ -420,7 +420,7 @@ fragment searchAcrossRelationshipResults on SearchAcrossRelationshipsResults {
             text
             icon
         }
-        numHops
+        degree
     }
     facets {
         ...facetFields

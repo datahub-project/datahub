@@ -109,9 +109,9 @@ Configurations related to Lineage
 """
 type LineageConfig {
   """
-  Should the UI expose Impact Analysis feature
+  Whether the backend support impact analysis feature
   """
-  supportsMultiHop: Boolean!
+  supportsImpactAnalysis: Boolean!
 }
 
 """

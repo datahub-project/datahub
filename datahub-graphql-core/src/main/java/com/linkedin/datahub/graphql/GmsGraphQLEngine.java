@@ -8,6 +8,7 @@ import com.linkedin.datahub.graphql.analytics.resolver.GetHighlightsResolver;
 import com.linkedin.datahub.graphql.analytics.resolver.GetMetadataAnalyticsResolver;
 import com.linkedin.datahub.graphql.analytics.resolver.IsAnalyticsEnabledResolver;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
+import com.linkedin.datahub.graphql.generated.ActorFilter;
 import com.linkedin.datahub.graphql.generated.AggregationMetadata;
 import com.linkedin.datahub.graphql.generated.Aspect;
 import com.linkedin.datahub.graphql.generated.BrowseResults;
@@ -196,7 +197,7 @@ public class GmsGraphQLEngine {
     private final TokenService tokenService;
     private final SecretService secretService;
     private final GitVersion gitVersion;
-    private final boolean supportsMultiHop;
+    private final boolean supportsImpactAnalysis;
 
     private final IngestionConfiguration ingestionConfiguration;
 
@@ -246,23 +247,6 @@ public class GmsGraphQLEngine {
      */
     public final List<BrowsableEntityType<?>> browsableTypes;
 
-    @Deprecated
-    public GmsGraphQLEngine() {
-        this(
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            false);
-    }
-
     public GmsGraphQLEngine(
         final EntityClient entityClient,
         final GraphClient graphClient,
@@ -275,7 +259,7 @@ public class GmsGraphQLEngine {
         final SecretService secretService,
         final IngestionConfiguration ingestionConfiguration,
         final GitVersion gitVersion,
-        final boolean supportsMultiHop
+        final boolean supportsImpactAnalysis
         ) {
 
         this.entityClient = entityClient;
@@ -289,7 +273,7 @@ public class GmsGraphQLEngine {
         this.secretService = secretService;
         this.entityRegistry = entityRegistry;
         this.gitVersion = gitVersion;
-        this.supportsMultiHop = supportsMultiHop;
+        this.supportsImpactAnalysis = supportsImpactAnalysis;
 
         this.ingestionConfiguration = Objects.requireNonNull(ingestionConfiguration);
 
@@ -463,6 +447,7 @@ public class GmsGraphQLEngine {
         configureContainerResolvers(builder);
         configureGlossaryTermResolvers(builder);
         configureDomainResolvers(builder);
+        configurePolicyResolvers(builder);
     }
 
     public GraphQLEngine.Builder builder() {
@@ -513,7 +498,8 @@ public class GmsGraphQLEngine {
     private void configureQueryResolvers(final RuntimeWiring.Builder builder) {
         builder.type("Query", typeWiring -> typeWiring
             .dataFetcher("appConfig",
-                new AppConfigResolver(gitVersion, analyticsService != null, this.ingestionConfiguration, supportsMultiHop))
+                new AppConfigResolver(gitVersion, analyticsService != null, this.ingestionConfiguration,
+                    supportsImpactAnalysis))
             .dataFetcher("me", new AuthenticatedResolver<>(
                     new MeResolver(this.entityClient)))
             .dataFetcher("search", new AuthenticatedResolver<>(
@@ -1156,6 +1142,24 @@ public class GmsGraphQLEngine {
             .dataFetcher("entities", new DomainEntitiesResolver(this.entityClient))
             .dataFetcher("relationships", new AuthenticatedResolver<>(
                 new EntityRelationshipsResultResolver(graphClient)
+            ))
+        );
+    }
+
+    private void configurePolicyResolvers(final RuntimeWiring.Builder builder) {
+        // Register resolvers for "resolvedUsers" and "resolvedGroups" field of the Policy type.
+        builder.type("ActorFilter", typeWiring -> typeWiring
+            .dataFetcher("resolvedUsers", new LoadableTypeBatchResolver<>(corpUserType,
+                (env) -> {
+                    final ActorFilter filter = env.getSource();
+                    return filter.getUsers();
+                }
+            ))
+            .dataFetcher("resolvedGroups", new LoadableTypeBatchResolver<>(corpGroupType,
+                    (env) -> {
+                        final ActorFilter filter = env.getSource();
+                        return filter.getGroups();
+                    }
             ))
         );
     }

@@ -17,7 +17,7 @@ export const DEFAULT_APP_CONFIG = {
         enabled: false,
     },
     lineageConfig: {
-        supportsMultiHop: false,
+        supportsImpactAnalysis: false,
     },
 };
 

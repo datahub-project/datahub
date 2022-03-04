@@ -27,17 +27,17 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
   private final GitVersion _gitVersion;
   private final boolean _isAnalyticsEnabled;
   private final IngestionConfiguration _ingestionConfiguration;
-  private final boolean _supportsMultiHop;
+  private final boolean _supportsImpactAnalysis;
 
   public AppConfigResolver(
       final GitVersion gitVersion,
       final boolean isAnalyticsEnabled,
       final IngestionConfiguration ingestionConfiguration,
-      final boolean supportsMultiHop) {
+      final boolean supportsImpactAnalysis) {
     _gitVersion = gitVersion;
     _isAnalyticsEnabled = isAnalyticsEnabled;
     _ingestionConfiguration = ingestionConfiguration;
-    _supportsMultiHop = supportsMultiHop;
+    _supportsImpactAnalysis = supportsImpactAnalysis;
   }
 
   @Override
@@ -50,7 +50,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     appConfig.setAppVersion(_gitVersion.getVersion());
 
     final LineageConfig lineageConfig = new LineageConfig();
-    lineageConfig.setSupportsMultiHop(_supportsMultiHop);
+    lineageConfig.setSupportsImpactAnalysis(_supportsImpactAnalysis);
     appConfig.setLineageConfig(lineageConfig);
 
     final AnalyticsConfig analyticsConfig = new AnalyticsConfig();
