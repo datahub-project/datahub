@@ -71,7 +71,7 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
 
     const actionButtons = (
         <ButtonsContainer>
-            <Button onClick={onClose}>Cancel</Button>
+            <Button onClick={onClose}>Close</Button>
         </ButtonsContainer>
     );
 
@@ -140,7 +140,7 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
                     <AvatarsGroup
                         users={policy?.actors?.resolvedUsers}
                         entityRegistry={entityRegistry}
-                        maxCount={3}
+                        maxCount={50}
                         size={28}
                     />
                     {policy?.actors?.allUsers ? <Tag>All Users</Tag> : null}
@@ -151,7 +151,7 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
                     <AvatarsGroup
                         groups={policy?.actors?.resolvedGroups}
                         entityRegistry={entityRegistry}
-                        maxCount={3}
+                        maxCount={50}
                         size={28}
                     />
                     {policy?.actors?.allGroups ? <Tag>All Groups</Tag> : null}
