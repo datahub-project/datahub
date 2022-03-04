@@ -110,6 +110,14 @@ query getDataset($urn: String!) {
                 sampleValues
             }
         }
+        health {
+            status
+            message
+            causes
+        }
+        assertions(start: 0, count: 1) {
+            total
+        }
         operations(limit: 1) {
             timestampMillis
         }
@@ -147,5 +155,26 @@ fragment viewProperties on Dataset {
         materialized
         logic
         language
+    }
+}
+
+query getDatasetAssertions($urn: String!) {
+    dataset(urn: $urn) {
+        assertions(start: 0, count: 100) {
+            start
+            count
+            total
+            assertions {
+                ...assertionDetails
+                runEvents(status: COMPLETE, limit: 1) {
+                    total
+                    failed
+                    succeeded
+                    runEvents {
+                        ...assertionRunEventDetails
+                    }
+                }
+            }
+        }
     }
 }
