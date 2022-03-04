@@ -14,6 +14,10 @@ import NoMarkdownViewer from '../entity/shared/components/styled/StripMarkdownTe
 import { getNumberWithOrdinal } from '../entity/shared/utils';
 import { useEntityData } from '../entity/shared/EntityContext';
 
+const LogoContainer = styled.div`
+    padding-right: 8px;
+`;
+
 const PreviewContainer = styled.div`
     display: flex;
     width: 100%;
@@ -194,8 +198,9 @@ export default function DefaultPreviewCard({
                 <TitleContainer>
                     <Link to={url}>
                         <PlatformInfo>
-                            {(logoUrl && <PreviewImage preview={false} src={logoUrl} alt={platform || ''} />) ||
-                                logoComponent}
+                            {(logoUrl && <PreviewImage preview={false} src={logoUrl} alt={platform || ''} />) || (
+                                <LogoContainer>{logoComponent}</LogoContainer>
+                            )}
                             {platform && <PlatformText>{platform}</PlatformText>}
                             {(logoUrl || logoComponent || platform) && <PlatformDivider />}
                             {typeIcon && <TypeIcon>{typeIcon}</TypeIcon>}
