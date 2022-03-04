@@ -61,6 +61,16 @@ class SchemaKey(DatabaseKey):
     db_schema: str = Field(alias="schema")
 
 
+@dataclasses.dataclass
+class ProjectIdKey(PlatformKey):
+    project_id: str
+
+
+@dataclasses.dataclass
+class BigQueryDatasetKey(ProjectIdKey):
+    dataset_id: str
+
+
 class DatahubKeyJSONEncoder(json.JSONEncoder):
 
     # overload method default
