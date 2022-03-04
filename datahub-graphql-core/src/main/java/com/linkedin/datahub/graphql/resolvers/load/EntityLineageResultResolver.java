@@ -12,6 +12,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
@@ -34,7 +35,9 @@ public class EntityLineageResultResolver implements DataFetcher<CompletableFutur
     final LineageInput input = bindArgument(environment.getArgument("input"), LineageInput.class);
 
     final LineageDirection lineageDirection = input.getDirection();
+    @Nullable
     final Integer start = input.getStart(); // Optional!
+    @Nullable
     final Integer count = input.getCount(); // Optional!
 
     com.linkedin.metadata.graph.LineageDirection resolvedDirection =

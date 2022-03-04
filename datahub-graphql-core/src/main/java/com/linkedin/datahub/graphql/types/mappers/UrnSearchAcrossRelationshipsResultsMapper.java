@@ -30,10 +30,6 @@ public class UrnSearchAcrossRelationshipsResultsMapper<T extends RecordTemplate,
   public SearchAcrossRelationshipsResults apply(RelationshipSearchResult input) {
     final SearchAcrossRelationshipsResults result = new SearchAcrossRelationshipsResults();
 
-    if (!input.hasFrom() || !input.hasPageSize() || !input.hasNumEntities()) {
-      return result;
-    }
-
     result.setStart(input.getFrom());
     result.setCount(input.getPageSize());
     result.setTotal(input.getNumEntities());

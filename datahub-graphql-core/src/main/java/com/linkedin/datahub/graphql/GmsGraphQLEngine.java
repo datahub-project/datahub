@@ -246,23 +246,6 @@ public class GmsGraphQLEngine {
      */
     public final List<BrowsableEntityType<?>> browsableTypes;
 
-    @Deprecated
-    public GmsGraphQLEngine() {
-        this(
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            false);
-    }
-
     public GmsGraphQLEngine(
         final EntityClient entityClient,
         final GraphClient graphClient,
