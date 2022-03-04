@@ -387,6 +387,16 @@
     }
   },
   {
+    "urn": "urn:li:dataPlatform:great-expectations",
+    "aspect": {
+      "name": "Great Expectations",
+      "displayName": "Great Expectations",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/greatexpectationslogo.png",
+      "datasetNameDelimiter": "."
+    }
+  },
+  {
     "urn": "urn:li:dataPlatform:powerbi",
     "aspect": {
       "datasetNameDelimiter": ".",

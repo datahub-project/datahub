@@ -200,6 +200,8 @@ const dataset1 = {
     ],
     domain: null,
     container: null,
+    health: null,
+    assertions: null,
 };
 
 const dataset2 = {
@@ -272,6 +274,8 @@ const dataset2 = {
     ],
     domain: null,
     container: null,
+    health: null,
+    assertions: null,
 };
 
 export const dataset3 = {
@@ -467,6 +471,8 @@ export const dataset3 = {
     ],
     domain: null,
     container: null,
+    health: null,
+    assertions: null,
 } as Dataset;
 
 export const dataset4 = {
