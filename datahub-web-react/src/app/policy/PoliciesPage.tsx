@@ -34,7 +34,7 @@ const PoliciesHeaderContainer = styled.div`
 
 const PoliciesTitle = styled(Typography.Title)`
     && {
-        margin-bottom: 24px;
+        margin-bottom: 8px;
     }
 `;
 
@@ -329,7 +329,7 @@ export const PoliciesPage = () => {
                         <Button
                             disabled={!record?.editable}
                             onClick={() => onToggleActiveDuplicate(record?.policy)}
-                            style={{ color: record?.editable ? 'red' : ANTD_GRAY[6] }}
+                            style={{ color: record?.editable ? 'red' : ANTD_GRAY[6], width: 100 }}
                         >
                             DEACTIVATE
                         </Button>
@@ -337,7 +337,7 @@ export const PoliciesPage = () => {
                         <Button
                             disabled={!record?.editable}
                             onClick={() => onToggleActiveDuplicate(record?.policy)}
-                            style={{ color: record?.editable ? 'green' : ANTD_GRAY[6] }}
+                            style={{ color: record?.editable ? 'green' : ANTD_GRAY[6], width: 100 }}
                         >
                             ACTIVATE
                         </Button>
@@ -381,7 +381,7 @@ export const PoliciesPage = () => {
                 <PoliciesHeaderContainer>
                     <PoliciesTitle level={2}>Manage Policies</PoliciesTitle>
                     <Typography.Paragraph type="secondary">
-                        Manage access for Users & Groups of DataHub using Policies.
+                        Manage access for DataHub Users & Groups using Policies.
                     </Typography.Paragraph>
                 </PoliciesHeaderContainer>
             </PoliciesContainer>
