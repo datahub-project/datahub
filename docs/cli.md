@@ -64,7 +64,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 | [bigquery](../metadata-ingestion/source_docs/bigquery.md)                           | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source                     |
 | [bigquery-usage](../metadata-ingestion/source_docs/bigquery.md)                     | `pip install 'acryl-datahub[bigquery-usage]'`              | BigQuery usage statistics source    |
 | [datahub-lineage-file](../metadata-ingestion/source_docs/file_lineage.md)           | _no additional dependencies_                               | Lineage File source                 |
-| [datahub-business-glossary](../metadata-ingestion/source_docs/business_glossary.md) | _no additional dependencies_                               | Business Glossary File source                         |
+| [datahub-business-glossary](../metadata-ingestion/source_docs/business_glossary.md) | _no additional dependencies_                               | Business Glossary File source       |
 | [dbt](../metadata-ingestion/source_docs/dbt.md)                                     | _no additional dependencies_                               | dbt source                          |
 | [druid](../metadata-ingestion/source_docs/druid.md)                                 | `pip install 'acryl-datahub[druid]'`                       | Druid Source                        |
 | [feast](../metadata-ingestion/source_docs/feast.md)                                 | `pip install 'acryl-datahub[feast]'`                       | Feast source                        |
@@ -75,7 +75,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 | [ldap](../metadata-ingestion/source_docs/ldap.md)                                   | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                         |
 | [looker](../metadata-ingestion/source_docs/looker.md)                               | `pip install 'acryl-datahub[looker]'`                      | Looker source                       |
 | [lookml](../metadata-ingestion/source_docs/lookml.md)                               | `pip install 'acryl-datahub[lookml]'`                      | LookML source, requires Python 3.7+ |
-| [metabase](../metadata-ingestion/source_docs/metabase.md)                           | `pip install 'acryl-datahub[metabase]`                     | Metabase source                     |
+| [metabase](../metadata-ingestion/source_docs/metabase.md)                           | `pip install 'acryl-datahub[metabase]'`                    | Metabase source                     |
 | [mode](../metadata-ingestion/source_docs/mode.md)                                   | `pip install 'acryl-datahub[mode]'`                        | Mode Analytics source               |
 | [mongodb](../metadata-ingestion/source_docs/mongodb.md)                             | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source                      |
 | [mssql](../metadata-ingestion/source_docs/mssql.md)                                 | `pip install 'acryl-datahub[mssql]'`                       | SQL Server source                   |
@@ -93,10 +93,10 @@ We use a plugin architecture so that you can install only the dependencies you a
 | [sqlalchemy](../metadata-ingestion/source_docs/sqlalchemy.md)                       | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source           |
 | [superset](../metadata-ingestion/source_docs/superset.md)                           | `pip install 'acryl-datahub[superset]'`                    | Superset source                     |
 | [tableau](../metadata-ingestion/source_docs/tableau.md)                             | `pip install 'acryl-datahub[tableau]'`                     | Tableau source                      |
-| [trino](../metadata-ingestion/source_docs/trino.md)                                 | `pip install 'acryl-datahub[trino]`                        | Trino source                     |
-| [starburst-trino-usage](../metadata-ingestion/source_docs/trino.md)                 | `pip install 'acryl-datahub[starburst-trino-usage]'`       | Starburst Trino usage statistics source   |
-| [nifi](../metadata-ingestion/source_docs/nifi.md)                                   | `pip install 'acryl-datahub[nifi]`                         | Nifi source                         |
-| [powerbi](../metadata-ingestion/source_docs/powerbi.md)                             | `pip install 'acryl-datahub[powerbi]`                      | Microsoft Power BI source           |
+| [trino](../metadata-ingestion/source_docs/trino.md)                                 | `pip install 'acryl-datahub[trino]'`                       | Trino source                        |
+| [starburst-trino-usage](../metadata-ingestion/source_docs/trino.md)                 | `pip install 'acryl-datahub[starburst-trino-usage]'`       | Starburst Trino usage statistics source |
+| [nifi](../metadata-ingestion/source_docs/nifi.md)                                   | `pip install 'acryl-datahub[nifi]'`                        | Nifi source                         |
+| [powerbi](../metadata-ingestion/source_docs/powerbi.md)                             | `pip install 'acryl-datahub[powerbi]'`                     | Microsoft Power BI source           |
 
 ### Sinks
 
@@ -271,7 +271,7 @@ Update succeeded with status 200
 
 ### migrate
 
-The `migrate` group of commands allows you to perform certain kinds of migrations. 
+The `migrate` group of commands allows you to perform certain kinds of migrations.
 
 #### dataplatform2instance
 
@@ -304,7 +304,7 @@ Starting migration: platform:elasticsearch, instance=prod_index, force=False, dr
 
 ##### Real Migration (with soft-delete)
 ```
-> datahub migrate dataplatform2instance --platform hive --instance 
+> datahub migrate dataplatform2instance --platform hive --instance
 datahub migrate dataplatform2instance --platform hive --instance warehouse
 Starting migration: platform:hive, instance=warehouse, force=False, dry-run=False
 Will migrate 4 urns such as ['urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)']
