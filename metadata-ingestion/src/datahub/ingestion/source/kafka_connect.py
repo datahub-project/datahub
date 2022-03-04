@@ -36,7 +36,7 @@ class KafkaConnectSourceConfig(DatasetLineageProviderConfigBase):
     construct_lineage_workunits: bool = True
     connector_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
     provided_configs: Optional[List[ProvidedConfig]] = None
-    prefix_server_to_table_name: Optional[str] = None
+    prefix_server_to_table_name: bool = False
 
 
 @dataclass
