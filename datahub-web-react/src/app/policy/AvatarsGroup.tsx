@@ -26,7 +26,7 @@ export default function AvatarsGroup({ users, groups, entityRegistry, maxCount =
                     <div data-testid={`avatar-tag-${user.urn}`} key={`${user.urn}-${key}`}>
                         <CustomAvatar
                             size={size}
-                            name={user?.username}
+                            name={entityRegistry.getDisplayName(EntityType.CorpUser, user)}
                             url={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${user.urn}`}
                             photoUrl={
                                 user?.editableProperties?.pictureLink || user?.editableInfo?.pictureLink || undefined
@@ -41,7 +41,7 @@ export default function AvatarsGroup({ users, groups, entityRegistry, maxCount =
                     <div data-testid={`avatar-tag-${group.urn}`} key={`${group.urn}-${key}`}>
                         <CustomAvatar
                             size={size}
-                            name={group?.name}
+                            name={entityRegistry.getDisplayName(EntityType.CorpGroup, group)}
                             url={`/${entityRegistry.getPathName(EntityType.CorpGroup)}/${group.urn}`}
                             isGroup
                         />
