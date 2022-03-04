@@ -26,6 +26,8 @@ from datahub.metadata.schema_classes import (
     PartitionTypeClass,
 )
 from tests.utils import ingest_file_via_rest
+from tests.utils import delete_urns_from_file
+
 
 GMS_ENDPOINT = "http://localhost:8080"
 
@@ -42,7 +44,7 @@ def create_test_data(test_file):
         customProperties={"suite_name": "demo_suite"},
         datasetAssertion=DatasetAssertionInfoClass(
             fields=[make_schema_field_urn(dataset_urn, "col1")],
-            datasets=[dataset_urn],
+            dataset=dataset_urn,
             scope=DatasetAssertionScopeClass.DATASET_COLUMN,
             operator=AssertionStdOperatorClass.LESS_THAN,
             nativeType="column_value_is_less_than",
@@ -225,10 +227,13 @@ def create_test_data(test_file):
 @pytest.fixture(scope="session")
 def generate_test_data(tmp_path_factory):
     """Generates metadata events data and stores into a test file"""
+    print("generating assertions test data")
     dir_name = tmp_path_factory.mktemp("test_dq_events")
     file_name = dir_name / "test_dq_events.json"
     create_test_data(test_file=str(file_name))
     yield str(file_name)
+    print("removing assertions test data")
+    delete_urns_from_file(str(file_name))
 
 
 @pytest.fixture(scope="session")
@@ -245,9 +250,8 @@ def test_healthchecks(wait_for_healthchecks):
 
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
-def test_run_ingestion(wait_for_healthchecks, generate_test_data):
+def test_run_ingestion(generate_test_data):
     ingest_file_via_rest(generate_test_data)
-
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_gms_get_latest_assertions_results_by_partition():
@@ -276,7 +280,7 @@ def test_gms_get_latest_assertions_results_by_partition():
                     }
                 ]
             },
-            "metrics": [{"fieldPath": "result", "aggregationType": "LATEST"}],
+            "metrics": [{"fieldPath": "status", "aggregationType": "LATEST"}],
             "buckets": [
                 {"key": "asserteeUrn", "type": "STRING_GROUPING_BUCKET"},
                 {"key": "partitionSpec.partition", "type": "STRING_GROUPING_BUCKET"},
@@ -303,7 +307,7 @@ def test_gms_get_latest_assertions_results_by_partition():
     assert sorted(data["value"]["table"]["columnNames"]) == [
         "asserteeUrn",
         "assertionUrn",
-        "latest_result",
+        "latest_status",
         "partitionSpec.partition",
         "timestampMillis",
     ]
