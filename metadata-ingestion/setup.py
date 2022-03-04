@@ -149,6 +149,8 @@ plugins: Dict[str, Set[str]] = {
     "elasticsearch": {"elasticsearch==7.13.4"},
     "feast": {"docker"},
     "glue": aws_common,
+    # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
+    "hana": sql_common | {"sqlalchemy-hana>=0.5.0","hdbcli>=2.11.20"},
     "hive": sql_common
     | {
         # Acryl Data maintains a fork of PyHive, which adds support for table comments
@@ -335,6 +337,7 @@ entry_points = {
         "feast = datahub.ingestion.source.feast:FeastSource",
         "glue = datahub.ingestion.source.aws.glue:GlueSource",
         "sagemaker = datahub.ingestion.source.aws.sagemaker:SagemakerSource",
+        "hana = datahub.ingestion.source.sql.hana:HanaSource",
         "hive = datahub.ingestion.source.sql.hive:HiveSource",
         "kafka = datahub.ingestion.source.kafka:KafkaSource",
         "kafka-connect = datahub.ingestion.source.kafka_connect:KafkaConnectSource",
