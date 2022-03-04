@@ -35,6 +35,7 @@ Supported SQL sources:
 - [AWS Athena](./athena.md)
 - [BigQuery](./bigquery.md)
 - [Druid](./druid.md)
+- [HANA](./hana.md)
 - [Hive](./hive.md)
 - [Microsoft SQL Server](./mssql.md)
 - [MySQL](./mysql.md)
