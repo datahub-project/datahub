@@ -1,40 +1,40 @@
 package com.linkedin.gms.factory.telemetry;
 
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
-import com.mixpanel.mixpanelapi.ClientDelivery;
-import com.mixpanel.mixpanelapi.MessageBuilder;
-import com.mixpanel.mixpanelapi.MixpanelAPI;
+import com.linkedin.datahub.graphql.generated.DateRange;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.annotation.Bean;
+import org.joda.time.DateTime;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Scope;
 import org.json.JSONObject;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 
-import javax.annotation.Nonnull;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.util.UUID;
-
-import com.linkedin.gms.factory.telemetry.Telemetry;
+import java.util.Optional;
 
 @Slf4j
 @Configuration
 @EnableScheduling
+@RequiredArgsConstructor
 public class ScheduledAnalyticsFactory {
-    private AnalyticsService _analyticsService;
+    static Telemetry telemetry = new Telemetry();
 
+    private final AnalyticsService _analyticsService;
 
+    @Scheduled(fixedDelay = 1000)
+    public void reportWAU() {
+        telemetry.ping("test", new JSONObject());
 
-    @Scheduled(fixedDelay = 1000, initialDelay = 1000)
-    public void scheduleFixedDelayTask() {
+        DateTime endDate = DateTime.now();
+        DateTime startDate = endDate.minusWeeks(1);
+        DateRange dateRange = new DateRange(String.valueOf(startDate.getMillis()), String.valueOf(endDate.getMillis()));
 
-        Telemetry telemetry = new Telemetry();
+        int weeklyActiveUsers =
+                _analyticsService.getHighlights(_analyticsService.getUsageIndexName(), Optional.of(dateRange),
+                        ImmutableMap.of(), ImmutableMap.of(), Optional.of("browserId"));
 
-
-
+        log.info("WAU " + weeklyActiveUsers);
 
         log.info(
                 "Fixed delay task - " + System.currentTimeMillis() / 1000);
