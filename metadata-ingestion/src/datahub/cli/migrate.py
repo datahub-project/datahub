@@ -16,9 +16,13 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
+from datahub.emitter.mcp_builder import (
+    BigQueryDatasetKey,
+    DatabaseKey,
+    ProjectIdKey,
+    SchemaKey,
+)
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.ingestion.source.sql.bigquery import BigQueryDatasetKey, ProjectIdKey
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     ContainerKeyClass,
