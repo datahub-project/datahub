@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { message, Modal, Button, Form, Select, Tag } from 'antd';
 import styled from 'styled-components';
 import { Link } from 'react-router-dom';
@@ -39,6 +39,8 @@ export const AddGroupMembersModal = ({ urn, visible, onClose, onSubmit }: Props)
     const [addGroupMembersMutation] = useAddGroupMembersMutation();
     const searchResults = userSearchData?.search?.searchResults || [];
 
+    const inputEl = useRef(null);
+
     const onAdd = async () => {
         if (selectedUsers.length === 0) {
             return;
@@ -65,6 +67,9 @@ export const AddGroupMembersModal = ({ urn, visible, onClose, onSubmit }: Props)
     };
 
     const onSelectMember = (newUserUrn: string) => {
+        if (inputEl && inputEl.current) {
+            (inputEl.current as any).blur();
+        }
         const filteredUsers = searchResults
             .filter((result) => result.entity.urn === newUserUrn)
             .map((result) => result.entity);
@@ -137,6 +142,10 @@ export const AddGroupMembersModal = ({ urn, visible, onClose, onSubmit }: Props)
             <Form component={false}>
                 <Form.Item>
                     <Select
+                        showSearch
+                        autoFocus
+                        ref={inputEl}
+                        filterOption={false}
                         value={selectedUsers.map((user) => entityRegistry.getDisplayName(EntityType.CorpUser, user))}
                         mode="multiple"
                         placeholder="Search for users..."

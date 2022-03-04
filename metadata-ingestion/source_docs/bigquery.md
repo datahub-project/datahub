@@ -156,8 +156,12 @@ Note: the bigquery_audit_metadata_datasets parameter receives a list of datasets
 Note: Since bigquery source also supports dataset level lineage, the auth client will require additional permissions to be able to access the google audit logs. Refer the permissions section in bigquery-usage section below which also accesses the audit logs.
 
 ## Profiling
-For profiling you have to set a table schema where Great Expectation (the profiling framework we use) can create temporary
-views by setting `profiling.bigquery_temp_table_schema` property.
+Profiling can profile normal/partitioned and sharded tables as well but due to performance reasons, we only profile the latest partition for Partitioned tables and the latest shard for sharded tables.
+
+If limit/offset parameter is set or partitioning partitioned or sharded table Great Expectation (the profiling framework we use) needs to create temporary
+views. By default these views are created in the schema where the profiled table is but you can control to create all these
+tables into a predefined schema by setting `profiling.bigquery_temp_table_schema` property. 
+Temporary tables are removed after profiling.
 
 ```yaml
      profiling:
@@ -168,7 +172,7 @@ views by setting `profiling.bigquery_temp_table_schema` property.
 :::note
 
 Due to performance reasons, we only profile the latest partition for Partitioned tables and the latest shard for sharded tables.
-
+You can set partition explicitly with `partition.partition_datetime` property if you want. (partition will be applied to all partitioned tables)
 :::
 
 # BigQuery Usage Stats
