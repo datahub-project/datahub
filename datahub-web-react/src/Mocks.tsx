@@ -473,6 +473,8 @@ export const dataset3 = {
     ],
     domain: null,
     container: null,
+    lineage: null,
+    relationships: null,
 } as Dataset;
 
 export const dataset4 = {
@@ -1705,11 +1707,11 @@ export const mocks = [
                             },
                             matchedFields: [],
                             insights: [],
-                            numHops: null,
                         },
                     ],
                     facets: [
                         {
+                            __typename: 'FacetMetadata',
                             field: 'origin',
                             displayName: 'origin',
                             aggregations: [
@@ -1721,6 +1723,7 @@ export const mocks = [
                             ],
                         },
                         {
+                            __typename: 'FacetMetadata',
                             field: 'platform',
                             displayName: 'platform',
                             aggregations: [
@@ -1763,7 +1766,6 @@ export const mocks = [
                             },
                             matchedFields: [],
                             insights: [],
-                            numHops: null,
                         },
                     ],
                     facets: [
@@ -1856,7 +1858,6 @@ export const mocks = [
                             },
                             matchedFields: [],
                             insights: [],
-                            numHops: null,
                         },
                     ],
                     facets: [
@@ -1910,7 +1911,6 @@ export const mocks = [
                             },
                             matchedFields: [],
                             insights: [],
-                            numHops: null,
                         },
                     ],
                 },
@@ -2014,7 +2014,6 @@ export const mocks = [
                             },
                             matchedFields: [],
                             insights: [],
-                            numHops: null,
                         },
                     ],
                     facets: [
@@ -2072,7 +2071,6 @@ export const mocks = [
                             },
                             matchedFields: [],
                             insights: [],
-                            numHops: null,
                         },
                         {
                             entity: {
@@ -2081,7 +2079,6 @@ export const mocks = [
                             },
                             matchedFields: [],
                             insights: [],
-                            numHops: null,
                         },
                     ],
                     facets: [
@@ -2139,7 +2136,6 @@ export const mocks = [
                             },
                             matchedFields: [],
                             insights: [],
-                            numHops: null,
                         },
                     ],
                     facets: [
@@ -2283,7 +2279,6 @@ export const mocks = [
                             },
                             matchedFields: [],
                             insights: [],
-                            numHops: null,
                         },
                     ],
                     facets: [
@@ -2357,21 +2352,23 @@ export const mocks = [
                     total: 1,
                     searchResults: [
                         {
+                            __typename: 'SearchResult',
                             entity: {
                                 __typename: 'Dataset',
                                 ...dataset3,
                             },
                             matchedFields: [],
                             insights: [],
-                            numHops: null,
                         },
                     ],
                     facets: [
                         {
+                            __typename: 'FacetMetadata',
                             field: 'origin',
                             displayName: 'origin',
                             aggregations: [
                                 {
+                                    __typename: 'AggregationMetadata',
                                     value: 'PROD',
                                     count: 3,
                                     entity: null,
@@ -2379,12 +2376,28 @@ export const mocks = [
                             ],
                         },
                         {
+                            __typename: 'FacetMetadata',
                             field: 'platform',
                             displayName: 'platform',
                             aggregations: [
-                                { value: 'hdfs', count: 1, entity: null },
-                                { value: 'mysql', count: 1, entity: null },
-                                { value: 'kafka', count: 1, entity: null },
+                                {
+                                    __typename: 'AggregationMetadata',
+                                    value: 'hdfs',
+                                    count: 1,
+                                    entity: null,
+                                },
+                                {
+                                    __typename: 'AggregationMetadata',
+                                    value: 'mysql',
+                                    count: 1,
+                                    entity: null,
+                                },
+                                {
+                                    __typename: 'AggregationMetadata',
+                                    value: 'kafka',
+                                    count: 1,
+                                    entity: null,
+                                },
                             ],
                         },
                     ],
@@ -2426,7 +2439,6 @@ export const mocks = [
                             },
                             matchedFields: [],
                             insights: [],
-                            numHops: null,
                         },
                     ],
                     facets: [],
@@ -2463,7 +2475,6 @@ export const mocks = [
                             },
                             matchedFields: [],
                             insights: [],
-                            numHops: null,
                         },
                     ],
                     facets: [
@@ -2525,7 +2536,6 @@ export const mocks = [
                             },
                             matchedFields: [],
                             insights: [],
-                            numHops: null,
                         },
                     ],
                     facets: [
@@ -2583,7 +2593,6 @@ export const mocks = [
                             },
                             matchedFields: [],
                             insights: [],
-                            numHops: null,
                         },
                         {
                             entity: {
@@ -2592,7 +2601,6 @@ export const mocks = [
                             },
                             matchedFields: [],
                             insights: [],
-                            numHops: null,
                         },
                     ],
                     facets: [
@@ -2659,7 +2667,6 @@ export const mocks = [
                             },
                             matchedFields: [],
                             insights: [],
-                            numHops: null,
                         },
                     ],
                     facets: [
@@ -2726,7 +2733,6 @@ export const mocks = [
                             },
                             matchedFields: [],
                             insights: [],
-                            numHops: null,
                         },
                     ],
                     facets: [
