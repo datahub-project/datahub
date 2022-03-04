@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router';
-// import { Alert } from 'antd';
 
 import { useSearchAcrossRelationshipsQuery } from '../../../../../graphql/search.generated';
 import { EntityType, FacetFilterInput, LineageDirection } from '../../../../../types.generated';
@@ -9,8 +8,6 @@ import { ENTITY_FILTER_NAME } from '../../../../search/utils/constants';
 import useFilters from '../../../../search/utils/useFilters';
 import { SearchCfg } from '../../../../../conf';
 import analytics, { EventType } from '../../../../analytics';
-// import { SearchResults } from '../../../../search/SearchResults';
-// import { navigateToSearchRelationshipsUrl } from '../../../../search/utils/navigateToSearchUrl';
 import { EmbeddedListSearch } from '../../components/styled/search/EmbeddedListSearch';
 import generateUseSearchResultsViaRelationshipHook from './generateUseSearchResultsViaRelationshipHook';
 
@@ -19,7 +16,6 @@ type Props = {
 };
 
 export const ImpactAnalysis = ({ urn }: Props) => {
-    // const history = useHistory();
     const location = useLocation();
 
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
