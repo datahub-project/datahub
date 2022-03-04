@@ -102,7 +102,7 @@ export default function DownloadAsCsvButton({ callSearchOnVariables, entityFilte
                     </>
                 }
             >
-                <Input placeholder="example.csv" value={saveAsTitle} onChange={(e) => setSaveAsTitle(e.target.value)} />
+                <Input placeholder="datahub.csv" value={saveAsTitle} onChange={(e) => setSaveAsTitle(e.target.value)} />
             </Modal>
         </>
     );
