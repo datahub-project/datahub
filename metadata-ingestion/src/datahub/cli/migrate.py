@@ -355,7 +355,6 @@ def migrate_containers(
             elif mcp.aspectName == "containerKey":
                 mcp.aspect.guid = newKey.guid()
 
-            log.warning(f"mcpc: {mcp}")
             if not dry_run:
                 rest_emitter.emit_mcp(mcp)
                 migration_report.on_entity_affected(mcp.entityUrn, mcp.aspectName)  # type: ignore
@@ -366,6 +365,7 @@ def migrate_containers(
             src_urn=src_urn,
             dst_urn=dst_urn,
             migration_report=migration_report,
+            rest_emitter=rest_emitter,
         )
 
         if not dry_run and not keep:
@@ -395,7 +395,7 @@ def get_container_for_migration(env: str) -> List[Any]:
 
 def process_container_relationships(
     container_id_map: Dict[str, str],
-    dry_run: str,
+    dry_run: bool,
     src_urn: str,
     dst_urn: str,
     migration_report: MigrationReport,
@@ -432,7 +432,7 @@ def process_container_relationships(
                 aspectName=aspect_name,
                 aspect=aspect,
             )
-            log.warning(f"relationship mcp: {mcp}")
+
             if not dry_run:
                 rest_emitter.emit_mcp(mcp)
             migration_report.on_entity_affected(mcp.entityUrn, mcp.aspectName)  # type: ignore
