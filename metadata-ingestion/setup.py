@@ -23,7 +23,7 @@ def get_long_description():
 base_requirements = {
     # Compatability.
     "dataclasses>=0.6; python_version < '3.7'",
-    "typing_extensions>=3.10.0.2,<4",
+    "typing_extensions>=3.10.0.2",
     "mypy_extensions>=0.4.3",
     # Actual dependencies.
     "typing-inspect",
@@ -84,7 +84,7 @@ aws_common = {
 
 looker_common = {
     # Looker Python SDK
-    "looker-sdk==21.6.0"
+    "looker-sdk==22.2.1"
 }
 
 bigquery_common = {
@@ -417,8 +417,7 @@ setuptools.setup(
     ],
     # Package info.
     zip_safe=False,
-    # restrict python to <=3.9.9 due to https://github.com/looker-open-source/sdk-codegen/issues/944
-    python_requires=">=3.6, <=3.9.9",
+    python_requires=">=3.6",
     package_dir={"": "src"},
     packages=setuptools.find_namespace_packages(where="./src"),
     package_data={
