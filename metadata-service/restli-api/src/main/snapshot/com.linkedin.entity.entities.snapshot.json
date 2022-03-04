@@ -1405,8 +1405,14 @@
         "type" : "array",
         "items" : "com.linkedin.common.Urn"
       },
-      "doc" : "Fields of the input datasets used by this job.",
+      "doc" : "Fields of the input datasets used by this job",
       "optional" : true,
+      "Relationship" : {
+        "/*" : {
+          "entityTypes" : [ "schemaField" ],
+          "name" : "Consumes"
+        }
+      },
       "Searchable" : {
         "/*" : {
           "fieldName" : "inputFields",
@@ -1421,8 +1427,14 @@
         "type" : "array",
         "items" : "com.linkedin.common.Urn"
       },
-      "doc" : "Fields of the output datasets this job writes to.",
+      "doc" : "Fields of the output datasets this job writes to",
       "optional" : true,
+      "Relationship" : {
+        "/*" : {
+          "entityTypes" : [ "schemaField" ],
+          "name" : "Produces"
+        }
+      },
       "Searchable" : {
         "/*" : {
           "fieldName" : "outputFields",
@@ -1439,18 +1451,18 @@
           "type" : "record",
           "name" : "FineGrainedLineage",
           "namespace" : "com.linkedin.dataset",
-          "doc" : "A fine-grained lineage from upstream fields/datasets to downstream field(s).",
+          "doc" : "A fine-grained lineage from upstream fields/datasets to downstream field(s)",
           "fields" : [ {
             "name" : "upstreamType",
             "type" : {
               "type" : "enum",
               "name" : "FineGrainedLineageUpstreamType",
-              "doc" : "The type of upstream entity in a fine-grained lineage.",
+              "doc" : "The type of upstream entity in a fine-grained lineage",
               "symbols" : [ "FIELD_SET", "DATASET", "NONE" ],
               "symbolDocs" : {
-                "DATASET" : " Indicates that this lineage is originating from upstream dataset(s).",
-                "FIELD_SET" : " Indicates that this lineage is originating from upstream field(s).",
-                "NONE" : " Indicates that there is no upstream lineage i.e. the downstream field is not a derived field."
+                "DATASET" : " Indicates that this lineage is originating from upstream dataset(s)",
+                "FIELD_SET" : " Indicates that this lineage is originating from upstream field(s)",
+                "NONE" : " Indicates that there is no upstream lineage i.e. the downstream field is not a derived field"
               }
             },
             "doc" : "The type of upstream entity"
@@ -1467,11 +1479,11 @@
             "type" : {
               "type" : "enum",
               "name" : "FineGrainedLineageDownstreamType",
-              "doc" : "The type of downstream field(s) in a fine-grained lineage.",
+              "doc" : "The type of downstream field(s) in a fine-grained lineage",
               "symbols" : [ "FIELD", "FIELD_SET" ],
               "symbolDocs" : {
-                "FIELD" : " Indicates that the lineage is for a single, specific, downstream field.",
-                "FIELD_SET" : " Indicates that the lineage is for a set of downstream fields."
+                "FIELD" : " Indicates that the lineage is for a single, specific, downstream field",
+                "FIELD_SET" : " Indicates that the lineage is for a set of downstream fields"
               }
             },
             "doc" : "The type of downstream field(s)"
@@ -1486,17 +1498,17 @@
           }, {
             "name" : "transformOperation",
             "type" : "string",
-            "doc" : "The transform operation applied to the upstream entities to produce the downstream field(s).",
+            "doc" : "The transform operation applied to the upstream entities to produce the downstream field(s)",
             "optional" : true
           }, {
             "name" : "confidenceScore",
             "type" : "float",
-            "doc" : "The confidence in this lineage between 0 (low confidence) and 1 (high confidence).",
+            "doc" : "The confidence in this lineage between 0 (low confidence) and 1 (high confidence)",
             "default" : 1.0
           } ]
         }
       },
-      "doc" : "Fine-grained column-level lineages.",
+      "doc" : "Fine-grained column-level lineages",
       "optional" : true
     } ],
     "Aspect" : {
@@ -1840,7 +1852,13 @@
         "items" : "FineGrainedLineage"
       },
       "doc" : " List of fine-grained lineage information, including field-level lineage",
-      "optional" : true
+      "optional" : true,
+      "Relationship" : {
+        "/*/upstreams/*" : {
+          "entityTypes" : [ "dataset", "schemaField" ],
+          "name" : "DownstreamOf"
+        }
+      }
     } ],
     "Aspect" : {
       "name" : "upstreamLineage"
@@ -3943,6 +3961,12 @@
                         "entityTypes" : [ "mlFeature" ],
                         "name" : "Contains"
                       }
+                    },
+                    "Searchable" : {
+                      "/*" : {
+                        "fieldName" : "features",
+                        "fieldType" : "URN"
+                      }
                     }
                   }, {
                     "name" : "mlPrimaryKeys",
@@ -3956,6 +3980,12 @@
                       "/*" : {
                         "entityTypes" : [ "mlPrimaryKey" ],
                         "name" : "KeyedBy"
+                      }
+                    },
+                    "Searchable" : {
+                      "/*" : {
+                        "fieldName" : "primaryKeys",
+                        "fieldType" : "URN"
                       }
                     }
                   } ],
