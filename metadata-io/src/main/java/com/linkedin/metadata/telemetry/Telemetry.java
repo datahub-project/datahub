@@ -1,4 +1,4 @@
-package com.linkedin.gms.factory.telemetry;
+package com.linkedin.metadata.telemetry;
 
 import com.mixpanel.mixpanelapi.MessageBuilder;
 import com.mixpanel.mixpanelapi.MixpanelAPI;

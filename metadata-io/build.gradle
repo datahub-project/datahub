@@ -29,6 +29,7 @@ dependencies {
   compile externalDependency.resilience4j
   compile externalDependency.springContext
   compile externalDependency.swaggerAnnotations
+  compile externalDependency.mixpanel
 
   annotationProcessor externalDependency.lombok
 

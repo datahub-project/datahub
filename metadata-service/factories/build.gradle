@@ -14,8 +14,6 @@ dependencies {
   compile externalDependency.kafkaClients
   compile externalDependency.kafkaAvroSerde
   compile externalDependency.lombok
-  compile externalDependency.mixpanel
-  compile externalDependency.jsonSimple
   compile externalDependency.servletApi
   compile externalDependency.springBeans
   compile externalDependency.springBootAutoconfigure

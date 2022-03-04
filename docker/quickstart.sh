@@ -33,9 +33,9 @@ else
   echo "No Datahub Neo4j volume found, starting with elasticsearch as graph service"
   cd $DIR && \
   docker-compose \
-    -f quickstart/docker-compose-without-neo4j-m1.quickstart.yml \
+    -f quickstart/docker-compose-without-neo4j.quickstart.yml \
     $MONITORING_COMPOSE $CONSUMERS_COMPOSE pull && \
   docker-compose -p datahub \
-    -f quickstart/docker-compose-without-neo4j-m1.quickstart.yml \
+    -f quickstart/docker-compose-without-neo4j.quickstart.yml \
     $MONITORING_COMPOSE $CONSUMERS_COMPOSE up $@
 fi
