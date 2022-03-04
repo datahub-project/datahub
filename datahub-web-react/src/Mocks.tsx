@@ -135,6 +135,7 @@ const dataset1 = {
     tags: ['Private', 'PII'],
     uri: 'www.google.com',
     properties: {
+        name: 'The Great Test Dataset',
         description: 'This is the greatest dataset in the world, youre gonna love it!',
         customProperties: [
             {
@@ -202,6 +203,8 @@ const dataset1 = {
     container: null,
     upstream: null,
     downstream: null,
+    health: null,
+    assertions: null,
 };
 
 const dataset2 = {
@@ -224,6 +227,7 @@ const dataset2 = {
     tags: ['Outdated'],
     uri: 'www.google.com',
     properties: {
+        name: 'Some Other Dataset',
         description: 'This is some other dataset, so who cares!',
         customProperties: [],
     },
@@ -276,6 +280,8 @@ const dataset2 = {
     container: null,
     upstream: null,
     downstream: null,
+    health: null,
+    assertions: null,
 };
 
 export const dataset3 = {
@@ -298,6 +304,7 @@ export const dataset3 = {
     origin: 'PROD',
     uri: 'www.google.com',
     properties: {
+        name: 'Yet Another Dataset',
         description: 'This and here we have yet another Dataset (YAN). Are there more?',
         origin: 'PROD',
         customProperties: [{ key: 'propertyAKey', value: 'propertyAValue' }],
@@ -475,30 +482,60 @@ export const dataset3 = {
     container: null,
     lineage: null,
     relationships: null,
+    health: null,
+    assertions: null,
 } as Dataset;
 
 export const dataset4 = {
     ...dataset3,
     name: 'Fourth Test Dataset',
     urn: 'urn:li:dataset:4',
+    properties: {
+        name: 'Fourth Test Dataset',
+        description: 'This and here we have yet another Dataset (YAN). Are there more?',
+        origin: 'PROD',
+        customProperties: [{ key: 'propertyAKey', value: 'propertyAValue' }],
+        externalUrl: 'https://data.hub',
+    },
 };
 
 export const dataset5 = {
     ...dataset3,
     name: 'Fifth Test Dataset',
     urn: 'urn:li:dataset:5',
+    properties: {
+        name: 'Fifth Test Dataset',
+        description: 'This and here we have yet another Dataset (YAN). Are there more?',
+        origin: 'PROD',
+        customProperties: [{ key: 'propertyAKey', value: 'propertyAValue' }],
+        externalUrl: 'https://data.hub',
+    },
 };
 
 export const dataset6 = {
     ...dataset3,
     name: 'Sixth Test Dataset',
     urn: 'urn:li:dataset:6',
+    properties: {
+        name: 'Sixth Test Dataset',
+        description: 'This and here we have yet another Dataset (YAN). Are there more?',
+        origin: 'PROD',
+        customProperties: [{ key: 'propertyAKey', value: 'propertyAValue' }],
+        externalUrl: 'https://data.hub',
+    },
 };
 
 export const dataset7 = {
     ...dataset3,
     name: 'Seventh Test Dataset',
     urn: 'urn:li:dataset:7',
+    properties: {
+        name: 'Seventh Test Dataset',
+        description: 'This and here we have yet another Dataset (YAN). Are there more?',
+        origin: 'PROD',
+        customProperties: [{ key: 'propertyAKey', value: 'propertyAValue' }],
+        externalUrl: 'https://data.hub',
+    },
 };
 
 export const dataset3WithLineage = {

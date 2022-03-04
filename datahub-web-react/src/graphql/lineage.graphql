@@ -67,6 +67,7 @@ fragment relationshipFields on EntityWithRelationships {
     ... on Dataset {
         name
         properties {
+            name 
             description
         }
         editableProperties {

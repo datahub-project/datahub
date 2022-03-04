@@ -70,6 +70,11 @@ type Query {
     domain(urn: String!): Domain
 
     """
+    Fetch an Assertion by primary key (urn)
+    """
+    assertion(urn: String!): Assertion
+
+    """
     List all DataHub Access Policies
     """
     listPolicies(input: ListPoliciesInput!): ListPoliciesResult
@@ -282,6 +287,15 @@ type Mutation {
     Update a particular Corp Group's editable properties
     """
     updateCorpGroupProperties(urn: String!, input: CorpGroupUpdateInput!): CorpGroup
+
+    """
+    Remove an assertion associated with an entity. Requires the 'Edit Assertions' privilege on the entity.
+    """
+    deleteAssertion(
+      """
+      The assertion to remove
+      """
+      urn: String!): Boolean
 }
 
 """
@@ -402,6 +416,11 @@ enum EntityType {
     A DataHub ExecutionRequest
     """
     EXECUTION_REQUEST
+
+    """
+    A DataHub Assertion
+    """
+    ASSERTION
 }
 
 """
@@ -652,7 +671,8 @@ type Dataset implements EntityWithRelationships & Entity {
     container: Container
 
     """
-    The Dataset display name
+    Unique guid for dataset
+    No longer to be used as the Dataset display name. Use properties.name instead
     """
     name: String!
 
@@ -721,11 +741,16 @@ type Dataset implements EntityWithRelationships & Entity {
     If no start or end time are provided, the most recent events will be returned
     """
     datasetProfiles(startTimeMillis: Long, endTimeMillis: Long, limit: Int): [DatasetProfile!]
-    """
 
+    """
     Operational events for an entity.
     """
     operations(startTimeMillis: Long, endTimeMillis: Long, limit: Int): [Operation!]
+
+    """
+    Assertions associated with the Dataset
+    """
+    assertions(start: Int, count: Int): EntityAssertionsResult
 
     """
     Edges extending from this entity
@@ -736,6 +761,11 @@ type Dataset implements EntityWithRelationships & Entity {
     Edges extending from this entity grouped by direction in the lineage graph
     """
     lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    Experimental! The resolved health status of the Dataset
+    """
+    health: Health
 
     """
     Schema metadata of the dataset
@@ -857,7 +887,12 @@ type DatasetProperties {
     """
     The name of the dataset used in display
     """
-    name: String
+    name: String!
+
+    """
+    Fully-qualified name of the Dataset
+    """
+    qualifiedName: String
 
     """
     Environment in which the dataset belongs to or where it was generated
@@ -4325,6 +4360,12 @@ type DatasetFieldProfile {
 Information about the partition being profiled
 """
 type PartitionSpec {
+
+  """
+  The partition type
+  """
+  type: PartitionType!
+
   """
   The partition identifier
   """
@@ -4334,6 +4375,12 @@ type PartitionSpec {
   The optional time window partition information
   """
   timePartition: TimeWindow
+}
+
+enum PartitionType {
+    FULL_TABLE,
+    QUERY,
+    PARTITION
 }
 
 """
@@ -4349,6 +4396,536 @@ type TimeWindow {
   The end time of the time window
   """
   durationMillis: Long!
+}
+
+
+"""
+An assertion represents a programmatic validation, check, or test performed periodically against another Entity.
+"""
+type Assertion implements EntityWithRelationships & Entity {
+    """
+    The primary key of the Assertion
+    """
+    urn: String!
+    
+    """
+    The standard Entity Type
+    """
+    type: EntityType!
+    
+    """
+    Standardized platform urn where the assertion is evaluated
+    """
+    platform: DataPlatform!
+
+    """    
+    Details about assertion
+    """
+    info: AssertionInfo
+
+    """
+    Lifecycle events detailing individual runs of this assertion. If startTimeMillis & endTimeMillis are not provided, the most
+    recent events will be returned.
+    """    
+    runEvents(status: AssertionRunStatus, startTimeMillis: Long, endTimeMillis: Long, limit: Int): AssertionRunEventsResult
+
+    """
+    Edges extending from this entity
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+}
+
+"""
+Type of assertion. Assertion types can evolve to span Datasets, Flows (Pipelines), Models, Features etc.
+"""
+type AssertionInfo {
+    """
+    Top-level type of the assertion.
+    """
+    type: AssertionType!
+
+    """
+    Dataset-specific assertion information
+    """
+    datasetAssertion: DatasetAssertionInfo
+}
+
+"""
+Detailed information about a Dataset Assertion
+"""
+type DatasetAssertionInfo {
+    """
+    The urn of the dataset that the assertion is related to
+    """
+    datasetUrn: String!
+
+    """
+    The scope of the Dataset assertion.
+    """
+    scope: DatasetAssertionScope!
+
+    """
+    The fields serving as input to the assertion. Empty if there are none.
+    """
+    fields: [SchemaFieldRef!]
+
+    """
+    Standardized assertion operator
+    """
+    aggregation: AssertionStdAggregation
+
+    """
+    Standardized assertion operator
+    """
+    operator: AssertionStdOperator!
+
+    """
+    Standard parameters required for the assertion. e.g. min_value, max_value, value, columns
+    """
+    parameters: AssertionStdParameters
+
+    """
+    The native operator for the assertion. For Great Expectations, this will contain the original expectation name.
+    """
+    nativeType: String
+
+    """
+    Native parameters required for the assertion.
+    """
+    nativeParameters: [StringMapEntry!]
+
+    """
+    Logic comprising a raw, unstructured assertion.
+    """
+    logic: String
+}
+
+"""
+A Dataset schema field (i.e. column)
+"""
+type SchemaFieldRef {
+  """
+  A schema field urn
+  """
+  urn: String!
+
+  """
+  A schema field path
+  """
+  path: String!
+}
+
+"""
+An event representing an event in the assertion evaluation lifecycle.
+"""
+type AssertionRunEvent implements TimeSeriesAspect {
+  """
+  The time at which the assertion was evaluated
+  """
+  timestampMillis: Long!
+
+  """
+  Urn of assertion which is evaluated
+  """
+  assertionUrn: String!
+
+  """
+  Urn of entity on which the assertion is applicable
+  """
+  asserteeUrn: String!
+
+  """
+  Native (platform-specific) identifier for this run
+  """
+  runId: String!
+
+  """
+  The status of the assertion run as per this timeseries event.
+  """
+  status: AssertionRunStatus!
+
+  """
+  Specification of the batch which this run is evaluating
+  """
+  batchSpec: BatchSpec
+
+  """
+  Information about the partition that was evaluated
+  """
+  partitionSpec: PartitionSpec
+
+  """
+  Runtime parameters of evaluation
+  """
+  runtimeContext: [StringMapEntry!]
+
+  """
+  Results of assertion, present if the status is COMPLETE
+  """
+  result: AssertionResult
+
+}
+
+"""
+The result of evaluating an assertion.
+"""
+type AssertionResult {
+    """
+    The final result, e.g. either SUCCESS or FAILURE.
+    """
+    type: AssertionResultType!
+
+    """
+    Number of rows for evaluated batch
+    """
+    rowCount: Long
+
+    """
+    Number of rows with missing value for evaluated batch
+    """
+    missingCount: Long
+
+    """
+    Number of rows with unexpected value for evaluated batch
+    """
+    unexpectedCount: Long
+
+    """
+    Observed aggregate value for evaluated batch
+    """
+    actualAggValue: Float
+
+    """
+    URL where full results are available
+    """
+    externalUrl: String
+    
+    """
+    Native results / properties of evaluation
+    """
+    nativeResults: [StringMapEntry!]
+
+}
+
+type BatchSpec {
+    """
+    The native identifier as specified by the system operating on the batch.
+    """
+    nativeBatchId: String
+
+    """
+    A query that identifies a batch of data
+    """
+    query: String
+
+    """
+    Any limit to the number of rows in the batch, if applied
+    """
+    limit: Int
+    
+    """
+    Custom properties of the Batch
+    """
+    customProperties: [StringMapEntry!]
+}
+
+"""
+The result type of an assertion, success or failure.
+"""
+enum AssertionResultType {
+    """
+    The assertion succeeded.
+    """
+    SUCCESS
+
+    """
+    The assertion failed.
+    """
+    FAILURE
+}
+
+"""
+The state of an assertion run, as defined within an Assertion Run Event.
+"""
+enum AssertionRunStatus {
+    """
+    An assertion run has completed.
+    """
+    COMPLETE
+}
+
+"""
+An "aggregation" function that can be applied to column values of a Dataset to create the input to an Assertion Operator.
+"""
+enum AssertionStdAggregation {
+    """
+    Assertion is applied on individual column value
+    """
+    IDENTITY
+
+    """
+    Assertion is applied on column mean 
+    """
+    MEAN
+
+    """
+    Assertion is applied on column median
+    """
+    MEDIAN
+
+    """
+    Assertion is applied on number of distinct values in column
+    """
+    UNIQUE_COUNT
+
+    """
+    Assertion is applied on proportion of distinct values in column
+    """
+    UNIQUE_PROPOTION
+
+    """
+    Assertion is applied on number of null values in column
+    """
+    NULL_COUNT
+
+    """
+    Assertion is applied on proportion of null values in column
+    """
+    NULL_PROPORTION
+
+    """
+    Assertion is applied on column std deviation
+    """
+    STDDEV
+
+    """
+    Assertion is applied on column min
+    """
+    MIN
+
+    """
+    Assertion is applied on column std deviation
+    """
+    MAX
+
+    """
+    Assertion is applied on column sum
+    """
+    SUM
+
+    """
+    Assertion is applied on all columns
+    """
+    COLUMNS
+
+    """
+    Assertion is applied on number of columns
+    """
+    COLUMN_COUNT
+
+    """
+    Assertion is applied on number of rows
+    """
+    ROW_COUNT
+
+    """
+    Other
+    """
+    _NATIVE_
+}
+
+"""
+A standard operator or condition that constitutes an assertion definition
+"""
+enum AssertionStdOperator {
+    """
+    Value being asserted is between min_value and max_value
+    """
+    BETWEEN
+
+    """
+    Value being asserted is less than max_value
+    """
+    LESS_THAN
+
+    """
+    Value being asserted is less than or equal to max_value
+    """
+    LESS_THAN_OR_EQUAL_TO
+
+    """
+    Value being asserted is greater than min_value
+    """
+    GREATER_THAN
+
+    """
+    Value being asserted is greater than or equal to min_value
+    """
+    GREATER_THAN_OR_EQUAL_TO
+
+    """
+    Value being asserted is equal to value
+    """
+    EQUAL_TO
+
+    """
+    Value being asserted is not null
+    """
+    NOT_NULL 
+
+    """
+    Value being asserted contains value
+    """
+    CONTAIN
+
+    """
+    Value being asserted ends with value
+    """
+    END_WITH
+
+    """
+    Value being asserted starts with value
+    """
+    START_WITH
+
+    """
+    Value being asserted is one of the array values
+    """
+    IN
+
+    """
+    Other
+    """  
+    _NATIVE_
+}
+
+
+"""
+Parameters for AssertionStdOperators
+"""
+type AssertionStdParameters {
+  """
+  The value parameter of an assertion
+  """
+  value: AssertionStdParameter
+
+  """
+  The maxValue parameter of an assertion
+  """
+  maxValue: AssertionStdParameter
+
+  """
+  The minValue parameter of an assertion
+  """
+  minValue: AssertionStdParameter
+}
+
+"""
+Parameter for AssertionStdOperator.
+"""
+type AssertionStdParameter {
+  """
+  The parameter value
+  """
+  value: String!
+
+  """
+  The type of the parameter
+  """
+  type: AssertionStdParameterType!
+}
+
+"""
+The type of an AssertionStdParameter
+"""
+enum AssertionStdParameterType {
+  STRING
+  NUMBER
+  LIST
+  SET
+  UNKNOWN
+}
+
+"""
+The scope that a Dataset-level assertion applies to.
+"""
+enum DatasetAssertionScope {
+    """
+    Assertion applies to columns of a dataset.
+    """
+    DATASET_COLUMN,
+
+    """
+    Assertion applies to rows of a dataset.
+    """
+    DATASET_ROWS,
+
+    """
+    Assertion applies to schema of a dataset.
+    """
+    DATASET_SCHEMA
+
+    """
+    The scope of an assertion is unknown.
+    """
+    UNKNOWN
+}
+
+"""
+The top-level assertion type. Currently single Dataset assertions are the only type supported.
+"""
+enum AssertionType {
+    DATASET
+}
+
+"""
+Result returned when fetching run events for an assertion.
+"""
+type AssertionRunEventsResult {
+  """
+  The total number of run events returned
+  """
+  total: Int!
+
+  """
+  The number of failed run events
+  """
+  failed: Int!
+
+  """
+  The number of succeeded run events
+  """
+  succeeded: Int!
+
+  """
+  The run events themselves
+  """
+  runEvents: [AssertionRunEvent!]!
+}
+
+"""
+A list of Assertions Associated with an Entity
+"""
+type EntityAssertionsResult {
+  """
+  The starting offset of the result set returned
+  """
+  start: Int!
+
+  """
+  The number of assertions in the returned result set
+  """
+  count: Int!
+
+  """
+  The total number of assertions in the result set
+  """
+  total: Int!
+
+  """
+  The assertions themselves
+  """
+  assertions: [Assertion!]!
 }
 
 """
@@ -5971,4 +6548,41 @@ type ListDomainsResult {
   The Domains themselves
   """
   domains: [Domain!]!
+}
+
+enum HealthStatus {
+  """
+  The Asset is in a healthy state
+  """
+  PASS
+
+  """
+  The Asset is in a warning state
+  """
+  WARN
+
+  """
+  The Asset is in a failing (unhealthy) state
+  """
+  FAIL
+}
+
+"""
+The resolved Health of an Asset
+"""
+type Health {
+  """
+  An enum representing the resolved Health status of an Asset
+  """
+  status: HealthStatus!
+
+  """
+  An optional message describing the resolved health status
+  """
+  message: String
+
+  """
+  The causes responsible for the health status
+  """
+  causes: [String!]
 }

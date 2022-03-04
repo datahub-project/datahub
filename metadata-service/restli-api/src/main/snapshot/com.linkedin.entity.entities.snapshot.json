@@ -1742,6 +1742,26 @@
     "doc" : "Properties associated with a Dataset",
     "include" : [ "com.linkedin.common.CustomProperties", "com.linkedin.common.ExternalReference" ],
     "fields" : [ {
+      "name" : "name",
+      "type" : "string",
+      "doc" : "Display name of the Dataset",
+      "optional" : true,
+      "Searchable" : {
+        "boostScore" : 10.0,
+        "enableAutocomplete" : true,
+        "fieldType" : "TEXT_PARTIAL"
+      }
+    }, {
+      "name" : "qualifiedName",
+      "type" : "string",
+      "doc" : "Fully-qualified name of the Dataset",
+      "optional" : true,
+      "Searchable" : {
+        "boostScore" : 10.0,
+        "enableAutocomplete" : true,
+        "fieldType" : "TEXT_PARTIAL"
+      }
+    }, {
       "name" : "description",
       "type" : "string",
       "doc" : "Documentation of the dataset",
@@ -2517,7 +2537,7 @@
                   }, {
                     "name" : "name",
                     "type" : "string",
-                    "doc" : "Dataset native name e.g. <db>.<table>, /dir/subdir/<name>, or <name>",
+                    "doc" : "Unique guid for dataset",
                     "Searchable" : {
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
