@@ -1168,6 +1168,15 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 schema, table, self.config.profiling.partition_datetime
             )
 
+            if (
+                partition is not None
+                and not self.config.profiling.partition_profiling_enabled
+            ):
+                logger.debug(
+                    f"{dataset_name} and partition {partition} is skipped because profiling.partition_profiling_enabled property is disabled"
+                )
+                continue
+
             self.report.report_entity_profiled(dataset_name)
             yield GEProfilerRequest(
                 pretty_name=dataset_name,
