@@ -1,7 +1,7 @@
 import logging
 import random
 import uuid
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Any
 
 import click
 import progressbar
@@ -293,17 +293,9 @@ def migrate_containers(
     migration_report = MigrationReport(run_id, dry_run, keep)
 
     # Find container ids need to be migrated
-    containers_to_migrate = list(cli_utils.get_container_ids_by_filter(env=env))
-    increment = 20
-    containers = []
     container_id_map: Dict[str, str] = {}
     # Get all the containers need to be migrated
-    for i in range(0, len(containers_to_migrate), increment):
-        for container in cli_utils.batch_get_ids(
-            containers_to_migrate[i : i + increment]
-        ):
-            log.debug(container)
-            containers.append(container)
+    containers = get_container_for_migration(env)
     for container in progressbar.progressbar(containers, redirect_stdout=True):
         # Generate new container key
         subType = container["aspects"]["subTypes"]["value"]["typeNames"][0]
@@ -368,45 +360,13 @@ def migrate_containers(
                 rest_emitter.emit_mcp(mcp)
                 migration_report.on_entity_affected(mcp.entityUrn, mcp.aspectName)  # type: ignore
 
-        relationships = migration_utils.get_incoming_relationships_dataset(urn=src_urn)
-        for relationship in relationships:
-            log.debug(f"Incoming Relationship: {relationship}")
-            target_urn = relationship["entity"]
-
-            # We should use the new id if we already migrated it
-            if target_urn in container_id_map:
-                target_urn = container_id_map.get(target_urn)
-
-            entity_type = _get_type_from_urn(target_urn)
-            relationshipType = relationship["type"]
-            aspect_name = (
-                migration_utils.get_aspect_name_from_relationship_type_and_entity(
-                    relationshipType, entity_type
-                )
-            )
-            aspect_map = cli_utils.get_aspects_for_entity(
-                target_urn, aspects=[aspect_name], typed=True
-            )
-            if aspect_name in aspect_map:
-                aspect = aspect_map[aspect_name]
-                assert isinstance(aspect, DictWrapper)
-                aspect = migration_utils.modify_urn_list_for_aspect(
-                    aspect_name, aspect, relationshipType, src_urn, dst_urn
-                )
-                # use mcpw
-                mcp = MetadataChangeProposalWrapper(
-                    entityType=entity_type,
-                    changeType=ChangeTypeClass.UPSERT,
-                    entityUrn=target_urn,
-                    aspectName=aspect_name,
-                    aspect=aspect,
-                )
-                log.warning(f"relationship mcp: {mcp}")
-                if not dry_run:
-                    rest_emitter.emit_mcp(mcp)
-                migration_report.on_entity_affected(mcp.entityUrn, mcp.aspectName)  # type: ignore
-            else:
-                log.debug(f"Didn't find aspect {aspect_name} for urn {target_urn}")
+        process_container_relationships(
+            container_id_map=container_id_map,
+            dry_run=dry_run,
+            src_urn=src_urn,
+            dst_urn=dst_urn,
+            migration_report=migration_report,
+        )
 
         if not dry_run and not keep:
             log.info(f"will {'hard' if hard else 'soft'} delete {src_urn}")
@@ -416,3 +376,65 @@ def migrate_containers(
         migration_report.on_entity_migrated(src_urn, "status")  # type: ignore
 
     print(f"{migration_report}")
+
+
+def get_container_for_migration(env: str) -> List[Any]:
+    containers_to_migrate = list(cli_utils.get_container_ids_by_filter(env=env))
+    containers = []
+
+    increment = 20
+    for i in range(0, len(containers_to_migrate), increment):
+        for container in cli_utils.batch_get_ids(
+            containers_to_migrate[i : i + increment]
+        ):
+            log.debug(container)
+            containers.append(container)
+
+    return containers
+
+
+def process_container_relationships(
+    container_id_map: Dict[str, str],
+    dry_run: str,
+    src_urn: str,
+    dst_urn: str,
+    migration_report: MigrationReport,
+    rest_emitter: DatahubRestEmitter,
+):
+    relationships = migration_utils.get_incoming_relationships_dataset(urn=src_urn)
+    for relationship in relationships:
+        log.debug(f"Incoming Relationship: {relationship}")
+        target_urn = relationship["entity"]
+
+        # We should use the new id if we already migrated it
+        if target_urn in container_id_map:
+            target_urn = container_id_map.get(target_urn)
+
+        entity_type = _get_type_from_urn(target_urn)
+        relationshipType = relationship["type"]
+        aspect_name = migration_utils.get_aspect_name_from_relationship_type_and_entity(
+            relationshipType, entity_type
+        )
+        aspect_map = cli_utils.get_aspects_for_entity(
+            target_urn, aspects=[aspect_name], typed=True
+        )
+        if aspect_name in aspect_map:
+            aspect = aspect_map[aspect_name]
+            assert isinstance(aspect, DictWrapper)
+            aspect = migration_utils.modify_urn_list_for_aspect(
+                aspect_name, aspect, relationshipType, src_urn, dst_urn
+            )
+            # use mcpw
+            mcp = MetadataChangeProposalWrapper(
+                entityType=entity_type,
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=target_urn,
+                aspectName=aspect_name,
+                aspect=aspect,
+            )
+            log.warning(f"relationship mcp: {mcp}")
+            if not dry_run:
+                rest_emitter.emit_mcp(mcp)
+            migration_report.on_entity_affected(mcp.entityUrn, mcp.aspectName)  # type: ignore
+        else:
+            log.debug(f"Didn't find aspect {aspect_name} for urn {target_urn}")

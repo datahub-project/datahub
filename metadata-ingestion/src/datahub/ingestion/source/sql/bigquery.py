@@ -1,5 +1,4 @@
 import collections
-import dataclasses
 import datetime
 import functools
 import json
