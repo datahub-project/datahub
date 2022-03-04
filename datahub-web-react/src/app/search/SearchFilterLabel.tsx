@@ -169,7 +169,7 @@ export const SearchFilterLabel = ({ aggregation, field }: Props) => {
         );
     }
 
-    if (field === 'level') {
+    if (field === 'degree') {
         return <>{aggregation.value}</>;
     }
     return (
