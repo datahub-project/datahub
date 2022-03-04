@@ -5,7 +5,6 @@ import com.datahub.test.TestEntityAspectArray;
 import com.datahub.test.TestEntityInfo;
 import com.datahub.test.TestEntityKey;
 import com.datahub.test.TestEntitySnapshot;
-import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.TestEntityUtil;
