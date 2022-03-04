@@ -541,8 +541,6 @@ class DebeziumSourceConnector:
                 else:
                     table_name = found.group(2)
 
-                logger.info(f"Topic Name: {topic},  Table Name: {table_name}")
-
                 lineage = KafkaConnectLineage(
                     source_dataset=table_name,
                     source_platform=source_platform,
