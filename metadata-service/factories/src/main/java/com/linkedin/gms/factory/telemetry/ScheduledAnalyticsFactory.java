@@ -13,6 +13,12 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 
 import javax.annotation.Nonnull;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.UUID;
+
+import com.linkedin.gms.factory.telemetry.Telemetry;
 
 @Slf4j
 @Configuration
@@ -20,28 +26,16 @@ import javax.annotation.Nonnull;
 public class ScheduledAnalyticsFactory {
     private AnalyticsService _analyticsService;
 
-    String PROJECT_TOKEN = "5ee83d940754d63cacbf7d34daa6f44a";
 
-
-
-//    MessageBuilder messageBuilder =
-//            new MessageBuilder(PROJECT_TOKEN);
-//    JSONObject sentEvent =
-//            messageBuilder.event(distinctId, "weekly-analytics", null);
-//
-//    // You can send properties along with events
-//    JSONObject props = new JSONObject();
-//        props.put("Gender","Female");
-//        props.put("Plan","Premium");
-//    JSONObject planEvent =
-//            messageBuilder.event(distinctId, "Plan Selected", props);
-//    ClientDelivery delivery = new ClientDelivery();
-//    delivery.addMessage(planEvent);
-//    MixpanelAPI mixpanel = new MixpanelAPI();
-//    mixpanel.deliver(delivery);
 
     @Scheduled(fixedDelay = 1000, initialDelay = 1000)
     public void scheduleFixedDelayTask() {
+
+        Telemetry telemetry = new Telemetry();
+
+
+
+
         log.info(
                 "Fixed delay task - " + System.currentTimeMillis() / 1000);
     }
