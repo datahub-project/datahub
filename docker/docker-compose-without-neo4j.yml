@@ -80,7 +80,7 @@ services:
     build:
         context: ../
         dockerfile: docker/datahub-gms/Dockerfile
-    image: linkedin/datahub-gms:${DATAHUB_VERSION:-v0.0.1-beta.11}
+    image: linkedin/datahub-gms:${DATAHUB_VERSION:-head}
     env_file: datahub-gms/env/docker-without-neo4j.env
     hostname: datahub-gms
     container_name: datahub-gms

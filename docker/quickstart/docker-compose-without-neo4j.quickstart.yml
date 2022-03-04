@@ -80,7 +80,7 @@ services:
     - UI_INGESTION_ENABLED=true
     - UI_INGESTION_DEFAULT_CLI_VERSION=0.8.26.6
     hostname: datahub-gms
-    image: linkedin/datahub-gms:${DATAHUB_VERSION:-v0.0.1-beta.11}
+    image: linkedin/datahub-gms:${DATAHUB_VERSION:-head}
     ports:
     - 8080:8080
     volumes:
