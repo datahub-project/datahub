@@ -9,8 +9,10 @@ import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.cql.SimpleStatement;
 import com.datastax.oss.driver.api.core.paging.OffsetPager;
 import com.datastax.oss.driver.api.core.paging.OffsetPager.Page;
+import com.datastax.oss.driver.api.querybuilder.QueryBuilder;
 import com.datastax.oss.driver.api.querybuilder.insert.Insert;
 import com.datastax.oss.driver.api.querybuilder.select.Selector;
+import com.datastax.oss.driver.api.querybuilder.term.Term;
 import com.datastax.oss.driver.api.querybuilder.update.Update;
 import com.datastax.oss.driver.api.querybuilder.update.UpdateWithAssignments;
 import com.google.common.collect.ImmutableList;
@@ -62,13 +64,14 @@ public class DatastaxAspectDao implements AspectDao {
   }
 
   public Map<String, Long> getMaxVersions(@Nonnull final String urn, @Nonnull final Set<String> aspectNames) {
+    Set<Term> aspectNamesArg = aspectNames.stream().map(QueryBuilder::literal).collect(Collectors.toSet());
     SimpleStatement ss = selectFrom(DatastaxAspect.TABLE_NAME)
         .selectors(
             Selector.column(DatastaxAspect.URN_COLUMN),
             Selector.column(DatastaxAspect.ASPECT_COLUMN),
             Selector.function("max", Selector.column(DatastaxAspect.VERSION_COLUMN)).as(DatastaxAspect.VERSION_COLUMN))
         .whereColumn(DatastaxAspect.URN_COLUMN).isEqualTo(literal(urn))
-        .whereColumn(DatastaxAspect.ASPECT_COLUMN).in(literal(aspectNames))
+        .whereColumn(DatastaxAspect.ASPECT_COLUMN).in(aspectNamesArg)
         .groupBy(ImmutableList.of(Selector.column(DatastaxAspect.URN_COLUMN), Selector.column(DatastaxAspect.ASPECT_COLUMN)))
         .build();
 
