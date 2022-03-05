@@ -18,6 +18,9 @@ source:
         - "^northwind"
         - "^datacharmer"
         - "^test_cases"
+    column_type_pattern:
+      deny: 
+        - DATE
     profiling:
       enabled: True
       include_field_null_count: true
@@ -30,6 +33,9 @@ source:
       include_field_distinct_value_frequencies: true
       include_field_histogram: true
       include_field_sample_values: true
+      column_type_pattern:
+        deny:
+          - VARCHAR(50)
     domain:
       sales:
         allow:
