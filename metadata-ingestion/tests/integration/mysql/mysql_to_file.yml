@@ -35,7 +35,7 @@ source:
       include_field_sample_values: true
       column_type_pattern:
         deny:
-          - VARCHAR(50)
+          - VARCHAR\(length=50\)
     domain:
       sales:
         allow:

@@ -275,7 +275,6 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 [c.get("full_type", repr(c["type"])) for c in self.columns],
             )
         )
-
         for col in self.dataset.get_table_columns():
             # We expect the allow/deny patterns to specify '<table_pattern>.<column_pattern>'
             if not self.config.allow_deny_patterns.allowed(
