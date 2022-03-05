@@ -431,6 +431,26 @@ input EntityCountInput {
 }
 
 """
+Input for the list lineage property of an Entity
+"""
+input LineageInput {
+    """
+    The direction of the relationship, either incoming or outgoing from the source entity
+    """
+    direction: LineageDirection!
+
+    """
+    The starting offset of the result set
+    """
+    start: Int
+
+    """
+    The number of results to be returned
+    """
+    count: Int
+}
+
+"""
 Input for the list relationships field of an Entity
 """
 input RelationshipsInput {
@@ -507,6 +527,66 @@ type EntityRelationship {
 }
 
 """
+A list of lineage information associated with a source Entity
+"""
+type EntityLineageResult {
+    """
+    Start offset of the result set
+    """
+    start: Int
+
+    """
+    Number of results in the returned result set
+    """
+    count: Int
+
+    """
+    Total number of results in the result set
+    """
+    total: Int
+
+    """
+    Relationships in the result set
+    """
+    relationships: [LineageRelationship!]!
+}
+
+"""
+Metadata about a lineage relationship between two entities
+"""
+type LineageRelationship {
+    """
+    The type of the relationship
+    """
+    type: String!
+
+    """
+    Entity that is related via lineage
+    """
+    entity: Entity!
+
+    """
+    Degree of relationship (number of hops to get to entity)
+    """
+    degree: Int!
+}
+
+"""
+Direction between two nodes in the lineage graph
+"""
+enum LineageDirection {
+    """
+    Upstream, or left-to-right in the lineage visualization
+    """
+    UPSTREAM,
+
+    """
+    Downstream, or right-to-left in the lineage visualization
+    """
+    DOWNSTREAM
+}
+
+"""
 Direction between a source and destination node
 """
 enum RelationshipDirection {
@@ -556,9 +636,14 @@ interface EntityWithRelationships implements Entity {
     type: EntityType!
 
     """
-    Edges extending from this entity
+    Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Edges extending from this entity grouped by direction in the lineage graph
+    """
+    lineage(input: LineageInput!): EntityLineageResult
 }
 
 """
@@ -671,6 +756,11 @@ type Dataset implements EntityWithRelationships & Entity {
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Edges extending from this entity grouped by direction in the lineage graph
+    """
+    lineage(input: LineageInput!): EntityLineageResult
 
     """
     Experimental! The resolved health status of the Dataset
@@ -2138,7 +2228,7 @@ type CorpUser implements Entity {
     tags: GlobalTags
 
     """
-    Edges extending from this entity
+    Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
@@ -2453,7 +2543,7 @@ type CorpGroup implements Entity {
     editableProperties: CorpGroupEditableProperties
 
     """
-    Edges extending from this entity
+    Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
@@ -2640,7 +2730,7 @@ type Tag implements Entity {
     ownership: Ownership
 
     """
-    Edges extending from this entity
+    Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
@@ -3169,9 +3259,14 @@ type Dashboard implements EntityWithRelationships & Entity {
     domain: Domain
 
     """
-    Edges extending from this entity
+    Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Edges extending from this entity grouped by direction in the lineage graph
+    """
+    lineage(input: LineageInput!): EntityLineageResult
 
     """
     Deprecated, use properties field instead
@@ -3387,9 +3482,14 @@ type Chart implements EntityWithRelationships & Entity {
     domain: Domain
 
     """
-    Edges extending from this entity
+    Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Edges extending from this entity grouped by direction in the lineage graph
+    """
+    lineage(input: LineageInput!): EntityLineageResult
 
     """
     Deprecated, use properties field instead
@@ -3632,7 +3732,7 @@ enum ChartQueryType {
 A Data Flow Metadata Entity, representing an set of pipelined Data Job or Tasks required
 to produce an output Dataset Also known as a Data Pipeline
 """
-type DataFlow implements Entity {
+type DataFlow implements EntityWithRelationships & Entity {
     """
     The primary key of a Data Flow
     """
@@ -3704,9 +3804,14 @@ type DataFlow implements Entity {
     domain: Domain
 
     """
-    Edges extending from this entity
+    Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Edges extending from this entity grouped by direction in the lineage graph
+    """
+    lineage(input: LineageInput!): EntityLineageResult
 
     """
     Deprecated, use properties field instead
@@ -3865,9 +3970,14 @@ type DataJob implements EntityWithRelationships & Entity {
     domain: Domain
 
     """
-    Edges extending from this entity
+    Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Edges extending from this entity grouped by direction in the lineage graph
+    """
+    lineage(input: LineageInput!): EntityLineageResult
 
     """
     Deprecated, use properties field instead
@@ -4323,6 +4433,11 @@ type Assertion implements EntityWithRelationships & Entity {
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Edges extending from this entity grouped by direction in the lineage graph
+    """
+    lineage(input: LineageInput!): EntityLineageResult
 }
 
 """
@@ -5650,9 +5765,14 @@ type MLModel implements EntityWithRelationships & Entity {
     deprecation: Deprecation
 
     """
-    Edges extending from this entity
+    Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Edges extending from this entity grouped by direction in the lineage graph
+    """
+    lineage(input: LineageInput!): EntityLineageResult
 }
 
 """
@@ -5711,9 +5831,14 @@ type MLModelGroup implements EntityWithRelationships & Entity {
     deprecation: Deprecation
 
     """
-    Edges extending from this entity
+    Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Edges extending from this entity grouped by direction in the lineage graph
+    """
+    lineage(input: LineageInput!): EntityLineageResult
 }
 
 type MLModelGroupProperties {
@@ -5785,9 +5910,14 @@ type MLFeature implements Entity {
     deprecation: Deprecation
 
     """
-    Edges extending from this entity
+    Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Edges extending from this entity grouped by direction in the lineage graph
+    """
+    lineage(input: LineageInput!): EntityLineageResult
 }
 
 type MLHyperParam {
@@ -5912,9 +6042,14 @@ type MLPrimaryKey implements Entity {
     deprecation: Deprecation
 
     """
-    Edges extending from this entity
+    Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Edges extending from this entity grouped by direction in the lineage graph
+    """
+    lineage(input: LineageInput!): EntityLineageResult
 }
 
 type MLPrimaryKeyProperties {
@@ -5989,9 +6124,14 @@ type MLFeatureTable implements Entity {
     deprecation: Deprecation
 
     """
-    Edges extending from this entity
+    Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Edges extending from this entity grouped by direction in the lineage graph
+    """
+    lineage(input: LineageInput!): EntityLineageResult
 }
 
 type MLFeatureTableProperties {

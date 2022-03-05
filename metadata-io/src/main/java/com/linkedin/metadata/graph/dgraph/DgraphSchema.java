@@ -1,4 +1,4 @@
-package com.linkedin.metadata.graph;
+package com.linkedin.metadata.graph.dgraph;
 
 import io.dgraph.DgraphProto;
 import lombok.extern.slf4j.Slf4j;

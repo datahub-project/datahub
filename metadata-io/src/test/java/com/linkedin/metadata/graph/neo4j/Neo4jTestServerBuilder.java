@@ -1,4 +1,4 @@
-package com.linkedin.metadata.graph;
+package com.linkedin.metadata.graph.neo4j;
 
 import java.io.File;
 import java.net.URI;

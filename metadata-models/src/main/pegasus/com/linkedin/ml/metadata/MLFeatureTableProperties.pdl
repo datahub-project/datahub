@@ -22,7 +22,8 @@ record MLFeatureTableProperties includes CustomProperties {
   @Relationship = {
     "/*": {
       "name": "Contains",
-      "entityTypes": [ "mlFeature" ]
+      "entityTypes": [ "mlFeature" ],
+      "isLineage": true
     }
   }
   @Searchable = {
