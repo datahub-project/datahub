@@ -131,13 +131,4 @@ public class GraphQLEngineFactory {
         _graphService.supportsMultiHop()
     ).builder().build();
   }
-
-  @Bean(name = "analyticsService")
-  @Nonnull
-  protected AnalyticsService getAnalytics() {
-    if (isAnalyticsEnabled) {
-      return new AnalyticsService(elasticClient, indexConvention);
-    }
-    return null;
-  }
 }
