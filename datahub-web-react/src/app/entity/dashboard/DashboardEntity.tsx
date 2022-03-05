@@ -178,10 +178,13 @@ export class DashboardEntity implements Entity<Dashboard> {
             name: entity.properties?.name || '',
             type: EntityType.Dashboard,
             // eslint-disable-next-line @typescript-eslint/dot-notation
-            upstreamChildren: entity?.['charts']?.relationships?.map(
+            downstreamChildren: entity?.['downstream']?.relationships?.map(
                 (relationship) => ({ entity: relationship.entity, type: relationship.entity.type } as EntityAndType),
             ),
-            downstreamChildren: undefined,
+            // eslint-disable-next-line @typescript-eslint/dot-notation
+            upstreamChildren: entity?.['upstream']?.relationships?.map(
+                (relationship) => ({ entity: relationship.entity, type: relationship.entity.type } as EntityAndType),
+            ),
             icon: entity?.platform?.properties?.logoUrl || '',
             platform: entity.tool,
         };

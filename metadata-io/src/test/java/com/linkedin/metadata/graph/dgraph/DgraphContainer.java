@@ -1,4 +1,4 @@
-package com.linkedin.metadata.graph;
+package com.linkedin.metadata.graph.dgraph;
 
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import lombok.NonNull;

@@ -1,9 +1,14 @@
-package com.linkedin.metadata.graph;
+package com.linkedin.metadata.graph.dgraph;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.ByteString;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.graph.Edge;
+import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.graph.LineageRegistry;
+import com.linkedin.metadata.graph.RelatedEntitiesResult;
+import com.linkedin.metadata.graph.RelatedEntity;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
@@ -16,12 +21,6 @@ import io.dgraph.DgraphProto.Operation;
 import io.dgraph.DgraphProto.Request;
 import io.dgraph.DgraphProto.Response;
 import io.dgraph.DgraphProto.Value;
-import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.tuple.Pair;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -34,6 +33,11 @@ import java.util.StringJoiner;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.tuple.Pair;
 
 @Slf4j
 public class DgraphGraphService implements GraphService {
@@ -43,6 +47,7 @@ public class DgraphGraphService implements GraphService {
     private static final int MAX_ATTEMPTS = 160;
 
     private final @Nonnull DgraphExecutor _dgraph;
+    private final @Nonnull LineageRegistry _lineageRegistry;
 
     private static final String URN_RELATIONSHIP_TYPE = "urn";
     private static final String TYPE_RELATIONSHIP_TYPE = "type";
@@ -53,7 +58,8 @@ public class DgraphGraphService implements GraphService {
     // we want to defer initialization of schema (accessing Dgraph server) to the first time accessing _schema
     private final DgraphSchema _schema = getSchema();
 
-    public DgraphGraphService(@Nonnull DgraphClient client) {
+    public DgraphGraphService(@Nonnull LineageRegistry lineageRegistry, @Nonnull DgraphClient client) {
+        _lineageRegistry = lineageRegistry;
         this._dgraph = new DgraphExecutor(client, MAX_ATTEMPTS);
     }
 
@@ -143,6 +149,11 @@ public class DgraphGraphService implements GraphService {
         }).filter(t -> !t.getKey().startsWith("dgraph.")).collect(Collectors.toMap(Pair::getKey, Pair::getValue));
 
         return new DgraphSchema(fieldNames, typeFields);
+    }
+
+    @Override
+    public LineageRegistry getLineageRegistry() {
+        return _lineageRegistry;
     }
 
     @Override

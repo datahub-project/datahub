@@ -74,7 +74,58 @@
       "type" : "int",
       "doc" : "Total number of edges found."
     } ]
-  }, "com.linkedin.common.Time", "com.linkedin.common.Urn" ],
+  }, "com.linkedin.common.Time", "com.linkedin.common.Urn", {
+    "type" : "record",
+    "name" : "EntityLineageResult",
+    "namespace" : "com.linkedin.metadata.graph",
+    "doc" : "A list of lineage information associated with a source Entity",
+    "fields" : [ {
+      "name" : "start",
+      "type" : "int",
+      "doc" : "Start offset of the result set"
+    }, {
+      "name" : "count",
+      "type" : "int",
+      "doc" : "Number of results in the returned result set"
+    }, {
+      "name" : "total",
+      "type" : "int",
+      "doc" : "Total number of results in the result set"
+    }, {
+      "name" : "relationships",
+      "type" : {
+        "type" : "array",
+        "items" : {
+          "type" : "record",
+          "name" : "LineageRelationship",
+          "doc" : "Metadata about a lineage relationship between two entities",
+          "fields" : [ {
+            "name" : "type",
+            "type" : "string",
+            "doc" : "The type of the relationship"
+          }, {
+            "name" : "entity",
+            "type" : "com.linkedin.common.Urn",
+            "doc" : "Entity that is related via lineage"
+          }, {
+            "name" : "path",
+            "type" : {
+              "type" : "array",
+              "items" : "com.linkedin.common.Urn"
+            },
+            "doc" : "Optional list of entities between the source and destination node",
+            "default" : [ ]
+          }, {
+            "name" : "degree",
+            "type" : "int",
+            "doc" : "Degree of relationship (number of hops to get to entity)",
+            "default" : 1
+          } ]
+        }
+      },
+      "doc" : "Relationships in the result set"
+    } ]
+  }, "com.linkedin.metadata.graph.LineageRelationship" ],
   "schema" : {
     "name" : "relationships",
     "namespace" : "com.linkedin.lineage",
@@ -109,6 +160,29 @@
           "name" : "urn",
           "type" : "string"
         } ]
+      } ],
+      "actions" : [ {
+        "name" : "getLineage",
+        "parameters" : [ {
+          "name" : "urn",
+          "type" : "string"
+        }, {
+          "name" : "direction",
+          "type" : "string"
+        }, {
+          "name" : "start",
+          "type" : "int",
+          "optional" : true
+        }, {
+          "name" : "count",
+          "type" : "int",
+          "optional" : true
+        }, {
+          "name" : "maxHops",
+          "type" : "int",
+          "optional" : true
+        } ],
+        "returns" : "com.linkedin.metadata.graph.EntityLineageResult"
       } ],
       "entity" : {
         "path" : "/relationships"

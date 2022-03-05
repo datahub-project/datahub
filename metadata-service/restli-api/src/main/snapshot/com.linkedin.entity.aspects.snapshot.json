@@ -131,6 +131,14 @@
                       "type" : "string",
                       "doc" : "The value of the intended field"
                     }, {
+                      "name" : "values",
+                      "type" : {
+                        "type" : "array",
+                        "items" : "string"
+                      },
+                      "doc" : "Values. one of which the intended field should match\nNote, if values is set, the above \"value\" field will be ignored",
+                      "default" : [ ]
+                    }, {
                       "name" : "condition",
                       "type" : {
                         "type" : "enum",
@@ -158,7 +166,7 @@
               } ]
             }
           },
-          "doc" : "A list of of disjunctive criterion for the filter.",
+          "doc" : "A list of disjunctive criterion for the filter. (or operation to combine filters)",
           "optional" : true
         }, {
           "name" : "criteria",
@@ -405,6 +413,7 @@
       "Relationship" : {
         "/*/string" : {
           "entityTypes" : [ "dataset" ],
+          "isLineage" : true,
           "name" : "Consumes"
         }
       }
@@ -1152,6 +1161,7 @@
       "Relationship" : {
         "/*" : {
           "entityTypes" : [ "chart" ],
+          "isLineage" : true,
           "name" : "Contains"
         }
       }
@@ -1307,6 +1317,7 @@
       "Relationship" : {
         "/*" : {
           "entityTypes" : [ "dataset" ],
+          "isLineage" : true,
           "name" : "Consumes"
         }
       },
@@ -1328,6 +1339,8 @@
       "Relationship" : {
         "/*" : {
           "entityTypes" : [ "dataset" ],
+          "isLineage" : true,
+          "isUpstream" : false,
           "name" : "Produces"
         }
       },
@@ -1350,6 +1363,7 @@
       "Relationship" : {
         "/*" : {
           "entityTypes" : [ "dataJob" ],
+          "isLineage" : true,
           "name" : "DownstreamOf"
         }
       }
@@ -1591,6 +1605,7 @@
       "doc" : "The upstream dataset the lineage points to",
       "Relationship" : {
         "entityTypes" : [ "dataset" ],
+        "isLineage" : true,
         "name" : "DownstreamOf"
       },
       "Searchable" : {
@@ -3193,6 +3208,7 @@
         "Relationship" : {
           "/*" : {
             "entityTypes" : [ "dataJob" ],
+            "isLineage" : true,
             "name" : "TrainedBy"
           }
         }
@@ -3221,6 +3237,8 @@
         "Relationship" : {
           "/*" : {
             "entityTypes" : [ "mlModelGroup" ],
+            "isLineage" : true,
+            "isUpstream" : false,
             "name" : "MemberOf"
           }
         }
