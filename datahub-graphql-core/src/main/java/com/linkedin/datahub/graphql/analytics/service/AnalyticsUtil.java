@@ -36,12 +36,6 @@ public class AnalyticsUtil {
   private AnalyticsUtil() {
   }
 
-  public static Cell buildSimpleCell(String query) {
-    Cell result = new Cell();
-    result.setValue(query);
-    return result;
-  }
-
   public static Cell buildCellWithSearchLandingPage(String query) {
     Cell result = new Cell();
     result.setValue(query);
