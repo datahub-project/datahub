@@ -1,8 +1,9 @@
-package com.linkedin.metadata.telemetry;
+package com.linkedin.gms.factory.telemetry;
 
 import com.google.common.collect.ImmutableMap;
-import com.linkedin.datahub.graphql.generated.DateRange;
-import com.linkedin.gms.factory.search.ElasticSearchServiceFactory;
+//import com.linkedin.datahub.graphql.generated.DateRange;
+//import com.linkedin.
+import com.linkedin.metadata.telemetry.Telemetry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.joda.time.DateTime;
@@ -23,8 +24,7 @@ import java.util.Optional;
 public class ScheduledAnalyticsFactory {
     static Telemetry telemetry = new Telemetry();
 
-    @Autowired
-    private final AnalyticsService _analyticsService;
+//    private final AnalyticsService _analyticsService = GraphQLEngineFactory.getAnalytics();
 
     @Scheduled(fixedDelay = 1000)
     @Bean

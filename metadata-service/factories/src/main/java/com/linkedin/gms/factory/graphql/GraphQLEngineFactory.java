@@ -124,4 +124,13 @@ public class GraphQLEngineFactory {
         _gitVersion
         ).builder().build();
   }
+
+  @Bean(name = "analyticsService")
+  @Nonnull
+  protected AnalyticsService getAnalytics() {
+    if (isAnalyticsEnabled) {
+      return new AnalyticsService(elasticClient, indexConvention);
+    }
+    return null;
+  }
 }
