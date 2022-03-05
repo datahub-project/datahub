@@ -52,7 +52,7 @@ For example, to mount a user.props file that is stored on my local filesystem at
     .....
     # The new stuff
     volumes:
-      - ${HOME}/.datahub/plugins:/etc/datahub/plugins
+      - ${HOME}/.datahub:/etc/datahub
       - /tmp/datahub:/etc/datahub/plugins/frontend/auth
 ```
 

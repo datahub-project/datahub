@@ -56,7 +56,7 @@ services:
     ports:
     - 9002:9002
     volumes:
-      - ${HOME}/.datahub/plugins:/etc/datahub/plugins
+      - ${HOME}/.datahub:/etc/datahub
   datahub-gms:
     container_name: datahub-gms
     depends_on:
@@ -82,7 +82,7 @@ services:
     ports:
     - 8080:8080
     volumes:
-    - ${HOME}/.datahub/plugins:/etc/datahub/plugins
+    - ${HOME}/.datahub:/etc/datahub
   elasticsearch:
     container_name: elasticsearch
     environment:

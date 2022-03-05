@@ -117,7 +117,7 @@ services:
     depends_on:
       - datahub-gms
     volumes:
-      - ${HOME}/.datahub/plugins:/etc/datahub/plugins
+      - ${HOME}/.datahub:/etc/datahub
 
   datahub-actions:
     image: public.ecr.aws/datahub/acryl-datahub-actions:${ACTIONS_VERSION:-v0.0.1-beta.11}
