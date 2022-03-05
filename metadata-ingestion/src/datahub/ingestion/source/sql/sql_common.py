@@ -216,6 +216,7 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase):
     table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     view_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     profile_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    column_type_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     domain: Dict[str, AllowDenyPattern] = dict()
 
     include_views: Optional[bool] = True
@@ -747,7 +748,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         entity_urn: str,
         entity_type: str,
         sql_config: SQLAlchemyConfig,
-    ) -> Iterable[Union[MetadataWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
 
         domain_urn = self._gen_domain_urn(dataset_name)
         if domain_urn:
@@ -948,6 +949,12 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
     ) -> List[SchemaField]:
         canonical_schema = []
         for column in columns:
+
+            if not self.config.column_type_pattern.allowed(
+                column.get("full_type", repr(column["type"]))
+            ):
+                continue
+
             fields = self.get_schema_fields_for_column(
                 dataset_name, column, pk_constraints
             )
@@ -1158,6 +1165,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
             dataset_name = self.normalise_dataset_name(dataset_name)
 
+            columns = self._get_columns(dataset_name, inspector, schema, table)
+
             if dataset_name not in tables_seen:
                 tables_seen.add(dataset_name)
             else:
@@ -1183,6 +1192,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 batch_kwargs=self.prepare_profiler_args(
                     schema=schema,
                     table=table,
+                    columns=columns,
                     partition=partition,
                     custom_sql=custom_sql,
                 ),
@@ -1219,11 +1229,16 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self,
         schema: str,
         table: str,
+        columns: List[dict],
         partition: Optional[str],
         custom_sql: Optional[str] = None,
     ) -> dict:
         return dict(
-            schema=schema, table=table, partition=partition, custom_sql=custom_sql
+            schema=schema,
+            table=table,
+            columns=columns,
+            partition=partition,
+            custom_sql=custom_sql,
         )
 
     def get_report(self):

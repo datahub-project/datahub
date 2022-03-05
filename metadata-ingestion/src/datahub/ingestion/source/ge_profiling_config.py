@@ -28,6 +28,7 @@ class GEProfilingConfig(ConfigModel):
     include_field_sample_values: bool = True
 
     allow_deny_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
+    column_type_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     max_number_of_fields_to_profile: Optional[pydantic.PositiveInt] = None
 
     # The default of (5 * cpu_count) is adopted from the default max_workers

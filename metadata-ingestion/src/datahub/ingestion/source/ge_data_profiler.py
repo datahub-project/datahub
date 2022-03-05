@@ -256,6 +256,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     partition: Optional[str]
     config: GEProfilingConfig
     report: SQLSourceReport
+    columns: List[dict]
 
     query_combiner: SQLAlchemyQueryCombiner
 
@@ -267,10 +268,20 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         columns_to_profile: List[str] = []
         # Compute ignored columns
         ignored_columns: List[str] = []
+
+        column_types = dict(
+            zip(
+                [c["name"] for c in self.columns],
+                [c.get("full_type", repr(c["type"])) for c in self.columns],
+            )
+        )
+        
         for col in self.dataset.get_table_columns():
             # We expect the allow/deny patterns to specify '<table_pattern>.<column_pattern>'
             if not self.config.allow_deny_patterns.allowed(
                 f"{self.dataset_name}.{col}"
+            ) or not self.config.column_type_pattern.allowed(
+                column_types.get(col, "unknown")
             ):
                 ignored_columns.append(col)
             else:
@@ -777,6 +788,7 @@ class DatahubGEProfiler:
         self,
         query_combiner: SQLAlchemyQueryCombiner,
         pretty_name: str,
+        columns: List[dict],
         schema: str = None,
         table: str = None,
         partition: Optional[str] = None,
@@ -828,6 +840,7 @@ class DatahubGEProfiler:
                     partition,
                     self.config,
                     self.report,
+                    columns,
                     query_combiner,
                 ).generate_dataset_profile()
 

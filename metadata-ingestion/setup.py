@@ -101,9 +101,7 @@ snowflake_common = {
     "cryptography",
 }
 
-microsoft_common = {
-    "msal==1.16.0"
-}
+microsoft_common = {"msal==1.16.0"}
 
 data_lake_base = {
     *aws_common,
@@ -188,7 +186,7 @@ plugins: Dict[str, Set[str]] = {
     "trino": sql_common | {"trino"},
     "starburst-trino-usage": sql_common | {"trino"},
     "nifi": {"requests", "packaging"},
-    "powerbi": {"orderedset"} | microsoft_common
+    "powerbi": {"orderedset"} | microsoft_common,
 }
 
 all_exclude_plugins: Set[str] = {
