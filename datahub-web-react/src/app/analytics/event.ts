@@ -17,6 +17,8 @@ export enum EventType {
     EntityActionEvent,
     RecommendationImpressionEvent,
     RecommendationClickEvent,
+    SearchAcrossLineageEvent,
+    SearchAcrossLineageResultsViewEvent,
 }
 
 /**
@@ -159,6 +161,21 @@ export interface RecommendationClickEvent extends BaseEvent {
     index?: number;
 }
 
+export interface SearchAcrossLineageEvent extends BaseEvent {
+    type: EventType.SearchAcrossLineageEvent;
+    query: string;
+    entityTypeFilter?: EntityType;
+    pageNumber: number;
+    originPath: string;
+}
+export interface SearchAcrossLineageResultsViewEvent extends BaseEvent {
+    type: EventType.SearchAcrossLineageResultsViewEvent;
+    query: string;
+    entityTypeFilter?: EntityType;
+    page?: number;
+    total: number;
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -174,4 +191,6 @@ export type Event =
     | EntitySectionViewEvent
     | EntityActionEvent
     | RecommendationImpressionEvent
+    | SearchAcrossLineageEvent
+    | SearchAcrossLineageResultsViewEvent
     | RecommendationClickEvent;

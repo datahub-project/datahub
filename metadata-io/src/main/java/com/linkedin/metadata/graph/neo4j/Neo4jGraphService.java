@@ -1,10 +1,15 @@
-package com.linkedin.metadata.graph;
+package com.linkedin.metadata.graph.neo4j;
 
 import com.codahale.metrics.Timer;
 import com.datahub.util.Statement;
 import com.datahub.util.exception.RetryLimitReached;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.graph.Edge;
+import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.graph.LineageRegistry;
+import com.linkedin.metadata.graph.RelatedEntitiesResult;
+import com.linkedin.metadata.graph.RelatedEntity;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.CriterionArray;
@@ -36,16 +41,23 @@ import org.neo4j.driver.exceptions.Neo4jException;
 public class Neo4jGraphService implements GraphService {
 
   private static final int MAX_TRANSACTION_RETRY = 3;
+  private final LineageRegistry _lineageRegistry;
   private final Driver _driver;
   private SessionConfig _sessionConfig;
 
-  public Neo4jGraphService(@Nonnull Driver driver) {
-    this(driver, SessionConfig.defaultConfig());
+  public Neo4jGraphService(@Nonnull LineageRegistry lineageRegistry, @Nonnull Driver driver) {
+    this(lineageRegistry, driver, SessionConfig.defaultConfig());
   }
 
-  public Neo4jGraphService(@Nonnull Driver driver, @Nonnull SessionConfig sessionConfig) {
+  public Neo4jGraphService(@Nonnull LineageRegistry lineageRegistry, @Nonnull Driver driver, @Nonnull SessionConfig sessionConfig) {
+    this._lineageRegistry = lineageRegistry;
     this._driver = driver;
     this._sessionConfig = sessionConfig;
+  }
+
+  @Override
+  public LineageRegistry getLineageRegistry() {
+    return _lineageRegistry;
   }
 
   public void addEdge(@Nonnull final Edge edge) {

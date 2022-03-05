@@ -1,11 +1,17 @@
-package com.linkedin.metadata.graph;
+package com.linkedin.metadata.graph.elastic;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.ElasticSearchTestUtils;
 import com.linkedin.metadata.ElasticTestUtils;
-import com.linkedin.metadata.graph.elastic.ESGraphQueryDAO;
-import com.linkedin.metadata.graph.elastic.ESGraphWriteDAO;
-import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
+import com.linkedin.metadata.graph.EntityLineageResult;
+import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.graph.GraphServiceTestBase;
+import com.linkedin.metadata.graph.LineageDirection;
+import com.linkedin.metadata.graph.LineageRegistry;
+import com.linkedin.metadata.graph.LineageRelationship;
+import com.linkedin.metadata.graph.RelatedEntitiesResult;
+import com.linkedin.metadata.graph.RelatedEntity;
+import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
@@ -15,6 +21,9 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
@@ -27,6 +36,7 @@ import org.testng.annotations.Test;
 import static com.linkedin.metadata.DockerTestUtils.checkContainerEngine;
 import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.INDEX_NAME;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 
 public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
@@ -55,10 +65,11 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
 
   @Nonnull
   private ElasticSearchGraphService buildService() {
-    ESGraphQueryDAO readDAO = new ESGraphQueryDAO(_searchClient, _indexConvention);
+    LineageRegistry lineageRegistry = new LineageRegistry(SnapshotEntityRegistry.getInstance());
+    ESGraphQueryDAO readDAO = new ESGraphQueryDAO(_searchClient, lineageRegistry, _indexConvention);
     ESGraphWriteDAO writeDAO =
         new ESGraphWriteDAO(_searchClient, _indexConvention, ElasticSearchServiceTest.getBulkProcessor(_searchClient));
-    return new ElasticSearchGraphService(_searchClient, _indexConvention, writeDAO, readDAO,
+    return new ElasticSearchGraphService(lineageRegistry, _searchClient, _indexConvention, writeDAO, readDAO,
         ElasticSearchServiceTest.getIndexBuilder(_searchClient));
   }
 
@@ -83,8 +94,8 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
     // https://github.com/linkedin/datahub/issues/3115
     // ElasticSearchGraphService produces duplicates, which is here ignored until fixed
     // actual.count and actual.total not tested due to duplicates
-    assertEquals(actual.start, expected.start);
-    assertEqualsAnyOrder(actual.entities, expected.entities, RELATED_ENTITY_COMPARATOR);
+    assertEquals(actual.getStart(), expected.getStart());
+    assertEqualsAnyOrder(actual.getEntities(), expected.getEntities(), RELATED_ENTITY_COMPARATOR);
   }
 
   @Override
@@ -195,5 +206,46 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
   public void testConcurrentRemoveNodes() {
     // https://github.com/linkedin/datahub/issues/3118
     throw new SkipException("ElasticSearchGraphService produces duplicates");
+  }
+
+  @Test
+  public void testPopulatedGraphServiceGetLineageMultihop() throws Exception {
+    GraphService service = getLineagePopulatedGraphService();
+
+    EntityLineageResult upstreamLineage = service.getLineage(datasetOneUrn, LineageDirection.UPSTREAM, 0, 1000, 2);
+    assertEquals(upstreamLineage.getTotal().intValue(), 0);
+    assertEquals(upstreamLineage.getRelationships().size(), 0);
+
+    EntityLineageResult downstreamLineage = service.getLineage(datasetOneUrn, LineageDirection.DOWNSTREAM, 0, 1000, 2);
+    assertEquals(downstreamLineage.getTotal().intValue(), 5);
+    assertEquals(downstreamLineage.getRelationships().size(), 5);
+    Map<Urn, LineageRelationship> relationships = downstreamLineage.getRelationships().stream().collect(Collectors.toMap(LineageRelationship::getEntity,
+        Function.identity()));
+    assertTrue(relationships.containsKey(datasetTwoUrn));
+    assertEquals(relationships.get(datasetTwoUrn).getDegree().intValue(), 1);
+    assertTrue(relationships.containsKey(datasetThreeUrn));
+    assertEquals(relationships.get(datasetThreeUrn).getDegree().intValue(), 2);
+    assertTrue(relationships.containsKey(datasetFourUrn));
+    assertEquals(relationships.get(datasetFourUrn).getDegree().intValue(), 2);
+    assertTrue(relationships.containsKey(dataJobOneUrn));
+    assertEquals(relationships.get(dataJobOneUrn).getDegree().intValue(), 1);
+    assertTrue(relationships.containsKey(dataJobTwoUrn));
+    assertEquals(relationships.get(dataJobTwoUrn).getDegree().intValue(), 1);
+
+    upstreamLineage = service.getLineage(datasetThreeUrn, LineageDirection.UPSTREAM, 0, 1000, 2);
+    assertEquals(upstreamLineage.getTotal().intValue(), 3);
+    assertEquals(upstreamLineage.getRelationships().size(), 3);
+    relationships = upstreamLineage.getRelationships().stream().collect(Collectors.toMap(LineageRelationship::getEntity,
+        Function.identity()));
+    assertTrue(relationships.containsKey(datasetOneUrn));
+    assertEquals(relationships.get(datasetOneUrn).getDegree().intValue(), 2);
+    assertTrue(relationships.containsKey(datasetTwoUrn));
+    assertEquals(relationships.get(datasetTwoUrn).getDegree().intValue(), 1);
+    assertTrue(relationships.containsKey(dataJobOneUrn));
+    assertEquals(relationships.get(dataJobOneUrn).getDegree().intValue(), 1);
+
+    downstreamLineage = service.getLineage(datasetThreeUrn, LineageDirection.DOWNSTREAM, 0, 1000, 2);
+    assertEquals(downstreamLineage.getTotal().intValue(), 0);
+    assertEquals(downstreamLineage.getRelationships().size(), 0);
   }
 }

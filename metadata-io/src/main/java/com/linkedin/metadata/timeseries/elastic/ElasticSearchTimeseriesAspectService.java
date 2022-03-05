@@ -129,13 +129,13 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
       Criterion startTimeCriterion = new Criterion().setField(TIMESTAMP_FIELD)
           .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
           .setValue(startTimeMillis.toString());
-      filterQueryBuilder.must(ESUtils.getQueryBuilderFromCriterionForSearch(startTimeCriterion));
+      filterQueryBuilder.must(ESUtils.getQueryBuilderFromCriterion(startTimeCriterion));
     }
     if (endTimeMillis != null) {
       Criterion endTimeCriterion = new Criterion().setField(TIMESTAMP_FIELD)
           .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
           .setValue(endTimeMillis.toString());
-      filterQueryBuilder.must(ESUtils.getQueryBuilderFromCriterionForSearch(endTimeCriterion));
+      filterQueryBuilder.must(ESUtils.getQueryBuilderFromCriterion(endTimeCriterion));
     }
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.query(filterQueryBuilder);
