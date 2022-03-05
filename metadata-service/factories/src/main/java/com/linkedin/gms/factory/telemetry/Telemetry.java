@@ -18,13 +18,13 @@ import lombok.extern.slf4j.Slf4j;
 import static java.lang.Boolean.parseBoolean;
 
 @Slf4j
-public class Telemetry {
+final class Telemetry {
     static final String MIXPANEL_TOKEN = "5ee83d940754d63cacbf7d34daa6f44a";
     static final String DATAHUB_FOLDER_PATH = System.getProperty("user.home") + "/.datahub";
     static final String CONFIG_FILE_PATH = DATAHUB_FOLDER_PATH + "/telemetry-config.json";
 
     static boolean enabled = true;
-    static String client_id;
+    static String clientId;
 
     private static MixpanelAPI mixpanel;
     private static MessageBuilder mixpanelBuilder;
@@ -32,16 +32,16 @@ public class Telemetry {
     static {
 
         try {
-            File CONFIG_FILE = new File(CONFIG_FILE_PATH);
+            File configFile = new File(CONFIG_FILE_PATH);
 
-            if (!CONFIG_FILE.exists()) {
-                client_id = UUID.randomUUID().toString();
-                update_config();
+            if (!configFile.exists()) {
+                clientId = UUID.randomUUID().toString();
+                updateConfig();
             } else {
-                load_config();
+                loadConfig();
             }
 
-            if (enabled == true) {
+            if (enabled) {
 
                 // initialize MixPanel instance and message builder
                 mixpanel = new MixpanelAPI();
@@ -51,7 +51,7 @@ public class Telemetry {
                 JSONObject props = new JSONObject();
                 props.put("java_version", System.getProperty("java.version"));
                 props.put("os", System.getProperty("os.name"));
-                JSONObject update = mixpanelBuilder.set(client_id, props);
+                JSONObject update = mixpanelBuilder.set(clientId, props);
                 mixpanel.sendMessage(update);
             }
 
@@ -61,19 +61,19 @@ public class Telemetry {
 
     }
 
-    public static void update_config() {
+    public static void updateConfig() {
         try {
-            final File DATAHUB_FOLDER = new File(DATAHUB_FOLDER_PATH);
-            if (!DATAHUB_FOLDER.exists()) {
-                DATAHUB_FOLDER.mkdirs();
+            final File datahubFolder = new File(DATAHUB_FOLDER_PATH);
+            if (!datahubFolder.exists()) {
+                datahubFolder.mkdirs();
             }
 
-            final File CONFIG_FILE = new File(CONFIG_FILE_PATH);
-            if (!CONFIG_FILE.exists()) {
+            final File configFile = new File(CONFIG_FILE_PATH);
+            if (!configFile.exists()) {
 
                 JSONObject config = new JSONObject();
 
-                config.put("client_id", client_id);
+                config.put("client_id", clientId);
                 config.put("enabled", enabled);
 
                 FileWriter file = new FileWriter(CONFIG_FILE_PATH);
@@ -94,10 +94,10 @@ public class Telemetry {
         enabled = false;
     }
 
-    public static void load_config() {
+    public static void loadConfig() {
         try {
-            final File CONFIG_FILE = new File(CONFIG_FILE_PATH);
-            if (CONFIG_FILE.exists()) {
+            final File configFile = new File(CONFIG_FILE_PATH);
+            if (configFile.exists()) {
 
                 InputStream inputFile = new FileInputStream(CONFIG_FILE_PATH);
                 String jsonTxt = IOUtils.toString(inputFile, "UTF-8");
@@ -105,14 +105,14 @@ public class Telemetry {
 
                 JSONObject config = new JSONObject(jsonTxt);
 
-                String env_enabled_raw = System.getenv("DATAHUB_TELEMETRY_ENABLED");
-                if (env_enabled_raw == null || env_enabled_raw.isEmpty()) {
-                    env_enabled_raw = "true";
+                String envEnabledRaw = System.getenv("DATAHUB_TELEMETRY_ENABLED");
+                if (envEnabledRaw == null || envEnabledRaw.isEmpty()) {
+                    envEnabledRaw = "true";
                 }
-                boolean env_enabled = env_enabled_raw.equals("true");
+                boolean envEnabled = envEnabledRaw.equals("true");
 
-                client_id = config.get("client_id").toString();
-                enabled = parseBoolean(config.get("enabled").toString()) && env_enabled;
+                clientId = config.get("client_id").toString();
+                enabled = parseBoolean(config.get("enabled").toString()) && envEnabled;
 
             }
         } catch (Exception e) {
@@ -128,10 +128,15 @@ public class Telemetry {
 
         try {
             JSONObject event =
-                    mixpanelBuilder.event(client_id, eventName, properties);
+                    mixpanelBuilder.event(clientId, eventName, properties);
             mixpanel.sendMessage(event);
         } catch (Exception e) {
             log.error("Error reporting telemetry:\n" + ExceptionUtils.getStackTrace(e));
         }
     }
+
+    private Telemetry() {
+        throw new UnsupportedOperationException();
+    }
+
 }

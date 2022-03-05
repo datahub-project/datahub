@@ -32,8 +32,6 @@ public class ScheduledAnalyticsFactory {
     @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN)
     private IndexConvention indexConvention;
 
-    static Telemetry telemetry = new Telemetry();
-
     // statistics to send daily
     @Scheduled(fixedDelay = 24 * 60 * 60 * 1000)
     public void dailyReport() {
@@ -70,7 +68,7 @@ public class ScheduledAnalyticsFactory {
             report.put("wau", weeklyActiveUsers);
             report.put("mau", monthlyActiveUsers);
 
-            telemetry.ping("service-daily", report);
+            Telemetry.ping("service-daily", report);
 
         } catch (Exception e) {
             log.error("Error computing daily report:\n" + ExceptionUtils.getStackTrace(e));
