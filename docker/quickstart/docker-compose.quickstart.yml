@@ -58,7 +58,7 @@ services:
     ports:
     - 9002:9002
     volumes:
-    - ${HOME}/.datahub:/etc/datahub
+    - ${HOME}/.datahub/plugins:/etc/datahub/plugins
   datahub-gms:
     container_name: datahub-gms
     depends_on:
