@@ -795,6 +795,7 @@ WHERE
         self,
         schema: str,
         table: str,
+        columns: List[dict],
         partition: Optional[str],
         custom_sql: Optional[str] = None,
     ) -> dict:
@@ -802,6 +803,7 @@ WHERE
         return dict(
             schema=self.config.project_id,
             table=f"{schema}.{table}",
+            columns=columns,
             partition=partition,
             custom_sql=custom_sql,
         )
