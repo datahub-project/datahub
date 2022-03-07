@@ -309,9 +309,11 @@ WHERE
                     f"Upstream->View: Lineage[View(Down)={view_name}]:Upstream={view_upstream}"
                 )
         except Exception as e:
-            logger.warning(
-                f"Extracting the upstream view lineage from Snowflake failed."
-                f"Please check your permissions. Continuing...\nError was {e}."
+            super().warn(
+                logger,
+                "view_upstream_lineage",
+                "Extracting the upstream view lineage from Snowflake failed."
+                + f"Please check your permissions. Continuing...\nError was {e}.",
             )
         logger.info(f"A total of {num_edges} View upstream edges found.")
         self.report.num_table_to_view_edges_scanned = num_edges
@@ -423,9 +425,11 @@ WHERE
                 num_edges += 1
 
         except Exception as e:
-            logger.warning(
+            super().warn(
+                logger,
+                "view_downstream_lineage",
                 f"Extracting the view lineage from Snowflake failed."
-                f"Please check your permissions. Continuing...\nError was {e}."
+                f"Please check your permissions. Continuing...\nError was {e}.",
             )
         logger.info(
             f"Found {num_edges} View->Table edges. Removed {num_false_edges} false Table->Table edges."
@@ -496,9 +500,11 @@ WHERE
                 )
                 num_edges += 1
         except Exception as e:
-            logger.warning(
+            super().warn(
+                logger,
+                "external_lineage",
                 f"Populating external table lineage from Snowflake failed."
-                f"Please check your premissions. Continuing...\nError was {e}."
+                f"Please check your premissions. Continuing...\nError was {e}.",
             )
         logger.info(f"Found {num_edges} external lineage edges.")
         self.report.num_external_table_edges_scanned = num_edges
@@ -547,9 +553,11 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
                     f"Lineage[Table(Down)={key}]:Table(Up)={self._lineage_map[key]}"
                 )
         except Exception as e:
-            logger.warning(
+            super().warn(
+                logger,
+                "lineage",
                 f"Extracting lineage from Snowflake failed."
-                f"Please check your premissions. Continuing...\nError was {e}."
+                f"Please check your premissions. Continuing...\nError was {e}.",
             )
         logger.info(
             f"A total of {num_edges} Table->Table edges found"
