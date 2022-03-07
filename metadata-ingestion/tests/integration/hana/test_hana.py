@@ -10,7 +10,7 @@ FROZEN_TIME = "2020-04-14 07:00:00"
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
-def test_mysql_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
+def test_hana_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/hana"
 
     with docker_compose_runner(
