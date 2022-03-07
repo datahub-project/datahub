@@ -1,3 +1,4 @@
+# Attention Hana pull requires that you are logged into Docker Hub prior to pulling the images (requirement by SAP as image provider)
 version: '3.4'
 services:
   testhana:

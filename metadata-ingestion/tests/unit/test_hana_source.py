@@ -3,6 +3,7 @@ import pytest
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.hana import HanaConfig, HanaSource
 
+
 @pytest.mark.integration
 def test_platform_correctly_set_hana():
     source = HanaSource(
@@ -10,6 +11,7 @@ def test_platform_correctly_set_hana():
         config=HanaConfig(),
     )
     assert source.platform == "hana"
+
 
 @pytest.mark.integration
 def test_hana_uri_native():
@@ -23,15 +25,19 @@ def test_hana_uri_native():
     )
     assert config.get_sql_alchemy_url() == "hana+hdbcli://user:password@host:39041"
 
+
 @pytest.mark.integration
-def test_hana_uri_native():
+def test_hana_uri_native_db():
     config = HanaConfig.parse_obj(
         {
             "username": "user",
             "password": "password",
             "host_port": "host:39041",
             "scheme": "hana+hdbcli",
-            "db": "database"
+            "db": "database",
         }
     )
-    assert config.get_sql_alchemy_url() == "hana+hdbcli://user:password@host:39041/database"
+    assert (
+        config.get_sql_alchemy_url()
+        == "hana+hdbcli://user:password@host:39041/database"
+    )
