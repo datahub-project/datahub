@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Dropdown, Menu } from 'antd';
 import { MoreOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import { EntityType, FacetFilterInput, SearchAcrossEntitiesInput } from '../../../../../../types.generated';
 import { SearchResultsInterface } from './types';
 import DownloadAsCsvButton from './DownloadAsCsvButton';
+import DownloadAsCsvModal from './DownloadAsCsvModal';
 
 const MenuIcon = styled(MoreOutlined)`
     font-size: 15px;
@@ -22,22 +23,34 @@ type Props = {
 
 // currently only contains Download As Csv but will be extended to contain other actions as well
 export default function SearchExtendedMenu({ callSearchOnVariables, entityFilters, filters, query }: Props) {
+    const [isDownloadingCsv, setIsDownloadingCsv] = useState(false);
+    const [showDownloadAsCsvModal, setShowDownloadAsCsvModal] = useState(false);
+
     const menu = (
         <Menu>
             <Menu.Item key="0">
                 <DownloadAsCsvButton
-                    callSearchOnVariables={callSearchOnVariables}
-                    entityFilters={entityFilters}
-                    filters={filters}
-                    query={query}
+                    isDownloadingCsv={isDownloadingCsv}
+                    setShowDownloadAsCsvModal={setShowDownloadAsCsvModal}
                 />
             </Menu.Item>
         </Menu>
     );
 
     return (
-        <Dropdown overlay={menu} trigger={['click']}>
-            <MenuIcon />
-        </Dropdown>
+        <>
+            <DownloadAsCsvModal
+                callSearchOnVariables={callSearchOnVariables}
+                entityFilters={entityFilters}
+                filters={filters}
+                query={query}
+                setIsDownloadingCsv={setIsDownloadingCsv}
+                showDownloadAsCsvModal={showDownloadAsCsvModal}
+                setShowDownloadAsCsvModal={setShowDownloadAsCsvModal}
+            />
+            <Dropdown overlay={menu} trigger={['click']}>
+                <MenuIcon />
+            </Dropdown>
+        </>
     );
 }
