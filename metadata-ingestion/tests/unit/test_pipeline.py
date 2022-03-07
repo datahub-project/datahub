@@ -10,12 +10,12 @@ from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.transform import Transformer
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
-from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import SystemMetadata
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     DatasetSnapshotClass,
     MetadataChangeEventClass,
+    StatusClass,
 )
 from tests.test_helpers.sink_helpers import RecordingSinkReport
 
@@ -188,9 +188,13 @@ class AddStatusRemovedTransformer(Transformer):
         self, record_envelopes: Iterable[RecordEnvelope]
     ) -> Iterable[RecordEnvelope]:
         for record_envelope in record_envelopes:
-            record_envelope.record.proposedSnapshot.aspects.append(
-                get_status_removed_aspect()
-            )
+            if isinstance(record_envelope.record, MetadataChangeEventClass):
+                assert isinstance(
+                    record_envelope.record.proposedSnapshot, DatasetSnapshotClass
+                )
+                record_envelope.record.proposedSnapshot.aspects.append(
+                    get_status_removed_aspect()
+                )
             yield record_envelope
 
 
@@ -250,5 +254,5 @@ def get_initial_mce() -> MetadataChangeEventClass:
     )
 
 
-def get_status_removed_aspect() -> Status:
-    return Status(removed=False)
+def get_status_removed_aspect() -> StatusClass:
+    return StatusClass(removed=False)

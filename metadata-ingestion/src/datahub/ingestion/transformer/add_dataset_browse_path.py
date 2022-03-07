@@ -3,12 +3,10 @@ from typing import List
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.transformer.dataset_transformer import DatasetTransformer
-from datahub.metadata.schema_classes import (
-    BrowsePathsClass,
-    DatasetSnapshotClass,
-    MetadataChangeEventClass,
+from datahub.ingestion.transformer.dataset_transformer import (
+    DatasetBrowsePathsTransformer,
 )
+from datahub.metadata.schema_classes import BrowsePathsClass, MetadataChangeEventClass
 
 
 class AddDatasetBrowsePathConfig(ConfigModel):
@@ -16,13 +14,14 @@ class AddDatasetBrowsePathConfig(ConfigModel):
     replace_existing: bool = False
 
 
-class AddDatasetBrowsePathTransformer(DatasetTransformer):
+class AddDatasetBrowsePathTransformer(DatasetBrowsePathsTransformer):
     """Transformer that can be used to set browse paths through template replacement"""
 
     ctx: PipelineContext
     config: AddDatasetBrowsePathConfig
 
     def __init__(self, config: AddDatasetBrowsePathConfig, ctx: PipelineContext):
+        super().__init__()
         self.ctx = ctx
         self.config = config
 
@@ -34,8 +33,6 @@ class AddDatasetBrowsePathTransformer(DatasetTransformer):
         return cls(config, ctx)
 
     def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventClass:
-        if not isinstance(mce.proposedSnapshot, DatasetSnapshotClass):
-            return mce
         platform_part, dataset_fqdn, env = (
             mce.proposedSnapshot.urn.replace("urn:li:dataset:(", "")
             .replace(")", "")
