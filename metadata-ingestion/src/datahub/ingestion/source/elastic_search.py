@@ -4,7 +4,7 @@ import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from hashlib import md5
-from typing import Any, Dict, Generator, Iterable, List, Tuple, Optional, Type
+from typing import Any, Dict, Generator, Iterable, List, Optional, Tuple, Type
 
 from elasticsearch import Elasticsearch
 from pydantic import validator
@@ -205,7 +205,7 @@ class ElasticsearchSourceConfig(DatasetSourceConfigBase):
     def http_auth(self) -> Optional[Tuple[str, str]]:
         if self.username is None:
             return None
-        return self.username, self.password
+        return self.username, self.password or ""
 
 
 class ElasticsearchSource(Source):
