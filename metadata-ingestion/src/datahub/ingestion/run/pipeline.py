@@ -14,7 +14,7 @@ from datahub.configuration.common import (
     PipelineExecutionError,
 )
 from datahub.ingestion.api.committable import CommitPolicy
-from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
+from datahub.ingestion.api.common import EndOfStream, PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import Sink, WriteCallback
 from datahub.ingestion.api.source import Extractor, Source
 from datahub.ingestion.api.transform import Transformer
@@ -195,6 +195,18 @@ class Pipeline:
             if not self.dry_run:
                 self.sink.handle_work_unit_end(wu)
         self.source.close()
+        # no more data is coming, we need to let the transformers produce any additional records if they are holding on to state
+        for record_envelope in self.transform(
+            [
+                RecordEnvelope(
+                    record=EndOfStream(), metadata={"workunit_id": "end-of-stream"}
+                )
+            ]
+        ):
+            if not self.dry_run and not isinstance(record_envelope.record, EndOfStream):
+                # TODO: propagate EndOfStream and other control events to sinks, to allow them to flush etc.
+                self.sink.write_record_async(record_envelope, callback)
+
         self.sink.close()
         self.process_commits()
 
