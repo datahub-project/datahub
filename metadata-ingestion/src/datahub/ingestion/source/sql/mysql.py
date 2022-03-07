@@ -35,6 +35,9 @@ class MySQLConfig(BasicSQLAlchemyConfig):
 
 
 class MySQLSource(SQLAlchemySource):
+
+    config: MySQLConfig
+
     def __init__(self, config, ctx):
         super().__init__(config, ctx, self.get_platform())
 
