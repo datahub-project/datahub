@@ -69,6 +69,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 | [druid](../metadata-ingestion/source_docs/druid.md)                                 | `pip install 'acryl-datahub[druid]'`                       | Druid Source                        |
 | [feast](../metadata-ingestion/source_docs/feast.md)                                 | `pip install 'acryl-datahub[feast]'`                       | Feast source                        |
 | [glue](../metadata-ingestion/source_docs/glue.md)                                   | `pip install 'acryl-datahub[glue]'`                        | AWS Glue source                     |
+| [hana](../metadata-ingestion/source_docs/hana.md)                                   | `pip install 'acryl-datahub[hana]'`                        | SAP HANA source                         |
 | [hive](../metadata-ingestion/source_docs/hive.md)                                   | `pip install 'acryl-datahub[hive]'`                        | Hive source                         |
 | [kafka](../metadata-ingestion/source_docs/kafka.md)                                 | `pip install 'acryl-datahub[kafka]'`                       | Kafka source                        |
 | [kafka-connect](../metadata-ingestion/source_docs/kafka-connect.md)                 | `pip install 'acryl-datahub[kafka-connect]'`               | Kafka connect source                |

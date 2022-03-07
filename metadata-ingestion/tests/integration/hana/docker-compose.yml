@@ -13,8 +13,8 @@ services:
       - ./post_start:/hana/hooks/post_start/
       - ./setup:/hana/mounts/setup/
     environment: 
-      - SOURCE_SCHEMA=SOURCE
       - SCHEMA_NAME=HOTEL
+      - DUMP_FILE=setup.sql
       - SCHEMA_PWD=Localdev1
     command:
       - --agree-to-sap-license
