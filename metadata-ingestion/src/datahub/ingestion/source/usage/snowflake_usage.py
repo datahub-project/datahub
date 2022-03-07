@@ -235,11 +235,13 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
             and int(self.config.start_time.timestamp() * 1000)
             <= last_successful_pipeline_run_end_time_millis
         ):
-            logger.info(
+            warn_msg = (
                 f"Skippig this run, since the last run's bucket duration end: "
                 f"{datetime.fromtimestamp(last_successful_pipeline_run_end_time_millis/1000, tz=timezone.utc)}"
                 f" is later than the current start_time: {self.config.start_time}"
             )
+            logger.warning(warn_msg)
+            self.report.report_warning("skip-run", warn_msg)
             return True
         return False
 
@@ -395,7 +397,10 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
 
             if not event_dict["email"] and self.config.email_domain:
                 if not event_dict["user_name"]:
-                    logging.warning(
+                    self.report.report_warning(
+                        "user-name-miss", f"Missing in {event_dict}"
+                    )
+                    logger.warning(
                         f"The user_name is missing from {event_dict}. Skipping ...."
                     )
                     continue

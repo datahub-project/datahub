@@ -25,16 +25,21 @@ class DatahubRestSinkConfig(DatahubClientConfig):
 
 
 @dataclass
+class DataHubRestSinkReport(SinkReport):
+    gms_version: str = ""
+
+
+@dataclass
 class DatahubRestSink(Sink):
     config: DatahubRestSinkConfig
     emitter: DatahubRestEmitter
-    report: SinkReport
+    report: DataHubRestSinkReport
     treat_errors_as_warnings: bool = False
 
     def __init__(self, ctx: PipelineContext, config: DatahubRestSinkConfig):
         super().__init__(ctx)
         self.config = config
-        self.report = SinkReport()
+        self.report = DataHubRestSinkReport()
         self.emitter = DatahubRestEmitter(
             self.config.server,
             self.config.token,
@@ -45,7 +50,7 @@ class DatahubRestSink(Sink):
             extra_headers=self.config.extra_headers,
             ca_certificate_path=self.config.ca_certificate_path,
         )
-        self.emitter.test_connection()
+        self.report.gms_version = self.emitter.test_connection()
         self.executor = concurrent.futures.ThreadPoolExecutor(
             max_workers=self.config.max_threads
         )
