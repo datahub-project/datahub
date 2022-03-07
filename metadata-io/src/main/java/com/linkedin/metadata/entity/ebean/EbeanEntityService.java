@@ -6,8 +6,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.JacksonDataTemplateCodec;
@@ -31,8 +33,13 @@ import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
+import lombok.extern.slf4j.Slf4j;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -45,13 +52,11 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
+import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
 import static com.linkedin.metadata.entity.ebean.EbeanUtils.*;
-import static com.linkedin.metadata.utils.PegasusUtils.*;
+import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 
 
 /**
@@ -72,8 +77,9 @@ public class EbeanEntityService extends EntityService {
     _entityDao = entityDao;
   }
 
-  @Nonnull Map<String, EbeanAspectV2> getLatestEbeanAspectForUrn(@Nonnull final Urn urn,
-    @Nonnull final Set<String> aspectNames) {
+  @Nonnull
+  Map<String, EbeanAspectV2> getLatestEbeanAspectForUrn(@Nonnull final Urn urn,
+                                                        @Nonnull final Set<String> aspectNames) {
       Set<Urn> urns = new HashSet<>();
       urns.add(urn);
 
@@ -469,11 +475,14 @@ public class EbeanEntityService extends EntityService {
   }
 
   @Nullable
-  public RollbackResult deleteAspect(String urn, String aspectName, Map<String, String> conditions) {
+  public RollbackResult deleteAspect(String urn, String aspectName, Map<String, String> conditions, boolean hardDelete) {
     // Validate pre-conditions before running queries
+    Urn entityUrn;
+    EntitySpec entitySpec;
     try {
-      String entityName = PegasusUtils.urnToEntityName(Urn.createFromString(urn));
-      EntitySpec entitySpec = getEntityRegistry().getEntitySpec(entityName);
+      entityUrn = Urn.createFromString(urn);
+      String entityName = PegasusUtils.urnToEntityName(entityUrn);
+      entitySpec = getEntityRegistry().getEntitySpec(entityName);
       Preconditions.checkState(entitySpec != null, String.format("Could not find entity definition for %s", entityName));
       Preconditions.checkState(entitySpec.hasAspect(aspectName), String.format("Could not find aspect %s in definition for %s", aspectName, entityName));
     } catch (URISyntaxException uriSyntaxException) {
@@ -543,8 +552,22 @@ public class EbeanEntityService extends EntityService {
         _entityDao.deleteAspect(survivingAspect);
       } else {
         if (isKeyAspect) {
-          // If this is the key aspect, delete the entity entirely.
-          additionalRowsDeleted = _entityDao.deleteUrn(urn);
+          if (hardDelete) {
+            // If this is the key aspect, delete the entity entirely.
+            additionalRowsDeleted = _entityDao.deleteUrn(urn);
+          } else if (entitySpec.hasAspect("status")) {
+            // soft delete by setting status.removed=true (if applicable)
+            final Status statusAspect =  new Status();
+            statusAspect.setRemoved(true);
+            final SystemMetadata systemMetadata = new SystemMetadata();
+            systemMetadata.setRunId(DEFAULT_RUN_ID);
+            systemMetadata.setLastObserved(System.currentTimeMillis());
+            final AuditStamp auditStamp = new AuditStamp()
+                    .setActor(UrnUtils.getUrn(SYSTEM_ACTOR))
+                    .setTime(Clock.systemUTC().millis());
+
+            this.ingestAspect(entityUrn, "status", statusAspect, auditStamp, systemMetadata);
+          }
         } else {
           // Else, only delete the specific aspect.
           _entityDao.deleteAspect(latest);
@@ -575,19 +598,19 @@ public class EbeanEntityService extends EntityService {
   }
 
   @Override
-  public RollbackRunResult rollbackRun(List<AspectRowSummary> aspectRows, String runId) {
-    return rollbackWithConditions(aspectRows, Collections.singletonMap("runId", runId));
+  public RollbackRunResult rollbackRun(List<AspectRowSummary> aspectRows, String runId, boolean hardDelete) {
+    return rollbackWithConditions(aspectRows, Collections.singletonMap("runId", runId), hardDelete);
   }
 
   @Override
-  public RollbackRunResult rollbackWithConditions(List<AspectRowSummary> aspectRows, Map<String, String> conditions) {
+  public RollbackRunResult rollbackWithConditions(List<AspectRowSummary> aspectRows, Map<String, String> conditions, boolean hardDelete) {
     List<AspectRowSummary> removedAspects = new ArrayList<>();
     AtomicInteger rowsDeletedFromEntityDeletion = new AtomicInteger(0);
 
     aspectRows.forEach(aspectToRemove -> {
 
       RollbackResult result = deleteAspect(aspectToRemove.getUrn(), aspectToRemove.getAspectName(),
-          conditions);
+          conditions, hardDelete);
       if (result != null) {
         Optional<AspectSpec> aspectSpec = getAspectSpec(result.entityName, result.aspectName);
         if (!aspectSpec.isPresent()) {
@@ -621,7 +644,8 @@ public class EbeanEntityService extends EntityService {
     }
 
     SystemMetadata latestKeySystemMetadata = parseSystemMetadata(latestKey.getSystemMetadata());
-    RollbackResult result = deleteAspect(urn.toString(), keyAspectName, Collections.singletonMap("runId", latestKeySystemMetadata.getRunId()));
+    RollbackResult result = deleteAspect(urn.toString(), keyAspectName, Collections.singletonMap("runId",
+            latestKeySystemMetadata.getRunId()), false);
 
     if (result != null) {
       AspectRowSummary summary = new AspectRowSummary();

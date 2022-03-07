@@ -380,7 +380,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         Map<String, String> conditions = new HashMap();
         conditions.put("registryName", finalRegistryName1);
         conditions.put("registryVersion", finalRegistryVersion1.toString());
-        _entityService.rollbackWithConditions(aspectRowsToDelete, conditions);
+        _entityService.rollbackWithConditions(aspectRowsToDelete, conditions, false);
       }
       return response;
     }, MetricRegistry.name(this.getClass(), "deleteAll"));

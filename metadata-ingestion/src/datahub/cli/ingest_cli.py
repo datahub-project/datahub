@@ -156,7 +156,6 @@ def list_runs(page_offset: int, page_size: int) -> None:
 
     click.echo(tabulate(structured_rows, RUNS_TABLE_COLUMNS, tablefmt="grid"))
 
-
 @ingest.command()
 @click.option("--run-id", required=True, type=str)
 @telemetry.with_telemetry
@@ -190,8 +189,9 @@ def show(run_id: str) -> None:
 @click.option("--run-id", required=True, type=str)
 @click.option("-f", "--force", required=False, is_flag=True)
 @click.option("--dry-run", "-n", required=False, is_flag=True, default=False)
+@click.option("--hard-delete", "-d", required=False, is_flag=True, default=False)
 @telemetry.with_telemetry
-def rollback(run_id: str, force: bool, dry_run: bool) -> None:
+def rollback(run_id: str, force: bool, dry_run: bool, hard_delete: bool) -> None:
     """Rollback a provided ingestion run to datahub"""
 
     cli_utils.test_connectivity_complain_exit("ingest")
@@ -202,7 +202,7 @@ def rollback(run_id: str, force: bool, dry_run: bool) -> None:
             abort=True,
         )
 
-    payload_obj = {"runId": run_id, "dryRun": dry_run}
+    payload_obj = {"runId": run_id, "dryRun": dry_run, "hardDelete": hard_delete}
     structured_rows, entities_affected, aspects_affected = post_rollback_endpoint(
         payload_obj, "/runs?action=rollback"
     )

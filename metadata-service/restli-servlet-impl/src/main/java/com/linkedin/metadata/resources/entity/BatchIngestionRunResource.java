@@ -54,7 +54,7 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
   @Nonnull
   @WithSpan
   public Task<RollbackResponse> rollback(@ActionParam("runId") @Nonnull String runId,
-      @ActionParam("dryRun") @Optional @Nullable Boolean dryRun) {
+      @ActionParam("dryRun") @Optional Boolean dryRun, @ActionParam("hardDelete") @Optional Boolean hardDelete) {
     log.info("ROLLBACK RUN runId: {} dry run: {}", runId, dryRun);
     return RestliUtil.toTask(() -> {
       if (runId.equals(EntityService.DEFAULT_RUN_ID)) {
@@ -77,7 +77,7 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
         return response;
       }
 
-      RollbackRunResult rollbackRunResult = _entityService.rollbackRun(aspectRowsToDelete, runId);
+      RollbackRunResult rollbackRunResult = _entityService.rollbackRun(aspectRowsToDelete, runId, hardDelete);
       List<AspectRowSummary> deletedRows = rollbackRunResult.getRowsRolledBack();
       Integer rowsDeletedFromEntityDeletion = rollbackRunResult.getRowsDeletedFromEntityDeletion();
 
@@ -87,7 +87,7 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
         aspectRowsToDelete = _systemMetadataService.findByRunId(runId);
         log.info("{} remaining rows to delete...", stringifyRowCount(aspectRowsToDelete.size()));
         log.info("deleting...");
-        rollbackRunResult = _entityService.rollbackRun(aspectRowsToDelete, runId);
+        rollbackRunResult = _entityService.rollbackRun(aspectRowsToDelete, runId, hardDelete);
         deletedRows.addAll(rollbackRunResult.getRowsRolledBack());
         rowsDeletedFromEntityDeletion += rollbackRunResult.getRowsDeletedFromEntityDeletion();
       }

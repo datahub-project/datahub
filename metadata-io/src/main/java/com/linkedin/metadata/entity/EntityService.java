@@ -821,12 +821,12 @@ public abstract class EntityService {
 
   public abstract void setWritable(boolean canWrite);
 
-  public RollbackRunResult rollbackRun(List<AspectRowSummary> aspectRows, String runId) {
-    return rollbackWithConditions(aspectRows, Collections.singletonMap("runId", runId));
+  public RollbackRunResult rollbackRun(List<AspectRowSummary> aspectRows, String runId, boolean hardDelete) {
+    return rollbackWithConditions(aspectRows, Collections.singletonMap("runId", runId), hardDelete);
   }
 
   public abstract RollbackRunResult rollbackWithConditions(List<AspectRowSummary> aspectRows,
-      Map<String, String> conditions);
+                                                           Map<String, String> conditions, boolean hardDelete);
 
   public abstract RollbackRunResult deleteUrn(Urn urn);
 

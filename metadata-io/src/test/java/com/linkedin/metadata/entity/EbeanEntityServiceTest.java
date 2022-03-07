@@ -1,5 +1,6 @@
 package com.linkedin.metadata.entity;
 
+import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
@@ -22,7 +23,6 @@ import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.CorpUserAspect;
 import com.linkedin.metadata.aspect.CorpUserAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
-import com.datahub.util.RecordUtils;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.EbeanEntityService;
@@ -54,14 +54,12 @@ import io.ebean.EbeanServer;
 import io.ebean.EbeanServerFactory;
 import io.ebean.config.ServerConfig;
 import io.ebean.datasource.DataSourceConfig;
-
-
-import javax.annotation.Nonnull;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -69,16 +67,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
 
 
 public class EbeanEntityServiceTest {
@@ -725,7 +715,7 @@ public class EbeanEntityServiceTest {
     rollbackOverwrittenAspect.setAspectName(aspectName);
     rollbackOverwrittenAspect.setUrn(entityUrn1.toString());
 
-    _entityService.rollbackRun(ImmutableList.of(rollbackOverwrittenAspect), "run-123");
+    _entityService.rollbackRun(ImmutableList.of(rollbackOverwrittenAspect), "run-123", true);
 
     // assert nothing was deleted
     RecordTemplate readAspectOriginal = _entityService.getAspect(entityUrn1, aspectName, 1);
@@ -740,7 +730,7 @@ public class EbeanEntityServiceTest {
     rollbackRecentAspect.setAspectName(aspectName);
     rollbackRecentAspect.setUrn(entityUrn1.toString());
 
-    _entityService.rollbackRun(ImmutableList.of(rollbackOverwrittenAspect), "run-456");
+    _entityService.rollbackRun(ImmutableList.of(rollbackOverwrittenAspect), "run-456", true);
 
     // assert the new most recent aspect is the original one
     RecordTemplate readNewRecentAspect = _entityService.getAspect(entityUrn1, aspectName, 0);
@@ -779,7 +769,7 @@ public class EbeanEntityServiceTest {
     rollbackKeyWithWrongRunId.setAspectName("corpUserKey");
     rollbackKeyWithWrongRunId.setUrn(entityUrn1.toString());
 
-    _entityService.rollbackRun(ImmutableList.of(rollbackKeyWithWrongRunId), "run-456");
+    _entityService.rollbackRun(ImmutableList.of(rollbackKeyWithWrongRunId), "run-456", true);
 
     // assert nothing was deleted
     RecordTemplate readAspectOriginal = _entityService.getAspect(entityUrn1, aspectName, 1);
@@ -794,7 +784,7 @@ public class EbeanEntityServiceTest {
     rollbackKeyWithCorrectRunId.setAspectName("corpUserKey");
     rollbackKeyWithCorrectRunId.setUrn(entityUrn1.toString());
 
-    _entityService.rollbackRun(ImmutableList.of(rollbackKeyWithCorrectRunId), "run-123");
+    _entityService.rollbackRun(ImmutableList.of(rollbackKeyWithCorrectRunId), "run-123", true);
 
     // assert the new most recent aspect is null
     RecordTemplate readNewRecentAspect = _entityService.getAspect(entityUrn1, aspectName, 0);
