@@ -285,14 +285,25 @@ a different way of creating time based indices.
 Run `helm upgrade --install datahub datahub/datahub --values values.yaml` to apply the changes.
 
 **Note:**
-If you have a custom setup of elastic search cluster and are deploying through docker, you can modify the configurations in datahub to point to the specific ES instance -
-1. If you are using `docker quickstart` you can modify the hostname and port of the ES instance in docker compose quickstart files located [here](../../docker/quickstart/).
-   1. Once you have modified the quickstart recipes you can run the quickstart command using a specific docker compose file. Sample command for that is - `datahub docker quickstart --quickstart-compose-file docker/quickstart/docker-compose-without-neo4j.quickstart.yml`
-2. If you are not using quickstart recipes, you can modify environment variable in GMS to point to the ES instance. The env files for datahub-gms are located [here](../../docker/datahub-gms/env/).
+If you have a custom setup of elastic search cluster and are deploying through docker, you can modify the configurations
+in datahub to point to the specific ES instance -
 
-Further, you can find a list of properties supported to work with a custom ES instance [here](../../metadata-service/factories/src/main/java/com/linkedin/gms/factory/common/ElasticsearchSSLContextFactory.java) and [here](../../metadata-service/factories/src/main/java/com/linkedin/gms/factory/common/RestHighLevelClientFactory.java).
+1. If you are using `docker quickstart` you can modify the hostname and port of the ES instance in docker compose
+   quickstart files located [here](../../docker/quickstart/).
+    1. Once you have modified the quickstart recipes you can run the quickstart command using a specific docker compose
+       file. Sample command for that is
+       - `datahub docker quickstart --quickstart-compose-file docker/quickstart/docker-compose-without-neo4j.quickstart.yml`
+2. If you are not using quickstart recipes, you can modify environment variable in GMS to point to the ES instance. The
+   env files for datahub-gms are located [here](../../docker/datahub-gms/env/).
 
-A mapping between the property name used in the above two files and the name used in docker/env file can be found [here](../../metadata-service/factories/src/main/resources/application.yml).
+Further, you can find a list of properties supported to work with a custom ES
+instance [here](../../metadata-service/factories/src/main/java/com/linkedin/gms/factory/common/ElasticsearchSSLContextFactory.java)
+and [here](../../metadata-service/factories/src/main/java/com/linkedin/gms/factory/common/RestHighLevelClientFactory.java)
+.
+
+A mapping between the property name used in the above two files and the name used in docker/env file can be
+found [here](../../metadata-service/factories/src/main/resources/application.yml).
+
 ### Managed Streaming for Apache Kafka (MSK)
 
 Provision an MSK cluster that shares the VPC with the kubernetes cluster or has VPC peering set up between the VPC of
@@ -321,6 +332,8 @@ for AWS MSK.
 Run `helm upgrade --install datahub datahub/datahub --values values.yaml` to apply the changes.
 
 ### AWS Glue Schema Registry
+
+> **WARNING**: AWS Glue Schema Registry DOES NOT have a python SDK. As such, python based libraries like ingestion or datahub-actions (UI ingestion) is not supported when using AWS Glue Schema Registry
 
 You can use AWS Glue schema registry instead of the kafka schema registry. To do so, first provision an AWS Glue schema
 registry in the "Schema Registry" tab in the AWS Glue console page.

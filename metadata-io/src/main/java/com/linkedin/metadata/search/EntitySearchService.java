@@ -126,4 +126,9 @@ public interface EntitySearchService {
    */
   @Nonnull
   List<String> getBrowsePaths(@Nonnull String entityName, @Nonnull Urn urn);
+
+  /**
+   * Max result size returned by the underlying search backend
+   */
+  int maxResultSize();
 }

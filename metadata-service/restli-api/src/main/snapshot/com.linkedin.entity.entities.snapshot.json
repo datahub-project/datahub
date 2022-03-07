@@ -175,6 +175,7 @@
       "Relationship" : {
         "/*/string" : {
           "entityTypes" : [ "dataset" ],
+          "isLineage" : true,
           "name" : "Consumes"
         }
       }
@@ -564,7 +565,7 @@
     "type" : "record",
     "name" : "DataPlatformInstance",
     "namespace" : "com.linkedin.common",
-    "doc" : "Tag aspect used for applying tags to an entity",
+    "doc" : "The specific instance of the data platform that this entity belongs to",
     "fields" : [ {
       "name" : "platform",
       "type" : "Urn",
@@ -727,12 +728,13 @@
     "name" : "FabricType",
     "namespace" : "com.linkedin.common",
     "doc" : "Fabric group type",
-    "symbols" : [ "DEV", "TEST", "QA", "UAT", "EI", "STG", "NON_PROD", "PROD", "CORP" ],
+    "symbols" : [ "DEV", "TEST", "QA", "UAT", "EI", "PRE", "STG", "NON_PROD", "PROD", "CORP" ],
     "symbolDocs" : {
       "CORP" : "Designates corporation fabrics",
       "DEV" : "Designates development fabrics",
       "EI" : "Designates early-integration fabrics",
       "NON_PROD" : "Designates non-production fabrics",
+      "PRE" : "Designates pre-production fabrics",
       "PROD" : "Designates production fabrics",
       "QA" : "Designates quality assurance fabrics",
       "STG" : "Designates staging fabrics",
@@ -1027,8 +1029,10 @@
         "name" : "OwnedBy"
       },
       "Searchable" : {
+        "addToFilters" : true,
         "fieldName" : "owners",
         "fieldType" : "URN",
+        "filterNameOverride" : "Owned By",
         "hasValuesFieldName" : "hasOwners",
         "queryByDefault" : false
       }
@@ -1176,6 +1180,7 @@
       "Relationship" : {
         "/*" : {
           "entityTypes" : [ "chart" ],
+          "isLineage" : true,
           "name" : "Contains"
         }
       }
@@ -1350,6 +1355,7 @@
       "Relationship" : {
         "/*" : {
           "entityTypes" : [ "dataset" ],
+          "isLineage" : true,
           "name" : "Consumes"
         }
       },
@@ -1371,6 +1377,8 @@
       "Relationship" : {
         "/*" : {
           "entityTypes" : [ "dataset" ],
+          "isLineage" : true,
+          "isUpstream" : false,
           "name" : "Produces"
         }
       },
@@ -1393,6 +1401,7 @@
       "Relationship" : {
         "/*" : {
           "entityTypes" : [ "dataJob" ],
+          "isLineage" : true,
           "name" : "DownstreamOf"
         }
       }
@@ -1402,8 +1411,14 @@
         "type" : "array",
         "items" : "com.linkedin.common.Urn"
       },
-      "doc" : "Fields of the input datasets used by this job.",
+      "doc" : "Fields of the input datasets used by this job",
       "optional" : true,
+      "Relationship" : {
+        "/*" : {
+          "entityTypes" : [ "schemaField" ],
+          "name" : "Consumes"
+        }
+      },
       "Searchable" : {
         "/*" : {
           "fieldName" : "inputFields",
@@ -1418,8 +1433,14 @@
         "type" : "array",
         "items" : "com.linkedin.common.Urn"
       },
-      "doc" : "Fields of the output datasets this job writes to.",
+      "doc" : "Fields of the output datasets this job writes to",
       "optional" : true,
+      "Relationship" : {
+        "/*" : {
+          "entityTypes" : [ "schemaField" ],
+          "name" : "Produces"
+        }
+      },
       "Searchable" : {
         "/*" : {
           "fieldName" : "outputFields",
@@ -1436,18 +1457,18 @@
           "type" : "record",
           "name" : "FineGrainedLineage",
           "namespace" : "com.linkedin.dataset",
-          "doc" : "A fine-grained lineage from upstream fields/datasets to downstream field(s).",
+          "doc" : "A fine-grained lineage from upstream fields/datasets to downstream field(s)",
           "fields" : [ {
             "name" : "upstreamType",
             "type" : {
               "type" : "enum",
               "name" : "FineGrainedLineageUpstreamType",
-              "doc" : "The type of upstream entity in a fine-grained lineage.",
+              "doc" : "The type of upstream entity in a fine-grained lineage",
               "symbols" : [ "FIELD_SET", "DATASET", "NONE" ],
               "symbolDocs" : {
-                "DATASET" : " Indicates that this lineage is originating from upstream dataset(s).",
-                "FIELD_SET" : " Indicates that this lineage is originating from upstream field(s).",
-                "NONE" : " Indicates that there is no upstream lineage i.e. the downstream field is not a derived field."
+                "DATASET" : " Indicates that this lineage is originating from upstream dataset(s)",
+                "FIELD_SET" : " Indicates that this lineage is originating from upstream field(s)",
+                "NONE" : " Indicates that there is no upstream lineage i.e. the downstream field is not a derived field"
               }
             },
             "doc" : "The type of upstream entity"
@@ -1464,11 +1485,11 @@
             "type" : {
               "type" : "enum",
               "name" : "FineGrainedLineageDownstreamType",
-              "doc" : "The type of downstream field(s) in a fine-grained lineage.",
+              "doc" : "The type of downstream field(s) in a fine-grained lineage",
               "symbols" : [ "FIELD", "FIELD_SET" ],
               "symbolDocs" : {
-                "FIELD" : " Indicates that the lineage is for a single, specific, downstream field.",
-                "FIELD_SET" : " Indicates that the lineage is for a set of downstream fields."
+                "FIELD" : " Indicates that the lineage is for a single, specific, downstream field",
+                "FIELD_SET" : " Indicates that the lineage is for a set of downstream fields"
               }
             },
             "doc" : "The type of downstream field(s)"
@@ -1483,17 +1504,17 @@
           }, {
             "name" : "transformOperation",
             "type" : "string",
-            "doc" : "The transform operation applied to the upstream entities to produce the downstream field(s).",
+            "doc" : "The transform operation applied to the upstream entities to produce the downstream field(s)",
             "optional" : true
           }, {
             "name" : "confidenceScore",
             "type" : "float",
-            "doc" : "The confidence in this lineage between 0 (low confidence) and 1 (high confidence).",
+            "doc" : "The confidence in this lineage between 0 (low confidence) and 1 (high confidence)",
             "default" : 1.0
           } ]
         }
       },
-      "doc" : "Fine-grained column-level lineages.",
+      "doc" : "Fine-grained column-level lineages",
       "optional" : true
     } ],
     "Aspect" : {
@@ -1605,6 +1626,7 @@
       "Relationship" : {
         "/*" : {
           "entityTypes" : [ "dataset" ],
+          "isLineage" : true,
           "name" : "Consumes"
         }
       },
@@ -1627,6 +1649,7 @@
       "Relationship" : {
         "/*" : {
           "entityTypes" : [ "dataset" ],
+          "isLineage" : true,
           "name" : "Consumes"
         }
       },
@@ -1719,6 +1742,26 @@
     "doc" : "Properties associated with a Dataset",
     "include" : [ "com.linkedin.common.CustomProperties", "com.linkedin.common.ExternalReference" ],
     "fields" : [ {
+      "name" : "name",
+      "type" : "string",
+      "doc" : "Display name of the Dataset",
+      "optional" : true,
+      "Searchable" : {
+        "boostScore" : 10.0,
+        "enableAutocomplete" : true,
+        "fieldType" : "TEXT_PARTIAL"
+      }
+    }, {
+      "name" : "qualifiedName",
+      "type" : "string",
+      "doc" : "Fully-qualified name of the Dataset",
+      "optional" : true,
+      "Searchable" : {
+        "boostScore" : 10.0,
+        "enableAutocomplete" : true,
+        "fieldType" : "TEXT_PARTIAL"
+      }
+    }, {
       "name" : "description",
       "type" : "string",
       "doc" : "Documentation of the dataset",
@@ -1806,6 +1849,7 @@
       "doc" : "The upstream dataset the lineage points to",
       "Relationship" : {
         "entityTypes" : [ "dataset" ],
+        "isLineage" : true,
         "name" : "DownstreamOf"
       },
       "Searchable" : {
@@ -1837,7 +1881,13 @@
         "items" : "FineGrainedLineage"
       },
       "doc" : " List of fine-grained lineage information, including field-level lineage",
-      "optional" : true
+      "optional" : true,
+      "Relationship" : {
+        "/*/upstreams/*" : {
+          "entityTypes" : [ "dataset", "schemaField" ],
+          "name" : "DownstreamOf"
+        }
+      }
     } ],
     "Aspect" : {
       "name" : "upstreamLineage"
@@ -1965,11 +2015,11 @@
                   "type" : "record",
                   "name" : "CorpGroupInfo",
                   "namespace" : "com.linkedin.identity",
-                  "doc" : "group of corpUser, it may contains nested group",
+                  "doc" : "Information about a Corp Group ingested from a third party source",
                   "fields" : [ {
                     "name" : "displayName",
                     "type" : "string",
-                    "doc" : "The name to use when displaying the group.",
+                    "doc" : "The name of the group.",
                     "optional" : true,
                     "Searchable" : {
                       "fieldType" : "TEXT_PARTIAL"
@@ -1985,39 +2035,42 @@
                       "type" : "array",
                       "items" : "com.linkedin.common.CorpuserUrn"
                     },
-                    "doc" : "owners of this group",
+                    "doc" : "owners of this group\nDeprecated! Replaced by Ownership aspect.",
                     "Relationship" : {
                       "/*" : {
                         "entityTypes" : [ "corpUser" ],
                         "name" : "OwnedBy"
                       }
-                    }
+                    },
+                    "deprecated" : true
                   }, {
                     "name" : "members",
                     "type" : {
                       "type" : "array",
                       "items" : "com.linkedin.common.CorpuserUrn"
                     },
-                    "doc" : "List of ldap urn in this group.",
+                    "doc" : "List of ldap urn in this group.\nDeprecated! Replaced by GroupMembership aspect.",
                     "Relationship" : {
                       "/*" : {
                         "entityTypes" : [ "corpUser" ],
                         "name" : "IsPartOf"
                       }
-                    }
+                    },
+                    "deprecated" : true
                   }, {
                     "name" : "groups",
                     "type" : {
                       "type" : "array",
                       "items" : "com.linkedin.common.CorpGroupUrn"
                     },
-                    "doc" : "List of groups in this group.",
+                    "doc" : "List of groups in this group.\nDeprecated! This field is unused.",
                     "Relationship" : {
                       "/*" : {
                         "entityTypes" : [ "corpGroup" ],
                         "name" : "IsPartOf"
                       }
-                    }
+                    },
+                    "deprecated" : true
                   }, {
                     "name" : "description",
                     "type" : "string",
@@ -2213,7 +2266,12 @@
                     "name" : "displayName",
                     "type" : "string",
                     "doc" : "DataHub-native display name",
-                    "optional" : true
+                    "optional" : true,
+                    "Searchable" : {
+                      "boostScore" : 10.0,
+                      "fieldType" : "TEXT_PARTIAL",
+                      "queryByDefault" : true
+                    }
                   }, {
                     "name" : "title",
                     "type" : "string",
@@ -2479,7 +2537,7 @@
                   }, {
                     "name" : "name",
                     "type" : "string",
-                    "doc" : "Dataset native name e.g. <db>.<table>, /dir/subdir/<name>, or <name>",
+                    "doc" : "Unique guid for dataset",
                     "Searchable" : {
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
@@ -3321,6 +3379,7 @@
                     "Relationship" : {
                       "/*" : {
                         "entityTypes" : [ "dataJob" ],
+                        "isLineage" : true,
                         "name" : "TrainedBy"
                       }
                     }
@@ -3349,6 +3408,8 @@
                     "Relationship" : {
                       "/*" : {
                         "entityTypes" : [ "mlModelGroup" ],
+                        "isLineage" : true,
+                        "isUpstream" : false,
                         "name" : "MemberOf"
                       }
                     }
@@ -3930,7 +3991,14 @@
                     "Relationship" : {
                       "/*" : {
                         "entityTypes" : [ "mlFeature" ],
+                        "isLineage" : true,
                         "name" : "Contains"
+                      }
+                    },
+                    "Searchable" : {
+                      "/*" : {
+                        "fieldName" : "features",
+                        "fieldType" : "URN"
                       }
                     }
                   }, {
@@ -3945,6 +4013,12 @@
                       "/*" : {
                         "entityTypes" : [ "mlPrimaryKey" ],
                         "name" : "KeyedBy"
+                      }
+                    },
+                    "Searchable" : {
+                      "/*" : {
+                        "fieldName" : "primaryKeys",
+                        "fieldType" : "URN"
                       }
                     }
                   } ],
@@ -4905,6 +4979,14 @@
             "type" : "string",
             "doc" : "The value of the intended field"
           }, {
+            "name" : "values",
+            "type" : {
+              "type" : "array",
+              "items" : "string"
+            },
+            "doc" : "Values. one of which the intended field should match\nNote, if values is set, the above \"value\" field will be ignored",
+            "default" : [ ]
+          }, {
             "name" : "condition",
             "type" : "Condition",
             "doc" : "The condition for the criterion, e.g. EQUAL, START_WITH",
@@ -4925,7 +5007,7 @@
         "type" : "array",
         "items" : "ConjunctiveCriterion"
       },
-      "doc" : "A list of of disjunctive criterion for the filter.",
+      "doc" : "A list of disjunctive criterion for the filter. (or operation to combine filters)",
       "optional" : true
     }, {
       "name" : "criteria",
@@ -5060,52 +5142,70 @@
     } ]
   }, "com.linkedin.metadata.search.FilterValue", {
     "type" : "record",
-    "name" : "MatchedField",
+    "name" : "LineageSearchEntity",
     "namespace" : "com.linkedin.metadata.search",
+    "doc" : "The model for each entity returned by the lineage search query",
+    "include" : [ {
+      "type" : "record",
+      "name" : "SearchEntity",
+      "doc" : "The model for each entity returned by the search query",
+      "fields" : [ {
+        "name" : "entity",
+        "type" : "com.linkedin.common.Urn",
+        "doc" : "Urn of the entity being returned"
+      }, {
+        "name" : "matchedFields",
+        "type" : {
+          "type" : "array",
+          "items" : {
+            "type" : "record",
+            "name" : "MatchedField",
+            "fields" : [ {
+              "name" : "name",
+              "type" : "string",
+              "doc" : "Matched field name"
+            }, {
+              "name" : "value",
+              "type" : "string",
+              "doc" : "Matched field value"
+            } ]
+          }
+        },
+        "doc" : "Matched field name and values",
+        "default" : [ ]
+      }, {
+        "name" : "features",
+        "type" : {
+          "type" : "map",
+          "values" : "double"
+        },
+        "optional" : true
+      } ]
+    } ],
     "fields" : [ {
-      "name" : "name",
-      "type" : "string",
-      "doc" : "Matched field name"
-    }, {
-      "name" : "value",
-      "type" : "string",
-      "doc" : "Matched field value"
-    } ]
-  }, {
-    "type" : "record",
-    "name" : "SearchEntity",
-    "namespace" : "com.linkedin.metadata.search",
-    "doc" : "The model for each entity returned by the search query",
-    "fields" : [ {
-      "name" : "entity",
-      "type" : "com.linkedin.common.Urn",
-      "doc" : "Urn of the entity being returned"
-    }, {
-      "name" : "matchedFields",
+      "name" : "path",
       "type" : {
         "type" : "array",
-        "items" : "MatchedField"
+        "items" : "com.linkedin.common.Urn"
       },
-      "doc" : "Matched field name and values",
+      "doc" : "Optional list of entities between the source and destination node",
       "default" : [ ]
     }, {
-      "name" : "features",
-      "type" : {
-        "type" : "map",
-        "values" : "double"
-      },
-      "optional" : true
+      "name" : "degree",
+      "type" : "int",
+      "doc" : "Degree of relationship (number of hops to get to entity)",
+      "default" : 1
     } ]
   }, {
     "type" : "record",
-    "name" : "SearchResult",
+    "name" : "LineageSearchResult",
     "namespace" : "com.linkedin.metadata.search",
-    "doc" : "The model for the result of a search query",
+    "doc" : "The model for the result of a lineage search query",
     "fields" : [ {
       "name" : "entities",
       "type" : {
         "type" : "array",
-        "items" : "SearchEntity"
+        "items" : "LineageSearchEntity"
       },
       "doc" : "A list of entities returned from the search results"
     }, {
@@ -5124,6 +5224,35 @@
           "default" : [ ]
         } ]
       },
+      "doc" : "Metadata specific to the browse result of the queried path"
+    }, {
+      "name" : "from",
+      "type" : "int",
+      "doc" : "Offset of the first entity in the result"
+    }, {
+      "name" : "pageSize",
+      "type" : "int",
+      "doc" : "Size of each page in the result"
+    }, {
+      "name" : "numEntities",
+      "type" : "int",
+      "doc" : "The total number of entities directly under searched path"
+    } ]
+  }, "com.linkedin.metadata.search.MatchedField", "com.linkedin.metadata.search.SearchEntity", {
+    "type" : "record",
+    "name" : "SearchResult",
+    "namespace" : "com.linkedin.metadata.search",
+    "doc" : "The model for the result of a search query",
+    "fields" : [ {
+      "name" : "entities",
+      "type" : {
+        "type" : "array",
+        "items" : "SearchEntity"
+      },
+      "doc" : "A list of entities returned from the search results"
+    }, {
+      "name" : "metadata",
+      "type" : "SearchResultMetadata",
       "doc" : "Metadata specific to the browse result of the queried path"
     }, {
       "name" : "from",
@@ -5407,6 +5536,38 @@
           "type" : "int"
         } ],
         "returns" : "com.linkedin.metadata.search.SearchResult"
+      }, {
+        "name" : "searchAcrossLineage",
+        "parameters" : [ {
+          "name" : "urn",
+          "type" : "string"
+        }, {
+          "name" : "direction",
+          "type" : "string"
+        }, {
+          "name" : "entities",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+          "optional" : true
+        }, {
+          "name" : "input",
+          "type" : "string",
+          "optional" : true
+        }, {
+          "name" : "filter",
+          "type" : "com.linkedin.metadata.query.filter.Filter",
+          "optional" : true
+        }, {
+          "name" : "sort",
+          "type" : "com.linkedin.metadata.query.filter.SortCriterion",
+          "optional" : true
+        }, {
+          "name" : "start",
+          "type" : "int"
+        }, {
+          "name" : "count",
+          "type" : "int"
+        } ],
+        "returns" : "com.linkedin.metadata.search.LineageSearchResult"
       }, {
         "name" : "setWritable",
         "parameters" : [ {

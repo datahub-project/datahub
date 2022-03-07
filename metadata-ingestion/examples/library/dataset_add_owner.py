@@ -34,7 +34,7 @@ gms_endpoint = "http://localhost:8080"
 graph = DataHubGraph(DatahubClientConfig(server=gms_endpoint))
 
 
-current_owners: Optional[OwnershipClass] = graph.get_aspect(
+current_owners: Optional[OwnershipClass] = graph.get_aspect_v2(
     entity_urn=dataset_urn,
     aspect="ownership",
     aspect_type=OwnershipClass,

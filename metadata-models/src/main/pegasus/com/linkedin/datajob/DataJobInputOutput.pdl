@@ -19,7 +19,8 @@ record DataJobInputOutput {
   @Relationship = {
     "/*": {
       "name": "Consumes",
-      "entityTypes": [ "dataset" ]
+      "entityTypes": [ "dataset" ],
+      "isLineage": true
     }
   }
   @Searchable = {
@@ -38,7 +39,9 @@ record DataJobInputOutput {
   @Relationship = {
     "/*": {
       "name": "Produces",
-      "entityTypes": [ "dataset" ]
+      "entityTypes": [ "dataset" ],
+      "isUpstream": false,
+      "isLineage": true
     }
   }
   @Searchable = {
@@ -57,7 +60,8 @@ record DataJobInputOutput {
   @Relationship = {
     "/*": {
       "name": "DownstreamOf",
-      "entityTypes": [ "dataJob" ]
+      "entityTypes": [ "dataJob" ],
+      "isLineage": true
     }
   }
   inputDatajobs: optional array[DataJobUrn] 

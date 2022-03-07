@@ -81,6 +81,7 @@ module.exports = {
         "Custom Integrations": [
           "metadata-ingestion/as-a-library",
           "metadata-integration/java/as-a-library",
+          "metadata-ingestion/integration_docs/great-expectations",
         ],
       },
       {
@@ -200,6 +201,7 @@ module.exports = {
       "docs/domains",
       "docs/ui-ingestion",
       "docs/how/search",
+      "docs/how/auth/add-users",
     ],
     "Developer Guides": [
       // TODO: the titles of these should not be in question form in the sidebar
