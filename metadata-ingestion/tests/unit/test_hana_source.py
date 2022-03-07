@@ -34,7 +34,7 @@ def test_hana_uri_native_db():
             "password": "password",
             "host_port": "host:39041",
             "scheme": "hana+hdbcli",
-            "db": "database",
+            "database": "database",
         }
     )
     assert (
