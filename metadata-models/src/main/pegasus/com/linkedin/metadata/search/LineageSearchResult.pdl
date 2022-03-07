@@ -1,0 +1,34 @@
+namespace com.linkedin.metadata.search
+
+import com.linkedin.common.Urn
+
+/**
+ * The model for the result of a lineage search query
+ */
+record LineageSearchResult {
+
+  /**
+   * A list of entities returned from the search results
+   */
+  entities: array[LineageSearchEntity]
+
+  /**
+   * Metadata specific to the browse result of the queried path
+   */
+  metadata: SearchResultMetadata
+
+  /**
+   * Offset of the first entity in the result
+   */
+  from: int
+
+  /**
+   * Size of each page in the result
+   */
+  pageSize: int
+
+  /**
+   * The total number of entities directly under searched path
+   */
+  numEntities: int
+}

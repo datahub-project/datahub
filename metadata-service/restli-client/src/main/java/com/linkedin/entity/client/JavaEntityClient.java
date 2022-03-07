@@ -18,6 +18,7 @@ import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
@@ -26,6 +27,8 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.resources.entity.AspectUtils;
 import com.linkedin.metadata.resources.entity.EntityResource;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.LineageSearchResult;
+import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -44,29 +47,24 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.search.utils.QueryUtils.*;
+import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
 
 
 @Slf4j
+@RequiredArgsConstructor
 public class JavaEntityClient implements EntityClient {
 
     private final Clock _clock = Clock.systemUTC();
 
-    private EntityService _entityService;
-    private EntitySearchService _entitySearchService;
-    private SearchService _searchService;
-    private TimeseriesAspectService _timeseriesAspectService;
-
-    public JavaEntityClient(@Nonnull final EntityService entityService, @Nonnull final EntitySearchService entitySearchService, @Nonnull final
-        SearchService searchService, @Nonnull final TimeseriesAspectService timeseriesAspectService) {
-      _entityService = entityService;
-      _entitySearchService = entitySearchService;
-      _searchService = searchService;
-      _timeseriesAspectService = timeseriesAspectService;
-    }
+    private final EntityService _entityService;
+    private final EntitySearchService _entitySearchService;
+    private final SearchService _searchService;
+    private final TimeseriesAspectService _timeseriesAspectService;
+    private final LineageSearchService _lineageSearchService;
 
     @Nonnull
     public Entity get(@Nonnull final Urn urn, @Nonnull final Authentication authentication) {
@@ -272,7 +270,17 @@ public class JavaEntityClient implements EntityClient {
         int start,
         int count,
         @Nonnull final Authentication authentication) throws RemoteInvocationException {
-        return _searchService.searchAcrossEntities(entities, input, filter, null, start, count);
+        return _searchService.searchAcrossEntities(entities, input, filter, null, start, count, null);
+    }
+
+    @Nonnull
+    @Override
+    public LineageSearchResult searchAcrossLineage(@Nonnull Urn sourceUrn, @Nonnull LineageDirection direction,
+        @Nonnull List<String> entities, @Nullable String input, @Nullable Filter filter,
+        @Nullable SortCriterion sortCriterion, int start, int count, @Nonnull final Authentication authentication)
+        throws RemoteInvocationException {
+        return _lineageSearchService.searchAcrossLineage(sourceUrn, direction, entities, input, filter,
+            sortCriterion, start, count);
     }
 
     /**

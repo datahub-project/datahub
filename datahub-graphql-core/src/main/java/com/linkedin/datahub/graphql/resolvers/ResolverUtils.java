@@ -77,7 +77,7 @@ public class ResolverUtils {
 
     @Nullable
     public static Filter buildFilter(@Nullable List<FacetFilterInput> facetFilterInputs) {
-        if (facetFilterInputs == null) {
+        if (facetFilterInputs == null || facetFilterInputs.isEmpty()) {
             return null;
         }
         return new Filter().setOr(new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(new CriterionArray(facetFilterInputs.stream()
