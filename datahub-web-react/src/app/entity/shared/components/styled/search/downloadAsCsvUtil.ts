@@ -50,9 +50,9 @@ export const transformGenericEntityPropertiesToCsvRow = (
             ?.filter((owner) => owner.owner.type === EntityType.CorpUser)
             .map(
                 (owner) =>
+                    (owner.owner as CorpUser).editableProperties?.displayName ||
                     (owner.owner as CorpUser).properties?.fullName ||
-                    (owner.owner as CorpUser).properties?.displayName ||
-                    (owner.owner as CorpUser).editableProperties?.displayName,
+                    (owner.owner as CorpUser).properties?.displayName,
             )
             .join(',') || '',
         // user owner emails

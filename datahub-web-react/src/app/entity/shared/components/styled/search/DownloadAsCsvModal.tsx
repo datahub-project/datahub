@@ -115,7 +115,6 @@ export default function DownloadAsCsvModal({
                 placeholder="datahub.csv"
                 value={saveAsTitle}
                 onChange={(e) => {
-                    console.log(e);
                     setSaveAsTitle(e.target.value);
                 }}
             />
