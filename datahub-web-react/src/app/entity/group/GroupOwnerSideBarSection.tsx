@@ -11,9 +11,7 @@ const TITLE = 'Owners';
 
 const SectionWrapper = styled.div``;
 
-const AddOwnerButton = styled(Button)`
-    padding-left: 0px;
-`;
+const AddOwnerButton = styled(Button)``;
 
 type Props = {
     ownership: Ownership;
@@ -39,10 +37,18 @@ export default function GroupOwnerSideBarSection({ urn, ownership, refetch }: Pr
                 {ownersEmpty && (
                     <Typography.Paragraph type="secondary">No group owners added yet.</Typography.Paragraph>
                 )}
-                <AddOwnerButton type={ownersEmpty ? 'default' : 'text'} onClick={() => setShowAddModal(true)}>
-                    <PlusOutlined />
-                    Add Owner
-                </AddOwnerButton>
+                {ownersEmpty && (
+                    <AddOwnerButton onClick={() => setShowAddModal(true)}>
+                        <PlusOutlined />
+                        Add Owner
+                    </AddOwnerButton>
+                )}
+                {!ownersEmpty && (
+                    <AddOwnerButton type="text" style={{ padding: 0 }} onClick={() => setShowAddModal(true)}>
+                        <PlusOutlined />
+                        Add Owner
+                    </AddOwnerButton>
+                )}
             </SectionWrapper>
             <AddOwnerModal
                 urn={urn}

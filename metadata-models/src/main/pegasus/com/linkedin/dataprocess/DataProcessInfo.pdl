@@ -16,7 +16,8 @@ record DataProcessInfo {
   @Relationship = {
     "/*": {
       "name": "Consumes",
-      "entityTypes": [ "dataset" ]
+      "entityTypes": [ "dataset" ],
+      "isLineage": true
     }
   }
   @Searchable = {
@@ -35,7 +36,8 @@ record DataProcessInfo {
   @Relationship = {
     "/*": {
       "name": "Consumes",
-      "entityTypes": [ "dataset" ]
+      "entityTypes": [ "dataset" ],
+      "isLineage": true
     }
   }
   @Searchable = {

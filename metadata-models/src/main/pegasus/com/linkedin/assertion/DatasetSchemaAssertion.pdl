@@ -13,9 +13,9 @@ record DatasetSchemaAssertion {
     stdOperator: AssertionStdOperator
 
     /**
-    * Native assertion operator
+    * Native assertion type
     */
-    nativeOperator: optional string
+    nativeType: optional string // filled with the platform specific native type string
 
     /**
     * Standardized aggrgation function applied on rows
@@ -38,8 +38,4 @@ record DatasetSchemaAssertion {
         _NATIVE_
     }
 
-    /**
-    * Native aggrgation function applied on rows
-    */
-    nativeAggFunc: optional string
 }

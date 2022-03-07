@@ -27,6 +27,12 @@ export function getDataForEntityType<T>({
             customProperties,
         };
     }
+    if (anyEntityData.tags) {
+        modifiedEntityData = {
+            ...modifiedEntityData,
+            globalTags: anyEntityData.tags,
+        };
+    }
     return {
         ...modifiedEntityData,
         ...getOverrideProperties(entityData),

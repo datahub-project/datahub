@@ -27,8 +27,8 @@ const MenuItem = styled(Menu.Item)`
 `;
 
 const DownArrow = styled(CaretDownOutlined)`
-    vertical-align: -5px;
-    font-size: 16px;
+    vertical-align: -3px;
+    font-size: 12px;
     color: ${ANTD_GRAY[7]};
 `;
 

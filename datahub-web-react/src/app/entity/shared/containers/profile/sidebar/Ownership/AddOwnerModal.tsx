@@ -179,7 +179,7 @@ export const AddOwnerModal = ({ urn, type, visible, onClose, refetch }: Props) =
     });
     return (
         <Modal
-            title="Add owner"
+            title="Add Owner"
             visible={visible}
             onCancel={onClose}
             footer={
