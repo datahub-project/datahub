@@ -441,7 +441,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 },
             )
 
-    def warn(self, log: logging.Logger, key: str, reason: str):
+    def warn(self, log: logging.Logger, key: str, reason: str) -> Any:
         self.report.report_warning(key, reason)
         logger.warning(reason)
 
