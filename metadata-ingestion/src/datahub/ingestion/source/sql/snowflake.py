@@ -637,7 +637,12 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
 
     # Override the base class method.
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
-        self.inspect_version()
+        try:
+            self.inspect_version()
+        except Exception as e:
+            self.report.report_failure("version", f"Error: {e}")
+            return
+
         self.inspect_role_grants()
         for wu in super().get_workunits():
             if (

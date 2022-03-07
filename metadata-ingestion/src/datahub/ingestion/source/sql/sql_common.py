@@ -657,10 +657,20 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 yield from self.gen_schema_containers(schema, db_name)
 
                 if sql_config.include_tables:
-                    yield from self.loop_tables(inspector, schema, sql_config)
+                    try:
+                        yield from self.loop_tables(inspector, schema, sql_config)
+                    except Exception as e:
+                        self.report.report_failure(
+                            f"{db_name}.{schema}", f"Tables error: {e}"
+                        )
 
                 if sql_config.include_views:
-                    yield from self.loop_views(inspector, schema, sql_config)
+                    try:
+                        yield from self.loop_views(inspector, schema, sql_config)
+                    except Exception as e:
+                        self.report.report_failure(
+                            f"{db_name}.{schema}", f"Views error: {e}"
+                        )
 
                 if profiler:
                     profile_requests += list(
