@@ -442,6 +442,14 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 },
             )
 
+    def warn(self, log: logging.Logger, key: str, reason: str) -> Any:
+        self.report.report_warning(key, reason)
+        log.warning(reason)
+
+    def error(self, log: logging.Logger, key: str, reason: str) -> Any:
+        self.report.report_failure(key, reason)
+        log.error(reason)
+
     def get_inspectors(self) -> Iterable[Inspector]:
         # This method can be overridden in the case that you want to dynamically
         # run on multiple databases.
@@ -768,37 +776,42 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         sql_config: SQLAlchemyConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         tables_seen: Set[str] = set()
-        for table in inspector.get_table_names(schema):
-            schema, table = self.standardize_schema_table_names(
-                schema=schema, entity=table
-            )
-            dataset_name = self.get_identifier(
-                schema=schema, entity=table, inspector=inspector
-            )
-
-            dataset_name = self.normalise_dataset_name(dataset_name)
-
-            if dataset_name not in tables_seen:
-                tables_seen.add(dataset_name)
-            else:
-                logger.debug(f"{dataset_name} has already been seen, skipping...")
-                continue
-
-            self.report.report_entity_scanned(dataset_name, ent_type="table")
-
-            if not sql_config.table_pattern.allowed(dataset_name):
-                self.report.report_dropped(dataset_name)
-                continue
-
-            try:
-                yield from self._process_table(
-                    dataset_name, inspector, schema, table, sql_config
+        try:
+            for table in inspector.get_table_names(schema):
+                schema, table = self.standardize_schema_table_names(
+                    schema=schema, entity=table
                 )
-            except Exception as e:
-                logger.warning(
-                    f"Unable to ingest {schema}.{table} due to an exception.\n {traceback.format_exc()}"
+                dataset_name = self.get_identifier(
+                    schema=schema, entity=table, inspector=inspector
                 )
-                self.report.report_warning(f"{schema}.{table}", f"Ingestion error: {e}")
+
+                dataset_name = self.normalise_dataset_name(dataset_name)
+
+                if dataset_name not in tables_seen:
+                    tables_seen.add(dataset_name)
+                else:
+                    logger.debug(f"{dataset_name} has already been seen, skipping...")
+                    continue
+
+                self.report.report_entity_scanned(dataset_name, ent_type="table")
+
+                if not sql_config.table_pattern.allowed(dataset_name):
+                    self.report.report_dropped(dataset_name)
+                    continue
+
+                try:
+                    yield from self._process_table(
+                        dataset_name, inspector, schema, table, sql_config
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Unable to ingest {schema}.{table} due to an exception.\n {traceback.format_exc()}"
+                    )
+                    self.report.report_warning(
+                        f"{schema}.{table}", f"Ingestion error: {e}"
+                    )
+        except Exception as e:
+            self.report.report_failure(f"{schema}", f"Tables error: {e}")
 
     def _process_table(
         self,
@@ -986,34 +999,39 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         schema: str,
         sql_config: SQLAlchemyConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
-        for view in inspector.get_view_names(schema):
-            schema, view = self.standardize_schema_table_names(
-                schema=schema, entity=view
-            )
-            dataset_name = self.get_identifier(
-                schema=schema, entity=view, inspector=inspector
-            )
-            dataset_name = self.normalise_dataset_name(dataset_name)
-
-            self.report.report_entity_scanned(dataset_name, ent_type="view")
-
-            if not sql_config.view_pattern.allowed(dataset_name):
-                self.report.report_dropped(dataset_name)
-                continue
-
-            try:
-                yield from self._process_view(
-                    dataset_name=dataset_name,
-                    inspector=inspector,
-                    schema=schema,
-                    view=view,
-                    sql_config=sql_config,
+        try:
+            for view in inspector.get_view_names(schema):
+                schema, view = self.standardize_schema_table_names(
+                    schema=schema, entity=view
                 )
-            except Exception as e:
-                logger.warning(
-                    f"Unable to ingest view {schema}.{view} due to an exception.\n {traceback.format_exc()}"
+                dataset_name = self.get_identifier(
+                    schema=schema, entity=view, inspector=inspector
                 )
-                self.report.report_warning(f"{schema}.{view}", f"Ingestion error: {e}")
+                dataset_name = self.normalise_dataset_name(dataset_name)
+
+                self.report.report_entity_scanned(dataset_name, ent_type="view")
+
+                if not sql_config.view_pattern.allowed(dataset_name):
+                    self.report.report_dropped(dataset_name)
+                    continue
+
+                try:
+                    yield from self._process_view(
+                        dataset_name=dataset_name,
+                        inspector=inspector,
+                        schema=schema,
+                        view=view,
+                        sql_config=sql_config,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Unable to ingest view {schema}.{view} due to an exception.\n {traceback.format_exc()}"
+                    )
+                    self.report.report_warning(
+                        f"{schema}.{view}", f"Ingestion error: {e}"
+                    )
+        except Exception as e:
+            self.report.report_failure(f"{schema}", f"Views error: {e}")
 
     def _process_view(
         self,

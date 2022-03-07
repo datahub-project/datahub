@@ -17,7 +17,7 @@ create or replace role datahub_role;
 
 // Grant privileges to use and select from your target warehouses / dbs / schemas / tables
 grant operate, usage on warehouse <your-warehouse> to role datahub_role;
-grant usage on <your-database> to role datahub_role;
+grant usage on DATABASE <your-database> to role datahub_role;
 grant usage on all schemas in database <your-database> to role datahub_role;
 grant select on all tables in database <your-database> to role datahub_role;
 grant select on all external tables in database <your-database> to role datahub_role;
@@ -26,6 +26,9 @@ grant select on all views in database <your-database> to role datahub_role;
 // Grant privileges for all future schemas and tables created in a warehouse
 grant usage on future schemas in database "<your-database>" to role datahub_role;
 grant select on future tables in database "<your-database>" to role datahub_role;
+
+// Grant privileges on snowflake default database - needed for lineage
+grant imported privileges on DATABASE snowflake to role datahub_role;
 
 // Create a new DataHub user and assign the DataHub role to it
 create user datahub_user display_name = 'DataHub' password='' default_role = datahub_role default_warehouse = '<your-warehouse>';

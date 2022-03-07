@@ -1009,7 +1009,7 @@ def test_add_remove_members_from_group(frontend_session):
     response.raise_for_status()
 
     # Sleep for edge store to be updated. Not ideal!
-    time.sleep(1)
+    time.sleep(3)
 
     # Verify the member has been added
     json = {
@@ -1049,7 +1049,7 @@ def test_add_remove_members_from_group(frontend_session):
     response.raise_for_status()
 
     # Sleep for edge store to be updated. Not ideal!
-    time.sleep(1)
+    time.sleep(3)
 
     # Verify the member has been removed
     json = {

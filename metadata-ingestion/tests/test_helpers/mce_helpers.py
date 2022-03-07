@@ -3,10 +3,15 @@ import logging
 import os
 import pprint
 import shutil
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
 import deepdiff
 
+from datahub.metadata.schema_classes import (
+    MetadataChangeEventClass,
+    MetadataChangeProposalClass,
+)
+from datahub.utilities.urns.urn import Urn
 from tests.test_helpers.type_helpers import PytestConfig
 
 logger = logging.getLogger(__name__)
@@ -165,9 +170,10 @@ def _get_filter(
 def _get_element(event: Dict[str, Any], path_spec: List[str]) -> Any:
     try:
         for p in path_spec:
-            event = event.get(p, {})
-            if not event:
+            if p not in event:
                 return None
+            else:
+                event = event.get(p, {})
         return event
     except Exception as e:
         print(event)
@@ -251,7 +257,7 @@ def assert_mce_entity_urn(
 
 
 def assert_for_each_entity(
-    entity_type: str, aspect_name: str, aspect_field_matcher: Dict[str, str], file: str
+    entity_type: str, aspect_name: str, aspect_field_matcher: Dict[str, Any], file: str
 ) -> int:
     """Assert that an aspect name with the desired fields exists for each entity urn"""
     test_output = load_json_file(file)
@@ -308,3 +314,51 @@ def assert_for_each_entity(
         ), f"Failed to find aspect_name {aspect_name} for urns {json.dumps(failures, indent=2)}"
 
     return len(success)
+
+
+def assert_entity_mce_aspect(
+    entity_urn: str, aspect: Any, aspect_type: Type, file: str
+) -> int:
+    test_output = load_json_file(file)
+    entity_type = Urn.create_from_string(entity_urn).get_type()
+    assert isinstance(test_output, list)
+    # mce urns
+    mces: List[MetadataChangeEventClass] = [
+        MetadataChangeEventClass.from_obj(x)
+        for x in test_output
+        if _get_filter(mce=True, entity_type=entity_type)(x)
+        and _get_element(x, _get_mce_urn_path_spec(entity_type)) == entity_urn
+    ]
+    matches = 0
+    for mce in mces:
+        for a in mce.proposedSnapshot.aspects:
+            if isinstance(a, aspect_type):
+                assert a == aspect
+                matches = matches + 1
+    return matches
+
+
+def assert_entity_mcp_aspect(
+    entity_urn: str, aspect_field_matcher: Dict[str, Any], aspect_name: str, file: str
+) -> int:
+    test_output = load_json_file(file)
+    entity_type = Urn.create_from_string(entity_urn).get_type()
+    assert isinstance(test_output, list)
+    # mcps that match entity_urn
+    mcps: List[MetadataChangeProposalClass] = [
+        MetadataChangeProposalClass.from_obj(x)
+        for x in test_output
+        if _get_filter(mcp=True, entity_type=entity_type)(x)
+        and _get_element(x, _get_mcp_urn_path_spec()) == entity_urn
+    ]
+    matches = 0
+    for mcp in mcps:
+        if mcp.aspectName == aspect_name:
+            assert mcp.aspect
+            aspect_val = json.loads(mcp.aspect.value)
+            for f in aspect_field_matcher:
+                assert aspect_field_matcher[f] == _get_element(
+                    aspect_val, [f]
+                ), f"urn: {mcp.entityUrn} -> Field {f} must match value {aspect_field_matcher[f]}, found {_get_element(aspect_val, [f])}"
+                matches = matches + 1
+    return matches

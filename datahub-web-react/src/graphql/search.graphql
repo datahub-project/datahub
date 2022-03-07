@@ -58,6 +58,15 @@ fragment searchResultFields on Entity {
     }
     ... on CorpUser {
         username
+        properties {
+            active
+            displayName
+            title
+            firstName
+            lastName
+            fullName
+            email
+        }
         info {
             active
             displayName
@@ -65,6 +74,7 @@ fragment searchResultFields on Entity {
             firstName
             lastName
             fullName
+            email
         }
         editableProperties {
             displayName
