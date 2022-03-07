@@ -364,7 +364,7 @@ class BigQuerySource(SQLAlchemySource):
             )
             self.lineage_metadata = self._create_lineage_map(parsed_entries)
         except Exception as e:
-            super().error(
+            self.error(
                 logger,
                 "lineage-gcp-logs",
                 f"Error was {e}",
@@ -386,7 +386,7 @@ class BigQuerySource(SQLAlchemySource):
             )
             self.lineage_metadata = self._create_lineage_map(parsed_entries)
         except Exception as e:
-            super().error(
+            self.error(
                 logger,
                 "lineage-exported-gcp-audit-logs",
                 f"Error: {e}",

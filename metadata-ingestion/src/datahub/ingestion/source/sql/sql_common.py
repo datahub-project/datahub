@@ -443,7 +443,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
     def warn(self, log: logging.Logger, key: str, reason: str) -> Any:
         self.report.report_warning(key, reason)
-        logger.warning(reason)
+        log.warning(reason)
+
+    def error(self, log: logging.Logger, key: str, reason: str) -> Any:
+        self.report.report_failure(key, reason)
+        log.error(reason)
 
     def get_inspectors(self) -> Iterable[Inspector]:
         # This method can be overridden in the case that you want to dynamically

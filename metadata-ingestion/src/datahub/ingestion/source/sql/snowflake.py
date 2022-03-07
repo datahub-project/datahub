@@ -309,7 +309,7 @@ WHERE
                     f"Upstream->View: Lineage[View(Down)={view_name}]:Upstream={view_upstream}"
                 )
         except Exception as e:
-            super().warn(
+            self.warn(
                 logger,
                 "view_upstream_lineage",
                 "Extracting the upstream view lineage from Snowflake failed."
@@ -425,7 +425,7 @@ WHERE
                 num_edges += 1
 
         except Exception as e:
-            super().warn(
+            self.warn(
                 logger,
                 "view_downstream_lineage",
                 f"Extracting the view lineage from Snowflake failed."
@@ -500,7 +500,7 @@ WHERE
                 )
                 num_edges += 1
         except Exception as e:
-            super().warn(
+            self.warn(
                 logger,
                 "external_lineage",
                 f"Populating external table lineage from Snowflake failed."
@@ -553,7 +553,7 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
                     f"Lineage[Table(Down)={key}]:Table(Up)={self._lineage_map[key]}"
                 )
         except Exception as e:
-            super().warn(
+            self.warn(
                 logger,
                 "lineage",
                 f"Extracting lineage from Snowflake failed."
