@@ -207,7 +207,9 @@ class SnowflakeSource(SQLAlchemySource):
         config = SnowflakeConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def get_metadata_engine(self, database=None) -> sqlalchemy.engine.Engine:
+    def get_metadata_engine(
+        self, database: Optional[str] = None
+    ) -> sqlalchemy.engine.Engine:
         url = self.config.get_sql_alchemy_url(database=database)
         logger.debug(f"sql_alchemy_url={url}")
         return create_engine(
