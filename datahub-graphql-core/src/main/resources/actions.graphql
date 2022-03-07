@@ -5,6 +5,13 @@ extend type Dataset {
     proposals(type: ActionRequestType!, status: ActionRequestStatus): [ActionRequest!]
 }
 
+extend type Query {
+    """
+    Fetch all rejected action requests
+    """
+    listRejectedActionRequests(input: ListRejectedActionRequestsInput!): ListRejectedActionRequestsResult
+}
+
 type ActionRequestsConfig {
     """
     Whether the action requests feature is enabled.
@@ -95,6 +102,48 @@ type ListActionRequestsResult {
     actionRequests: [ActionRequest!]!
 }
 
+input ListRejectedActionRequestsInput {
+    """
+    Start offset of the result set
+    """
+    start: Int
+    """
+    Number of results to return in the result set
+    """
+    count: Int
+    """
+    An optional type filter
+    """
+    type: ActionRequestType
+    """
+    An optional starting time to filter on
+    """
+    startTimestampMillis: Long
+    """
+    An optional ending time to filter on
+    """
+    endTimestampMillis: Long
+}
+
+type ListRejectedActionRequestsResult {
+    """
+    Start offset of the result set
+    """
+    start: Int
+    """
+    Number of results to return in the result set
+    """
+    count: Int
+    """
+    The total number of rejected action requests
+    """
+    total: Int
+    """
+    A list of rejected action requests
+    """
+    rejectedActionRequests: [ActionRequest!]!
+}
+
 """
 A request for a user or group to perform a particular action, for example
 reviewing and approving tag or glossary term associations
@@ -152,7 +201,16 @@ type ActionRequest {
     The time and actor which last modified the action request
     """
     lastModified: ResolvedAuditStamp
+    """
+    Resource level properties for the action request
+    """
+    resourceProperties: ActionRequestResourceProperties
+    """
+    Sub-resource level properties for the action request
+    """
+    subResourceProperties: ActionRequestSubResourceProperties
 }
+
 type ActionRequestParams {
     """
     Glossary Term specific arguments
@@ -181,4 +239,32 @@ type GlossaryTermProposalParams {
     The urn of the proposed term
     """
     glossaryTerm: GlossaryTerm!
+}
+
+"""
+Resource level properties for an action request.
+"""
+type ActionRequestResourceProperties {
+    """
+    Glossary terms that are applied to the resource
+    """
+    glossaryTerms: GlossaryTerms
+    """
+    Tags that are applied to the resource
+    """
+    tags: GlobalTags
+}
+
+"""
+Sub-resource level properties for an action request.
+"""
+type ActionRequestSubResourceProperties {
+    """
+    Glossary terms that are applied to the sub-resource.
+    """
+    glossaryTerms: GlossaryTerms
+    """
+    Tags that are applied to the sub-resource.
+    """
+    tags: GlobalTags
 }

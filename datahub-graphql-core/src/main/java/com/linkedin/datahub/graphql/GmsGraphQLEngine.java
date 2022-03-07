@@ -55,6 +55,7 @@ import com.linkedin.datahub.graphql.generated.UserUsageCounts;
 import com.linkedin.datahub.graphql.resolvers.AuthenticatedResolver;
 import com.linkedin.datahub.graphql.resolvers.MeResolver;
 import com.linkedin.datahub.graphql.resolvers.actionrequest.ListActionRequestsResolver;
+import com.linkedin.datahub.graphql.resolvers.actionrequest.ListRejectedActionRequestsResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.AssertionRunEventResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.DeleteAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.EntityAssertionsResolver;
@@ -666,6 +667,8 @@ public class GmsGraphQLEngine {
                 new ListPoliciesResolver(this.entityClient))
             .dataFetcher("listActionRequests",
                 new ListActionRequestsResolver(entityClient))
+            .dataFetcher("listRejectedActionRequests",
+                new ListRejectedActionRequestsResolver(entityClient, entityService))
             .dataFetcher("listUsers",
                 new ListUsersResolver(this.entityClient))
             .dataFetcher("listGroups",

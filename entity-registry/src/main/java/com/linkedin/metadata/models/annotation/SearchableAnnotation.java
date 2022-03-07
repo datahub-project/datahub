@@ -45,14 +45,7 @@ public class SearchableAnnotation {
   Map<Object, Double> weightsPerFieldValue;
 
   public enum FieldType {
-    KEYWORD,
-    TEXT,
-    TEXT_PARTIAL,
-    BROWSE_PATH,
-    URN,
-    URN_PARTIAL,
-    BOOLEAN,
-    COUNT
+    KEYWORD, TEXT, TEXT_PARTIAL, BROWSE_PATH, URN, URN_PARTIAL, BOOLEAN, COUNT, DATETIME
   }
 
   @Nonnull
