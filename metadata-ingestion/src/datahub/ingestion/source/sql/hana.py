@@ -1,6 +1,5 @@
 # These imports verify that the dependencies are available.
 import hdbcli  # noqa: F401
-from sqlalchemy.dialects.hana import base  # noqa: F401
 
 from datahub.ingestion.source.sql.sql_common import (
     BasicSQLAlchemyConfig,
