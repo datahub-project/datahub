@@ -6,7 +6,7 @@ import styled from 'styled-components';
 import { singularizeCollectionName } from '../entity/shared/utils';
 
 const styles = {
-    row: { padding: 8 },
+    row: { padding: 8, cursor: 'pointer' },
     title: { margin: 0 },
 };
 
