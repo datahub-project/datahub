@@ -39,7 +39,7 @@ class HiveConfig(BasicSQLAlchemyConfig):
     include_views = False
 
     @validator("host_port")
-    def remove_trailing_slash(cls, v):
+    def clean_host_port(cls, v):
         return config_clean.remove_protocol(v)
 
 
