@@ -9,3 +9,7 @@ To enable these tabs you need to use one of the usage sources which gets the rel
 ## Properties Tab in Datasets
 
 Properties are a catch-all bag for metadata not captured in other aspects stored for a Dataset. These are populated via the various source connectors when [metadata is ingested](../../metadata-ingestion/README.md).
+
+## Validation Tab in Datasets
+
+This tab is enabled if you use [Data Quality Integration with Great Expectations](../../metadata-ingestion/integration_docs/great-expectations.md).
