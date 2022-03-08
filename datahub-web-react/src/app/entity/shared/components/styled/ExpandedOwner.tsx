@@ -1,12 +1,14 @@
-import { message, Modal, Tag } from 'antd';
+import { message, Modal, Tag, Tooltip } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { useRemoveOwnerMutation } from '../../../../../graphql/mutations.generated';
 
-import { Owner } from '../../../../../types.generated';
+import { EntityType, Owner } from '../../../../../types.generated';
 import { CustomAvatar } from '../../../../shared/avatar';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
+import analytics, { EventType, EntityActionType } from '../../../../analytics';
+import { useEntityData } from '../../EntityContext';
 
 type Props = {
     entityUrn: string;
@@ -24,17 +26,19 @@ const OwnerTag = styled(Tag)`
 
 export const ExpandedOwner = ({ entityUrn, owner, refetch }: Props) => {
     const entityRegistry = useEntityRegistry();
+    const { entityType } = useEntityData();
     const [removeOwnerMutation] = useRemoveOwnerMutation();
 
     let name = '';
     if (owner.owner.__typename === 'CorpGroup') {
-        name = owner.owner.name || owner.owner.info?.displayName || '';
+        name = entityRegistry.getDisplayName(EntityType.CorpGroup, owner.owner);
     }
     if (owner.owner.__typename === 'CorpUser') {
-        name = owner.owner.info?.displayName || owner.owner.info?.fullName || owner.owner.info?.email || '';
+        name = entityRegistry.getDisplayName(EntityType.CorpUser, owner.owner);
     }
 
-    const pictureLink = (owner.owner.__typename === 'CorpUser' && owner.owner.editableInfo?.pictureLink) || undefined;
+    const pictureLink =
+        (owner.owner.__typename === 'CorpUser' && owner.owner.editableProperties?.pictureLink) || undefined;
 
     const onDelete = async () => {
         try {
@@ -47,6 +51,12 @@ export const ExpandedOwner = ({ entityUrn, owner, refetch }: Props) => {
                 },
             });
             message.success({ content: 'Owner Removed', duration: 2 });
+            analytics.event({
+                type: EventType.EntityActionEvent,
+                actionType: EntityActionType.UpdateOwnership,
+                entityType,
+                entityUrn,
+            });
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
@@ -74,8 +84,10 @@ export const ExpandedOwner = ({ entityUrn, owner, refetch }: Props) => {
     return (
         <OwnerTag onClose={onClose} closable>
             <Link to={`/${entityRegistry.getPathName(owner.owner.type)}/${owner.owner.urn}`}>
-                <CustomAvatar name={name} photoUrl={pictureLink} />
-                {name}
+                <CustomAvatar name={name} photoUrl={pictureLink} useDefaultAvatar={false} />
+                <Tooltip placement="top" title={owner.type}>
+                    {name}
+                </Tooltip>
             </Link>
         </OwnerTag>
     );

@@ -9,12 +9,14 @@ import com.linkedin.common.Urn
   "name": "glossaryTermKey"
 }
 record GlossaryTermKey {
-
+  /**
+  * The term name, which serves as a unique id
+  */
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
-    "enableAutocomplete": true
+    "enableAutocomplete": true,
+    "fieldName": "id"
   }
   name: string
-
 
 }

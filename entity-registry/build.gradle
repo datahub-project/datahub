@@ -12,7 +12,10 @@ dependencies {
   dataModel project(':li-utils')
   annotationProcessor externalDependency.lombok
 
+  compile externalDependency.mavenArtifact
+
   testCompile externalDependency.testng
   testCompile project(':test-models')
 
 }
+compileTestJava.dependsOn tasks.getByPath(':entity-registry:custom-test-model:modelDeploy')

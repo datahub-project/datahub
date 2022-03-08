@@ -5,10 +5,9 @@ configurations {
 }
 
 dependencies {
+  implementation 'com.github.java-json-tools:json-patch:1.13'
   compile project(':entity-registry')
   compile project(':metadata-utils')
-  compile project(':metadata-builders')
-  compile project(':metadata-dao-impl:restli-dao')
   compile project(':metadata-events:mxe-avro-1.7')
   compile project(':metadata-events:mxe-registration')
   compile project(':metadata-events:mxe-utils-avro-1.7')
@@ -17,25 +16,28 @@ dependencies {
   compile spec.product.pegasus.data
   compile spec.product.pegasus.generator
 
+  compile externalDependency.dgraph4j exclude group: 'com.google.guava', module: 'guava'
   compile externalDependency.lombok
   compile externalDependency.datastaxOssNativeProtocol
   compile externalDependency.datastaxOssCore
   compile externalDependency.datastaxOssQueryBuilder
+  compile externalDependency.parquet
   compile externalDependency.elasticSearchRest
   compile externalDependency.elasticSearchTransport
+  compile externalDependency.javatuples
   compile externalDependency.kafkaClients
-  compile externalDependency.gmaEbeanDao
-  compile externalDependency.gmaRestliResources
-  compile externalDependency.gmaElasticsearchDao
   compile externalDependency.ebean
   enhance externalDependency.ebeanAgent
   compile externalDependency.opentelemetryAnnotations
+  compile externalDependency.resilience4j
   compile externalDependency.springContext
+  compile externalDependency.swaggerAnnotations
 
   annotationProcessor externalDependency.lombok
 
   testCompile externalDependency.testng
   testCompile externalDependency.h2
+  testCompile externalDependency.mysqlConnector
   testCompile externalDependency.neo4jHarness
   testCompile externalDependency.mockito
   testCompile externalDependency.mockitoInline
@@ -45,7 +47,26 @@ dependencies {
   testCompile externalDependency.testContainersJunit
   testCompile externalDependency.testContainersElasticsearch
   testCompile externalDependency.testContainersCassandra
+  testCompile externalDependency.lombok
   testCompile project(':test-models')
+
+  testAnnotationProcessor externalDependency.lombok
+
+  constraints {
+    implementation("org.apache.logging.log4j:log4j-core:2.17.0") {
+        because("previous versions are vulnerable to CVE-2021-45105")
+    }
+    implementation("org.apache.logging.log4j:log4j-api:2.17.0") {
+        because("previous versions are vulnerable to CVE-2021-45105")
+    }
+  }
+}
+
+test {
+  // https://docs.gradle.org/current/userguide/performance.html
+  maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
+  testLogging.showStandardStreams = true
+  testLogging.exceptionFormat = 'full'
 }
 
 tasks.withType(Test) {

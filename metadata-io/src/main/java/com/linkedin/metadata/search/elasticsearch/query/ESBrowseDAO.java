@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.query;
 
 import com.codahale.metrics.Timer;
+import com.datahub.util.exception.ESQueryException;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.browse.BrowseResult;
@@ -9,11 +10,10 @@ import com.linkedin.metadata.browse.BrowseResultEntityArray;
 import com.linkedin.metadata.browse.BrowseResultGroup;
 import com.linkedin.metadata.browse.BrowseResultGroupArray;
 import com.linkedin.metadata.browse.BrowseResultMetadata;
-import com.linkedin.metadata.dao.exception.ESQueryException;
-import com.linkedin.metadata.search.utils.ESUtils;
-import com.linkedin.metadata.search.utils.SearchUtils;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.search.utils.SearchUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.net.URISyntaxException;
@@ -61,6 +61,9 @@ public class ESBrowseDAO {
 
   private static final String GROUP_AGG = "groups";
   private static final String ALL_PATHS = "allPaths";
+
+  // Set explicit max size for grouping
+  private static final int AGGREGATION_MAX_SIZE = 10000;
 
   @Value
   private class BrowseGroupsResult {
@@ -133,14 +136,18 @@ public class ESBrowseDAO {
    */
   @Nonnull
   private AggregationBuilder buildAggregations(@Nonnull String path) {
-    final String includeFilter = ESUtils.escapeReservedCharacters(path) + "/.*";
-    final String excludeFilter = ESUtils.escapeReservedCharacters(path) + "/.*/.*";
+    final String currentLevel = ESUtils.escapeReservedCharacters(path) + "/.*";
+    final String nextLevel = ESUtils.escapeReservedCharacters(path) + "/.*/.*";
+    final String nextNextLevel = ESUtils.escapeReservedCharacters(path) + "/.*/.*/.*";
 
     return AggregationBuilders.terms(GROUP_AGG)
         .field(BROWSE_PATH)
-        .size(Integer.MAX_VALUE)
-        .includeExclude(new IncludeExclude(includeFilter, excludeFilter))
-        .subAggregation(AggregationBuilders.terms(ALL_PATHS).field(BROWSE_PATH).size(Integer.MAX_VALUE));
+        .size(AGGREGATION_MAX_SIZE)
+        .includeExclude(new IncludeExclude(currentLevel, nextLevel))
+        .subAggregation(AggregationBuilders.terms(ALL_PATHS)
+            .field(BROWSE_PATH)
+            .size(AGGREGATION_MAX_SIZE)
+            .includeExclude(new IncludeExclude(nextLevel, nextNextLevel)));
   }
 
   /**

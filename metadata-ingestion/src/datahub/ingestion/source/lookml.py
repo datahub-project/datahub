@@ -15,7 +15,9 @@ from looker_sdk.error import SDKError
 from looker_sdk.sdk.api31.methods import Looker31SDK
 from looker_sdk.sdk.api31.models import DBConnection
 from pydantic import root_validator, validator
+from pydantic.fields import Field
 
+from datahub.configuration.source_common import EnvBasedSourceConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.looker_common import (
     LookerCommonConfig,
@@ -92,8 +94,17 @@ class LookerConnectionDefinition(ConfigModel):
     platform: str
     default_db: str
     default_schema: Optional[str]  # Optional since some sources are two-level only
+    platform_instance: Optional[str] = None
+    platform_env: Optional[str] = Field(
+        default=None,
+        description="The environment that the platform is located in. Leaving this empty will inherit defaults from the top level Looker configuration",
+    )
 
-    @validator("*")
+    @validator("platform_env")
+    def platform_env_must_be_one_of(cls, v: str) -> str:
+        return EnvBasedSourceConfigBase.env_must_be_one_of(v)
+
+    @validator("platform", "default_db", "default_schema")
     def lower_everything(cls, v):
         """We lower case all strings passed in to avoid casing issues later"""
         if v is not None:
@@ -132,6 +143,12 @@ class LookMLSourceConfig(LookerCommonConfig):
     sql_parser: str = "datahub.utilities.sql_parser.DefaultSQLParser"
     api: Optional[LookerAPIConfig]
     project_name: Optional[str]
+
+    @validator("platform_instance")
+    def platform_instance_not_supported(cls, v: str) -> str:
+        raise ConfigurationError(
+            "LookML Source doesn't support platform instance at the top level. However connection-specific platform instances are supported for generating lineage edges. Read the documentation to find out more."
+        )
 
     @validator("connection_to_platform_map", pre=True)
     def convert_string_to_connection_def(cls, conn_map):
@@ -640,10 +657,10 @@ class LookerView:
                 return fields, sql_table_names
             # Looker supports sql fragments that omit the SELECT and FROM parts of the query
             # Add those in if we detect that it is missing
-            if not re.match(r"^\s*SELECT", sql_query):
+            if not re.search(r"SELECT\s", sql_query, flags=re.I):
                 # add a SELECT clause at the beginning
                 sql_query = "SELECT " + sql_query
-            if not re.search(r" FROM\s", sql_query):
+            if not re.search(r"FROM\s", sql_query, flags=re.I):
                 # add a FROM clause at the end
                 sql_query = f"{sql_query} FROM {sql_table_name if sql_table_name is not None else view_name}"
                 # Get the list of tables in the query
@@ -824,7 +841,7 @@ class LookMLSource(Source):
         # Check if table name matches cascading derived tables pattern
         # derived tables can be referred to using aliases that look like table_name.SQL_TABLE_NAME
         # See https://docs.looker.com/data-modeling/learning-lookml/derived-tables#syntax_for_referencing_a_derived_table
-        if re.fullmatch(r"\w+\.SQL_TABLE_NAME", sql_table_name):
+        if re.fullmatch(r"\w+\.SQL_TABLE_NAME", sql_table_name, flags=re.I):
             sql_table_name = sql_table_name.lower().split(".")[0]
             # upstream dataset is a looker view based on current view id's project and model
             view_id = LookerViewId(
@@ -839,8 +856,11 @@ class LookMLSource(Source):
             sql_table_name, connection_def
         )
 
-        return builder.make_dataset_urn(
-            connection_def.platform, sql_table_name.lower(), self.source_config.env
+        return builder.make_dataset_urn_with_platform_instance(
+            platform=connection_def.platform,
+            name=sql_table_name.lower(),
+            platform_instance=connection_def.platform_instance,
+            env=connection_def.platform_env or self.source_config.env,
         )
 
     def _get_connection_def_based_on_connection_string(

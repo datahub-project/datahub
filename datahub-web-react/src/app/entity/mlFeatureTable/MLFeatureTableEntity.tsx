@@ -4,6 +4,7 @@ import { MlFeatureTable, EntityType, SearchResult } from '../../../types.generat
 import { Preview } from './preview/Preview';
 import { MLFeatureTableProfile } from './profile/MLFeatureTableProfile';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
+import { getDataForEntityType } from '../shared/containers/profile/utils';
 
 /**
  * Definition of the DataHub MLFeatureTable entity.
@@ -53,6 +54,8 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
                 name={data.name || ''}
                 description={data.description}
                 owners={data.ownership?.owners}
+                logoUrl={data.platform?.properties?.logoUrl}
+                platformName={data.platform?.displayName}
             />
         );
     };
@@ -65,6 +68,8 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
                 name={data.name || ''}
                 description={data.description || ''}
                 owners={data.ownership?.owners}
+                logoUrl={data.platform?.properties?.logoUrl}
+                platformName={data.platform?.displayName}
             />
         );
     };
@@ -76,12 +81,20 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
             type: EntityType.MlfeatureTable,
             upstreamChildren: [],
             downstreamChildren: [],
-            icon: entity.platform.info?.logoUrl || undefined,
+            icon: entity.platform.properties?.logoUrl || undefined,
             platform: entity.platform.name,
         };
     };
 
     displayName = (data: MlFeatureTable) => {
         return data.name;
+    };
+
+    getGenericEntityProperties = (mlFeatureTable: MlFeatureTable) => {
+        return getDataForEntityType({
+            data: mlFeatureTable,
+            entityType: this.type,
+            getOverrideProperties: (data) => data,
+        });
     };
 }

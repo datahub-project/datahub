@@ -10,7 +10,7 @@ record TagAssociation {
   */
   @Searchable = {
     "fieldName": "tags",
-    "fieldType": "URN_PARTIAL",
+    "fieldType": "URN",
     "hasValuesFieldName": "hasTags",
     "addToFilters": true,
     "filterNameOverride": "Tag"

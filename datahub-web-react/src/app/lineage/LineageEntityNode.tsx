@@ -1,13 +1,18 @@
-import React from 'react';
+import React, { useContext, useMemo, useState } from 'react';
 import { Group } from '@vx/group';
 import { LinkHorizontal } from '@vx/shape';
 import styled from 'styled-components';
 
 import { useEntityRegistry } from '../useEntityRegistry';
 import { IconStyleType } from '../entity/Entity';
-import { NodeData, Direction } from './types';
+import { NodeData, Direction, VizNode, EntitySelectParams } from './types';
 import { ANTD_GRAY } from '../entity/shared/constants';
-import { capitalizeFirstLetter } from '../shared/capitalizeFirstLetter';
+import { capitalizeFirstLetter } from '../shared/textUtil';
+import { nodeHeightFromTitleLength } from './utils/nodeHeightFromTitleLength';
+import { LineageExplorerContext } from './utils/LineageExplorerContext';
+
+const CLICK_DELAY_THRESHOLD = 1000;
+const DRAG_DISTANCE_THRESHOLD = 20;
 
 function truncate(input, length) {
     if (!input) return '';
@@ -17,7 +22,9 @@ function truncate(input, length) {
     return input;
 }
 
-function getLastTokenOfTitle(title: string): string {
+function getLastTokenOfTitle(title?: string): string {
+    if (!title) return '';
+
     const lastToken = title?.split('.').slice(-1)[0];
 
     // if the last token does not contain any content, the string should not be tokenized on `.`
@@ -42,6 +49,17 @@ const PointerGroup = styled(Group)`
     cursor: pointer;
 `;
 
+const UnselectableText = styled.text`
+    user-select: none;
+`;
+
+const MultilineTitleText = styled.p`
+    margin-top: -2px;
+    font-size: 14px;
+    width: 125px;
+    word-break: break-all;
+`;
+
 export default function LineageEntityNode({
     node,
     isSelected,
@@ -49,6 +67,7 @@ export default function LineageEntityNode({
     onEntityClick,
     onEntityCenter,
     onHover,
+    onDrag,
     onExpandClick,
     direction,
     isCenterNode,
@@ -61,17 +80,35 @@ export default function LineageEntityNode({
     onEntityClick: (EntitySelectParams) => void;
     onEntityCenter: (EntitySelectParams) => void;
     onHover: (EntitySelectParams) => void;
+    onDrag: (params: EntitySelectParams, event: React.MouseEvent) => void;
     onExpandClick: (LineageExpandParams) => void;
     direction: Direction;
-    nodesToRenderByUrn: { [key: string]: { x: number; y: number; data: Omit<NodeData, 'children'> }[] };
+    nodesToRenderByUrn: Record<string, VizNode>;
 }) {
+    const { expandTitles } = useContext(LineageExplorerContext);
+    const [isExpanding, setIsExpanding] = useState(false);
+    const [expandHover, setExpandHover] = useState(false);
+
     const entityRegistry = useEntityRegistry();
     const unexploredHiddenChildren =
         node?.data?.countercurrentChildrenUrns?.filter((urn) => !(urn in nodesToRenderByUrn))?.length || 0;
 
+    // we need to track lastMouseDownCoordinates to differentiate between clicks and drags. It doesn't use useState because
+    // it shouldn't trigger re-renders
+    const lastMouseDownCoordinates = useMemo(
+        () => ({
+            ts: 0,
+            x: 0,
+            y: 0,
+        }),
+        [],
+    );
+
+    const nodeHeight = nodeHeightFromTitleLength(expandTitles ? node.data.name : undefined);
+
     return (
         <PointerGroup data-testid={`node-${node.data.urn}-${direction}`} top={node.x} left={node.y}>
-            {unexploredHiddenChildren ? (
+            {unexploredHiddenChildren && (isHovered || isSelected) ? (
                 <Group>
                     {[...Array(unexploredHiddenChildren)].map((_, index) => {
                         const link = {
@@ -86,7 +123,8 @@ export default function LineageEntityNode({
                         };
                         return (
                             <LinkHorizontal
-                                key={`node-${_}-${direction}`}
+                                // eslint-disable-next-line  react/no-array-index-key
+                                key={`link-${index}-${direction}`}
                                 data={link}
                                 stroke={`url(#gradient-${direction})`}
                                 strokeWidth="1"
@@ -96,32 +134,67 @@ export default function LineageEntityNode({
                     })}
                 </Group>
             ) : null}
-            {node.data.unexploredChildren ? (
-                <Group
-                    onClick={() => {
-                        onExpandClick({ urn: node.data.urn, type: node.data.type, direction });
-                    }}
-                >
-                    <circle
-                        fill="white"
-                        cy={centerY + height / 2}
-                        cx={direction === Direction.Upstream ? centerX - 10 : centerX + width + 10}
-                        r="20"
-                    />
+            {node.data.unexploredChildren &&
+                (!isExpanding ? (
+                    <Group
+                        onClick={() => {
+                            setIsExpanding(true);
+                            onExpandClick({ urn: node.data.urn, type: node.data.type, direction });
+                        }}
+                        onMouseOver={() => {
+                            setExpandHover(true);
+                        }}
+                        onMouseOut={() => {
+                            setExpandHover(false);
+                        }}
+                        pointerEvents="bounding-box"
+                    >
+                        <circle
+                            fill="none"
+                            cy={centerY + nodeHeight / 2}
+                            cx={direction === Direction.Upstream ? centerX - 10 : centerX + width + 10}
+                            r="20"
+                        />
+                        <circle
+                            fill="none"
+                            cy={centerY + nodeHeight / 2}
+                            cx={direction === Direction.Upstream ? centerX - 30 : centerX + width + 30}
+                            r="30"
+                        />
+                        <g
+                            fill={expandHover ? ANTD_GRAY[5] : ANTD_GRAY[6]}
+                            transform={`translate(${
+                                direction === Direction.Upstream ? centerX - 52 : width / 2 + 10
+                            } -21.5) scale(0.04 0.04)`}
+                        >
+                            <path d="M512 64C264.6 64 64 264.6 64 512s200.6 448 448 448 448-200.6 448-448S759.4 64 512 64zm192 472c0 4.4-3.6 8-8 8H544v152c0 4.4-3.6 8-8 8h-48c-4.4 0-8-3.6-8-8V544H328c-4.4 0-8-3.6-8-8v-48c0-4.4 3.6-8 8-8h152V328c0-4.4 3.6-8 8-8h48c4.4 0 8 3.6 8 8v152h152c4.4 0 8 3.6 8 8v48z" />
+                        </g>
+                    </Group>
+                ) : (
                     <g
                         fill={ANTD_GRAY[6]}
                         transform={`translate(${
                             direction === Direction.Upstream ? centerX - 52 : width / 2 + 10
                         } -21.5) scale(0.04 0.04)`}
                     >
-                        <path d="M512 64C264.6 64 64 264.6 64 512s200.6 448 448 448 448-200.6 448-448S759.4 64 512 64zm192 472c0 4.4-3.6 8-8 8H544v152c0 4.4-3.6 8-8 8h-48c-4.4 0-8-3.6-8-8V544H328c-4.4 0-8-3.6-8-8v-48c0-4.4 3.6-8 8-8h152V328c0-4.4 3.6-8 8-8h48c4.4 0 8 3.6 8 8v152h152c4.4 0 8 3.6 8 8v48z" />
+                        <path
+                            className="lineageExpandLoading"
+                            d="M512 1024c-69.1 0-136.2-13.5-199.3-40.2C251.7 958 197 921 150 874c-47-47-84-101.7-109.8-162.7C13.5 648.2 0 581.1 0 512c0-19.9 16.1-36 36-36s36 16.1 36 36c0 59.4 11.6 117 34.6 171.3 22.2 52.4 53.9 99.5 94.3 139.9 40.4 40.4 87.5 72.2 139.9 94.3C395 940.4 452.6 952 512 952c59.4 0 117-11.6 171.3-34.6 52.4-22.2 99.5-53.9 139.9-94.3 40.4-40.4 72.2-87.5 94.3-139.9C940.4 629 952 571.4 952 512c0-59.4-11.6-117-34.6-171.3a440.45 440.45 0 00-94.3-139.9 437.71 437.71 0 00-139.9-94.3C629 83.6 571.4 72 512 72c-19.9 0-36-16.1-36-36s16.1-36 36-36c69.1 0 136.2 13.5 199.3 40.2C772.3 66 827 103 874 150c47 47 83.9 101.8 109.7 162.7 26.7 63.1 40.2 130.2 40.2 199.3s-13.5 136.2-40.2 199.3C958 772.3 921 827 874 874c-47 47-101.8 83.9-162.7 109.7-63.1 26.8-130.2 40.3-199.3 40.3z"
+                        />
                     </g>
-                </Group>
-            ) : null}
+                ))}
             <Group
                 onDoubleClick={() => onEntityCenter({ urn: node.data.urn, type: node.data.type })}
-                onClick={() => {
-                    onEntityClick({ urn: node.data.urn, type: node.data.type });
+                onClick={(event) => {
+                    if (
+                        event.timeStamp < lastMouseDownCoordinates.ts + CLICK_DELAY_THRESHOLD &&
+                        Math.sqrt(
+                            (event.clientX - lastMouseDownCoordinates.x) ** 2 +
+                                (event.clientY - lastMouseDownCoordinates.y) ** 2,
+                        ) < DRAG_DISTANCE_THRESHOLD
+                    ) {
+                        onEntityClick({ urn: node.data.urn, type: node.data.type });
+                    }
                 }}
                 onMouseOver={() => {
                     onHover({ urn: node.data.urn, type: node.data.type });
@@ -129,9 +202,17 @@ export default function LineageEntityNode({
                 onMouseOut={() => {
                     onHover(undefined);
                 }}
+                onMouseDown={(event) => {
+                    lastMouseDownCoordinates.ts = event.timeStamp;
+                    lastMouseDownCoordinates.x = event.clientX;
+                    lastMouseDownCoordinates.y = event.clientY;
+                    if (node.data.urn && node.data.type) {
+                        onDrag({ urn: node.data.urn, type: node.data.type }, event);
+                    }
+                }}
             >
                 <rect
-                    height={height}
+                    height={nodeHeight}
                     width={width}
                     y={centerY}
                     x={centerX}
@@ -165,7 +246,7 @@ export default function LineageEntityNode({
                     )
                 )}
                 <Group>
-                    <text
+                    <UnselectableText
                         dy="-1em"
                         x={textX}
                         fontSize={8}
@@ -182,20 +263,26 @@ export default function LineageEntityNode({
                         <tspan dx=".25em" dy="-2px">
                             {capitalizeFirstLetter(node.data.subtype || node.data.type)}
                         </tspan>
-                    </text>
-                    <text
-                        dy="1em"
-                        x={textX}
-                        fontSize={14}
-                        fontFamily="Manrope"
-                        textAnchor="start"
-                        fill={isCenterNode ? '#1890FF' : 'black'}
-                    >
-                        {truncate(getLastTokenOfTitle(node.data.name), 16)}
-                    </text>
+                    </UnselectableText>
+                    {expandTitles ? (
+                        <foreignObject x={textX} width="125" height="200">
+                            <MultilineTitleText>{node.data.name}</MultilineTitleText>
+                        </foreignObject>
+                    ) : (
+                        <UnselectableText
+                            dy="1em"
+                            x={textX}
+                            fontSize={14}
+                            fontFamily="Manrope"
+                            textAnchor="start"
+                            fill={isCenterNode ? '#1890FF' : 'black'}
+                        >
+                            {truncate(getLastTokenOfTitle(node.data.name), 16)}
+                        </UnselectableText>
+                    )}
                 </Group>
                 {unexploredHiddenChildren && isHovered ? (
-                    <text
+                    <UnselectableText
                         dy=".33em"
                         dx={textX}
                         fontSize={16}
@@ -206,7 +293,7 @@ export default function LineageEntityNode({
                     >
                         {unexploredHiddenChildren} hidden {direction === Direction.Upstream ? 'downstream' : 'upstream'}{' '}
                         {unexploredHiddenChildren > 1 ? 'dependencies' : 'dependency'}
-                    </text>
+                    </UnselectableText>
                 ) : null}
             </Group>
         </PointerGroup>

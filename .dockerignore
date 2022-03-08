@@ -5,5 +5,9 @@ out
 **/*.class
 # Have to copy gradle/wrapper/gradle-wrapper.jar, can't exclude ALL jars
 **/build/**/*.jar
-.git
+# Content in .git is used to get the git version
+# Just ignore the heavy parts that are not used
+.git/logs
+.git/COMMIT_*
+.git/index
 .gradle

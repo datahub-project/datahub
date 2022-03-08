@@ -1,12 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.policy;
 
-import com.datahub.metadata.authorization.AuthorizationManager;
+import com.datahub.authorization.AuthorizationManager;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.PolicyUpdateInput;
 import com.linkedin.datahub.graphql.resolvers.policy.mappers.PolicyUpdateInputInfoMapper;
-import com.linkedin.entity.client.AspectClient;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.key.DataHubPolicyKey;
 import com.linkedin.metadata.utils.GenericAspectUtils;
@@ -25,10 +25,10 @@ public class UpsertPolicyResolver implements DataFetcher<CompletableFuture<Strin
   private static final String POLICY_ENTITY_NAME = "dataHubPolicy";
   private static final String POLICY_INFO_ASPECT_NAME = "dataHubPolicyInfo";
 
-  private final AspectClient _aspectClient;
+  private final EntityClient _entityClient;
 
-  public UpsertPolicyResolver(final AspectClient aspectClient) {
-    _aspectClient = aspectClient;
+  public UpsertPolicyResolver(final EntityClient entityClient) {
+    _entityClient = entityClient;
   }
 
   @Override
@@ -68,7 +68,7 @@ public class UpsertPolicyResolver implements DataFetcher<CompletableFuture<Strin
       return CompletableFuture.supplyAsync(() -> {
         try {
           // TODO: We should also provide SystemMetadata.
-          String urn = _aspectClient.ingestProposal(proposal, context.getActor()).getEntity();
+          String urn = _entityClient.ingestProposal(proposal, context.getAuthentication());
           if (context.getAuthorizer() instanceof AuthorizationManager) {
             ((AuthorizationManager) context.getAuthorizer()).invalidateCache();
           }

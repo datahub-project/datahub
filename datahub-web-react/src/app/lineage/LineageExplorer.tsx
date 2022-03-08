@@ -8,14 +8,13 @@ import styled from 'styled-components';
 import { Message } from '../shared/Message';
 import { useEntityRegistry } from '../useEntityRegistry';
 import CompactContext from '../shared/CompactContext';
-import { Direction, EntityAndType, EntitySelectParams, FetchedEntities, LineageExpandParams } from './types';
-import getChildren from './utils/getChildren';
+import { EntityAndType, EntitySelectParams, FetchedEntities, LineageExpandParams } from './types';
 import LineageViz from './LineageViz';
 import extendAsyncEntities from './utils/extendAsyncEntities';
 import useLazyGetEntityQuery from './utils/useLazyGetEntityQuery';
 import useGetEntityQuery from './utils/useGetEntityQuery';
 import { EntityType } from '../../types.generated';
-import { capitalizeFirstLetter } from '../shared/capitalizeFirstLetter';
+import { capitalizeFirstLetter } from '../shared/textUtil';
 import { ANTD_GRAY } from '../entity/shared/constants';
 
 const LoadingMessage = styled(Message)`
@@ -68,13 +67,13 @@ export default function LineageExplorer({ urn, type }: Props) {
             if (entityAndType?.entity.urn && !asyncEntities[entityAndType?.entity.urn]?.fullyFetched) {
                 // record that we have added this entity
                 let newAsyncEntities = extendAsyncEntities(asyncEntities, entityRegistry, entityAndType, true);
+                const config = entityRegistry.getLineageVizConfig(entityAndType.type, entityAndType.entity);
 
-                // add the partially fetched downstream & upstream datasets
-                getChildren(entityAndType, Direction.Downstream).forEach((downstream) => {
+                config?.downstreamChildren?.forEach((downstream) => {
                     newAsyncEntities = extendAsyncEntities(newAsyncEntities, entityRegistry, downstream, false);
                 });
-                getChildren(entityAndType, Direction.Upstream).forEach((upstream) => {
-                    newAsyncEntities = extendAsyncEntities(newAsyncEntities, entityRegistry, upstream, false);
+                config?.upstreamChildren?.forEach((downstream) => {
+                    newAsyncEntities = extendAsyncEntities(newAsyncEntities, entityRegistry, downstream, false);
                 });
                 setAsyncEntities(newAsyncEntities);
             }

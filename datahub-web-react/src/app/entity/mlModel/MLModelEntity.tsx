@@ -1,11 +1,11 @@
 import * as React from 'react';
 import { CodeSandboxOutlined } from '@ant-design/icons';
-import { MlModel, EntityType, SearchResult } from '../../../types.generated';
+import { MlModel, EntityType, SearchResult, RelationshipDirection } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { MLModelProfile } from './profile/MLModelProfile';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
-import getChildren from '../../lineage/utils/getChildren';
-import { Direction } from '../../lineage/types';
+import { getDataForEntityType } from '../shared/containers/profile/utils';
+import { getChildrenFromRelationships } from '../../lineage/utils/getChildren';
 
 /**
  * Definition of the DataHub MlModel entity.
@@ -62,18 +62,30 @@ export class MLModelEntity implements Entity<MlModel> {
             urn: entity.urn,
             name: entity.name,
             type: EntityType.Mlmodel,
-            upstreamChildren: getChildren({ entity, type: EntityType.Mlmodel }, Direction.Upstream).map(
-                (child) => child.entity.urn,
-            ),
-            downstreamChildren: getChildren({ entity, type: EntityType.Mlmodel }, Direction.Downstream).map(
-                (child) => child.entity.urn,
-            ),
-            icon: entity.platform.info?.logoUrl || undefined,
-            platform: entity.platform.name,
+            downstreamChildren: getChildrenFromRelationships({
+                // eslint-disable-next-line @typescript-eslint/dot-notation
+                incomingRelationships: entity?.['incoming'],
+                // eslint-disable-next-line @typescript-eslint/dot-notation
+                outgoingRelationships: entity?.['outgoing'],
+                direction: RelationshipDirection.Incoming,
+            }),
+            upstreamChildren: getChildrenFromRelationships({
+                // eslint-disable-next-line @typescript-eslint/dot-notation
+                incomingRelationships: entity?.['incoming'],
+                // eslint-disable-next-line @typescript-eslint/dot-notation
+                outgoingRelationships: entity?.['outgoing'],
+                direction: RelationshipDirection.Outgoing,
+            }),
+            icon: entity.platform?.properties?.logoUrl || undefined,
+            platform: entity.platform?.name,
         };
     };
 
     displayName = (data: MlModel) => {
         return data.name;
+    };
+
+    getGenericEntityProperties = (mlModel: MlModel) => {
+        return getDataForEntityType({ data: mlModel, entityType: this.type, getOverrideProperties: (data) => data });
     };
 }

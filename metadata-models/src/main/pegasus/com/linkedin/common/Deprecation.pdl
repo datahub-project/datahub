@@ -28,7 +28,7 @@ record Deprecation {
   note: string
 
   /**
-   * The corpuser URN which will be credited for modifying this deprecation content.
+   * The user URN which will be credited for modifying this deprecation content.
    */
-  actor: CorpuserUrn
+  actor: Urn
 }

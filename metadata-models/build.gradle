@@ -6,7 +6,6 @@ dependencies {
   compile project(':li-utils')
   dataModel project(':li-utils')
 
-  testCompile externalDependency.gmaValidators
   testCompile externalDependency.guava
 }
 

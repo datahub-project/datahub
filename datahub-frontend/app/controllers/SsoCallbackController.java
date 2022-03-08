@@ -1,7 +1,11 @@
 package controllers;
 
+import client.AuthServiceClient;
+import com.datahub.authentication.Authentication;
+import com.linkedin.entity.client.EntityClient;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import javax.annotation.Nonnull;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import org.pac4j.core.config.Config;
@@ -25,13 +29,17 @@ import auth.sso.SsoProvider;
 @Slf4j
 public class SsoCallbackController extends CallbackController {
 
-  private SsoManager _ssoManager;
+  private final SsoManager _ssoManager;
 
   @Inject
-  public SsoCallbackController(SsoManager ssoManager) {
+  public SsoCallbackController(
+      @Nonnull SsoManager ssoManager,
+      @Nonnull Authentication systemAuthentication,
+      @Nonnull EntityClient entityClient,
+      @Nonnull AuthServiceClient authClient) {
     _ssoManager = ssoManager;
     setDefaultUrl("/"); // By default, redirects to Home Page on log in.
-    setCallbackLogic(new SsoCallbackLogic(ssoManager));
+    setCallbackLogic(new SsoCallbackLogic(ssoManager, systemAuthentication, entityClient, authClient));
   }
 
   public CompletionStage<Result> handleCallback(String protocol) {
@@ -50,8 +58,8 @@ public class SsoCallbackController extends CallbackController {
 
     private final OidcCallbackLogic _oidcCallbackLogic;
 
-    SsoCallbackLogic(final SsoManager ssoManager) {
-      _oidcCallbackLogic = new OidcCallbackLogic(ssoManager);
+    SsoCallbackLogic(final SsoManager ssoManager, final Authentication systemAuthentication, final EntityClient entityClient, final AuthServiceClient authClient) {
+      _oidcCallbackLogic = new OidcCallbackLogic(ssoManager, systemAuthentication, entityClient, authClient);
     }
 
     @Override

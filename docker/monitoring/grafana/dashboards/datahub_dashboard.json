@@ -1,2080 +1,2161 @@
 {
-    "__inputs": [],
-    "__requires": [
+  "annotations": {
+    "list": [
       {
-        "type": "grafana",
-        "id": "grafana",
-        "name": "Grafana",
-        "version": "8.1.2"
-      },
-      {
-        "type": "panel",
-        "id": "timeseries",
-        "name": "Time series",
-        "version": ""
-      }
-    ],
-    "annotations": {
-      "list": [
-        {
-          "builtIn": 1,
-          "datasource": "-- Grafana --",
-          "enable": true,
-          "hide": true,
-          "iconColor": "rgba(0, 211, 255, 1)",
-          "name": "Annotations & Alerts",
-          "target": {
-            "limit": 100,
-            "matchAny": false,
-            "tags": [],
-            "type": "dashboard"
-          },
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "target": {
+          "limit": 100,
+          "matchAny": false,
+          "tags": [],
           "type": "dashboard"
-        }
-      ]
-    },
-    "editable": true,
-    "gnetId": null,
-    "graphTooltip": 0,
-    "id": null,
-    "links": [],
-    "panels": [
-      {
-        "collapsed": false,
-        "datasource": null,
-        "gridPos": {
-          "h": 1,
-          "w": 24,
-          "x": 0,
-          "y": 0
         },
-        "id": 37,
-        "panels": [],
-        "title": "Get",
-        "type": "row"
-      },
-      {
-        "datasource": null,
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "palette-classic"
-            },
-            "custom": {
-              "axisLabel": "",
-              "axisPlacement": "auto",
-              "barAlignment": 0,
-              "drawStyle": "line",
-              "fillOpacity": 0,
-              "gradientMode": "none",
-              "hideFrom": {
-                "legend": false,
-                "tooltip": false,
-                "viz": false
-              },
-              "lineInterpolation": "linear",
-              "lineWidth": 1,
-              "pointSize": 5,
-              "scaleDistribution": {
-                "type": "linear"
-              },
-              "showPoints": "auto",
-              "spanNulls": false,
-              "stacking": {
-                "group": "A",
-                "mode": "none"
-              },
-              "thresholdsStyle": {
-                "mode": "off"
-              }
-            },
-            "mappings": [],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green",
-                  "value": null
-                },
-                {
-                  "color": "red",
-                  "value": 80
-                }
-              ]
-            }
-          },
-          "overrides": []
-        },
-        "gridPos": {
-          "h": 8,
-          "w": 7,
-          "x": 0,
-          "y": 1
-        },
-        "id": 40,
-        "options": {
-          "legend": {
-            "calcs": [],
-            "displayMode": "list",
-            "placement": "bottom"
-          },
-          "tooltip": {
-            "mode": "single"
-          }
-        },
-        "targets": [
-          {
-            "exemplar": true,
-            "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityResource_get_Count{}[1m])/60",
-            "interval": "",
-            "legendFormat": "Get QPS",
-            "refId": "A"
-          },
-          {
-            "exemplar": true,
-            "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityResource_get_failed_Count{}[1m])/60",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "Get Failure",
-            "refId": "B"
-          },
-          {
-            "exemplar": true,
-            "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityResource_batchGet_Count{}[1m])/60",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "BatchGet QPS",
-            "refId": "C"
-          },
-          {
-            "exemplar": true,
-            "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityResource_batchGet_failed_Count{}[1m])/60",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "BatchGet Failure",
-            "refId": "D"
-          }
-        ],
-        "title": "Get QPS",
-        "type": "timeseries"
-      },
-      {
-        "datasource": null,
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "palette-classic"
-            },
-            "custom": {
-              "axisLabel": "",
-              "axisPlacement": "auto",
-              "barAlignment": 0,
-              "drawStyle": "line",
-              "fillOpacity": 0,
-              "gradientMode": "none",
-              "hideFrom": {
-                "legend": false,
-                "tooltip": false,
-                "viz": false
-              },
-              "lineInterpolation": "linear",
-              "lineWidth": 1,
-              "pointSize": 5,
-              "scaleDistribution": {
-                "type": "linear"
-              },
-              "showPoints": "auto",
-              "spanNulls": false,
-              "stacking": {
-                "group": "A",
-                "mode": "none"
-              },
-              "thresholdsStyle": {
-                "mode": "off"
-              }
-            },
-            "mappings": [],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green",
-                  "value": null
-                },
-                {
-                  "color": "red",
-                  "value": 80
-                }
-              ]
-            }
-          },
-          "overrides": []
-        },
-        "gridPos": {
-          "h": 8,
-          "w": 7,
-          "x": 7,
-          "y": 1
-        },
-        "id": 41,
-        "options": {
-          "legend": {
-            "calcs": [],
-            "displayMode": "list",
-            "placement": "bottom"
-          },
-          "tooltip": {
-            "mode": "single"
-          }
-        },
-        "targets": [
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_get_Mean{}",
-            "interval": "",
-            "legendFormat": "Get Avg",
-            "refId": "A"
-          },
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_get_75thPercentile{}",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "Get P75",
-            "refId": "B"
-          },
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_get_95thPercentile{}",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "Get P95",
-            "refId": "C"
-          },
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_batchGet_Mean{}",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "BatchGet Avg",
-            "refId": "D"
-          },
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_batchGet_75thPercentile{}",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "BatchGet P75",
-            "refId": "E"
-          },
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_batchGet_95thPercentile{}",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "BatchGet P95",
-            "refId": "F"
-          }
-        ],
-        "title": "Get Latency",
-        "type": "timeseries"
-      },
-      {
-        "collapsed": false,
-        "datasource": null,
-        "gridPos": {
-          "h": 1,
-          "w": 24,
-          "x": 0,
-          "y": 9
-        },
-        "id": 6,
-        "panels": [],
-        "title": "Ingest",
-        "type": "row"
-      },
-      {
-        "datasource": null,
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "palette-classic"
-            },
-            "custom": {
-              "axisLabel": "",
-              "axisPlacement": "auto",
-              "barAlignment": 0,
-              "drawStyle": "line",
-              "fillOpacity": 0,
-              "gradientMode": "none",
-              "hideFrom": {
-                "legend": false,
-                "tooltip": false,
-                "viz": false
-              },
-              "lineInterpolation": "linear",
-              "lineWidth": 1,
-              "pointSize": 5,
-              "scaleDistribution": {
-                "type": "linear"
-              },
-              "showPoints": "auto",
-              "spanNulls": false,
-              "stacking": {
-                "group": "A",
-                "mode": "none"
-              },
-              "thresholdsStyle": {
-                "mode": "off"
-              }
-            },
-            "mappings": [],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green",
-                  "value": null
-                },
-                {
-                  "color": "red",
-                  "value": 80
-                }
-              ]
-            }
-          },
-          "overrides": []
-        },
-        "gridPos": {
-          "h": 8,
-          "w": 7,
-          "x": 0,
-          "y": 10
-        },
-        "id": 8,
-        "options": {
-          "legend": {
-            "calcs": [],
-            "displayMode": "list",
-            "placement": "bottom"
-          },
-          "tooltip": {
-            "mode": "single"
-          }
-        },
-        "targets": [
-          {
-            "exemplar": true,
-            "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityResource_ingest_Count{}[1m])/60",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "Ingest Count",
-            "refId": "E"
-          },
-          {
-            "exemplar": false,
-            "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityResource_batchIngest_Count{}[1m])/60",
-            "hide": false,
-            "instant": false,
-            "interval": "",
-            "legendFormat": "BatchIngest Count",
-            "refId": "B"
-          },
-          {
-            "exemplar": true,
-            "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityResource_ingest_failed_Count[1m])/60",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "Ingest Failure",
-            "refId": "C"
-          },
-          {
-            "exemplar": true,
-            "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityResource_batchIngest_failed_Count[1m])/60",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "BatchIngest Failure",
-            "refId": "D"
-          }
-        ],
-        "title": "Ingest QPS",
-        "type": "timeseries"
-      },
-      {
-        "datasource": null,
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "palette-classic"
-            },
-            "custom": {
-              "axisLabel": "",
-              "axisPlacement": "auto",
-              "barAlignment": 0,
-              "drawStyle": "line",
-              "fillOpacity": 0,
-              "gradientMode": "none",
-              "hideFrom": {
-                "legend": false,
-                "tooltip": false,
-                "viz": false
-              },
-              "lineInterpolation": "linear",
-              "lineWidth": 1,
-              "pointSize": 5,
-              "scaleDistribution": {
-                "type": "linear"
-              },
-              "showPoints": "auto",
-              "spanNulls": false,
-              "stacking": {
-                "group": "A",
-                "mode": "none"
-              },
-              "thresholdsStyle": {
-                "mode": "off"
-              }
-            },
-            "mappings": [],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green",
-                  "value": null
-                },
-                {
-                  "color": "red",
-                  "value": 80
-                }
-              ]
-            }
-          },
-          "overrides": []
-        },
-        "gridPos": {
-          "h": 8,
-          "w": 7,
-          "x": 7,
-          "y": 10
-        },
-        "id": 10,
-        "options": {
-          "legend": {
-            "calcs": [],
-            "displayMode": "list",
-            "placement": "bottom"
-          },
-          "tooltip": {
-            "mode": "single"
-          }
-        },
-        "targets": [
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_ingest_Mean{}",
-            "interval": "",
-            "legendFormat": "Avg",
-            "refId": "A"
-          },
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_ingest_75thPercentile{}",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "P75",
-            "refId": "B"
-          },
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_ingest_95thPercentile{}",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "P95",
-            "refId": "C"
-          }
-        ],
-        "title": "Ingest Latency",
-        "type": "timeseries"
-      },
-      {
-        "datasource": null,
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "palette-classic"
-            },
-            "custom": {
-              "axisLabel": "",
-              "axisPlacement": "auto",
-              "barAlignment": 0,
-              "drawStyle": "line",
-              "fillOpacity": 0,
-              "gradientMode": "none",
-              "hideFrom": {
-                "legend": false,
-                "tooltip": false,
-                "viz": false
-              },
-              "lineInterpolation": "linear",
-              "lineWidth": 1,
-              "pointSize": 5,
-              "scaleDistribution": {
-                "type": "linear"
-              },
-              "showPoints": "auto",
-              "spanNulls": false,
-              "stacking": {
-                "group": "A",
-                "mode": "none"
-              },
-              "thresholdsStyle": {
-                "mode": "off"
-              }
-            },
-            "mappings": [],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green",
-                  "value": null
-                },
-                {
-                  "color": "red",
-                  "value": 80
-                }
-              ]
-            }
-          },
-          "overrides": []
-        },
-        "gridPos": {
-          "h": 8,
-          "w": 7,
-          "x": 14,
-          "y": 10
-        },
-        "id": 21,
-        "options": {
-          "legend": {
-            "calcs": [],
-            "displayMode": "list",
-            "placement": "bottom"
-          },
-          "tooltip": {
-            "mode": "single"
-          }
-        },
-        "targets": [
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_entity_ebean_EbeanEntityService_ingestAspectToLocalDB_Mean{}",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "Ingest To DB",
-            "refId": "B"
-          },
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_entity_ebean_EbeanEntityService_produceMAE_Mean{}",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "Produce MAE",
-            "refId": "C"
-          }
-        ],
-        "title": "Ingest Steps",
-        "type": "timeseries"
-      },
-      {
-        "collapsed": false,
-        "datasource": null,
-        "gridPos": {
-          "h": 1,
-          "w": 24,
-          "x": 0,
-          "y": 18
-        },
-        "id": 12,
-        "panels": [],
-        "title": "Search",
-        "type": "row"
-      },
-      {
-        "datasource": null,
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "palette-classic"
-            },
-            "custom": {
-              "axisLabel": "",
-              "axisPlacement": "auto",
-              "barAlignment": 0,
-              "drawStyle": "line",
-              "fillOpacity": 0,
-              "gradientMode": "none",
-              "hideFrom": {
-                "legend": false,
-                "tooltip": false,
-                "viz": false
-              },
-              "lineInterpolation": "linear",
-              "lineWidth": 1,
-              "pointSize": 5,
-              "scaleDistribution": {
-                "type": "linear"
-              },
-              "showPoints": "auto",
-              "spanNulls": false,
-              "stacking": {
-                "group": "A",
-                "mode": "none"
-              },
-              "thresholdsStyle": {
-                "mode": "off"
-              }
-            },
-            "mappings": [],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green",
-                  "value": null
-                },
-                {
-                  "color": "red",
-                  "value": 80
-                }
-              ]
-            }
-          },
-          "overrides": []
-        },
-        "gridPos": {
-          "h": 8,
-          "w": 7,
-          "x": 0,
-          "y": 19
-        },
-        "id": 23,
-        "options": {
-          "legend": {
-            "calcs": [],
-            "displayMode": "list",
-            "placement": "bottom"
-          },
-          "tooltip": {
-            "mode": "single"
-          }
-        },
-        "targets": [
-          {
-            "exemplar": true,
-            "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityResource_search_Count{}[1m])/60",
-            "interval": "",
-            "legendFormat": "QPS",
-            "refId": "A"
-          },
-          {
-            "exemplar": true,
-            "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityResource_search_failed_Count{}[1m])/60",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "Failure",
-            "refId": "B"
-          }
-        ],
-        "title": "Search QPS",
-        "type": "timeseries"
-      },
-      {
-        "datasource": null,
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "palette-classic"
-            },
-            "custom": {
-              "axisLabel": "",
-              "axisPlacement": "auto",
-              "barAlignment": 0,
-              "drawStyle": "line",
-              "fillOpacity": 0,
-              "gradientMode": "none",
-              "hideFrom": {
-                "legend": false,
-                "tooltip": false,
-                "viz": false
-              },
-              "lineInterpolation": "linear",
-              "lineWidth": 1,
-              "pointSize": 5,
-              "scaleDistribution": {
-                "type": "linear"
-              },
-              "showPoints": "auto",
-              "spanNulls": false,
-              "stacking": {
-                "group": "A",
-                "mode": "none"
-              },
-              "thresholdsStyle": {
-                "mode": "off"
-              }
-            },
-            "mappings": [],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green",
-                  "value": null
-                },
-                {
-                  "color": "red",
-                  "value": 80
-                }
-              ]
-            }
-          },
-          "overrides": []
-        },
-        "gridPos": {
-          "h": 8,
-          "w": 7,
-          "x": 7,
-          "y": 19
-        },
-        "id": 29,
-        "options": {
-          "legend": {
-            "calcs": [],
-            "displayMode": "list",
-            "placement": "bottom"
-          },
-          "tooltip": {
-            "mode": "single"
-          }
-        },
-        "targets": [
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_search_Mean{}",
-            "interval": "",
-            "legendFormat": "Avg",
-            "refId": "A"
-          },
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_search_75thPercentile{}",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "P75",
-            "refId": "B"
-          },
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_search_95thPercentile{}",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "P95",
-            "refId": "C"
-          }
-        ],
-        "title": "Search Latency",
-        "type": "timeseries"
-      },
-      {
-        "datasource": null,
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "palette-classic"
-            },
-            "custom": {
-              "axisLabel": "",
-              "axisPlacement": "auto",
-              "barAlignment": 0,
-              "drawStyle": "line",
-              "fillOpacity": 0,
-              "gradientMode": "none",
-              "hideFrom": {
-                "legend": false,
-                "tooltip": false,
-                "viz": false
-              },
-              "lineInterpolation": "linear",
-              "lineWidth": 1,
-              "pointSize": 5,
-              "scaleDistribution": {
-                "type": "linear"
-              },
-              "showPoints": "auto",
-              "spanNulls": false,
-              "stacking": {
-                "group": "A",
-                "mode": "none"
-              },
-              "thresholdsStyle": {
-                "mode": "off"
-              }
-            },
-            "mappings": [],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green",
-                  "value": null
-                },
-                {
-                  "color": "red",
-                  "value": 80
-                }
-              ]
-            }
-          },
-          "overrides": []
-        },
-        "gridPos": {
-          "h": 8,
-          "w": 7,
-          "x": 14,
-          "y": 19
-        },
-        "id": 25,
-        "options": {
-          "legend": {
-            "calcs": [],
-            "displayMode": "list",
-            "placement": "bottom"
-          },
-          "tooltip": {
-            "mode": "single"
-          }
-        },
-        "targets": [
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_search_elasticsearch_query_ESSearchDAO_esSearch_Mean{}",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "ES Search",
-            "refId": "A"
-          },
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_search_elasticsearch_query_ESSearchDAO_searchRequest_Mean{}",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "Request Builder",
-            "refId": "D"
-          },
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_search_Mean{}",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "Total Search",
-            "refId": "B"
-          }
-        ],
-        "title": "Search Steps",
-        "type": "timeseries"
-      },
-      {
-        "collapsed": false,
-        "datasource": null,
-        "gridPos": {
-          "h": 1,
-          "w": 24,
-          "x": 0,
-          "y": 27
-        },
-        "id": 27,
-        "panels": [],
-        "title": "Browse",
-        "type": "row"
-      },
-      {
-        "datasource": null,
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "palette-classic"
-            },
-            "custom": {
-              "axisLabel": "",
-              "axisPlacement": "auto",
-              "barAlignment": 0,
-              "drawStyle": "line",
-              "fillOpacity": 0,
-              "gradientMode": "none",
-              "hideFrom": {
-                "legend": false,
-                "tooltip": false,
-                "viz": false
-              },
-              "lineInterpolation": "linear",
-              "lineWidth": 1,
-              "pointSize": 5,
-              "scaleDistribution": {
-                "type": "linear"
-              },
-              "showPoints": "auto",
-              "spanNulls": false,
-              "stacking": {
-                "group": "A",
-                "mode": "none"
-              },
-              "thresholdsStyle": {
-                "mode": "off"
-              }
-            },
-            "mappings": [],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green",
-                  "value": null
-                },
-                {
-                  "color": "red",
-                  "value": 80
-                }
-              ]
-            }
-          },
-          "overrides": []
-        },
-        "gridPos": {
-          "h": 8,
-          "w": 7,
-          "x": 0,
-          "y": 28
-        },
-        "id": 28,
-        "options": {
-          "legend": {
-            "calcs": [],
-            "displayMode": "list",
-            "placement": "bottom"
-          },
-          "tooltip": {
-            "mode": "single"
-          }
-        },
-        "targets": [
-          {
-            "exemplar": true,
-            "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityResource_browse_Count{}[1m])/60",
-            "interval": "",
-            "legendFormat": "QPS",
-            "refId": "A"
-          },
-          {
-            "exemplar": true,
-            "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityResource_browse_failed_Count{}[1m])/60",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "Failure",
-            "refId": "B"
-          }
-        ],
-        "title": "Browse QPS",
-        "type": "timeseries"
-      },
-      {
-        "datasource": null,
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "palette-classic"
-            },
-            "custom": {
-              "axisLabel": "",
-              "axisPlacement": "auto",
-              "barAlignment": 0,
-              "drawStyle": "line",
-              "fillOpacity": 0,
-              "gradientMode": "none",
-              "hideFrom": {
-                "legend": false,
-                "tooltip": false,
-                "viz": false
-              },
-              "lineInterpolation": "linear",
-              "lineWidth": 1,
-              "pointSize": 5,
-              "scaleDistribution": {
-                "type": "linear"
-              },
-              "showPoints": "auto",
-              "spanNulls": false,
-              "stacking": {
-                "group": "A",
-                "mode": "none"
-              },
-              "thresholdsStyle": {
-                "mode": "off"
-              }
-            },
-            "mappings": [],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green",
-                  "value": null
-                },
-                {
-                  "color": "red",
-                  "value": 80
-                }
-              ]
-            }
-          },
-          "overrides": []
-        },
-        "gridPos": {
-          "h": 8,
-          "w": 7,
-          "x": 7,
-          "y": 28
-        },
-        "id": 24,
-        "options": {
-          "legend": {
-            "calcs": [],
-            "displayMode": "list",
-            "placement": "bottom"
-          },
-          "tooltip": {
-            "mode": "single"
-          }
-        },
-        "targets": [
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_browse_Mean{}",
-            "interval": "",
-            "legendFormat": "Avg",
-            "refId": "A"
-          },
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_browse_75thPercentile{}",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "P75",
-            "refId": "B"
-          },
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_browse_95thPercentile{}",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "P95",
-            "refId": "C"
-          }
-        ],
-        "title": "Browse Latency",
-        "type": "timeseries"
-      },
-      {
-        "datasource": null,
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "palette-classic"
-            },
-            "custom": {
-              "axisLabel": "",
-              "axisPlacement": "auto",
-              "barAlignment": 0,
-              "drawStyle": "line",
-              "fillOpacity": 0,
-              "gradientMode": "none",
-              "hideFrom": {
-                "legend": false,
-                "tooltip": false,
-                "viz": false
-              },
-              "lineInterpolation": "linear",
-              "lineWidth": 1,
-              "pointSize": 5,
-              "scaleDistribution": {
-                "type": "linear"
-              },
-              "showPoints": "auto",
-              "spanNulls": false,
-              "stacking": {
-                "group": "A",
-                "mode": "none"
-              },
-              "thresholdsStyle": {
-                "mode": "off"
-              }
-            },
-            "mappings": [],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green",
-                  "value": null
-                },
-                {
-                  "color": "red",
-                  "value": 80
-                }
-              ]
-            }
-          },
-          "overrides": []
-        },
-        "gridPos": {
-          "h": 8,
-          "w": 7,
-          "x": 14,
-          "y": 28
-        },
-        "id": 35,
-        "options": {
-          "legend": {
-            "calcs": [],
-            "displayMode": "list",
-            "placement": "bottom"
-          },
-          "tooltip": {
-            "mode": "single"
-          }
-        },
-        "targets": [
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_search_elasticsearch_query_ESBrowseDAO_esGroupSearch_Mean{}",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "ES Groups Query",
-            "refId": "A"
-          },
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_search_elasticsearch_query_ESBrowseDAO_esEntitiesSearch_Mean{}",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "ES Entities Query",
-            "refId": "D"
-          },
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_browse_Mean{}",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "Total Browse",
-            "refId": "B"
-          }
-        ],
-        "title": "Browse Steps",
-        "type": "timeseries"
-      },
-      {
-        "collapsed": false,
-        "datasource": null,
-        "gridPos": {
-          "h": 1,
-          "w": 24,
-          "x": 0,
-          "y": 36
-        },
-        "id": 32,
-        "panels": [],
-        "title": "Graph",
-        "type": "row"
-      },
-      {
-        "datasource": null,
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "palette-classic"
-            },
-            "custom": {
-              "axisLabel": "",
-              "axisPlacement": "auto",
-              "barAlignment": 0,
-              "drawStyle": "line",
-              "fillOpacity": 0,
-              "gradientMode": "none",
-              "hideFrom": {
-                "legend": false,
-                "tooltip": false,
-                "viz": false
-              },
-              "lineInterpolation": "linear",
-              "lineWidth": 1,
-              "pointSize": 5,
-              "scaleDistribution": {
-                "type": "linear"
-              },
-              "showPoints": "auto",
-              "spanNulls": false,
-              "stacking": {
-                "group": "A",
-                "mode": "none"
-              },
-              "thresholdsStyle": {
-                "mode": "off"
-              }
-            },
-            "mappings": [],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green",
-                  "value": null
-                },
-                {
-                  "color": "red",
-                  "value": 80
-                }
-              ]
-            }
-          },
-          "overrides": []
-        },
-        "gridPos": {
-          "h": 8,
-          "w": 7,
-          "x": 0,
-          "y": 37
-        },
-        "id": 33,
-        "options": {
-          "legend": {
-            "calcs": [],
-            "displayMode": "list",
-            "placement": "bottom"
-          },
-          "tooltip": {
-            "mode": "single"
-          }
-        },
-        "targets": [
-          {
-            "exemplar": true,
-            "expr": "increase(metrics_com_linkedin_metadata_resources_lineage_Relationships_getLineage_Count{}[1m])/60",
-            "interval": "",
-            "legendFormat": "Relationships QPS",
-            "refId": "A"
-          },
-          {
-            "exemplar": true,
-            "expr": "increase(metrics_com_linkedin_metadata_resources_lineage_Lineage_get_Count{}[1m])/60",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "Lineage QPS",
-            "refId": "B"
-          },
-          {
-            "exemplar": true,
-            "expr": "increase(metrics_com_linkedin_metadata_resources_lineage_Relationships_getLineage_failed_Count{}[1m])/60",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "Relationships Failure",
-            "refId": "C"
-          },
-          {
-            "exemplar": true,
-            "expr": "increase(metrics_com_linkedin_metadata_resources_lineage_Lineage_get_failed_Count{}[1m])/60",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "Lineage Failure",
-            "refId": "D"
-          }
-        ],
-        "title": "Graph QPS",
-        "type": "timeseries"
-      },
-      {
-        "datasource": null,
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "palette-classic"
-            },
-            "custom": {
-              "axisLabel": "",
-              "axisPlacement": "auto",
-              "barAlignment": 0,
-              "drawStyle": "line",
-              "fillOpacity": 0,
-              "gradientMode": "none",
-              "hideFrom": {
-                "legend": false,
-                "tooltip": false,
-                "viz": false
-              },
-              "lineInterpolation": "linear",
-              "lineWidth": 1,
-              "pointSize": 5,
-              "scaleDistribution": {
-                "type": "linear"
-              },
-              "showPoints": "auto",
-              "spanNulls": false,
-              "stacking": {
-                "group": "A",
-                "mode": "none"
-              },
-              "thresholdsStyle": {
-                "mode": "off"
-              }
-            },
-            "mappings": [],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green",
-                  "value": null
-                },
-                {
-                  "color": "red",
-                  "value": 80
-                }
-              ]
-            }
-          },
-          "overrides": []
-        },
-        "gridPos": {
-          "h": 8,
-          "w": 7,
-          "x": 7,
-          "y": 37
-        },
-        "id": 34,
-        "options": {
-          "legend": {
-            "calcs": [],
-            "displayMode": "list",
-            "placement": "bottom"
-          },
-          "tooltip": {
-            "mode": "single"
-          }
-        },
-        "targets": [
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_resources_lineage_Relationships_getLineage_Mean{}",
-            "interval": "",
-            "legendFormat": "Avg",
-            "refId": "A"
-          },
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_resources_lineage_Relationships_getLineage_75thPercentile{}",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "P75",
-            "refId": "B"
-          },
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_resources_lineage_Relationships_getLineage_95thPercentile{}",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "P95",
-            "refId": "C"
-          }
-        ],
-        "title": "Graph Latency",
-        "type": "timeseries"
-      },
-      {
-        "collapsed": false,
-        "datasource": null,
-        "gridPos": {
-          "h": 1,
-          "w": 24,
-          "x": 0,
-          "y": 45
-        },
-        "id": 4,
-        "panels": [],
-        "title": "Kafka",
-        "type": "row"
-      },
-      {
-        "datasource": null,
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "palette-classic"
-            },
-            "custom": {
-              "axisLabel": "",
-              "axisPlacement": "auto",
-              "barAlignment": 0,
-              "drawStyle": "line",
-              "fillOpacity": 0,
-              "gradientMode": "none",
-              "hideFrom": {
-                "legend": false,
-                "tooltip": false,
-                "viz": false
-              },
-              "lineInterpolation": "linear",
-              "lineWidth": 1,
-              "pointSize": 5,
-              "scaleDistribution": {
-                "type": "linear"
-              },
-              "showPoints": "auto",
-              "spanNulls": false,
-              "stacking": {
-                "group": "A",
-                "mode": "none"
-              },
-              "thresholdsStyle": {
-                "mode": "off"
-              }
-            },
-            "mappings": [],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green",
-                  "value": null
-                },
-                {
-                  "color": "red",
-                  "value": 80
-                }
-              ]
-            }
-          },
-          "overrides": []
-        },
-        "gridPos": {
-          "h": 8,
-          "w": 12,
-          "x": 0,
-          "y": 46
-        },
-        "id": 18,
-        "options": {
-          "legend": {
-            "calcs": [],
-            "displayMode": "list",
-            "placement": "bottom"
-          },
-          "tooltip": {
-            "mode": "single"
-          }
-        },
-        "targets": [
-          {
-            "exemplar": true,
-            "expr": "sum by (topic) (kafka_producer_producer_topic_metrics_record_send_rate{})",
-            "interval": "",
-            "legendFormat": "",
-            "refId": "A"
-          }
-        ],
-        "title": "Producer Metrics",
-        "type": "timeseries"
-      },
-      {
-        "datasource": null,
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "palette-classic"
-            },
-            "custom": {
-              "axisLabel": "",
-              "axisPlacement": "auto",
-              "barAlignment": 0,
-              "drawStyle": "line",
-              "fillOpacity": 0,
-              "gradientMode": "none",
-              "hideFrom": {
-                "legend": false,
-                "tooltip": false,
-                "viz": false
-              },
-              "lineInterpolation": "linear",
-              "lineWidth": 1,
-              "pointSize": 5,
-              "scaleDistribution": {
-                "type": "linear"
-              },
-              "showPoints": "auto",
-              "spanNulls": false,
-              "stacking": {
-                "group": "A",
-                "mode": "none"
-              },
-              "thresholdsStyle": {
-                "mode": "off"
-              }
-            },
-            "mappings": [],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green",
-                  "value": null
-                },
-                {
-                  "color": "red",
-                  "value": 80
-                }
-              ]
-            }
-          },
-          "overrides": []
-        },
-        "gridPos": {
-          "h": 8,
-          "w": 12,
-          "x": 12,
-          "y": 46
-        },
-        "id": 19,
-        "options": {
-          "legend": {
-            "calcs": [],
-            "displayMode": "list",
-            "placement": "bottom"
-          },
-          "tooltip": {
-            "mode": "single"
-          }
-        },
-        "targets": [
-          {
-            "exemplar": true,
-            "expr": "sum by (client_id) (kafka_consumer_consumer_metrics_request_rate{})",
-            "interval": "",
-            "legendFormat": "",
-            "refId": "A"
-          }
-        ],
-        "title": "Consumer Metrics",
-        "type": "timeseries"
-      },
-      {
-        "datasource": null,
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "palette-classic"
-            },
-            "custom": {
-              "axisLabel": "",
-              "axisPlacement": "auto",
-              "barAlignment": 0,
-              "drawStyle": "line",
-              "fillOpacity": 0,
-              "gradientMode": "none",
-              "hideFrom": {
-                "legend": false,
-                "tooltip": false,
-                "viz": false
-              },
-              "lineInterpolation": "linear",
-              "lineWidth": 1,
-              "pointSize": 5,
-              "scaleDistribution": {
-                "type": "linear"
-              },
-              "showPoints": "auto",
-              "spanNulls": false,
-              "stacking": {
-                "group": "A",
-                "mode": "none"
-              },
-              "thresholdsStyle": {
-                "mode": "off"
-              }
-            },
-            "mappings": [],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green",
-                  "value": null
-                },
-                {
-                  "color": "red",
-                  "value": 80
-                }
-              ]
-            }
-          },
-          "overrides": []
-        },
-        "gridPos": {
-          "h": 9,
-          "w": 12,
-          "x": 0,
-          "y": 54
-        },
-        "id": 15,
-        "options": {
-          "legend": {
-            "calcs": [],
-            "displayMode": "list",
-            "placement": "bottom"
-          },
-          "tooltip": {
-            "mode": "single"
-          }
-        },
-        "targets": [
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeEventsProcessor_kafkaLag_Mean{}",
-            "interval": "",
-            "legendFormat": "Avg",
-            "refId": "A"
-          },
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeEventsProcessor_kafkaLag_75thPercentile{}",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "P75",
-            "refId": "B"
-          },
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeEventsProcessor_kafkaLag_95thPercentile{}",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "P95",
-            "refId": "C"
-          }
-        ],
-        "title": "MetadataChangeEvent Topic Lag",
-        "type": "timeseries"
-      },
-      {
-        "datasource": null,
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "palette-classic"
-            },
-            "custom": {
-              "axisLabel": "",
-              "axisPlacement": "auto",
-              "barAlignment": 0,
-              "drawStyle": "line",
-              "fillOpacity": 0,
-              "gradientMode": "none",
-              "hideFrom": {
-                "legend": false,
-                "tooltip": false,
-                "viz": false
-              },
-              "lineInterpolation": "linear",
-              "lineWidth": 1,
-              "pointSize": 5,
-              "scaleDistribution": {
-                "type": "linear"
-              },
-              "showPoints": "auto",
-              "spanNulls": false,
-              "stacking": {
-                "group": "A",
-                "mode": "none"
-              },
-              "thresholdsStyle": {
-                "mode": "off"
-              }
-            },
-            "mappings": [],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green",
-                  "value": null
-                },
-                {
-                  "color": "red",
-                  "value": 80
-                }
-              ]
-            }
-          },
-          "overrides": []
-        },
-        "gridPos": {
-          "h": 9,
-          "w": 12,
-          "x": 12,
-          "y": 54
-        },
-        "id": 13,
-        "options": {
-          "legend": {
-            "calcs": [],
-            "displayMode": "list",
-            "placement": "bottom"
-          },
-          "tooltip": {
-            "mode": "single"
-          }
-        },
-        "targets": [
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeProposalsProcessor_kafkaLag_Mean{}",
-            "interval": "",
-            "legendFormat": "Avg",
-            "refId": "A"
-          },
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeProposalsProcessor_kafkaLag_75thPercentile{}",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "P75",
-            "refId": "B"
-          },
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeProposalsProcessor_kafkaLag_95thPercentile{}",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "P95",
-            "refId": "C"
-          }
-        ],
-        "title": "MetadataChangeProposal Topic Lag",
-        "type": "timeseries"
-      },
-      {
-        "datasource": null,
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "palette-classic"
-            },
-            "custom": {
-              "axisLabel": "",
-              "axisPlacement": "auto",
-              "barAlignment": 0,
-              "drawStyle": "line",
-              "fillOpacity": 0,
-              "gradientMode": "none",
-              "hideFrom": {
-                "legend": false,
-                "tooltip": false,
-                "viz": false
-              },
-              "lineInterpolation": "linear",
-              "lineWidth": 1,
-              "pointSize": 5,
-              "scaleDistribution": {
-                "type": "linear"
-              },
-              "showPoints": "auto",
-              "spanNulls": false,
-              "stacking": {
-                "group": "A",
-                "mode": "none"
-              },
-              "thresholdsStyle": {
-                "mode": "off"
-              }
-            },
-            "mappings": [],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green",
-                  "value": null
-                },
-                {
-                  "color": "red",
-                  "value": 80
-                }
-              ]
-            }
-          },
-          "overrides": []
-        },
-        "gridPos": {
-          "h": 9,
-          "w": 12,
-          "x": 0,
-          "y": 63
-        },
-        "id": 2,
-        "options": {
-          "legend": {
-            "calcs": [],
-            "displayMode": "list",
-            "placement": "bottom"
-          },
-          "tooltip": {
-            "mode": "single"
-          }
-        },
-        "targets": [
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_kafka_MetadataAuditEventsProcessor_kafkaLag_Mean{}",
-            "interval": "",
-            "legendFormat": "Avg",
-            "refId": "A"
-          },
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_kafka_MetadataAuditEventsProcessor_kafkaLag_75thPercentile{}",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "P75",
-            "refId": "B"
-          },
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_kafka_MetadataAuditEventsProcessor_kafkaLag_95thPercentile{}",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "P95",
-            "refId": "C"
-          }
-        ],
-        "title": "MetadataAuditEvent Topic Lag",
-        "type": "timeseries"
-      },
-      {
-        "datasource": null,
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "palette-classic"
-            },
-            "custom": {
-              "axisLabel": "",
-              "axisPlacement": "auto",
-              "barAlignment": 0,
-              "drawStyle": "line",
-              "fillOpacity": 0,
-              "gradientMode": "none",
-              "hideFrom": {
-                "legend": false,
-                "tooltip": false,
-                "viz": false
-              },
-              "lineInterpolation": "linear",
-              "lineWidth": 1,
-              "pointSize": 5,
-              "scaleDistribution": {
-                "type": "linear"
-              },
-              "showPoints": "auto",
-              "spanNulls": false,
-              "stacking": {
-                "group": "A",
-                "mode": "none"
-              },
-              "thresholdsStyle": {
-                "mode": "off"
-              }
-            },
-            "mappings": [],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green",
-                  "value": null
-                },
-                {
-                  "color": "red",
-                  "value": 80
-                }
-              ]
-            }
-          },
-          "overrides": []
-        },
-        "gridPos": {
-          "h": 9,
-          "w": 12,
-          "x": 12,
-          "y": 63
-        },
-        "id": 14,
-        "options": {
-          "legend": {
-            "calcs": [],
-            "displayMode": "list",
-            "placement": "bottom"
-          },
-          "tooltip": {
-            "mode": "single"
-          }
-        },
-        "targets": [
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeLogProcessor_kafkaLag_Mean{}",
-            "interval": "",
-            "legendFormat": "Avg",
-            "refId": "A"
-          },
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeLogProcessor_kafkaLag_75thPercentile{}",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "P75",
-            "refId": "B"
-          },
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeLogProcessor_kafkaLag_95thPercentile{}",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "P95",
-            "refId": "C"
-          }
-        ],
-        "title": "MetadataChangeLog Topic Lag",
-        "type": "timeseries"
-      },
-      {
-        "datasource": null,
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "palette-classic"
-            },
-            "custom": {
-              "axisLabel": "",
-              "axisPlacement": "auto",
-              "barAlignment": 0,
-              "drawStyle": "line",
-              "fillOpacity": 0,
-              "gradientMode": "none",
-              "hideFrom": {
-                "legend": false,
-                "tooltip": false,
-                "viz": false
-              },
-              "lineInterpolation": "linear",
-              "lineWidth": 1,
-              "pointSize": 5,
-              "scaleDistribution": {
-                "type": "linear"
-              },
-              "showPoints": "auto",
-              "spanNulls": false,
-              "stacking": {
-                "group": "A",
-                "mode": "none"
-              },
-              "thresholdsStyle": {
-                "mode": "off"
-              }
-            },
-            "mappings": [],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green",
-                  "value": null
-                },
-                {
-                  "color": "red",
-                  "value": 80
-                }
-              ]
-            }
-          },
-          "overrides": []
-        },
-        "gridPos": {
-          "h": 9,
-          "w": 12,
-          "x": 0,
-          "y": 72
-        },
-        "id": 16,
-        "options": {
-          "legend": {
-            "calcs": [],
-            "displayMode": "list",
-            "placement": "bottom"
-          },
-          "tooltip": {
-            "mode": "single"
-          }
-        },
-        "targets": [
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_kafka_DataHubUsageEventsProcessor_kafkaLag_Mean{}",
-            "interval": "",
-            "legendFormat": "Avg",
-            "refId": "A"
-          },
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_kafka_DataHubUsageEventsProcessor_kafkaLag_75thPercentile{}",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "P75",
-            "refId": "B"
-          },
-          {
-            "exemplar": true,
-            "expr": "metrics_com_linkedin_metadata_kafka_DataHubUsageEventsProcessor_kafkaLag_95thPercentile{}",
-            "hide": false,
-            "interval": "",
-            "legendFormat": "P95",
-            "refId": "C"
-          }
-        ],
-        "title": "DataHubUsageEvent Topic Lag",
-        "type": "timeseries"
+        "type": "dashboard"
       }
-    ],
-    "refresh": "5s",
-    "schemaVersion": 30,
-    "style": "dark",
-    "tags": [],
-    "templating": {
-      "list": []
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 2,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 37,
+      "panels": [],
+      "title": "Get",
+      "type": "row"
     },
-    "time": {
-      "from": "now-1h",
-      "to": "now"
+    {
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 7,
+        "x": 0,
+        "y": 1
+      },
+      "id": 40,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityResource_get_Count{}[1m])/60",
+          "interval": "",
+          "legendFormat": "Get QPS",
+          "refId": "A"
+        },
+        {
+          "exemplar": true,
+          "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityResource_get_failed_Count{}[1m])/60",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "Get Failure",
+          "refId": "B"
+        },
+        {
+          "exemplar": true,
+          "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityResource_batchGet_Count{}[1m])/60",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "BatchGet QPS",
+          "refId": "C"
+        },
+        {
+          "exemplar": true,
+          "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityResource_batchGet_failed_Count{}[1m])/60",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "BatchGet Failure",
+          "refId": "D"
+        }
+      ],
+      "title": "Get QPS",
+      "type": "timeseries"
     },
-    "timepicker": {},
-    "timezone": "",
-    "title": "DataHub Dashboard",
-    "uid": "x4fS54Vnk",
-    "version": 3
-  }
+    {
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 7,
+        "x": 7,
+        "y": 1
+      },
+      "id": 41,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_get_Mean{}",
+          "interval": "",
+          "legendFormat": "Get Avg",
+          "refId": "A"
+        },
+        {
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_get_75thPercentile{}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "Get P75",
+          "refId": "B"
+        },
+        {
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_get_95thPercentile{}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "Get P95",
+          "refId": "C"
+        },
+        {
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_batchGet_Mean{}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "BatchGet Avg",
+          "refId": "D"
+        },
+        {
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_batchGet_75thPercentile{}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "BatchGet P75",
+          "refId": "E"
+        },
+        {
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_batchGet_95thPercentile{}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "BatchGet P95",
+          "refId": "F"
+        }
+      ],
+      "title": "Get Latency",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 9
+      },
+      "id": 6,
+      "panels": [],
+      "title": "Ingest",
+      "type": "row"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 7,
+        "x": 0,
+        "y": 10
+      },
+      "id": 8,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityResource_ingest_Count{}[1m])/60",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "Ingest Count",
+          "refId": "E"
+        },
+        {
+          "exemplar": false,
+          "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityResource_batchIngest_Count{}[1m])/60",
+          "hide": false,
+          "instant": false,
+          "interval": "",
+          "legendFormat": "BatchIngest Count",
+          "refId": "B"
+        },
+        {
+          "exemplar": true,
+          "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityResource_ingest_failed_Count[1m])/60",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "Ingest Failure",
+          "refId": "C"
+        },
+        {
+          "exemplar": true,
+          "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityResource_batchIngest_failed_Count[1m])/60",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "BatchIngest Failure",
+          "refId": "D"
+        }
+      ],
+      "title": "Ingest QPS",
+      "type": "timeseries"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 7,
+        "x": 7,
+        "y": 10
+      },
+      "id": 10,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_ingest_Mean{}",
+          "interval": "",
+          "legendFormat": "Avg",
+          "refId": "A"
+        },
+        {
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_ingest_75thPercentile{}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "P75",
+          "refId": "B"
+        },
+        {
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_ingest_95thPercentile{}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "P95",
+          "refId": "C"
+        }
+      ],
+      "title": "Ingest Latency",
+      "type": "timeseries"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 7,
+        "x": 14,
+        "y": 10
+      },
+      "id": 21,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_entity_ebean_EbeanEntityService_ingestAspectToLocalDB_Mean{}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "Ingest To DB",
+          "refId": "B"
+        },
+        {
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_entity_ebean_EbeanEntityService_produceMAE_Mean{}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "Produce MAE",
+          "refId": "C"
+        }
+      ],
+      "title": "Ingest Steps",
+      "type": "timeseries"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 7,
+        "x": 0,
+        "y": 18
+      },
+      "id": 43,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataAuditEventsProcessor_maeProcess_Mean",
+          "interval": "",
+          "legendFormat": "Avg",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataAuditEventsProcessor_maeProcess_75thPercentile",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "P75",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataAuditEventsProcessor_maeProcess_95thPercentile",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "P95",
+          "refId": "C"
+        }
+      ],
+      "title": "MAE Process Latency",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 26
+      },
+      "id": 12,
+      "panels": [],
+      "title": "Search",
+      "type": "row"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 7,
+        "x": 0,
+        "y": 27
+      },
+      "id": 23,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityResource_search_Count{}[1m])/60",
+          "interval": "",
+          "legendFormat": "QPS",
+          "refId": "A"
+        },
+        {
+          "exemplar": true,
+          "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityResource_search_failed_Count{}[1m])/60",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "Failure",
+          "refId": "B"
+        }
+      ],
+      "title": "Search QPS",
+      "type": "timeseries"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 7,
+        "x": 7,
+        "y": 27
+      },
+      "id": 29,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_search_Mean{}",
+          "interval": "",
+          "legendFormat": "Avg",
+          "refId": "A"
+        },
+        {
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_search_75thPercentile{}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "P75",
+          "refId": "B"
+        },
+        {
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_search_95thPercentile{}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "P95",
+          "refId": "C"
+        }
+      ],
+      "title": "Search Latency",
+      "type": "timeseries"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 7,
+        "x": 14,
+        "y": 27
+      },
+      "id": 25,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_search_elasticsearch_query_ESSearchDAO_esSearch_Mean{}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "ES Search",
+          "refId": "A"
+        },
+        {
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_search_elasticsearch_query_ESSearchDAO_searchRequest_Mean{}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "Request Builder",
+          "refId": "D"
+        },
+        {
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_search_Mean{}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "Total Search",
+          "refId": "B"
+        }
+      ],
+      "title": "Search Steps",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 35
+      },
+      "id": 27,
+      "panels": [],
+      "title": "Browse",
+      "type": "row"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 7,
+        "x": 0,
+        "y": 36
+      },
+      "id": 28,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityResource_browse_Count{}[1m])/60",
+          "interval": "",
+          "legendFormat": "QPS",
+          "refId": "A"
+        },
+        {
+          "exemplar": true,
+          "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityResource_browse_failed_Count{}[1m])/60",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "Failure",
+          "refId": "B"
+        }
+      ],
+      "title": "Browse QPS",
+      "type": "timeseries"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 7,
+        "x": 7,
+        "y": 36
+      },
+      "id": 24,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_browse_Mean{}",
+          "interval": "",
+          "legendFormat": "Avg",
+          "refId": "A"
+        },
+        {
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_browse_75thPercentile{}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "P75",
+          "refId": "B"
+        },
+        {
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_browse_95thPercentile{}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "P95",
+          "refId": "C"
+        }
+      ],
+      "title": "Browse Latency",
+      "type": "timeseries"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 7,
+        "x": 14,
+        "y": 36
+      },
+      "id": 35,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_search_elasticsearch_query_ESBrowseDAO_esGroupSearch_Mean{}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "ES Groups Query",
+          "refId": "A"
+        },
+        {
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_search_elasticsearch_query_ESBrowseDAO_esEntitiesSearch_Mean{}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "ES Entities Query",
+          "refId": "D"
+        },
+        {
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_browse_Mean{}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "Total Browse",
+          "refId": "B"
+        }
+      ],
+      "title": "Browse Steps",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 44
+      },
+      "id": 32,
+      "panels": [],
+      "title": "Graph",
+      "type": "row"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 7,
+        "x": 0,
+        "y": 45
+      },
+      "id": 33,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "increase(metrics_com_linkedin_metadata_resources_lineage_Relationships_getLineage_Count{}[1m])/60",
+          "interval": "",
+          "legendFormat": "Relationships QPS",
+          "refId": "A"
+        },
+        {
+          "exemplar": true,
+          "expr": "increase(metrics_com_linkedin_metadata_resources_lineage_Lineage_get_Count{}[1m])/60",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "Lineage QPS",
+          "refId": "B"
+        },
+        {
+          "exemplar": true,
+          "expr": "increase(metrics_com_linkedin_metadata_resources_lineage_Relationships_getLineage_failed_Count{}[1m])/60",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "Relationships Failure",
+          "refId": "C"
+        },
+        {
+          "exemplar": true,
+          "expr": "increase(metrics_com_linkedin_metadata_resources_lineage_Lineage_get_failed_Count{}[1m])/60",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "Lineage Failure",
+          "refId": "D"
+        }
+      ],
+      "title": "Graph QPS",
+      "type": "timeseries"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 7,
+        "x": 7,
+        "y": 45
+      },
+      "id": 34,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_resources_lineage_Relationships_getLineage_Mean{}",
+          "interval": "",
+          "legendFormat": "Avg",
+          "refId": "A"
+        },
+        {
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_resources_lineage_Relationships_getLineage_75thPercentile{}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "P75",
+          "refId": "B"
+        },
+        {
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_resources_lineage_Relationships_getLineage_95thPercentile{}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "P95",
+          "refId": "C"
+        }
+      ],
+      "title": "Graph Latency",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 53
+      },
+      "id": 4,
+      "panels": [],
+      "title": "Kafka",
+      "type": "row"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 54
+      },
+      "id": 18,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "sum by (topic) (kafka_producer_producer_topic_metrics_record_send_rate{})",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "Producer Metrics",
+      "type": "timeseries"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 54
+      },
+      "id": 19,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "sum by (client_id) (kafka_consumer_consumer_metrics_request_rate{})",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "Consumer Metrics",
+      "type": "timeseries"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 62
+      },
+      "id": 15,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeEventsProcessor_kafkaLag_Mean{}",
+          "interval": "",
+          "legendFormat": "Avg",
+          "refId": "A"
+        },
+        {
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeEventsProcessor_kafkaLag_75thPercentile{}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "P75",
+          "refId": "B"
+        },
+        {
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeEventsProcessor_kafkaLag_95thPercentile{}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "P95",
+          "refId": "C"
+        }
+      ],
+      "title": "MetadataChangeEvent Topic Lag",
+      "type": "timeseries"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 62
+      },
+      "id": 13,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeProposalsProcessor_kafkaLag_Mean{}",
+          "interval": "",
+          "legendFormat": "Avg",
+          "refId": "A"
+        },
+        {
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeProposalsProcessor_kafkaLag_75thPercentile{}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "P75",
+          "refId": "B"
+        },
+        {
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeProposalsProcessor_kafkaLag_95thPercentile{}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "P95",
+          "refId": "C"
+        }
+      ],
+      "title": "MetadataChangeProposal Topic Lag",
+      "type": "timeseries"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 71
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataAuditEventsProcessor_kafkaLag_Mean{}",
+          "interval": "",
+          "legendFormat": "Avg",
+          "refId": "A"
+        },
+        {
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataAuditEventsProcessor_kafkaLag_75thPercentile{}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "P75",
+          "refId": "B"
+        },
+        {
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataAuditEventsProcessor_kafkaLag_95thPercentile{}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "P95",
+          "refId": "C"
+        }
+      ],
+      "title": "MetadataAuditEvent Topic Lag",
+      "type": "timeseries"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 71
+      },
+      "id": 14,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeLogProcessor_kafkaLag_Mean{}",
+          "interval": "",
+          "legendFormat": "Avg",
+          "refId": "A"
+        },
+        {
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeLogProcessor_kafkaLag_75thPercentile{}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "P75",
+          "refId": "B"
+        },
+        {
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeLogProcessor_kafkaLag_95thPercentile{}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "P95",
+          "refId": "C"
+        }
+      ],
+      "title": "MetadataChangeLog Topic Lag",
+      "type": "timeseries"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 80
+      },
+      "id": 16,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_kafka_DataHubUsageEventsProcessor_kafkaLag_Mean{}",
+          "interval": "",
+          "legendFormat": "Avg",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_kafka_DataHubUsageEventsProcessor_kafkaLag_75thPercentile{}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "P75",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_kafka_DataHubUsageEventsProcessor_kafkaLag_95thPercentile{}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "P95",
+          "refId": "C"
+        }
+      ],
+      "title": "DataHubUsageEvent Topic Lag",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 33,
+  "style": "dark",
+  "tags": [],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "DataHub Dashboard",
+  "uid": "x4fS54Vnk",
+  "version": 1,
+  "weekStart": ""
+}

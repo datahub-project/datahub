@@ -5,10 +5,15 @@ node {
 
   // If true, it will download node using above parameters.
   // If false, it will try to use globally installed node.
-  download = true
+
+  if (project.hasProperty('useSystemNode') && project.getProperty('useSystemNode').toBoolean()) {
+    download = false
+  } else {
+    download = true
+  }
 
   // Version of node to use.
-  version = '14.15.3'
+  version = '16.8.0'
 
   // Version of Yarn to use.
   yarnVersion = '1.22.0'
@@ -50,6 +55,10 @@ task yarnLint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   args = ['run', 'lint']
 }
 
+task yarnLintFix(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+  args = ['run', 'lint-fix']
+}
+
 task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnTest, yarnLint]) {
   args = ['run', 'build']
 }
@@ -60,6 +69,8 @@ clean {
   delete 'tmp'
   delete 'build'
   delete 'just'
+  delete 'src/types.generated.ts'
+  delete 'src/graphql/*.generated.ts'
 }
 
 configurations {

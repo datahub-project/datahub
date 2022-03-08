@@ -10,7 +10,14 @@ from datahub.cli.check_cli import check
 from datahub.cli.cli_utils import DATAHUB_CONFIG_PATH, write_datahub_config
 from datahub.cli.delete_cli import delete
 from datahub.cli.docker import docker
+from datahub.cli.get_cli import get
 from datahub.cli.ingest_cli import ingest
+from datahub.cli.migrate import migrate
+from datahub.cli.put_cli import put
+from datahub.cli.telemetry import telemetry as telemetry_cli
+from datahub.cli.timeline_cli import timeline
+from datahub.configuration import SensitiveError
+from datahub.telemetry import telemetry
 
 logger = logging.getLogger(__name__)
 
@@ -53,15 +60,19 @@ def datahub(debug: bool) -> None:
 
 
 @datahub.command()
+@telemetry.with_telemetry
 def version() -> None:
     """Print version number and exit."""
+
     click.echo(f"DataHub CLI version: {datahub_package.nice_version_name()}")
     click.echo(f"Python version: {sys.version}")
 
 
 @datahub.command()
+@telemetry.with_telemetry
 def init() -> None:
     """Configure which datahub instance to connect to"""
+
     if os.path.isfile(DATAHUB_CONFIG_PATH):
         click.confirm(f"{DATAHUB_CONFIG_PATH} already exists. Overwrite?", abort=True)
 
@@ -83,6 +94,11 @@ datahub.add_command(check)
 datahub.add_command(docker)
 datahub.add_command(ingest)
 datahub.add_command(delete)
+datahub.add_command(get)
+datahub.add_command(put)
+datahub.add_command(telemetry_cli)
+datahub.add_command(migrate)
+datahub.add_command(timeline)
 
 
 def main(**kwargs):
@@ -96,12 +112,19 @@ def main(**kwargs):
         error.show()
         sys.exit(1)
     except Exception as exc:
+        kwargs = {}
+        sensitive_cause = SensitiveError.get_sensitive_cause(exc)
+        if sensitive_cause:
+            kwargs = {"show_vals": None}
+            exc = sensitive_cause
+
         logger.error(
             stackprinter.format(
                 exc,
                 line_wrap=MAX_CONTENT_WIDTH,
                 truncate_vals=10 * MAX_CONTENT_WIDTH,
                 suppressed_paths=[r"lib/python.*/site-packages/click/"],
+                **kwargs,
             )
         )
         sys.exit(1)

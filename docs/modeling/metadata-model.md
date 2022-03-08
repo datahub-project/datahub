@@ -6,31 +6,97 @@ slug: /metadata-modeling/metadata-model
 
 # How does DataHub model metadata?
 
-DataHub uses the Pegasus schema (PDL) language extended with a custom set of annotations to model metadata.
+DataHub takes a schema-first approach to modeling metadata. We use the open-source Pegasus schema language ([PDL](https://linkedin.github.io/rest.li/pdl_schema)) extended with a custom set of annotations to model metadata. The DataHub storage, serving, indexing and ingestion layer operates directly on top of the metadata model and supports strong types all the way from the client to the storage layer. 
 
 Conceptually, metadata is modeled using the following abstractions
 
-- **Entities**: An entity is the primary node in the metadata graph. For example, an instance of a Dataset or a CorpUser is an Entity. An entity is made up of a unique identifier (a primary key) and groups of metadata which we call aspects.
+- **Entities**: An entity is the primary node in the metadata graph. For example, an instance of a Dataset or a CorpUser is an Entity. An entity is made up of a type, e.g. 'dataset', a unique identifier (e.g. an 'urn') and groups of metadata attributes (e.g. documents) which we call aspects.
 
 
-- **Aspects**: An aspect is a collection of attributes that describes a particular facet of an entity. They are the smallest atomic unit of write in DataHub. That is, Multiple aspects associated with the same Entity can be updated independently. For example, DatasetProperties contains a collection of attributes that describes a Dataset. Aspects can be shared across entities, for example the "Ownership" an aspect is re-used across all the Entities that have owners. 
+- **Aspects**: An aspect is a collection of attributes that describes a particular facet of an entity. They are the smallest atomic unit of write in DataHub. That is, multiple aspects associated with the same Entity can be updated independently. For example, DatasetProperties contains a collection of attributes that describes a Dataset. Aspects can be shared across entities, for example "Ownership" is an aspect that is re-used across all the Entities that have owners. Common aspects include
 
-
-- **Keys & Urns**: A key is a special type of aspect that contains the fields that uniquely identify an individual Entity. Key aspects can be serialized into *Urns*, which represent a stringified form of the key fields used for primary-key lookup. Moreover, *Urns* can be converted back into key aspect structs, making key aspects a type of "virtual" aspect. Key aspects provide a mechanism for clients to easily read fields comprising the primary key, which are usually generally useful like Dataset names, platform names etc. Urns provide a friendly handle by which Entities can be queried without requiring a fully materialized struct. 
+    - [ownership](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/common/Ownership.pdl): Captures the users and groups who own an Entity. 
+    - [globalTags](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/common/GlobalTags.pdl): Captures references to the Tags associated with an Entity. 
+    - [glossaryTerms](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/common/GlossaryTerms.pdl): Captures references to the Glossary Terms associated with an Entity. 
+    - [institutionalMemory](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/common/InstitutionalMemory.pdl): Captures internal company Documents associated with an Entity (e.g. links!)
+    - [status](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/common/Status.pdl): Captures the "deletion" status of an Entity, i.e. whether it should be soft-deleted. 
+    - [subTypes](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/common/SubTypes.pdl): Captures one or more "sub types" of a more generic Entity type. An example can be a "Looker Explore" Dataset, a "View" Dataset. Specific sub types can imply that certain additional aspects are present for a given Entity. 
 
 
 - **Relationships**: A relationship represents a named edge between 2 entities. They are declared via foreign key attributes within Aspects along with a custom annotation (@Relationship). Relationships permit edges to be traversed bi-directionally. For example, a Chart may refer to a CorpUser as its owner via a relationship named "OwnedBy". This edge would be walkable starting from the Chart *or* the CorpUser instance.
+
+- **Identifiers (Keys & Urns)**: A key is a special type of aspect that contains the fields that uniquely identify an individual Entity. Key aspects can be serialized into *Urns*, which represent a stringified form of the key fields used for primary-key lookup. Moreover, *Urns* can be converted back into key aspect structs, making key aspects a type of "virtual" aspect. Key aspects provide a mechanism for clients to easily read fields comprising the primary key, which are usually generally useful like Dataset names, platform names etc. Urns provide a friendly handle by which Entities can be queried without requiring a fully materialized struct.
 
 
 Here is an example graph consisting of 3 types of entity (CorpUser, Chart, Dashboard), 2 types of relationship (OwnedBy, Contains), and 3 types of metadata aspect (Ownership, ChartInfo, and DashboardInfo).
 
 ![metadata-modeling](../imgs/metadata-model-chart.png)
 
+## The Core Entities
+
+DataHub's "core" Entity types model the Data Assets that comprise the Modern Data Stack. They include 
+
+1. **[Data Platform](docs/generated/metamodel/entities/dataPlatform.md)**: A type of Data "Platform". That is, an external system that is involved in processing, storing, or visualizing Data Assets. Examples include MySQL, Snowflake, Redshift, and S3. 
+2. **[Dataset](docs/generated/metamodel/entities/dataset.md)**: A collection of data. Tables, Views, Streams, Document Collections, and Files are all modeled as "Datasets" on DataHub. Datasets can have tags, owners, links, glossary terms, and descriptions attached to them. They can also have specific sub-types, such as "View", "Collection", "Stream", "Explore", and more. Examples include Postgres Tables, MongoDB Collections, or S3 files.
+3. **[Chart](docs/generated/metamodel/entities/chart.md)**: A single data vizualization derived from a Dataset. A single Chart can be a part of multiple Dashboards. Charts can have tags, owners, links, glossary terms, and descriptions attached to them. Examples include a Superset or Looker Chart.
+4. **[Dashboard](docs/generated/metamodel/entities/dashboard.md)**: A collection of Charts for visualization. Dashboards can have tags, owners, links, glossary terms, and descriptions attached to them. Examples include a Superset or Mode Dashboard.
+5. **[Data Job](docs/generated/metamodel/entities/dataJob.md)** (Task): An executable job that processes data assets, where "processing" implies consuming data, producing data, or both. Data Jobs can have tags, owners, links, glossary terms, and descriptions attached to them. They must belong to a single Data Flow. Examples include an Airflow Task.
+6. **[Data Flow](docs/generated/metamodel/entities/dataFlow.md)** (Pipeline): An executable collection of Data Jobs with dependencies among them, or a DAG. Data Jobs can have tags, owners, links, glossary terms, and descriptions attached to them. Examples include an Airflow DAG.
+
+See the **Metadata Modeling/Entities** section on the left to explore the entire model.
+
+## The Entity Registry
+
+Where are Entities and their aspects defined in DataHub? Where does the Metadata Model "live"? The Metadata Model is stitched together by means 
+of an **Entity Registry**, a catalog of Entities that comprise the Metadata Graph along with the aspects associated with each. Put
+simply, this is where the "schema" of the model is defined. 
+
+Traditionally, the Entity Registry was constructed using [Snapshot](https://github.com/linkedin/datahub/tree/master/metadata-models/src/main/pegasus/com/linkedin/metadata/snapshot) models, which are schemas that explicitly tie 
+an Entity to the Aspects associated with it. An example is [DatasetSnapshot](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/metadata/snapshot/DatasetSnapshot.pdl), which defines the core `Dataset` Entity. 
+The Aspects of the Dataset entity are captured via a union field inside a special "Aspect" schema. An example is 
+[DatasetAspect](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/metadata/aspect/DatasetAspect.pdl).
+This file associates dataset-specific aspects (like [DatasetProperties](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/dataset/DatasetProperties.pdl)) and common aspects  (like [Ownership](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/common/Ownership.pdl), 
+[InstitutionalMemory](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/common/InstitutionalMemory.pdl), 
+and [Status](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/common/Status.pdl)) 
+to the Dataset Entity. This approach to defining Entities will soon be deprecated in favor of a new approach. 
+
+As of January 2022, DataHub has deprecated support for Snapshot models as a means of adding new entities. Instead,
+the Entity Registry is defined inside a YAML configuration file called [entity-registry.yml](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/resources/entity-registry.yml),
+which is provided to DataHub's Metadata Service at start up. This file declares Entities and Aspects by referring to their [names](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/common/Ownership.pdl#L7). 
+At boot time, DataHub validates the structure of the registry file and ensures that it can find PDL schemas associated with 
+each aspect name provided by configuration (via the [@Aspect](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/common/Ownership.pdl#L6) annotation). 
+
+By moving to this format, evolving the Metadata Model becomes much easier. Adding Entities & Aspects becomes a matter of adding a 
+to the YAML configuration, instead of creating new Snapshot / Aspect files. 
+
+
+## Exploring DataHub's Metadata Model
+
+To explore the current DataHub metadata model, you can inspect this high-level picture that shows the different entities and edges between them showing the relationships between them. 
+![Metadata Model Graph](../imgs/datahub-metadata-model.png)
+
+To navigate the aspect model for specific entities and explore relationships using the `foreign-key` concept, you can view them in our demo environment or navigate the auto-generated docs in the **Metadata Modeling/Entities** section on the left.
+
+For example, here are helpful links to the most popular entities in DataHub's metadata model: 
+* [Dataset](docs/generated/metamodel/entities/dataset.md): [Profile](https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:datahub,Dataset,PROD)/Schema?is_lineage_mode=false) [Documentation](https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:datahub,Dataset,PROD)/Documentation?is_lineage_mode=false)
+* [Dashboard](docs/generated/metamodel/entities/dashboard.md): [Profile](https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:datahub,Dashboard,PROD)/Schema?is_lineage_mode=false) [Documentation](https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:datahub,Dashboard,PROD)/Documentation?is_lineage_mode=false)
+* [User (a.k.a CorpUser)](docs/generated/metamodel/entities/corpuser.md): [Profile](https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:datahub,Corpuser,PROD)/Schema?is_lineage_mode=false) [Documentation](https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:datahub,Corpuser,PROD)/Documentation?is_lineage_mode=false)
+* [Pipeline (a.k.a DataFlow)](docs/generated/metamodel/entities/dataFlow.md): [Profile](https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:datahub,DataFlow,PROD)/Schema?is_lineage_mode=false) [Documentation](https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:datahub,DataFlow,PROD)/Documentation?is_lineage_mode=false)
+* [Feature Table (a.k.a. MLFeatureTable)](docs/generated/metamodel/entities/mlFeatureTable.md): [Profile](https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:datahub,MlFeatureTable,PROD)/Schema?is_lineage_mode=false) [Documentation](https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:datahub,MlFeatureTable,PROD)/Documentation?is_lineage_mode=false)
+* For the full list of entities in the metadata model, browse them [here](https://demo.datahubproject.io/browse/dataset/prod/datahub/entities) or use the **Metadata Modeling/Entities** section on the left.
+
+### Generating documentation for the Metadata Model
+
+- This website: Metadata model documentation for this website is generated using `./gradlew :docs-website:yarnBuild`, which delegates the model doc generation to the `modelDocGen` task in the `metadata-ingestion` module.
+- Uploading documentation to a running DataHub Instance: The metadata model documentation can be generated and uploaded into a running DataHub instance using the command `./gradlew :metadata-ingestion:modelDocUpload`. **_NOTE_**: This will upload the model documentation to the DataHub instance running at the environment variable `$DATAHUB_SERVER` (http://localhost:8080 by default)
+
 ## Querying the Metadata Graph 
 
 DataHub’s modeling language allows you to optimize metadata persistence to align with query patterns.
 
 There are three supported ways to query the metadata graph: by primary key lookup, a search query, and via relationship traversal. 
+
+> New to [PDL](https://linkedin.github.io/rest.li/pdl_schema) files? Don't fret. They are just a way to define a JSON document "schema" for Aspects in DataHub. All Data ingested to DataHub's Metadata Service is validated against a PDL schema, with each @Aspect corresponding to a single schema. Structurally, PDL is quite similar to [Protobuf](https://developers.google.com/protocol-buffers) and conveniently maps to JSON.
 
 ### Querying an Entity
 
@@ -39,13 +105,13 @@ There are three supported ways to query the metadata graph: by primary key looku
 Querying an Entity by primary key means using the "entities" endpoint, passing in the 
 urn of the entity to retrieve. 
 
-For example, to fetch a Chart entity, we can use the following CURL: 
+For example, to fetch a Chart entity, we can use the following `curl`: 
 
 ```
 curl --location --request GET 'http://localhost:8080/entities/urn%3Ali%3Achart%3Acustomers
 ```
 
-The type of request will return a set of versioned aspects, each at the latest version. 
+This request will return a set of versioned aspects, each at the latest version. 
 
 As you'll notice, we perform the lookup using the url-encoded *Urn* associated with an entity. 
 The response would be an "Entity" record containing the Entity Snapshot (which in turn contains the latest aspects associated with the Entity).
@@ -169,7 +235,7 @@ A relationship query allows you to find Entity connected to a particular source 
 For example, to find the owners of a particular Chart, we can use the following CURL:
 
 ```
-curl --location --request GET --header 'X-RestLi-Protocol-Version: 2.0.0' 'http://localhost:8080/relationships?direction=OUTGOING&urn=urn:li:chart:customers&types=OwnedBy'
+curl --location --request GET --header 'X-RestLi-Protocol-Version: 2.0.0' 'http://localhost:8080/relationships?direction=OUTGOING&urn=urn%3Ali%3Achart%3Acustomers&types=List(OwnedBy)'
 ```
 
 The notable parameters are `direction`, `urn` and `types`. The response contains *Urns* associated with all entities connected 
@@ -178,11 +244,10 @@ chart.
 
 ### Special Aspects
 
-There are 2 "special" aspects worth mentioning: 
+There are a few special aspects worth mentioning: 
 
-1. Key aspects
-2. Browse aspect
-3. Timeseries aspects
+1. Key aspects: Contain the properties that uniquely identify an Entity. 
+2. Browse Paths aspect: Represents a hierarchical path associated with an Entity.
 
 #### Key aspects
 
@@ -204,7 +269,7 @@ urn:li:<entity-name>:key-field-1
 urn:li:<entity-name>:(key-field-1, key-field-2, ... key-field-n) 
 ```
 
-By convention, key aspects are defined under `metadata-models/src/main/pegasus/com/linkedin/metadata/key`.
+By convention, key aspects are defined under [metadata-models/src/main/pegasus/com/linkedin/metadata/key](https://github.com/linkedin/datahub/tree/master/metadata-models/src/main/pegasus/com/linkedin/metadata/key).
 
 ##### Example
 
@@ -278,19 +343,17 @@ urn:li:corpuser:johnsmith
 The BrowsePaths aspect allows you to define a custom "browse path" for an Entity. A browse path is a way to hierarchically organize
 entities. They manifest within the "Explore" features on the UI, allowing users to navigate through trees of related entities of a given type. 
 
-To support browsing a particular entity, simply include the "BrowsePaths" aspect in its aspect union: 
+To support browsing a particular entity, add the "browsePaths" aspect to the entity in your `entity-registry.yml` file. 
 
 ```aidl
-// DatasetAspect.pdl
-
-/**
- * A union of all supported metadata aspects for a Dataset
- */
-typeref DatasetAspect = union[
-  DatasetKey,
-  ...
-  BrowsePaths
-]
+/// entity-registry.yml 
+entities:
+  - name: dataset
+    doc: Datasets represent logical or physical data assets stored or represented in various data platforms. Tables, Views, Streams are all instances of datasets.
+    keyAspect: datasetKey
+    aspects:
+      ...
+      - browsePaths
 ```
 
 By declaring this aspect, you can produce custom browse paths as well as query for browse paths manually using a CURL like the following:
@@ -307,12 +370,31 @@ curl --location --request POST 'http://localhost:8080/entities?action=browse' \
 }'
 ```
 
-Notice that you must provide 
+Please note you must provide: 
+- The "/"-delimited root path for which to fetch results.
+- An entity "type" using its common name ("dataset" in the example above). 
 
-a. A "/"-delimited root path for which to fetch results.
-b. An entity "type" using its common name ("dataset" in the example above). 
+### Types of Aspect
 
-#### Timeseries aspects
+There are 2 "types" of Metadata Aspects. Both are modeled using PDL schemas, and both can be ingested in the same way. 
+However, they differ in what they represent and how they are handled by DataHub's Metadata Service. 
+
+#### 1. Versioned Aspects
+ 
+Versioned Aspects each have a **numeric version** associated with them. When a field in an aspect changes, a new
+version is automatically created and stored within DataHub's backend. In practice, all versioned aspects are stored inside a relational database
+that can be backed up and restored. Versioned aspects power much of the UI experience you're used to, including Ownership, Descriptions,
+Tags, Glossary Terms, and more. Examples include Ownership, Global Tags, and Glossary Terms. 
+
+#### 2. Timeseries Aspects
+
+Timeseries Aspects each have a **timestamp** associated with them. They are useful for representing
+time-ordered events about an Entity. For example, the results of profiling a Dataset, or a set of Data Quality checks that
+run every day. It is important to note that Timeseries aspects are NOT persisted inside the relational store, and are instead
+persisted only in the search index (e.g. elasticsearch) and the message queue (Kafka). This makes restoring timeseries aspects
+in a disaster scenario a bit more challenge. Timeseries aspects can be queried by time range, which is what makes them most different from Versioned Aspects.
+A timeseries aspect can be identified by the "timeseries" [type](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/dataset/DatasetProfile.pdl#L10) in its [@Aspect](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/dataset/DatasetProfile.pdl#L8) annotation.
+Examples include [DatasetProfile](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/dataset/DatasetProfile.pdl) & [DatasetUsageStatistics](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/dataset/DatasetUsageStatistics.pdl).
 
 Timeseries aspects are aspects that have a timestampMillis field, and are meant for aspects that continuously change on a
 timely basis e.g. data profiles, usage statistics, etc.
@@ -325,7 +407,7 @@ Timeseries aspect cannot have any fields that have the @Searchable or @Relations
 completely different flow.
 
 Please refer
-to [DatasetProfile](https://github.com/linkedin/datahub/tree/master/metadata-models/src/main/pegasus/com/linkedin/dataset/DatasetProfile)
+to [DatasetProfile](https://github.com/linkedin/datahub/tree/master/metadata-models/src/main/pegasus/com/linkedin/dataset/DatasetProfile.pdl)
 to see an example of a timeseries aspect.
 
 Because timeseries aspects are updated on a frequent basis, ingests of these aspects go straight to elastic search (
@@ -333,12 +415,12 @@ instead of being stored in local DB).
 
 You can retrieve timeseries aspects using the "aspects?action=getTimeseriesAspectValues" end point. 
 
-#### Aggregatable Timeseries aspects
+##### Aggregatable Timeseries aspects
 Being able to perform SQL like *group by + aggregate* operations on the timeseries aspects is a very natural use-case for
 this kind of data (dataset profiles, usage statistics etc.). This section describes how to define, ingest and perform an
 aggregation query against a timeseries aspect.
 
-##### Defining a new aggregatable Timeseries aspect.
+###### Defining a new aggregatable Timeseries aspect.
 
 The *@TimeseriesField* and the *@TimeseriesFieldCollection* are two new annotations that can be attached to a field of
 a *Timeseries aspect* that allows it to be part of an aggregatable query. The kinds of aggregations allowed on these
@@ -366,10 +448,10 @@ entities:
       - datasetUsageStatistics
 ```
 
-##### Ingesting a Timeseries aspect
-The timeseries aspects can be ingested via the GSM REST endpoint `/aspects?action=ingestProposal` or via the python API.
+###### Ingesting a Timeseries aspect
+The timeseries aspects can be ingested via the GMS REST endpoint `/aspects?action=ingestProposal` or via the python API.
 
-Example1: Via GSM REST API using curl.
+Example1: Via GMS REST API using curl.
 
 ```shell
 curl --location --request POST 'http://localhost:8080/aspects?action=ingestProposal' \
@@ -423,9 +505,9 @@ my_emitter = DatahubKafkaEmitter("""<config>""")
 my_emitter.emit(mcpw)
 ```
 
-##### Performing an aggregation on a Timeseries aspect.
+###### Performing an aggregation on a Timeseries aspect.
 
-Aggreations on timeseries aspects can be performed by the GSM REST API for `/analytics?action=getTimeseriesStats` which
+Aggreations on timeseries aspects can be performed by the GMS REST API for `/analytics?action=getTimeseriesStats` which
 accepts the following params.
 * `entityName` - The name of the entity the aspect is associated with.
 * `aspectName` - The name of the aspect.
@@ -436,20 +518,20 @@ accepts the following params.
   to use for grouping. The `type` field specifies the kind of grouping bucket.
 
 We support three kinds of aggregations that can be specified in an aggregation query on the Timeseries annotated fields.
-The values that `aggregationType` can take are
+The values that `aggregationType` can take are:
 
 * `LATEST`: The latest value of the field in each bucket. Supported for any type of field.
 * `SUM`: The cumulative sum of the field in each bucket. Supported only for integral types.
 * `CARDINALITY`: The number of unique values or the cardinality of the set in each bucket. Supported for string and
   record types.
 
-We support two types of grouping for defining the buckets to perform aggregations against.
+We support two types of grouping for defining the buckets to perform aggregations against:
 
 * `DATE_GROUPING_BUCKET`: Allows for creating time-based buckets such as by second, minute, hour, day, week, month,
   quarter, year etc. Should be used in conjunction with a timestamp field whose value is in milliseconds since *epoch*.
   The `timeWindowSize` param specifies the date histogram bucket width.
-* `STRING_GROUPING_BUCKET`: Allows for creating buckets grouped by the unique values of a field. Should be used in
-  conjunction with a string type field always.
+* `STRING_GROUPING_BUCKET`: Allows for creating buckets grouped by the unique values of a field. Should always be used in
+  conjunction with a string type field.
 
 The API returns a generic SQL like table as the `table` member of the output that contains the results of
 the `group-by/aggregate` query, in addition to echoing the input params.
@@ -460,7 +542,7 @@ the `group-by/aggregate` query, in addition to echoing the input params.
 * `columnTypes`: the data types of the columns.
 * `rows`: the data values, each row corresponding to the respective bucket(s).
 
-Example1: Latest unique user count for each day.
+Example: Latest unique user count for each day.
 ```shell
 # QUERY
 curl --location --request POST 'http://localhost:8080/analytics?action=getTimeseriesStats' \

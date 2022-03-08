@@ -1,7 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
 import com.google.common.collect.ImmutableList;
-import com.linkedin.datahub.graphql.exception.ValidationException;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.SearchAcrossEntitiesInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
@@ -18,7 +17,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
-import static org.apache.commons.lang3.StringUtils.isBlank;
 
 
 /**
@@ -34,7 +32,7 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
   private static final List<EntityType> SEARCHABLE_ENTITY_TYPES =
       ImmutableList.of(EntityType.DATASET, EntityType.DASHBOARD, EntityType.CHART, EntityType.MLMODEL,
           EntityType.MLMODEL_GROUP, EntityType.MLFEATURE_TABLE, EntityType.DATA_FLOW, EntityType.DATA_JOB,
-          EntityType.GLOSSARY_TERM, EntityType.TAG, EntityType.CORP_USER, EntityType.CORP_GROUP);
+          EntityType.GLOSSARY_TERM, EntityType.TAG, EntityType.CORP_USER, EntityType.CORP_GROUP, EntityType.CONTAINER, EntityType.DOMAIN);
 
   private final EntityClient _entityClient;
 
@@ -49,10 +47,6 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
 
     // escape forward slash since it is a reserved character in Elasticsearch
     final String sanitizedQuery = ResolverUtils.escapeForwardSlash(input.getQuery());
-    if (isBlank(sanitizedQuery)) {
-      log.error("'query' parameter cannot was null or empty");
-      throw new ValidationException("'query' parameter cannot be null or empty");
-    }
 
     final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;
     final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
@@ -63,7 +57,7 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
             "Executing search for multiple entities: entity types {}, query {}, filters: {}, start: {}, count: {}",
             input.getTypes(), input.getQuery(), input.getFilters(), start, count);
         return UrnSearchResultsMapper.map(_entityClient.searchAcrossEntities(entityNames, sanitizedQuery,
-            ResolverUtils.buildFilter(input.getFilters()), start, count, ResolverUtils.getActor(environment)));
+            ResolverUtils.buildFilter(input.getFilters()), start, count, ResolverUtils.getAuthentication(environment)));
       } catch (Exception e) {
         log.error(
             "Failed to execute search for multiple entities: entity types {}, query {}, filters: {}, start: {}, count: {}",

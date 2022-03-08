@@ -1,14 +1,11 @@
 import logging
-from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any
-from typing import Counter as CounterType
 from typing import Dict, Iterable, List, Optional, Tuple, Type, Union, ValuesView
 
 import bson
 import pymongo
-from mypy_extensions import TypedDict
-from pydantic import PositiveInt
+from packaging import version
+from pydantic import PositiveInt, validator
 from pymongo.mongo_client import MongoClient
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
@@ -16,6 +13,10 @@ from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.schema_inference.object import (
+    SchemaDescription,
+    construct_schema,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -56,10 +57,19 @@ class MongoDBConfig(ConfigModel):
     schemaSamplingSize: Optional[PositiveInt] = 1000
     useRandomSampling: bool = True
     maxSchemaSize: Optional[PositiveInt] = 300
+    # mongodb only supports 16MB as max size for documents. However, if we try to retrieve a larger document it
+    # errors out with "16793600" as the maximum size supported.
+    maxDocumentSize: Optional[PositiveInt] = 16793600
     env: str = DEFAULT_ENV
 
     database_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     collection_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+
+    @validator("maxDocumentSize")
+    def check_max_doc_size_filter_is_valid(cls, doc_size_filter_value):
+        if doc_size_filter_value > 16793600:
+            raise ValueError("maxDocumentSize must be a positive value <= 16793600.")
+        return doc_size_filter_value
 
 
 @dataclass
@@ -106,185 +116,12 @@ _field_type_mapping: Dict[Union[Type, str], Type] = {
 }
 
 
-def is_nullable_doc(doc: Dict[str, Any], field_path: Tuple) -> bool:
-    """
-    Check if a nested field is nullable in a document from a collection.
-
-    Parameters
-    ----------
-        doc:
-            document to check nullability for
-        field_path:
-            path to nested field to check, ex. ('first_field', 'nested_child', '2nd_nested_child')
-    """
-
-    field = field_path[0]
-
-    # if field is inside
-    if field in doc:
-
-        value = doc[field]
-
-        if value is None:
-            return True
-
-        # if no fields left, must be non-nullable
-        if len(field_path) == 1:
-            return False
-
-        # otherwise, keep checking the nested fields
-        remaining_fields = field_path[1:]
-
-        # if dictionary, check additional level of nesting
-        if isinstance(value, dict):
-            return is_nullable_doc(doc[field], remaining_fields)
-
-        # if list, check if any member is missing field
-        if isinstance(value, list):
-
-            # count empty lists of nested objects as nullable
-            if len(value) == 0:
-                return True
-
-            return any(is_nullable_doc(x, remaining_fields) for x in doc[field])
-
-        # any other types to check?
-        # raise ValueError("Nested type not 'list' or 'dict' encountered")
-        return True
-
-    return True
-
-
-def is_nullable_collection(
-    collection: Iterable[Dict[str, Any]], field_path: Tuple
-) -> bool:
-    """
-    Check if a nested field is nullable in a collection.
-
-    Parameters
-    ----------
-        collection:
-            collection to check nullability for
-        field_path:
-            path to nested field to check, ex. ('first_field', 'nested_child', '2nd_nested_child')
-    """
-
-    return any(is_nullable_doc(doc, field_path) for doc in collection)
-
-
-class BasicSchemaDescription(TypedDict):
-    types: CounterType[type]  # field types and times seen
-    count: int  # times the field was seen
-
-
-class SchemaDescription(BasicSchemaDescription):
-    delimited_name: str  # collapsed field name
-    # we use 'mixed' to denote mixed types, so we need a str here
-    type: Union[type, str]  # collapsed type
-    nullable: bool  # if field is ever missing
-
-
-def construct_schema(
-    collection: Iterable[Dict[str, Any]], delimiter: str
-) -> Dict[Tuple[str, ...], SchemaDescription]:
-    """
-    Construct (infer) a schema from a collection of documents.
-
-    For each field (represented as a tuple to handle nested items), reports the following:
-        - `types`: Python types of field values
-        - `count`: Number of times the field was encountered
-        - `type`: type of the field if `types` is just a single value, otherwise `mixed`
-        - `nullable`: if field is ever null/missing
-        - `delimited_name`: name of the field, joined by a given delimiter
-
-    Parameters
-    ----------
-        collection:
-            collection to construct schema over.
-        delimiter:
-            string to concatenate field names by
-    """
-
-    schema: Dict[Tuple[str, ...], BasicSchemaDescription] = {}
-
-    def append_to_schema(doc: Dict[str, Any], parent_prefix: Tuple[str, ...]) -> None:
-        """
-        Recursively update the schema with a document, which may/may not contain nested fields.
-
-        Parameters
-        ----------
-            doc:
-                document to scan
-            parent_prefix:
-                prefix of fields that the document is under, pass an empty tuple when initializing
-        """
-
-        for key, value in doc.items():
-
-            new_parent_prefix = parent_prefix + (key,)
-
-            # if nested value, look at the types within
-            if isinstance(value, dict):
-
-                append_to_schema(value, new_parent_prefix)
-
-            # if array of values, check what types are within
-            if isinstance(value, list):
-
-                for item in value:
-
-                    # if dictionary, add it as a nested object
-                    if isinstance(item, dict):
-                        append_to_schema(item, new_parent_prefix)
-
-            # don't record None values (counted towards nullable)
-            if value is not None:
-
-                if new_parent_prefix not in schema:
-
-                    schema[new_parent_prefix] = {
-                        "types": Counter([type(value)]),
-                        "count": 1,
-                    }
-
-                else:
-
-                    # update the type count
-                    schema[new_parent_prefix]["types"].update({type(value): 1})
-                    schema[new_parent_prefix]["count"] += 1
-
-    for document in collection:
-        append_to_schema(document, ())
-
-    extended_schema: Dict[Tuple[str, ...], SchemaDescription] = {}
-
-    for field_path in schema.keys():
-
-        field_types = schema[field_path]["types"]
-
-        field_type: Union[str, type] = "mixed"
-
-        # if single type detected, mark that as the type to go with
-        if len(field_types.keys()) == 1:
-            field_type = next(iter(field_types))
-
-        field_extended: SchemaDescription = {
-            "types": schema[field_path]["types"],
-            "count": schema[field_path]["count"],
-            "nullable": is_nullable_collection(collection, field_path),
-            "delimited_name": delimiter.join(field_path),
-            "type": field_type,
-        }
-
-        extended_schema[field_path] = field_extended
-
-    return extended_schema
-
-
 def construct_schema_pymongo(
     collection: pymongo.collection.Collection,
     delimiter: str,
     use_random_sampling: bool,
+    max_document_size: int,
+    is_version_gte_4_4: bool,
     sample_size: Optional[int] = None,
 ) -> Dict[Tuple[str, ...], SchemaDescription]:
     """
@@ -302,21 +139,29 @@ def construct_schema_pymongo(
         sample_size:
             number of items in the collection to sample
             (reads entire collection if not provided)
+        max_document_size:
+            maximum size of the document that will be considered for generating the schema.
     """
 
-    if sample_size:
-        if use_random_sampling:
-            # get sample documents in collection
-            documents = collection.aggregate(
-                [{"$sample": {"size": sample_size}}], allowDiskUse=True
-            )
-        else:
-            documents = collection.aggregate(
-                [{"$limit": sample_size}], allowDiskUse=True
-            )
+    doc_size_field = "temporary_doc_size_field"
+    aggregations: List[Dict] = []
+    if is_version_gte_4_4:
+        # create a temporary field to store the size of the document. filter on it and then remove it.
+        aggregations = [
+            {"$addFields": {doc_size_field: {"$bsonSize": "$$ROOT"}}},
+            {"$match": {doc_size_field: {"$lt": max_document_size}}},
+            {"$project": {doc_size_field: 0}},
+        ]
+    if use_random_sampling:
+        # get sample documents in collection
+        aggregations.append({"$sample": {"size": sample_size}})
+        documents = collection.aggregate(
+            aggregations,
+            allowDiskUse=True,
+        )
     else:
-        # if sample_size is not provided, just take all items in the collection
-        documents = collection.find({})
+        aggregations.append({"$limit": sample_size})
+        documents = collection.aggregate(aggregations, allowDiskUse=True)
 
     return construct_schema(list(documents), delimiter)
 
@@ -440,11 +285,13 @@ class MongoDBSource(Source):
                 dataset_snapshot.aspects.append(dataset_properties)
 
                 if self.config.enableSchemaInference:
-
+                    assert self.config.maxDocumentSize is not None
                     collection_schema = construct_schema_pymongo(
                         database[collection_name],
                         delimiter=".",
                         use_random_sampling=self.config.useRandomSampling,
+                        max_document_size=self.config.maxDocumentSize,
+                        is_version_gte_4_4=self.is_server_version_gte_4_4(),
                         sample_size=self.config.schemaSamplingSize,
                     )
 
@@ -515,6 +362,23 @@ class MongoDBSource(Source):
                 wu = MetadataWorkUnit(id=dataset_name, mce=mce)
                 self.report.report_workunit(wu)
                 yield wu
+
+    def is_server_version_gte_4_4(self) -> bool:
+        try:
+            server_version = self.mongo_client.server_info().get("versionArray")
+            if server_version:
+                logger.info(
+                    f"Mongodb version for current connection - {server_version}"
+                )
+                server_version_str_list = [str(i) for i in server_version]
+                required_version = "4.4"
+                return version.parse(
+                    ".".join(server_version_str_list)
+                ) >= version.parse(required_version)
+        except Exception as e:
+            logger.error("Error while getting version of the mongodb server %s", e)
+
+        return False
 
     def get_report(self) -> MongoDBSourceReport:
         return self.report

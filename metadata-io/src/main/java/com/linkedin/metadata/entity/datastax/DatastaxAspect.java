@@ -1,12 +1,42 @@
 package com.linkedin.metadata.entity.datastax;
 
+import com.datastax.oss.driver.api.core.cql.Row;
 import com.linkedin.metadata.entity.EntityAspect;
+import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
+import javax.annotation.Nonnull;
 import java.sql.Timestamp;
 
 // Dumb object for now
 
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class DatastaxAspect implements EntityAspect {
+
+  @Getter
+  @NoArgsConstructor
+  @AllArgsConstructor
+  @EqualsAndHashCode
+  public static class PrimaryKey {
+
+    private String urn;
+    private String aspect;
+    private long version;
+
+    public static PrimaryKey fromRow(Row r) {
+      return new DatastaxAspect.PrimaryKey(
+          r.getString(DatastaxAspect.URN_COLUMN),
+          r.getString(DatastaxAspect.ASPECT_COLUMN),
+          r.getLong(DatastaxAspect.VERSION_COLUMN));
+    }
+  }
+
   private String urn;
   private String aspect;
   private long version;
@@ -30,130 +60,24 @@ public class DatastaxAspect implements EntityAspect {
   public static final String ENTITY_COLUMN = "entity";
 
   public String toString() {
-    return String.format("urn: %s, aspect: %s, version: %s, metadata: %s, createdon: %s, createdby: %s, createdfor: %s, systemmetadata: %s",
-                         urn, aspect, version, metadata, createdOn, createdBy, createdFor, systemMetadata
-                  );
+    return String.format(
+        "urn: %s, aspect: %s, version: %s, metadata: %s, createdon: %s, createdby: %s, createdfor: %s, systemmetadata: %s",
+        urn, aspect, version, metadata, createdOn, createdBy, createdFor, systemMetadata);
   }
 
-  public static class PrimaryKey {
-    private String urn;
-    private String aspect;
-    private long version;
-
-    public PrimaryKey(String urn, String aspect, long version) {
-      setUrn(urn);
-      setAspect(aspect);
-      setVersion(version);
-    }
-
-    public String getUrn() {
-      return urn;
-    }
-
-    public void setUrn(String urn) {
-      this.urn = urn;
-    }
-
-    public String getAspect() {
-      return aspect;
-    }
-
-    public void setAspect(String aspect) {
-      this.aspect = aspect;
-    }
-
-    public long getVersion() {
-      return version;
-    }
-
-    public void setVersion(long version) {
-      this.version = version;
-    }
+  public DatastaxAspect.PrimaryKey toPrimaryKey() {
+    return new PrimaryKey(getUrn(), getAspect(), getVersion());
   }
 
-  public PrimaryKey toPrimaryKey() {
-    return new PrimaryKey(this.urn, this.aspect, this.version);
-  }
-
-  public DatastaxAspect(String urn,
-                        String aspect,
-                        long version,
-                        String metadata,
-                        String systemMetadata,
-                        Timestamp createdOn,
-                        String createdBy,
-                        String createdFor) {
-    this.urn = urn;
-    this.aspect = aspect;
-    this.version = version;
-    this.metadata = metadata;
-    this.systemMetadata = systemMetadata;
-    this.createdOn = createdOn;
-    this.createdBy = createdBy;
-    this.createdFor = createdFor;
-  }
-
-  public String getCreatedFor() {
-    return createdFor;
-  }
-
-  public void setCreatedFor(String createdFor) {
-    this.createdFor = createdFor;
-  }
-
-  public String getAspect() {
-    return aspect;
-  }
-
-  public void setAspect(String aspect) {
-    this.aspect = aspect;
-  }
-
-  public long getVersion() {
-    return version;
-  }
-
-  public void setVersion(long version) {
-    this.version = version;
-  }
-
-  public String getMetadata() {
-    return metadata;
-  }
-
-  public void setMetadata(String metadata) {
-    this.metadata = metadata;
-  }
-
-  public String getSystemMetadata() {
-    return systemMetadata;
-  }
-
-  public void setSystemMetadata(String systemMetadata) {
-    this.systemMetadata = systemMetadata;
-  }
-
-  public Timestamp getCreatedOn() {
-    return createdOn;
-  }
-
-  public void setCreatedOn(Timestamp createdOn) {
-    this.createdOn = createdOn;
-  }
-
-  public String getCreatedBy() {
-    return createdBy;
-  }
-
-  public void setCreatedBy(String createdBy) {
-    this.createdBy = createdBy;
-  }
-
-  public String getUrn() {
-    return urn;
-  }
-
-  public void setUrn(String urn) {
-    this.urn = urn;
+  public static DatastaxAspect fromRow(@Nonnull Row r) {
+    return new DatastaxAspect(
+        r.getString(DatastaxAspect.URN_COLUMN),
+        r.getString(DatastaxAspect.ASPECT_COLUMN),
+        r.getLong(DatastaxAspect.VERSION_COLUMN),
+        r.getString(DatastaxAspect.METADATA_COLUMN),
+        r.getString(DatastaxAspect.SYSTEM_METADATA_COLUMN),
+        r.getInstant(DatastaxAspect.CREATED_ON_COLUMN) == null ? null : Timestamp.from(r.getInstant(DatastaxAspect.CREATED_ON_COLUMN)),
+        r.getString(DatastaxAspect.CREATED_BY_COLUMN),
+        r.getString(DatastaxAspect.CREATED_FOR_COLUMN));
   }
 }

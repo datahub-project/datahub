@@ -1,0 +1,15 @@
+run_id: metabase-test
+
+source:
+  type: "metabase"
+  config:
+    username: admin@metabase.com
+    password: admin12345
+    connect_uri: http://localhost:3000/
+    database_alias_map:
+      h2: sample-dataset.db
+
+sink:
+  type: file
+  config:
+    filename: "./metabase_mces.json"

@@ -4,17 +4,18 @@ import pathlib
 
 import fastavro
 import pytest
-from click.testing import CliRunner
+from avrogen import avrojson
 from freezegun import freeze_time
 
 import datahub.metadata.schema_classes as models
 from datahub.cli.json_file import check_mce_file
-from datahub.entrypoints import datahub
+from datahub.emitter import mce_builder
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.file import iterate_mce_file
 from datahub.metadata.schema_classes import MetadataChangeEventClass
 from datahub.metadata.schemas import getMetadataChangeEventSchema
 from tests.test_helpers import mce_helpers
+from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.type_helpers import PytestConfig
 
 FROZEN_TIME = "2021-07-22 18:54:06"
@@ -115,9 +116,7 @@ def test_serde_to_avro(pytestconfig: PytestConfig, json_filename: str) -> None:
 def test_check_mce_schema(pytestconfig: PytestConfig, json_filename: str) -> None:
     json_file_path = pytestconfig.rootpath / json_filename
 
-    runner = CliRunner()
-    result = runner.invoke(datahub, ["check", "mce-file", f"{json_file_path}"])
-    assert result.exit_code == 0
+    run_datahub_cmd(["check", "mce-file", f"{json_file_path}"])
 
 
 @pytest.mark.parametrize(
@@ -148,3 +147,23 @@ def test_field_discriminator() -> None:
     )
 
     assert cost_object.validate()
+
+
+def test_type_error() -> None:
+    dataflow = models.DataFlowSnapshotClass(
+        urn=mce_builder.make_data_flow_urn(
+            orchestrator="argo", flow_id="42", cluster="DEV"
+        ),
+        aspects=[
+            models.DataFlowInfoClass(
+                name="hello_datahub",
+                description="Hello Datahub",
+                externalUrl="http://example.com",
+                # This is a type error - custom properties should be a Dict[str, str].
+                customProperties={"x": 1},  # type: ignore
+            )
+        ],
+    )
+
+    with pytest.raises(avrojson.AvroTypeException):
+        dataflow.to_obj()

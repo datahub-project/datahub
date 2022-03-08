@@ -1,23 +1,39 @@
 """Convenience functions for creating MCEs"""
+import json
 import logging
 import re
 import time
-from typing import List, Optional, Type, TypeVar, cast, get_type_hints
+from enum import Enum
+from hashlib import md5
+from typing import Any, List, Optional, Type, TypeVar, Union, cast, get_type_hints
 
 import typing_inspect
 from avrogen.dict_wrapper import DictWrapper
 
+from datahub.configuration.source_common import DEFAULT_ENV as DEFAULT_ENV_CONFIGURATION
+from datahub.emitter.serialization_helper import pre_json_transform
+from datahub.metadata.com.linkedin.pegasus2avro.common import GlossaryTerms
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
+    ContainerKeyClass,
     DatasetKeyClass,
     DatasetLineageTypeClass,
     DatasetSnapshotClass,
+    GlobalTagsClass,
+    GlossaryTermAssociationClass,
     MetadataChangeEventClass,
+    OwnerClass,
+    OwnershipClass,
+    OwnershipSourceClass,
+    OwnershipSourceTypeClass,
     OwnershipTypeClass,
+    SchemaFieldKeyClass,
+    TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
 
-DEFAULT_ENV = "PROD"
+DEFAULT_ENV = DEFAULT_ENV_CONFIGURATION
 DEFAULT_FLOW_CLUSTER = "prod"
 UNKNOWN_USER = "urn:li:corpuser:unknown"
 
@@ -25,25 +41,55 @@ UNKNOWN_USER = "urn:li:corpuser:unknown"
 logger = logging.getLogger(__name__)
 
 
+class OwnerType(Enum):
+    USER = "corpuser"
+    GROUP = "corpGroup"
+
+
 def get_sys_time() -> int:
     # TODO deprecate this
     return int(time.time() * 1000)
 
 
-def _check_data_platform_name(platform_name: str) -> None:
-    if not platform_name.isalpha():
-        logger.warning(f"improperly formatted data platform: {platform_name}")
-
-
 def make_data_platform_urn(platform: str) -> str:
     if platform.startswith("urn:li:dataPlatform:"):
         return platform
-    _check_data_platform_name(platform)
     return f"urn:li:dataPlatform:{platform}"
 
 
 def make_dataset_urn(platform: str, name: str, env: str = DEFAULT_ENV) -> str:
     return f"urn:li:dataset:({make_data_platform_urn(platform)},{name},{env})"
+
+
+def make_dataplatform_instance_urn(platform: str, instance: str) -> str:
+    if instance.startswith("urn:li:dataPlatformInstance"):
+        return instance
+    else:
+        return f"urn:li:dataPlatformInstance:({make_data_platform_urn(platform)},{instance})"
+
+
+def make_dataset_urn_with_platform_instance(
+    platform: str, name: str, platform_instance: Optional[str], env: str = DEFAULT_ENV
+) -> str:
+    if platform_instance:
+        return f"urn:li:dataset:({make_data_platform_urn(platform)},{platform_instance}.{name},{env})"
+    else:
+        return make_dataset_urn(platform=platform, name=name, env=env)
+
+
+def make_schema_field_urn(parent_urn: str, field_path: str) -> str:
+    assert parent_urn.startswith("urn:li:"), "Schema field's parent must be an urn"
+    return f"urn:li:schemaField:({parent_urn},{field_path})"
+
+
+def schema_field_urn_to_key(schema_field_urn: str) -> Optional[SchemaFieldKeyClass]:
+    pattern = r"urn:li:schemaField:\((.*),(.*)\)"
+    results = re.search(pattern, schema_field_urn)
+    if results is not None:
+        dataset_urn: str = results.group(1)
+        field_path: str = results.group(2)
+        return SchemaFieldKeyClass(parent=dataset_urn, fieldPath=field_path)
+    return None
 
 
 def dataset_urn_to_key(dataset_urn: str) -> Optional[DatasetKeyClass]:
@@ -56,6 +102,50 @@ def dataset_urn_to_key(dataset_urn: str) -> Optional[DatasetKeyClass]:
     return None
 
 
+def make_container_new_urn(guid: str) -> str:
+    return f"urn:dh:container:0:({guid})"
+
+
+def container_new_urn_to_key(dataset_urn: str) -> Optional[ContainerKeyClass]:
+    pattern = r"urn:dh:container:0:\((.*)\)"
+    results = re.search(pattern, dataset_urn)
+    if results is not None:
+        return ContainerKeyClass(
+            guid=results.group(1),
+        )
+    return None
+
+
+# def make_container_urn(platform: str, name: str, env: str = DEFAULT_ENV) -> str:
+#    return f"urn:li:container:({make_data_platform_urn(platform)},{env},{name})"
+
+
+def make_container_urn(guid: str) -> str:
+    return f"urn:li:container:{guid}"
+
+
+def container_urn_to_key(guid: str) -> Optional[ContainerKeyClass]:
+    pattern = r"urn:li:container:(.*)"
+    results = re.search(pattern, guid)
+    if results is not None:
+        return ContainerKeyClass(
+            guid=results.group(1),
+        )
+    return None
+
+
+def datahub_guid(obj: dict) -> str:
+    obj_str = json.dumps(
+        pre_json_transform(obj), separators=(",", ":"), sort_keys=True
+    ).encode("utf-8")
+    datahub_guid = md5(obj_str).hexdigest()
+    return datahub_guid
+
+
+def make_assertion_urn(assertion_id: str) -> str:
+    return f"urn:li:assertion:{assertion_id}"
+
+
 def make_user_urn(username: str) -> str:
     return f"urn:li:corpuser:{username}"
 
@@ -66,6 +156,14 @@ def make_group_urn(groupname: str) -> str:
 
 def make_tag_urn(tag: str) -> str:
     return f"urn:li:tag:{tag}"
+
+
+def make_owner_urn(owner: str, owner_type: OwnerType) -> str:
+    return f"urn:li:{owner_type.value}:{owner}"
+
+
+def make_term_urn(term: str) -> str:
+    return f"urn:li:glossaryTerm:{term}"
 
 
 def make_data_flow_urn(
@@ -88,14 +186,18 @@ def make_data_job_urn(
 
 def make_dashboard_urn(platform: str, name: str) -> str:
     # FIXME: dashboards don't currently include data platform urn prefixes.
-    _check_data_platform_name(platform)
     return f"urn:li:dashboard:({platform},{name})"
 
 
 def make_chart_urn(platform: str, name: str) -> str:
     # FIXME: charts don't currently include data platform urn prefixes.
-    _check_data_platform_name(platform)
     return f"urn:li:chart:({platform},{name})"
+
+
+def make_domain_urn(domain: str) -> str:
+    if domain.startswith("urn:li:domain:"):
+        return domain
+    return f"urn:li:domain:{domain}"
 
 
 def make_ml_primary_key_urn(feature_table_name: str, primary_key_name: str) -> str:
@@ -210,9 +312,77 @@ def get_aspect_if_available(
     return None
 
 
+def remove_aspect_if_available(
+    mce: MetadataChangeEventClass, aspect_type: Type[Aspect]
+) -> bool:
+    assert can_add_aspect(mce, aspect_type)
+    # loose type annotations since we checked before
+    aspects: List[Any] = [
+        aspect
+        for aspect in mce.proposedSnapshot.aspects
+        if not isinstance(aspect, aspect_type)
+    ]
+    removed = len(aspects) != len(mce.proposedSnapshot.aspects)
+    mce.proposedSnapshot.aspects = aspects
+    return removed
+
+
 def get_or_add_aspect(mce: MetadataChangeEventClass, default: Aspect) -> Aspect:
     existing = get_aspect_if_available(mce, type(default))
     if existing is not None:
         return existing
     mce.proposedSnapshot.aspects.append(default)  # type: ignore
     return default
+
+
+def make_global_tag_aspect_with_tag_list(tags: List[str]) -> GlobalTagsClass:
+    return GlobalTagsClass(
+        tags=[TagAssociationClass(f"urn:li:tag:{tag}") for tag in tags]
+    )
+
+
+def make_ownership_aspect_from_urn_list(
+    owner_urns: List[str], source_type: Optional[Union[str, OwnershipSourceTypeClass]]
+) -> OwnershipClass:
+    for owner_urn in owner_urns:
+        assert owner_urn.startswith("urn:li:corpuser:") or owner_urn.startswith(
+            "urn:li:corpGroup:"
+        )
+    ownership_source_type: Union[None, OwnershipSourceClass] = None
+    if source_type:
+        ownership_source_type = OwnershipSourceClass(type=source_type)
+
+    owners_list = [
+        OwnerClass(
+            owner=owner_urn,
+            type=OwnershipTypeClass.DATAOWNER,
+            source=ownership_source_type,
+        )
+        for owner_urn in owner_urns
+    ]
+    return OwnershipClass(
+        owners=owners_list,
+    )
+
+
+def make_glossary_terms_aspect_from_urn_list(term_urns: List[str]) -> GlossaryTerms:
+    for term_urn in term_urns:
+        assert term_urn.startswith("urn:li:glossaryTerm:")
+    glossary_terms = GlossaryTerms(
+        [GlossaryTermAssociationClass(term_urn) for term_urn in term_urns],
+        AuditStampClass(
+            time=int(time.time() * 1000),
+            actor="urn:li:corpuser:datahub",
+        ),
+    )
+    return glossary_terms
+
+
+def set_aspect(
+    mce: MetadataChangeEventClass, aspect: Optional[Aspect], aspect_type: Type[Aspect]
+) -> None:
+    """Sets the aspect to the provided aspect, overwriting any previous aspect value that might have existed before.
+    If passed in aspect is None, then the existing aspect value will be removed"""
+    remove_aspect_if_available(mce, aspect_type)
+    if aspect is not None:
+        mce.proposedSnapshot.aspects.append(aspect)  # type: ignore

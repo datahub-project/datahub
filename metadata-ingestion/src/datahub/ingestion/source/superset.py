@@ -1,15 +1,17 @@
 import json
 from functools import lru_cache
-from typing import Iterable, Optional
+from typing import Dict, Iterable, Optional
 
 import dateutil.parser as dp
 import requests
+from pydantic.class_validators import validator
 
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.sql import sql_common
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
     ChangeAuditStamps,
@@ -24,39 +26,9 @@ from datahub.metadata.schema_classes import (
     ChartTypeClass,
     DashboardInfoClass,
 )
+from datahub.utilities import config_clean
 
 PAGE_SIZE = 25
-
-
-def get_platform_from_sqlalchemy_uri(sqlalchemy_uri: str) -> str:
-    if sqlalchemy_uri.startswith("bigquery"):
-        return "bigquery"
-    if sqlalchemy_uri.startswith("druid"):
-        return "druid"
-    if sqlalchemy_uri.startswith("mssql"):
-        return "mssql"
-    if (
-        sqlalchemy_uri.startswith("jdbc:postgres:")
-        and sqlalchemy_uri.index("redshift.amazonaws") > 0
-    ):
-        return "redshift"
-    if sqlalchemy_uri.startswith("snowflake"):
-        return "snowflake"
-    if sqlalchemy_uri.startswith("presto"):
-        return "presto"
-    if sqlalchemy_uri.startswith("postgresql"):
-        return "postgres"
-    if sqlalchemy_uri.startswith("pinot"):
-        return "pinot"
-    if sqlalchemy_uri.startswith("oracle"):
-        return "oracle"
-    if sqlalchemy_uri.startswith("mysql"):
-        return "mysql"
-    if sqlalchemy_uri.startswith("mongodb"):
-        return "mongodb"
-    if sqlalchemy_uri.startswith("hive"):
-        return "hive"
-    return "external"
 
 
 chart_type_from_viz_type = {
@@ -83,8 +55,13 @@ class SupersetConfig(ConfigModel):
     username: Optional[str] = None
     password: Optional[str] = None
     provider: str = "db"
-    options: dict = {}
+    options: Dict = {}
     env: str = DEFAULT_ENV
+    database_alias: Dict[str, str] = {}
+
+    @validator("connect_uri")
+    def remove_trailing_slash(cls, v):
+        return config_clean.remove_trailing_slashes(v)
 
 
 def get_metric_name(metric):
@@ -93,8 +70,9 @@ def get_metric_name(metric):
     if isinstance(metric, str):
         return metric
     label = metric.get("label")
-    if label:
-        return label
+    if not label:
+        return ""
+    return label
 
 
 def get_filter_name(filter_obj):
@@ -161,7 +139,7 @@ class SupersetSource(Source):
             f"{self.config.connect_uri}/api/v1/database/{database_id}"
         ).json()
         sqlalchemy_uri = database_response.get("result", {}).get("sqlalchemy_uri")
-        return get_platform_from_sqlalchemy_uri(sqlalchemy_uri)
+        return sql_common.get_platform_from_sqlalchemy_uri(sqlalchemy_uri)
 
     @lru_cache(maxsize=None)
     def get_datasource_urn_from_id(self, datasource_id):
@@ -174,6 +152,7 @@ class SupersetSource(Source):
         database_name = (
             dataset_response.get("result", {}).get("database", {}).get("database_name")
         )
+        database_name = self.config.database_alias.get(database_name, database_name)
 
         if database_id and table_name:
             platform = self.get_platform_from_database_id(database_id)
@@ -206,11 +185,13 @@ class SupersetSource(Source):
             created=AuditStamp(time=modified_ts, actor=modified_actor),
             lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
         )
-        dashboard_url = f"{self.config.connect_uri[:-1]}{dashboard_data.get('url', '')}"
+        dashboard_url = f"{self.config.connect_uri}{dashboard_data.get('url', '')}"
 
         chart_urns = []
         raw_position_data = dashboard_data.get("position_json", "{}")
-        position_data = json.loads(raw_position_data)
+        position_data = (
+            json.loads(raw_position_data) if raw_position_data is not None else {}
+        )
         for key, value in position_data.items():
             if not key.startswith("CHART-"):
                 continue
@@ -276,7 +257,7 @@ class SupersetSource(Source):
             lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
         )
         chart_type = chart_type_from_viz_type.get(chart_data.get("viz_type", ""))
-        chart_url = f"{self.config.connect_uri[:-1]}{chart_data.get('url', '')}"
+        chart_url = f"{self.config.connect_uri}{chart_data.get('url', '')}"
 
         datasource_id = chart_data.get("datasource_id")
         datasource_urn = self.get_datasource_urn_from_id(datasource_id)

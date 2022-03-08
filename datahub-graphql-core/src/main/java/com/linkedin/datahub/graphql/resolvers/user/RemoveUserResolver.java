@@ -29,7 +29,7 @@ public class RemoveUserResolver implements DataFetcher<CompletableFuture<Boolean
       final Urn urn = Urn.createFromString(userUrn);
       return CompletableFuture.supplyAsync(() -> {
         try {
-          _entityClient.deleteEntity(urn, context.getActor());
+          _entityClient.deleteEntity(urn, context.getAuthentication());
           return true;
         } catch (Exception e) {
           throw new RuntimeException(String.format("Failed to perform delete against user with urn %s", userUrn), e);

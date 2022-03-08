@@ -1,0 +1,114 @@
+{
+  "description": null,
+  "archived": false,
+  "collection_position": null,
+  "table_id": 21,
+  "result_metadata": [{
+    "semantic_type": "type/Category",
+    "coercion_strategy": null,
+    "name": "rating",
+    "field_ref": ["field", 131, null],
+    "effective_type": "type/*",
+    "id": 131,
+    "display_name": "Rating",
+    "fingerprint": {
+      "global": {
+        "distinct-count": 5,
+        "nil%": 0.0
+      },
+      "type": {
+        "type/Text": {
+          "percent-json": 0.0,
+          "percent-url": 0.0,
+          "percent-email": 0.0,
+          "percent-state": 0.0,
+          "average-length": 2.926
+        }
+      }
+    },
+    "base_type": "type/PostgresEnum"
+  }, {
+    "name": "count",
+    "display_name": "Count",
+    "base_type": "type/BigInteger",
+    "effective_type": "type/BigInteger",
+    "semantic_type": "type/Quantity",
+    "field_ref": ["aggregation", 0],
+    "fingerprint": {
+      "global": {
+        "distinct-count": 5,
+        "nil%": 0.0
+      },
+      "type": {
+        "type/Number": {
+          "min": 178.0,
+          "q1": 190.0,
+          "q3": 213.25,
+          "max": 223.0,
+          "sd": 17.131841699011815,
+          "avg": 200.0
+        }
+      }
+    }
+  }],
+  "creator": {
+    "email": "admin@metabase.com",
+    "first_name": "FirstName",
+    "last_login": "2021-12-13T22:24:03.913",
+    "is_qbnewb": true,
+    "is_superuser": true,
+    "id": 1,
+    "last_name": "LastName",
+    "date_joined": "2021-12-13T07:34:21.806",
+    "common_name": "FirstName LastName"
+  },
+  "can_write": true,
+  "database_id": 2,
+  "enable_embedding": false,
+  "collection_id": null,
+  "query_type": "query",
+  "name": "Films, Count, Grouped by Rating, Filtered by Release Year, Sorted by [Unknown Field] descending",
+  "last_query_start": "2021-12-13T17:48:39.93677Z",
+  "dashboard_count": 1,
+  "average_query_time": 64,
+  "creator_id": 1,
+  "moderation_reviews": [],
+  "updated_at": "2021-12-13T17:48:39.999",
+  "made_public_by_id": null,
+  "embedding_params": null,
+  "cache_ttl": null,
+  "dataset_query": {
+    "query": {
+      "source-table": 21,
+      "breakout": [
+        ["field", 131, null]
+      ],
+      "aggregation": [
+        ["count"]
+      ],
+      "order-by": [
+        ["desc", ["aggregation", 0]]
+      ],
+      "filter": ["=", ["field", 136, null], 2006]
+    },
+    "database": 2,
+    "type": "query"
+  },
+  "id": 2,
+  "display": "row",
+  "last-edit-info": {
+    "id": 1,
+    "email": "admin@metabase.com",
+    "first_name": "FirstName",
+    "last_name": "LastName"
+  },
+  "visualization_settings": {
+    "graph.series_labels": ["number"],
+    "graph.dimensions": ["rating"],
+    "graph.colors": ["#509EE3"],
+    "graph.metrics": ["count"]
+  },
+  "collection": null,
+  "created_at": "2021-12-13T17:48:37.102",
+  "public_uuid": null
+}

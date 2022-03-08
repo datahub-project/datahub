@@ -2,8 +2,11 @@ apply plugin: 'java'
 
 dependencies {
   compile project(':metadata-io')
-  compile project(':metadata-service:restli-impl')
+  compile project(':metadata-service:auth-impl')
+  compile project(':datahub-graphql-core')
+  compile project(':metadata-service:restli-servlet-impl')
   compile project(':metadata-dao-impl:kafka-producer')
+  compile project(':ingestion-scheduler')
   compile externalDependency.awsGlueSchemaRegistrySerde
   compile externalDependency.elasticSearchRest
   compile externalDependency.httpClient
@@ -23,6 +26,4 @@ dependencies {
   annotationProcessor externalDependency.lombok
 
   compile spec.product.pegasus.restliSpringBridge
-
-  testCompile externalDependency.gmaTestModelsDataTemplate
 }

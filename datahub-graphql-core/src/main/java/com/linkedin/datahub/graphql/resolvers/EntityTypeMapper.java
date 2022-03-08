@@ -12,7 +12,7 @@ import javax.annotation.Nonnull;
  */
 public class EntityTypeMapper {
 
-  private static final Map<EntityType, String> ENTITY_TYPE_TO_NAME =
+  static final Map<EntityType, String> ENTITY_TYPE_TO_NAME =
       ImmutableMap.<EntityType, String>builder().put(EntityType.DATASET, "dataset")
           .put(EntityType.CORP_USER, "corpuser")
           .put(EntityType.CORP_GROUP, "corpGroup")
@@ -28,6 +28,8 @@ public class EntityTypeMapper {
           .put(EntityType.MLFEATURE_TABLE, "mlFeatureTable")
           .put(EntityType.MLFEATURE, "mlFeature")
           .put(EntityType.MLPRIMARY_KEY, "mlPrimaryKey")
+          .put(EntityType.CONTAINER, "container")
+          .put(EntityType.DOMAIN, "domain")
           .build();
 
   private static final Map<String, EntityType> ENTITY_NAME_TO_TYPE =

@@ -8,6 +8,14 @@ query getGroup($urn: String!, $membersCount: Int!) {
             description
             email
         }
+        editableProperties {
+            description
+            slack
+            email
+        }
+        ownership {
+            ...ownershipFields
+        }
         relationships(input: { types: ["IsMemberOfGroup"], direction: INCOMING, start: 0, count: $membersCount }) {
             start
             count
@@ -25,7 +33,9 @@ query getGroup($urn: String!, $membersCount: Int!) {
                             lastName
                             fullName
                         }
-                        editableInfo {
+                        editableProperties {
+                            displayName
+                            title
                             pictureLink
                         }
                     }
@@ -54,55 +64,11 @@ query getGroupMembers($urn: String!, $start: Int!, $count: Int!) {
                             lastName
                             fullName
                         }
-                        editableInfo {
-                            pictureLink
-                        }
-                    }
-                }
-            }
-        }
-        otherMembers: relationships(input: { types: ["isOwner"], direction: INCOMING, start: $start, count: $count }) {
-            start
-            count
-            total
-            relationships {
-                entity {
-                    ... on CorpUser {
-                        urn
-                        username
-                        info {
-                            active
+                        properties {
                             displayName
-                            title
-                            firstName
-                            lastName
-                            fullName
                         }
                         editableInfo {
-                            pictureLink
-                        }
-                    }
-                }
-            }
-        }
-        andMore: relationships(input: { types: ["DownstreamOf"], direction: INCOMING, start: $start, count: $count }) {
-            start
-            count
-            total
-            relationships {
-                entity {
-                    ... on CorpUser {
-                        urn
-                        username
-                        info {
-                            active
                             displayName
-                            title
-                            firstName
-                            lastName
-                            fullName
-                        }
-                        editableInfo {
                             pictureLink
                         }
                     }
@@ -147,4 +113,10 @@ mutation removeGroup($urn: String!) {
 
 mutation createGroup($input: CreateGroupInput!) {
     createGroup(input: $input)
+}
+
+mutation updateCorpGroupProperties($urn: String!, $input: CorpGroupUpdateInput!) {
+    updateCorpGroupProperties(urn: $urn, input: $input) {
+        urn
+    }
 }

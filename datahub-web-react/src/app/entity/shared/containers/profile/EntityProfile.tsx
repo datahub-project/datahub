@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
 import { Alert, Divider } from 'antd';
+import SplitPane from 'react-split-pane';
 import { MutationHookOptions, MutationTuple, QueryHookOptions, QueryResult } from '@apollo/client/react/types/types';
 import styled from 'styled-components';
 import { useHistory } from 'react-router';
@@ -17,6 +18,8 @@ import useIsLineageMode from '../../../../lineage/utils/useIsLineageMode';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
 import LineageExplorer from '../../../../lineage/LineageExplorer';
 import CompactContext from '../../../../shared/CompactContext';
+import DynamicTab from '../../tabs/Entity/weaklyTypedAspects/DynamicTab';
+import analytics, { EventType } from '../../../../analytics';
 
 type Props<T, U> = {
     urn: string;
@@ -34,7 +37,7 @@ type Props<T, U> = {
             urn: string;
         }>
     >;
-    useUpdateQuery: (
+    useUpdateQuery?: (
         baseOptions?: MutationHookOptions<U, { urn: string; input: GenericEntityUpdate }> | undefined,
     ) => MutationTuple<U, { urn: string; input: GenericEntityUpdate }>;
     getOverrideProperties: (T) => GenericEntityProperties;
@@ -46,7 +49,6 @@ const ContentContainer = styled.div`
     display: flex;
     height: auto;
     min-height: 100%;
-    max-height: calc(100vh - 108px);
     align-items: stretch;
     flex: 1;
 `;
@@ -54,7 +56,9 @@ const ContentContainer = styled.div`
 const HeaderAndTabs = styled.div`
     flex-basis: 70%;
     min-width: 640px;
+    height: 100%;
 `;
+
 const HeaderAndTabsFlex = styled.div`
     display: flex;
     flex-direction: column;
@@ -67,7 +71,6 @@ const HeaderAndTabsFlex = styled.div`
 const Sidebar = styled.div`
     overflow: auto;
     flex-basis: 30%;
-    border-left: 1px solid ${ANTD_GRAY[4.5]};
     padding-left: 20px;
     padding-right: 20px;
 `;
@@ -76,13 +79,20 @@ const Header = styled.div`
     border-bottom: 1px solid ${ANTD_GRAY[4.5]};
     padding: 20px 20px 0 20px;
     flex-shrink: 0;
-    height: 137px;
 `;
 
 const TabContent = styled.div`
     flex: 1;
     overflow: auto;
 `;
+
+const resizerStyles = {
+    background: '#E9E9E9',
+    width: '1px',
+    cursor: 'col-resize',
+    margin: '0 5px',
+    height: 'auto',
+};
 
 const defaultTabDisplayConfig = {
     visible: (_, _1) => true,
@@ -105,7 +115,6 @@ export const EntityProfile = <T, U>({
     tabs,
     sidebarSections,
 }: Props<T, U>): JSX.Element => {
-    const routedTab = useRoutedTab(tabs);
     const isLineageMode = useIsLineageMode();
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
@@ -126,18 +135,51 @@ export const EntityProfile = <T, U>({
             tabParams?: Record<string, any>;
             method?: 'push' | 'replace';
         }) => {
+            analytics.event({
+                type: EventType.EntitySectionViewEvent,
+                entityType,
+                entityUrn: urn,
+                section: tabName.toLowerCase(),
+            });
             history[method](getEntityPath(entityType, urn, entityRegistry, false, tabName, tabParams));
         },
         [history, entityType, urn, entityRegistry],
     );
 
-    const { loading, error, data, refetch } = useEntityQuery({ variables: { urn } });
-
-    const [updateEntity] = useUpdateQuery({
-        onCompleted: () => refetch(),
+    const { loading, error, data, refetch } = useEntityQuery({
+        variables: { urn },
     });
 
-    const entityData = getDataForEntityType({ data, entityType, getOverrideProperties });
+    const maybeUpdateEntity = useUpdateQuery?.({
+        onCompleted: () => refetch(),
+    });
+    let updateEntity;
+    if (maybeUpdateEntity) {
+        [updateEntity] = maybeUpdateEntity;
+    }
+
+    const entityData =
+        (data && getDataForEntityType({ data: data[Object.keys(data)[0]], entityType, getOverrideProperties })) || null;
+
+    const lineage = entityData ? entityRegistry.getLineageVizConfig(entityType, entityData) : undefined;
+
+    const autoRenderTabs: EntityTab[] =
+        entityData?.autoRenderAspects?.map((aspect) => ({
+            name: aspect.renderSpec?.displayName || aspect.aspectName,
+            component: () => (
+                <DynamicTab
+                    renderSpec={aspect.renderSpec}
+                    type={aspect.renderSpec?.displayType}
+                    payload={aspect.payload}
+                />
+            ),
+            display: {
+                visible: () => true,
+                enabled: () => true,
+            },
+        })) || [];
+
+    const routedTab = useRoutedTab([...tabsWithDefaults, ...autoRenderTabs]);
 
     if (isCompact) {
         return (
@@ -150,6 +192,7 @@ export const EntityProfile = <T, U>({
                     updateEntity,
                     routeToTab,
                     refetch,
+                    lineage,
                 }}
             >
                 <div>
@@ -169,6 +212,10 @@ export const EntityProfile = <T, U>({
         );
     }
 
+    const isBrowsable = entityRegistry.getBrowseEntityTypes().includes(entityType);
+    const isLineageEnabled = entityRegistry.getLineageEntityTypes().includes(entityType);
+    const showBrowseBar = isBrowsable || isLineageEnabled;
+
     return (
         <EntityContext.Provider
             value={{
@@ -179,10 +226,11 @@ export const EntityProfile = <T, U>({
                 updateEntity,
                 routeToTab,
                 refetch,
+                lineage,
             }}
         >
             <>
-                <EntityProfileNavBar urn={urn} entityData={entityData} entityType={entityType} />
+                {showBrowseBar && <EntityProfileNavBar urn={urn} entityType={entityType} />}
                 {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
                 {!loading && error && (
                     <Alert type="error" message={error?.message || `Entity failed to load for urn ${urn}`} />
@@ -191,20 +239,35 @@ export const EntityProfile = <T, U>({
                     {isLineageMode ? (
                         <LineageExplorer type={entityType} urn={urn} />
                     ) : (
-                        <>
+                        <SplitPane
+                            split="vertical"
+                            minSize={window.innerWidth - 400}
+                            maxSize={window.innerWidth - 250}
+                            defaultSize={window.innerWidth - 400}
+                            resizerStyle={resizerStyles}
+                            style={{
+                                height: '100%',
+                                overflow: 'auto',
+                            }}
+                        >
                             <HeaderAndTabs>
                                 <HeaderAndTabsFlex>
                                     <Header>
                                         <EntityHeader />
-                                        <EntityTabs tabs={tabsWithDefaults} selectedTab={routedTab} />
+                                        <EntityTabs
+                                            tabs={[...tabsWithDefaults, ...autoRenderTabs]}
+                                            selectedTab={routedTab}
+                                        />
                                     </Header>
-                                    <TabContent>{routedTab && <routedTab.component />}</TabContent>
+                                    <TabContent>
+                                        {routedTab && <routedTab.component properties={routedTab.properties} />}
+                                    </TabContent>
                                 </HeaderAndTabsFlex>
                             </HeaderAndTabs>
                             <Sidebar>
                                 <EntitySidebar sidebarSections={sideBarSectionsWithDefaults} />
                             </Sidebar>
-                        </>
+                        </SplitPane>
                     )}
                 </ContentContainer>
             </>

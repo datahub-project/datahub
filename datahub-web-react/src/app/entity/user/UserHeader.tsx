@@ -1,12 +1,12 @@
 // import { UserOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import React from 'react';
-import { Space, Badge, Typography } from 'antd';
+import { Space, Badge, Typography, Divider } from 'antd';
 import CustomAvatar from '../../shared/avatar/CustomAvatar';
 
 type Props = {
     profileSrc?: string | null;
-    name?: string | null;
+    name: string;
     title?: string | null;
     skills?: string[] | null;
     teams?: string[] | null;
@@ -30,20 +30,50 @@ const Skills = styled.div`
     margin-right: 32px;
 `;
 
+const TitleContainer = styled.div`
+    display: flex;
+    justify-content: center;
+    align-items: center;
+`;
+
+const HeaderContainer = styled.div`
+    display: flex;
+    justify-content: center;
+    align-items: center;
+`;
+
+const NameContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: left;
+`;
+
 export default function UserHeader({ profileSrc, name, title, skills, teams, email }: Props) {
     return (
         <Row>
-            <AvatarWrapper>
-                <CustomAvatar size={100} photoUrl={profileSrc || undefined} name={name || undefined} />
-            </AvatarWrapper>
             <div>
-                <Typography.Title level={3}>{name}</Typography.Title>
-                <Space split="|" size="middle">
-                    <Typography.Text>{title}</Typography.Text>
-                    <a href={`mailto:${email}`}>
-                        <Typography.Text strong>{email}</Typography.Text>
-                    </a>
-                </Space>
+                <HeaderContainer>
+                    <AvatarWrapper>
+                        <CustomAvatar size={100} photoUrl={profileSrc || undefined} name={name || undefined} />
+                    </AvatarWrapper>
+                    <NameContainer>
+                        <Typography.Title level={3}>{name}</Typography.Title>
+                        <TitleContainer>
+                            {title && (
+                                <>
+                                    <Typography.Text>{title}</Typography.Text>
+                                    <Divider type="vertical" />
+                                </>
+                            )}
+                            {email && (
+                                <a href={`mailto:${email}`}>
+                                    <Typography.Text strong>{email}</Typography.Text>
+                                </a>
+                            )}
+                        </TitleContainer>
+                    </NameContainer>
+                </HeaderContainer>
                 <div>
                     <Traits>
                         <Skills>

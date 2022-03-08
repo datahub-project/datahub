@@ -28,7 +28,7 @@ export const EntitySidebar = <T,>({ sidebarSections }: Props) => {
                 if (section.display?.visible(entityData, baseEntity) !== true) {
                     return null;
                 }
-                return <section.component properties={section.properties} />;
+                return <section.component key={`${section.component}`} properties={section.properties} />;
             })}
         </ContentContainer>
     );

@@ -1,10 +1,14 @@
+---
+title: "Serving Tier"
+---
+
 # DataHub Serving Architecture
 
 The figure below shows the high-level system diagram for DataHub's Serving Tier. 
 
 ![datahub-serving](../imgs/datahub-serving.png)
 
-The primary service is called [gms](../../metadata-service) and exposes a REST API for performing CRUD operations on metadata. The metadata service also exposes search and graph query API-s to support secondary-index style queries, full-text search queries as well as relationship queries like lineage. In addition, the [datahub-frontend](../../datahub-frontend) and [datahub-gms-graphql](../../datahub-gms-graphql-service) services expose a GraphQL API on top of the metadata graph. 
+The primary service is called [gms](../../metadata-service) and exposes a REST API and a GraphQL API for performing CRUD operations on metadata. The metadata service also exposes search and graph query API-s to support secondary-index style queries, full-text search queries as well as relationship queries like lineage. In addition, the [datahub-frontend](../../datahub-frontend) service expose a GraphQL API on top of the metadata graph. 
 
 ## DataHub Serving Tier Components
 

@@ -1,7 +1,9 @@
 import datetime
 import itertools
+import logging
 import os
 import pathlib
+import platform
 import subprocess
 import sys
 import tempfile
@@ -16,6 +18,9 @@ from datahub.cli.docker_check import (
     get_client_with_error,
 )
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.telemetry import telemetry
+
+logger = logging.getLogger(__name__)
 
 NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_FILE = (
     "docker/quickstart/docker-compose.quickstart.yml"
@@ -23,6 +28,10 @@ NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_FILE = (
 ELASTIC_QUICKSTART_COMPOSE_FILE = (
     "docker/quickstart/docker-compose-without-neo4j.quickstart.yml"
 )
+M1_QUICKSTART_COMPOSE_FILE = (
+    "docker/quickstart/docker-compose-without-neo4j-m1.quickstart.yml"
+)
+
 BOOTSTRAP_MCES_FILE = "metadata-ingestion/examples/mce_files/bootstrap_mce.json"
 
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/linkedin/datahub/master"
@@ -32,6 +41,7 @@ GITHUB_NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL = (
 GITHUB_ELASTIC_QUICKSTART_COMPOSE_URL = (
     f"{GITHUB_BASE_URL}/{ELASTIC_QUICKSTART_COMPOSE_FILE}"
 )
+GITHUB_M1_QUICKSTART_COMPOSE_URL = f"{GITHUB_BASE_URL}/{M1_QUICKSTART_COMPOSE_FILE}"
 GITHUB_BOOTSTRAP_MCES_URL = f"{GITHUB_BASE_URL}/{BOOTSTRAP_MCES_FILE}"
 
 
@@ -63,9 +73,21 @@ def docker_check_impl() -> None:
 
 
 @docker.command()
+@telemetry.with_telemetry
 def check() -> None:
     """Check that the Docker containers are healthy"""
     docker_check_impl()
+
+
+def is_m1() -> bool:
+    """Check whether we are running on an M1 machine"""
+    try:
+        return (
+            platform.uname().machine == "arm64" and platform.uname().system == "Darwin"
+        )
+    except Exception:
+        # Catch-all
+        return False
 
 
 def should_use_neo4j_for_graph_service(graph_service_override: Optional[str]) -> bool:
@@ -111,8 +133,8 @@ def should_use_neo4j_for_graph_service(graph_service_override: Optional[str]) ->
 @click.option(
     "--version",
     type=str,
-    default="head",
-    help="Datahub version to be deployed. If not set, deploy latest",
+    default=None,
+    help="Datahub version to be deployed. If not set, deploy using the defaults from the quickstart compose",
 )
 @click.option(
     "--build-locally",
@@ -142,6 +164,7 @@ def should_use_neo4j_for_graph_service(graph_service_override: Optional[str]) ->
     default=None,
     help="If set, forces docker-compose to use that graph service implementation",
 )
+@telemetry.with_telemetry
 def quickstart(
     version: str,
     build_locally: bool,
@@ -157,6 +180,10 @@ def quickstart(
     locally, and dump logs to the console or to a file if something goes wrong.
     """
 
+    running_on_m1 = is_m1()
+    if running_on_m1:
+        click.echo("Detected M1 machine")
+
     # Run pre-flight checks.
     issues = check_local_docker_containers(preflight_only=True)
     if issues:
@@ -166,22 +193,33 @@ def quickstart(
         quickstart_compose_file
     )  # convert to list from tuple
     if not quickstart_compose_file:
-        click.echo("Fetching docker-compose file from GitHub")
+        should_use_neo4j = should_use_neo4j_for_graph_service(graph_service_impl)
+        if should_use_neo4j and running_on_m1:
+            click.secho(
+                "Running with neo4j on M1 is not currently supported, will be using elasticsearch as graph",
+                fg="red",
+            )
+        github_file = (
+            GITHUB_NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL
+            if should_use_neo4j and not running_on_m1
+            else GITHUB_ELASTIC_QUICKSTART_COMPOSE_URL
+            if not running_on_m1
+            else GITHUB_M1_QUICKSTART_COMPOSE_URL
+        )
+
         with tempfile.NamedTemporaryFile(suffix=".yml", delete=False) as tmp_file:
             path = pathlib.Path(tmp_file.name)
             quickstart_compose_file.append(path)
-
+            click.echo(f"Fetching docker-compose file {github_file} from GitHub")
             # Download the quickstart docker-compose file from GitHub.
-            quickstart_download_response = requests.get(
-                GITHUB_NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL
-                if should_use_neo4j_for_graph_service(graph_service_impl)
-                else GITHUB_ELASTIC_QUICKSTART_COMPOSE_URL
-            )
+            quickstart_download_response = requests.get(github_file)
             quickstart_download_response.raise_for_status()
             tmp_file.write(quickstart_download_response.content)
+            logger.debug(f"Copied to {path}")
 
     # set version
-    os.environ["DATAHUB_VERSION"] = version
+    if version is not None:
+        os.environ["DATAHUB_VERSION"] = version
 
     base_command: List[str] = [
         "docker-compose",
@@ -281,6 +319,7 @@ def quickstart(
     type=click.Path(exists=True, dir_okay=False),
     help=f"The MCE json file to ingest. Defaults to downloading {BOOTSTRAP_MCES_FILE} from GitHub",
 )
+@telemetry.with_telemetry
 def ingest_sample_data(path: Optional[str]) -> None:
     """Ingest sample data into a running DataHub instance."""
 
@@ -326,7 +365,15 @@ def ingest_sample_data(path: Optional[str]) -> None:
 
 
 @docker.command()
-def nuke() -> None:
+@telemetry.with_telemetry
+@click.option(
+    "--keep-data",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Delete data volumes",
+)
+def nuke(keep_data: bool) -> None:
     """Remove all Docker containers, networks, and volumes associated with DataHub."""
 
     with get_client_with_error() as (client, error):
@@ -342,11 +389,14 @@ def nuke() -> None:
         ):
             container.remove(v=True, force=True)
 
-        click.echo("Removing volumes in the datahub project")
-        for volume in client.volumes.list(
-            filters={"label": "com.docker.compose.project=datahub"}
-        ):
-            volume.remove(force=True)
+        if keep_data:
+            click.echo("Skipping deleting data volumes in the datahub project")
+        else:
+            click.echo("Removing volumes in the datahub project")
+            for volume in client.volumes.list(
+                filters={"label": "com.docker.compose.project=datahub"}
+            ):
+                volume.remove(force=True)
 
         click.echo("Removing networks in the datahub project")
         for network in client.networks.list(

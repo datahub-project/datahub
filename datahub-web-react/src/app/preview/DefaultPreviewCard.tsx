@@ -1,30 +1,29 @@
-import { Image, Typography } from 'antd';
+import { Image, Tooltip, Typography } from 'antd';
 import React, { ReactNode } from 'react';
+import { FolderOpenOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { GlobalTags, Owner, GlossaryTerms, SearchInsight } from '../../types.generated';
+import {
+    GlobalTags,
+    Owner,
+    GlossaryTerms,
+    SearchInsight,
+    Container,
+    Entity,
+    EntityType,
+    Domain,
+} from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
 import AvatarsGroup from '../shared/avatar/AvatarsGroup';
 import TagTermGroup from '../shared/tags/TagTermGroup';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import NoMarkdownViewer from '../entity/shared/components/styled/StripMarkdownText';
+import { getNumberWithOrdinal } from '../entity/shared/utils';
+import { useEntityData } from '../entity/shared/EntityContext';
 
-interface Props {
-    name: string;
-    logoUrl?: string;
-    logoComponent?: JSX.Element;
-    url: string;
-    description: string;
-    type?: string;
-    platform?: string;
-    qualifier?: string | null;
-    tags?: GlobalTags;
-    owners?: Array<Owner> | null;
-    snippet?: React.ReactNode;
-    insights?: Array<SearchInsight> | null;
-    glossaryTerms?: GlossaryTerms;
-    dataTestID?: string;
-}
+const LogoContainer = styled.div`
+    padding-right: 8px;
+`;
 
 const PreviewContainer = styled.div`
     display: flex;
@@ -41,21 +40,22 @@ const PlatformInfo = styled.div`
 `;
 
 const TitleContainer = styled.div`
-    margin-bottom: 8px;
+    margin-bottom: 0px;
+    line-height: 30px;
 `;
 
 const PreviewImage = styled(Image)`
     max-height: 18px;
     width: auto;
     object-fit: contain;
-    margin-right: 10px;
+    margin-right: 8px;
     background-color: transparent;
 `;
 
-const EntityTitle = styled(Typography.Text)`
+const EntityTitle = styled(Typography.Text)<{ $titleSizePx?: number }>`
     &&& {
-        margin-bottom: 0;
-        font-size: 18px;
+        margin-right 8px;
+        font-size: ${(props) => props.$titleSizePx || 16}px;
         font-weight: 600;
         vertical-align: middle;
     }
@@ -65,6 +65,13 @@ const PlatformText = styled(Typography.Text)`
     font-size: 12px;
     line-height: 20px;
     font-weight: 700;
+    color: ${ANTD_GRAY[7]};
+`;
+
+const EntityCountText = styled(Typography.Text)`
+    font-size: 12px;
+    line-height: 20px;
+    font-weight: 400;
     color: ${ANTD_GRAY[7]};
 `;
 
@@ -89,7 +96,7 @@ const AvatarContainer = styled.div`
 
 const TagContainer = styled.div`
     display: inline-block;
-    margin-left: 8px;
+    margin-left: 0px;
     margin-top: -2px;
 `;
 
@@ -108,6 +115,50 @@ const InsightIconContainer = styled.span`
     margin-right: 4px;
 `;
 
+const TypeIcon = styled.span`
+    margin-right: 8px;
+`;
+
+const ContainerText = styled(Typography.Text)`
+    font-size: 12px;
+    line-height: 20px;
+    font-weight: 400;
+    color: ${ANTD_GRAY[9]};
+`;
+
+const ContainerIcon = styled(FolderOpenOutlined)`
+    &&& {
+        font-size: 12px;
+        margin-right: 4px;
+    }
+`;
+
+interface Props {
+    name: string;
+    logoUrl?: string;
+    logoComponent?: JSX.Element;
+    url: string;
+    description?: string;
+    type?: string;
+    typeIcon?: JSX.Element;
+    platform?: string;
+    qualifier?: string | null;
+    tags?: GlobalTags;
+    owners?: Array<Owner> | null;
+    snippet?: React.ReactNode;
+    insights?: Array<SearchInsight> | null;
+    glossaryTerms?: GlossaryTerms;
+    container?: Container;
+    domain?: Domain | null;
+    entityCount?: number;
+    dataTestID?: string;
+    titleSizePx?: number;
+    onClick?: () => void;
+    // this is provided by the impact analysis view. it is used to display
+    // how the listed node is connected to the source node
+    path?: Entity[];
+}
+
 export default function DefaultPreviewCard({
     name,
     logoUrl,
@@ -115,6 +166,7 @@ export default function DefaultPreviewCard({
     url,
     description,
     type,
+    typeIcon,
     platform,
     // TODO(Gabe): support qualifier in the new preview card
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -124,8 +176,17 @@ export default function DefaultPreviewCard({
     snippet,
     insights,
     glossaryTerms,
+    domain,
+    container,
+    entityCount,
+    titleSizePx,
     dataTestID,
+    onClick,
+    path,
 }: Props) {
+    // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
+    // in those cases, we may want to enrich the preview w/ context about the container entity
+    const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const insightViews: Array<ReactNode> = [
         ...(insights?.map((insight) => (
@@ -141,24 +202,62 @@ export default function DefaultPreviewCard({
     return (
         <PreviewContainer data-testid={dataTestID}>
             <div>
-                <Link to={url}>
-                    <TitleContainer>
+                <TitleContainer>
+                    <Link to={url}>
                         <PlatformInfo>
-                            {logoComponent && logoComponent}
-                            {!!logoUrl && <PreviewImage preview={false} src={logoUrl} alt={platform} />}
+                            {(logoUrl && <PreviewImage preview={false} src={logoUrl} alt={platform || ''} />) || (
+                                <LogoContainer>{logoComponent}</LogoContainer>
+                            )}
                             {platform && <PlatformText>{platform}</PlatformText>}
-                            <PlatformDivider />
+                            {(logoUrl || logoComponent || platform) && <PlatformDivider />}
+                            {typeIcon && <TypeIcon>{typeIcon}</TypeIcon>}
                             <PlatformText>{type}</PlatformText>
+                            {container && (
+                                <Link to={entityRegistry.getEntityUrl(EntityType.Container, container?.urn)}>
+                                    <PlatformDivider />
+                                    <ContainerIcon
+                                        style={{
+                                            color: ANTD_GRAY[9],
+                                        }}
+                                    />
+                                    <ContainerText>
+                                        {entityRegistry.getDisplayName(EntityType.Container, container)}
+                                    </ContainerText>
+                                </Link>
+                            )}
+                            {entityCount && entityCount > 0 ? (
+                                <>
+                                    <PlatformDivider />
+                                    <EntityCountText>{entityCount.toLocaleString()} entities</EntityCountText>
+                                </>
+                            ) : null}
+                            {path && (
+                                <span>
+                                    <PlatformDivider />
+                                    <Tooltip
+                                        title={`This entity is a ${getNumberWithOrdinal(
+                                            path?.length + 1,
+                                        )} degree connection to ${entityData?.name || 'the source entity'}`}
+                                    >
+                                        <PlatformText>{getNumberWithOrdinal(path?.length + 1)}</PlatformText>
+                                    </Tooltip>
+                                </span>
+                            )}
                         </PlatformInfo>
-                        <Link to={url}>
-                            <EntityTitle>{name || ' '}</EntityTitle>
-                        </Link>
-                        <TagContainer>
-                            <TagTermGroup uneditableGlossaryTerms={glossaryTerms} uneditableTags={tags} maxShow={3} />
-                        </TagContainer>
-                    </TitleContainer>
-                </Link>
-                {description.length > 0 && (
+                        <EntityTitle onClick={onClick} $titleSizePx={titleSizePx}>
+                            {name || ' '}
+                        </EntityTitle>
+                    </Link>
+                    <TagContainer>
+                        <TagTermGroup
+                            domain={domain}
+                            uneditableGlossaryTerms={glossaryTerms}
+                            uneditableTags={tags}
+                            maxShow={3}
+                        />
+                    </TagContainer>
+                </TitleContainer>
+                {description && description.length > 0 && (
                     <DescriptionContainer>
                         <NoMarkdownViewer limit={200}>{description}</NoMarkdownViewer>
                     </DescriptionContainer>

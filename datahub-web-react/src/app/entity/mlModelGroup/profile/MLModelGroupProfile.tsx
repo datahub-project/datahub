@@ -32,7 +32,12 @@ export const MLModelGroupProfile = ({ urn }: { urn: string }): JSX.Element => {
             {
                 name: TabType.Models,
                 path: TabType.Models.toLowerCase(),
-                content: <MLGroupModels models={group.upstreamLineage} />,
+                content: (
+                    <MLGroupModels
+                        // eslint-disable-next-line @typescript-eslint/dot-notation
+                        models={group?.['incoming']?.relationships?.map((relationship) => relationship.entity) || []}
+                    />
+                ),
             },
             {
                 name: TabType.Ownership,

@@ -5,10 +5,12 @@ from datetime import datetime, timedelta, timezone
 import jsonpickle
 import pydantic
 import pytest
+from freezegun import freeze_time
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.usage.bigquery_usage import (
+    BigQueryTableRef,
     BigQueryUsageConfig,
     BigQueryUsageSource,
 )
@@ -17,18 +19,26 @@ from tests.test_helpers import mce_helpers
 WRITE_REFERENCE_FILE = False
 
 
+FROZEN_TIME = "2021-07-20 00:00:00"
+
+
+@freeze_time(FROZEN_TIME)
 def test_bq_usage_config():
     config = BigQueryUsageConfig.parse_obj(
         dict(
             project_id="sample-bigquery-project-name-1234",
             bucket_duration="HOUR",
             end_time="2021-07-20T00:00:00Z",
+            table_pattern={"allow": ["test-regex", "test-regex-1"], "deny": []},
         )
     )
+    assert config.get_allow_pattern_string() == "test-regex|test-regex-1"
+    assert config.get_deny_pattern_string() == ""
     assert (config.end_time - config.start_time) == timedelta(hours=1)
     assert config.projects == ["sample-bigquery-project-name-1234"]
 
 
+@freeze_time(FROZEN_TIME)
 def test_bq_timezone_validation():
     with pytest.raises(pydantic.ValidationError, match="UTC"):
         BigQueryUsageConfig.parse_obj(
@@ -39,6 +49,7 @@ def test_bq_timezone_validation():
         )
 
 
+@freeze_time(FROZEN_TIME)
 def test_bq_usage_source(pytestconfig, tmp_path):
     # from google.cloud.logging_v2 import ProtobufEntry
 
@@ -102,3 +113,16 @@ def test_bq_usage_source(pytestconfig, tmp_path):
         output_path=tmp_path / "bigquery_usages.json",
         golden_path=test_resources_dir / "bigquery_usages_golden.json",
     )
+
+
+@pytest.mark.parametrize(
+    "test_input,expected",
+    [
+        ("test_table$20220101", "test_table"),
+        ("test_table$__PARTITIONS_SUMMARY__", "test_table"),
+        ("test_table_20220101", "test_table"),
+    ],
+)
+def test_remove_extras(test_input, expected):
+    table_ref = BigQueryTableRef("test_project", "test_dataset", test_input)
+    assert table_ref.remove_extras().table == expected

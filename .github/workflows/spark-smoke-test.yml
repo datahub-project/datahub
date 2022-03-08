@@ -1,0 +1,55 @@
+name: spark smoke test
+on:
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths:
+      - "metadata_models/**"
+      - "metadata-integration/java/datahub-client/**"
+      - "metadata-integration/java/spark-lineage"
+  pull_request:
+    branches:
+      - master
+    paths:
+      - "metadata_models/**"
+      - "metadata-integration/java/datahub-client/**"
+      - "metadata-integration/java/spark-lineage"
+  release:
+    types: [published, edited]
+
+jobs:
+  spark-smoke-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK 1.8
+        uses: actions/setup-java@v1
+        with:
+          java-version: 1.8
+      - uses: actions/setup-python@v2
+        with:
+          python-version: "3.6"
+      - name: Install dependencies
+        run: ./metadata-ingestion/scripts/install_deps.sh
+      - name: Gradle build
+        run: ./gradlew build -x check -x docs-website:build -x test
+      - name: Smoke test
+        run: ./gradlew metadata-integration:java:spark-lineage:integrationTest
+      - uses: actions/upload-artifact@v2
+        if: always()
+        with:
+          name: Test Results (smoke tests)
+          path: |
+            **/build/reports/tests/test/**
+            **/build/test-results/test/**
+            **/junit.*.xml
+      - name: Slack failure notification
+        if: failure() && github.event_name == 'push'
+        uses: kpritam/slack-job-status-action@v1
+        with:
+          job-status: ${{ job.status }}
+          slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN }}
+          channel: github-activities
+

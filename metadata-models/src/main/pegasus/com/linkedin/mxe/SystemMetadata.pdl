@@ -1,7 +1,7 @@
 namespace com.linkedin.mxe
 
 /**
- * Kafka event for proposing a metadata change for an entity. A corresponding MetadataAuditEvent is emitted when the change is accepted and committed, otherwise a FailedMetadataChangeEvent will be emitted instead.
+ * Metadata associated with each metadata change that is processed by the system
  */
 record SystemMetadata {
   /**
@@ -10,9 +10,19 @@ record SystemMetadata {
   lastObserved: optional long = 0
 
   /**
-  * The run id that produced the metadata
+  * The run id that produced the metadata. Populated in case of batch-ingestion.
   */
   runId: optional string = "no-run-id-provided"
+
+  /**
+  * The model registry name that was used to process this event
+  */
+  registryName: optional string
+
+  /**
+  * The model registry version that was used to process this event
+  */
+  registryVersion: optional string
 
   /**
   * Additional properties

@@ -18,14 +18,14 @@ const ShowVersionButton = styled(Button)`
     display: none;
 `;
 
-const KeyButton = styled(Button)<{ highlighted: boolean }>`
+const KeyButton = styled(Button)<{ $highlighted: boolean }>`
     border-radius: 8px 0px 0px 8px;
-    font-weight: ${(props) => (props.highlighted ? '600' : '400')};
+    font-weight: ${(props) => (props.$highlighted ? '600' : '400')};
 `;
 
-const ValueButton = styled(Button)<{ highlighted: boolean }>`
+const ValueButton = styled(Button)<{ $highlighted: boolean }>`
     border-radius: 0px 8px 8px 0px;
-    font-weight: ${(props) => (props.highlighted ? '600' : '400')};
+    font-weight: ${(props) => (props.$highlighted ? '600' : '400')};
 `;
 
 const KeyValueButtonGroup = styled.div`
@@ -87,10 +87,10 @@ export default function SchemaHeader({
                     )}
                     {hasKeySchema && (
                         <KeyValueButtonGroup>
-                            <KeyButton highlighted={showKeySchema} onClick={() => setShowKeySchema(true)}>
+                            <KeyButton $highlighted={showKeySchema} onClick={() => setShowKeySchema(true)}>
                                 Key
                             </KeyButton>
-                            <ValueButton highlighted={!showKeySchema} onClick={() => setShowKeySchema(false)}>
+                            <ValueButton $highlighted={!showKeySchema} onClick={() => setShowKeySchema(false)}>
                                 Value
                             </ValueButton>
                         </KeyValueButtonGroup>

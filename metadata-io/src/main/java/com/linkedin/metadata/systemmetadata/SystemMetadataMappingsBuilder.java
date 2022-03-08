@@ -17,7 +17,8 @@ public class SystemMetadataMappingsBuilder {
     mappings.put("aspect", getMappingsForKeyword());
     mappings.put("runId", getMappingsForKeyword());
     mappings.put("lastUpdated", getMappingsForLastUpdated());
-
+    mappings.put("registryVersion", getMappingsForKeyword());
+    mappings.put("registryName", getMappingsForKeyword());
     return ImmutableMap.of("properties", mappings);
   }
 

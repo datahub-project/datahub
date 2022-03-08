@@ -6,8 +6,6 @@ dependencies {
   compile externalDependency.dropwizardMetricsCore
   compile externalDependency.dropwizardMetricsJmx
   compile externalDependency.elasticSearchRest
-  compile externalDependency.gmaDaoApi
-  compile externalDependency.gmaDaoApiDataTemplate
   compile externalDependency.httpClient
   compile externalDependency.neo4jJavaDriver
 
@@ -25,5 +23,14 @@ dependencies {
   annotationProcessor externalDependency.lombok
 
   testCompile project(':test-models')
-  testCompile project(':metadata-testing:metadata-test-utils')
+
+  constraints {
+      implementation("org.apache.logging.log4j:log4j-core:2.17.0") {
+          because("previous versions are vulnerable to CVE-2021-45105")
+      }
+      implementation("org.apache.logging.log4j:log4j-api:2.17.0") {
+        because("previous versions are vulnerable to CVE-2021-45105")
+    }
+  }
+
 }

@@ -1,74 +1,43 @@
-import { Direction, EntityAndType } from '../types';
-import { EntityType } from '../../../types.generated';
+import { EntityAndType } from '../types';
+import { EntityRelationshipsResult, RelationshipDirection } from '../../../types.generated';
+import { FORWARD_RELATIONSHIPS, INVERSE_RELATIONSHIPS } from '../constants';
 
-export default function getChildren(entityAndType: EntityAndType, direction: Direction | null): Array<EntityAndType> {
-    if (direction === Direction.Upstream) {
-        if (
-            entityAndType.type === EntityType.Mlfeature ||
-            entityAndType.type === EntityType.MlprimaryKey ||
-            entityAndType.type === EntityType.MlfeatureTable
-        ) {
-            return [];
-        }
+export function getChildrenFromRelationships({
+    incomingRelationships,
+    outgoingRelationships,
+    direction,
+}: {
+    incomingRelationships: EntityRelationshipsResult | null | undefined;
+    outgoingRelationships: EntityRelationshipsResult | null | undefined;
+    direction: RelationshipDirection;
+}) {
+    return [
+        ...(incomingRelationships?.relationships || []).filter((relationship) => {
+            if (FORWARD_RELATIONSHIPS.indexOf(relationship.type) >= 0) {
+                if (direction === relationship.direction) {
+                    return true;
+                }
+            }
+            if (INVERSE_RELATIONSHIPS.indexOf(relationship.type) >= 0) {
+                if (direction !== relationship.direction) {
+                    return true;
+                }
+            }
+            return false;
+        }),
 
-        return (
-            entityAndType.entity.upstreamLineage?.entities?.map(
-                (entity) =>
-                    ({
-                        type: entity?.entity?.type,
-                        entity: entity?.entity,
-                    } as EntityAndType),
-            ) || []
-        );
-    }
-    if (direction === Direction.Downstream) {
-        if (entityAndType.type === EntityType.MlfeatureTable) {
-            const entities = [
-                ...(entityAndType.entity.featureTableProperties?.mlFeatures || []),
-                ...(entityAndType.entity.featureTableProperties?.mlPrimaryKeys || []),
-            ];
-            return (
-                entities.map(
-                    (entity) =>
-                        ({
-                            type: entity?.type,
-                            entity,
-                        } as EntityAndType),
-                ) || []
-            );
-        }
-        if (entityAndType.type === EntityType.Mlfeature) {
-            return (
-                (entityAndType.entity.featureProperties?.sources || []).map(
-                    (entity) =>
-                        ({
-                            type: entity?.type,
-                            entity,
-                        } as EntityAndType),
-                ) || []
-            );
-        }
-        if (entityAndType.type === EntityType.MlprimaryKey) {
-            return (
-                (entityAndType.entity.primaryKeyProperties?.sources || []).map(
-                    (entity) =>
-                        ({
-                            type: entity?.type,
-                            entity,
-                        } as EntityAndType),
-                ) || []
-            );
-        }
-        return (
-            entityAndType.entity.downstreamLineage?.entities?.map(
-                (entity) =>
-                    ({
-                        type: entity?.entity?.type,
-                        entity: entity?.entity,
-                    } as EntityAndType),
-            ) || []
-        );
-    }
-
-    return [];
+        ...(outgoingRelationships?.relationships || []).filter((relationship) => {
+            if (FORWARD_RELATIONSHIPS.indexOf(relationship.type) >= 0) {
+                if (direction === relationship.direction) {
+                    return true;
+                }
+            }
+            if (INVERSE_RELATIONSHIPS.indexOf(relationship.type) >= 0) {
+                if (direction !== relationship.direction) {
+                    return true;
+                }
+            }
+            return false;
+        }),
+    ].map((relationship) => ({ entity: relationship.entity, type: relationship.entity.type } as EntityAndType));
 }

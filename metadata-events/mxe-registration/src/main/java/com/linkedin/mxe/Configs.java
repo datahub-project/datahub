@@ -3,8 +3,6 @@ package com.linkedin.mxe;
 import com.linkedin.pegasus2avro.mxe.FailedMetadataChangeEvent;
 import com.linkedin.pegasus2avro.mxe.MetadataAuditEvent;
 import com.linkedin.pegasus2avro.mxe.MetadataChangeEvent;
-import com.linkedin.pegasus2avro.mxe.MetadataGraphEvent;
-import com.linkedin.pegasus2avro.mxe.MetadataSearchEvent;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -26,8 +24,6 @@ public class Configs {
       put(Topics.METADATA_AUDIT_EVENT, MetadataAuditEvent.SCHEMA$);
       put(Topics.METADATA_CHANGE_EVENT, MetadataChangeEvent.SCHEMA$);
       put(Topics.FAILED_METADATA_CHANGE_EVENT, FailedMetadataChangeEvent.SCHEMA$);
-      put(Topics.METADATA_GRAPH_EVENT, MetadataGraphEvent.SCHEMA$);
-      put(Topics.METADATA_SEARCH_EVENT, MetadataSearchEvent.SCHEMA$);
 
       put(Topics.DEV_METADATA_AUDIT_EVENT, MetadataAuditEvent.SCHEMA$);
       put(Topics.DEV_METADATA_CHANGE_EVENT, MetadataChangeEvent.SCHEMA$);

@@ -29,12 +29,20 @@ jobs:
         with:
           python-version: "3.6"
       - name: Gradle build (and test)
-        run: ./gradlew build -x :metadata-io:test -x :metadata-ingestion:build -x :metadata-ingestion:check -x docs-website:build
+        # there is some race condition in gradle build, which makes gradle never terminate in ~30% of the runs
+        # running build first without datahub-web-react:yarnBuild and then with it is 100% stable
+        # datahub-frontend:unzipAssets depends on datahub-web-react:yarnBuild but gradle does not know about it
+        run: |
+          ./gradlew build -x :metadata-ingestion:build -x :metadata-ingestion:check -x docs-website:build -x datahub-web-react:yarnBuild -x datahub-frontend:unzipAssets
+          ./gradlew build -x :metadata-ingestion:build -x :metadata-ingestion:check -x docs-website:build -x :metadata-integration:java:spark-lineage:test
       - uses: actions/upload-artifact@v2
         if: always()
         with:
-          name: Test Results
-          path: "**/build/reports/tests/test/**"
+          name: Test Results (build)
+          path: |
+            **/build/reports/tests/test/**
+            **/build/test-results/test/**
+            **/junit.*.xml
       - name: Ensure codegen is updated
         run: |
           if output=$(git status --porcelain) && [ ! -z "$output" ]; then
@@ -53,35 +61,6 @@ jobs:
           slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN }}
           channel: github-activities
 
-  metadata-ingestion-general:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
-        with:
-          python-version: "3.6"
-      - name: Install dependencies
-        run: ./metadata-ingestion/scripts/install_deps.sh
-      - name: Run metadata-ingestion tests
-        run: ./gradlew :metadata-ingestion:build :metadata-ingestion:check
-
-  metadata-ingestion-by-version:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.6", "3.9"]
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: Install dependencies
-        run: ./metadata-ingestion/scripts/install_deps.sh && python -m pip install --upgrade pip && pip install tox tox-gh-actions
-      - name: Codegen
-        run: ./gradlew :metadata-ingestion:codegen
-      - name: Run tox tests
-        run: cd metadata-ingestion && tox
-
   smoke-test:
     runs-on: ubuntu-latest
     steps:
@@ -99,6 +78,14 @@ jobs:
         run: ./gradlew build -x check -x docs-website:build
       - name: Smoke test
         run: ./smoke-test/smoke.sh
+      - uses: actions/upload-artifact@v2
+        if: always()
+        with:
+          name: Test Results (smoke tests)
+          path: |
+            **/build/reports/tests/test/**
+            **/build/test-results/test/**
+            **/junit.*.xml
       - name: Slack failure notification
         if: failure() && github.event_name == 'push'
         uses: kpritam/slack-job-status-action@v1
@@ -116,3 +103,12 @@ jobs:
           python-version: "3.6"
       - name: Quickstart Compose Validation
         run: ./docker/quickstart/generate_and_compare.sh
+
+  event-file:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Upload
+        uses: actions/upload-artifact@v2
+        with:
+          name: Event File
+          path: ${{ github.event_path }}

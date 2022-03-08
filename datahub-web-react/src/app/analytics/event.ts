@@ -1,4 +1,4 @@
-import { EntityType } from '../../types.generated';
+import { EntityType, RecommendationRenderType, ScenarioType } from '../../types.generated';
 
 /**
  * Valid event types.
@@ -10,10 +10,13 @@ export enum EventType {
     SearchEvent,
     SearchResultsViewEvent,
     SearchResultClickEvent,
+    EntitySearchResultClickEvent,
     BrowseResultClickEvent,
     EntityViewEvent,
     EntitySectionViewEvent,
     EntityActionEvent,
+    RecommendationImpressionEvent,
+    RecommendationClickEvent,
 }
 
 /**
@@ -119,12 +122,15 @@ export interface EntitySectionViewEvent extends BaseEvent {
  */
 export const EntityActionType = {
     UpdateTags: 'UpdateTags',
+    UpdateTerms: 'UpdateTerms',
+    UpdateLinks: 'UpdateLinks',
     UpdateOwnership: 'UpdateOwnership',
     UpdateDocumentation: 'UpdateDocumentation',
     UpdateDescription: 'UpdateDescription',
     UpdateProperties: 'UpdateProperties',
     UpdateSchemaDescription: 'UpdateSchemaDescription',
     UpdateSchemaTags: 'UpdateSchemaTags',
+    UpdateSchemaTerms: 'UpdateSchemaTerms',
     ClickExternalUrl: 'ClickExternalUrl',
 };
 
@@ -133,6 +139,24 @@ export interface EntityActionEvent extends BaseEvent {
     actionType: string;
     entityType: EntityType;
     entityUrn: string;
+}
+
+export interface RecommendationImpressionEvent extends BaseEvent {
+    type: EventType.RecommendationImpressionEvent;
+    renderId: string; // TODO : Determine whether we need a render id to join with click event.
+    moduleId: string;
+    renderType: RecommendationRenderType;
+    scenarioType: ScenarioType;
+    // TODO: Determine whether we need to collect context parameters.
+}
+
+export interface RecommendationClickEvent extends BaseEvent {
+    type: EventType.RecommendationClickEvent;
+    renderId: string; // TODO : Determine whether we need a render id to join with click event.
+    moduleId: string;
+    renderType: RecommendationRenderType;
+    scenarioType: ScenarioType;
+    index?: number;
 }
 
 /**
@@ -148,4 +172,6 @@ export type Event =
     | BrowseResultClickEvent
     | EntityViewEvent
     | EntitySectionViewEvent
-    | EntityActionEvent;
+    | EntityActionEvent
+    | RecommendationImpressionEvent
+    | RecommendationClickEvent;

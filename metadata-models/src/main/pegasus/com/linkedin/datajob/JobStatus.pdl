@@ -39,4 +39,9 @@ enum JobStatus {
    * Jobs with unknown status (either unmappable or unavailable)
    */  
   UNKNOWN
+
+  /**
+   * Jobs that have been skipped.
+   */
+  SKIPPED
 }

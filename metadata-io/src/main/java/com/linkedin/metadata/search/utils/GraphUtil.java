@@ -2,7 +2,7 @@ package com.linkedin.metadata.search.utils;
 
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.dao.utils.RecordUtils;
+import com.datahub.util.RecordUtils;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;

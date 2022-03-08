@@ -2,7 +2,7 @@ package com.linkedin.metadata.utils;
 
 import com.linkedin.data.ByteString;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.dao.utils.RecordUtils;
+import com.datahub.util.RecordUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.mxe.GenericAspect;
 import java.nio.charset.StandardCharsets;
@@ -21,8 +21,7 @@ public class GenericAspectUtils {
   @Nonnull
   public static RecordTemplate deserializeAspect(@Nonnull ByteString aspectValue, @Nonnull String contentType,
       @Nonnull AspectSpec aspectSpec) {
-    return deserializeAspect(aspectValue, contentType,
-        PegasusUtils.getDataTemplateClassFromSchema(aspectSpec.getPegasusSchema(), RecordTemplate.class));
+    return deserializeAspect(aspectValue, contentType, aspectSpec.getDataTemplateClass());
   }
 
   @Nonnull

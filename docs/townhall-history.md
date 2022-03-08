@@ -2,6 +2,66 @@
 
 A list of previous Town Halls, their planned schedule, and the recording of the meeting.
 
+## 1/28/2022
+[Full YouTube video](https://youtu.be/ShlSR3dMUnE)
+
+## Agenda
+
+- Community & Roadmap Updates by Maggie Hays (Acryl Data)
+- Project Updates by Shirshanka Das  (Acryl Data)
+- Community Case Study: Adding Dataset Transformers by Eric Cooklin (Stash)
+- Demo: Data Domains & Containers by John Joyce (Acryl Data)
+- DataHub Basics — Data Profiling & Usage Stats 101 by Maggie Hays & Tamás Németh (Acryl Data)
+- Demo: Spark Lineage by Mugdha Hardikar (GS Lab) & Shirshanka Das
+
+## 12/17/2021
+[Full YouTube video](https://youtu.be/rYInKCwxu7o)
+
+## Agenda
+- Community & Roadmap Updates by Maggie Hays (Acryl Data)
+- Project Updates by Shirshanka Das (Acryl Data)
+- 2021 DataHub Community in Review by Maggie Hays
+- DataHub Basics -- Users, Groups, & Authentication 101 by Pedro Silva (Acryl Data)
+- Sneak Peek: UI-Based Ingestion by John Joyce (Acryl Data)
+- Case Study — DataHub at Grofers by Shubham Gupta
+- Top DataHub Contributors of 2021 - Maggie Hays
+- Final Surprise! We Interviewed a 10yo and a 70yo about DataHub
+
+## 11/19/2021
+[Full YouTube video](https://youtu.be/to80sEDZz7k)
+
+## Agenda
+- Community & Roadmap Updates by Maggie Hays (Acryl Data)
+- Project Updates by Shirshanka Das (Acryl Data)
+- DataHub Basics -- Lineage 101 by John Joyce & Surya Lanka (Acryl Data)
+- Introducing No-Code UI by Gabe Lyons & Shirshanka Das (Acryl Data)
+- DataHub API Authentication by John Joyce (Acryl Data)
+- Case Study: LinkedIn pilot to extend the OSS UI by Aikepaer Abuduweili & Joshua Shinavier
+
+## 10/29/2021
+[Full YouTube video](https://youtu.be/GrS_uZhYNm0)
+
+## Agenda
+- DataHub Community & Roadmap Update - Maggie Hays (Acryl Data)
+- October Project Updates - Shirshanka Das (Acryl Data)
+- Introducing Recommendations - John Joyce & Dexter Lee (Acryl Data)
+- Case Study: DataHub @ hipages - Chris Coulson (hipages) 
+- Data Profiling Improvements - Surya Lanka & Harshal Sheth (Acryl Data)
+- Lineage Improvements & BigQuery Dataset Lineage by Gabe Lyons & Varun Bharill (Acryl Data)
+
+## 9/24/2021
+[Full YouTube video](https://youtu.be/nQDiKPKnLLQ)
+
+## Agenda
+- Project Updates and Callouts by Shirshanka
+   - GraphQL Public API Annoucement
+- Demo: Faceted Search by Gabe Lyons (Acryl Data)
+- Stateful Ingestion by Shirshanka Das & Surya Lanka (Acryl Data)
+- Case-Study: DataHub @ Adevinta by Martinez de Apellaniz   
+- Recent Improvements to the Looker Connector by Shirshanka Das & Maggie Hays (Acryl Data)
+- Offline
+   - Foreign Key and Related Term Mapping by Gabe Lyons (Acryl Data) [video](https://www.loom.com/share/79f27c2d9f6c4a3b8aacbc48c19add18)
+
 ## 8/27/2021
 [Full YouTube video](https://youtu.be/3joZINi3ti4)
 
@@ -11,7 +71,7 @@ A list of previous Town Halls, their planned schedule, and the recording of the 
    - 0.8.12 Upcoming Release Highlights 
    - Users and Groups Management (Okta, Azure AD)
 - Demo: Fine Grained Access Control by John Joyce (Acryl Data)
-- Case-Study: DataHub @ Warung Pintar and Redash integration by Taufiq Ibrahim (Bizzy Group) 
+- Community Case-Study: DataHub @ Warung Pintar and Redash integration by Taufiq Ibrahim (Bizzy Group) 
 - New User Experience by John Joyce (Acryl Data)
 - Offline
    - Performance Monitoring by Dexter Lee (Acryl Data) [video](https://youtu.be/6Xfr_Y9abZo)

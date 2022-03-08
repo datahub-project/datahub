@@ -5,7 +5,7 @@ apply plugin: 'java'
 
 dependencies {
     compile project(':metadata-service:restli-client')
-    compile project(':metadata-service:auth')
+    compile project(':metadata-service:auth-impl')
     compile project(':metadata-io')
     compile project(':metadata-utils')
 
@@ -27,6 +27,9 @@ graphqlCodegen {
         "$projectDir/src/main/resources/app.graphql".toString(),
         "$projectDir/src/main/resources/search.graphql".toString(),
         "$projectDir/src/main/resources/analytics.graphql".toString(),
+        "$projectDir/src/main/resources/recommendation.graphql".toString(),
+        "$projectDir/src/main/resources/ingestion.graphql".toString(),
+        "$projectDir/src/main/resources/auth.graphql".toString(),
     ]
     outputDir = new File("$projectDir/src/mainGeneratedGraphQL/java")
     packageName = "com.linkedin.datahub.graphql.generated"
@@ -36,6 +39,10 @@ graphqlCodegen {
             Long: "Long",
             Float: "Float"
     ]
+}
+
+clean {
+    delete 'mainGeneratedGraphQL'
 }
 
 tasks.withType(Checkstyle) {

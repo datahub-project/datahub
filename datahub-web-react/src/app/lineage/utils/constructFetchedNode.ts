@@ -27,10 +27,11 @@ export default function constructFetchedNode(
             icon: fetchedNode.icon,
             unexploredChildren:
                 fetchedNode?.[direction === Direction.Upstream ? 'upstreamChildren' : 'downstreamChildren']?.filter(
-                    (childUrn) => !(childUrn in fetchedEntities),
+                    (childUrn) => !(childUrn.entity.urn in fetchedEntities),
                 ).length || 0,
-            countercurrentChildrenUrns:
-                fetchedNode?.[direction === Direction.Downstream ? 'upstreamChildren' : 'downstreamChildren'],
+            countercurrentChildrenUrns: fetchedNode?.[
+                direction === Direction.Downstream ? 'upstreamChildren' : 'downstreamChildren'
+            ]?.map((child) => child.entity.urn),
             children: [],
             platform: fetchedNode?.platform,
         };
@@ -39,12 +40,12 @@ export default function constructFetchedNode(
         constructedNodes[urn] = node;
 
         node.children = fetchedNode?.[direction === Direction.Upstream ? 'upstreamChildren' : 'downstreamChildren']
-            ?.map((childUrn) => {
-                if (childUrn === node.urn) {
+            ?.map((child) => {
+                if (child.entity.urn === node.urn) {
                     return null;
                 }
                 return constructFetchedNode(
-                    childUrn,
+                    child.entity.urn,
                     fetchedEntities,
                     direction,
                     constructedNodes,

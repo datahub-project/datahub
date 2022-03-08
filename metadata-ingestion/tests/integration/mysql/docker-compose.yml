@@ -1,7 +1,7 @@
 version: "2"
 services:
   testmysql:
-    image: mysql
+    image: mysql:8
     container_name: "testmysql"
     command: --default-authentication-plugin=mysql_native_password
     environment:

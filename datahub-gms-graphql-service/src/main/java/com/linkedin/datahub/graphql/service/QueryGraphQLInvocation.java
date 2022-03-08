@@ -15,6 +15,7 @@ import graphql.ExecutionResult;
 import graphql.spring.web.servlet.GraphQLInvocation;
 import graphql.spring.web.servlet.GraphQLInvocationData;
 
+@Deprecated
 @Component
 @Primary
 public class QueryGraphQLInvocation implements GraphQLInvocation {
@@ -22,11 +23,9 @@ public class QueryGraphQLInvocation implements GraphQLInvocation {
     @Autowired
     GraphQLEngine graphQLEngine;
 
-    public static final String APPNAME = "GmsGraphQLApp";
-
     @Override
     public CompletableFuture<ExecutionResult> invoke(GraphQLInvocationData invocationData, WebRequest webRequest) {
-        QueryContext queryContext = new SpringQueryContext(true, APPNAME, new AllowAllAuthorizer());
+        QueryContext queryContext = new SpringQueryContext(true, null, new AllowAllAuthorizer());
 
         return CompletableFuture.supplyAsync(() -> graphQLEngine.execute(invocationData.getQuery(),
             invocationData.getVariables(),

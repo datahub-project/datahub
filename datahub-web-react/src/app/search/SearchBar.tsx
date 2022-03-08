@@ -66,6 +66,7 @@ interface Props {
     onSearch: (query: string, type?: EntityType) => void;
     onQueryChange: (query: string) => void;
     style?: React.CSSProperties;
+    inputStyle?: React.CSSProperties;
     autoCompleteStyle?: React.CSSProperties;
     entityRegistry: EntityRegistry;
 }
@@ -85,6 +86,7 @@ export const SearchBar = ({
     onQueryChange,
     entityRegistry,
     style,
+    inputStyle,
     autoCompleteStyle,
 }: Props) => {
     const [searchQuery, setSearchQuery] = useState<string>();
@@ -135,7 +137,11 @@ export const SearchBar = ({
             >
                 <StyledSearchBar
                     placeholder={placeholderText}
-                    onPressEnter={() => onSearch(filterSearchQuery(searchQuery || ''))}
+                    onPressEnter={(e) => {
+                        e.stopPropagation();
+                        onSearch(filterSearchQuery(searchQuery || ''));
+                    }}
+                    style={inputStyle}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     data-testid="search-input"

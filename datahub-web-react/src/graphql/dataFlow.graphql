@@ -4,7 +4,10 @@ fragment dataFlowFields on DataFlow {
     orchestrator
     flowId
     cluster
-    info {
+    platform {
+        ...platformFields
+    }
+    properties {
         name
         description
         project
@@ -24,21 +27,13 @@ fragment dataFlowFields on DataFlow {
         ...globalTagsFields
     }
     institutionalMemory {
-        elements {
-            url
-            author {
-                urn
-                username
-            }
-            label
-            created {
-                time
-                actor
-            }
-        }
+        ...institutionalMemoryFields
     }
     glossaryTerms {
         ...glossaryTerms
+    }
+    domain {
+        ...entityDomain
     }
 }
 
@@ -63,7 +58,7 @@ query getDataFlow($urn: String!) {
                         ownership {
                             ...ownershipFields
                         }
-                        info {
+                        properties {
                             name
                             description
                         }
@@ -85,6 +80,6 @@ query getDataFlow($urn: String!) {
 
 mutation updateDataFlow($urn: String!, $input: DataFlowUpdateInput!) {
     updateDataFlow(urn: $urn, input: $input) {
-        ...dataFlowFields
+        urn
     }
 }
