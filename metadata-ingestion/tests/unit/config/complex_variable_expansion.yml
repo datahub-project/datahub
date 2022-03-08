@@ -24,5 +24,8 @@ nested:
     - inner_array:
         - in_ar_one
         - ${VAR8}
+        - test_url$vanillavar
+        - test_url${VAR9}vanillaVar
+        - \${VAR10}
 
 

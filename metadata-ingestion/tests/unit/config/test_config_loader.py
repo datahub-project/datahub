@@ -62,6 +62,13 @@ from datahub.configuration.config_loader import load_config_file
             ConfigurationError,
         ),
         (
+            # Variable expansion error
+            "tests/unit/config/bad_complex_variable_expansion.yml",
+            None,
+            {},
+            expandvars.MissingClosingBrace,
+        ),
+        (
             "tests/unit/config/complex_variable_expansion.yml",
             {
                 "foo": "bar",
@@ -92,6 +99,9 @@ from datahub.configuration.config_loader import load_config_file
                             "inner_array": [
                                 "in_ar_one",
                                 "stuff8",
+                                "test_url$vanillavar",
+                                "test_urlstuff9vanillaVar",
+                                "stuff10",
                             ]
                         },
                     ],
@@ -106,6 +116,8 @@ from datahub.configuration.config_loader import load_config_file
                 "VAR6": "stuff6",
                 "VAR7": "stuff7",
                 "VAR8": "stuff8",
+                "VAR9": "stuff9",
+                "VAR10": "stuff10",
             },
             None,
         ),

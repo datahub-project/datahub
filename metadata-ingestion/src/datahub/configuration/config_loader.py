@@ -11,7 +11,7 @@ from datahub.configuration.yaml import YamlConfigurationMechanism
 
 
 def resolve_element(element: str) -> str:
-    if re.search("(${).+(})", element):
+    if re.search("(\$\{).+(\})", element):  # noqa: W605
         return expandvars(element, nounset=True)
     elif element.startswith("$"):
         try:
