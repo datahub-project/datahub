@@ -11,6 +11,7 @@ nested:
   vanilla_val_6: vanilla$Value}
   password: $VAR2
   password_1: ${VAR3}
+  password_2: $VARNONEXISTENT
   array:
     - one
     - two

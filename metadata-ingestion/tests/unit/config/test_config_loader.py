@@ -83,6 +83,7 @@ from datahub.configuration.config_loader import load_config_file
                     "vanilla_val_6": "vanilla$Value}",
                     "password": "stuff2",
                     "password_1": "stuff3",
+                    "password_2": "$VARNONEXISTENT",
                     "array": [
                         "one",
                         "two",
