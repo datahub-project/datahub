@@ -24,6 +24,17 @@ jobs:
           python-version: 3.9.9
       - name: Install Python dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
+
+      - uses: actions/cache@v2
+        # Taken from https://github.com/actions/cache/blob/main/examples.md#java---gradle
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
       - name: Build Docs
         run: |
           ./gradlew --info docs-website:build
