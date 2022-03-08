@@ -25,7 +25,8 @@ jobs:
       - name: Install Python dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
 
-      - uses: actions/cache@v2
+      - name: Setup Cache for Gradle
+        uses: actions/cache@v2
         # Taken from https://github.com/actions/cache/blob/main/examples.md#java---gradle
         with:
           path: |
@@ -34,6 +35,14 @@ jobs:
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
           restore-keys: |
             ${{ runner.os }}-gradle-
+      
+      - name: Setup Cache for pip
+        uses: actions/cache@v2
+        with:
+          path: ~/.cache/pip
+          key: ${{ github.job }}-${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ github.job }}-${{ runner.os }}-pip-
 
       - name: Build Docs
         run: |
