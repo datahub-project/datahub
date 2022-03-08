@@ -34,7 +34,9 @@ def test_mysql_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
-def test_mysql_ingest_with_db_alias(docker_compose_runner, pytestconfig, tmp_path, mock_time):
+def test_mysql_ingest_with_db_alias(
+    docker_compose_runner, pytestconfig, tmp_path, mock_time
+):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/mysql"
 
     with docker_compose_runner(
@@ -51,7 +53,13 @@ def test_mysql_ingest_with_db_alias(docker_compose_runner, pytestconfig, tmp_pat
         # Verify the output.
         # Assert that all events generated have instance specific urns
         import re
+
         urn_pattern = "^" + re.escape(
-        f"urn:li:dataset:(urn:li:dataPlatform:mysql,foogalaxy."
+            "urn:li:dataset:(urn:li:dataPlatform:mysql,foogalaxy."
         )
-        mce_helpers.assert_mcp_entity_urn(filter="ALL", entity_type="dataset", regex_pattern=urn_pattern, file=tmp_path / "mysql_mces_dbalias.json")
+        mce_helpers.assert_mcp_entity_urn(
+            filter="ALL",
+            entity_type="dataset",
+            regex_pattern=urn_pattern,
+            file=tmp_path / "mysql_mces_dbalias.json",
+        )

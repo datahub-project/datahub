@@ -1,9 +1,7 @@
 # This import verifies that the dependencies are available.
-from typing import Any
 
 import pymysql  # noqa: F401
 from sqlalchemy.dialects.mysql import base
-from sqlalchemy.engine.reflection import Inspector
 
 from datahub.ingestion.source.sql.sql_common import (
     BasicSQLAlchemyConfig,
@@ -33,8 +31,7 @@ class MySQLConfig(BasicSQLAlchemyConfig):
     host_port = "localhost:3306"
     scheme = "mysql+pymysql"
 
-    def get_identifier(
-        self, *, schema: str, table: str) -> str:
+    def get_identifier(self, *, schema: str, table: str) -> str:
         regular = f"{schema}.{table}"
         if self.database_alias:
             return f"{self.database_alias}.{table}"
@@ -43,7 +40,6 @@ class MySQLConfig(BasicSQLAlchemyConfig):
 
 
 class MySQLSource(SQLAlchemySource):
-
     def __init__(self, config, ctx):
         super().__init__(config, ctx, self.get_platform())
 
