@@ -1,6 +1,7 @@
 import collections
 import json
 import logging
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Union, cast
 
@@ -15,7 +16,6 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.snowflake import BaseSnowflakeConfig
 from datahub.ingestion.source.state.checkpoint import Checkpoint
@@ -23,6 +23,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     JobId,
     StatefulIngestionConfig,
     StatefulIngestionConfigBase,
+    StatefulIngestionReport,
     StatefulIngestionSourceBase,
 )
 from datahub.ingestion.source.state.usage_common_state import BaseUsageCheckpointState
@@ -165,11 +166,16 @@ class SnowflakeUsageConfig(
         return super().get_sql_alchemy_url(database="snowflake")
 
 
+@dataclass
+class SnowflakeUsageReport(StatefulIngestionReport):
+    pass
+
+
 class SnowflakeUsageSource(StatefulIngestionSourceBase):
     def __init__(self, config: SnowflakeUsageConfig, ctx: PipelineContext):
         super(SnowflakeUsageSource, self).__init__(config, ctx)
         self.config: SnowflakeUsageConfig = config
-        self.report: SourceReport = SourceReport()
+        self.report: SnowflakeUsageReport = SnowflakeUsageReport()
         self.should_skip_this_run = self._should_skip_this_run()
 
     @classmethod
@@ -275,7 +281,18 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
             summary.config = self.config.json()
             summary.custom_summary = self.report.as_string()
 
+    def check_email_domain_missing(self) -> Any:
+        if self.config.email_domain is not None and self.config.email_domain != "":
+            return
+
+        self.warn(
+            logger,
+            "missing-email-domain",
+            "User's without email address will be ignored from usage if you don't set email_domain property",
+        )
+
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        self.check_email_domain_missing()
         if not self.should_skip_this_run:
             # Initialize the checkpoints
             self._init_checkpoints()
