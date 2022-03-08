@@ -29,7 +29,8 @@ jobs:
         with:
           python-version: "3.6"
 
-      - uses: actions/cache@v2
+      - name: Setup Cache for Gradle
+        uses: actions/cache@v2
         # Taken from https://github.com/actions/cache/blob/main/examples.md#java---gradle
         with:
           path: |
