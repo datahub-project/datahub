@@ -46,7 +46,8 @@ record ChartInfo includes CustomProperties, ExternalReference {
   @Relationship = {
     "/*/string": {
       "name": "Consumes",
-      "entityTypes": [ "dataset" ]
+      "entityTypes": [ "dataset" ],
+      "isLineage": true
     }
   }
   inputs: optional array[ChartDataSourceType]

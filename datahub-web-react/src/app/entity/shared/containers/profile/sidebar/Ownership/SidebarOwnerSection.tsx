@@ -8,7 +8,7 @@ import { SidebarHeader } from '../SidebarHeader';
 import { AddOwnerModal } from './AddOwnerModal';
 
 export const SidebarOwnerSection = () => {
-    const { urn, entityData, entityType } = useEntityData();
+    const { urn, entityType, entityData } = useEntityData();
     const refetch = useRefetch();
     const [showAddModal, setShowAddModal] = useState(false);
     const ownersEmpty = !entityData?.ownership?.owners?.length;
@@ -31,13 +31,13 @@ export const SidebarOwnerSection = () => {
                 </Button>
             </div>
             <AddOwnerModal
+                urn={urn}
+                type={entityType}
                 visible={showAddModal}
                 refetch={refetch}
                 onClose={() => {
                     setShowAddModal(false);
                 }}
-                urn={urn}
-                entityType={entityType}
             />
         </div>
     );

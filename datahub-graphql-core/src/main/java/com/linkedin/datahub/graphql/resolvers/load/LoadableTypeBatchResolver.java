@@ -33,6 +33,9 @@ public class LoadableTypeBatchResolver<T> implements DataFetcher<CompletableFutu
     @Override
     public CompletableFuture<List<T>> get(DataFetchingEnvironment environment) {
         final List<String> urns = _urnProvider.apply(environment);
+        if (urns == null) {
+            return null;
+        }
         final DataLoader<String, T> loader = environment.getDataLoaderRegistry().getDataLoader(_loadableType.name());
         return loader.loadMany(urns);
     }

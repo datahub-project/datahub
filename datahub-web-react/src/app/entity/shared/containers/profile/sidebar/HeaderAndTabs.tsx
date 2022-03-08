@@ -9,7 +9,7 @@ export type Props = {
 
 const ResizableDiv = styled.div<{ width }>`
     width: ${(props) => props.width}px;
-    min-width: 640px;
+    min-width: 440px;
     display: flex;
     justify-content: space-between;
 `;

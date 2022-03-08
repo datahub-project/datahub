@@ -12,7 +12,7 @@ import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.ArrayDataSchema;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.extractor.FieldExtractor;
+import com.linkedin.metadata.models.extractor.FieldExtractor;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.TimeseriesFieldCollectionSpec;
 import com.linkedin.metadata.models.TimeseriesFieldSpec;

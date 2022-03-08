@@ -6,12 +6,12 @@ namespace com.linkedin.metadata.query.filter
 record Filter {
 
   /**
-   * A list of of disjunctive criterion for the filter.
+   * A list of disjunctive criterion for the filter. (or operation to combine filters)
    */
   or: optional array[ConjunctiveCriterion]
 
   /**
    * Deprecated! A list of conjunctive criterion for the filter. If "or" field is provided, then this field is ignored.
    */
-   criteria: optional array[Criterion]
+  criteria: optional array[Criterion]
 }

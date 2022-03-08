@@ -56,7 +56,9 @@ const ContentContainer = styled.div`
 const HeaderAndTabs = styled.div`
     flex-basis: 70%;
     min-width: 640px;
+    height: 100%;
 `;
+
 const HeaderAndTabsFlex = styled.div`
     display: flex;
     flex-direction: column;
@@ -85,11 +87,11 @@ const TabContent = styled.div`
 `;
 
 const resizerStyles = {
-    background: '#E9E9E9',
-    width: '1px',
+    borderLeft: `1px solid #E9E9E9`,
+    width: '2px',
     cursor: 'col-resize',
     margin: '0 5px',
-    height: 'auto',
+    height: '100%',
 };
 
 const defaultTabDisplayConfig = {
@@ -244,6 +246,7 @@ export const EntityProfile = <T, U>({
                             defaultSize={window.innerWidth - 400}
                             resizerStyle={resizerStyles}
                             style={{
+                                position: 'inherit',
                                 height: 'auto',
                                 overflow: 'auto',
                             }}

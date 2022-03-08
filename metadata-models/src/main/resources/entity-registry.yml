@@ -18,7 +18,6 @@ entities:
       - schemaMetadata
       - status
       - container
-      - assertionRunEvent
       - deprecation
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
@@ -137,6 +136,7 @@ entities:
     aspects:
       - assertionInfo
       - dataPlatformInstance
+      - assertionRunEvent
   - name: dataHubRetention
     category: internal
     keyAspect: dataHubRetentionKey
