@@ -1,11 +1,11 @@
 import * as React from 'react';
 import { CodeSandboxOutlined } from '@ant-design/icons';
-import { MlModel, EntityType, SearchResult, RelationshipDirection } from '../../../types.generated';
+import { MlModel, EntityType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { MLModelProfile } from './profile/MLModelProfile';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { getChildrenFromRelationships } from '../../lineage/utils/getChildren';
+import { EntityAndType } from '../../lineage/types';
 
 /**
  * Definition of the DataHub MlModel entity.
@@ -62,20 +62,14 @@ export class MLModelEntity implements Entity<MlModel> {
             urn: entity.urn,
             name: entity.name,
             type: EntityType.Mlmodel,
-            downstreamChildren: getChildrenFromRelationships({
-                // eslint-disable-next-line @typescript-eslint/dot-notation
-                incomingRelationships: entity?.['incoming'],
-                // eslint-disable-next-line @typescript-eslint/dot-notation
-                outgoingRelationships: entity?.['outgoing'],
-                direction: RelationshipDirection.Incoming,
-            }),
-            upstreamChildren: getChildrenFromRelationships({
-                // eslint-disable-next-line @typescript-eslint/dot-notation
-                incomingRelationships: entity?.['incoming'],
-                // eslint-disable-next-line @typescript-eslint/dot-notation
-                outgoingRelationships: entity?.['outgoing'],
-                direction: RelationshipDirection.Outgoing,
-            }),
+            // eslint-disable-next-line @typescript-eslint/dot-notation
+            downstreamChildren: entity?.['downstream']?.relationships?.map(
+                (relationship) => ({ entity: relationship.entity, type: relationship.entity.type } as EntityAndType),
+            ),
+            // eslint-disable-next-line @typescript-eslint/dot-notation
+            upstreamChildren: entity?.['upstream']?.relationships?.map(
+                (relationship) => ({ entity: relationship.entity, type: relationship.entity.type } as EntityAndType),
+            ),
             icon: entity.platform?.properties?.logoUrl || undefined,
             platform: entity.platform?.name,
         };

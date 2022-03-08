@@ -2,38 +2,43 @@
 
 Users can log into DataHub in 2 ways:
 
-1. Static credentials
-2. Single Sign-On via [OpenID Connect](https://www.google.com/search?q=openid+connect&oq=openid+connect&aqs=chrome.0.0i131i433i512j0i512l4j69i60l2j69i61.1468j0j7&sourceid=chrome&ie=UTF-8)
+1. Static credentials (Simplest)
+2. Single Sign-On via [OpenID Connect](https://www.google.com/search?q=openid+connect&oq=openid+connect&aqs=chrome.0.0i131i433i512j0i512l4j69i60l2j69i61.1468j0j7&sourceid=chrome&ie=UTF-8) (For Production Use)
 
-Option 1 is useful for running proof-of-concept exercises, while Option 2 is highly recommended for deploying DataHub in production.
+Option 1 is useful for running proof-of-concept exercises, or just getting DataHub up & running quickly. Option 2 is highly recommended for deploying DataHub in production.
 
 
 # Configuring static credentials
 
-## Step 1: Define a user.props file
+## Create a user.props file
 
-To define a set of username / password combinations that should be allowed to log in to DataHub, create a new file called `user.props`. This file should contain username:password combinations, with 1 user per line. For example, to create a `user.props` file with 2 users, the root
-"datahub" user and a custom user "johndoe", we would define the following file:
+To define a set of username / password combinations that should be allowed to log in to DataHub, create a new file called `user.props` at the file path `${HOME}/.datahub/plugins/frontend/auth/user.props`. 
+This file should contain username:password combinations, with 1 user per line. For example, to create 2 new users,
+with usernames "janesmith" and "johndoe", we would define the following file:
 
 ```
-# user.props
-datahub:rootpassword
+janesmith:janespassword
 johndoe:johnspassword
 ```
 
-We strongly recommend keeping a root user named `datahub` in your user.props. Otherwise, the root user will not be able to log in!
+Once you've saved the file, simply start the DataHub containers & navigate to `http://localhost:9002/login`
+to verify that your new credentials work.
 
-## Step 2: Mount user.props file to Docker container
+To change or remove existing login credentials, edit and save the `user.props` file. Then restart DataHub containers. 
 
-Once you've defined a `user.props` file, you'll need to mount the file into the `datahub-frontend` Docker container at the following path:
+If you want to customize the location of the `user.props` file, or if you're deploying DataHub via Helm, proceed to Step 2.
 
-```
-/datahub-frontend/conf/user.props
-```
+## (Advanced) Mount custom user.props file to container
+
+This step is only required when mounting custom credentials into a Kubernetes pod (e.g. Helm) **or** if you want to change
+the default filesystem location from which DataHub mounts a custom `user.props` file (`${HOME}/.datahub/plugins/frontend/auth/user.props)`. 
+
+If you are deploying with `datahub docker quickstart`, or running using Docker Compose, you can most likely skip this step.
 
 ### Docker Compose
 
-You'll need to modify the `docker-compose.yml` file to mount a container volume mapping your local user.props to the standard location inside the container.
+You'll need to modify the `docker-compose.yml` file to mount a container volume mapping your custom user.props to the standard location inside the container 
+(`/etc/datahub/plugins/frontend/auth/user.props`).
 
 For example, to mount a user.props file that is stored on my local filesystem at `/tmp/datahub/user.props`, we'd modify the YAML for the 
 `datahub-web-react` config to look like the following:
@@ -47,7 +52,8 @@ For example, to mount a user.props file that is stored on my local filesystem at
     .....
     # The new stuff
     volumes:
-      - <path-to-your-user.props>:/datahub-frontend/conf/user.props
+      - ${HOME}/.datahub/plugins:/etc/datahub/plugins
+      - /tmp/datahub:/etc/datahub/plugins/frontend/auth
 ```
 
 Once you've made this change, restarting DataHub enable authentication for the configured users.
@@ -74,7 +80,7 @@ datahub-frontend:
         secretName:  datahub-users-secret
   extraVolumeMounts:
     - name: datahub-users
-      mountPath: /datahub-frontend/conf/user.props
+      mountPath: /etc/datahub/plugins/frontend/auth/user.props
       subPath: user.props
 ```
 
@@ -90,7 +96,7 @@ URNs are identifiers that uniquely identify an Entity on DataHub. The usernames 
 the user on DataHub. The urn is computed as:
 
 ```
-urn:li:corpuser:<username>
+urn:li:corpuser:{username}
 ```
 
 ## Caveats
@@ -99,7 +105,7 @@ If you add a new username / password to the `user.props` file, no other informat
 about the user in DataHub (full name, email, bio, etc). This means that you will not be able to search to find the user.
 
 In order to add information about the user in DataHub, you can use our Python Emitter SDK to produce aspects for the CorpUser,
-where the URN will be computed as `urn:li:corpuser:<username>`, where `<username>` is the identifier defined in the user.props file.
+where the URN will be computed as `urn:li:corpuser:{username}`, where `username` is the identifier defined in the user.props file.
 
 For a more comprehensive overview of how users & groups are managed within DataHub, check out [this video](https://www.youtube.com/watch?v=8Osw6p9vDYY).
 

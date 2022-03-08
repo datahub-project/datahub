@@ -110,6 +110,11 @@ public class PoliciesConfig {
       "Edit Deprecation",
       "The ability to edit the Deprecation status of an entity.");
 
+  public static final Privilege EDIT_ENTITY_ASSERTIONS_PRIVILEGE = Privilege.of(
+      "EDIT_ENTITY_ASSERTIONS",
+      "Edit Assertions",
+      "The ability to add and remove assertions from an entity.");
+
   public static final Privilege EDIT_ENTITY_PRIVILEGE = Privilege.of(
       "EDIT_ENTITY",
       "Edit All",
@@ -175,7 +180,11 @@ public class PoliciesConfig {
       "Datasets",
       "Datasets indexed by DataHub", Stream.of(
           COMMON_ENTITY_PRIVILEGES,
-          ImmutableList.of(EDIT_DATASET_COL_DESCRIPTION_PRIVILEGE, EDIT_DATASET_COL_TAGS_PRIVILEGE, EDIT_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE))
+          ImmutableList.of(
+              EDIT_DATASET_COL_DESCRIPTION_PRIVILEGE,
+              EDIT_DATASET_COL_TAGS_PRIVILEGE,
+              EDIT_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE,
+              EDIT_ENTITY_ASSERTIONS_PRIVILEGE))
           .flatMap(Collection::stream)
           .collect(Collectors.toList())
   );
