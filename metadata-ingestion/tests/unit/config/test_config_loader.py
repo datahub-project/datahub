@@ -100,8 +100,8 @@ from datahub.configuration.config_loader import load_config_file
                                 "in_ar_one",
                                 "stuff8",
                                 "test_url$vanillavar",
-                                "test_urlstuff9vanillaVar",
-                                "stuff10",
+                                "test_urlstuff9vanillaVarstuff10",
+                                "stuff11",
                             ]
                         },
                     ],
@@ -118,6 +118,7 @@ from datahub.configuration.config_loader import load_config_file
                 "VAR8": "stuff8",
                 "VAR9": "stuff9",
                 "VAR10": "stuff10",
+                "VAR11": "stuff11",
             },
             None,
         ),
