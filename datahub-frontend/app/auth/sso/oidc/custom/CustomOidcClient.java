@@ -20,7 +20,6 @@ public class CustomOidcClient extends OidcClient<OidcProfile, OidcConfiguration>
   protected void clientInit() {
     CommonHelper.assertNotNull("configuration", getConfiguration());
     getConfiguration().init();
-
     defaultRedirectActionBuilder(new OidcRedirectActionBuilder(getConfiguration(), this));
     defaultCredentialsExtractor(new OidcExtractor(getConfiguration(), this));
     defaultAuthenticator(new CustomOidcAuthenticator(getConfiguration(), this));
