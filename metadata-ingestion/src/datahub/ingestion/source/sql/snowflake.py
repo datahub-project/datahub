@@ -66,6 +66,10 @@ class SnowflakeReport(SQLSourceReport):
     num_view_to_table_edges_scanned: int = 0
     num_external_table_edges_scanned: int = 0
     upstream_lineage: Dict[str, List[str]] = field(default_factory=dict)
+    # https://community.snowflake.com/s/topic/0TO0Z000000Unu5WAC/releases
+    saas_version: str = ""
+    role: str = ""
+    role_grants: List[str] = field(default_factory=list)
 
 
 class BaseSnowflakeConfig(BaseTimeWindowConfig):
@@ -203,15 +207,51 @@ class SnowflakeSource(SQLAlchemySource):
         config = SnowflakeConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def get_inspectors(self) -> Iterable[Inspector]:
-        url = self.config.get_sql_alchemy_url(database=None)
+    def get_metadata_engine(
+        self, database: Optional[str] = None
+    ) -> sqlalchemy.engine.Engine:
+        url = self.config.get_sql_alchemy_url(database=database)
         logger.debug(f"sql_alchemy_url={url}")
-
-        db_listing_engine = create_engine(
+        return create_engine(
             url,
             connect_args=self.config.get_sql_alchemy_connect_args(),
             **self.config.options,
         )
+
+    def inspect_version(self) -> Any:
+        db_engine = self.get_metadata_engine()
+        logger.info("Checking current version")
+        for db_row in db_engine.execute("select CURRENT_VERSION()"):
+            self.report.saas_version = db_row[0]
+
+    def inspect_role_grants(self) -> Any:
+        db_engine = self.get_metadata_engine()
+        cur_role = None
+        if self.config.role is None:
+            for db_row in db_engine.execute("select CURRENT_ROLE()"):
+                cur_role = db_row[0]
+        else:
+            cur_role = self.config.role
+
+        if cur_role is None:
+            return
+
+        self.report.role = cur_role
+        logger.info(f"Current role is {cur_role}")
+        if cur_role.lower() == "accountadmin":
+            return
+
+        logger.info(f"Checking grants for role {cur_role}")
+        for db_row in db_engine.execute(text(f"show grants to role {cur_role}")):
+            privilege = db_row["privilege"]
+            granted_on = db_row["granted_on"]
+            name = db_row["name"]
+            self.report.role_grants.append(
+                f"{privilege} granted on {granted_on} {name}"
+            )
+
+    def get_inspectors(self) -> Iterable[Inspector]:
+        db_listing_engine = self.get_metadata_engine(database=None)
 
         for db_row in db_listing_engine.execute(text("SHOW DATABASES")):
             db = db_row.name
@@ -219,11 +259,7 @@ class SnowflakeSource(SQLAlchemySource):
                 # We create a separate engine for each database in order to ensure that
                 # they are isolated from each other.
                 self.current_database = db
-                engine = create_engine(
-                    self.config.get_sql_alchemy_url(database=db),
-                    connect_args=self.config.get_sql_alchemy_connect_args(),
-                    **self.config.options,
-                )
+                engine = self.get_metadata_engine(database=db)
 
                 with engine.connect() as conn:
                     inspector = inspect(conn)
@@ -273,9 +309,11 @@ WHERE
                     f"Upstream->View: Lineage[View(Down)={view_name}]:Upstream={view_upstream}"
                 )
         except Exception as e:
-            logger.warning(
-                f"Extracting the upstream view lineage from Snowflake failed."
-                f"Please check your permissions. Continuing...\nError was {e}."
+            self.warn(
+                logger,
+                "view_upstream_lineage",
+                "Extracting the upstream view lineage from Snowflake failed."
+                + f"Please check your permissions. Continuing...\nError was {e}.",
             )
         logger.info(f"A total of {num_edges} View upstream edges found.")
         self.report.num_table_to_view_edges_scanned = num_edges
@@ -387,9 +425,11 @@ WHERE
                 num_edges += 1
 
         except Exception as e:
-            logger.warning(
+            self.warn(
+                logger,
+                "view_downstream_lineage",
                 f"Extracting the view lineage from Snowflake failed."
-                f"Please check your permissions. Continuing...\nError was {e}."
+                f"Please check your permissions. Continuing...\nError was {e}.",
             )
         logger.info(
             f"Found {num_edges} View->Table edges. Removed {num_false_edges} false Table->Table edges."
@@ -399,16 +439,12 @@ WHERE
     def _populate_view_lineage(self) -> None:
         if not self.config.include_view_lineage:
             return
-        url = self.config.get_sql_alchemy_url()
-        logger.debug(f"sql_alchemy_url={url}")
-        engine = create_engine(url, **self.config.options)
+        engine = self.get_metadata_engine(database=None)
         self._populate_view_upstream_lineage(engine)
         self._populate_view_downstream_lineage(engine)
 
     def _populate_external_lineage(self) -> None:
-        url = self.config.get_sql_alchemy_url()
-        logger.debug(f"sql_alchemy_url={url}")
-        engine = create_engine(url, **self.config.options)
+        engine = self.get_metadata_engine(database=None)
         # Handles the case where a table is populated from an external location via copy.
         # Eg: copy into category_english from 's3://acryl-snow-demo-olist/olist_raw_data/category_english'credentials=(aws_key_id='...' aws_secret_key='...')  pattern='.*.csv';
         query: str = """
@@ -464,21 +500,17 @@ WHERE
                 )
                 num_edges += 1
         except Exception as e:
-            logger.warning(
+            self.warn(
+                logger,
+                "external_lineage",
                 f"Populating external table lineage from Snowflake failed."
-                f"Please check your premissions. Continuing...\nError was {e}."
+                f"Please check your premissions. Continuing...\nError was {e}.",
             )
         logger.info(f"Found {num_edges} external lineage edges.")
         self.report.num_external_table_edges_scanned = num_edges
 
     def _populate_lineage(self) -> None:
-        url = self.config.get_sql_alchemy_url()
-        logger.debug(f"sql_alchemy_url={url}")
-        engine = create_engine(
-            url,
-            connect_args=self.config.get_sql_alchemy_connect_args(),
-            **self.config.options,
-        )
+        engine = self.get_metadata_engine(database=None)
         query: str = """
 WITH table_lineage_history AS (
     SELECT
@@ -521,9 +553,11 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
                     f"Lineage[Table(Down)={key}]:Table(Up)={self._lineage_map[key]}"
                 )
         except Exception as e:
-            logger.warning(
+            self.warn(
+                logger,
+                "lineage",
                 f"Extracting lineage from Snowflake failed."
-                f"Please check your premissions. Continuing...\nError was {e}."
+                f"Please check your premissions. Continuing...\nError was {e}.",
             )
         logger.info(
             f"A total of {num_edges} Table->Table edges found"
@@ -611,6 +645,13 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
 
     # Override the base class method.
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+        try:
+            self.inspect_version()
+        except Exception as e:
+            self.report.report_failure("version", f"Error: {e}")
+            return
+
+        self.inspect_role_grants()
         for wu in super().get_workunits():
             if (
                 self.config.include_table_lineage

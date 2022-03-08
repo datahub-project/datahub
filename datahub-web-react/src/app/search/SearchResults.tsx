@@ -78,8 +78,8 @@ const FiltersHeader = styled.div`
     padding-bottom: 8px;
 
     width: 100%;
-    height: 46px;
-    line-height: 46px;
+    height: 47px;
+    line-height: 47px;
     border-bottom: 1px solid;
     border-color: ${(props) => props.theme.styles['border-color-base']};
 `;
