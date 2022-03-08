@@ -1,7 +1,10 @@
+import fnmatch
+import gc
 import json
 import logging
 import pathlib
 import sys
+import tracemalloc
 from datetime import datetime
 
 import click
@@ -63,8 +66,22 @@ def ingest() -> None:
     default=False,
     help="If enabled, ingestion runs with warnings will yield a non-zero error code",
 )
+@click.option(
+    "-ml",
+    "--detect-memory-leaks",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Run memory leak detection using tracemalloc.",
+)
 @telemetry.with_telemetry
-def run(config: str, dry_run: bool, preview: bool, strict_warnings: bool) -> None:
+def run(
+    config: str,
+    dry_run: bool,
+    preview: bool,
+    strict_warnings: bool,
+    detect_memory_leaks: bool,
+) -> None:
     """Ingest metadata into DataHub."""
 
     logger.info("DataHub CLI version: %s", datahub_package.nice_version_name())
@@ -83,11 +100,80 @@ def run(config: str, dry_run: bool, preview: bool, strict_warnings: bool) -> Non
         # in a SensitiveError to prevent detailed variable-level information from being logged.
         raise SensitiveError() from e
 
+    if detect_memory_leaks:
+        tracemalloc.start(25)
+        if sys.version_info[0] >= 3 and sys.version_info[1] >= 9:
+            tracemalloc.reset_peak()
+        # snapshot_before_run = tracemalloc.take_snapshot()
+        gc.set_debug(gc.DEBUG_LEAK)
     logger.info("Starting metadata ingestion")
     pipeline.run()
     logger.info("Finished metadata ingestion")
     ret = pipeline.pretty_print_summary(warnings_as_failure=strict_warnings)
     pipeline.log_ingestion_stats()
+
+    def trace_has_file(trace: tracemalloc.Traceback, file_pattern: str) -> bool:
+        for frame_index in range(0, len(trace)):
+            cur_frame = trace[frame_index]
+            if fnmatch.fnmatch(cur_frame.filename, file_pattern):
+                return True
+        return False
+
+    if detect_memory_leaks:
+        del pipeline
+        logger.info(f"GC count before collect {gc.get_count()}")
+        num_unreacheable_objects = gc.collect()
+        logger.info(f"Number of unreachable objects = {num_unreacheable_objects}")
+        logger.info(f"GC count after collect {gc.get_count()}")
+        logger.info("Potentially leaking objects start")
+        traces_seen = set()
+        for obj in gc.garbage:
+            obj_trace = tracemalloc.get_object_traceback(obj)
+            if (obj_trace is not None) and (obj_trace not in traces_seen):
+                traces_seen.add(obj_trace)
+                if trace_has_file(obj_trace, "*lookml.py"):
+                    referrers = gc.get_referrers(obj)
+                    logger.info(
+                        f"#Referrers:{len(referrers)}; Allocation Trace:\n\t"
+                        + "\n\t".join(
+                            obj_trace.format(limit=25, most_recent_first=True)
+                        )
+                    )
+                    for ref_index, referrer in enumerate(referrers):
+                        ref_trace = tracemalloc.get_object_traceback(referrer)
+                        logger.info(
+                            f"Referrer[{ref_index}] Object:{str(referrer)}, Trace:\n\t"
+                            + "\n\t".join(
+                                ref_trace.format(limit=5, most_recent_first=True)
+                                if ref_trace
+                                else []
+                            )
+                        )
+
+        logger.info("Potentially leaking objects end")
+
+        traced_memory_size, traced_memory_peak = tracemalloc.get_traced_memory()
+        logger.info(
+            f"Traced Memory: size={traced_memory_size}, peak={traced_memory_peak}"
+        )
+        # filter = tracemalloc.Filter(
+        #    inclusive=True, filename_pattern="*datahub/ingestion*.py"
+        # )
+        snapshot_after_run = tracemalloc.take_snapshot()
+        # snapshot_before_run = snapshot_before_run.filter_traces([filter])
+        # snapshot_after_run = snapshot_after_run.filter_traces([filter])
+        logger.info("After run stats")
+        for stat in snapshot_after_run.statistics("lineno", cumulative=True):
+            logger.info(
+                f"size={stat.size}, count={stat.count}Trace=\n\t"
+                + "\n\t".join(stat.traceback.format(limit=25, most_recent_first=True))
+                + "\n\n"
+            )
+        # logger.info("Diff report")
+        # for diff in snapshot_after_run.compare_to(snapshot_before_run, "lineno")[:10]:
+        #    logger.info(f"{diff}\n{diff.traceback.format(limit=25, most_recent_first=True)}")
+        # logger.info(diff)
+        tracemalloc.stop()
     sys.exit(ret)
 
 
