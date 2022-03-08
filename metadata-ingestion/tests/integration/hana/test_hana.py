@@ -16,7 +16,7 @@ def test_hana_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "hana"
     ) as docker_services:
-        wait_for_port(docker_services, "testhana", 3306)
+        wait_for_port(docker_services=docker_services, container_name="testhana", container_port=39041, hostname="localhost", timeout=300)
 
         # Run the metadata ingestion pipeline.
         config_file = (test_resources_dir / "hana_to_file.yml").resolve()

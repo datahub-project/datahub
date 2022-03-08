@@ -1,1796 +1,795 @@
 [
-  {
+{
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:17751259af32dd0385cad799df608c40",
+    "entityUrn": "urn:li:container:c8107a53ee221a15de176e4d34a06940",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-      "value": "{\"customProperties\": {\"platform\": \"mysql\", \"instance\": \"PROD\", \"database\": \"metagalaxy\"}, \"name\": \"metagalaxy\"}",
-      "contentType": "application/json"
+        "value": "{\"customProperties\": {\"platform\": \"hana\", \"instance\": \"PROD\", \"database\": \"hxe\"}, \"name\": \"hxe\"}",
+        "contentType": "application/json"
     },
     "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
+        "lastObserved": 1586847600000,
+        "runId": "hana-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
     }
-  },
-  {
+},
+{
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:17751259af32dd0385cad799df608c40",
+    "entityUrn": "urn:li:container:c8107a53ee221a15de176e4d34a06940",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-      "value": "{\"platform\": \"urn:li:dataPlatform:mysql\"}",
-      "contentType": "application/json"
+        "value": "{\"platform\": \"urn:li:dataPlatform:hana\"}",
+        "contentType": "application/json"
     },
     "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
+        "lastObserved": 1586847600000,
+        "runId": "hana-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
     }
-  },
-  {
+},
+{
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:17751259af32dd0385cad799df608c40",
+    "entityUrn": "urn:li:container:c8107a53ee221a15de176e4d34a06940",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-      "value": "{\"typeNames\": [\"Database\"]}",
-      "contentType": "application/json"
+        "value": "{\"typeNames\": [\"Database\"]}",
+        "contentType": "application/json"
     },
     "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
+        "lastObserved": 1586847600000,
+        "runId": "hana-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
     }
-  },
-  {
+},
+{
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:17751259af32dd0385cad799df608c40",
+    "entityUrn": "urn:li:container:f870c782e0a44727bd10da2ab742363b",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "value": "{\"customProperties\": {\"platform\": \"hana\", \"instance\": \"PROD\", \"database\": \"hxe\", \"schema\": \"hotel\"}, \"name\": \"hotel\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "hana-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f870c782e0a44727bd10da2ab742363b",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:hana\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "hana-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f870c782e0a44727bd10da2ab742363b",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"Schema\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "hana-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f870c782e0a44727bd10da2ab742363b",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "value": "{\"container\": \"urn:li:container:c8107a53ee221a15de176e4d34a06940\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "hana-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hana,hotel.customer,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "value": "{\"container\": \"urn:li:container:f870c782e0a44727bd10da2ab742363b\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "hana-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:hana,hotel.customer,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "hotel.customer",
+                        "platform": "urn:li:dataPlatform:hana",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null
+                        },
+                        "deleted": null,
+                        "dataset": null,
+                        "cluster": null,
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "cno",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER()",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": true,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "title",
+                                "jsonPath": null,
+                                "nullable": true,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR(length=7)",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "firstname",
+                                "jsonPath": null,
+                                "nullable": true,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR(length=20)",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "name",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR(length=40)",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "address",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR(length=40)",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "zip",
+                                "jsonPath": null,
+                                "nullable": true,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR(length=6)",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            }
+                        ],
+                        "primaryKeys": null,
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "hana-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hana,hotel.customer,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "domains",
     "aspect": {
-      "value": "{\"domains\": [\"urn:li:domain:sales\"]}",
-      "contentType": "application/json"
+        "value": "{\"domains\": [\"urn:li:domain:sales\"]}",
+        "contentType": "application/json"
     },
     "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
+        "lastObserved": 1586847600000,
+        "runId": "hana-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
     }
-  },
-  {
-    "auditHeader": null,
-    "entityType": "container",
-    "entityUrn": "urn:li:container:ba408413d97771e6470c16f9869f2e0d",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-      "value": "{\"customProperties\": {\"platform\": \"mysql\", \"instance\": \"PROD\", \"database\": \"metagalaxy\", \"schema\": \"datacharmer\"}, \"name\": \"datacharmer\"}",
-      "contentType": "application/json"
-    },
-    "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
-    }
-  },
-  {
-    "auditHeader": null,
-    "entityType": "container",
-    "entityUrn": "urn:li:container:ba408413d97771e6470c16f9869f2e0d",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-      "value": "{\"platform\": \"urn:li:dataPlatform:mysql\"}",
-      "contentType": "application/json"
-    },
-    "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
-    }
-  },
-  {
-    "auditHeader": null,
-    "entityType": "container",
-    "entityUrn": "urn:li:container:ba408413d97771e6470c16f9869f2e0d",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-      "value": "{\"typeNames\": [\"Schema\"]}",
-      "contentType": "application/json"
-    },
-    "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
-    }
-  },
-  {
-    "auditHeader": null,
-    "entityType": "container",
-    "entityUrn": "urn:li:container:ba408413d97771e6470c16f9869f2e0d",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-      "value": "{\"container\": \"urn:li:container:17751259af32dd0385cad799df608c40\"}",
-      "contentType": "application/json"
-    },
-    "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
-    }
-  },
-  {
+},
+{
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datacharmer.employees,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hana,hotel.hotel,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:ba408413d97771e6470c16f9869f2e0d\"}",
-      "contentType": "application/json"
+        "value": "{\"container\": \"urn:li:container:f870c782e0a44727bd10da2ab742363b\"}",
+        "contentType": "application/json"
     },
     "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
+        "lastObserved": 1586847600000,
+        "runId": "hana-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
     }
-  },
-  {
+},
+{
     "auditHeader": null,
     "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datacharmer.employees,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.common.Status": {
-              "removed": false
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-              "schemaName": "datacharmer.employees",
-              "platform": "urn:li:dataPlatform:mysql",
-              "version": 0,
-              "created": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown",
-                "impersonator": null
-              },
-              "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown",
-                "impersonator": null
-              },
-              "deleted": null,
-              "dataset": null,
-              "cluster": null,
-              "hash": "",
-              "platformSchema": {
-                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
-                  "tableSchema": ""
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:hana,hotel.hotel,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "hotel.hotel",
+                        "platform": "urn:li:dataPlatform:hana",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null
+                        },
+                        "deleted": null,
+                        "dataset": null,
+                        "cluster": null,
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "hno",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER()",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": true,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "name",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR(length=50)",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "address",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR(length=40)",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "city",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR(length=30)",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "state",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR(length=2)",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "zip",
+                                "jsonPath": null,
+                                "nullable": true,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR(length=6)",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            }
+                        ],
+                        "primaryKeys": null,
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
+                    }
                 }
-              },
-              "fields": [
-                {
-                  "fieldPath": "emp_no",
-                  "jsonPath": null,
-                  "nullable": false,
-                  "description": null,
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.NumberType": {}
-                    }
-                  },
-                  "nativeDataType": "INTEGER()",
-                  "recursive": false,
-                  "globalTags": null,
-                  "glossaryTerms": null,
-                  "isPartOfKey": true,
-                  "jsonProps": null
-                },
-                {
-                  "fieldPath": "birth_date",
-                  "jsonPath": null,
-                  "nullable": false,
-                  "description": null,
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.DateType": {}
-                    }
-                  },
-                  "nativeDataType": "DATE()",
-                  "recursive": false,
-                  "globalTags": null,
-                  "glossaryTerms": null,
-                  "isPartOfKey": false,
-                  "jsonProps": null
-                },
-                {
-                  "fieldPath": "first_name",
-                  "jsonPath": null,
-                  "nullable": false,
-                  "description": null,
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.StringType": {}
-                    }
-                  },
-                  "nativeDataType": "VARCHAR(length=14)",
-                  "recursive": false,
-                  "globalTags": null,
-                  "glossaryTerms": null,
-                  "isPartOfKey": false,
-                  "jsonProps": null
-                },
-                {
-                  "fieldPath": "last_name",
-                  "jsonPath": null,
-                  "nullable": false,
-                  "description": null,
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.StringType": {}
-                    }
-                  },
-                  "nativeDataType": "VARCHAR(length=16)",
-                  "recursive": false,
-                  "globalTags": null,
-                  "glossaryTerms": null,
-                  "isPartOfKey": false,
-                  "jsonProps": null
-                },
-                {
-                  "fieldPath": "gender",
-                  "jsonPath": null,
-                  "nullable": false,
-                  "description": null,
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.EnumType": {}
-                    }
-                  },
-                  "nativeDataType": "ENUM('M', 'F')",
-                  "recursive": false,
-                  "globalTags": null,
-                  "glossaryTerms": null,
-                  "isPartOfKey": false,
-                  "jsonProps": null
-                },
-                {
-                  "fieldPath": "hire_date",
-                  "jsonPath": null,
-                  "nullable": false,
-                  "description": null,
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.DateType": {}
-                    }
-                  },
-                  "nativeDataType": "DATE()",
-                  "recursive": false,
-                  "globalTags": null,
-                  "glossaryTerms": null,
-                  "isPartOfKey": false,
-                  "jsonProps": null
-                }
-              ],
-              "primaryKeys": null,
-              "foreignKeysSpecs": null,
-              "foreignKeys": null
-            }
-          }
-        ]
-      }
+            ]
+        }
     },
     "proposedDelta": null,
     "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
+        "lastObserved": 1586847600000,
+        "runId": "hana-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
     }
-  },
-  {
+},
+{
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datacharmer.salaries,PROD)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-      "value": "{\"container\": \"urn:li:container:ba408413d97771e6470c16f9869f2e0d\"}",
-      "contentType": "application/json"
-    },
-    "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
-    }
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datacharmer.salaries,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.common.Status": {
-              "removed": false
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-              "schemaName": "datacharmer.salaries",
-              "platform": "urn:li:dataPlatform:mysql",
-              "version": 0,
-              "created": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown",
-                "impersonator": null
-              },
-              "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown",
-                "impersonator": null
-              },
-              "deleted": null,
-              "dataset": null,
-              "cluster": null,
-              "hash": "",
-              "platformSchema": {
-                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
-                  "tableSchema": ""
-                }
-              },
-              "fields": [
-                {
-                  "fieldPath": "emp_no",
-                  "jsonPath": null,
-                  "nullable": false,
-                  "description": null,
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.NumberType": {}
-                    }
-                  },
-                  "nativeDataType": "INTEGER()",
-                  "recursive": false,
-                  "globalTags": null,
-                  "glossaryTerms": null,
-                  "isPartOfKey": true,
-                  "jsonProps": null
-                },
-                {
-                  "fieldPath": "salary",
-                  "jsonPath": null,
-                  "nullable": false,
-                  "description": null,
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.NumberType": {}
-                    }
-                  },
-                  "nativeDataType": "INTEGER()",
-                  "recursive": false,
-                  "globalTags": null,
-                  "glossaryTerms": null,
-                  "isPartOfKey": false,
-                  "jsonProps": null
-                },
-                {
-                  "fieldPath": "from_date",
-                  "jsonPath": null,
-                  "nullable": false,
-                  "description": null,
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.DateType": {}
-                    }
-                  },
-                  "nativeDataType": "DATE()",
-                  "recursive": false,
-                  "globalTags": null,
-                  "glossaryTerms": null,
-                  "isPartOfKey": true,
-                  "jsonProps": null
-                },
-                {
-                  "fieldPath": "to_date",
-                  "jsonPath": null,
-                  "nullable": false,
-                  "description": null,
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.DateType": {}
-                    }
-                  },
-                  "nativeDataType": "DATE()",
-                  "recursive": false,
-                  "globalTags": null,
-                  "glossaryTerms": null,
-                  "isPartOfKey": false,
-                  "jsonProps": null
-                }
-              ],
-              "primaryKeys": null,
-              "foreignKeysSpecs": null,
-              "foreignKeys": null
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
-    }
-  },
-  {
-    "auditHeader": null,
-    "entityType": "container",
-    "entityUrn": "urn:li:container:593ea3998729fdae4bdfb42206561a3a",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-      "value": "{\"customProperties\": {\"platform\": \"mysql\", \"instance\": \"PROD\", \"database\": \"metagalaxy\", \"schema\": \"metagalaxy\"}, \"name\": \"metagalaxy\"}",
-      "contentType": "application/json"
-    },
-    "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
-    }
-  },
-  {
-    "auditHeader": null,
-    "entityType": "container",
-    "entityUrn": "urn:li:container:593ea3998729fdae4bdfb42206561a3a",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-      "value": "{\"platform\": \"urn:li:dataPlatform:mysql\"}",
-      "contentType": "application/json"
-    },
-    "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
-    }
-  },
-  {
-    "auditHeader": null,
-    "entityType": "container",
-    "entityUrn": "urn:li:container:593ea3998729fdae4bdfb42206561a3a",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-      "value": "{\"typeNames\": [\"Schema\"]}",
-      "contentType": "application/json"
-    },
-    "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
-    }
-  },
-  {
-    "auditHeader": null,
-    "entityType": "container",
-    "entityUrn": "urn:li:container:593ea3998729fdae4bdfb42206561a3a",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-      "value": "{\"container\": \"urn:li:container:17751259af32dd0385cad799df608c40\"}",
-      "contentType": "application/json"
-    },
-    "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
-    }
-  },
-  {
-    "auditHeader": null,
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_aspect,PROD)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-      "value": "{\"container\": \"urn:li:container:593ea3998729fdae4bdfb42206561a3a\"}",
-      "contentType": "application/json"
-    },
-    "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
-    }
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_aspect,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.common.Status": {
-              "removed": false
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-              "schemaName": "metagalaxy.metadata_aspect",
-              "platform": "urn:li:dataPlatform:mysql",
-              "version": 0,
-              "created": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown",
-                "impersonator": null
-              },
-              "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown",
-                "impersonator": null
-              },
-              "deleted": null,
-              "dataset": null,
-              "cluster": null,
-              "hash": "",
-              "platformSchema": {
-                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
-                  "tableSchema": ""
-                }
-              },
-              "fields": [
-                {
-                  "fieldPath": "urn",
-                  "jsonPath": null,
-                  "nullable": false,
-                  "description": null,
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.StringType": {}
-                    }
-                  },
-                  "nativeDataType": "VARCHAR(length=500)",
-                  "recursive": false,
-                  "globalTags": null,
-                  "glossaryTerms": null,
-                  "isPartOfKey": true,
-                  "jsonProps": null
-                },
-                {
-                  "fieldPath": "aspect",
-                  "jsonPath": null,
-                  "nullable": false,
-                  "description": null,
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.StringType": {}
-                    }
-                  },
-                  "nativeDataType": "VARCHAR(length=200)",
-                  "recursive": false,
-                  "globalTags": null,
-                  "glossaryTerms": null,
-                  "isPartOfKey": true,
-                  "jsonProps": null
-                },
-                {
-                  "fieldPath": "version",
-                  "jsonPath": null,
-                  "nullable": false,
-                  "description": null,
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.NumberType": {}
-                    }
-                  },
-                  "nativeDataType": "BIGINT()",
-                  "recursive": false,
-                  "globalTags": null,
-                  "glossaryTerms": null,
-                  "isPartOfKey": true,
-                  "jsonProps": null
-                },
-                {
-                  "fieldPath": "metadata",
-                  "jsonPath": null,
-                  "nullable": false,
-                  "description": null,
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.StringType": {}
-                    }
-                  },
-                  "nativeDataType": "LONGTEXT()",
-                  "recursive": false,
-                  "globalTags": null,
-                  "glossaryTerms": null,
-                  "isPartOfKey": false,
-                  "jsonProps": null
-                },
-                {
-                  "fieldPath": "createdon",
-                  "jsonPath": null,
-                  "nullable": false,
-                  "description": null,
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.TimeType": {}
-                    }
-                  },
-                  "nativeDataType": "DATETIME(fsp=6)",
-                  "recursive": false,
-                  "globalTags": null,
-                  "glossaryTerms": null,
-                  "isPartOfKey": false,
-                  "jsonProps": null
-                },
-                {
-                  "fieldPath": "createdby",
-                  "jsonPath": null,
-                  "nullable": false,
-                  "description": null,
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.StringType": {}
-                    }
-                  },
-                  "nativeDataType": "VARCHAR(length=255)",
-                  "recursive": false,
-                  "globalTags": null,
-                  "glossaryTerms": null,
-                  "isPartOfKey": false,
-                  "jsonProps": null
-                },
-                {
-                  "fieldPath": "createdfor",
-                  "jsonPath": null,
-                  "nullable": true,
-                  "description": null,
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.StringType": {}
-                    }
-                  },
-                  "nativeDataType": "VARCHAR(length=255)",
-                  "recursive": false,
-                  "globalTags": null,
-                  "glossaryTerms": null,
-                  "isPartOfKey": false,
-                  "jsonProps": null
-                }
-              ],
-              "primaryKeys": null,
-              "foreignKeysSpecs": null,
-              "foreignKeys": null
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
-    }
-  },
-  {
-    "auditHeader": null,
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_aspect,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hana,hotel.hotel,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "domains",
     "aspect": {
-      "value": "{\"domains\": [\"urn:li:domain:sales\"]}",
-      "contentType": "application/json"
+        "value": "{\"domains\": [\"urn:li:domain:sales\"]}",
+        "contentType": "application/json"
     },
     "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
+        "lastObserved": 1586847600000,
+        "runId": "hana-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
     }
-  },
-  {
+},
+{
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hana,hotel.maintenance,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:593ea3998729fdae4bdfb42206561a3a\"}",
-      "contentType": "application/json"
+        "value": "{\"container\": \"urn:li:container:f870c782e0a44727bd10da2ab742363b\"}",
+        "contentType": "application/json"
     },
     "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
+        "lastObserved": 1586847600000,
+        "runId": "hana-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
     }
-  },
-  {
+},
+{
     "auditHeader": null,
     "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.common.Status": {
-              "removed": false
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-              "customProperties": {},
-              "externalUrl": null,
-              "description": "This is a table comment",
-              "uri": null,
-              "tags": []
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-              "schemaName": "metagalaxy.metadata_index",
-              "platform": "urn:li:dataPlatform:mysql",
-              "version": 0,
-              "created": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown",
-                "impersonator": null
-              },
-              "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown",
-                "impersonator": null
-              },
-              "deleted": null,
-              "dataset": null,
-              "cluster": null,
-              "hash": "",
-              "platformSchema": {
-                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
-                  "tableSchema": ""
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:hana,hotel.maintenance,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "hotel.maintenance",
+                        "platform": "urn:li:dataPlatform:hana",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null
+                        },
+                        "deleted": null,
+                        "dataset": null,
+                        "cluster": null,
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "mno",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER()",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": true,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "hno",
+                                "jsonPath": null,
+                                "nullable": true,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER()",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "description",
+                                "jsonPath": null,
+                                "nullable": true,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR(length=100)",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "date_performed",
+                                "jsonPath": null,
+                                "nullable": true,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.DateType": {}
+                                    }
+                                },
+                                "nativeDataType": "DATE()",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "performed_by",
+                                "jsonPath": null,
+                                "nullable": true,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR(length=40)",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            }
+                        ],
+                        "primaryKeys": null,
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
+                    }
                 }
-              },
-              "fields": [
-                {
-                  "fieldPath": "id",
-                  "jsonPath": null,
-                  "nullable": false,
-                  "description": null,
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.NumberType": {}
-                    }
-                  },
-                  "nativeDataType": "BIGINT()",
-                  "recursive": false,
-                  "globalTags": null,
-                  "glossaryTerms": null,
-                  "isPartOfKey": true,
-                  "jsonProps": null
-                },
-                {
-                  "fieldPath": "urn",
-                  "jsonPath": null,
-                  "nullable": false,
-                  "description": "This is a column comment about URNs",
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.StringType": {}
-                    }
-                  },
-                  "nativeDataType": "VARCHAR(length=200)",
-                  "recursive": false,
-                  "globalTags": null,
-                  "glossaryTerms": null,
-                  "isPartOfKey": false,
-                  "jsonProps": null
-                },
-                {
-                  "fieldPath": "aspect",
-                  "jsonPath": null,
-                  "nullable": false,
-                  "description": null,
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.StringType": {}
-                    }
-                  },
-                  "nativeDataType": "VARCHAR(length=150)",
-                  "recursive": false,
-                  "globalTags": null,
-                  "glossaryTerms": null,
-                  "isPartOfKey": false,
-                  "jsonProps": null
-                },
-                {
-                  "fieldPath": "path",
-                  "jsonPath": null,
-                  "nullable": false,
-                  "description": null,
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.StringType": {}
-                    }
-                  },
-                  "nativeDataType": "VARCHAR(length=150)",
-                  "recursive": false,
-                  "globalTags": null,
-                  "glossaryTerms": null,
-                  "isPartOfKey": false,
-                  "jsonProps": null
-                },
-                {
-                  "fieldPath": "longVal",
-                  "jsonPath": null,
-                  "nullable": true,
-                  "description": null,
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.NumberType": {}
-                    }
-                  },
-                  "nativeDataType": "BIGINT()",
-                  "recursive": false,
-                  "globalTags": null,
-                  "glossaryTerms": null,
-                  "isPartOfKey": false,
-                  "jsonProps": null
-                },
-                {
-                  "fieldPath": "stringVal",
-                  "jsonPath": null,
-                  "nullable": true,
-                  "description": null,
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.StringType": {}
-                    }
-                  },
-                  "nativeDataType": "VARCHAR(length=200)",
-                  "recursive": false,
-                  "globalTags": null,
-                  "glossaryTerms": null,
-                  "isPartOfKey": false,
-                  "jsonProps": null
-                },
-                {
-                  "fieldPath": "doubleVal",
-                  "jsonPath": null,
-                  "nullable": true,
-                  "description": null,
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.NumberType": {}
-                    }
-                  },
-                  "nativeDataType": "DOUBLE(asdecimal=True)",
-                  "recursive": false,
-                  "globalTags": null,
-                  "glossaryTerms": null,
-                  "isPartOfKey": false,
-                  "jsonProps": null
-                }
-              ],
-              "primaryKeys": null,
-              "foreignKeysSpecs": null,
-              "foreignKeys": null
-            }
-          }
-        ]
-      }
+            ]
+        }
     },
     "proposedDelta": null,
     "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
+        "lastObserved": 1586847600000,
+        "runId": "hana-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
     }
-  },
-  {
+},
+{
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hana,hotel.maintenance,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "domains",
     "aspect": {
-      "value": "{\"domains\": [\"urn:li:domain:sales\"]}",
-      "contentType": "application/json"
+        "value": "{\"domains\": [\"urn:li:domain:sales\"]}",
+        "contentType": "application/json"
     },
     "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
+        "lastObserved": 1586847600000,
+        "runId": "hana-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
     }
-  },
-  {
+},
+{
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index_view,PROD)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-      "value": "{\"container\": \"urn:li:container:593ea3998729fdae4bdfb42206561a3a\"}",
-      "contentType": "application/json"
-    },
-    "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
-    }
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index_view,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.common.Status": {
-              "removed": false
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-              "customProperties": {
-                "view_definition": "CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `metadata_index_view` AS select `metadata_index`.`id` AS `id`,`metadata_index`.`urn` AS `urn`,`metadata_index`.`path` AS `path`,`metadata_index`.`doubleVal` AS `doubleVal` from `metadata_index`",
-                "is_view": "True"
-              },
-              "externalUrl": null,
-              "description": null,
-              "uri": null,
-              "tags": []
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-              "schemaName": "metagalaxy.metadata_index_view",
-              "platform": "urn:li:dataPlatform:mysql",
-              "version": 0,
-              "created": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown",
-                "impersonator": null
-              },
-              "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown",
-                "impersonator": null
-              },
-              "deleted": null,
-              "dataset": null,
-              "cluster": null,
-              "hash": "",
-              "platformSchema": {
-                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
-                  "tableSchema": ""
-                }
-              },
-              "fields": [
-                {
-                  "fieldPath": "id",
-                  "jsonPath": null,
-                  "nullable": true,
-                  "description": null,
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.NumberType": {}
-                    }
-                  },
-                  "nativeDataType": "BIGINT()",
-                  "recursive": false,
-                  "globalTags": null,
-                  "glossaryTerms": null,
-                  "isPartOfKey": false,
-                  "jsonProps": null
-                },
-                {
-                  "fieldPath": "urn",
-                  "jsonPath": null,
-                  "nullable": true,
-                  "description": null,
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.StringType": {}
-                    }
-                  },
-                  "nativeDataType": "VARCHAR(length=200)",
-                  "recursive": false,
-                  "globalTags": null,
-                  "glossaryTerms": null,
-                  "isPartOfKey": false,
-                  "jsonProps": null
-                },
-                {
-                  "fieldPath": "path",
-                  "jsonPath": null,
-                  "nullable": true,
-                  "description": null,
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.StringType": {}
-                    }
-                  },
-                  "nativeDataType": "VARCHAR(length=150)",
-                  "recursive": false,
-                  "globalTags": null,
-                  "glossaryTerms": null,
-                  "isPartOfKey": false,
-                  "jsonProps": null
-                },
-                {
-                  "fieldPath": "doubleVal",
-                  "jsonPath": null,
-                  "nullable": true,
-                  "description": null,
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.NumberType": {}
-                    }
-                  },
-                  "nativeDataType": "DOUBLE(asdecimal=True)",
-                  "recursive": false,
-                  "globalTags": null,
-                  "glossaryTerms": null,
-                  "isPartOfKey": false,
-                  "jsonProps": null
-                }
-              ],
-              "primaryKeys": null,
-              "foreignKeysSpecs": null,
-              "foreignKeys": null
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
-    }
-  },
-  {
-    "auditHeader": null,
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index_view,PROD)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "domains",
-    "aspect": {
-      "value": "{\"domains\": [\"urn:li:domain:sales\"]}",
-      "contentType": "application/json"
-    },
-    "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
-    }
-  },
-  {
-    "auditHeader": null,
-    "entityType": "container",
-    "entityUrn": "urn:li:container:36bfb6eae3f7972efbcb56dedecdfba6",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-      "value": "{\"customProperties\": {\"platform\": \"mysql\", \"instance\": \"PROD\", \"database\": \"metagalaxy\", \"schema\": \"northwind\"}, \"name\": \"northwind\"}",
-      "contentType": "application/json"
-    },
-    "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
-    }
-  },
-  {
-    "auditHeader": null,
-    "entityType": "container",
-    "entityUrn": "urn:li:container:36bfb6eae3f7972efbcb56dedecdfba6",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-      "value": "{\"platform\": \"urn:li:dataPlatform:mysql\"}",
-      "contentType": "application/json"
-    },
-    "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
-    }
-  },
-  {
-    "auditHeader": null,
-    "entityType": "container",
-    "entityUrn": "urn:li:container:36bfb6eae3f7972efbcb56dedecdfba6",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-      "value": "{\"typeNames\": [\"Schema\"]}",
-      "contentType": "application/json"
-    },
-    "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
-    }
-  },
-  {
-    "auditHeader": null,
-    "entityType": "container",
-    "entityUrn": "urn:li:container:36bfb6eae3f7972efbcb56dedecdfba6",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-      "value": "{\"container\": \"urn:li:container:17751259af32dd0385cad799df608c40\"}",
-      "contentType": "application/json"
-    },
-    "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
-    }
-  },
-  {
-    "auditHeader": null,
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customers,PROD)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-      "value": "{\"container\": \"urn:li:container:36bfb6eae3f7972efbcb56dedecdfba6\"}",
-      "contentType": "application/json"
-    },
-    "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
-    }
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customers,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.common.Status": {
-              "removed": false
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-              "schemaName": "northwind.customers",
-              "platform": "urn:li:dataPlatform:mysql",
-              "version": 0,
-              "created": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown",
-                "impersonator": null
-              },
-              "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown",
-                "impersonator": null
-              },
-              "deleted": null,
-              "dataset": null,
-              "cluster": null,
-              "hash": "",
-              "platformSchema": {
-                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
-                  "tableSchema": ""
-                }
-              },
-              "fields": [
-                {
-                  "fieldPath": "id",
-                  "jsonPath": null,
-                  "nullable": false,
-                  "description": null,
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.NumberType": {}
-                    }
-                  },
-                  "nativeDataType": "INTEGER()",
-                  "recursive": false,
-                  "globalTags": null,
-                  "glossaryTerms": null,
-                  "isPartOfKey": true,
-                  "jsonProps": null
-                },
-                {
-                  "fieldPath": "company",
-                  "jsonPath": null,
-                  "nullable": true,
-                  "description": null,
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.StringType": {}
-                    }
-                  },
-                  "nativeDataType": "VARCHAR(length=50)",
-                  "recursive": false,
-                  "globalTags": null,
-                  "glossaryTerms": null,
-                  "isPartOfKey": false,
-                  "jsonProps": null
-                },
-                {
-                  "fieldPath": "last_name",
-                  "jsonPath": null,
-                  "nullable": true,
-                  "description": null,
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.StringType": {}
-                    }
-                  },
-                  "nativeDataType": "VARCHAR(length=50)",
-                  "recursive": false,
-                  "globalTags": null,
-                  "glossaryTerms": null,
-                  "isPartOfKey": false,
-                  "jsonProps": null
-                },
-                {
-                  "fieldPath": "first_name",
-                  "jsonPath": null,
-                  "nullable": true,
-                  "description": null,
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.StringType": {}
-                    }
-                  },
-                  "nativeDataType": "VARCHAR(length=50)",
-                  "recursive": false,
-                  "globalTags": null,
-                  "glossaryTerms": null,
-                  "isPartOfKey": false,
-                  "jsonProps": null
-                },
-                {
-                  "fieldPath": "email_address",
-                  "jsonPath": null,
-                  "nullable": true,
-                  "description": null,
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.StringType": {}
-                    }
-                  },
-                  "nativeDataType": "VARCHAR(length=50)",
-                  "recursive": false,
-                  "globalTags": null,
-                  "glossaryTerms": null,
-                  "isPartOfKey": false,
-                  "jsonProps": null
-                },
-                {
-                  "fieldPath": "priority",
-                  "jsonPath": null,
-                  "nullable": true,
-                  "description": null,
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.NumberType": {}
-                    }
-                  },
-                  "nativeDataType": "FLOAT()",
-                  "recursive": false,
-                  "globalTags": null,
-                  "glossaryTerms": null,
-                  "isPartOfKey": false,
-                  "jsonProps": null
-                }
-              ],
-              "primaryKeys": null,
-              "foreignKeysSpecs": null,
-              "foreignKeys": null
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
-    }
-  },
-  {
-    "auditHeader": null,
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders,PROD)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-      "value": "{\"container\": \"urn:li:container:36bfb6eae3f7972efbcb56dedecdfba6\"}",
-      "contentType": "application/json"
-    },
-    "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
-    }
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.common.Status": {
-              "removed": false
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-              "schemaName": "northwind.orders",
-              "platform": "urn:li:dataPlatform:mysql",
-              "version": 0,
-              "created": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown",
-                "impersonator": null
-              },
-              "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown",
-                "impersonator": null
-              },
-              "deleted": null,
-              "dataset": null,
-              "cluster": null,
-              "hash": "",
-              "platformSchema": {
-                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
-                  "tableSchema": ""
-                }
-              },
-              "fields": [
-                {
-                  "fieldPath": "id",
-                  "jsonPath": null,
-                  "nullable": false,
-                  "description": null,
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.NumberType": {}
-                    }
-                  },
-                  "nativeDataType": "INTEGER()",
-                  "recursive": false,
-                  "globalTags": null,
-                  "glossaryTerms": null,
-                  "isPartOfKey": true,
-                  "jsonProps": null
-                },
-                {
-                  "fieldPath": "description",
-                  "jsonPath": null,
-                  "nullable": true,
-                  "description": null,
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.StringType": {}
-                    }
-                  },
-                  "nativeDataType": "VARCHAR(length=50)",
-                  "recursive": false,
-                  "globalTags": null,
-                  "glossaryTerms": null,
-                  "isPartOfKey": false,
-                  "jsonProps": null
-                },
-                {
-                  "fieldPath": "customer_id",
-                  "jsonPath": null,
-                  "nullable": false,
-                  "description": null,
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.NumberType": {}
-                    }
-                  },
-                  "nativeDataType": "INTEGER()",
-                  "recursive": false,
-                  "globalTags": null,
-                  "glossaryTerms": null,
-                  "isPartOfKey": false,
-                  "jsonProps": null
-                }
-              ],
-              "primaryKeys": null,
-              "foreignKeysSpecs": null,
-              "foreignKeys": [
-                {
-                  "name": "fk_order_customer",
-                  "foreignFields": [
-                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customers,PROD),id)"
-                  ],
-                  "sourceFields": [
-                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders,PROD),customer_id)"
-                  ],
-                  "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customers,PROD)"
-                }
-              ]
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
-    }
-  },
-  {
-    "auditHeader": null,
-    "entityType": "container",
-    "entityUrn": "urn:li:container:989c003cbe689094c2b5c340a67f62be",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-      "value": "{\"customProperties\": {\"platform\": \"mysql\", \"instance\": \"PROD\", \"database\": \"metagalaxy\", \"schema\": \"test_cases\"}, \"name\": \"test_cases\"}",
-      "contentType": "application/json"
-    },
-    "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
-    }
-  },
-  {
-    "auditHeader": null,
-    "entityType": "container",
-    "entityUrn": "urn:li:container:989c003cbe689094c2b5c340a67f62be",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-      "value": "{\"platform\": \"urn:li:dataPlatform:mysql\"}",
-      "contentType": "application/json"
-    },
-    "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
-    }
-  },
-  {
-    "auditHeader": null,
-    "entityType": "container",
-    "entityUrn": "urn:li:container:989c003cbe689094c2b5c340a67f62be",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-      "value": "{\"typeNames\": [\"Schema\"]}",
-      "contentType": "application/json"
-    },
-    "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
-    }
-  },
-  {
-    "auditHeader": null,
-    "entityType": "container",
-    "entityUrn": "urn:li:container:989c003cbe689094c2b5c340a67f62be",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-      "value": "{\"container\": \"urn:li:container:17751259af32dd0385cad799df608c40\"}",
-      "contentType": "application/json"
-    },
-    "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
-    }
-  },
-  {
-    "auditHeader": null,
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,test_cases.test_empty,PROD)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-      "value": "{\"container\": \"urn:li:container:989c003cbe689094c2b5c340a67f62be\"}",
-      "contentType": "application/json"
-    },
-    "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
-    }
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,test_cases.test_empty,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.common.Status": {
-              "removed": false
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-              "schemaName": "test_cases.test_empty",
-              "platform": "urn:li:dataPlatform:mysql",
-              "version": 0,
-              "created": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown",
-                "impersonator": null
-              },
-              "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown",
-                "impersonator": null
-              },
-              "deleted": null,
-              "dataset": null,
-              "cluster": null,
-              "hash": "",
-              "platformSchema": {
-                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
-                  "tableSchema": ""
-                }
-              },
-              "fields": [
-                {
-                  "fieldPath": "dummy",
-                  "jsonPath": null,
-                  "nullable": true,
-                  "description": null,
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.StringType": {}
-                    }
-                  },
-                  "nativeDataType": "VARCHAR(length=50)",
-                  "recursive": false,
-                  "globalTags": null,
-                  "glossaryTerms": null,
-                  "isPartOfKey": false,
-                  "jsonProps": null
-                }
-              ],
-              "primaryKeys": null,
-              "foreignKeysSpecs": null,
-              "foreignKeys": null
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
-    }
-  },
-  {
-    "auditHeader": null,
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datacharmer.employees,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hana,hotel.customer,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
-      "value": "{\"timestampMillis\": 1586847600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 10, \"columnCount\": 6, \"fieldProfiles\": [{\"fieldPath\": \"emp_no\", \"uniqueCount\": 10, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"10001\", \"10002\", \"10003\", \"10004\", \"10005\", \"10006\", \"10007\", \"10008\", \"10009\", \"10010\"]}, {\"fieldPath\": \"birth_date\", \"uniqueCount\": 10, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"1952-04-19\", \"max\": \"1964-06-02\", \"sampleValues\": [\"1953-09-02\", \"1964-06-02\", \"1959-12-03\", \"1954-05-01\", \"1955-01-21\", \"1953-04-20\", \"1957-05-23\", \"1958-02-19\", \"1952-04-19\", \"1963-06-01\"]}, {\"fieldPath\": \"first_name\", \"uniqueCount\": 10, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"Georgi\", \"Bezalel\", \"Parto\", \"Chirstian\", \"Kyoichi\", \"Anneke\", \"Tzvetan\", \"Saniya\", \"Sumant\", \"Duangkaew\"]}, {\"fieldPath\": \"last_name\", \"uniqueCount\": 10, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"Facello\", \"Simmel\", \"Bamford\", \"Koblick\", \"Maliniak\", \"Preusig\", \"Zielinski\", \"Kalloufi\", \"Peac\", \"Piveteau\"]}, {\"fieldPath\": \"gender\", \"uniqueCount\": 2, \"uniqueProportion\": 0.2, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"M\", \"frequency\": 5}, {\"value\": \"F\", \"frequency\": 5}], \"sampleValues\": [\"M\", \"F\", \"M\", \"M\", \"M\", \"F\", \"F\", \"M\", \"F\", \"F\"]}, {\"fieldPath\": \"hire_date\", \"uniqueCount\": 10, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"1985-02-18\", \"max\": \"1994-09-15\", \"sampleValues\": [\"1986-06-26\", \"1985-11-21\", \"1986-08-28\", \"1986-12-01\", \"1989-09-12\", \"1989-06-02\", \"1989-02-10\", \"1994-09-15\", \"1985-02-18\", \"1989-08-24\"]}]}",
-      "contentType": "application/json"
+        "value": "{\"timestampMillis\": 1586847600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 15, \"columnCount\": 6, \"fieldProfiles\": [{\"fieldPath\": \"cno\", \"uniqueCount\": 15, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"1000\", \"1001\", \"1002\", \"1003\", \"1004\", \"1005\", \"1006\", \"1007\", \"1008\", \"1009\", \"1010\", \"1011\", \"1012\", \"1013\", \"1014\"]}, {\"fieldPath\": \"title\", \"uniqueCount\": 3, \"uniqueProportion\": 0.2, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"Company\", \"frequency\": 2}, {\"value\": \"Mr\", \"frequency\": 7}, {\"value\": \"Mrs\", \"frequency\": 6}], \"sampleValues\": [\"Mrs\", \"Mr\", \"Company\", \"Mrs\", \"Mrs\", \"Mr\", \"Mrs\", \"Mr\", \"Mrs\", \"Mr\", \"Mr\", \"Mrs\", \"Mr\", \"Company\", \"Mr\"]}, {\"fieldPath\": \"firstname\", \"uniqueCount\": 13, \"uniqueProportion\": 1.0, \"nullCount\": 2, \"nullProportion\": 0.13333333333333333, \"sampleValues\": [\"Jenny\", \"Peter\", \"Rose\", \"Mary\", \"Martin\", \"Sally\", \"Mike\", \"Rita\", \"George\", \"Frank\", \"Susan\", \"Joseph\", \"Antony\"]}, {\"fieldPath\": \"name\", \"uniqueCount\": 15, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"Porter\", \"Brown\", \"Datasoft\", \"Brian\", \"Griffith\", \"Randolph\", \"Smith\", \"Jackson\", \"Doe\", \"Howe\", \"Miller\", \"Baker\", \"Peters\", \"TOOLware\", \"Jenkins\"]}, {\"fieldPath\": \"address\", \"uniqueCount\": 15, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"1340 N. Ash Street, #3\", \"1001 34th St., APT.3\", \"486 Maple St.\", \"500 Yellowstone Drive, #2\", \"3401 Elder Lane\", \"340 MAIN STREET, #7\", \"250 Curtis Street\", \"133 BROADWAY APT. 1\", \"2000 Humboldt St., #6\", \"111 B Parkway, #23\", \"27 5th St., 76\", \"200 MAIN STREET, #94\", \"700 S. Ash St., APT.12\", \"410 Mariposa St., #10\", \"55 A Parkway, #15\"]}, {\"fieldPath\": \"zip\", \"uniqueCount\": 12, \"uniqueProportion\": 0.8, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"10580\", \"frequency\": 1}, {\"value\": \"20005\", \"frequency\": 1}, {\"value\": \"20019\", \"frequency\": 1}, {\"value\": \"20903\", \"frequency\": 1}, {\"value\": \"45211\", \"frequency\": 1}, {\"value\": \"48226\", \"frequency\": 1}, {\"value\": \"60615\", \"frequency\": 1}, {\"value\": \"75243\", \"frequency\": 3}, {\"value\": \"90018\", \"frequency\": 2}, {\"value\": \"92714\", \"frequency\": 1}, {\"value\": \"95054\", \"frequency\": 1}, {\"value\": \"97213\", \"frequency\": 1}], \"sampleValues\": [\"10580\", \"48226\", \"90018\", \"75243\", \"20005\", \"60615\", \"75243\", \"45211\", \"97213\", \"75243\", \"95054\", \"90018\", \"92714\", \"20019\", \"20903\"]}]}",
+        "contentType": "application/json"
     },
     "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
+        "lastObserved": 1586847600000,
+        "runId": "hana-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
     }
-  },
-  {
+},
+{
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datacharmer.salaries,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hana,hotel.hotel,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
-      "value": "{\"timestampMillis\": 1586847600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 112, \"columnCount\": 4, \"fieldProfiles\": [{\"fieldPath\": \"emp_no\", \"uniqueCount\": 10, \"uniqueProportion\": 0.08928571428571429, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"10001\", \"max\": \"10010\", \"mean\": \"10005.3125\", \"median\": \"10005.0\", \"stdev\": \"2.834889609688869\", \"distinctValueFrequencies\": [{\"value\": \"10001\", \"frequency\": 17}, {\"value\": \"10002\", \"frequency\": 6}, {\"value\": \"10003\", \"frequency\": 7}, {\"value\": \"10004\", \"frequency\": 16}, {\"value\": \"10005\", \"frequency\": 13}, {\"value\": \"10006\", \"frequency\": 12}, {\"value\": \"10007\", \"frequency\": 14}, {\"value\": \"10008\", \"frequency\": 3}, {\"value\": \"10009\", \"frequency\": 18}, {\"value\": \"10010\", \"frequency\": 6}], \"sampleValues\": [\"10001\", \"10001\", \"10001\", \"10001\", \"10001\", \"10001\", \"10001\", \"10001\", \"10001\", \"10001\", \"10001\", \"10001\", \"10001\", \"10001\", \"10001\", \"10001\", \"10001\", \"10002\", \"10002\", \"10002\"]}, {\"fieldPath\": \"salary\", \"uniqueCount\": 111, \"uniqueProportion\": 0.9910714285714286, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"40000\", \"max\": \"94692\", \"mean\": \"68303.11607142857\", \"median\": \"69544.0\", \"stdev\": \"15505.291475014095\", \"sampleValues\": [\"60117\", \"62102\", \"66074\", \"66596\", \"66961\", \"71046\", \"74333\", \"75286\", \"75994\", \"76884\", \"80013\", \"81025\", \"81097\", \"84917\", \"85112\", \"85097\", \"88958\", \"65909\", \"65909\", \"67534\"]}, {\"fieldPath\": \"from_date\", \"uniqueCount\": 106, \"uniqueProportion\": 0.9464285714285714, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"1985-02-18\", \"max\": \"2002-06-22\", \"sampleValues\": [\"1986-06-26\", \"1987-06-26\", \"1988-06-25\", \"1989-06-25\", \"1990-06-25\", \"1991-06-25\", \"1992-06-24\", \"1993-06-24\", \"1994-06-24\", \"1995-06-24\", \"1996-06-23\", \"1997-06-23\", \"1998-06-23\", \"1999-06-23\", \"2000-06-22\", \"2001-06-22\", \"2002-06-22\", \"1996-08-03\", \"1997-08-03\", \"1998-08-03\"]}, {\"fieldPath\": \"to_date\", \"uniqueCount\": 99, \"uniqueProportion\": 0.8839285714285714, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"1986-02-18\", \"max\": \"9999-01-01\", \"sampleValues\": [\"1987-06-26\", \"1988-06-25\", \"1989-06-25\", \"1990-06-25\", \"1991-06-25\", \"1992-06-24\", \"1993-06-24\", \"1994-06-24\", \"1995-06-24\", \"1996-06-23\", \"1997-06-23\", \"1998-06-23\", \"1999-06-23\", \"2000-06-22\", \"2001-06-22\", \"2002-06-22\", \"9999-01-01\", \"1997-08-03\", \"1998-08-03\", \"1999-08-03\"]}]}",
-      "contentType": "application/json"
+        "value": "{\"timestampMillis\": 1586847600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 17, \"columnCount\": 6, \"fieldProfiles\": [{\"fieldPath\": \"hno\", \"uniqueCount\": 17, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"10\", \"11\", \"12\", \"13\", \"14\", \"15\", \"16\", \"17\", \"18\", \"19\", \"20\", \"21\", \"22\", \"23\", \"24\", \"25\", \"26\"]}, {\"fieldPath\": \"name\", \"uniqueCount\": 17, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"Congress\", \"Regency\", \"Long Island\", \"Empire State\", \"Midtown\", \"Eighth Avenue\", \"Lake Michigan\", \"Airport\", \"Sunshine\", \"Beach\", \"Atlantic\", \"Long Beach\", \"Indian Horse\", \"Star\", \"River Boat\", \"Ocean Star\", \"Bella Ciente\"]}, {\"fieldPath\": \"address\", \"uniqueCount\": 17, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"155 Beechwood St.\", \"477 17th Avenue\", \"1499 Grove Street\", \"65 Yellowstone Dr.\", \"12 Barnard St.\", \"112 8th Avenue\", \"354 OAK Terrace\", \"650 C Parkway\", \"200 Yellowstone Dr.\", \"1980 34th St.\", \"111 78th St.\", \"35 Broadway\", \"16 MAIN STREET\", \"13 Beechwood Place\", \"788 MAIN STREET\", \"45 Pacific Avenue\", \"1407 Marshall Ave\"]}, {\"fieldPath\": \"city\", \"uniqueCount\": 15, \"uniqueProportion\": 0.8823529411764706, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"Albany\", \"frequency\": 1}, {\"value\": \"Atlantic City\", \"frequency\": 1}, {\"value\": \"Chicago\", \"frequency\": 1}, {\"value\": \"Clearwater\", \"frequency\": 1}, {\"value\": \"Daytona Beach\", \"frequency\": 1}, {\"value\": \"Deerfield Beach\", \"frequency\": 1}, {\"value\": \"Hollywood\", \"frequency\": 1}, {\"value\": \"Long Beach\", \"frequency\": 1}, {\"value\": \"Long Island\", \"frequency\": 1}, {\"value\": \"Longview\", \"frequency\": 1}, {\"value\": \"New Orleans\", \"frequency\": 1}, {\"value\": \"New York\", \"frequency\": 2}, {\"value\": \"Palm Springs\", \"frequency\": 1}, {\"value\": \"Rosemont\", \"frequency\": 1}, {\"value\": \"Seattle\", \"frequency\": 2}], \"sampleValues\": [\"Seattle\", \"Seattle\", \"Long Island\", \"Albany\", \"New York\", \"New York\", \"Chicago\", \"Rosemont\", \"Clearwater\", \"Daytona Beach\", \"Deerfield Beach\", \"Long Beach\", \"Palm Springs\", \"Hollywood\", \"New Orleans\", \"Atlantic City\", \"Longview\"]}, {\"fieldPath\": \"state\", \"uniqueCount\": 8, \"uniqueProportion\": 0.47058823529411764, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"CA\", \"frequency\": 3}, {\"value\": \"FL\", \"frequency\": 3}, {\"value\": \"IL\", \"frequency\": 2}, {\"value\": \"LA\", \"frequency\": 1}, {\"value\": \"NJ\", \"frequency\": 1}, {\"value\": \"NY\", \"frequency\": 4}, {\"value\": \"TX\", \"frequency\": 1}, {\"value\": \"WA\", \"frequency\": 2}], \"sampleValues\": [\"WA\", \"WA\", \"NY\", \"NY\", \"NY\", \"NY\", \"IL\", \"IL\", \"FL\", \"FL\", \"FL\", \"CA\", \"CA\", \"CA\", \"LA\", \"NJ\", \"TX\"]}, {\"fieldPath\": \"zip\", \"uniqueCount\": 16, \"uniqueProportion\": 0.9411764705882353, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"08401\", \"frequency\": 1}, {\"value\": \"10019\", \"frequency\": 2}, {\"value\": \"11788\", \"frequency\": 1}, {\"value\": \"12203\", \"frequency\": 1}, {\"value\": \"20005\", \"frequency\": 1}, {\"value\": \"20037\", \"frequency\": 1}, {\"value\": \"32018\", \"frequency\": 1}, {\"value\": \"33441\", \"frequency\": 1}, {\"value\": \"33575\", \"frequency\": 1}, {\"value\": \"60018\", \"frequency\": 1}, {\"value\": \"60601\", \"frequency\": 1}, {\"value\": \"70112\", \"frequency\": 1}, {\"value\": \"75601\", \"frequency\": 1}, {\"value\": \"90029\", \"frequency\": 1}, {\"value\": \"90804\", \"frequency\": 1}, {\"value\": \"92262\", \"frequency\": 1}], \"sampleValues\": [\"20005\", \"20037\", \"11788\", \"12203\", \"10019\", \"10019\", \"60601\", \"60018\", \"33575\", \"32018\", \"33441\", \"90804\", \"92262\", \"90029\", \"70112\", \"08401\", \"75601\"]}]}",
+        "contentType": "application/json"
     },
     "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
+        "lastObserved": 1586847600000,
+        "runId": "hana-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
     }
-  },
-  {
+},
+{
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customers,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hana,hotel.maintenance,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
-      "value": "{\"timestampMillis\": 1586847600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 5, \"columnCount\": 6, \"fieldProfiles\": [{\"fieldPath\": \"id\", \"uniqueCount\": 5, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"1\", \"2\", \"3\", \"4\", \"5\"]}, {\"fieldPath\": \"company\", \"uniqueCount\": 5, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"Company A\", \"Company B\", \"Company C\", \"Company D\", \"Company E\"]}, {\"fieldPath\": \"last_name\", \"uniqueCount\": 5, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"Axen\", \"Bedecs\", \"Donnell\", \"Gratacos Solsona\", \"Lee\"]}, {\"fieldPath\": \"first_name\", \"uniqueCount\": 5, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"Anna\", \"Antonio\", \"Christina\", \"Martin\", \"Thomas\"]}, {\"fieldPath\": \"email_address\", \"uniqueCount\": 0, \"nullCount\": 5, \"nullProportion\": 1.0, \"sampleValues\": []}, {\"fieldPath\": \"priority\", \"uniqueCount\": 3, \"uniqueProportion\": 0.75, \"nullCount\": 1, \"nullProportion\": 0.2, \"min\": \"3.8\", \"max\": \"4.9\", \"mean\": \"4.175000011920929\", \"median\": \"4.0\", \"distinctValueFrequencies\": [{\"value\": \"3.8\", \"frequency\": 1}, {\"value\": \"4.0\", \"frequency\": 2}, {\"value\": \"4.9\", \"frequency\": 1}], \"sampleValues\": [\"4.0\", \"4.9\", \"4.0\", \"3.8\"]}]}",
-      "contentType": "application/json"
+        "value": "{\"timestampMillis\": 1586847600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 3, \"columnCount\": 5, \"fieldProfiles\": [{\"fieldPath\": \"mno\", \"uniqueCount\": 3, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"10\", \"11\", \"12\"]}, {\"fieldPath\": \"hno\", \"uniqueCount\": 3, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"24\", \"25\", \"26\"]}, {\"fieldPath\": \"description\", \"uniqueCount\": 3, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"Replace pool liner and pump\", \"Renovate the bar area.  Replace TV and speakers\", \"Roof repair due to storm\"]}, {\"fieldPath\": \"date_performed\", \"uniqueCount\": 2, \"uniqueProportion\": 1.0, \"nullCount\": 1, \"nullProportion\": 0.3333333333333333, \"min\": \"2019-03-21\", \"max\": \"2020-11-29\", \"sampleValues\": [\"2019-03-21\", \"2020-11-29\"]}, {\"fieldPath\": \"performed_by\", \"uniqueCount\": 2, \"uniqueProportion\": 1.0, \"nullCount\": 1, \"nullProportion\": 0.3333333333333333, \"sampleValues\": [\"Discount Pool Supplies\", \"TV and Audio Superstore\"]}]}",
+        "contentType": "application/json"
     },
     "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
+        "lastObserved": 1586847600000,
+        "runId": "hana-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
     }
-  },
-  {
+},
+{
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hana,hotel.reservation,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
-      "value": "{\"timestampMillis\": 1586847600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 0, \"columnCount\": 3, \"fieldProfiles\": [{\"fieldPath\": \"id\", \"uniqueCount\": 0, \"nullCount\": 0, \"sampleValues\": []}, {\"fieldPath\": \"description\", \"uniqueCount\": 0, \"nullCount\": 0, \"sampleValues\": []}, {\"fieldPath\": \"customer_id\", \"uniqueCount\": 0, \"nullCount\": 0, \"sampleValues\": []}]}",
-      "contentType": "application/json"
+        "value": "{\"timestampMillis\": 1586847600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 10, \"columnCount\": 7, \"fieldProfiles\": [{\"fieldPath\": \"resno\", \"uniqueCount\": 10, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"1\", \"2\", \"3\", \"4\", \"5\", \"6\", \"7\", \"8\", \"9\", \"10\"]}, {\"fieldPath\": \"rno\", \"uniqueCount\": 10, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"100\", \"110\", \"120\", \"130\", \"150\", \"140\", \"160\", \"170\", \"180\", \"190\"]}, {\"fieldPath\": \"cno\", \"uniqueCount\": 8, \"uniqueProportion\": 0.8, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"1000\", \"max\": \"1014\", \"mean\": \"1007.0\", \"median\": \"1007.5\", \"stdev\": \"5.656854\", \"quantiles\": [{\"quantile\": \"0.05\", \"value\": \"1000\"}, {\"quantile\": \"0.25\", \"value\": \"1001\"}, {\"quantile\": \"0.5\", \"value\": \"1006\"}, {\"quantile\": \"0.75\", \"value\": \"1013\"}, {\"quantile\": \"0.95\", \"value\": \"1014\"}], \"distinctValueFrequencies\": [{\"value\": \"1000\", \"frequency\": 1}, {\"value\": \"1001\", \"frequency\": 2}, {\"value\": \"1002\", \"frequency\": 1}, {\"value\": \"1006\", \"frequency\": 1}, {\"value\": \"1009\", \"frequency\": 1}, {\"value\": \"1011\", \"frequency\": 1}, {\"value\": \"1013\", \"frequency\": 2}, {\"value\": \"1014\", \"frequency\": 1}], \"histogram\": {\"boundaries\": [\"1000.0\", \"1003.5\", \"1007.0\", \"1010.5\", \"1014.0\"], \"heights\": [0.0, 0.4, 0.1, 0.1, 0.4, 0.0]}, \"sampleValues\": [\"1000\", \"1001\", \"1002\", \"1009\", \"1006\", \"1013\", \"1011\", \"1014\", \"1001\", \"1013\"]}, {\"fieldPath\": \"hno\", \"uniqueCount\": 8, \"uniqueProportion\": 0.8, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"11\", \"max\": \"25\", \"mean\": \"18.3\", \"median\": \"18.5\", \"stdev\": \"4.967673\", \"quantiles\": [{\"quantile\": \"0.05\", \"value\": \"11\"}, {\"quantile\": \"0.25\", \"value\": \"15\"}, {\"quantile\": \"0.5\", \"value\": \"17\"}, {\"quantile\": \"0.75\", \"value\": \"22\"}, {\"quantile\": \"0.95\", \"value\": \"25\"}], \"distinctValueFrequencies\": [{\"value\": \"11\", \"frequency\": 2}, {\"value\": \"15\", \"frequency\": 1}, {\"value\": \"17\", \"frequency\": 2}, {\"value\": \"20\", \"frequency\": 1}, {\"value\": \"21\", \"frequency\": 1}, {\"value\": \"22\", \"frequency\": 1}, {\"value\": \"24\", \"frequency\": 1}, {\"value\": \"25\", \"frequency\": 1}], \"histogram\": {\"boundaries\": [\"11.0\", \"14.5\", \"18.0\", \"21.5\", \"25.0\"], \"heights\": [0.0, 0.2, 0.3, 0.1, 0.4, 0.0]}, \"sampleValues\": [\"11\", \"11\", \"15\", \"21\", \"17\", \"20\", \"17\", \"25\", \"22\", \"24\"]}, {\"fieldPath\": \"type\", \"uniqueCount\": 3, \"uniqueProportion\": 0.3, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"double\", \"frequency\": 5}, {\"value\": \"single\", \"frequency\": 3}, {\"value\": \"suite\", \"frequency\": 2}], \"sampleValues\": [\"single\", \"double\", \"suite\", \"single\", \"double\", \"double\", \"single\", \"suite\", \"double\", \"double\"]}, {\"fieldPath\": \"arrival\", \"uniqueCount\": 7, \"uniqueProportion\": 0.7, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"2019-02-01\", \"max\": \"2020-12-24\", \"distinctValueFrequencies\": [{\"value\": \"2019-02-01\", \"frequency\": 1}, {\"value\": \"2019-03-14\", \"frequency\": 1}, {\"value\": \"2020-04-12\", \"frequency\": 2}, {\"value\": \"2020-09-01\", \"frequency\": 1}, {\"value\": \"2020-11-14\", \"frequency\": 2}, {\"value\": \"2020-12-23\", \"frequency\": 1}, {\"value\": \"2020-12-24\", \"frequency\": 2}], \"sampleValues\": [\"2020-12-24\", \"2020-12-24\", \"2020-11-14\", \"2019-02-01\", \"2019-03-14\", \"2020-04-12\", \"2020-04-12\", \"2020-09-01\", \"2020-12-23\", \"2020-11-14\"]}, {\"fieldPath\": \"departure\", \"uniqueCount\": 10, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"2019-02-03\", \"max\": \"2021-01-08\", \"sampleValues\": [\"2020-12-27\", \"2021-01-03\", \"2020-11-18\", \"2019-02-03\", \"2019-03-24\", \"2020-04-30\", \"2020-04-15\", \"2020-09-03\", \"2021-01-08\", \"2020-11-17\"]}]}",
+        "contentType": "application/json"
     },
     "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
+        "lastObserved": 1586847600000,
+        "runId": "hana-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
     }
-  },
-  {
+},
+{
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,test_cases.test_empty,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hana,hotel.room,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
-      "value": "{\"timestampMillis\": 1586847600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 0, \"columnCount\": 1, \"fieldProfiles\": [{\"fieldPath\": \"dummy\", \"uniqueCount\": 0, \"nullCount\": 0, \"sampleValues\": []}]}",
-      "contentType": "application/json"
+        "value": "{\"timestampMillis\": 1586847600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 38, \"columnCount\": 4, \"fieldProfiles\": [{\"fieldPath\": \"hno\", \"uniqueCount\": 15, \"uniqueProportion\": 0.39473684210526316, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"10\", \"max\": \"25\", \"mean\": \"18.421052\", \"median\": \"18.5\", \"stdev\": \"4.421272\", \"quantiles\": [{\"quantile\": \"0.05\", \"value\": \"10\"}, {\"quantile\": \"0.25\", \"value\": \"15\"}, {\"quantile\": \"0.5\", \"value\": \"18\"}, {\"quantile\": \"0.75\", \"value\": \"22\"}, {\"quantile\": \"0.95\", \"value\": \"25\"}], \"distinctValueFrequencies\": [{\"value\": \"10\", \"frequency\": 2}, {\"value\": \"12\", \"frequency\": 2}, {\"value\": \"13\", \"frequency\": 2}, {\"value\": \"14\", \"frequency\": 2}, {\"value\": \"15\", \"frequency\": 3}, {\"value\": \"16\", \"frequency\": 3}, {\"value\": \"17\", \"frequency\": 2}, {\"value\": \"18\", \"frequency\": 3}, {\"value\": \"19\", \"frequency\": 3}, {\"value\": \"20\", \"frequency\": 2}, {\"value\": \"21\", \"frequency\": 2}, {\"value\": \"22\", \"frequency\": 3}, {\"value\": \"23\", \"frequency\": 3}, {\"value\": \"24\", \"frequency\": 3}, {\"value\": \"25\", \"frequency\": 3}], \"histogram\": {\"boundaries\": [\"10.0\", \"12.5\", \"15.0\", \"17.5\", \"20.0\", \"22.5\", \"25.0\"], \"heights\": [0.0, 0.05263157894736842, 0.15789473684210525, 0.15789473684210525, 0.21052631578947367, 0.10526315789473684, 0.3157894736842105, 0.0]}, \"sampleValues\": [\"10\", \"10\", \"12\", \"12\", \"13\", \"13\", \"14\", \"14\", \"15\", \"15\", \"15\", \"16\", \"16\", \"16\", \"17\", \"17\", \"18\", \"18\", \"18\", \"19\"]}, {\"fieldPath\": \"type\", \"uniqueCount\": 3, \"uniqueProportion\": 0.07894736842105263, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"double\", \"frequency\": 15}, {\"value\": \"single\", \"frequency\": 15}, {\"value\": \"suite\", \"frequency\": 8}], \"sampleValues\": [\"single\", \"double\", \"single\", \"double\", \"single\", \"double\", \"single\", \"double\", \"single\", \"double\", \"suite\", \"single\", \"double\", \"suite\", \"single\", \"double\", \"single\", \"double\", \"suite\", \"single\"]}, {\"fieldPath\": \"free\", \"uniqueCount\": 28, \"uniqueProportion\": 0.7368421052631579, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"2.0\", \"max\": \"300.0\", \"mean\": \"47.36842105263158\", \"median\": \"20.0\", \"quantiles\": [{\"quantile\": \"0.05\", \"value\": \"4.0\"}, {\"quantile\": \"0.25\", \"value\": \"11.0\"}, {\"quantile\": \"0.5\", \"value\": \"20.0\"}, {\"quantile\": \"0.75\", \"value\": \"55.0\"}, {\"quantile\": \"0.95\", \"value\": \"230.0\"}], \"distinctValueFrequencies\": [{\"value\": \"2\", \"frequency\": 1}, {\"value\": \"4\", \"frequency\": 1}, {\"value\": \"5\", \"frequency\": 1}, {\"value\": \"6\", \"frequency\": 1}, {\"value\": \"9\", \"frequency\": 1}, {\"value\": \"10\", \"frequency\": 4}, {\"value\": \"11\", \"frequency\": 2}, {\"value\": \"12\", \"frequency\": 2}, {\"value\": \"13\", \"frequency\": 1}, {\"value\": \"15\", \"frequency\": 2}, {\"value\": \"19\", \"frequency\": 1}, {\"value\": \"20\", \"frequency\": 3}, {\"value\": \"24\", \"frequency\": 1}, {\"value\": \"34\", \"frequency\": 1}, {\"value\": \"35\", \"frequency\": 1}, {\"value\": \"39\", \"frequency\": 1}, {\"value\": \"44\", \"frequency\": 1}, {\"value\": \"45\", \"frequency\": 2}, {\"value\": \"50\", \"frequency\": 1}, {\"value\": \"55\", \"frequency\": 1}, {\"value\": \"60\", \"frequency\": 1}, {\"value\": \"78\", \"frequency\": 2}, {\"value\": \"89\", \"frequency\": 1}, {\"value\": \"100\", \"frequency\": 1}, {\"value\": \"115\", \"frequency\": 1}, {\"value\": \"145\", \"frequency\": 1}, {\"value\": \"230\", \"frequency\": 1}, {\"value\": \"300\", \"frequency\": 1}], \"histogram\": {\"boundaries\": [\"2.0\", \"26.833333333333332\", \"51.666666666666664\", \"76.5\", \"101.33333333333333\", \"126.16666666666666\", \"151.0\", \"175.83333333333331\", \"200.66666666666666\", \"225.5\", \"250.33333333333331\", \"275.16666666666663\", \"300.0\"], \"heights\": [0.0, 0.5526315789473685, 0.18421052631578946, 0.05263157894736842, 0.10526315789473684, 0.02631578947368421, 0.02631578947368421, 0.0, 0.0, 0.0, 0.02631578947368421, 0.0, 0.02631578947368421, 0.0]}, \"sampleValues\": [\"20\", \"45\", \"10\", \"13\", \"12\", \"15\", \"20\", \"35\", \"50\", \"230\", \"12\", \"10\", \"39\", \"20\", \"4\", \"11\", \"15\", \"19\", \"5\", \"45\"]}, {\"fieldPath\": \"price\", \"uniqueCount\": 27, \"uniqueProportion\": 0.7105263157894737, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"45.0\", \"max\": \"700.0\", \"mean\": \"201.57894736842104\", \"median\": \"140.0\", \"quantiles\": [{\"quantile\": \"0.05\", \"value\": \"60.0\"}, {\"quantile\": \"0.25\", \"value\": \"100.0\"}, {\"quantile\": \"0.5\", \"value\": \"140.0\"}, {\"quantile\": \"0.75\", \"value\": \"200.0\"}, {\"quantile\": \"0.95\", \"value\": \"600.0\"}], \"distinctValueFrequencies\": [{\"value\": \"45\", \"frequency\": 1}, {\"value\": \"60\", \"frequency\": 1}, {\"value\": \"70\", \"frequency\": 2}, {\"value\": \"80\", \"frequency\": 2}, {\"value\": \"85\", \"frequency\": 1}, {\"value\": \"90\", \"frequency\": 2}, {\"value\": \"100\", \"frequency\": 3}, {\"value\": \"105\", \"frequency\": 1}, {\"value\": \"115\", \"frequency\": 1}, {\"value\": \"120\", \"frequency\": 1}, {\"value\": \"125\", \"frequency\": 1}, {\"value\": \"130\", \"frequency\": 1}, {\"value\": \"135\", \"frequency\": 1}, {\"value\": \"140\", \"frequency\": 2}, {\"value\": \"150\", \"frequency\": 2}, {\"value\": \"160\", \"frequency\": 1}, {\"value\": \"180\", \"frequency\": 2}, {\"value\": \"190\", \"frequency\": 1}, {\"value\": \"200\", \"frequency\": 3}, {\"value\": \"270\", \"frequency\": 1}, {\"value\": \"300\", \"frequency\": 1}, {\"value\": \"350\", \"frequency\": 1}, {\"value\": \"400\", \"frequency\": 1}, {\"value\": \"450\", \"frequency\": 1}, {\"value\": \"500\", \"frequency\": 2}, {\"value\": \"600\", \"frequency\": 1}, {\"value\": \"700\", \"frequency\": 1}], \"histogram\": {\"boundaries\": [\"45.0\", \"99.58333333333334\", \"154.16666666666669\", \"208.75\", \"263.33333333333337\", \"317.9166666666667\", \"372.5\", \"427.08333333333337\", \"481.6666666666667\", \"536.25\", \"590.8333333333334\", \"645.4166666666667\", \"700.0\"], \"heights\": [0.0, 0.23684210526315788, 0.34210526315789475, 0.18421052631578946, 0.0, 0.05263157894736842, 0.02631578947368421, 0.02631578947368421, 0.02631578947368421, 0.05263157894736842, 0.0, 0.02631578947368421, 0.02631578947368421, 0.0]}, \"sampleValues\": [\"135\", \"200\", \"70\", \"100\", \"45\", \"80\", \"85\", \"140\", \"105\", \"180\", \"500\", \"120\", \"200\", \"500\", \"115\", \"180\", \"90\", \"150\", \"400\", \"90\"]}]}",
+        "contentType": "application/json"
     },
     "systemMetadata": {
-      "lastObserved": 1586847600000,
-      "runId": "mysql-test",
-      "registryName": null,
-      "registryVersion": null,
-      "properties": null
+        "lastObserved": 1586847600000,
+        "runId": "hana-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
     }
-  }
+}
 ]

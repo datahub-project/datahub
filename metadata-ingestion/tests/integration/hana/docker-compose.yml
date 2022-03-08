@@ -3,6 +3,7 @@ version: '3.4'
 services:
   testhana:
     image: "store/saplabs/hanaexpress:2.00.054.00.20210603.1"
+    container_name: "testhana"
     restart: "unless-stopped"
     ports:
       - 39013:39013

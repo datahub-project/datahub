@@ -1,23 +1,24 @@
-run_id: mysql-test
+run_id: hana-test
 
 source:
-  type: mysql
+  type: hana
   config:
-    username: root
-    password: example
-    database: metagalaxy
-    host_port: localhost:53307
+    username: HOTEL
+    password: Localdev1
+    database: HXE
+    host_port: localhost:39041
     schema_pattern:
       allow:
-        - "^metagalaxy"
-        - "^northwind"
-        - "^datacharmer"
-        - "^test_cases"
+        - "HOTEL"
+      ignoreCase: true
+    table_pattern:
+      deny:
+        - "HOTEL.RESERVATION"
+        - "HOTEL.ROOM"
+      ignoreCase: true
     profile_pattern:
       allow:
-        - "^northwind"
-        - "^datacharmer"
-        - "^test_cases"
+        - "HOTEL"
     profiling:
       enabled: True
       include_field_null_count: true
@@ -33,7 +34,7 @@ source:
     domain:
       sales:
         allow:
-          - "^metagalaxy"
+          - "HOTEL"
 sink:
   type: file
   config:
