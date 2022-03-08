@@ -382,6 +382,12 @@ def get_schema_metadata(
     return schema_metadata
 
 
+# config flags to emit telemetry for
+config_options_to_report = [
+    "include_views",
+    "include_tables",
+]
+
 # flags to emit telemetry for
 profiling_flags_to_report = [
     "turn_off_expensive_profiling_metrics",
@@ -409,27 +415,39 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self.platform = platform
         self.report = SQLSourceReport()
 
+        config_report = {
+            config_option: config.dict().get(config_option)
+            for config_option in config_options_to_report
+        }
+
+        config_report = {
+            **config_report,
+            "profiling_enabled": config.profiling.enabled,
+            "platform": platform,
+        }
+
         telemetry.telemetry_instance.ping(
-            "sql_profiling",
-            "config",
-            "enabled",
-            1 if config.profiling.enabled else 0,
+            "sql_config",
+            config_report,
         )
 
         if config.profiling.enabled:
 
-            for config_flag in profiling_flags_to_report:
-                config_value = getattr(config.profiling, config_flag)
-                config_int = (
-                    1 if config_value else 0
-                )  # convert to int so it can be emitted as a value
+            telemetry.telemetry_instance.ping(
+                "sql_profiling_config",
+                {
+                    config_flag: config.profiling.dict().get(config_flag)
+                    for config_flag in profiling_flags_to_report
+                },
+            )
 
-                telemetry.telemetry_instance.ping(
-                    "sql_profiling",
-                    "config",
-                    config_flag,
-                    config_int,
-                )
+    def warn(self, log: logging.Logger, key: str, reason: str) -> Any:
+        self.report.report_warning(key, reason)
+        log.warning(reason)
+
+    def error(self, log: logging.Logger, key: str, reason: str) -> Any:
+        self.report.report_failure(key, reason)
+        log.error(reason)
 
     def get_inspectors(self) -> Iterable[Inspector]:
         # This method can be overridden in the case that you want to dynamically
@@ -757,37 +775,42 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         sql_config: SQLAlchemyConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         tables_seen: Set[str] = set()
-        for table in inspector.get_table_names(schema):
-            schema, table = self.standardize_schema_table_names(
-                schema=schema, entity=table
-            )
-            dataset_name = self.get_identifier(
-                schema=schema, entity=table, inspector=inspector
-            )
-
-            dataset_name = self.normalise_dataset_name(dataset_name)
-
-            if dataset_name not in tables_seen:
-                tables_seen.add(dataset_name)
-            else:
-                logger.debug(f"{dataset_name} has already been seen, skipping...")
-                continue
-
-            self.report.report_entity_scanned(dataset_name, ent_type="table")
-
-            if not sql_config.table_pattern.allowed(dataset_name):
-                self.report.report_dropped(dataset_name)
-                continue
-
-            try:
-                yield from self._process_table(
-                    dataset_name, inspector, schema, table, sql_config
+        try:
+            for table in inspector.get_table_names(schema):
+                schema, table = self.standardize_schema_table_names(
+                    schema=schema, entity=table
                 )
-            except Exception as e:
-                logger.warning(
-                    f"Unable to ingest {schema}.{table} due to an exception.\n {traceback.format_exc()}"
+                dataset_name = self.get_identifier(
+                    schema=schema, entity=table, inspector=inspector
                 )
-                self.report.report_warning(f"{schema}.{table}", f"Ingestion error: {e}")
+
+                dataset_name = self.normalise_dataset_name(dataset_name)
+
+                if dataset_name not in tables_seen:
+                    tables_seen.add(dataset_name)
+                else:
+                    logger.debug(f"{dataset_name} has already been seen, skipping...")
+                    continue
+
+                self.report.report_entity_scanned(dataset_name, ent_type="table")
+
+                if not sql_config.table_pattern.allowed(dataset_name):
+                    self.report.report_dropped(dataset_name)
+                    continue
+
+                try:
+                    yield from self._process_table(
+                        dataset_name, inspector, schema, table, sql_config
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Unable to ingest {schema}.{table} due to an exception.\n {traceback.format_exc()}"
+                    )
+                    self.report.report_warning(
+                        f"{schema}.{table}", f"Ingestion error: {e}"
+                    )
+        except Exception as e:
+            self.report.report_failure(f"{schema}", f"Tables error: {e}")
 
     def _process_table(
         self,
@@ -969,34 +992,39 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         schema: str,
         sql_config: SQLAlchemyConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
-        for view in inspector.get_view_names(schema):
-            schema, view = self.standardize_schema_table_names(
-                schema=schema, entity=view
-            )
-            dataset_name = self.get_identifier(
-                schema=schema, entity=view, inspector=inspector
-            )
-            dataset_name = self.normalise_dataset_name(dataset_name)
-
-            self.report.report_entity_scanned(dataset_name, ent_type="view")
-
-            if not sql_config.view_pattern.allowed(dataset_name):
-                self.report.report_dropped(dataset_name)
-                continue
-
-            try:
-                yield from self._process_view(
-                    dataset_name=dataset_name,
-                    inspector=inspector,
-                    schema=schema,
-                    view=view,
-                    sql_config=sql_config,
+        try:
+            for view in inspector.get_view_names(schema):
+                schema, view = self.standardize_schema_table_names(
+                    schema=schema, entity=view
                 )
-            except Exception as e:
-                logger.warning(
-                    f"Unable to ingest view {schema}.{view} due to an exception.\n {traceback.format_exc()}"
+                dataset_name = self.get_identifier(
+                    schema=schema, entity=view, inspector=inspector
                 )
-                self.report.report_warning(f"{schema}.{view}", f"Ingestion error: {e}")
+                dataset_name = self.normalise_dataset_name(dataset_name)
+
+                self.report.report_entity_scanned(dataset_name, ent_type="view")
+
+                if not sql_config.view_pattern.allowed(dataset_name):
+                    self.report.report_dropped(dataset_name)
+                    continue
+
+                try:
+                    yield from self._process_view(
+                        dataset_name=dataset_name,
+                        inspector=inspector,
+                        schema=schema,
+                        view=view,
+                        sql_config=sql_config,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Unable to ingest view {schema}.{view} due to an exception.\n {traceback.format_exc()}"
+                    )
+                    self.report.report_warning(
+                        f"{schema}.{view}", f"Ingestion error: {e}"
+                    )
+        except Exception as e:
+            self.report.report_failure(f"{schema}", f"Views error: {e}")
 
     def _process_view(
         self,
@@ -1157,6 +1185,15 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             (partition, custom_sql) = self.generate_partition_profiler_query(
                 schema, table, self.config.profiling.partition_datetime
             )
+
+            if (
+                partition is not None
+                and not self.config.profiling.partition_profiling_enabled
+            ):
+                logger.debug(
+                    f"{dataset_name} and partition {partition} is skipped because profiling.partition_profiling_enabled property is disabled"
+                )
+                continue
 
             self.report.report_entity_profiled(dataset_name)
             yield GEProfilerRequest(

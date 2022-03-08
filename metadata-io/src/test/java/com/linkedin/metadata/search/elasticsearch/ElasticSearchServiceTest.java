@@ -54,7 +54,7 @@ public class ElasticSearchServiceTest {
     _entityRegistry = new SnapshotEntityRegistry(new Snapshot());
     _indexConvention = new IndexConventionImpl(null);
     _elasticsearchContainer = ElasticTestUtils.getNewElasticsearchContainer();
-    _settingsBuilder = new SettingsBuilder(Collections.emptyList());
+    _settingsBuilder = new SettingsBuilder(Collections.emptyList(), null);
     checkContainerEngine(_elasticsearchContainer.getDockerClient());
     _elasticsearchContainer.start();
     _searchClient = ElasticTestUtils.buildRestClient(_elasticsearchContainer);
@@ -113,10 +113,14 @@ public class ElasticSearchServiceTest {
     document.set("keyPart1", JsonNodeFactory.instance.textNode("test"));
     document.set("textFieldOverride", JsonNodeFactory.instance.textNode("textFieldOverride"));
     document.set("browsePaths", JsonNodeFactory.instance.textNode("/a/b/c"));
+    document.set("foreignKey", JsonNodeFactory.instance.textNode("urn:li:tag:Node.Value"));
     _elasticSearchService.upsertDocument(ENTITY_NAME, document.toString(), urn.toString());
     syncAfterWrite(_searchClient);
 
     searchResult = _elasticSearchService.search(ENTITY_NAME, "test", null, null, 0, 10);
+    assertEquals(searchResult.getNumEntities().intValue(), 1);
+    assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
+    searchResult = _elasticSearchService.search(ENTITY_NAME, "foreignKey:Node", null, null, 0, 10);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
     browseResult = _elasticSearchService.browse(ENTITY_NAME, "", null, 0, 10);

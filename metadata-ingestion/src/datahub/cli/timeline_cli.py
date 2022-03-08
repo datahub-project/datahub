@@ -49,15 +49,15 @@ def pretty_id(id: Optional[str]) -> str:
                 assert schema_field_key is not None
                 field_path = schema_field_key.fieldPath
 
-                return f"{colored('field','blue')}:{colored(pretty_field_path(field_path),'white')}"
+                return f"{colored('field','cyan')}:{colored(pretty_field_path(field_path),'white')}"
         if id.startswith("[version=2.0]"):
-            return f"{colored('field','blue')}:{colored(pretty_field_path(id),'white')}"
+            return f"{colored('field','cyan')}:{colored(pretty_field_path(id),'white')}"
 
         if id.startswith("urn:li:dataset"):
             # parse dataset urn
             dataset_key = dataset_urn_to_key(id)
             if dataset_key:
-                return f"{colored('dataset','blue')}:{colored(dataset_key.platform,'white')}:{colored(dataset_key.name,'white')}"
+                return f"{colored('dataset','cyan')}:{colored(dataset_key.platform,'white')}:{colored(dataset_key.name,'white')}"
     # failed to prettify, return original
     return id
 
@@ -80,8 +80,8 @@ def get_timeline(
             f"urn {urn} does not seem to be a valid raw (starts with urn:) or encoded urn (starts with urn%3A)"
         )
     categories: str = ",".join([c.upper() for c in category])
-    start_time_param: str = f"&start={start_time}" if start_time else ""
-    end_time_param: str = f"&end={end_time}" if end_time else ""
+    start_time_param: str = f"&startTime={start_time}" if start_time else ""
+    end_time_param: str = f"&endTime={end_time}" if end_time else ""
     diff_param: str = f"&raw={diff}" if diff else ""
     endpoint: str = (
         host
@@ -193,24 +193,30 @@ def timeline(
                 datetime.fromtimestamp(change_txn["timestamp"] // 1000)
             )
             change_color = (
-                "green" if change_txn.get("semVerChange") == "MINOR" else "red"
+                "green"
+                if change_txn.get("semVerChange") == "MINOR"
+                or change_txn.get("semVerChange") == "PATCH"
+                else "red"
             )
             print(
-                f"{colored(change_instant,'blue')} - {colored(change_txn['semVer'],change_color)}"
+                f"{colored(change_instant,'cyan')} - {colored(change_txn['semVer'],change_color)}"
             )
-            for change_event in change_txn["changeEvents"]:
-                element_string = (
-                    f"({pretty_id(change_event.get('elementId'))})"
-                    if change_event.get("elementId")
-                    else ""
-                )
-                event_change_color: str = (
-                    "green" if change_event.get("semVerChange") == "MINOR" else "red"
-                )
-                target_string = pretty_id(change_event.get("target") or "")
-                print(
-                    f"\t{colored(change_event['changeType'],event_change_color)} {change_event.get('category')} {target_string} {element_string}: {change_event['description']}"
-                )
+            if change_txn["changeEvents"] is not None:
+                for change_event in change_txn["changeEvents"]:
+                    element_string = (
+                        f"({pretty_id(change_event.get('elementId'))})"
+                        if change_event.get("elementId")
+                        else ""
+                    )
+                    event_change_color: str = (
+                        "green"
+                        if change_event.get("semVerChange") == "MINOR"
+                        else "red"
+                    )
+                    target_string = pretty_id(change_event.get("target") or "")
+                    print(
+                        f"\t{colored(change_event['changeType'],event_change_color)} {change_event.get('category')} {target_string} {element_string}: {change_event['description']}"
+                    )
     else:
         click.echo(
             json.dumps(

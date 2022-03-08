@@ -3,11 +3,14 @@ package com.linkedin.metadata.utils;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 
 
+@Slf4j
 public class ConcurrencyUtils {
   private ConcurrencyUtils() {
   }
@@ -38,5 +41,23 @@ public class ConcurrencyUtils {
         .collect(Collectors.collectingAndThen(Collectors.toList(),
             completableFutureList -> completableFutureList.stream().map(CompletableFuture::join)))
         .collect(Collectors.toList());
+  }
+
+  /**
+   * Wait for a list of futures to end with a timeout and only return results that were returned before the timeout
+   * expired
+   */
+  public static <T> List<T> getAllCompleted(List<CompletableFuture<T>> futuresList, long timeout, TimeUnit unit) {
+    CompletableFuture<Void> allFuturesResult = CompletableFuture.allOf(futuresList.toArray(new CompletableFuture[0]));
+    try {
+      allFuturesResult.get(timeout, unit);
+    } catch (Exception e) {
+      log.info("Timed out while waiting for futures to complete");
+    }
+
+    return futuresList.stream()
+        .filter(future -> future.isDone() && !future.isCompletedExceptionally())
+        .map(CompletableFuture::join)
+        .collect(Collectors.<T>toList());
   }
 }

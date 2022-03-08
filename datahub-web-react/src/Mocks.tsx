@@ -135,6 +135,7 @@ const dataset1 = {
     tags: ['Private', 'PII'],
     uri: 'www.google.com',
     properties: {
+        name: 'The Great Test Dataset',
         description: 'This is the greatest dataset in the world, youre gonna love it!',
         customProperties: [
             {
@@ -200,6 +201,10 @@ const dataset1 = {
     ],
     domain: null,
     container: null,
+    upstream: null,
+    downstream: null,
+    health: null,
+    assertions: null,
 };
 
 const dataset2 = {
@@ -222,6 +227,7 @@ const dataset2 = {
     tags: ['Outdated'],
     uri: 'www.google.com',
     properties: {
+        name: 'Some Other Dataset',
         description: 'This is some other dataset, so who cares!',
         customProperties: [],
     },
@@ -272,6 +278,10 @@ const dataset2 = {
     ],
     domain: null,
     container: null,
+    upstream: null,
+    downstream: null,
+    health: null,
+    assertions: null,
 };
 
 export const dataset3 = {
@@ -294,6 +304,7 @@ export const dataset3 = {
     origin: 'PROD',
     uri: 'www.google.com',
     properties: {
+        name: 'Yet Another Dataset',
         description: 'This and here we have yet another Dataset (YAN). Are there more?',
         origin: 'PROD',
         customProperties: [{ key: 'propertyAKey', value: 'propertyAValue' }],
@@ -363,6 +374,8 @@ export const dataset3 = {
     },
     incoming: null,
     outgoing: null,
+    upstream: null,
+    downstream: null,
     institutionalMemory: {
         elements: [
             {
@@ -470,35 +483,67 @@ export const dataset3 = {
     ],
     domain: null,
     container: null,
+    lineage: null,
+    relationships: null,
+    health: null,
+    assertions: null,
 } as Dataset;
 
 export const dataset4 = {
     ...dataset3,
     name: 'Fourth Test Dataset',
     urn: 'urn:li:dataset:4',
+    properties: {
+        name: 'Fourth Test Dataset',
+        description: 'This and here we have yet another Dataset (YAN). Are there more?',
+        origin: 'PROD',
+        customProperties: [{ key: 'propertyAKey', value: 'propertyAValue' }],
+        externalUrl: 'https://data.hub',
+    },
 };
 
 export const dataset5 = {
     ...dataset3,
     name: 'Fifth Test Dataset',
     urn: 'urn:li:dataset:5',
+    properties: {
+        name: 'Fifth Test Dataset',
+        description: 'This and here we have yet another Dataset (YAN). Are there more?',
+        origin: 'PROD',
+        customProperties: [{ key: 'propertyAKey', value: 'propertyAValue' }],
+        externalUrl: 'https://data.hub',
+    },
 };
 
 export const dataset6 = {
     ...dataset3,
     name: 'Sixth Test Dataset',
     urn: 'urn:li:dataset:6',
+    properties: {
+        name: 'Sixth Test Dataset',
+        description: 'This and here we have yet another Dataset (YAN). Are there more?',
+        origin: 'PROD',
+        customProperties: [{ key: 'propertyAKey', value: 'propertyAValue' }],
+        externalUrl: 'https://data.hub',
+    },
 };
 
 export const dataset7 = {
     ...dataset3,
     name: 'Seventh Test Dataset',
     urn: 'urn:li:dataset:7',
+    properties: {
+        name: 'Seventh Test Dataset',
+        description: 'This and here we have yet another Dataset (YAN). Are there more?',
+        origin: 'PROD',
+        customProperties: [{ key: 'propertyAKey', value: 'propertyAValue' }],
+        externalUrl: 'https://data.hub',
+    },
 };
 
 export const dataset3WithLineage = {
     ...dataset3,
-    outgoing: {
+    upstream: {
         start: 0,
         count: 2,
         total: 2,
@@ -515,12 +560,17 @@ export const dataset3WithLineage = {
             },
         ],
     },
-    incoming: null,
+    downstream: {
+        start: 0,
+        count: 0,
+        total: 0,
+        relationships: [],
+    },
 };
 
 export const dataset4WithLineage = {
     ...dataset4,
-    outgoing: {
+    upstream: {
         start: 0,
         count: 2,
         total: 2,
@@ -537,7 +587,7 @@ export const dataset4WithLineage = {
             },
         ],
     },
-    incoming: {
+    downstream: {
         start: 0,
         count: 1,
         total: 1,
@@ -553,7 +603,7 @@ export const dataset4WithLineage = {
 
 export const dataset5WithCyclicalLineage = {
     ...dataset5,
-    outgoing: {
+    upstream: {
         start: 0,
         count: 1,
         total: 1,
@@ -565,7 +615,7 @@ export const dataset5WithCyclicalLineage = {
             },
         ],
     },
-    incoming: {
+    downstream: {
         start: 0,
         count: 1,
         total: 1,
@@ -581,8 +631,8 @@ export const dataset5WithCyclicalLineage = {
 
 export const dataset5WithLineage = {
     ...dataset5,
-    outgoing: null,
-    incoming: {
+    upstream: null,
+    downstream: {
         start: 0,
         count: 3,
         total: 3,
@@ -608,7 +658,7 @@ export const dataset5WithLineage = {
 
 export const dataset6WithLineage = {
     ...dataset6,
-    outgoing: {
+    upstream: {
         start: 0,
         count: 1,
         total: 1,
@@ -620,7 +670,7 @@ export const dataset6WithLineage = {
             },
         ],
     },
-    incoming: {
+    downstream: {
         start: 0,
         count: 1,
         total: 1,
@@ -636,7 +686,7 @@ export const dataset6WithLineage = {
 
 export const dataset7WithLineage = {
     ...dataset7,
-    outgoing: {
+    upstream: {
         start: 0,
         count: 1,
         total: 1,
@@ -648,7 +698,7 @@ export const dataset7WithLineage = {
             },
         ],
     },
-    incoming: {
+    downstream: {
         start: 0,
         count: 1,
         total: 1,
@@ -664,7 +714,7 @@ export const dataset7WithLineage = {
 
 export const dataset7WithSelfReferentialLineage = {
     ...dataset7,
-    outgoing: {
+    upstream: {
         start: 0,
         count: 2,
         total: 2,
@@ -681,7 +731,7 @@ export const dataset7WithSelfReferentialLineage = {
             },
         ],
     },
-    incoming: {
+    downstream: {
         start: 0,
         count: 2,
         total: 2,
@@ -1020,6 +1070,8 @@ export const dataJob1 = {
     },
     incoming: null,
     outgoing: null,
+    upstream: null,
+    downstream: null,
     parentFlow: {
         start: 0,
         count: 1,
@@ -1092,6 +1144,8 @@ export const dataJob2 = {
         ],
     },
     domain: null,
+    upstream: null,
+    downstream: null,
 } as DataJob;
 
 export const dataJob3 = {
@@ -1151,6 +1205,8 @@ export const dataJob3 = {
         ],
     },
     domain: null,
+    upstream: null,
+    downstream: null,
 } as DataJob;
 
 export const mlModel = {
@@ -1223,6 +1279,8 @@ export const mlModel = {
     },
     incoming: null,
     outgoing: null,
+    upstream: null,
+    downstream: null,
 } as MlModel;
 
 export const mlModelGroup = {
@@ -1283,6 +1341,8 @@ export const mlModelGroup = {
     },
     incoming: null,
     outgoing: null,
+    upstream: null,
+    downstream: null,
 } as MlModelGroup;
 
 export const recommendationModules = [
@@ -1691,6 +1751,7 @@ export const mocks = [
                     ],
                     facets: [
                         {
+                            __typename: 'FacetMetadata',
                             field: 'origin',
                             displayName: 'origin',
                             aggregations: [
@@ -1702,6 +1763,7 @@ export const mocks = [
                             ],
                         },
                         {
+                            __typename: 'FacetMetadata',
                             field: 'platform',
                             displayName: 'platform',
                             aggregations: [
@@ -2330,6 +2392,7 @@ export const mocks = [
                     total: 1,
                     searchResults: [
                         {
+                            __typename: 'SearchResult',
                             entity: {
                                 __typename: 'Dataset',
                                 ...dataset3,
@@ -2340,10 +2403,12 @@ export const mocks = [
                     ],
                     facets: [
                         {
+                            __typename: 'FacetMetadata',
                             field: 'origin',
                             displayName: 'origin',
                             aggregations: [
                                 {
+                                    __typename: 'AggregationMetadata',
                                     value: 'PROD',
                                     count: 3,
                                     entity: null,
@@ -2351,12 +2416,28 @@ export const mocks = [
                             ],
                         },
                         {
+                            __typename: 'FacetMetadata',
                             field: 'platform',
                             displayName: 'platform',
                             aggregations: [
-                                { value: 'hdfs', count: 1, entity: null },
-                                { value: 'mysql', count: 1, entity: null },
-                                { value: 'kafka', count: 1, entity: null },
+                                {
+                                    __typename: 'AggregationMetadata',
+                                    value: 'hdfs',
+                                    count: 1,
+                                    entity: null,
+                                },
+                                {
+                                    __typename: 'AggregationMetadata',
+                                    value: 'mysql',
+                                    count: 1,
+                                    entity: null,
+                                },
+                                {
+                                    __typename: 'AggregationMetadata',
+                                    value: 'kafka',
+                                    count: 1,
+                                    entity: null,
+                                },
                             ],
                         },
                     ],

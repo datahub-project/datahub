@@ -5,7 +5,7 @@ import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.metadata.graph.GraphService;
-import com.linkedin.metadata.graph.Neo4jGraphService;
+import com.linkedin.metadata.graph.neo4j.Neo4jGraphService;
 import java.util.function.Function;
 
 

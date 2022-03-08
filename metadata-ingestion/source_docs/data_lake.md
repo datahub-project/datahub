@@ -10,7 +10,7 @@ This source is in **Beta** and under active development. Not yet considered read
 
 ## Setup
 
-To install this plugin, run `pip install 'acryl-datahub[data-lake]'`. Because the files are read using PySpark, we require Spark 3.0.3 with Hadoop 3.2 to be installed.
+To install this plugin, run `pip install 'acryl-datahub[data-lake]'`. Note that because the profiling is run with PySpark, we require Spark 3.0.3 with Hadoop 3.2 to be installed (see [compatibility](#compatibility) for more details). If profiling, make sure that permissions for **s3a://** access are set because Spark and Hadoop use the s3a:// protocol to interface with AWS (schema inference outside of profiling requires s3:// access).
 
 The data lake connector extracts schemas and profiles from a variety of file formats (see below for an exhaustive list).
 Individual files are ingested as tables, and profiles are computed similar to the [SQL profiler](./sql_profiles.md).
@@ -37,7 +37,7 @@ If you would like to write a more complicated function for resolving file names,
 Extracts:
 
 - Row and column counts for each table
-- For each column, if applicable:
+- For each column, if profiling is enabled:
   - null counts and proportions
   - distinct counts and proportions
   - minimum, maximum, mean, median, standard deviation, some quantile values
@@ -47,9 +47,15 @@ This connector supports both local files as well as those stored on AWS S3 (whic
 
 - CSV
 - TSV
-- Parquet
 - JSON
+- Parquet
 - Apache Avro
+
+Schemas for Parquet and Avro files are extracted as provided.
+
+Schemas for schemaless formats (CSV, TSV, JSON) are inferred. For CSV and TSV files, we consider the first 100 rows by default, which can be controlled via the `max_rows` recipe parameter (see [below](#config-details))
+JSON file schemas are inferred on the basis of the entire file (given the difficulty in extracting only the first few objects of the file), which may impact performance.
+We are working on using iterator-based JSON parsers to avoid reading in the entire JSON object.
 
 :::caution
 
@@ -57,10 +63,9 @@ If you are ingesting datasets from AWS S3, we recommend running the ingestion on
 
 :::
 
-| Capability | Status | Details | 
-| -----------| ------ | ---- |
-| Platform Instance | 🛑 | [link](../../docs/platform-instances.md) |
-
+| Capability        | Status | Details                                  |
+| ----------------- | ------ | ---------------------------------------- |
+| Platform Instance | 🛑     | [link](../../docs/platform-instances.md) |
 
 ## Quickstart recipe
 
@@ -89,7 +94,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | Field                                                | Required                 | Default      | Description                                                                                                                                                                                                    |
 | ---------------------------------------------------- | ------------------------ | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `env`                                                |                          | `PROD`       | Environment to use in namespace when constructing URNs.                                                                                                                                                        |
-| `platform`                                           | ✅                       |              | Platform to use in namespace when constructing URNs.                                                                                                                                                           |
+| `platform`                                           |                          | Autodetected | Platform to use in namespace when constructing URNs. If left blank, local paths will correspond to `file` and S3 paths will correspond to `s3`.                                                                |
 | `base_path`                                          | ✅                       |              | Path of the base folder to crawl. Unless `schema_patterns` and `profile_patterns` are set, the connector will ingest all files in this folder.                                                                 |
 | `path_spec`                                          |                          |              | Format string for constructing table identifiers from the relative path. See the above [setup section](#setup) for details.                                                                                    |
 | `use_relative_path`                                  |                          | `False`      | Whether to use the relative path when constructing URNs. Has no effect when a `path_spec` is provided.                                                                                                         |
@@ -99,6 +104,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `aws_config.aws_access_key_id`                       |                          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html                                                                                                                             |
 | `aws_config.aws_secret_access_key`                   |                          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html                                                                                                                             |
 | `aws_config.aws_session_token`                       |                          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html                                                                                                                             |
+| `max_rows`                                           |                          | `100`        | Maximum number of rows to use when inferring schemas for TSV and CSV files.                                                                                                                                    |
 | `schema_patterns.allow`                              |                          | `*`          | List of regex patterns for tables to ingest. Defaults to all.                                                                                                                                                  |
 | `schema_patterns.deny`                               |                          |              | List of regex patterns for tables to not ingest. Defaults to none.                                                                                                                                             |
 | `schema_patterns.ignoreCase`                         |                          | `True`       | Whether to ignore case sensitivity during pattern matching of tables to ingest.                                                                                                                                |
@@ -121,9 +127,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 
 ## Compatibility
 
-Files are read using PySpark and profiles are computed with PyDeequ.
-We currently require Spark 3.0.3 with Hadoop 3.2 to be installed and the `SPARK_HOME` environment variable to be set for PySpark.
-The Spark+Hadoop binary can be downloaded [here](https://www.apache.org/dyn/closer.lua/spark/spark-3.0.3/spark-3.0.3-bin-hadoop3.2.tgz).
+Profiles are computed with PyDeequ, which relies on PySpark. Therefore, for computing profiles, we currently require Spark 3.0.3 with Hadoop 3.2 to be installed and the `SPARK_HOME` and `SPARK_VERSION` environment variables to be set. The Spark+Hadoop binary can be downloaded [here](https://www.apache.org/dyn/closer.lua/spark/spark-3.0.3/spark-3.0.3-bin-hadoop3.2.tgz).
 
 For an example guide on setting up PyDeequ on AWS, see [this guide](https://aws.amazon.com/blogs/big-data/testing-data-quality-at-scale-with-pydeequ/).
 

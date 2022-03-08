@@ -211,11 +211,13 @@
         "allGroups":false
       },
       "privileges":[
-        "VIEW_ANALYTICS",
         "MANAGE_POLICIES",
+        "MANAGE_INGESTION",
+        "MANAGE_SECRETS",
         "MANAGE_USERS_AND_GROUPS",
         "GENERATE_PERSONAL_ACCESS_TOKENS",
         "VIEW_METADATA_PROPOSALS",
+        "VIEW_ANALYTICS",
         "MANAGE_DOMAINS"
       ],
       "displayName":"All Users - All Platform Privileges",

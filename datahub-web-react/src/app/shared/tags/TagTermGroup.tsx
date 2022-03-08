@@ -45,7 +45,12 @@ const TagWrapper = styled.div`
     margin-bottom: -8px;
 `;
 
-const TagLink = styled(Link)`
+const TermLink = styled(Link)`
+    display: inline-block;
+    margin-bottom: 8px;
+`;
+
+const TagLink = styled.span`
     display: inline-block;
     margin-bottom: 8px;
 `;
@@ -188,15 +193,15 @@ export default function TagTermGroup({
                 <DomainLink urn={domain.urn} name={entityRegistry.getDisplayName(EntityType.Domain, domain) || ''} />
             )}
             {uneditableGlossaryTerms?.terms?.map((term) => (
-                <TagLink to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)} key={term.term.urn}>
+                <TermLink to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)} key={term.term.urn}>
                     <Tag closable={false}>
                         <BookOutlined style={{ marginRight: '3%' }} />
                         {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
                     </Tag>
-                </TagLink>
+                </TermLink>
             ))}
             {editableGlossaryTerms?.terms?.map((term) => (
-                <TagLink to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)} key={term.term.urn}>
+                <TermLink to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)} key={term.term.urn}>
                     <Tag
                         closable={canRemove}
                         onClose={(e) => {
@@ -207,10 +212,10 @@ export default function TagTermGroup({
                         <BookOutlined style={{ marginRight: '3%' }} />
                         {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
                     </Tag>
-                </TagLink>
+                </TermLink>
             ))}
             {proposedGlossaryTerms?.map((actionRequest) => (
-                <TagLink
+                <TermLink
                     to={`/${entityRegistry.getPathName(EntityType.GlossaryTerm)}/${
                         actionRequest.params?.glossaryTermProposal?.glossaryTerm.urn
                     }`}
@@ -226,15 +231,20 @@ export default function TagTermGroup({
                             <ClockCircleOutlined style={{ color: 'orange', marginLeft: '3%' }} />
                         </ProposedTerm>
                     </Tooltip>
-                </TagLink>
+                </TermLink>
             ))}
             {/* uneditable tags are provided by ingestion pipelines exclusively */}
             {uneditableTags?.tags?.map((tag) => {
                 renderedTags += 1;
                 if (maxShow && renderedTags > maxShow) return null;
                 return (
-                    <TagLink to={entityRegistry.getEntityUrl(EntityType.Tag, tag?.tag?.urn)} key={tag?.tag?.urn}>
-                        <StyledTag $colorHash={tag?.tag?.urn} $color={tag?.tag?.properties?.colorHex} closable={false}>
+                    <TagLink>
+                        <StyledTag
+                            onClick={() => showTagProfileDrawer(tag?.tag?.urn)}
+                            $colorHash={tag?.tag?.urn}
+                            $color={tag?.tag?.properties?.colorHex}
+                            closable={false}
+                        >
                             {entityRegistry.getDisplayName(EntityType.Tag, tag.tag)}
                         </StyledTag>
                     </TagLink>
@@ -245,23 +255,25 @@ export default function TagTermGroup({
                 renderedTags += 1;
                 if (maxShow && renderedTags > maxShow) return null;
                 return (
-                    <StyledTag
-                        style={{ cursor: 'pointer' }}
-                        onClick={() => showTagProfileDrawer(tag?.tag?.urn)}
-                        $colorHash={tag?.tag?.urn}
-                        $color={tag?.tag?.properties?.colorHex}
-                        closable={canRemove}
-                        onClose={(e) => {
-                            e.preventDefault();
-                            removeTag(tag?.tag?.urn);
-                        }}
-                    >
-                        {tag?.tag?.name}
-                    </StyledTag>
+                    <TagLink>
+                        <StyledTag
+                            style={{ cursor: 'pointer' }}
+                            onClick={() => showTagProfileDrawer(tag?.tag?.urn)}
+                            $colorHash={tag?.tag?.urn}
+                            $color={tag?.tag?.properties?.colorHex}
+                            closable={canRemove}
+                            onClose={(e) => {
+                                e.preventDefault();
+                                removeTag(tag?.tag?.urn);
+                            }}
+                        >
+                            {tag?.tag?.name}
+                        </StyledTag>
+                    </TagLink>
                 );
             })}
             {proposedTags?.map((actionRequest) => (
-                <TagLink
+                <TermLink
                     to={`/${entityRegistry.getPathName(EntityType.Tag)}/${
                         actionRequest?.params?.tagProposal?.tag?.urn
                     }`}
@@ -278,7 +290,7 @@ export default function TagTermGroup({
                             <ClockCircleOutlined style={{ color: 'orange', marginLeft: '3%' }} />
                         </StyledTag>
                     </Tooltip>
-                </TagLink>
+                </TermLink>
             ))}
             {tagProfileDrawerVisible && (
                 <TagProfileDrawer

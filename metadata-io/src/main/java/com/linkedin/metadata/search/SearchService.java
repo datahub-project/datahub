@@ -1,18 +1,19 @@
 package com.linkedin.metadata.search;
 
+import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.aggregator.AllEntitiesSearchAggregator;
-import com.linkedin.metadata.search.ranker.SearchRanker;
 import com.linkedin.metadata.search.cache.AllEntitiesSearchAggregatorCache;
 import com.linkedin.metadata.search.cache.EntitySearchServiceCache;
-
+import com.linkedin.metadata.search.ranker.SearchRanker;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.CacheManager;
+
 
 @Slf4j
 public class SearchService {
@@ -52,13 +53,15 @@ public class SearchService {
    * @param sortCriterion {@link SortCriterion} to be applied to search results
    * @param from index to start the search from
    * @param size the number of search hits to return
+   * @param searchFlags optional set of flags to control search behavior
    * @return a {@link com.linkedin.metadata.dao.SearchResult} that contains a list of matched documents and related search result metadata
    */
   @Nonnull
   public SearchResult search(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
-      @Nullable SortCriterion sortCriterion, int from, int size) {
-    SearchResult result = _entitySearchServiceCache.getSearcher(entityName, input, postFilters, sortCriterion)
-        .getSearchResults(from, size);
+      @Nullable SortCriterion sortCriterion, int from, int size, @Nullable SearchFlags searchFlags) {
+    SearchResult result =
+        _entitySearchServiceCache.getSearcher(entityName, input, postFilters, sortCriterion, searchFlags)
+            .getSearchResults(from, size);
     try {
       return result.copy().setEntities(new SearchEntityArray(_searchRanker.rank(result.getEntities())));
     } catch (Exception e) {
@@ -77,15 +80,17 @@ public class SearchService {
    * @param sortCriterion {@link SortCriterion} to be applied to search results
    * @param from index to start the search from
    * @param size the number of search hits to return
+   * @param searchFlags optional set of flags to control search behavior
    * @return a {@link com.linkedin.metadata.dao.SearchResult} that contains a list of matched documents and related search result metadata
    */
   @Nonnull
   public SearchResult searchAcrossEntities(@Nonnull List<String> entities, @Nonnull String input,
-      @Nullable Filter postFilters, @Nullable SortCriterion sortCriterion, int from, int size) {
+      @Nullable Filter postFilters, @Nullable SortCriterion sortCriterion, int from, int size,
+      @Nullable SearchFlags searchFlags) {
     log.debug(String.format(
         "Searching Search documents entities: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
         entities, input, postFilters, sortCriterion, from, size));
-    return _allEntitiesSearchAggregatorCache.getSearcher(entities, input, postFilters, sortCriterion)
+    return _allEntitiesSearchAggregatorCache.getSearcher(entities, input, postFilters, sortCriterion, searchFlags)
         .getSearchResults(from, size);
   }
 }

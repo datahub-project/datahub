@@ -57,15 +57,6 @@ export function AdminHeaderLinks() {
                     </Link>
                 </AdminLink>
             )}
-            {showPolicyBuilder && (
-                <AdminLink>
-                    <Link to="/policies">
-                        <Button type="text">
-                            <BankOutlined /> Policies
-                        </Button>
-                    </Link>
-                </AdminLink>
-            )}
             {showActionRequests && (
                 <AdminLink>
                     <Link to="/requests">
@@ -102,11 +93,20 @@ export function AdminHeaderLinks() {
                     </Link>
                 </AdminLink>
             )}
-            {showSettings && (
+            {showPolicyBuilder && (
                 <AdminLink>
+                    <Link to="/policies">
+                        <Button type="text">
+                            <BankOutlined /> Policies
+                        </Button>
+                    </Link>
+                </AdminLink>
+            )}
+            {showSettings && (
+                <AdminLink style={{ marginRight: 16 }}>
                     <Link to="/settings">
                         <Button type="text">
-                            <SettingOutlined /> Settings
+                            <SettingOutlined />
                         </Button>
                     </Link>
                 </AdminLink>

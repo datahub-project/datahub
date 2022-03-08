@@ -1,0 +1,29 @@
+namespace com.linkedin.metadata.graph
+
+import com.linkedin.common.AuditStamp
+import com.linkedin.common.Urn
+
+/**
+ * Metadata about a lineage relationship between two entities
+ */
+record LineageRelationship {
+  /**
+   * The type of the relationship
+   */
+  type: string
+
+  /**
+   * Entity that is related via lineage
+   */
+  entity: Urn
+
+  /**
+   * Optional list of entities between the source and destination node
+   */
+  path: array[Urn] = []
+
+  /**
+   * Degree of relationship (number of hops to get to entity)
+   */
+  degree: int = 1
+}

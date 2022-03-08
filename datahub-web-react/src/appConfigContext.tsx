@@ -19,6 +19,9 @@ export const DEFAULT_APP_CONFIG = {
     managedIngestionConfig: {
         enabled: false,
     },
+    lineageConfig: {
+        supportsImpactAnalysis: false,
+    },
 };
 
 export const AppConfigContext = React.createContext<{

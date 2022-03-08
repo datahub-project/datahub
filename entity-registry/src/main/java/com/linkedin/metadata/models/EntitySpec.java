@@ -35,4 +35,11 @@ public interface EntitySpec {
         .flatMap(List::stream)
         .collect(Collectors.toList());
   }
+
+  default List<RelationshipFieldSpec> getRelationshipFieldSpecs() {
+    return getAspectSpecs().stream()
+        .map(AspectSpec::getRelationshipFieldSpecs)
+        .flatMap(List::stream)
+        .collect(Collectors.toList());
+  }
 }

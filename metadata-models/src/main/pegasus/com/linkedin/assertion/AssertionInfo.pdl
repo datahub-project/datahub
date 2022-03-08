@@ -14,7 +14,7 @@ record AssertionInfo includes CustomProperties, ExternalReference {
     * Type of assertion. Assertion types can evolve to span Datasets, Flows (Pipelines), Models, Features etc.
     */
     type: enum AssertionType {
-      // When present, then DatasetAssertionInfo elements are filled out
+      // A single-dataset assertion. When this is the value, the datasetAssertion field will be populated.
       DATASET
     }
 
@@ -22,14 +22,4 @@ record AssertionInfo includes CustomProperties, ExternalReference {
     * Dataset Assertion information when type is DATASET
     */
     datasetAssertion: optional DatasetAssertionInfo
-
-    /*
-    * Logic for the assertion as expressed in the native assertion language. Code fragments, query strings, etc.
-    */
-    assertionLogic: optional string
-
-    /**
-    * Parameters required for the assertion. e.g. min_value, max_value, value, columns
-    */
-    parameters: optional map[string, string]
 }

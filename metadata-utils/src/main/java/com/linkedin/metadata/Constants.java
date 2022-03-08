@@ -36,6 +36,7 @@ public class Constants {
   public static final String CONTAINER_ENTITY_NAME = "container";
   public static final String DOMAIN_ENTITY_NAME = "domain";
   public static final String RECOMMENDATION_MODULE_ENTITY_NAME = "recommendationModule";
+  public static final String ASSERTION_ENTITY_NAME = "assertion";
   public static final String INGESTION_SOURCE_ENTITY_NAME = "dataHubIngestionSource";
   public static final String SECRETS_ENTITY_NAME = "dataHubSecret";
   public static final String EXECUTION_REQUEST_ENTITY_NAME = "dataHubExecutionRequest";
@@ -160,6 +161,11 @@ public class Constants {
 
   // Recommendation module
   public static final String RECOMMENDATION_MODULE_ASPECT_NAME = "recommendationModule";
+  // Assertion
+  public static final String ASSERTION_KEY_ASPECT_NAME = "assertionKey";
+  public static final String ASSERTION_INFO_ASPECT_NAME = "assertionInfo";
+  public static final String ASSERTION_RUN_EVENT_ASPECT_NAME = "assertionRunEvent";
+  public static final String ASSERTION_RUN_EVENT_STATUS_COMPLETE = "COMPLETE";
 
   // DataHub Ingestion Source
   public static final String INGESTION_INFO_ASPECT_NAME = "dataHubIngestionSourceInfo";

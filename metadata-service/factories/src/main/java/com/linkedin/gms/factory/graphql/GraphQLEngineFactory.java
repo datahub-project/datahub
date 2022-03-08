@@ -15,9 +15,11 @@ import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.recommendation.RecommendationServiceFactory;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
+import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.secret.SecretService;
+import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.usage.UsageClient;
@@ -61,6 +63,14 @@ public class GraphQLEngineFactory {
   private EntityService _entityService;
 
   @Autowired
+  @Qualifier("graphService")
+  private GraphService _graphService;
+
+  @Autowired
+  @Qualifier("timeseriesAspectService")
+  private TimeseriesAspectService _timeseriesAspectService;
+
+  @Autowired
   private RecommendationsService _recommendationsService;
 
   @Autowired
@@ -98,10 +108,12 @@ public class GraphQLEngineFactory {
           _entityService,
           _recommendationsService,
           _tokenService,
+          _timeseriesAspectService,
           _entityRegistry,
           _secretService,
           _configProvider.getIngestion(),
-          _gitVersion
+          _gitVersion,
+          _graphService.supportsMultiHop()
           ).builder().build();
     }
     return new GmsGraphQLEngine(
@@ -112,9 +124,12 @@ public class GraphQLEngineFactory {
         _entityService,
         _recommendationsService,
         _tokenService,
+        _timeseriesAspectService,
         _entityRegistry,
         _secretService,
         _configProvider.getIngestion(),
-        _gitVersion).builder().build();
+        _gitVersion,
+        _graphService.supportsMultiHop()
+    ).builder().build();
   }
 }

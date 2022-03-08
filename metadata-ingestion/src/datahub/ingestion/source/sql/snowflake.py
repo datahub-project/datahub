@@ -1,6 +1,7 @@
 import json
 import logging
 from collections import defaultdict
+from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import pydantic
@@ -24,12 +25,14 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.ingestion.source.sql.sql_common import (
     RecordTypeClass,
     SQLAlchemyConfig,
     SQLAlchemySource,
+    SQLSourceReport,
     SqlWorkUnit,
     TimeTypeClass,
     make_sqlalchemy_uri,
@@ -54,6 +57,19 @@ logger: logging.Logger = logging.getLogger(__name__)
 APPLICATION_NAME = "acryl_datahub"
 
 snowdialect.ischema_names["GEOGRAPHY"] = sqltypes.NullType
+
+
+@dataclass
+class SnowflakeReport(SQLSourceReport):
+    num_table_to_table_edges_scanned: int = 0
+    num_table_to_view_edges_scanned: int = 0
+    num_view_to_table_edges_scanned: int = 0
+    num_external_table_edges_scanned: int = 0
+    upstream_lineage: Dict[str, List[str]] = field(default_factory=dict)
+    # https://community.snowflake.com/s/topic/0TO0Z000000Unu5WAC/releases
+    saas_version: str = ""
+    role: str = ""
+    role_grants: List[str] = field(default_factory=list)
 
 
 class BaseSnowflakeConfig(BaseTimeWindowConfig):
@@ -179,28 +195,63 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
 
 
 class SnowflakeSource(SQLAlchemySource):
-    config: SnowflakeConfig
-    current_database: str
-
-    def __init__(self, config, ctx):
+    def __init__(self, config: SnowflakeConfig, ctx: PipelineContext):
         super().__init__(config, ctx, "snowflake")
         self._lineage_map: Optional[Dict[str, List[Tuple[str, str, str]]]] = None
         self._external_lineage_map: Optional[Dict[str, Set[str]]] = None
+        self.report: SnowflakeReport = SnowflakeReport()
+        self.config: SnowflakeConfig = config
 
     @classmethod
     def create(cls, config_dict, ctx):
         config = SnowflakeConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def get_inspectors(self) -> Iterable[Inspector]:
-        url = self.config.get_sql_alchemy_url(database=None)
+    def get_metadata_engine(
+        self, database: Optional[str] = None
+    ) -> sqlalchemy.engine.Engine:
+        url = self.config.get_sql_alchemy_url(database=database)
         logger.debug(f"sql_alchemy_url={url}")
-
-        db_listing_engine = create_engine(
+        return create_engine(
             url,
             connect_args=self.config.get_sql_alchemy_connect_args(),
             **self.config.options,
         )
+
+    def inspect_version(self) -> Any:
+        db_engine = self.get_metadata_engine()
+        logger.info("Checking current version")
+        for db_row in db_engine.execute("select CURRENT_VERSION()"):
+            self.report.saas_version = db_row[0]
+
+    def inspect_role_grants(self) -> Any:
+        db_engine = self.get_metadata_engine()
+        cur_role = None
+        if self.config.role is None:
+            for db_row in db_engine.execute("select CURRENT_ROLE()"):
+                cur_role = db_row[0]
+        else:
+            cur_role = self.config.role
+
+        if cur_role is None:
+            return
+
+        self.report.role = cur_role
+        logger.info(f"Current role is {cur_role}")
+        if cur_role.lower() == "accountadmin":
+            return
+
+        logger.info(f"Checking grants for role {cur_role}")
+        for db_row in db_engine.execute(text(f"show grants to role {cur_role}")):
+            privilege = db_row["privilege"]
+            granted_on = db_row["granted_on"]
+            name = db_row["name"]
+            self.report.role_grants.append(
+                f"{privilege} granted on {granted_on} {name}"
+            )
+
+    def get_inspectors(self) -> Iterable[Inspector]:
+        db_listing_engine = self.get_metadata_engine(database=None)
 
         for db_row in db_listing_engine.execute(text("SHOW DATABASES")):
             db = db_row.name
@@ -208,11 +259,7 @@ class SnowflakeSource(SQLAlchemySource):
                 # We create a separate engine for each database in order to ensure that
                 # they are isolated from each other.
                 self.current_database = db
-                engine = create_engine(
-                    self.config.get_sql_alchemy_url(database=db),
-                    connect_args=self.config.get_sql_alchemy_connect_args(),
-                    **self.config.options,
-                )
+                engine = self.get_metadata_engine(database=db)
 
                 with engine.connect() as conn:
                     inspector = inspect(conn)
@@ -225,76 +272,51 @@ class SnowflakeSource(SQLAlchemySource):
         return f"{self.current_database.lower()}.{regular}"
 
     def _populate_view_upstream_lineage(self, engine: sqlalchemy.engine.Engine) -> None:
-        # NOTE: This query captures only the upstream lineage of a view.
-        # For more details see https://docs.snowflake.com/en/sql-reference/account-usage/access_history.html#usage-notes for current limitations on capturing the lineage for views.
+        # NOTE: This query captures only the upstream lineage of a view (with no column lineage).
+        # For more details see: https://docs.snowflake.com/en/user-guide/object-dependencies.html#object-dependencies
+        # and also https://docs.snowflake.com/en/sql-reference/account-usage/access_history.html#usage-notes for current limitations on capturing the lineage for views.
         view_upstream_lineage_query: str = """
-WITH view_upstream_lineage_history AS (
-  SELECT
-    vu.value : "objectName" AS view_name,
-    vu.value : "objectDomain" AS view_domain,
-    vu.value : "columns" AS view_columns,
-    r.value : "objectName" AS upstream_table_name,
-    r.value : "objectDomain" AS upstream_table_domain,
-    r.value : "columns" AS upstream_table_columns,
-    t.query_start_time AS query_start_time
-  FROM
-    (
-      SELECT
-        *
-      FROM
-        snowflake.account_usage.access_history
-    ) t,
-    lateral flatten(input => t.DIRECT_OBJECTS_ACCESSED) vu,
-    lateral flatten(input => t.BASE_OBJECTS_ACCESSED) r
-  WHERE
-    vu.value : "objectId" IS NOT NULL
-    AND r.value : "objectId" IS NOT NULL
-    AND t.query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
-    AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3)
-)
 SELECT
-  view_name,
-  view_columns,
-  upstream_table_name,
-  upstream_table_domain,
-  upstream_table_columns
+  concat(
+    referenced_database, '.', referenced_schema,
+    '.', referenced_object_name
+  ) AS view_upstream,
+  concat(
+    referencing_database, '.', referencing_schema,
+    '.', referencing_object_name
+  ) AS downstream_view
 FROM
-  view_upstream_lineage_history
+  snowflake.account_usage.object_dependencies
 WHERE
-  view_domain in ('View', 'Materialized view')
-  AND view_name != upstream_table_name
-  QUALIFY ROW_NUMBER() OVER (
-    PARTITION BY view_name,
-    upstream_table_name
-    ORDER BY
-      query_start_time DESC
-  ) = 1
-        """.format(
-            start_time_millis=int(self.config.start_time.timestamp() * 1000),
-            end_time_millis=int(self.config.end_time.timestamp() * 1000),
-        )
+  referencing_object_domain in ('VIEW', 'MATERIALIZED VIEW')
+        """
 
         assert self._lineage_map is not None
+        num_edges: int = 0
 
         try:
             for db_row in engine.execute(view_upstream_lineage_query):
-                # Process UpstreamTable->View edge.
-
-                view_name: str = db_row[0].lower().replace('"', "")
-                upstream_table: str = db_row[2].lower().replace('"', "")
+                # Process UpstreamTable/View/ExternalTable/Materialized View->View edge.
+                view_upstream: str = db_row["view_upstream"].lower()
+                view_name: str = db_row["downstream_view"].lower()
                 # key is the downstream view name
                 self._lineage_map[view_name].append(
-                    # (<upstream_table_name>, <json_list_of_upstream_table_columns>, <json_list_of_downstream_view_columns>)
-                    (upstream_table, db_row[4], db_row[1])
+                    # (<upstream_table_name>, <empty_json_list_of_upstream_table_columns>, <empty_json_list_of_downstream_view_columns>)
+                    (view_upstream, "[]", "[]")
                 )
+                num_edges += 1
                 logger.debug(
-                    f"Table->View: Lineage[{view_name}]:{self._lineage_map[view_name]}, upstream_domain={db_row[3]}"
+                    f"Upstream->View: Lineage[View(Down)={view_name}]:Upstream={view_upstream}"
                 )
         except Exception as e:
-            logger.warning(
-                f"Extracting the upstream view lineage from Snowflake failed."
-                f"Please check your permissions. Continuing...\nError was {e}."
+            self.warn(
+                logger,
+                "view_upstream_lineage",
+                "Extracting the upstream view lineage from Snowflake failed."
+                + f"Please check your permissions. Continuing...\nError was {e}.",
             )
+        logger.info(f"A total of {num_edges} View upstream edges found.")
+        self.report.num_table_to_view_edges_scanned = num_edges
 
     def _populate_view_downstream_lineage(
         self, engine: sqlalchemy.engine.Engine
@@ -363,6 +385,8 @@ WHERE
         )
 
         assert self._lineage_map is not None
+        num_edges: int = 0
+        num_false_edges: int = 0
 
         try:
             for db_row in engine.execute(view_lineage_query):
@@ -374,11 +398,21 @@ WHERE
                 upstream_table: str = db_row[2].lower().replace('"', "")
                 downstream_table: str = db_row[5].lower().replace('"', "")
                 # (1) Delete false direct edge between upstream_table and downstream_table
+                prior_edges: List[Tuple[str, str, str]] = self._lineage_map[
+                    downstream_table
+                ]
                 self._lineage_map[downstream_table] = [
                     entry
                     for entry in self._lineage_map[downstream_table]
                     if entry[0] != upstream_table
                 ]
+                for false_edge in set(prior_edges) - set(
+                    self._lineage_map[downstream_table]
+                ):
+                    logger.debug(
+                        f"False Table->Table edge removed: Lineage[Table(Down)={downstream_table}]:Table(Up)={false_edge}."
+                    )
+                    num_false_edges += 1
 
                 # (2) Add view->downstream table lineage.
                 self._lineage_map[downstream_table].append(
@@ -386,28 +420,31 @@ WHERE
                     (view_name, db_row[1], db_row[7])
                 )
                 logger.debug(
-                    f"View->Table: Lineage[{downstream_table}]:{self._lineage_map[downstream_table]}, downstream_domain={db_row[6]}"
+                    f"View->Table: Lineage[Table(Down)={downstream_table}]:View(Up)={self._lineage_map[downstream_table]}, downstream_domain={db_row[6]}"
                 )
+                num_edges += 1
 
         except Exception as e:
-            logger.warning(
+            self.warn(
+                logger,
+                "view_downstream_lineage",
                 f"Extracting the view lineage from Snowflake failed."
-                f"Please check your permissions. Continuing...\nError was {e}."
+                f"Please check your permissions. Continuing...\nError was {e}.",
             )
+        logger.info(
+            f"Found {num_edges} View->Table edges. Removed {num_false_edges} false Table->Table edges."
+        )
+        self.report.num_view_to_table_edges_scanned = num_edges
 
     def _populate_view_lineage(self) -> None:
         if not self.config.include_view_lineage:
             return
-        url = self.config.get_sql_alchemy_url()
-        logger.debug(f"sql_alchemy_url={url}")
-        engine = create_engine(url, **self.config.options)
+        engine = self.get_metadata_engine(database=None)
         self._populate_view_upstream_lineage(engine)
         self._populate_view_downstream_lineage(engine)
 
     def _populate_external_lineage(self) -> None:
-        url = self.config.get_sql_alchemy_url()
-        logger.debug(f"sql_alchemy_url={url}")
-        engine = create_engine(url, **self.config.options)
+        engine = self.get_metadata_engine(database=None)
         # Handles the case where a table is populated from an external location via copy.
         # Eg: copy into category_english from 's3://acryl-snow-demo-olist/olist_raw_data/category_english'credentials=(aws_key_id='...' aws_secret_key='...')  pattern='.*.csv';
         query: str = """
@@ -434,6 +471,7 @@ WHERE
             end_time_millis=int(self.config.end_time.timestamp() * 1000),
         )
 
+        num_edges: int = 0
         self._external_lineage_map = defaultdict(set)
         try:
             for db_row in engine.execute(query):
@@ -441,7 +479,7 @@ WHERE
                 key: str = db_row[1].lower().replace('"', "")
                 self._external_lineage_map[key] |= {*json.loads(db_row[0])}
                 logger.debug(
-                    f"ExternalLineage[{key}]:{self._external_lineage_map[key]}"
+                    f"ExternalLineage[Table(Down)={key}]:External(Up)={self._external_lineage_map[key]}"
                 )
         except Exception as e:
             logger.warning(
@@ -458,22 +496,21 @@ WHERE
                 )
                 self._external_lineage_map[key].add(db_row.location)
                 logger.debug(
-                    f"ExternalLineage[{key}]:{self._external_lineage_map[key]}"
+                    f"ExternalLineage[Table(Down)={key}]:External(Up)={self._external_lineage_map[key]}"
                 )
+                num_edges += 1
         except Exception as e:
-            logger.warning(
+            self.warn(
+                logger,
+                "external_lineage",
                 f"Populating external table lineage from Snowflake failed."
-                f"Please check your premissions. Continuing...\nError was {e}."
+                f"Please check your premissions. Continuing...\nError was {e}.",
             )
+        logger.info(f"Found {num_edges} external lineage edges.")
+        self.report.num_external_table_edges_scanned = num_edges
 
     def _populate_lineage(self) -> None:
-        url = self.config.get_sql_alchemy_url()
-        logger.debug(f"sql_alchemy_url={url}")
-        engine = create_engine(
-            url,
-            connect_args=self.config.get_sql_alchemy_connect_args(),
-            **self.config.options,
-        )
+        engine = self.get_metadata_engine(database=None)
         query: str = """
 WITH table_lineage_history AS (
     SELECT
@@ -486,7 +523,7 @@ WITH table_lineage_history AS (
         t.query_start_time AS query_start_time
     FROM
         (SELECT * from snowflake.account_usage.access_history) t,
-        lateral flatten(input => t.BASE_OBJECTS_ACCESSED) r,
+        lateral flatten(input => t.DIRECT_OBJECTS_ACCESSED) r,
         lateral flatten(input => t.OBJECTS_MODIFIED) w
     WHERE r.value:"objectId" IS NOT NULL
     AND w.value:"objectId" IS NOT NULL
@@ -501,6 +538,7 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
             start_time_millis=int(self.config.start_time.timestamp() * 1000),
             end_time_millis=int(self.config.end_time.timestamp() * 1000),
         )
+        num_edges: int = 0
         self._lineage_map = defaultdict(list)
         try:
             for db_row in engine.execute(query):
@@ -510,12 +548,22 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
                     # (<upstream_table_name>, <json_list_of_upstream_columns>, <json_list_of_downstream_columns>)
                     (db_row[0].lower().replace('"', ""), db_row[2], db_row[3])
                 )
-                logger.debug(f"Lineage[{key}]:{self._lineage_map[key]}")
+                num_edges += 1
+                logger.debug(
+                    f"Lineage[Table(Down)={key}]:Table(Up)={self._lineage_map[key]}"
+                )
         except Exception as e:
-            logger.warning(
+            self.warn(
+                logger,
+                "lineage",
                 f"Extracting lineage from Snowflake failed."
-                f"Please check your premissions. Continuing...\nError was {e}."
+                f"Please check your premissions. Continuing...\nError was {e}.",
             )
+        logger.info(
+            f"A total of {num_edges} Table->Table edges found"
+            f" for {len(self._lineage_map)} downstream tables.",
+        )
+        self.report.num_table_to_table_edges_scanned = num_edges
 
     def _get_upstream_lineage_info(
         self, dataset_urn: str
@@ -586,15 +634,28 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
                 upstream_tables.append(external_upstream_table)
 
         if upstream_tables:
+            logger.debug(
+                f"Upstream lineage of '{dataset_name}': {[u.dataset for u in upstream_tables]}"
+            )
+            self.report.upstream_lineage[dataset_name] = [
+                u.dataset for u in upstream_tables
+            ]
             return UpstreamLineage(upstreams=upstream_tables), column_lineage
         return None
 
     # Override the base class method.
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+        try:
+            self.inspect_version()
+        except Exception as e:
+            self.report.report_failure("version", f"Error: {e}")
+            return
+
+        self.inspect_role_grants()
         for wu in super().get_workunits():
             if (
                 self.config.include_table_lineage
-                and isinstance(wu, SqlWorkUnit)
+                and isinstance(wu, MetadataWorkUnit)
                 and isinstance(wu.metadata, MetadataChangeEvent)
                 and isinstance(wu.metadata.proposedSnapshot, DatasetSnapshot)
             ):
