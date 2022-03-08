@@ -292,7 +292,7 @@ in datahub to point to the specific ES instance -
    quickstart files located [here](../../docker/quickstart/).
     1. Once you have modified the quickstart recipes you can run the quickstart command using a specific docker compose
        file. Sample command for that is
-       - `datahub docker quickstart --quickstart-compose-file docker/quickstart/docker-compose-without-neo4j.quickstart.yml`
+        - `datahub docker quickstart --quickstart-compose-file docker/quickstart/docker-compose-without-neo4j.quickstart.yml`
 2. If you are not using quickstart recipes, you can modify environment variable in GMS to point to the ES instance. The
    env files for datahub-gms are located [here](../../docker/datahub-gms/env/).
 
@@ -413,4 +413,58 @@ Run `helm upgrade --install datahub datahub/datahub --values values.yaml` to app
 Note, you will be seeing log "Schema Version Id is null. Trying to register the schema" on every request. This log is
 misleading, so should be ignored. Schemas are cached, so it does not register a new version on every request (aka no
 performance issues). This has been fixed by [this PR](https://github.com/awslabs/aws-glue-schema-registry/pull/64) but
-the code has not been released yet. We will update version once a new release is out. 
+the code has not been released yet. We will update version once a new release is out.
+
+### IAM policies for UI-based ingestion
+
+This section details how to attach policies to the acryl-datahub-actions pod that powers UI-based ingestion. For some of
+the ingestion recipes, you sepecify login creds in the recipe itself, making it easy to set up auth to grab metadata
+from the data source. However, for AWS resources, the recommendation is to use IAM roles and policies to gate requests
+to access metadata on these resources.
+
+To do this, let's follow
+this [guide](https://docs.aws.amazon.com/eks/latest/userguide/create-service-account-iam-policy-and-role.html) to
+associate a kubernetes service account with an IAM role. Then we can attach this IAM role to the acryl-datahub-actions
+pod to let the pod assume the specified role.
+
+First, you must create an IAM policy with all the permissions needed to run ingestion. This is specific to each
+connector and the set of metadata you are trying to pull. i.e. profiling requires more permissions, since it needs
+access to the data, not just the metadata. Let's say assume the ARN of that policy
+is `arn:aws:iam::<<account-id>>:policy/policy1`.
+
+Then, create a service account with the policy attached is to use [eksctl](https://eksctl.io/). You can run the
+following command to do so.
+
+```
+eksctl create iamserviceaccount \
+    --name <<service-account-name>> \
+    --namespace <<namespace>> \
+    --cluster <<eks-cluster-name>> \
+    --attach-policy-arn <<policy-ARN>> \
+    --approve \
+    --override-existing-serviceaccounts
+```
+
+For example, running the following will create a service account "acryl-datahub-actions" in the datahub namespace of
+datahub EKS cluster with `arn:aws:iam::<<account-id>>:policy/policy1` attached.
+
+```
+eksctl create iamserviceaccount \
+    --name acryl-datahub-actions \
+    --namespace datahub \
+    --cluster datahub \
+    --attach-policy-arn arn:aws:iam::<<account-id>>:policy/policy1 \
+    --approve \
+    --override-existing-serviceaccounts
+```
+
+Lastly, in the helm values.yaml, you can add the following to the acryl-datahub-actions to attach the service account to
+the acryl-datahub-actions pod.
+
+```yaml
+acryl-datahub-actions:
+  enabled: true
+  serviceAccount:
+    name: <<service-account-name>>
+  ...
+```

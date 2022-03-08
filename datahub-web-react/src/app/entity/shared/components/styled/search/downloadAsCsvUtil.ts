@@ -48,7 +48,12 @@ export const transformGenericEntityPropertiesToCsvRow = (
         // user owners
         properties?.ownership?.owners
             ?.filter((owner) => owner.owner.type === EntityType.CorpUser)
-            .map((owner) => (owner.owner as CorpUser).properties?.fullName)
+            .map(
+                (owner) =>
+                    (owner.owner as CorpUser).editableProperties?.displayName ||
+                    (owner.owner as CorpUser).properties?.fullName ||
+                    (owner.owner as CorpUser).properties?.displayName,
+            )
             .join(',') || '',
         // user owner emails
         properties?.ownership?.owners
@@ -66,9 +71,7 @@ export const transformGenericEntityPropertiesToCsvRow = (
         // group owner emails
         properties?.ownership?.owners
             ?.filter((owner) => owner.owner.type === EntityType.CorpGroup)
-            .map(
-                (owner) => (owner.owner as CorpGroup).properties?.email || (owner.owner as CorpGroup).properties?.email,
-            )
+            .map((owner) => (owner.owner as CorpGroup).properties?.email)
             .join(',') || '',
         // tags
         properties?.globalTags?.tags?.map((tag) => tag.tag.name).join(',') || '',

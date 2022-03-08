@@ -1,11 +1,17 @@
-from typing import Dict, List, Union
+import re
+from typing import Any, Dict, List, MutableSequence, Optional, Union
 from unittest import mock
+from uuid import uuid4
 
 import pytest
 
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
-from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
+import tests.test_helpers.mce_helpers
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api import workunit
+from datahub.ingestion.api.common import EndOfStream, PipelineContext, RecordEnvelope
+from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.transformer.add_dataset_browse_path import (
     AddDatasetBrowsePathTransformer,
 )
@@ -28,22 +34,89 @@ from datahub.ingestion.transformer.add_dataset_terms import (
     PatternAddDatasetTerms,
     SimpleAddDatasetTerms,
 )
+from datahub.ingestion.transformer.base_transformer import (
+    BaseTransformer,
+    SingleAspectTransformer,
+)
+from datahub.ingestion.transformer.dataset_transformer import DatasetTransformer
 from datahub.ingestion.transformer.mark_dataset_status import MarkDatasetStatus
 from datahub.ingestion.transformer.remove_dataset_ownership import (
     SimpleRemoveDatasetOwnership,
 )
-from datahub.metadata.schema_classes import DatasetSnapshotClass
+from datahub.metadata.schema_classes import (
+    BrowsePathsClass,
+    ChangeTypeClass,
+    DatasetPropertiesClass,
+    DatasetSnapshotClass,
+    GlobalTagsClass,
+    MetadataChangeEventClass,
+    OwnershipClass,
+    StatusClass,
+    TagAssociationClass,
+)
+from datahub.utilities.urns.dataset_urn import DatasetUrn
+from datahub.utilities.urns.urn import Urn
 
 
-def make_generic_dataset() -> models.MetadataChangeEventClass:
+def make_generic_dataset(
+    entity_urn: str = "urn:li:dataset:(urn:li:dataPlatform:bigquery,example1,PROD)",
+    aspects: List[Any] = [models.StatusClass(removed=False)],
+) -> models.MetadataChangeEventClass:
     return models.MetadataChangeEventClass(
         proposedSnapshot=models.DatasetSnapshotClass(
-            urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,example1,PROD)",
-            aspects=[
-                models.StatusClass(removed=False),
-            ],
+            urn=entity_urn,
+            aspects=aspects,
         ),
     )
+
+
+def make_generic_dataset_mcp(
+    entity_urn: str = "urn:li:dataset:(urn:li:dataPlatform:bigquery,example1,PROD)",
+    aspect_name: str = "status",
+    aspect: Any = models.StatusClass(removed=False),
+) -> MetadataChangeProposalWrapper:
+    return MetadataChangeProposalWrapper(
+        entityUrn=entity_urn,
+        entityType=Urn.create_from_string(entity_urn).get_type(),
+        aspectName=aspect_name,
+        changeType="UPSERT",
+        aspect=aspect,
+    )
+
+
+def create_and_run_test_pipeline(
+    events: List[Union[MetadataChangeEventClass, MetadataChangeProposalWrapper]],
+    transformers: List[Dict[str, Any]],
+    path: str,
+) -> str:
+    with mock.patch(
+        "tests.unit.test_source.TestSource.get_workunits"
+    ) as mock_getworkunits:
+        mock_getworkunits.return_value = [
+            workunit.MetadataWorkUnit(
+                id=f"test-workunit-mce-{e.proposedSnapshot.urn}", mce=e
+            )
+            if isinstance(e, MetadataChangeEventClass)
+            else workunit.MetadataWorkUnit(
+                id=f"test-workunit-mcp-{e.entityUrn}-{e.aspectName}", mcp=e
+            )
+            for e in events
+        ]
+        events_file = f"{path}/{str(uuid4())}.json"
+        pipeline = Pipeline.create(
+            config_dict={
+                "source": {
+                    "type": "tests.unit.test_source.TestSource",
+                    "config": {},
+                },
+                "transformers": transformers,
+                "sink": {"type": "file", "config": {"filename": events_file}},
+            }
+        )
+
+        pipeline.run()
+        pipeline.raise_from_status()
+    return events_file
 
 
 def make_dataset_with_owner() -> models.MetadataChangeEventClass:
@@ -102,11 +175,7 @@ def test_simple_dataset_ownership_transformation(mock_time):
         )
     )
 
-    inputs = [
-        no_owner_aspect,
-        with_owner_aspect,
-        not_a_dataset,
-    ]
+    inputs = [no_owner_aspect, with_owner_aspect, not_a_dataset, EndOfStream()]
 
     transformer = SimpleAddDatasetOwnership.create(
         {
@@ -122,18 +191,23 @@ def test_simple_dataset_ownership_transformation(mock_time):
         transformer.transform([RecordEnvelope(input, metadata={}) for input in inputs])
     )
 
-    assert len(outputs) == len(inputs)
+    assert len(outputs) == len(inputs) + 1
 
     # Check the first entry.
     first_ownership_aspect = builder.get_aspect_if_available(
         outputs[0].record, models.OwnershipClass
     )
-    assert first_ownership_aspect
-    assert len(first_ownership_aspect.owners) == 2
+    assert first_ownership_aspect is None
+
+    last_event = outputs[3].record
+    assert isinstance(last_event, MetadataChangeProposalWrapper)
+    assert isinstance(last_event.aspect, OwnershipClass)
+    assert len(last_event.aspect.owners) == 2
+    assert last_event.entityUrn == outputs[0].record.proposedSnapshot.urn
     assert all(
         [
             owner.type == models.OwnershipTypeClass.DATAOWNER
-            for owner in first_ownership_aspect.owners
+            for owner in last_event.aspect.owners
         ]
     )
 
@@ -146,12 +220,15 @@ def test_simple_dataset_ownership_transformation(mock_time):
     assert all(
         [
             owner.type == models.OwnershipTypeClass.DATAOWNER
-            for owner in first_ownership_aspect.owners
+            for owner in second_ownership_aspect.owners
         ]
     )
 
     # Verify that the third entry is unchanged.
     assert inputs[2] == outputs[2].record
+
+    # Verify that the last entry is EndOfStream
+    assert inputs[3] == outputs[4].record
 
 
 def test_simple_dataset_ownership_with_type_transformation(mock_time):
@@ -167,14 +244,23 @@ def test_simple_dataset_ownership_with_type_transformation(mock_time):
         PipelineContext(run_id="test"),
     )
 
-    output = list(transformer.transform([RecordEnvelope(input, metadata={})]))
-
-    assert len(output) == 1
-
-    ownership_aspect = builder.get_aspect_if_available(
-        output[0].record, models.OwnershipClass
+    output = list(
+        transformer.transform(
+            [
+                RecordEnvelope(input, metadata={}),
+                RecordEnvelope(EndOfStream(), metadata={}),
+            ]
+        )
     )
-    assert ownership_aspect
+
+    assert len(output) == 3
+
+    # original MCE is unchanged
+    assert input == output[0].record
+
+    ownership_aspect = output[1].record.aspect
+
+    assert isinstance(ownership_aspect, OwnershipClass)
     assert len(ownership_aspect.owners) == 1
     assert ownership_aspect.owners[0].type == models.OwnershipTypeClass.PRODUCER
 
@@ -210,14 +296,21 @@ def test_simple_remove_dataset_ownership():
     assert len(ownership_aspect.owners) == 0
 
 
-def test_mark_status_dataset():
+def test_mark_status_dataset(tmp_path):
     dataset = make_generic_dataset()
 
     transformer = MarkDatasetStatus.create(
         {"removed": True},
         PipelineContext(run_id="test"),
     )
-    removed = list(transformer.transform([RecordEnvelope(dataset, metadata={})]))
+    removed = list(
+        transformer.transform(
+            [
+                RecordEnvelope(dataset, metadata={}),
+            ]
+        )
+    )
+    assert len(removed) == 1
     status_aspect = builder.get_aspect_if_available(
         removed[0].record, models.StatusClass
     )
@@ -228,12 +321,195 @@ def test_mark_status_dataset():
         {"removed": False},
         PipelineContext(run_id="test"),
     )
-    not_removed = list(transformer.transform([RecordEnvelope(dataset, metadata={})]))
+    not_removed = list(
+        transformer.transform(
+            [
+                RecordEnvelope(dataset, metadata={}),
+            ]
+        )
+    )
+    assert len(not_removed) == 1
     status_aspect = builder.get_aspect_if_available(
         not_removed[0].record, models.StatusClass
     )
     assert status_aspect
     assert status_aspect.removed is False
+
+    mcp = make_generic_dataset_mcp(
+        aspect_name="datasetProperties",
+        aspect=DatasetPropertiesClass(description="Test dataset"),
+    )
+    events_file = create_and_run_test_pipeline(
+        events=[mcp],
+        transformers=[{"type": "mark_dataset_status", "config": {"removed": True}}],
+        path=tmp_path,
+    )
+
+    # assert dataset properties aspect was preserved
+    assert (
+        tests.test_helpers.mce_helpers.assert_for_each_entity(
+            entity_type="dataset",
+            aspect_name="datasetProperties",
+            aspect_field_matcher={"description": "Test dataset"},
+            file=events_file,
+        )
+        == 1
+    )
+
+    # assert Status aspect was generated
+    assert (
+        tests.test_helpers.mce_helpers.assert_for_each_entity(
+            entity_type="dataset",
+            aspect_name="status",
+            aspect_field_matcher={"removed": True},
+            file=events_file,
+        )
+        == 1
+    )
+
+    # MCE only
+    test_aspect = DatasetPropertiesClass(description="Test dataset")
+    events_file = create_and_run_test_pipeline(
+        events=[make_generic_dataset(aspects=[test_aspect])],
+        transformers=[{"type": "mark_dataset_status", "config": {"removed": True}}],
+        path=tmp_path,
+    )
+
+    # assert dataset properties aspect was preserved
+    assert (
+        tests.test_helpers.mce_helpers.assert_entity_mce_aspect(
+            entity_urn=mcp.entityUrn or "",
+            aspect=test_aspect,
+            aspect_type=DatasetPropertiesClass,
+            file=events_file,
+        )
+        == 1
+    )
+
+    # assert Status aspect was generated
+    assert (
+        tests.test_helpers.mce_helpers.assert_for_each_entity(
+            entity_type="dataset",
+            aspect_name="status",
+            aspect_field_matcher={"removed": True},
+            file=events_file,
+        )
+        == 1
+    )
+
+    # MCE (non-matching) + MCP (matching)
+    test_aspect = DatasetPropertiesClass(description="Test dataset")
+    events_file = create_and_run_test_pipeline(
+        events=[
+            make_generic_dataset(aspects=[test_aspect]),
+            make_generic_dataset_mcp(),
+        ],
+        transformers=[{"type": "mark_dataset_status", "config": {"removed": True}}],
+        path=tmp_path,
+    )
+
+    # assert dataset properties aspect was preserved
+    assert (
+        tests.test_helpers.mce_helpers.assert_entity_mce_aspect(
+            entity_urn=mcp.entityUrn or "",
+            aspect=test_aspect,
+            aspect_type=DatasetPropertiesClass,
+            file=events_file,
+        )
+        == 1
+    )
+
+    # assert Status aspect was generated
+    assert (
+        tests.test_helpers.mce_helpers.assert_for_each_entity(
+            entity_type="dataset",
+            aspect_name="status",
+            aspect_field_matcher={"removed": True},
+            file=events_file,
+        )
+        == 1
+    )
+
+    # MCE (matching) + MCP (non-matching)
+    test_status_aspect = StatusClass(removed=False)
+    events_file = create_and_run_test_pipeline(
+        events=[
+            make_generic_dataset(aspects=[test_status_aspect]),
+            make_generic_dataset_mcp(
+                aspect_name="datasetProperties",
+                aspect=DatasetPropertiesClass(description="test dataset"),
+            ),
+        ],
+        transformers=[{"type": "mark_dataset_status", "config": {"removed": True}}],
+        path=tmp_path,
+    )
+
+    # assert MCE was transformed
+    assert (
+        tests.test_helpers.mce_helpers.assert_entity_mce_aspect(
+            entity_urn=mcp.entityUrn or "",
+            aspect=StatusClass(removed=True),
+            aspect_type=StatusClass,
+            file=events_file,
+        )
+        == 1
+    )
+
+    # assert MCP aspect was preserved
+    assert (
+        tests.test_helpers.mce_helpers.assert_for_each_entity(
+            entity_type="dataset",
+            aspect_name="datasetProperties",
+            aspect_field_matcher={"description": "test dataset"},
+            file=events_file,
+        )
+        == 1
+    )
+
+    # MCE (non-matching) + MCP (non-matching)
+    test_mcp_aspect = GlobalTagsClass(tags=[TagAssociationClass(tag="urn:li:tag:test")])
+    test_dataset_props_aspect = DatasetPropertiesClass(description="Test dataset")
+    events_file = create_and_run_test_pipeline(
+        events=[
+            make_generic_dataset(aspects=[test_dataset_props_aspect]),
+            make_generic_dataset_mcp(aspect_name="globalTags", aspect=test_mcp_aspect),
+        ],
+        transformers=[{"type": "mark_dataset_status", "config": {"removed": True}}],
+        path=tmp_path,
+    )
+
+    # assert MCE was preserved
+    assert (
+        tests.test_helpers.mce_helpers.assert_entity_mce_aspect(
+            entity_urn=mcp.entityUrn or "",
+            aspect=test_dataset_props_aspect,
+            aspect_type=DatasetPropertiesClass,
+            file=events_file,
+        )
+        == 1
+    )
+
+    # assert MCP aspect was preserved
+    assert (
+        tests.test_helpers.mce_helpers.assert_for_each_entity(
+            entity_type="dataset",
+            aspect_name="globalTags",
+            aspect_field_matcher={"tags": [{"tag": "urn:li:tag:test"}]},
+            file=events_file,
+        )
+        == 1
+    )
+
+    # assert MCP Status aspect was generated
+    assert (
+        tests.test_helpers.mce_helpers.assert_for_each_entity(
+            entity_type="dataset",
+            aspect_name="status",
+            aspect_field_matcher={"removed": True},
+            file=events_file,
+        )
+        == 1
+    )
 
 
 def test_add_dataset_browse_paths():
@@ -243,12 +519,22 @@ def test_add_dataset_browse_paths():
         {"path_templates": ["/abc"]},
         PipelineContext(run_id="test"),
     )
-    transformed = list(transformer.transform([RecordEnvelope(dataset, metadata={})]))
-    browse_path_aspect = builder.get_aspect_if_available(
-        transformed[0].record, models.BrowsePathsClass
+    transformed = list(
+        transformer.transform(
+            [
+                RecordEnvelope(dataset, metadata={}),
+                RecordEnvelope(EndOfStream(), metadata={}),
+            ]
+        )
     )
+    browse_path_aspect = transformed[1].record.aspect
     assert browse_path_aspect
     assert browse_path_aspect.paths == ["/abc"]
+
+    # use an mce with a pre-existing browse path
+    dataset_mce = make_generic_dataset(
+        aspects=[StatusClass(removed=False), browse_path_aspect]
+    )
 
     transformer = AddDatasetBrowsePathTransformer.create(
         {
@@ -259,9 +545,17 @@ def test_add_dataset_browse_paths():
         },
         PipelineContext(run_id="test"),
     )
-    transformed = list(transformer.transform([RecordEnvelope(dataset, metadata={})]))
+    transformed = list(
+        transformer.transform(
+            [
+                RecordEnvelope(dataset_mce, metadata={}),
+                RecordEnvelope(EndOfStream(), metadata={}),
+            ]
+        )
+    )
+    assert len(transformed) == 2
     browse_path_aspect = builder.get_aspect_if_available(
-        transformed[0].record, models.BrowsePathsClass
+        transformed[0].record, BrowsePathsClass
     )
     assert browse_path_aspect
     assert browse_path_aspect.paths == [
@@ -279,9 +573,17 @@ def test_add_dataset_browse_paths():
         },
         PipelineContext(run_id="test"),
     )
-    transformed = list(transformer.transform([RecordEnvelope(dataset, metadata={})]))
+    transformed = list(
+        transformer.transform(
+            [
+                RecordEnvelope(dataset_mce, metadata={}),
+                RecordEnvelope(EndOfStream(), metadata={}),
+            ]
+        )
+    )
+    assert len(transformed) == 2
     browse_path_aspect = builder.get_aspect_if_available(
-        transformed[0].record, models.BrowsePathsClass
+        transformed[0].record, BrowsePathsClass
     )
     assert browse_path_aspect
     assert browse_path_aspect.paths == [
@@ -304,15 +606,16 @@ def test_simple_dataset_tags_transformation(mock_time):
 
     outputs = list(
         transformer.transform(
-            [RecordEnvelope(input, metadata={}) for input in [dataset_mce]]
+            [
+                RecordEnvelope(input, metadata={})
+                for input in [dataset_mce, EndOfStream()]
+            ]
         )
     )
-    assert len(outputs) == 1
+    assert len(outputs) == 3
 
     # Check that tags were added.
-    tags_aspect = builder.get_aspect_if_available(
-        outputs[0].record, models.GlobalTagsClass
-    )
+    tags_aspect = outputs[1].record.aspect
     assert tags_aspect
     assert len(tags_aspect.tags) == 2
     assert tags_aspect.tags[0].tag == builder.make_tag_urn("NeedsDocumentation")
@@ -342,15 +645,15 @@ def test_pattern_dataset_tags_transformation(mock_time):
 
     outputs = list(
         transformer.transform(
-            [RecordEnvelope(input, metadata={}) for input in [dataset_mce]]
+            [
+                RecordEnvelope(input, metadata={})
+                for input in [dataset_mce, EndOfStream()]
+            ]
         )
     )
 
-    assert len(outputs) == 1
-    # Check that glossary terms were added.
-    tags_aspect = builder.get_aspect_if_available(
-        outputs[0].record, models.GlobalTagsClass
-    )
+    assert len(outputs) == 3
+    tags_aspect = outputs[1].record.aspect
     assert tags_aspect
     assert len(tags_aspect.tags) == 2
     assert tags_aspect.tags[0].tag == builder.make_tag_urn("Private")
@@ -407,11 +710,7 @@ def test_pattern_dataset_ownership_transformation(mock_time):
         )
     )
 
-    inputs = [
-        no_owner_aspect,
-        with_owner_aspect,
-        not_a_dataset,
-    ]
+    inputs = [no_owner_aspect, with_owner_aspect, not_a_dataset, EndOfStream()]
 
     transformer = PatternAddDatasetOwnership.create(
         {
@@ -429,12 +728,12 @@ def test_pattern_dataset_ownership_transformation(mock_time):
         transformer.transform([RecordEnvelope(input, metadata={}) for input in inputs])
     )
 
-    assert len(outputs) == len(inputs)
+    assert len(outputs) == len(inputs) + 1  # additional MCP due to the no-owner MCE
 
     # Check the first entry.
-    first_ownership_aspect = builder.get_aspect_if_available(
-        outputs[0].record, models.OwnershipClass
-    )
+    assert inputs[0] == outputs[0].record
+
+    first_ownership_aspect = outputs[3].record.aspect
     assert first_ownership_aspect
     assert len(first_ownership_aspect.owners) == 1
     assert all(
@@ -453,12 +752,15 @@ def test_pattern_dataset_ownership_transformation(mock_time):
     assert all(
         [
             owner.type == models.OwnershipTypeClass.DATAOWNER
-            for owner in first_ownership_aspect.owners
+            for owner in second_ownership_aspect.owners
         ]
     )
 
     # Verify that the third entry is unchanged.
     assert inputs[2] == outputs[2].record
+
+    # Verify that the last entry is unchanged (EOS)
+    assert inputs[-1] == outputs[-1].record
 
 
 def test_pattern_dataset_ownership_with_type_transformation(mock_time):
@@ -476,13 +778,18 @@ def test_pattern_dataset_ownership_with_type_transformation(mock_time):
         PipelineContext(run_id="test"),
     )
 
-    output = list(transformer.transform([RecordEnvelope(input, metadata={})]))
-
-    assert len(output) == 1
-
-    ownership_aspect = builder.get_aspect_if_available(
-        output[0].record, models.OwnershipClass
+    output = list(
+        transformer.transform(
+            [
+                RecordEnvelope(input, metadata={}),
+                RecordEnvelope(EndOfStream(), metadata={}),
+            ]
+        )
     )
+
+    assert len(output) == 3
+
+    ownership_aspect = output[1].record.aspect
     assert ownership_aspect
     assert len(ownership_aspect.owners) == 1
     assert ownership_aspect.owners[0].type == models.OwnershipTypeClass.PRODUCER
@@ -689,15 +996,16 @@ def test_simple_dataset_terms_transformation(mock_time):
 
     outputs = list(
         transformer.transform(
-            [RecordEnvelope(input, metadata={}) for input in [dataset_mce]]
+            [
+                RecordEnvelope(input, metadata={})
+                for input in [dataset_mce, EndOfStream()]
+            ]
         )
     )
-    assert len(outputs) == 1
+    assert len(outputs) == 3
 
     # Check that glossary terms were added.
-    terms_aspect = builder.get_aspect_if_available(
-        outputs[0].record, models.GlossaryTermsClass
-    )
+    terms_aspect = outputs[1].record.aspect
     assert terms_aspect
     assert len(terms_aspect.terms) == 2
     assert terms_aspect.terms[0].urn == builder.make_term_urn("Test")
@@ -723,16 +1031,378 @@ def test_pattern_dataset_terms_transformation(mock_time):
 
     outputs = list(
         transformer.transform(
-            [RecordEnvelope(input, metadata={}) for input in [dataset_mce]]
+            [
+                RecordEnvelope(input, metadata={})
+                for input in [dataset_mce, EndOfStream()]
+            ]
         )
     )
 
-    assert len(outputs) == 1
+    assert len(outputs) == 3
     # Check that glossary terms were added.
-    terms_aspect = builder.get_aspect_if_available(
-        outputs[0].record, models.GlossaryTermsClass
-    )
+    terms_aspect = outputs[1].record.aspect
     assert terms_aspect
     assert len(terms_aspect.terms) == 2
     assert terms_aspect.terms[0].urn == builder.make_term_urn("AccountBalance")
     assert builder.make_term_urn("AccountBalance") not in terms_aspect.terms
+
+
+def test_mcp_add_tags_missing(mock_time):
+
+    dataset_mcp = make_generic_dataset_mcp()
+
+    transformer = SimpleAddDatasetTags.create(
+        {
+            "tag_urns": [
+                builder.make_tag_urn("NeedsDocumentation"),
+                builder.make_tag_urn("Legacy"),
+            ]
+        },
+        PipelineContext(run_id="test-tags"),
+    )
+    input_stream: List[RecordEnvelope] = [
+        RecordEnvelope(input, metadata={}) for input in [dataset_mcp]
+    ]
+    input_stream.append(RecordEnvelope(record=EndOfStream(), metadata={}))
+    outputs = list(transformer.transform(input_stream))
+    assert len(outputs) == 3
+    assert outputs[0].record == dataset_mcp
+    # Check that tags were added, this will be the second result
+    tags_aspect = outputs[1].record.aspect
+    assert tags_aspect
+    assert len(tags_aspect.tags) == 2
+    assert tags_aspect.tags[0].tag == builder.make_tag_urn("NeedsDocumentation")
+    assert isinstance(outputs[-1].record, EndOfStream)
+
+
+def test_mcp_add_tags_existing(mock_time):
+    dataset_mcp = make_generic_dataset_mcp(
+        aspect_name="globalTags",
+        aspect=GlobalTagsClass(
+            tags=[TagAssociationClass(tag=builder.make_tag_urn("Test"))]
+        ),
+    )
+
+    transformer = SimpleAddDatasetTags.create(
+        {
+            "tag_urns": [
+                builder.make_tag_urn("NeedsDocumentation"),
+                builder.make_tag_urn("Legacy"),
+            ]
+        },
+        PipelineContext(run_id="test-tags"),
+    )
+    input_stream: List[RecordEnvelope] = [
+        RecordEnvelope(input, metadata={}) for input in [dataset_mcp]
+    ]
+    input_stream.append(RecordEnvelope(record=EndOfStream(), metadata={}))
+    outputs = list(transformer.transform(input_stream))
+    assert len(outputs) == 2
+    # Check that tags were added, this will be the second result
+    tags_aspect = outputs[0].record.aspect
+    assert tags_aspect
+    assert len(tags_aspect.tags) == 3
+    assert tags_aspect.tags[0].tag == builder.make_tag_urn("Test")
+    assert tags_aspect.tags[1].tag == builder.make_tag_urn("NeedsDocumentation")
+    assert isinstance(outputs[-1].record, EndOfStream)
+
+
+def test_mcp_multiple_transformers(mock_time, tmp_path):
+
+    events_file = f"{tmp_path}/multi_transformer_test.json"
+
+    pipeline = Pipeline.create(
+        config_dict={
+            "source": {
+                "type": "tests.unit.test_source.TestSource",
+                "config": {},
+            },
+            "transformers": [
+                {
+                    "type": "set_dataset_browse_path",
+                    "config": {
+                        "path_templates": ["/ENV/PLATFORM/EsComments/DATASET_PARTS"]
+                    },
+                },
+                {
+                    "type": "simple_add_dataset_tags",
+                    "config": {"tag_urns": ["urn:li:tag:EsComments"]},
+                },
+            ],
+            "sink": {"type": "file", "config": {"filename": events_file}},
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    urn_pattern = "^" + re.escape(
+        "urn:li:dataset:(urn:li:dataPlatform:elasticsearch,fooIndex,PROD)"
+    )
+    assert (
+        tests.test_helpers.mce_helpers.assert_mcp_entity_urn(
+            filter="ALL",
+            entity_type="dataset",
+            regex_pattern=urn_pattern,
+            file=events_file,
+        )
+        == 3
+    )
+
+    # check on status aspect
+    assert (
+        tests.test_helpers.mce_helpers.assert_for_each_entity(
+            entity_type="dataset",
+            aspect_name="status",
+            aspect_field_matcher={"removed": False},
+            file=events_file,
+        )
+        == 1
+    )
+
+    # check on globalTags aspect
+    assert (
+        tests.test_helpers.mce_helpers.assert_for_each_entity(
+            entity_type="dataset",
+            aspect_name="globalTags",
+            aspect_field_matcher={"tags": [{"tag": "urn:li:tag:EsComments"}]},
+            file=events_file,
+        )
+        == 1
+    )
+
+    # check on globalTags aspect
+    assert (
+        tests.test_helpers.mce_helpers.assert_for_each_entity(
+            entity_type="dataset",
+            aspect_name="browsePaths",
+            aspect_field_matcher={"paths": ["/prod/elasticsearch/EsComments/fooIndex"]},
+            file=events_file,
+        )
+        == 1
+    )
+
+
+def test_mcp_multiple_transformers_replace(mock_time, tmp_path):
+    mcps: MutableSequence[
+        Union[MetadataChangeEventClass, MetadataChangeProposalWrapper]
+    ] = [
+        MetadataChangeProposalWrapper(
+            entityType="dataset",
+            changeType=ChangeTypeClass.UPSERT,
+            entityUrn=str(
+                DatasetUrn.create_from_ids(
+                    platform_id="elasticsearch",
+                    table_name=f"fooBarIndex{i}",
+                    env="PROD",
+                )
+            ),
+            aspectName="globalTags",
+            aspect=GlobalTagsClass(tags=[TagAssociationClass(tag="urn:li:tag:Test")]),
+        )
+        for i in range(0, 10)
+    ]
+    mcps.extend(
+        [
+            MetadataChangeProposalWrapper(
+                entityType="dataset",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=str(
+                    DatasetUrn.create_from_ids(
+                        platform_id="elasticsearch",
+                        table_name=f"fooBarIndex{i}",
+                        env="PROD",
+                    )
+                ),
+                aspectName="datasetProperties",
+                aspect=DatasetPropertiesClass(description="test dataset"),
+            )
+            for i in range(0, 10)
+        ]
+    )
+
+    # shuffle the mcps
+    import random
+
+    random.shuffle(mcps)
+
+    events_file = create_and_run_test_pipeline(
+        events=list(mcps),
+        transformers=[
+            {
+                "type": "set_dataset_browse_path",
+                "config": {
+                    "path_templates": ["/ENV/PLATFORM/EsComments/DATASET_PARTS"]
+                },
+            },
+            {
+                "type": "simple_add_dataset_tags",
+                "config": {"tag_urns": ["urn:li:tag:EsComments"]},
+            },
+        ],
+        path=tmp_path,
+    )
+
+    urn_pattern = "^" + re.escape(
+        "urn:li:dataset:(urn:li:dataPlatform:elasticsearch,fooBarIndex"
+    )
+
+    # there should be 30 MCP-s
+    assert (
+        tests.test_helpers.mce_helpers.assert_mcp_entity_urn(
+            filter="ALL",
+            entity_type="dataset",
+            regex_pattern=urn_pattern,
+            file=events_file,
+        )
+        == 30
+    )
+
+    # 10 globalTags aspects with new tag attached
+    assert (
+        tests.test_helpers.mce_helpers.assert_for_each_entity(
+            entity_type="dataset",
+            aspect_name="globalTags",
+            aspect_field_matcher={
+                "tags": [{"tag": "urn:li:tag:Test"}, {"tag": "urn:li:tag:EsComments"}]
+            },
+            file=events_file,
+        )
+        == 10
+    )
+
+    # check on browsePaths aspect
+    for i in range(0, 10):
+        tests.test_helpers.mce_helpers.assert_entity_mcp_aspect(
+            entity_urn=str(
+                DatasetUrn.create_from_ids(
+                    platform_id="elasticsearch",
+                    table_name=f"fooBarIndex{i}",
+                    env="PROD",
+                )
+            ),
+            aspect_name="browsePaths",
+            aspect_field_matcher={
+                "paths": [f"/prod/elasticsearch/EsComments/fooBarIndex{i}"]
+            },
+            file=events_file,
+        ) == 1
+
+
+class SuppressingTransformer(BaseTransformer, SingleAspectTransformer):
+    @classmethod
+    def create(
+        cls, config_dict: dict, ctx: PipelineContext
+    ) -> "SuppressingTransformer":
+        return SuppressingTransformer()
+
+    def entity_types(self) -> List[str]:
+        return super().entity_types()
+
+    def aspect_name(self) -> str:
+        return "datasetProperties"
+
+    def transform_aspect(
+        self, entity_urn: str, aspect_name: str, aspect: Optional[builder.Aspect]
+    ) -> Optional[builder.Aspect]:
+        return None
+
+
+def test_supression_works():
+    dataset_mce = make_generic_dataset()
+    dataset_mcp = make_generic_dataset_mcp(
+        aspect_name="datasetProperties",
+        aspect=DatasetPropertiesClass(description="supressable description"),
+    )
+    transformer = SuppressingTransformer.create(
+        {},
+        PipelineContext(run_id="test-suppress-transformer"),
+    )
+
+    outputs = list(
+        transformer.transform(
+            [
+                RecordEnvelope(input, metadata={})
+                for input in [dataset_mce, dataset_mcp, EndOfStream()]
+            ]
+        )
+    )
+
+    assert len(outputs) == 2  # MCP will be dropped
+
+
+class OldMCETransformer(DatasetTransformer):
+    """A simulated legacy MCE transformer"""
+
+    @classmethod
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "OldMCETransformer":
+        return OldMCETransformer()
+
+    def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventClass:
+        # legacy transformers should not receive metadata change proposal events
+        assert not isinstance(mce, MetadataChangeProposalWrapper)
+        if isinstance(mce, MetadataChangeEventClass):
+            assert isinstance(mce.proposedSnapshot, DatasetSnapshotClass)
+            mce.proposedSnapshot.aspects.append(
+                DatasetPropertiesClass(description="Old Transformer was here")
+            )
+
+        return mce
+
+
+def test_old_transformers_working_as_before(mock_time):
+
+    dataset_mce = make_generic_dataset()
+    dataset_mcp = make_generic_dataset_mcp()
+    transformer = OldMCETransformer.create(
+        {},
+        PipelineContext(run_id="test-old-transformer"),
+    )
+
+    outputs = list(
+        transformer.transform(
+            [
+                RecordEnvelope(input, metadata={})
+                for input in [dataset_mce, dataset_mcp, EndOfStream()]
+            ]
+        )
+    )
+
+    assert len(outputs) == 3  # MCP will come back untouched
+
+    assert outputs[0].record == dataset_mce
+    # Check that glossary terms were added.
+    props_aspect = builder.get_aspect_if_available(
+        outputs[0].record, DatasetPropertiesClass
+    )
+    assert props_aspect
+    assert props_aspect.description == "Old Transformer was here"
+
+    assert outputs[1].record == dataset_mcp
+
+    assert isinstance(outputs[-1].record, EndOfStream)
+
+    # MCP only stream
+    dataset_mcps = [
+        make_generic_dataset_mcp(),
+        make_generic_dataset_mcp(
+            aspect=DatasetPropertiesClass(description="Another test MCP")
+        ),
+        EndOfStream(),
+    ]
+    transformer = OldMCETransformer.create(
+        {},
+        PipelineContext(run_id="test-old-transformer"),
+    )
+
+    outputs = list(
+        transformer.transform(
+            [RecordEnvelope(input, metadata={}) for input in dataset_mcps]
+        )
+    )
+
+    assert len(outputs) == 3  # MCP-s will come back untouched
+
+    assert outputs[0].record == dataset_mcps[0]
+    assert outputs[1].record == dataset_mcps[1]
+    assert isinstance(outputs[-1].record, EndOfStream)
