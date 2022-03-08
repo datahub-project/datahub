@@ -1,5 +1,6 @@
 import io
 import pathlib
+import re
 from typing import Union
 
 from expandvars import UnboundVariable, expandvars
@@ -10,7 +11,7 @@ from datahub.configuration.yaml import YamlConfigurationMechanism
 
 
 def resolve_element(element: str) -> str:
-    if element.startswith("${") & element.endswith("}"):
+    if re.search("(${).+(})", element):
         return expandvars(element, nounset=True)
     elif element.startswith("$"):
         try:
@@ -28,12 +29,15 @@ def resolve_list(ele_list: list) -> list:
             new_v.append(resolve_element(ele))  # type:ignore
         elif isinstance(ele, list):
             new_v.append(resolve_list(ele))  # type:ignore
+        elif isinstance(ele, dict):
+            resolve_env_variables(ele)
+            new_v.append(resolve_env_variables(ele))  # type:ignore
         else:
-            new_v = ele_list
+            new_v.append(ele)
     return new_v
 
 
-def resolve_env_variables(config: dict) -> None:
+def resolve_env_variables(config: dict) -> dict:
     for k, v in config.items():
         if isinstance(v, dict):
             resolve_env_variables(v)
@@ -41,7 +45,7 @@ def resolve_env_variables(config: dict) -> None:
             config[k] = resolve_list(v)
         elif isinstance(v, str):
             config[k] = resolve_element(v)
-    return None
+    return config
 
 
 def load_config_file(config_file: Union[pathlib.Path, str]) -> dict:
