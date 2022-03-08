@@ -688,7 +688,12 @@ def make_dataset_urn_from_sqlalchemy_uri(
                     for {data_platform}."
             )
             return None
-        schema_name = "{}.{}".format(url_instance.database, schema_name)
+        schema_name = "{}.{}".format(
+            url_instance.database.lower()
+            if data_platform == "snowflake"
+            else url_instance.database,
+            schema_name,
+        )
     elif data_platform == "bigquery":
         if url_instance.host is None or url_instance.database is None:
             warn(
