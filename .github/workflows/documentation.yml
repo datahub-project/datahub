@@ -27,7 +27,6 @@ jobs:
 
       - name: Setup Cache for Gradle
         uses: actions/cache@v2
-        # Taken from https://github.com/actions/cache/blob/main/examples.md#java---gradle
         with:
           path: |
             ~/.gradle/caches

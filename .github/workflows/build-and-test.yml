@@ -40,6 +40,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
+      - name: Setup Cache for pip
+        uses: actions/cache@v2
+        with:
+          path: ~/.cache/pip
+          key: ${{ github.job }}-${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ github.job }}-${{ runner.os }}-pip-
+
       - name: Gradle build (and test)
         # there is some race condition in gradle build, which makes gradle never terminate in ~30% of the runs
         # running build first without datahub-web-react:yarnBuild and then with it is 100% stable
