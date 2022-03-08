@@ -33,10 +33,16 @@ class MySQLConfig(BasicSQLAlchemyConfig):
     host_port = "localhost:3306"
     scheme = "mysql+pymysql"
 
+    def get_identifier(
+        self, *, schema: str, table: str) -> str:
+        regular = f"{schema}.{table}"
+        if self.database_alias:
+            return f"{self.database_alias}.{table}"
+        else:
+            return regular
+
 
 class MySQLSource(SQLAlchemySource):
-
-    config: MySQLConfig
 
     def __init__(self, config, ctx):
         super().__init__(config, ctx, self.get_platform())
@@ -48,13 +54,3 @@ class MySQLSource(SQLAlchemySource):
     def create(cls, config_dict, ctx):
         config = MySQLConfig.parse_obj(config_dict)
         return cls(config, ctx)
-
-    def get_identifier(
-        self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any
-    ) -> str:
-        if self.config.database_alias:
-            return f"{self.config.database_alias}.{entity}"
-        else:
-            return super().get_identifier(
-                schema=schema, entity=entity, inspector=inspector
-            )
