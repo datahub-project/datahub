@@ -63,8 +63,6 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
 
     scheme = "snowflake"
 
-    setup: Optional[SnowflakeSetupConfig] = None
-
     username: Optional[str] = None
     password: Optional[pydantic.SecretStr] = pydantic.Field(default=None, exclude=True)
     private_key_path: Optional[str]
@@ -180,6 +178,8 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
     )
 
     database: Optional[str]  # deprecated
+
+    setup: Optional[SnowflakeSetupConfig] = None
 
     @pydantic.validator("database")
     def note_database_opt_deprecation(cls, v, values, **kwargs):
