@@ -77,21 +77,20 @@ source:
   type: snowflake
   config:
 
-    setup:
+    setup: # Optional
       enabled: false
       dry_run: true
       skip_ingestion: true
-      # admin_role: ACCOUNTADMIN
-      admin_username: "${SNOWFLAKE_ADMIN_USER:-}"
-      admin_password: "${SNOWFLAKE_ADMIN_PASS:-DUMMY_PASS}"
+      admin_username: "${SNOWFLAKE_ADMIN_USER}"
+      admin_password: "${SNOWFLAKE_ADMIN_PASS}"
 
     # Coordinates
     host_port: account_name
     warehouse: "COMPUTE_WH"
 
     # Credentials
-    username: user
-    password: pass
+    username: "${SNOWFLAKE_USER}"
+    password: "${SNOWFLAKE_PASS}"
     role: "datahub_role"
 
 sink:
@@ -204,9 +203,9 @@ source:
     warehouse: "COMPUTE_WH"
 
     # Credentials
-    username: user
-    password: pass
-    role: "sysadmin"
+    username: "${SNOWFLAKE_USER}"
+    password: "${SNOWFLAKE_PASS}"
+    role: "datahub_role"
 
     # Options
     top_n_queries: 10
