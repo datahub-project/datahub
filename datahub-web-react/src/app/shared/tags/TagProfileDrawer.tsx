@@ -22,7 +22,6 @@ export const TagProfileDrawer = ({ closeTagProfileDrawer, tagProfileDrawerVisibl
             <Drawer
                 width={500}
                 placement="right"
-                maskClosable={false}
                 closable={false}
                 onClose={closeTagProfileDrawer}
                 visible={tagProfileDrawerVisible}

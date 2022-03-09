@@ -30,9 +30,6 @@ grant select on all views in database <your-database> to role datahub_role;
 grant usage on future schemas in database "<your-database>" to role datahub_role;
 grant select on future tables in database "<your-database>" to role datahub_role;
 
-// Grant privileges on snowflake default database - needed for lineage
-grant imported privileges on DATABASE snowflake to role datahub_role;
-
 // Create a new DataHub user and assign the DataHub role to it 
 create user datahub_user display_name = 'DataHub' password='' default_role = datahub_role default_warehouse = '<your-warehouse>';
 

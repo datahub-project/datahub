@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { message, Button, Input, Modal, Typography, Form } from 'antd';
 import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
+import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
 
 type PropsData = {
     name: string | undefined;
@@ -83,6 +84,11 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
         onClose();
     };
 
+    // Handle the Enter press
+    useEnterKeyListener({
+        querySelectorToExecuteClick: '#editUserButton',
+    });
+
     return (
         <Modal
             title="Edit Profile"
@@ -93,7 +99,7 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                     <Button onClick={onClose} type="text">
                         Cancel
                     </Button>
-                    <Button onClick={onSaveChanges} disabled={saveButtonEnabled}>
+                    <Button id="editUserButton" onClick={onSaveChanges} disabled={saveButtonEnabled}>
                         Save Changes
                     </Button>
                 </>
