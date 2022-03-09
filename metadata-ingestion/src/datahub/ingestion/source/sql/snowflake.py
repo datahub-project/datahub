@@ -3,6 +3,8 @@ import logging
 from collections import defaultdict
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
+import pydantic
+
 # This import verifies that the dependencies are available.
 import snowflake.sqlalchemy  # noqa: F401
 import sqlalchemy.engine
@@ -63,7 +65,7 @@ class SnowflakeSource(SQLAlchemySource):
     ) -> sqlalchemy.engine.Engine:
         if self.setup_in_progress and self.config.setup is not None:
             username: Optional[str] = self.config.setup.admin_username
-            password = self.config.setup.admin_password
+            password: Optional[pydantic.SecretStr] = self.config.setup.admin_password
             role: Optional[str] = self.config.setup.admin_role
         else:
             username = self.config.username
@@ -513,6 +515,8 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
 
     def do_setup_internal(self):
         setup_block = self.config.setup
+        if setup_block is None:
+            return
         self.report.setup_done = not setup_block.dry_run
 
         role = self.config.role
