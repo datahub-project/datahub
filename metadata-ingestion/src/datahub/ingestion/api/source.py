@@ -14,6 +14,7 @@ class SourceReport(Report):
 
     warnings: Dict[str, List[str]] = field(default_factory=dict)
     failures: Dict[str, List[str]] = field(default_factory=dict)
+    cli_version: str = ""
 
     def report_workunit(self, wu: WorkUnit) -> None:
         self.workunits_produced += 1

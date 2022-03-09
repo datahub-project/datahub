@@ -201,6 +201,7 @@ export default function PolicyPrivilegeForm({
                     <Select
                         value={resourceSelectValue}
                         mode="multiple"
+                        filterOption={false}
                         placeholder={`Search for ${selectedResourceDisplayName}...`}
                         onSelect={(asset: any) => onSelectResource(asset)}
                         onDeselect={(asset: any) => onDeselectResource(asset)}

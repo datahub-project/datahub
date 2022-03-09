@@ -175,6 +175,7 @@
       "Relationship" : {
         "/*/string" : {
           "entityTypes" : [ "dataset" ],
+          "isLineage" : true,
           "name" : "Consumes"
         }
       }
@@ -922,6 +923,7 @@
       "Relationship" : {
         "/*" : {
           "entityTypes" : [ "chart" ],
+          "isLineage" : true,
           "name" : "Contains"
         }
       }
@@ -1077,6 +1079,7 @@
       "Relationship" : {
         "/*" : {
           "entityTypes" : [ "dataset" ],
+          "isLineage" : true,
           "name" : "Consumes"
         }
       },
@@ -1098,6 +1101,8 @@
       "Relationship" : {
         "/*" : {
           "entityTypes" : [ "dataset" ],
+          "isLineage" : true,
+          "isUpstream" : false,
           "name" : "Produces"
         }
       },
@@ -1120,6 +1125,7 @@
       "Relationship" : {
         "/*" : {
           "entityTypes" : [ "dataJob" ],
+          "isLineage" : true,
           "name" : "DownstreamOf"
         }
       }
@@ -1290,6 +1296,26 @@
     "doc" : "Properties associated with a Dataset",
     "include" : [ "com.linkedin.common.CustomProperties", "com.linkedin.common.ExternalReference" ],
     "fields" : [ {
+      "name" : "name",
+      "type" : "string",
+      "doc" : "Display name of the Dataset",
+      "optional" : true,
+      "Searchable" : {
+        "boostScore" : 10.0,
+        "enableAutocomplete" : true,
+        "fieldType" : "TEXT_PARTIAL"
+      }
+    }, {
+      "name" : "qualifiedName",
+      "type" : "string",
+      "doc" : "Fully-qualified name of the Dataset",
+      "optional" : true,
+      "Searchable" : {
+        "boostScore" : 10.0,
+        "enableAutocomplete" : true,
+        "fieldType" : "TEXT_PARTIAL"
+      }
+    }, {
       "name" : "description",
       "type" : "string",
       "doc" : "Documentation of the dataset",
@@ -1341,6 +1367,7 @@
       "doc" : "The upstream dataset the lineage points to",
       "Relationship" : {
         "entityTypes" : [ "dataset" ],
+        "isLineage" : true,
         "name" : "DownstreamOf"
       },
       "Searchable" : {
@@ -2930,6 +2957,7 @@
         "Relationship" : {
           "/*" : {
             "entityTypes" : [ "dataJob" ],
+            "isLineage" : true,
             "name" : "TrainedBy"
           }
         }
@@ -2958,6 +2986,8 @@
         "Relationship" : {
           "/*" : {
             "entityTypes" : [ "mlModelGroup" ],
+            "isLineage" : true,
+            "isUpstream" : false,
             "name" : "MemberOf"
           }
         }

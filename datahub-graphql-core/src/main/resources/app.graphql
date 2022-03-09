@@ -97,6 +97,21 @@ type AppConfig {
   Configurations related to UI-based ingestion
   """
   managedIngestionConfig: ManagedIngestionConfig!
+
+  """
+  Configurations related to Lineage
+  """
+  lineageConfig: LineageConfig!
+}
+
+"""
+Configurations related to Lineage
+"""
+type LineageConfig {
+  """
+  Whether the backend support impact analysis feature
+  """
+  supportsImpactAnalysis: Boolean!
 }
 
 """

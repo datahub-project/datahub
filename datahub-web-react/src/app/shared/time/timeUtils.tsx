@@ -92,3 +92,7 @@ export const toUTCDateTimeString = (timeMs: number) => {
         timeZoneName: 'short',
     });
 };
+
+export const getLocaleTimezone = () => {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+};
