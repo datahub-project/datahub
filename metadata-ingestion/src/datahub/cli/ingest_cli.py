@@ -156,6 +156,7 @@ def list_runs(page_offset: int, page_size: int) -> None:
 
     click.echo(tabulate(structured_rows, RUNS_TABLE_COLUMNS, tablefmt="grid"))
 
+
 @ingest.command()
 @click.option("--run-id", required=True, type=str)
 @telemetry.with_telemetry

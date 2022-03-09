@@ -33,6 +33,10 @@
         "name" : "dryRun",
         "type" : "boolean",
         "optional" : true
+      }, {
+        "name" : "hardDelete",
+        "type" : "boolean",
+        "optional" : true
       } ],
       "returns" : "com.linkedin.metadata.run.RollbackResponse"
     } ],
