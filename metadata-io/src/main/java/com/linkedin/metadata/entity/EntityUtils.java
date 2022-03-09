@@ -3,8 +3,6 @@ package com.linkedin.metadata.entity;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EnvelopedAspect;
-import java.util.List;
-import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 
 

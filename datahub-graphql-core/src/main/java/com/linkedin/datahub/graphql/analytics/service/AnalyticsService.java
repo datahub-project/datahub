@@ -1,7 +1,6 @@
 package com.linkedin.datahub.graphql.analytics.service;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.linkedin.datahub.graphql.generated.BarSegment;
 import com.linkedin.datahub.graphql.generated.Cell;
 import com.linkedin.datahub.graphql.generated.DateInterval;
@@ -128,7 +127,8 @@ public class AnalyticsService {
 
   public List<NamedBar> getBarChart(String indexName, Optional<DateRange> dateRange, List<String> dimensions,
       // Length 1 or 2
-      Map<String, List<String>> filters, Map<String, List<String>> mustNotFilters, Optional<String> uniqueOn, boolean showMissing) {
+      Map<String, List<String>> filters, Map<String, List<String>> mustNotFilters, Optional<String> uniqueOn,
+      boolean showMissing) {
     log.debug(
         String.format("Invoked getBarChart with indexName: %s, dateRange: %s, dimensions: %s,", indexName, dateRange,
             dimensions) + String.format("filters: %s, uniqueOn: %s", filters, uniqueOn));
@@ -142,8 +142,7 @@ public class AnalyticsService {
     }
 
     if (dimensions.size() == 2) {
-      TermsAggregationBuilder secondTermAgg =
-          AggregationBuilders.terms(SECOND_DIMENSION).field(dimensions.get(1));
+      TermsAggregationBuilder secondTermAgg = AggregationBuilders.terms(SECOND_DIMENSION).field(dimensions.get(1));
       if (showMissing) {
         secondTermAgg.missing(NA);
       }
@@ -194,8 +193,8 @@ public class AnalyticsService {
   }
 
   public List<Row> getTopNTableChart(String indexName, Optional<DateRange> dateRange, String groupBy,
-      Map<String, List<String>> filters, Map<String, List<String>> mustNotFilters, Optional<String> uniqueOn, int maxRows,
-      Function<String, Cell> groupByValueToCell) {
+      Map<String, List<String>> filters, Map<String, List<String>> mustNotFilters, Optional<String> uniqueOn,
+      int maxRows, Function<String, Cell> groupByValueToCell) {
     log.debug(
         String.format("Invoked getTopNTableChart with indexName: %s, dateRange: %s, groupBy: %s", indexName, dateRange,
             groupBy) + String.format("filters: %s, uniqueOn: %s", filters, uniqueOn));
