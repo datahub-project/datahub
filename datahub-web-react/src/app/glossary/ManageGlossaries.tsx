@@ -98,8 +98,6 @@ export const ManageGlossaries = () => {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
     }
 
-    console.log(data?.browse?.groups);
-
     const DropdownMenu = () => (
         <Dropdown key="more" overlay={menu}>
             <Button
@@ -120,8 +118,6 @@ export const ManageGlossaries = () => {
         </Dropdown>
     );
 
-    console.log(location);
-
     return (
         <SearchablePage>
             <Row>
@@ -139,13 +135,22 @@ export const ManageGlossaries = () => {
                     {data && data.browse && (
                         <>
                             {data.browse.groups.map(({ name, count }) => (
-                                <ResultCard to={`${rootPath}/${name}`} name={name} count={count} />
+                                <ResultCard
+                                    to={`${rootPath}/${name}`}
+                                    name={name}
+                                    count={count}
+                                    key={`groups-${name}`}
+                                />
                             ))}
 
                             {(!(data.browse.groups && data.browse.groups.length > 0) ||
                                 (data.browse.entities && data.browse.entities.length > 0)) &&
                                 (data?.browse?.entities as GlossaryTerm[]).map(({ properties, urn }) => (
-                                    <ResultCard to={`${rootPath}/${urn}`} name={properties?.name} />
+                                    <ResultCard
+                                        to={`${rootPath}/${urn}`}
+                                        name={properties?.name}
+                                        key={`entities-${properties?.name}`}
+                                    />
                                 ))}
                         </>
                     )}
