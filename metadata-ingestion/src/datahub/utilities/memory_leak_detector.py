@@ -5,7 +5,7 @@ import sys
 import tracemalloc
 from collections import defaultdict
 from functools import wraps
-from typing import Any, Callable, Dict, List, Optional, TypeVar, Union, cast
+from typing import Any, Callable, Dict, List, TypeVar, Union, cast
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T")
@@ -22,7 +22,7 @@ def _trace_has_file(trace: tracemalloc.Traceback, file_pattern: str) -> bool:
 def _init_leak_detection() -> None:
     # Initialize trace malloc to track up to 25 stack frames.
     tracemalloc.start(25)
-    if sys.version_info[0] >= 3 and sys.version_info[1] >= 9:
+    if sys.version_info >= (3, 9):
         # Nice to reset peak to 0. Available for versions >= 3.9.
         tracemalloc.reset_peak()
     # Enable leak debugging in the garbage collector.
@@ -61,7 +61,7 @@ def _perform_leak_detection() -> None:
             logger.info(
                 f"#Objects:{len(obj_list)}; Total memory:{sum([sys.getsizeof(obj) for obj in obj_list])};"
                 + " Allocation Trace:\n\t"
-                + "\n\t".join(obj_traceback.format(limit=25, most_recent_first=True))
+                + "\n\t".join(obj_traceback.format(limit=25))
             )
         else:
             logger.info(
@@ -78,11 +78,7 @@ def _perform_leak_detection() -> None:
                 ref_trace = tracemalloc.get_object_traceback(referrer)
                 logger.info(
                     f"Referrer[{ref_index}] referrer_obj(addr={hex(id(referrer))}):{referrer}, RefTrace:\n\t\t"
-                    + "\n\t\t".join(
-                        ref_trace.format(limit=5, most_recent_first=True)
-                        if ref_trace
-                        else []
-                    )
+                    + "\n\t\t".join(ref_trace.format(limit=5) if ref_trace else [])
                     + "\n"
                 )
     logger.info("Potentially leaking objects end")
@@ -90,11 +86,12 @@ def _perform_leak_detection() -> None:
     tracemalloc.stop()
 
 
+# TODO: Transition to ParamSpec with the first arg being click.Context (using typing_extensions.Concatenate)
+#  once fully supported by mypy.
 def with_leak_detection(func: Callable[..., T]) -> Callable[..., T]:
     @wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         detect_leaks: bool = args[0].obj.get("detect_memory_leaks", False)
-        exception: Optional[BaseException] = None
         if detect_leaks:
             logger.info(
                 f"Initializing memory leak detection on command: {func.__module__}.{func.__name__}"
@@ -103,21 +100,12 @@ def with_leak_detection(func: Callable[..., T]) -> Callable[..., T]:
 
         try:
             res = func(*args, **kwargs)
-        # Catch all exceptions, including SystemExit that some of the commands raise via sys.exit()
-        except BaseException as e:
-            exception = e
-
-        if detect_leaks:
-            _perform_leak_detection()
-            logger.info(
-                f"Finished memory leak detection on command: {func.__module__}.{func.__name__}"
-            )
-
-        if exception is None:
             return res
-        elif isinstance(exception, SystemExit):
-            sys.exit(exception.code)
-        else:
-            raise exception
+        finally:
+            if detect_leaks:
+                _perform_leak_detection()
+                logger.info(
+                    f"Finished memory leak detection on command: {func.__module__}.{func.__name__}"
+                )
 
     return wrapper
