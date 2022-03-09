@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { DatabaseFilled, DatabaseOutlined } from '@ant-design/icons';
 import { Typography } from 'antd';
-import { Dataset, EntityType, SearchResult } from '../../../types.generated';
+import { Dataset, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
 import { FIELDS_TO_HIGHLIGHT } from './search/highlights';
@@ -175,6 +175,9 @@ export class DatasetEntity implements Entity<Dataset> {
                 },
                 {
                     component: SidebarOwnerSection,
+                    properties: {
+                        defaultOwnerType: OwnershipType.TechnicalOwner,
+                    },
                 },
                 {
                     component: SidebarDomainSection,
