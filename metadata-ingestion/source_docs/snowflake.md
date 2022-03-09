@@ -17,7 +17,7 @@ create or replace role datahub_role;
 
 // Grant privileges to use and select from your target warehouses / dbs / schemas / tables
 grant operate, usage on warehouse <your-warehouse> to role datahub_role;
-grant usage on <your-database> to role datahub_role;
+grant usage on DATABASE <your-database> to role datahub_role;
 grant usage on all schemas in database <your-database> to role datahub_role; 
 grant select on all tables in database <your-database> to role datahub_role; 
 grant select on all external tables in database <your-database> to role datahub_role;

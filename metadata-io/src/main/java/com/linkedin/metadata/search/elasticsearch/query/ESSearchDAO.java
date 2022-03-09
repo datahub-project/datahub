@@ -7,16 +7,13 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
-import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.elasticsearch.query.request.AutocompleteRequestHandler;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.io.IOException;
-import java.util.Collections;
 import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -29,6 +26,8 @@ import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.client.core.CountRequest;
 
+import static com.linkedin.metadata.search.utils.SearchUtils.EMPTY_SEARCH_RESULT;
+
 
 /**
  * A search DAO for Elasticsearch backend.
@@ -37,16 +36,9 @@ import org.elasticsearch.client.core.CountRequest;
 @RequiredArgsConstructor
 public class ESSearchDAO {
 
-  private static final SearchResult EMPTY_SEARCH_RESULT = new SearchResult().setEntities(new SearchEntityArray(
-      Collections.emptyList()))
-      .setMetadata(new SearchResultMetadata())
-      .setFrom(0)
-      .setPageSize(0)
-      .setNumEntities(0);
   private final EntityRegistry entityRegistry;
   private final RestHighLevelClient client;
   private final IndexConvention indexConvention;
-
 
   public long docCount(@Nonnull String entityName) {
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);

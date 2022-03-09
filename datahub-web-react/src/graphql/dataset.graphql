@@ -110,18 +110,22 @@ query getDataset($urn: String!) {
                 sampleValues
             }
         }
+        health {
+            status
+            message
+            causes
+        }
+        assertions(start: 0, count: 1) {
+            total
+        }
         operations(limit: 1) {
             timestampMillis
         }
-        incoming: relationships(
-            input: { types: ["DownstreamOf", "Consumes", "Produces"], direction: INCOMING, start: 0, count: 100 }
-        ) {
-            ...fullRelationshipResults
+        upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
+            ...fullLineageResults
         }
-        outgoing: relationships(
-            input: { types: ["DownstreamOf", "Consumes", "Produces"], direction: OUTGOING, start: 0, count: 100 }
-        ) {
-            ...fullRelationshipResults
+        downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
+            ...fullLineageResults
         }
         ...viewProperties
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
@@ -147,5 +151,26 @@ fragment viewProperties on Dataset {
         materialized
         logic
         language
+    }
+}
+
+query getDatasetAssertions($urn: String!) {
+    dataset(urn: $urn) {
+        assertions(start: 0, count: 100) {
+            start
+            count
+            total
+            assertions {
+                ...assertionDetails
+                runEvents(status: COMPLETE, limit: 1) {
+                    total
+                    failed
+                    succeeded
+                    runEvents {
+                        ...assertionRunEventDetails
+                    }
+                }
+            }
+        }
     }
 }
