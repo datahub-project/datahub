@@ -67,11 +67,7 @@ def delete_for_registry(
     deletion_result = DeletionResult()
     deletion_result.num_entities = 1
     deletion_result.num_records = UNKNOWN_NUM_RECORDS  # Default is unknown
-    registry_delete = {
-        "registryId": registry_id,
-        "dryRun": dry_run,
-        "soft": soft
-    }
+    registry_delete = {"registryId": registry_id, "dryRun": dry_run, "soft": soft}
     (
         structured_rows,
         entities_affected,
@@ -157,10 +153,6 @@ def delete(
         )
     else:
         # Filter based delete
-        # If hard deleting objects based on a filtered search we must specify that status.removed=true
-        # objects should also be considered.
-        if hard:
-            query = '(' + query + ') AND (removed:true)'
 
         deletion_result = delete_with_filters(
             env=env,

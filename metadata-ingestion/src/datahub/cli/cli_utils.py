@@ -301,7 +301,7 @@ def get_urns_by_filter(
     env: Optional[str],
     entity_type: str = "dataset",
     search_query: str = "*",
-    include_removed: bool = False
+    include_removed: bool = False,
 ) -> Iterable[str]:
     session, gms_host = get_session_and_host()
     endpoint: str = "/entities?action=search"
@@ -334,7 +334,7 @@ def get_urns_by_filter(
             }
         )
 
-    if (include_removed is not None):
+    if include_removed is not None:
         filter_criteria.append(
             {
                 "field": "removed",
