@@ -359,6 +359,7 @@ redshift_datetime_format = "%Y-%m-%d %H:%M:%S"
 
 @dataclass
 class RedshiftReport(SQLSourceReport):
+    # https://forums.aws.amazon.com/ann.jspa?annID=9105
     saas_version: str = ""
     upstream_lineage: Dict[str, List[str]] = field(default_factory=dict)
 
