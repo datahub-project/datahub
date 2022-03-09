@@ -881,7 +881,7 @@ WHERE
 
     # We can't use close as it is not called if the ingestion is not successful
     def __del__(self):
-        if self.config._credentials_path:
+        if self.config._credentials_path is not None:
             logger.debug(
                 f"Deleting temporary credential file at {self.config._credentials_path}"
             )
