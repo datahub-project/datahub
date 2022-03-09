@@ -9,10 +9,6 @@ import com.linkedin.common.Urn
   "name": "assertionKey",
 }
 record AssertionKey {
-  
-  //The name of the assertion platform such as greatExpectations etc.
-  //assertionPlatform: Urn
-
   /**
   * Unique id for the assertion.
   */

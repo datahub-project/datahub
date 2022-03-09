@@ -37,3 +37,33 @@ export const navigateToSearchUrl = ({
         search,
     });
 };
+
+export const navigateToSearchLineageUrl = ({
+    entityUrl,
+    query: newQuery,
+    page: newPage = 1,
+    filters: newFilters,
+    history,
+}: {
+    entityUrl: string;
+    query?: string;
+    page?: number;
+    filters?: Array<FacetFilterInput>;
+    history: RouteComponentProps['history'];
+}) => {
+    const constructedFilters = newFilters || [];
+
+    const search = QueryString.stringify(
+        {
+            ...filtersToQueryStringParams(constructedFilters),
+            query: newQuery,
+            page: newPage,
+        },
+        { arrayFormat: 'comma' },
+    );
+
+    history.push({
+        pathname: entityUrl,
+        search,
+    });
+};

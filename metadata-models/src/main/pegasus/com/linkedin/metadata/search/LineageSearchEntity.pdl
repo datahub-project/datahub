@@ -1,0 +1,20 @@
+namespace com.linkedin.metadata.search
+
+import com.linkedin.common.Urn
+
+/**
+ * The model for each entity returned by the lineage search query
+ */
+record LineageSearchEntity includes SearchEntity {
+
+  /**
+   * Optional list of entities between the source and destination node
+   */
+  path: array[Urn] = []
+
+  /**
+   * Degree of relationship (number of hops to get to entity)
+   */
+  degree: int = 1
+
+}

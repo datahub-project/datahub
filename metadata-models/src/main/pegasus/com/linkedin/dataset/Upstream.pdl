@@ -23,7 +23,8 @@ record Upstream {
    */
   @Relationship = {
     "name": "DownstreamOf",
-    "entityTypes": [ "dataset" ]
+    "entityTypes": [ "dataset" ],
+    "isLineage": true
   }
   @Searchable = {
     "fieldName": "upstreams",
