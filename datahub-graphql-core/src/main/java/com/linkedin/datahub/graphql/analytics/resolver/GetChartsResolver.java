@@ -23,7 +23,6 @@ import com.linkedin.metadata.Constants;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -145,7 +144,8 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     // Chart 1: Entities per domain
     final List<NamedBar> entitiesPerDomain =
         _analyticsService.getBarChart(_analyticsService.getAllEntityIndexName(), Optional.empty(),
-            ImmutableList.of("domains.keyword", "platform.keyword"), Collections.emptyMap(), Optional.empty(), false);
+            ImmutableList.of("domains.keyword", "platform.keyword"),
+            ImmutableMap.of("removed", ImmutableList.of("true")), Optional.empty(), false);
     AnalyticsUtil.hydrateDisplayNameForBars(_entityClient, entitiesPerDomain, Constants.DOMAIN_ENTITY_NAME,
         ImmutableSet.of(Constants.DOMAIN_PROPERTIES_ASPECT_NAME), AnalyticsUtil::getDomainName, authentication);
     AnalyticsUtil.hydrateDisplayNameForSegments(_entityClient, entitiesPerDomain, Constants.DATA_PLATFORM_ENTITY_NAME,
@@ -157,7 +157,8 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     // Chart 2: Entities per platform
     final List<NamedBar> entitiesPerPlatform =
         _analyticsService.getBarChart(_analyticsService.getAllEntityIndexName(), Optional.empty(),
-            ImmutableList.of("platform.keyword"), Collections.emptyMap(), Optional.empty(), false);
+            ImmutableList.of("platform.keyword"), ImmutableMap.of("removed", ImmutableList.of("true")),
+            Optional.empty(), false);
     AnalyticsUtil.hydrateDisplayNameForBars(_entityClient, entitiesPerPlatform, Constants.DATA_PLATFORM_ENTITY_NAME,
         ImmutableSet.of(Constants.DATA_PLATFORM_INFO_ASPECT_NAME), AnalyticsUtil::getPlatformName, authentication);
     if (!entitiesPerPlatform.isEmpty()) {
@@ -167,7 +168,8 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     // Chart 3: Entities per term
     final List<NamedBar> entitiesPerTerm =
         _analyticsService.getBarChart(_analyticsService.getAllEntityIndexName(), Optional.empty(),
-            ImmutableList.of("glossaryTerms.keyword"), Collections.emptyMap(), Optional.empty(), false);
+            ImmutableList.of("glossaryTerms.keyword"), ImmutableMap.of("removed", ImmutableList.of("true")),
+            Optional.empty(), false);
     AnalyticsUtil.hydrateDisplayNameForBars(_entityClient, entitiesPerTerm, Constants.GLOSSARY_TERM_ENTITY_NAME,
         ImmutableSet.of(Constants.GLOSSARY_TERM_KEY_ASPECT_NAME), AnalyticsUtil::getTermName, authentication);
     if (!entitiesPerTerm.isEmpty()) {
@@ -177,7 +179,8 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     // Chart 4: Entities per fabric type
     final List<NamedBar> entitiesPerEnv =
         _analyticsService.getBarChart(_analyticsService.getAllEntityIndexName(), Optional.empty(),
-            ImmutableList.of("origin.keyword"), Collections.emptyMap(), Optional.empty(), false);
+            ImmutableList.of("origin.keyword"), ImmutableMap.of("removed", ImmutableList.of("true")), Optional.empty(),
+            false);
     if (entitiesPerEnv.size() > 1) {
       charts.add(BarChart.builder().setTitle("Entities per Environment").setBars(entitiesPerEnv).build());
     }

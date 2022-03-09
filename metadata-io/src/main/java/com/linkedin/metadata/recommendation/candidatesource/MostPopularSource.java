@@ -3,8 +3,10 @@ package com.linkedin.metadata.recommendation.candidatesource;
 import com.codahale.metrics.Timer;
 import com.datahub.util.exception.ESQueryException;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventConstants;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.recommendation.EntityProfileParams;
 import com.linkedin.metadata.recommendation.RecommendationContent;
 import com.linkedin.metadata.recommendation.RecommendationParams;
@@ -41,6 +43,7 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 public class MostPopularSource implements RecommendationSource {
   private final RestHighLevelClient _searchClient;
   private final IndexConvention _indexConvention;
+  private final EntityService _entityService;
 
   private static final String DATAHUB_USAGE_INDEX = "datahub_usage_event";
   private static final String ENTITY_AGG_NAME = "entity";
@@ -106,7 +109,7 @@ public class MostPopularSource implements RecommendationSource {
     // Find the entities with the most views
     AggregationBuilder aggregation = AggregationBuilders.terms(ENTITY_AGG_NAME)
         .field(DataHubUsageEventConstants.ENTITY_URN + ESUtils.KEYWORD_SUFFIX)
-        .size(MAX_CONTENT);
+        .size(MAX_CONTENT * 2);
     source.aggregation(aggregation);
     source.size(0);
 
@@ -116,13 +119,7 @@ public class MostPopularSource implements RecommendationSource {
   }
 
   private Optional<RecommendationContent> buildContent(@Nonnull String entityUrn) {
-    Urn entity;
-    try {
-      entity = Urn.createFromString(entityUrn);
-    } catch (URISyntaxException e) {
-      log.error("Error decoding entity URN: {}", entityUrn, e);
-      return Optional.empty();
-    }
+    Urn entity = UrnUtils.getUrn(entityUrn);
     return Optional.of(new RecommendationContent().setEntity(entity)
         .setValue(entityUrn)
         .setParams(new RecommendationParams().setEntityProfileParams(new EntityProfileParams().setUrn(entity))));
