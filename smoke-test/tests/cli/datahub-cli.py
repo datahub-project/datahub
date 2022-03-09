@@ -16,10 +16,11 @@ def delete_by_urn(urn, session, host):
         entity_type=entity_type,
         cached_session_host=(session, host),
     )
+    sleep(5)
+    print()
 
-#@pytest.mark.dependency()
-#def test_rollback_editable():
-def rollback_editable():
+@pytest.mark.dependency()
+def test_rollback_editable():
     platform = "urn:li:dataPlatform:kafka"
     dataset_name = (
         "test-rollback"
@@ -31,7 +32,6 @@ def rollback_editable():
 
     # Clean slate.
     delete_by_urn(dataset_urn, session, gms_host)
-    sleep(5)
 
     assert "browsePaths" not in get_aspects_for_entity(entity_urn=dataset_urn, aspects=["browsePaths"], typed=False)
     assert "editableDatasetProperties" not in get_aspects_for_entity(entity_urn=dataset_urn, aspects=["editableDatasetProperties"], typed=False)
@@ -57,12 +57,10 @@ def rollback_editable():
     session.post(rollback_url, data=json.dumps({"runId": ingested_dataset_run_id, "dryRun": False, "hardDelete": False}))
 
     # Allow async MCP processor to handle ingestions & rollbacks
-    sleep(5)
+    sleep(10)
 
     # EditableDatasetProperties should still be part of the entity that was soft deleted.
-    # THIS IS FAILING
     assert "editableDatasetProperties" in get_aspects_for_entity(entity_urn=dataset_urn, aspects=["editableDatasetProperties"], typed=False)
-
     # But first ingestion aspects should not be present
     assert "browsePaths" not in get_aspects_for_entity(entity_urn=dataset_urn, aspects=["browsePaths"], typed=False)
     pass
