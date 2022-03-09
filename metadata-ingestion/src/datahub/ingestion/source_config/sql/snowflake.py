@@ -16,6 +16,11 @@ from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemyConfig,
     make_sqlalchemy_uri,
 )
+from datahub.utilities.config_clean import (
+    remove_protocol,
+    remove_suffix,
+    remove_trailing_slashes,
+)
 
 APPLICATION_NAME = "acryl_datahub"
 
@@ -41,6 +46,14 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
     include_view_lineage: Optional[bool] = True
 
     connect_args: Optional[dict]
+
+    @pydantic.validator("host_port", always=True)
+    def host_port_is_valid(cls, v, values, **kwargs):
+        v = remove_protocol(v)
+        v = remove_trailing_slashes(v)
+        v = remove_suffix(v, ".snowflakecomputing.com")
+        logger.info(f"Cleaned Host port is {v}")
+        return v
 
     @pydantic.validator("authentication_type", always=True)
     def authenticator_type_is_valid(cls, v, values, **kwargs):

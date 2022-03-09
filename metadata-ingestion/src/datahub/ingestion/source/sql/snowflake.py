@@ -52,6 +52,8 @@ class SnowflakeReport(SQLSourceReport):
     num_view_to_table_edges_scanned: int = 0
     num_external_table_edges_scanned: int = 0
     upstream_lineage: Dict[str, List[str]] = field(default_factory=dict)
+
+    cleaned_host_port: str = ""
     # https://community.snowflake.com/s/topic/0TO0Z000000Unu5WAC/releases
     saas_version: str = ""
     role: str = ""
@@ -509,6 +511,7 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
 
     # Override the base class method.
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+        self.report.cleaned_host_port = self.config.host_port
         try:
             self.inspect_version()
         except Exception as e:
