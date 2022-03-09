@@ -574,6 +574,7 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
     def do_setup(self):
         if self.config.setup is None or self.config.setup.enabled is False:
             return
+
         try:
             self.setup_in_progress = True
             self.do_setup_internal()

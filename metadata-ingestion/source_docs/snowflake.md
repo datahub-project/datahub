@@ -147,8 +147,8 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `setup.drop_role_if_exists`    |          | `False` | Useful during testing to ensure you have a clean slate role. Not recommended for production use cases |
 | `setup.skip_ingestion`         |          | `True`  | If system admins wish to skip actual ingestion of metadata during testing of the setup of `role` |
 | `setup.admin_role`             |          | `accountadmin` | The Snowflake role of admin user used for setup of the role specified by `role` config. System admins can audit the open source code and decide to use a different role |
-| `setup.admin_username`         |          |          | The username to be used for setup of role |
-| `setup.admin_password`         |          |          | The password to be used for setup of role |
+| `setup.admin_username`         |  ✅       |          | The username to be used for setup of role |
+| `setup.admin_password`         |  ✅       |          | The password to be used for setup of role |
 
 
 ## `snowflake-usage` plugin

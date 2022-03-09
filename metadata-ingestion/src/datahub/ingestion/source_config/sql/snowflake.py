@@ -48,9 +48,14 @@ class SnowflakeSetupConfig(ConfigModel):
     admin_role: Optional[str] = "accountadmin"
 
     admin_username: str
-    admin_password: Optional[pydantic.SecretStr] = pydantic.Field(
-        default=None, exclude=True
-    )
+    admin_password: pydantic.SecretStr = pydantic.Field(default=None, exclude=True)
+
+    @pydantic.validator("admin_username", always=True)
+    def username_not_empty(cls, v, values, **kwargs):
+        v_str: str = str(v)
+        if v_str.strip() == "":
+            raise ValueError("username is empty")
+        return v
 
 
 class BaseSnowflakeConfig(BaseTimeWindowConfig):
