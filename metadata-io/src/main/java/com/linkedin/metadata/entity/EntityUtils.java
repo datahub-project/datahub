@@ -30,22 +30,4 @@ public class EntityUtils {
       return false;
     }
   }
-
-  /**
-   * Return removed entities from the set of input entities (removed=true in Status aspect)
-   */
-  public static List<Urn> getRemovedEntities(EntityService entityService, Set<Urn> entityUrns) {
-    try {
-      EnvelopedAspect statusAspect =
-          entityService.getLatestEnvelopedAspect(entityUrn.getEntityType(), entityUrn, "status");
-      if (statusAspect == null) {
-        return false;
-      }
-      Status status = new Status(statusAspect.getValue().data());
-      return status.isRemoved();
-    } catch (Exception e) {
-      log.error("Error while checking if {} is removed", entityUrn, e);
-      return false;
-    }
-  }
 }
