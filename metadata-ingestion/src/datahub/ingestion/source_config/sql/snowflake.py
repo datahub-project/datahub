@@ -10,7 +10,7 @@ from snowflake.connector.network import (
     KEY_PAIR_AUTHENTICATOR,
 )
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemyConfig,
@@ -27,10 +27,38 @@ APPLICATION_NAME = "acryl_datahub"
 logger: logging.Logger = logging.getLogger(__name__)
 
 
+class SnowflakeSetupConfig(ConfigModel):
+    enabled: bool = False
+
+    # Can be used by account admin to test what sql statements will be run
+    dry_run: bool = False
+
+    # Setting this to True is helpful in case you want a clean role without any extra privileges
+    # Not set to True by default because multiple parallel
+    #   snowflake ingestions can be dependent on single role
+    drop_role_if_exists: bool = False
+
+    # When Account admin is testing they might not want to actually do the ingestion
+    # Set this to False in case the account admin would want to
+    #   create role
+    #   grant role to user in main config
+    #   run ingestion as the user in main config
+    skip_ingestion: bool = True
+
+    admin_role: Optional[str] = "accountadmin"
+
+    admin_username: str
+    admin_password: Optional[pydantic.SecretStr] = pydantic.Field(
+        default=None, exclude=True
+    )
+
+
 class BaseSnowflakeConfig(BaseTimeWindowConfig):
     # Note: this config model is also used by the snowflake-usage source.
 
     scheme = "snowflake"
+
+    setup: Optional[SnowflakeSetupConfig] = None
 
     username: Optional[str] = None
     password: Optional[pydantic.SecretStr] = pydantic.Field(default=None, exclude=True)
@@ -91,11 +119,17 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
             )
         return v
 
-    def get_sql_alchemy_url(self, database=None):
+    def get_sql_alchemy_url(
+        self,
+        database: Optional[str] = None,
+        username: Optional[str] = None,
+        password: Optional[pydantic.SecretStr] = None,
+        role: Optional[str] = None,
+    ) -> str:
         return make_sqlalchemy_uri(
             self.scheme,
-            self.username,
-            self.password.get_secret_value() if self.password else None,
+            username,
+            password.get_secret_value() if password else None,
             self.host_port,
             f'"{database}"' if database is not None else database,
             uri_opts={
@@ -104,7 +138,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
                 for (key, value) in {
                     "authenticator": self.authentication_type,
                     "warehouse": self.warehouse,
-                    "role": self.role,
+                    "role": role,
                     "application": APPLICATION_NAME,
                 }.items()
                 if value
@@ -150,8 +184,16 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
         values["database_pattern"].allow = f"^{v}$"
         return None
 
-    def get_sql_alchemy_url(self, database: str = None) -> str:
-        return super().get_sql_alchemy_url(database=database)
+    def get_sql_alchemy_url(
+        self,
+        database: str = None,
+        username: Optional[str] = None,
+        password: Optional[pydantic.SecretStr] = None,
+        role: Optional[str] = None,
+    ) -> str:
+        return super().get_sql_alchemy_url(
+            database=database, username=username, password=password, role=role
+        )
 
     def get_sql_alchemy_connect_args(self) -> dict:
         return super().get_sql_alchemy_connect_args()

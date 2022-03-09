@@ -1,7 +1,6 @@
 import json
 import logging
 from collections import defaultdict
-from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 # This import verifies that the dependencies are available.
@@ -20,12 +19,12 @@ from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.ingestion.source.sql.sql_common import (
     RecordTypeClass,
     SQLAlchemySource,
-    SQLSourceReport,
     SqlWorkUnit,
     TimeTypeClass,
     register_custom_type,
 )
 from datahub.ingestion.source_config.sql.snowflake import SnowflakeConfig
+from datahub.ingestion.source_report.sql.snowflake import SnowflakeReport
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageTypeClass,
     UpstreamClass,
@@ -45,21 +44,6 @@ logger: logging.Logger = logging.getLogger(__name__)
 snowdialect.ischema_names["GEOGRAPHY"] = sqltypes.NullType
 
 
-@dataclass
-class SnowflakeReport(SQLSourceReport):
-    num_table_to_table_edges_scanned: int = 0
-    num_table_to_view_edges_scanned: int = 0
-    num_view_to_table_edges_scanned: int = 0
-    num_external_table_edges_scanned: int = 0
-    upstream_lineage: Dict[str, List[str]] = field(default_factory=dict)
-
-    cleaned_host_port: str = ""
-    # https://community.snowflake.com/s/topic/0TO0Z000000Unu5WAC/releases
-    saas_version: str = ""
-    role: str = ""
-    role_grants: List[str] = field(default_factory=list)
-
-
 class SnowflakeSource(SQLAlchemySource):
     def __init__(self, config: SnowflakeConfig, ctx: PipelineContext):
         super().__init__(config, ctx, "snowflake")
@@ -67,6 +51,7 @@ class SnowflakeSource(SQLAlchemySource):
         self._external_lineage_map: Optional[Dict[str, Set[str]]] = None
         self.report: SnowflakeReport = SnowflakeReport()
         self.config: SnowflakeConfig = config
+        self.setup_in_progress: bool = False
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -76,7 +61,18 @@ class SnowflakeSource(SQLAlchemySource):
     def get_metadata_engine(
         self, database: Optional[str] = None
     ) -> sqlalchemy.engine.Engine:
-        url = self.config.get_sql_alchemy_url(database=database)
+        if self.setup_in_progress and self.config.setup is not None:
+            username: Optional[str] = self.config.setup.admin_username
+            password = self.config.setup.admin_password
+            role: Optional[str] = self.config.setup.admin_role
+        else:
+            username = self.config.username
+            password = self.config.password
+            role = self.config.role
+
+        url = self.config.get_sql_alchemy_url(
+            database=database, username=username, password=password, role=role
+        )
         logger.debug(f"sql_alchemy_url={url}")
         return create_engine(
             url,
@@ -509,9 +505,98 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
             return UpstreamLineage(upstreams=upstream_tables), column_lineage
         return None
 
+    def add_config_to_report(self):
+        self.report.cleaned_host_port = self.config.host_port
+
+        if self.config.setup is not None:
+            self.report.skip_ingestion = self.config.setup.skip_ingestion
+
+    def do_setup_internal(self):
+        setup_block = self.config.setup
+        self.report.setup_done = not setup_block.dry_run
+
+        role = self.config.role
+        if role is None:
+            role = "datahub_role"
+            self.warn(
+                logger,
+                "setup-grant",
+                f"role not specified during setup using {role} as default",
+            )
+        self.report.role = role
+
+        warehouse = self.config.warehouse
+
+        logger.info("Creating connection for setup")
+        engine = self.get_metadata_engine(database=None)
+
+        sqls: List[str] = []
+        if setup_block.drop_role_if_exists:
+            sqls.append(f"DROP ROLE IF EXISTS {role}")
+
+        sqls.append(f"CREATE ROLE IF NOT EXISTS {role}")
+
+        if warehouse is None:
+            self.warn(logger, "setup-grant", "warehouse not specified during setup")
+        else:
+            sqls.append(f"grant operate, usage on warehouse {warehouse} to role {role}")
+
+        for inspector in self.get_inspectors():
+            db_name = self.get_db_name(inspector)
+            sqls.extend(
+                [
+                    f"grant usage on DATABASE {db_name} to role {role}",
+                    f"grant usage on all schemas in database {db_name} to role {role}",
+                    f"grant select on all tables in database {db_name} to role {role}",
+                    f"grant select on all external tables in database {db_name} to role {role}",
+                    f"grant select on all views in database {db_name} to role {role}",
+                    f"grant usage on future schemas in database {db_name} to role {role}",
+                    f"grant select on future tables in database {db_name} to role {role}",
+                ]
+            )
+        if self.config.username is not None:
+            sqls.append(f"grant role {role} to user {self.config.username}")
+
+        sqls.append(f"grant imported privileges on database snowflake to role {role}")
+
+        dry_run_str = "[DRY RUN] " if setup_block.dry_run else ""
+        for sql in sqls:
+            logger.info(f"{dry_run_str} Attempting to run sql {sql}")
+            if setup_block.dry_run:
+                continue
+            try:
+                engine.execute(sql)
+            except Exception as e:
+                self.error(logger, "setup-grant", f"Exception: {e}")
+
+        self.report.setup_success = not setup_block.dry_run
+
+    def do_setup(self):
+        if self.config.setup is None or self.config.setup.enabled is False:
+            return
+        try:
+            self.setup_in_progress = True
+            self.do_setup_internal()
+        finally:
+            self.setup_in_progress = False
+
+        if self.config.setup.skip_ingestion or self.config.setup.dry_run:
+            return
+
+    def should_run_ingestion(self) -> bool:
+        if self.config.setup is None or self.config.setup.enabled is False:
+            return True
+
+        return not self.config.setup.skip_ingestion
+
     # Override the base class method.
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
-        self.report.cleaned_host_port = self.config.host_port
+        self.add_config_to_report()
+
+        self.do_setup()
+        if not self.should_run_ingestion():
+            return
+
         try:
             self.inspect_version()
         except Exception as e:
