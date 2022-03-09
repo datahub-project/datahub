@@ -2,10 +2,16 @@ from dataclasses import dataclass, field
 from typing import Dict, List
 
 from datahub.ingestion.source.sql.sql_common import SQLSourceReport
+from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 
 
 @dataclass
-class SnowflakeReport(SQLSourceReport):
+class BaseSnowflakeReport(BaseTimeWindowReport):
+    pass
+
+
+@dataclass
+class SnowflakeReport(BaseSnowflakeReport, SQLSourceReport):
     num_table_to_table_edges_scanned: int = 0
     num_table_to_view_edges_scanned: int = 0
     num_view_to_table_edges_scanned: int = 0

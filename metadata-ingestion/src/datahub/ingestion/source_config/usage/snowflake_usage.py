@@ -50,4 +50,9 @@ class SnowflakeUsageConfig(
         return v
 
     def get_sql_alchemy_url(self):
-        return super().get_sql_alchemy_url(database="snowflake")
+        return super().get_sql_alchemy_url(
+            database="snowflake",
+            username=self.username,
+            password=self.password,
+            role=self.role,
+        )

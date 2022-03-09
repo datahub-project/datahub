@@ -1,7 +1,6 @@
 import collections
 import json
 import logging
-from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Union, cast
 
@@ -20,12 +19,12 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     JobId,
-    StatefulIngestionReport,
     StatefulIngestionSourceBase,
 )
 from datahub.ingestion.source.state.usage_common_state import BaseUsageCheckpointState
 from datahub.ingestion.source.usage.usage_common import GenericAggregatedDataset
 from datahub.ingestion.source_config.usage.snowflake_usage import SnowflakeUsageConfig
+from datahub.ingestion.source_report.usage.snowflake_usage import SnowflakeUsageReport
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     JobStatusClass,
@@ -120,11 +119,6 @@ class SnowflakeJoinedAccessEvent(PermissiveModel):
     display_name: Optional[str]
     email: str
     role_name: str
-
-
-@dataclass
-class SnowflakeUsageReport(StatefulIngestionReport):
-    pass
 
 
 class SnowflakeUsageSource(StatefulIngestionSourceBase):
@@ -247,7 +241,12 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
             "User's without email address will be ignored from usage if you don't set email_domain property",
         )
 
+    def add_config_to_report(self):
+        self.report.start_time = self.config.start_time
+        self.report.end_time = self.config.end_time
+
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        self.add_config_to_report()
         self.check_email_domain_missing()
         if not self.should_skip_this_run:
             # Initialize the checkpoints
