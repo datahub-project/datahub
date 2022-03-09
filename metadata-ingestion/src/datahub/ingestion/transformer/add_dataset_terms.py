@@ -4,7 +4,7 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel, KeyValuePattern
 from datahub.configuration.import_resolver import pydantic_resolve_key
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.transformer.dataset_transformer import DatasetTransformer
+from datahub.ingestion.transformer.dataset_transformer import DatasetTermsTransformer
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     DatasetSnapshotClass,
@@ -25,13 +25,14 @@ class AddDatasetTermsConfig(ConfigModel):
     _resolve_term_fn = pydantic_resolve_key("get_terms_to_add")
 
 
-class AddDatasetTerms(DatasetTransformer):
+class AddDatasetTerms(DatasetTermsTransformer):
     """Transformer that adds glossary terms to datasets according to a callback function."""
 
     ctx: PipelineContext
     config: AddDatasetTermsConfig
 
     def __init__(self, config: AddDatasetTermsConfig, ctx: PipelineContext):
+        super().__init__()
         self.ctx = ctx
         self.config = config
 

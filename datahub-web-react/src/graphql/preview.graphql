@@ -13,6 +13,7 @@ fragment entityPreview on Entity {
         }
         platformNativeType
         properties {
+            name
             description
             customProperties {
                 key

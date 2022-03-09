@@ -3,12 +3,13 @@ import React from 'react';
 import styled from 'styled-components';
 import useUserParams from '../../shared/entitySearch/routingUtils/useUserParams';
 import { useGetUserQuery } from '../../../graphql/user.generated';
-import { EntityRelationshipsResult } from '../../../types.generated';
+import { EntityRelationshipsResult, EntityType } from '../../../types.generated';
 import UserGroups from './UserGroups';
 import { RoutedTabs } from '../../shared/RoutedTabs';
 import { UserAssets } from './UserAssets';
 import { decodeUrn } from '../shared/utils';
 import UserInfoSideBar from './UserInfoSideBar';
+import { useEntityRegistry } from '../../useEntityRegistry';
 
 export interface Props {
     onTabChange: (selectedTab: string) => void;
@@ -55,6 +56,7 @@ export const EmptyValue = styled.div`
 export default function UserProfile() {
     const { urn: encodedUrn } = useUserParams();
     const urn = decodeUrn(encodedUrn);
+    const entityRegistry = useEntityRegistry();
 
     const { loading, error, data, refetch } = useGetUserQuery({ variables: { urn, groupsCount: GROUP_PAGE_SIZE } });
 
@@ -98,7 +100,10 @@ export default function UserProfile() {
             data?.corpUser?.info?.displayName ||
             data?.corpUser?.info?.fullName ||
             data?.corpUser?.urn,
-        name: data?.corpUser?.editableProperties?.displayName || data?.corpUser?.info?.fullName || undefined,
+        name:
+            data?.corpUser?.editableProperties?.displayName ||
+            (data?.corpUser && entityRegistry.getDisplayName(EntityType.CorpUser, data?.corpUser)) ||
+            undefined,
         role: data?.corpUser?.editableProperties?.title || data?.corpUser?.info?.title || undefined,
         team: data?.corpUser?.editableProperties?.teams?.join(',') || undefined,
         email: data?.corpUser?.editableProperties?.email || data?.corpUser?.info?.email || undefined,

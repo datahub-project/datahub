@@ -25,6 +25,9 @@ query appConfig {
         identityManagementConfig {
             enabled
         }
+        lineageConfig {
+            supportsImpactAnalysis
+        }
         managedIngestionConfig {
             enabled
         }

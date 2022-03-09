@@ -228,6 +228,9 @@ There are valid cases for ingesting metadata without the UI-based ingestion sche
 - Your ingestion source requires context from a local filesystem (e.g. input files, environment variables, etc)
 - You want to distribute metadata ingestion among multiple producers / environments
 
+### How do I attach policies to the actions pod to give it permissions to pull metadata from various sources?
+
+This varies across the underlying platform. For AWS, please refer to this [guide](./deploy/aws.md#iam-policies-for-ui-based-ingestion).
 
 ## Demo
 
