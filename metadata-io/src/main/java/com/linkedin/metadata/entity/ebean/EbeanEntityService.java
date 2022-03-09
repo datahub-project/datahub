@@ -645,7 +645,7 @@ public class EbeanEntityService extends EntityService {
 
     SystemMetadata latestKeySystemMetadata = parseSystemMetadata(latestKey.getSystemMetadata());
     RollbackResult result = deleteAspect(urn.toString(), keyAspectName, Collections.singletonMap("runId",
-            latestKeySystemMetadata.getRunId()), false);
+            latestKeySystemMetadata.getRunId()), true);
 
     if (result != null) {
       AspectRowSummary summary = new AspectRowSummary();

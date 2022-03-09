@@ -52,6 +52,9 @@ import com.linkedin.retention.VersionBasedRetention;
 import com.linkedin.util.Pair;
 import io.ebean.EbeanServer;
 import io.ebean.EbeanServerFactory;
+import io.ebean.Transaction;
+import io.ebean.TxScope;
+import io.ebean.annotation.TxIsolation;
 import io.ebean.config.ServerConfig;
 import io.ebean.datasource.DataSourceConfig;
 import org.mockito.ArgumentCaptor;
@@ -789,6 +792,29 @@ public class EbeanEntityServiceTest {
     // assert the new most recent aspect is null
     RecordTemplate readNewRecentAspect = _entityService.getAspect(entityUrn1, aspectName, 0);
     assertTrue(DataTemplateUtil.areEqual(null, readNewRecentAspect));
+  }
+
+  @Test
+  public void testNestedTransactions() throws Exception {
+    EbeanServer server = _aspectDao.getServer();
+
+    try (Transaction transaction = server.beginTransaction(TxScope.requiresNew()
+            .setIsolation(TxIsolation.REPEATABLE_READ))) {
+      transaction.setBatchMode(true);
+      // Work 1
+      try (Transaction transaction2 = server.beginTransaction(TxScope.requiresNew()
+              .setIsolation(TxIsolation.REPEATABLE_READ))) {
+        transaction2.setBatchMode(true);
+        // Work 2
+        transaction2.commit();
+      }
+      transaction.commit();
+      } catch (Exception e) {
+      System.out.printf("Top level catch %s%n", e);
+      e.printStackTrace();
+      throw e;
+    }
+    System.out.println("done");
   }
 
   @Test
