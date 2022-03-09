@@ -3193,6 +3193,18 @@
     "entityType":"container",
     "entityUrn": "urn:li:container:SCHEMA",
     "changeType":"UPSERT",
+    "aspectName":"dataPlatformInstance",
+    "aspect":{
+      "value":"{\"platform\": \"urn:li:dataPlatform:hive\" }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"container",
+    "entityUrn": "urn:li:container:SCHEMA",
+    "changeType":"UPSERT",
     "aspectName":"subTypes",
     "aspect":{
       "value":"{\"typeNames\": [ \"Schema\" ] }",
