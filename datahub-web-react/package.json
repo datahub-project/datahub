@@ -78,6 +78,7 @@
         "react-syntax-highlighter": "^15.4.4",
         "react-timezone-select": "^1.1.15",
         "react-visibility-sensor": "^5.1.1",
+        "rgb-hex": "^4.0.0",
         "sinon": "^11.1.1",
         "start-server-and-test": "1.12.2",
         "styled-components": "^5.2.1",
