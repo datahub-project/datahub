@@ -90,7 +90,7 @@ def delete_for_registry(
 @click.option("--query", required=False, type=str)
 @click.option("--registry-id", required=False, type=str)
 @click.option("-n", "--dry-run", required=False, is_flag=True)
-@click.option("--delete-removed", required=False, is_flag=True)
+@click.option("--include-removed", required=False, is_flag=True)
 @telemetry.with_telemetry
 def delete(
     urn: str,
@@ -102,7 +102,7 @@ def delete(
     query: str,
     registry_id: str,
     dry_run: bool,
-    delete_removed: bool,
+    include_removed: bool,
 ) -> None:
     """Delete metadata from datahub using a single urn or a combination of filters"""
 
@@ -162,7 +162,7 @@ def delete(
             entity_type=entity_type,
             search_query=query,
             force=force,
-            delete_removed=delete_removed,
+            include_removed=include_removed,
         )
 
     if not dry_run:
@@ -189,7 +189,7 @@ def delete_with_filters(
     dry_run: bool,
     soft: bool,
     force: bool,
-    delete_removed: bool,
+    include_removed: bool,
     search_query: str = "*",
     entity_type: str = "dataset",
     env: Optional[str] = None,
@@ -209,7 +209,7 @@ def delete_with_filters(
             platform=platform,
             search_query=search_query,
             entity_type=entity_type,
-            include_removed=delete_removed,
+            include_removed=include_removed,
         )
     ]
     logger.info(
