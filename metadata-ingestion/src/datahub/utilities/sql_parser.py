@@ -34,7 +34,7 @@ class SQLParser(metaclass=ABCMeta):
 
 
 class MetadataSQLSQLParser(SQLParser):
-    _DATE_SWAP_TOKEN = "__d_a_t_e"
+    _DATE_SWAP_TOKEN: str = "__d_a_t_e"
 
     def __init__(self, sql_query: str) -> None:
         super().__init__(sql_query)
@@ -86,10 +86,10 @@ class MetadataSQLSQLParser(SQLParser):
 
 
 class SqlLineageSQLParser(SQLParser):
-    _DATE_SWAP_TOKEN = "__d_a_t_e"
-    _TIMESTAMP_SWAP_TOKEN = "__t_i_m_e_s_t_a_m_p"
-    _MYVIEW_SQL_TABLE_NAME_TOKEN = "__my_view__.__sql_table_name__"
-    _MYVIEW_LOOKER_TOKEN = "my_view.SQL_TABLE_NAME"
+    _DATE_SWAP_TOKEN: str = "__d_a_t_e"
+    _TIMESTAMP_SWAP_TOKEN: str = "__t_i_m_e_s_t_a_m_p"
+    _MYVIEW_SQL_TABLE_NAME_TOKEN: str = "__my_view__.__sql_table_name__"
+    _MYVIEW_LOOKER_TOKEN: str = "my_view.SQL_TABLE_NAME"
 
     def __init__(self, sql_query: str) -> None:
         super().__init__(sql_query)
@@ -204,14 +204,27 @@ class SqlLineageSQLParser(SQLParser):
 
 
 class DefaultSQLParser(SQLParser):
-    parser: SQLParser
-
     def __init__(self, sql_query: str) -> None:
         super().__init__(sql_query)
-        self.parser = SqlLineageSQLParser(sql_query)
+        self.parser: SQLParser = SqlLineageSQLParser(sql_query)
 
     def get_tables(self) -> List[str]:
         return self.parser.get_tables()
 
     def get_columns(self) -> List[str]:
         return self.parser.get_columns()
+
+
+class NoOpSQLParser(SQLParser):
+    """
+    This is a no-op parser intended for isolating issues such as memory leaks originating from SQL parsers.
+    """
+
+    def __init__(self, sql_query: str) -> None:
+        pass
+
+    def get_tables(self) -> List[str]:
+        return []
+
+    def get_columns(self) -> List[str]:
+        return []
