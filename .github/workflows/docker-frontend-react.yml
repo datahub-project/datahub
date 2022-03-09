@@ -9,9 +9,9 @@ on:
   pull_request:
     branches:
       - master
-#    paths:
-#      - 'docker/**'
-#      - '.github/workflows/docker-frontend-react.yml'
+    paths:
+      - 'docker/**'
+      - '.github/workflows/docker-frontend-react.yml'
     paths_ignore:
       - '**.md'
       - '**.env'
