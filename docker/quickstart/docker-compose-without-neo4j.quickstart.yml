@@ -89,8 +89,6 @@ services:
   elasticsearch:
     container_name: elasticsearch
     environment:
-    - discovery.type=single-node
-    - xpack.security.enabled=false
     - ES_JAVA_OPTS=-Xms256m -Xmx256m -Dlog4j2.formatMsgNoLookups=true
     healthcheck:
       retries: 4
