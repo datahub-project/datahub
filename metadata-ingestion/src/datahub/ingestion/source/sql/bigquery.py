@@ -241,7 +241,7 @@ class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
     bigquery_audit_metadata_datasets: Optional[List[str]] = None
     use_exported_bigquery_audit_metadata: bool = False
     use_date_sharded_audit_log_tables: bool = False
-    _credentials_path: Optional[str] = pydantic.PrivateAttr()
+    _credentials_path: Optional[str] = pydantic.PrivateAttr(None)
     use_v2_audit_metadata: Optional[bool] = False
 
     def __init__(self, **data: Any):
