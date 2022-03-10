@@ -29,7 +29,7 @@ final class Telemetry {
     static {
         DATAHUB_FOLDER_PATH = System.getenv("DATAHUB_HOME_FOLDER");
         if (DATAHUB_FOLDER_PATH == null || DATAHUB_FOLDER_PATH.isEmpty()) {
-            DATAHUB_FOLDER_PATH = System.getProperty("user.home") + "/.datahub"
+            DATAHUB_FOLDER_PATH = System.getProperty("user.home") + "/.datahub";
         } CONFIG_FILE_PATH = DATAHUB_FOLDER_PATH + "/telemetry-config.json";
 
         File configFile = new File(CONFIG_FILE_PATH);
