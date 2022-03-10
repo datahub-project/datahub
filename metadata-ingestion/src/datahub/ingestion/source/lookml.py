@@ -577,6 +577,7 @@ class LookerView:
                 fields,
             )
             # also store the view logic and materialization
+            view_logic = ""
             if "sql" in derived_table:
                 view_logic = derived_table["sql"]
                 view_lang = "sql"
