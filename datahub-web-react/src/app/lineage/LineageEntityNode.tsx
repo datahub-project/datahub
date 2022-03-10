@@ -261,7 +261,9 @@ export default function LineageEntityNode({
                             |{' '}
                         </tspan>
                         <tspan dx=".25em" dy="-2px">
-                            {capitalizeFirstLetter(node.data.subtype || node.data.type)}
+                            {capitalizeFirstLetter(
+                                node.data.subtype || (node.data.type && entityRegistry.getEntityName(node.data.type)),
+                            )}
                         </tspan>
                     </UnselectableText>
                     {expandTitles ? (
