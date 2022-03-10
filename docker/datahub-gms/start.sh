@@ -5,12 +5,6 @@ if ! echo $NEO4J_HOST | grep -q "://" ; then
     NEO4J_HOST="http://$NEO4J_HOST"
 fi
 
-if [[ -z $DATASTAX_DATASOURCE_HOST ]]; then
-    DOCUMENT_STORE_HOST=$EBEAN_DATASOURCE_HOST
-else
-    DOCUMENT_STORE_HOST=$DATASTAX_DATASOURCE_HOST
-fi
-
 if [[ ! -z $ELASTICSEARCH_USERNAME ]] && [[ -z $ELASTICSEARCH_AUTH_HEADER ]]; then
   AUTH_TOKEN=$(echo -ne "$ELASTICSEARCH_USERNAME:$ELASTICSEARCH_PASSWORD" | base64 --wrap 0)
   ELASTICSEARCH_AUTH_HEADER="Authorization:Basic $AUTH_TOKEN"
@@ -31,11 +25,12 @@ WAIT_FOR_EBEAN=""
 if [[ $SKIP_EBEAN_CHECK != true ]]; then
   if [[ $ENTITY_SERVICE_IMPL == ebean ]] || [[ -z $ENTITY_SERVICE_IMPL ]]; then
     WAIT_FOR_EBEAN=" -wait tcp://$EBEAN_DATASOURCE_HOST "
+  fi
 fi
 
 WAIT_FOR_DATASTAX=""
 if [[ $ENTITY_SERVICE_IMPL == datastax ]] && [[ $SKIP_DATASTAX_CHECK != true ]]; then
-  WAIT_FOR_DATASTAX=" -wait tcp://$DATASTAX_RESOURCE_HOST "
+  WAIT_FOR_DATASTAX=" -wait tcp://$DATASTAX_DATASOURCE_HOST "
 fi
 
 WAIT_FOR_KAFKA=""
