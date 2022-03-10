@@ -1,5 +1,6 @@
 import logging
 import os
+import platform
 import sys
 
 import click
@@ -155,5 +156,11 @@ def main(**kwargs):
                 suppressed_paths=[r"lib/python.*/site-packages/click/"],
                 **kwargs,
             )
+        )
+        logger.info(
+            f"DataHub CLI version: {datahub_package.__version__} at {datahub_package.__file__}"
+        )
+        logger.info(
+            f"Python version: {sys.version} at {sys.executable} on {platform.platform()}"
         )
         sys.exit(1)
