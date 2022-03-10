@@ -7,6 +7,7 @@ from typing import Union, cast
 from datahub.configuration.common import OperationalError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.entrypoints import set_gms_config
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
 from datahub.ingestion.api.sink import Sink, SinkReport, WriteCallback
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -50,7 +51,13 @@ class DatahubRestSink(Sink):
             extra_headers=self.config.extra_headers,
             ca_certificate_path=self.config.ca_certificate_path,
         )
-        self.report.gms_version = self.emitter.test_connection()
+        gms_config = self.emitter.test_connection()
+        self.report.gms_version = (
+            gms_config.get("versions", {})
+            .get("linkedin/datahub", {})
+            .get("version", "")
+        )
+        set_gms_config(gms_config)
         self.executor = concurrent.futures.ThreadPoolExecutor(
             max_workers=self.config.max_threads
         )

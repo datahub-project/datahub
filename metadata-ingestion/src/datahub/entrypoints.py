@@ -2,6 +2,7 @@ import logging
 import os
 import platform
 import sys
+from typing import Any, Dict
 
 import click
 import stackprinter
@@ -35,6 +36,13 @@ BASE_LOGGING_FORMAT = (
 logging.basicConfig(format=BASE_LOGGING_FORMAT)
 
 MAX_CONTENT_WIDTH = 120
+
+# Only to be written to for logging server related information
+global_debug: Dict[str, Any] = dict()
+
+
+def set_gms_config(config: Dict) -> Any:
+    global_debug["gms_config"] = config
 
 
 @click.group(
@@ -163,4 +171,5 @@ def main(**kwargs):
         logger.info(
             f"Python version: {sys.version} at {sys.executable} on {platform.platform()}"
         )
+        logger.info(f"Global debug {global_debug}")
         sys.exit(1)
