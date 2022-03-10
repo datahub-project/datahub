@@ -7,7 +7,6 @@ import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.entity.datastax.DatastaxRetentionService;
 import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
 import io.ebean.EbeanServer;
-import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,6 +15,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
 import org.springframework.context.annotation.PropertySource;
+
+import javax.annotation.Nonnull;
 
 
 @Configuration
@@ -26,11 +27,11 @@ public class RetentionServiceFactory {
   @Qualifier("entityService")
   private EntityService _entityService;
 
-  @Autowired
+  @Autowired(required = false)
   @Qualifier("ebeanServer")
   private EbeanServer _server;
 
-  @Autowired
+  @Autowired(required = false)
   @Qualifier("datastaxSession")
   private CqlSession _cqlSession;
 
