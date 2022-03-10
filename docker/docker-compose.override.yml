@@ -31,6 +31,7 @@ services:
       - mysql
     environment:
       - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED}
+      - DATAHUB_FOLDER_PATH=/etc/datahub
     volumes:
       - ${HOME}/.datahub:/etc/datahub
 

@@ -28,6 +28,7 @@ services:
     env_file: datahub-gms/env/docker-without-neo4j.env
     environment:
       - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED}
+      - DATAHUB_FOLDER_PATH=/etc/datahub
     depends_on:
       - mysql
     volumes:

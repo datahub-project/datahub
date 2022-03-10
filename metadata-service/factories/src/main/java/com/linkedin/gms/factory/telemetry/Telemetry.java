@@ -17,8 +17,8 @@ import static java.lang.Boolean.parseBoolean;
 @Slf4j
 final class Telemetry {
     static final String MIXPANEL_TOKEN = "5ee83d940754d63cacbf7d34daa6f44a";
-    static final String DATAHUB_FOLDER_PATH = System.getProperty("user.home") + "/.datahub";
-    static final String CONFIG_FILE_PATH = DATAHUB_FOLDER_PATH + "/telemetry-config.json";
+    static String DATAHUB_FOLDER_PATH;
+    static String CONFIG_FILE_PATH;
 
     static boolean enabled = true;
     static String clientId;
@@ -27,6 +27,10 @@ final class Telemetry {
     private static MessageBuilder mixpanelBuilder;
 
     static {
+        DATAHUB_FOLDER_PATH = System.getenv("DATAHUB_HOME_FOLDER");
+        if (DATAHUB_FOLDER_PATH == null || DATAHUB_FOLDER_PATH.isEmpty()) {
+            DATAHUB_FOLDER_PATH = System.getProperty("user.home") + "/.datahub"
+        } CONFIG_FILE_PATH = DATAHUB_FOLDER_PATH + "/telemetry-config.json";
 
         File configFile = new File(CONFIG_FILE_PATH);
 
@@ -128,8 +132,7 @@ final class Telemetry {
         }
 
         try {
-            JSONObject event =
-                    mixpanelBuilder.event(clientId, eventName, properties);
+            JSONObject event = mixpanelBuilder.event(clientId, eventName, properties);
             mixpanel.sendMessage(event);
         } catch (IOException e) {
             log.error("Error reporting telemetry:", e);
