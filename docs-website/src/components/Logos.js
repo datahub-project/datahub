@@ -116,6 +116,11 @@ const companiesByIndustry = [
     name: "And More",
     companies: [
       {
+        name: "Cabify",
+        imageUrl: "/img/logos/companies/cabify.png",
+        size: "large",
+      },
+      {
         name: "Viasat",
         imageUrl: "/img/logos/companies/viasat.png",
         size: "large",
