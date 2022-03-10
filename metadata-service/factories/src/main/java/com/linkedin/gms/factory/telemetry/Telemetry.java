@@ -7,10 +7,7 @@ import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.exception.ExceptionUtils;
 import org.json.JSONObject;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.io.InputStream;
-import java.io.FileInputStream;
+import java.io.*;
 import java.util.UUID;
 
 import lombok.extern.slf4j.Slf4j;
@@ -31,33 +28,33 @@ final class Telemetry {
 
     static {
 
-        try {
-            File configFile = new File(CONFIG_FILE_PATH);
+        File configFile = new File(CONFIG_FILE_PATH);
 
-            if (!configFile.exists()) {
-                clientId = UUID.randomUUID().toString();
-                updateConfig();
-            } else {
-                loadConfig();
-            }
-
-            if (enabled) {
-
-                // initialize MixPanel instance and message builder
-                mixpanel = new MixpanelAPI();
-                mixpanelBuilder = new MessageBuilder(MIXPANEL_TOKEN);
-
-                // set user-level properties
-                JSONObject props = new JSONObject();
-                props.put("java_version", System.getProperty("java.version"));
-                props.put("os", System.getProperty("os.name"));
-                JSONObject update = mixpanelBuilder.set(clientId, props);
-                mixpanel.sendMessage(update);
-            }
-
-        } catch (Exception e) {
-            log.error("Error initializing telemetry:\n" + ExceptionUtils.getStackTrace(e));
+        if (!configFile.exists()) {
+            clientId = UUID.randomUUID().toString();
+            updateConfig();
+        } else {
+            loadConfig();
         }
+
+        if (enabled) {
+
+            // initialize MixPanel instance and message builder
+            mixpanel = new MixpanelAPI();
+            mixpanelBuilder = new MessageBuilder(MIXPANEL_TOKEN);
+
+            // set user-level properties
+            JSONObject props = new JSONObject();
+            props.put("java_version", System.getProperty("java.version"));
+            props.put("os", System.getProperty("os.name"));
+            JSONObject update = mixpanelBuilder.set(clientId, props);
+            try {
+                mixpanel.sendMessage(update);
+            } catch (IOException e) {
+                log.error("Error sending telemetry profile:", e);
+            }
+        }
+
 
     }
 
@@ -80,8 +77,10 @@ final class Telemetry {
                 file.write(config.toString());
                 file.close();
             }
-        } catch (Exception e) {
-            log.error("Error configuring telemetry:\n" + ExceptionUtils.getStackTrace(e));
+        } catch (FileNotFoundException e) {
+            log.error("Could not open telemetry config:", e);
+        } catch (IOException e) {
+            log.error("Error writing telemetry config:", e);
         }
 
     }
@@ -115,8 +114,10 @@ final class Telemetry {
                 enabled = parseBoolean(config.get("enabled").toString()) && envEnabled;
 
             }
-        } catch (Exception e) {
-            log.error("Error configuring telemetry:\n" + ExceptionUtils.getStackTrace(e));
+        } catch (FileNotFoundException e) {
+            log.error("Could not open telemetry config:", e);
+        } catch (IOException e) {
+            log.error("Error reading telemetry config:", e);
         }
     }
 
@@ -130,8 +131,8 @@ final class Telemetry {
             JSONObject event =
                     mixpanelBuilder.event(clientId, eventName, properties);
             mixpanel.sendMessage(event);
-        } catch (Exception e) {
-            log.error("Error reporting telemetry:\n" + ExceptionUtils.getStackTrace(e));
+        } catch (IOException e) {
+            log.error("Error reporting telemetry:", e);
         }
     }
 
