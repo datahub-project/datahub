@@ -405,5 +405,14 @@
       "type": "OTHERS",
       "logoUrl": "/assets/platforms/powerbilogo.png"
     }
+  },
+  {
+    "urn": "urn:li:dataPlatform:unknown",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "Unknown Platform",
+      "displayName": "N/A",
+      "type": "OTHERS"
+    }
   }
 ]
