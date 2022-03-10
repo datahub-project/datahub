@@ -27,6 +27,8 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
 import javax.annotation.Nullable;
 
+import static com.linkedin.metadata.Constants.*;
+
 
 public class ContainerMapper {
 
@@ -43,8 +45,9 @@ public class ContainerMapper {
     if (envelopedPlatformInstance != null) {
       result.setPlatform(mapPlatform(new DataPlatformInstance(envelopedPlatformInstance.getValue().data())));
     } else {
-      // Containers must have DPI to be rendered.
-      return null;
+      final DataPlatform unknownPlatform = new DataPlatform();
+      unknownPlatform.setUrn(UNKNOWN_DATA_PLATFORM);
+      result.setPlatform(unknownPlatform);
     }
 
     final EnvelopedAspect envelopedContainerProperties = aspects.get(Constants.CONTAINER_PROPERTIES_ASPECT_NAME);
