@@ -592,20 +592,12 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
         finally:
             self.provision_role_in_progress = False
 
-        if (
-            self.config.provision_role.run_ingestion is False
-            or self.config.provision_role.dry_run
-        ):
-            return
-
     def should_run_ingestion(self) -> bool:
-        if (
+        return (
             self.config.provision_role is None
             or self.config.provision_role.enabled is False
-        ):
-            return True
-
-        return self.config.provision_role.run_ingestion
+            or self.config.provision_role.run_ingestion
+        )
 
     # Override the base class method.
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
