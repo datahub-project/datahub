@@ -68,6 +68,7 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
 
       log.info("found {} rows to delete...", stringifyRowCount(aspectRowsToDelete.size()));
       if (dryRun) {
+        // TODO Exclude key aspect & status if they are the only 2 aspects to be deleted? Should soft deleted runs be shown?
         response.setAspectsAffected(aspectRowsToDelete.size());
         response.setEntitiesAffected(
             aspectRowsToDelete.stream().collect(Collectors.groupingBy(AspectRowSummary::getUrn)).keySet().size());

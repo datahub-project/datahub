@@ -585,6 +585,10 @@ public class EbeanEntityService extends EntityService {
                 survivingAspect.getKey().getAspect(), previousMetadata, getEntityRegistry());
 
         final Urn urnObj = Urn.createFromString(urn);
+        // We are not deleting key aspect if hardDelete has not been set so do not return a rollback result
+        if (isKeyAspect && !hardDelete) {
+          return null;
+        }
         return new RollbackResult(urnObj, urnObj.getEntityType(), latest.getAspect(), latestValue,
             previousValue == null ? latestValue : previousValue, latestSystemMetadata,
             previousValue == null ? null : parseSystemMetadata(survivingAspect.getSystemMetadata()),

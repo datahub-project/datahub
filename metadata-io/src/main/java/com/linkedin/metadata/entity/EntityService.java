@@ -7,6 +7,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.BrowsePaths;
+import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.TyperefDataSchema;
@@ -104,6 +105,7 @@ public abstract class EntityService {
   public static final String DEFAULT_RUN_ID = "no-run-id-provided";
   public static final String BROWSE_PATHS = "browsePaths";
   public static final String DATA_PLATFORM_INSTANCE = "dataPlatformInstance";
+  public static final String STATUS = "status";
 
   protected EntityService(@Nonnull final EntityEventProducer producer, @Nonnull final EntityRegistry entityRegistry) {
     _producer = producer;
@@ -658,6 +660,11 @@ public abstract class EntityService {
       aspectsToGet.add(DATA_PLATFORM_INSTANCE);
     }
 
+    boolean shouldCheckStatus = isAspectProvided(entityType, STATUS, includedAspects);
+    if (shouldCheckStatus) {
+      aspectsToGet.add(STATUS);
+    }
+
     List<Pair<String, RecordTemplate>> aspects = new ArrayList<>();
     final String keyAspectName = getKeyAspectName(urn);
     aspectsToGet.add(keyAspectName);
@@ -684,6 +691,12 @@ public abstract class EntityService {
     if (shouldCheckDataPlatform && latestAspects.get(DATA_PLATFORM_INSTANCE) == null) {
       DataPlatformInstanceUtils.buildDataPlatformInstance(entityType, keyAspect)
           .ifPresent(aspect -> aspects.add(Pair.of(DATA_PLATFORM_INSTANCE, aspect)));
+    }
+
+    if (shouldCheckStatus && latestAspects.get(STATUS) == null) {
+      Status status = new Status();
+      status.setRemoved(false);
+      aspects.add(Pair.of(STATUS,status));
     }
 
     return aspects;
