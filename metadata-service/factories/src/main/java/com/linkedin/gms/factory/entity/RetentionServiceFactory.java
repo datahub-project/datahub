@@ -7,17 +7,15 @@ import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.entity.datastax.DatastaxRetentionService;
 import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
 import io.ebean.EbeanServer;
+import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
 import org.springframework.context.annotation.PropertySource;
-
-import javax.annotation.Nonnull;
 
 
 @Configuration
@@ -25,11 +23,16 @@ import javax.annotation.Nonnull;
 public class RetentionServiceFactory {
 
   @Autowired
-  ApplicationContext applicationContext;
-
-  @Autowired
   @Qualifier("entityService")
   private EntityService _entityService;
+
+  @Autowired
+  @Qualifier("ebeanServer")
+  private EbeanServer _server;
+
+  @Autowired
+  @Qualifier("datastaxSession")
+  private CqlSession _cqlSession;
 
   @Value("${RETENTION_APPLICATION_BATCH_SIZE:1000}")
   private Integer _batchSize;
@@ -40,8 +43,7 @@ public class RetentionServiceFactory {
   @ConditionalOnProperty(name = "ENTITY_SERVICE_IMPL", havingValue = "datastax")
   @Nonnull
   protected RetentionService createDatastaxInstance() {
-    CqlSession cqlSession = applicationContext.getBean(CqlSession.class);
-    RetentionService retentionService = new DatastaxRetentionService(_entityService, cqlSession, _batchSize);
+    RetentionService retentionService = new DatastaxRetentionService(_entityService, _cqlSession, _batchSize);
     _entityService.setRetentionService(retentionService);
     return retentionService;
   }
@@ -52,8 +54,7 @@ public class RetentionServiceFactory {
   @ConditionalOnProperty(name = "ENTITY_SERVICE_IMPL", havingValue = "ebean", matchIfMissing = true)
   @Nonnull
   protected RetentionService createEbeanInstance() {
-    EbeanServer server = applicationContext.getBean("ebeanServer", EbeanServer.class);
-    RetentionService retentionService = new EbeanRetentionService(_entityService, server, _batchSize);
+    RetentionService retentionService = new EbeanRetentionService(_entityService, _server, _batchSize);
     _entityService.setRetentionService(retentionService);
     return retentionService;
   }
