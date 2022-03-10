@@ -20,6 +20,7 @@ from datahub.configuration import SensitiveError
 from datahub.configuration.config_loader import load_config_file
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
+from datahub.utilities import memory_leak_detector
 
 logger = logging.getLogger(__name__)
 
@@ -63,8 +64,12 @@ def ingest() -> None:
     default=False,
     help="If enabled, ingestion runs with warnings will yield a non-zero error code",
 )
+@click.pass_context
 @telemetry.with_telemetry
-def run(config: str, dry_run: bool, preview: bool, strict_warnings: bool) -> None:
+@memory_leak_detector.with_leak_detection
+def run(
+    ctx: click.Context, config: str, dry_run: bool, preview: bool, strict_warnings: bool
+) -> None:
     """Ingest metadata into DataHub."""
 
     logger.info("DataHub CLI version: %s", datahub_package.nice_version_name())
