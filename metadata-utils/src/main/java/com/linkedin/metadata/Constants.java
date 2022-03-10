@@ -11,6 +11,7 @@ public class Constants {
   public static final String SYSTEM_ACTOR = "urn:li:corpuser:__datahub_system"; // DataHub internal service principal.
   public static final String UNKNOWN_ACTOR = "urn:li:corpuser:UNKNOWN"; // Unknown principal.
   public static final Long ASPECT_LATEST_VERSION = 0L;
+  public static final String UNKNOWN_DATA_PLATFORM = "urn:li:dataPlatform:unknown";
 
   /**
    * Entities
