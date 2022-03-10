@@ -52,10 +52,7 @@ services:
 
   elasticsearch:
     image: elasticsearch:7.9.3
-    environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-      - ES_JAVA_OPTS=-Xms256m -Xmx256m -Dlog4j2.formatMsgNoLookups=true
+    env_file: elasticsearch/env/docker.env
     container_name: elasticsearch
     hostname: elasticsearch
     ports:
