@@ -9,14 +9,15 @@ FROZEN_TIME = "2020-04-14 07:00:00"
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.slow_integration
+@pytest.mark.integration
 def test_hana_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/hana"
 
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "hana"
     ) as docker_services:
-        wait_for_port(docker_services=docker_services, container_name="testhana", container_port=39041, hostname="localhost", timeout=300)
+        #added longer timeout and pause due to slow start of hana
+        wait_for_port(docker_services=docker_services, container_name="testhana", container_port=39041, hostname="localhost", timeout=500, pause=50)
 
         # Run the metadata ingestion pipeline.
         config_file = (test_resources_dir / "hana_to_file.yml").resolve()
