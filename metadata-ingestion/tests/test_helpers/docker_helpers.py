@@ -26,7 +26,7 @@ def wait_for_port(
     container_port: int,
     hostname: str = None,
     timeout: float = 30.0,
-    pause: float = 0.5
+    pause: float = 0.5,
 ) -> None:
     # import pdb
 

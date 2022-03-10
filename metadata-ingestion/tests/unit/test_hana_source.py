@@ -1,5 +1,3 @@
-import pytest
-
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.hana import HanaConfig, HanaSource
 
