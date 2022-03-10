@@ -80,7 +80,7 @@ source:
     provision_role: # Optional
       enabled: false
       dry_run: true
-      skip_ingestion: true
+      run_ingestion: false
       admin_username: "${SNOWFLAKE_ADMIN_USER}"
       admin_password: "${SNOWFLAKE_ADMIN_PASS}"
 
@@ -144,7 +144,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `provision_role.enabled`                |          | `False` | Whether provisioning of Snowflake role (used for ingestion) is enabled or not |
 | `provision_role.dry_run`                |          | `False` | If `provision_role` is enabled, whether to dry run the sql commands for system admins to see what sql grant commands would be run without actually running the grant commands |
 | `provision_role.drop_role_if_exists`    |          | `False` | Useful during testing to ensure you have a clean slate role. Not recommended for production use cases |
-| `provision_role.skip_ingestion`         |          | `True`  | If system admins wish to skip actual ingestion of metadata during testing of the provisioning of `role` |
+| `provision_role.run_ingestion`         |          | `False`  | If system admins wish to skip actual ingestion of metadata during testing of the provisioning of `role` |
 | `provision_role.admin_role`             |          | `accountadmin` | The Snowflake role of admin user used for provisioning of the role specified by `role` config. System admins can audit the open source code and decide to use a different role |
 | `provision_role.admin_username`         |  ✅       |          | The username to be used for provisioning of role |
 | `provision_role.admin_password`         |  ✅       |          | The password to be used for provisioning of role |

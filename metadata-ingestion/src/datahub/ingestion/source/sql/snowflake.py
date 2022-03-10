@@ -513,7 +513,7 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
         self.report.cleaned_host_port = self.config.host_port
 
         if self.config.provision_role is not None:
-            self.report.skip_ingestion = self.config.provision_role.skip_ingestion
+            self.report.run_ingestion = self.config.provision_role.run_ingestion
 
     def do_provision_role_internal(self):
         provision_role_block = self.config.provision_role
@@ -593,7 +593,7 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
             self.provision_role_in_progress = False
 
         if (
-            self.config.provision_role.skip_ingestion
+            self.config.provision_role.run_ingestion is False
             or self.config.provision_role.dry_run
         ):
             return
@@ -605,7 +605,7 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
         ):
             return True
 
-        return not self.config.provision_role.skip_ingestion
+        return self.config.provision_role.run_ingestion
 
     # Override the base class method.
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:

@@ -19,7 +19,7 @@ class SnowflakeReport(BaseSnowflakeReport, SQLSourceReport):
     upstream_lineage: Dict[str, List[str]] = field(default_factory=dict)
 
     cleaned_host_port: str = ""
-    skip_ingestion: bool = True
+    run_ingestion: bool = False
     provision_role_done: bool = False
     provision_role_success: bool = False
 

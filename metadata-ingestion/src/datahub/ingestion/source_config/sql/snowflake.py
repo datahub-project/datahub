@@ -43,7 +43,7 @@ class SnowflakeProvisionRoleConfig(ConfigModel):
     #   create role
     #   grant role to user in main config
     #   run ingestion as the user in main config
-    skip_ingestion: bool = True
+    run_ingestion: bool = False
 
     admin_role: Optional[str] = "accountadmin"
 
