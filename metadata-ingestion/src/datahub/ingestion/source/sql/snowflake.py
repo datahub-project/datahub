@@ -65,7 +65,9 @@ class SnowflakeSource(SQLAlchemySource):
     ) -> sqlalchemy.engine.Engine:
         if self.provision_role_in_progress and self.config.provision_role is not None:
             username: Optional[str] = self.config.provision_role.admin_username
-            password: Optional[pydantic.SecretStr] = self.config.provision_role.admin_password
+            password: Optional[
+                pydantic.SecretStr
+            ] = self.config.provision_role.admin_password
             role: Optional[str] = self.config.provision_role.admin_role
         else:
             username = self.config.username
@@ -541,7 +543,9 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
         sqls.append(f"CREATE ROLE IF NOT EXISTS {role}")
 
         if warehouse is None:
-            self.warn(logger, "role-grant", "warehouse not specified during provision role")
+            self.warn(
+                logger, "role-grant", "warehouse not specified during provision role"
+            )
         else:
             sqls.append(f"grant operate, usage on warehouse {warehouse} to role {role}")
 
@@ -576,7 +580,10 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
         self.report.provision_role_success = not provision_role_block.dry_run
 
     def do_provision_role(self):
-        if self.config.provision_role is None or self.config.provision_role.enabled is False:
+        if (
+            self.config.provision_role is None
+            or self.config.provision_role.enabled is False
+        ):
             return
 
         try:
@@ -585,11 +592,17 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
         finally:
             self.provision_role_in_progress = False
 
-        if self.config.provision_role.skip_ingestion or self.config.provision_role.dry_run:
+        if (
+            self.config.provision_role.skip_ingestion
+            or self.config.provision_role.dry_run
+        ):
             return
 
     def should_run_ingestion(self) -> bool:
-        if self.config.provision_role is None or self.config.provision_role.enabled is False:
+        if (
+            self.config.provision_role is None
+            or self.config.provision_role.enabled is False
+        ):
             return True
 
         return not self.config.provision_role.skip_ingestion
