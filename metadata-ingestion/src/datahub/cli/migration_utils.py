@@ -41,13 +41,12 @@ all_aspects = [
     "containerKey",
     "container",
     "domains",
-    "containerProperties" "editableContainerProperties",
+    "containerProperties",
+    "editableContainerProperties",
 ]
 
 
-def get_aspect_name_from_relationship_type_and_entity(
-    relationship_type: str, entity_type: str
-) -> str:
+def get_aspect_name_from_relationship(relationship_type: str, entity_type: str) -> str:
     aspect_map = {
         "Produces": {"datajob": "dataJobInputOutput"},
         "Consumes": {
@@ -61,7 +60,12 @@ def get_aspect_name_from_relationship_type_and_entity(
             "mlfeature": "mlFeatureProperties",
             "mlprimarykey": "mlPrimaryKeyProperties",
         },
-        "IsPartOf": {"container": "container", "dataset": "container"},
+        "IsPartOf": {
+            "container": "container",
+            "dataset": "container",
+            "dashboard": "container",
+            "chart": "container",
+        },
     }
 
     if (
@@ -264,7 +268,7 @@ def clone_aspect(
                 log.debug(f"did not find aspect {a} in response, continuing...")
 
 
-def get_incoming_relationships_dataset(urn: str) -> Iterable[Dict]:
+def get_incoming_relationships(urn: str) -> Iterable[Dict]:
     yield from cli_utils.get_incoming_relationships(
         urn,
         types=[
@@ -278,7 +282,7 @@ def get_incoming_relationships_dataset(urn: str) -> Iterable[Dict]:
     )
 
 
-def get_outgoing_relationships_dataset(urn: str) -> Iterable[Dict]:
+def get_outgoing_relationships(urn: str) -> Iterable[Dict]:
     yield from cli_utils.get_outgoing_relationships(
         urn,
         types=[

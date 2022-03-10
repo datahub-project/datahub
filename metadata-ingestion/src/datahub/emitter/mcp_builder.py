@@ -1,8 +1,7 @@
 import hashlib
 import json
-from typing import Any, Dict, Iterable, List, Optional, TypeVar, Union
+from typing import Any, Iterable, List, Optional, TypeVar, Union
 
-from pydantic.class_validators import root_validator
 from pydantic.fields import Field
 from pydantic.main import BaseModel
 
@@ -40,19 +39,6 @@ class DatahubKey(BaseModel):
 class PlatformKey(DatahubKey):
     platform: str
     instance: Optional[str] = None
-    environment: Optional[str] = None
-
-    @root_validator(pre=True)
-    def check_instance_environment(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        # Instance and environment can't be provided at the same time
-        if values.get("instance") is not None and values.get("environment") is not None:
-            del values["environment"]
-        # if environment set but instance is not then use environment for instance to make backward compatible
-        elif values.get("environment") is not None and values.get("instance") is None:
-            values["instance"] = values["environment"]
-            del values["environment"]
-
-        return values
 
 
 class DatabaseKey(PlatformKey):

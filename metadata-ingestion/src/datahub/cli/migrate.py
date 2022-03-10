@@ -205,9 +205,7 @@ def dataplatform2instance_func(
             env=str(key.origin),
         )
         log.debug(f"Will migrate {src_entity_urn} to {new_urn}")
-        relationships = migration_utils.get_incoming_relationships_dataset(
-            src_entity_urn
-        )
+        relationships = migration_utils.get_incoming_relationships(src_entity_urn)
 
         for mcp in migration_utils.clone_aspect(
             src_entity_urn,
@@ -241,10 +239,8 @@ def dataplatform2instance_func(
             target_urn = relationship["entity"]
             entity_type = _get_type_from_urn(target_urn)
             relationshipType = relationship["type"]
-            aspect_name = (
-                migration_utils.get_aspect_name_from_relationship_type_and_entity(
-                    relationshipType, entity_type
-                )
+            aspect_name = migration_utils.get_aspect_name_from_relationship(
+                relationshipType, entity_type
             )
             aspect_map = cli_utils.get_aspects_for_entity(
                 target_urn, aspects=[aspect_name], typed=True
@@ -301,7 +297,7 @@ def migrate_containers(
     # Find container ids need to be migrated
     container_id_map: Dict[str, str] = {}
     # Get all the containers need to be migrated
-    containers = get_container_for_migration(env)
+    containers = get_containers_for_migration(env)
     for container in progressbar.progressbar(containers, redirect_stdout=True):
         # Generate new container key
         subType = container["aspects"]["subTypes"]["value"]["typeNames"][0]
@@ -390,7 +386,7 @@ def migrate_containers(
     print(f"{migration_report}")
 
 
-def get_container_for_migration(env: str) -> List[Any]:
+def get_containers_for_migration(env: str) -> List[Any]:
     containers_to_migrate = list(cli_utils.get_container_ids_by_filter(env=env))
     containers = []
 
@@ -413,7 +409,7 @@ def process_container_relationships(
     migration_report: MigrationReport,
     rest_emitter: DatahubRestEmitter,
 ) -> None:
-    relationships = migration_utils.get_incoming_relationships_dataset(urn=src_urn)
+    relationships = migration_utils.get_incoming_relationships(urn=src_urn)
     for relationship in relationships:
         log.debug(f"Incoming Relationship: {relationship}")
         target_urn = relationship["entity"]
@@ -424,7 +420,7 @@ def process_container_relationships(
 
         entity_type = _get_type_from_urn(target_urn)
         relationshipType = relationship["type"]
-        aspect_name = migration_utils.get_aspect_name_from_relationship_type_and_entity(
+        aspect_name = migration_utils.get_aspect_name_from_relationship(
             relationshipType, entity_type
         )
         aspect_map = cli_utils.get_aspects_for_entity(
