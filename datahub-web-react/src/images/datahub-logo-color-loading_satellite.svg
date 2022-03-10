@@ -15,55 +15,57 @@
         </linearGradient>
 
         <mask id="red_mask">
-            <circle cx="90" cy="90" r="34" fill="white" />
-            <circle cx="90" cy="90" r="26" fill="black" />
-            <rect width="34" height="68" x="56" y="56" fill="black" />
-            <circle cx="90" cy="60" r="4" fill="white" />
-            <circle cx="90" cy="120" r="4" fill="white" />
+            <circle r="34" fill="white" />
+            <circle r="26" fill="black" />
+            <rect x="-34" y="-34" width="34" height="68" fill="black" />
+            <circle cy="-30" r="4" fill="white" />
+            <circle cy="30" r="4" fill="white" />
         </mask>
         <mask id="yellow_mask">
-            <circle cx="90" cy="90" r="49" fill="white" />
-            <circle cx="90" cy="90" r="41" fill="black" />
-            <rect width="49" height="49" x="90" y="41" transform="rotate(18 90 90)" fill="black" />
-            <rect width="49" height="49" x="90" y="41" transform="rotate(72 90 90)" fill="black" />
-            <circle cx="90" cy="45" r="4" transform="rotate(18 90 90)" fill="white" />
-            <circle cx="90" cy="45" r="4" transform="rotate(162 90 90)" fill="white" />
+            <circle r="49" fill="white" />
+            <circle r="41" fill="black" />
+            <rect y="-49" width="49" height="49" transform="rotate(18)" fill="black" />
+            <rect y="-49" width="49" height="49" transform="rotate(72)" fill="black" />
+            <circle cy="-45" r="4" transform="rotate(18)" fill="white" />
+            <circle cy="-45" r="4" transform="rotate(162)" fill="white" />
         </mask>
         <mask id="blue_mask">
-            <circle cx="90" cy="90" r="64" fill="white" />
-            <circle cx="90" cy="90" r="56" fill="black" />
-            <rect width="64" height="64" x="90" y="26" transform="rotate(270 90 90)" fill="black" />
-            <rect width="64" height="64" x="90" y="26" transform="rotate(216 90 90)" fill="black" />
-            <circle cx="90" cy="30" r="4" fill="white" />
-            <circle cx="90" cy="30" r="4" transform="rotate(216 90 90)" fill="white" />
+            <circle r="64" fill="white" />
+            <circle r="56" fill="black" />
+            <rect y="-64" width="64" height="64" transform="rotate(270)" fill="black" />
+            <rect y="-64" width="64" height="64" transform="rotate(216)" fill="black" />
+            <circle cy="-60" r="4" fill="white" />
+            <circle cy="-60" r="4" transform="rotate(216)" fill="white" />
         </mask>
     </defs>
 
-    <g id="red" fill="url(#red_gradient)">
-        <circle id="red_arc" cx="90" cy="90" r="34" mask="url(#red_mask)"/>
-        <animateTransform attributeName="transform" type="rotate" from="0 90 90" to="360 90 90" dur="1s"
-            repeatCount="indefinite" />
-    </g>
+    <g id="logo" transform="translate(90,90)">
+        <g id="red" fill="url(#red_gradient)">
+            <circle id="red_arc" r="34" mask="url(#red_mask)"/>
+            <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="1s"
+                              repeatCount="indefinite" />
+        </g>
 
-    <g id="yellow" fill="url(#yellow_gradient)">
-        <rect id="yellow_joint" width="8" height="35" x="86" y="135" transform="rotate(60 90 90)"/>
-        <circle id="yellow_arc" cx="90" cy="90" r="49" mask="url(#yellow_mask)"/>
-        <circle id="yellow_satellite" cx="90" cy="170" r="10" transform="rotate(60 90 90)" >
-            <animateTransform attributeName="transform" type="rotate" dur="4s" fill="freeze" 
-                              values="420 90 90;420 90 90; 60 90 90" keyTimes="0; 0.1; 1" calcMode="spline" 
-                              keySplines="0.25 0.1 0.25 1.0; 0.25 0.1 0.25 1.0" repeatCount="indefinite" />
-        </circle>
-        <circle cx="90" cy="170" r="4" transform="rotate(60 90 90)" />
-    </g>
+        <g id="yellow" fill="url(#yellow_gradient)">
+            <rect id="yellow_joint" x="-4" y="45" width="8" height="35" transform="rotate(60)"/>
+            <circle id="yellow_arc" r="49" mask="url(#yellow_mask)"/>
+            <circle cy="80" r="4" transform="rotate(60)" />
+            <circle id="yellow_satellite" cy="80" r="10" transform="rotate(60)" >
+                <animateTransform attributeName="transform" type="rotate" dur="4s" fill="freeze" 
+                                  values="420;420; 60" keyTimes="0; 0.1; 1" calcMode="spline" 
+                                  keySplines="0.25 0.1 0.25 1.0; 0.25 0.1 0.25 1.0" repeatCount="indefinite" />
+            </circle>
+        </g>
 
-    <g id="blue" fill="url(#blue_gradient)">
-        <rect id="blue_joint" width="8" height="20" x="86" y="10" transform="rotate(60 90 90)"/>
-        <circle cx="90" cy="90" r="64" mask="url(#blue_mask)"/>
-        <circle id="blue_satellite" cx="90" cy="10" r="10" transform="rotate(60 90 90)" >
-            <animateTransform attributeName="transform" type="rotate" dur="4s" fill="freeze" 
-                              values="60 90 90;60 90 90; 780 90 90" keyTimes="0; 0.1; 1" 
-                              calcMode="spline" keySplines="0.25 0.1 0.25 1.0; 0.25 0.1 0.25 1.0" repeatCount="indefinite" />
-        </circle>
-        <circle cx="90" cy="10" r="4" transform="rotate(60 90 90)" />
+        <g id="blue" fill="url(#blue_gradient)">
+            <rect id="blue_joint" x="-4" y="-80" width="8" height="20" transform="rotate(60)"/>
+            <circle id="blue_arc" r="64" mask="url(#blue_mask)"/>
+            <circle cy="-80" r="4" transform="rotate(60)" />
+            <circle id="blue_satellite" cy="-80" r="10" transform="rotate(60)" >
+                <animateTransform attributeName="transform" type="rotate" dur="4s" fill="freeze" 
+                                  values="60;60; 780" keyTimes="0; 0.1; 1" 
+                                  calcMode="spline" keySplines="0.25 0.1 0.25 1.0; 0.25 0.1 0.25 1.0" repeatCount="indefinite" />
+            </circle>
+        </g>
     </g>
 </svg>
