@@ -20,8 +20,8 @@ class SnowflakeReport(BaseSnowflakeReport, SQLSourceReport):
 
     cleaned_host_port: str = ""
     skip_ingestion: bool = True
-    setup_done: bool = False
-    setup_success: bool = False
+    provision_role_done: bool = False
+    provision_role_success: bool = False
 
     # https://community.snowflake.com/s/topic/0TO0Z000000Unu5WAC/releases
     saas_version: str = ""

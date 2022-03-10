@@ -1,10 +1,10 @@
 # BigQuery
 
-To get all metadata from BigQuery you need to use two plugins `bigquery` and `bigquery-usage`. Both of them are described in this page. These will require 2 separate recipes. We understand this is not ideal and we plan to fix this problem in future to have a single plugin.
+To get all metadata from BigQuery you need to use two plugins `bigquery` and `bigquery-usage`. Both of them are described in this page. These will require 2 separate recipes. We understand this is not ideal and we plan to make this easier in the future.
 
 For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
 
-## `bigquery` plugin
+## `bigquery`
 ### Setup
 
 To install this plugin, run `pip install 'acryl-datahub[bigquery]'`.
@@ -178,7 +178,7 @@ Due to performance reasons, we only profile the latest partition for Partitioned
 You can set partition explicitly with `partition.partition_datetime` property if you want. (partition will be applied to all partitioned tables)
 :::
 
-## `bigquery-usage` plugin
+## `bigquery-usage`
 
 For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
 

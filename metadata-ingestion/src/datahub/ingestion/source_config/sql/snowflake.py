@@ -27,7 +27,7 @@ APPLICATION_NAME = "acryl_datahub"
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-class SnowflakeSetupConfig(ConfigModel):
+class SnowflakeProvisionRoleConfig(ConfigModel):
     enabled: bool = False
 
     # Can be used by account admin to test what sql statements will be run
@@ -179,7 +179,7 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
 
     database: Optional[str]  # deprecated
 
-    setup: Optional[SnowflakeSetupConfig] = None
+    provision_role: Optional[SnowflakeProvisionRoleConfig] = None
 
     @pydantic.validator("database")
     def note_database_opt_deprecation(cls, v, values, **kwargs):

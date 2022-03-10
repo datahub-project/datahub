@@ -1,10 +1,10 @@
 # Redshift
 
-To get all metadata from BigQuery you need to use two plugins `redshift` and `redshift-usage`. Both of them are described in this page. These will require 2 separate recipes. We understand this is not ideal and we plan to fix this problem in future to have a single plugin.
+To get all metadata from BigQuery you need to use two plugins `redshift` and `redshift-usage`. Both of them are described in this page. These will require 2 separate recipes. We understand this is not ideal and we plan to make this easier in the future.
 
 For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
 
-## `redshift` plugin
+## `redshift`
 
 ### Setup
 
@@ -179,7 +179,7 @@ The redshift stl redshift tables which are used for getting data lineage only re
 
 :::
 
-## `redshift-usage` plugin
+## `redshift-usage`
 
 This plugin extracts usage statistics for datasets in Amazon Redshift. For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
 

@@ -1,10 +1,10 @@
 # Snowflake
 
-To get all metadata from Snowflake you need to use two plugins `snowflake` and `snowflake-usage`. Both of them are described in this page. These will require 2 separate recipes. We understand this is not ideal and we plan to fix this problem in future to have a single plugin.
+To get all metadata from Snowflake you need to use two plugins `snowflake` and `snowflake-usage`. Both of them are described in this page. These will require 2 separate recipes. We understand this is not ideal and we plan to make this easier in the future.
 
 For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
 
-## `snowflake` plugin
+## `snowflake`
 ### Setup
 
 To install this plugin, run `pip install 'acryl-datahub[snowflake]'`.
@@ -14,7 +14,7 @@ To install this plugin, run `pip install 'acryl-datahub[snowflake]'`.
 In order to execute this source, your Snowflake user will need to have specific privileges granted to it for reading metadata
 from your warehouse. 
 
-You can use the `setup` block in the recipe to grant the requires roles. 
+You can use the `provision_role` block in the recipe to grant the requires roles. 
 
 If your system admins prefer running the commands themselves then they can follow this guide to create a DataHub-specific role, assign it the required privileges, and assign it to a new DataHub user by executing the following Snowflake commands from a user with the `ACCOUNTADMIN` role: 
 
@@ -77,7 +77,7 @@ source:
   type: snowflake
   config:
 
-    setup: # Optional
+    provision_role: # Optional
       enabled: false
       dry_run: true
       skip_ingestion: true
@@ -141,16 +141,16 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `domain.domain_key.allow`      |          |                                                                            | List of regex patterns for tables/schemas to set domain_key domain key (domain_key can be any string like `sales`. There can be multiple domain key specified.                          |
 | `domain.domain_key.deny`       |          |                                                                            | List of regex patterns for tables/schemas to not assign domain_key. There can be multiple domain key specified.                                                                         |
 | `domain.domain_key.ignoreCase` |          | `True`                                                                     | Whether to ignore case sensitivity during pattern matching.There can be multiple domain key specified.                                                                                  |
-| `setup.enabled`                |          | `False` | Whether setup of Snowflake role (used for ingestion) is enabled or not |
-| `setup.dry_run`                |          | `False` | If setup is enabled, whether to dry run the sql commands for system admins to see what sql grant commands would be run without actually running the grant commands |
-| `setup.drop_role_if_exists`    |          | `False` | Useful during testing to ensure you have a clean slate role. Not recommended for production use cases |
-| `setup.skip_ingestion`         |          | `True`  | If system admins wish to skip actual ingestion of metadata during testing of the setup of `role` |
-| `setup.admin_role`             |          | `accountadmin` | The Snowflake role of admin user used for setup of the role specified by `role` config. System admins can audit the open source code and decide to use a different role |
-| `setup.admin_username`         |  ✅       |          | The username to be used for setup of role |
-| `setup.admin_password`         |  ✅       |          | The password to be used for setup of role |
+| `provision_role.enabled`                |          | `False` | Whether provisioning of Snowflake role (used for ingestion) is enabled or not |
+| `provision_role.dry_run`                |          | `False` | If `provision_role` is enabled, whether to dry run the sql commands for system admins to see what sql grant commands would be run without actually running the grant commands |
+| `provision_role.drop_role_if_exists`    |          | `False` | Useful during testing to ensure you have a clean slate role. Not recommended for production use cases |
+| `provision_role.skip_ingestion`         |          | `True`  | If system admins wish to skip actual ingestion of metadata during testing of the provisioning of `role` |
+| `provision_role.admin_role`             |          | `accountadmin` | The Snowflake role of admin user used for provisioning of the role specified by `role` config. System admins can audit the open source code and decide to use a different role |
+| `provision_role.admin_username`         |  ✅       |          | The username to be used for provisioning of role |
+| `provision_role.admin_password`         |  ✅       |          | The password to be used for provisioning of role |
 
 
-## `snowflake-usage` plugin
+## `snowflake-usage`
 
 For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
 

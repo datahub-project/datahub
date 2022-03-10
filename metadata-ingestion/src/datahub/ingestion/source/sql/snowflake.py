@@ -53,7 +53,7 @@ class SnowflakeSource(SQLAlchemySource):
         self._external_lineage_map: Optional[Dict[str, Set[str]]] = None
         self.report: SnowflakeReport = SnowflakeReport()
         self.config: SnowflakeConfig = config
-        self.setup_in_progress: bool = False
+        self.provision_role_in_progress: bool = False
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -63,10 +63,10 @@ class SnowflakeSource(SQLAlchemySource):
     def get_metadata_engine(
         self, database: Optional[str] = None
     ) -> sqlalchemy.engine.Engine:
-        if self.setup_in_progress and self.config.setup is not None:
-            username: Optional[str] = self.config.setup.admin_username
-            password: Optional[pydantic.SecretStr] = self.config.setup.admin_password
-            role: Optional[str] = self.config.setup.admin_role
+        if self.provision_role_in_progress and self.config.provision_role is not None:
+            username: Optional[str] = self.config.provision_role.admin_username
+            password: Optional[pydantic.SecretStr] = self.config.provision_role.admin_password
+            role: Optional[str] = self.config.provision_role.admin_role
         else:
             username = self.config.username
             password = self.config.password
@@ -510,38 +510,38 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
     def add_config_to_report(self):
         self.report.cleaned_host_port = self.config.host_port
 
-        if self.config.setup is not None:
-            self.report.skip_ingestion = self.config.setup.skip_ingestion
+        if self.config.provision_role is not None:
+            self.report.skip_ingestion = self.config.provision_role.skip_ingestion
 
-    def do_setup_internal(self):
-        setup_block = self.config.setup
-        if setup_block is None:
+    def do_provision_role_internal(self):
+        provision_role_block = self.config.provision_role
+        if provision_role_block is None:
             return
-        self.report.setup_done = not setup_block.dry_run
+        self.report.provision_role_done = not provision_role_block.dry_run
 
         role = self.config.role
         if role is None:
             role = "datahub_role"
             self.warn(
                 logger,
-                "setup-grant",
-                f"role not specified during setup using {role} as default",
+                "role-grant",
+                f"role not specified during provision role using {role} as default",
             )
         self.report.role = role
 
         warehouse = self.config.warehouse
 
-        logger.info("Creating connection for setup")
+        logger.info("Creating connection for provision_role")
         engine = self.get_metadata_engine(database=None)
 
         sqls: List[str] = []
-        if setup_block.drop_role_if_exists:
+        if provision_role_block.drop_role_if_exists:
             sqls.append(f"DROP ROLE IF EXISTS {role}")
 
         sqls.append(f"CREATE ROLE IF NOT EXISTS {role}")
 
         if warehouse is None:
-            self.warn(logger, "setup-grant", "warehouse not specified during setup")
+            self.warn(logger, "role-grant", "warehouse not specified during provision role")
         else:
             sqls.append(f"grant operate, usage on warehouse {warehouse} to role {role}")
 
@@ -563,42 +563,42 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
 
         sqls.append(f"grant imported privileges on database snowflake to role {role}")
 
-        dry_run_str = "[DRY RUN] " if setup_block.dry_run else ""
+        dry_run_str = "[DRY RUN] " if provision_role_block.dry_run else ""
         for sql in sqls:
             logger.info(f"{dry_run_str} Attempting to run sql {sql}")
-            if setup_block.dry_run:
+            if provision_role_block.dry_run:
                 continue
             try:
                 engine.execute(sql)
             except Exception as e:
-                self.error(logger, "setup-grant", f"Exception: {e}")
+                self.error(logger, "role-grant", f"Exception: {e}")
 
-        self.report.setup_success = not setup_block.dry_run
+        self.report.provision_role_success = not provision_role_block.dry_run
 
-    def do_setup(self):
-        if self.config.setup is None or self.config.setup.enabled is False:
+    def do_provision_role(self):
+        if self.config.provision_role is None or self.config.provision_role.enabled is False:
             return
 
         try:
-            self.setup_in_progress = True
-            self.do_setup_internal()
+            self.provision_role_in_progress = True
+            self.do_provision_role_internal()
         finally:
-            self.setup_in_progress = False
+            self.provision_role_in_progress = False
 
-        if self.config.setup.skip_ingestion or self.config.setup.dry_run:
+        if self.config.provision_role.skip_ingestion or self.config.provision_role.dry_run:
             return
 
     def should_run_ingestion(self) -> bool:
-        if self.config.setup is None or self.config.setup.enabled is False:
+        if self.config.provision_role is None or self.config.provision_role.enabled is False:
             return True
 
-        return not self.config.setup.skip_ingestion
+        return not self.config.provision_role.skip_ingestion
 
     # Override the base class method.
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         self.add_config_to_report()
 
-        self.do_setup()
+        self.do_provision_role()
         if not self.should_run_ingestion():
             return
 
