@@ -21,7 +21,6 @@ export const Preview = ({
     logoComponent?: JSX.Element;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
-    console.log(`Find a way to use count ${count}`);
     return (
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.Domain, urn)}
@@ -31,6 +30,7 @@ export const Preview = ({
             owners={owners}
             insights={insights}
             logoComponent={logoComponent}
+            entityCount={count || undefined}
         />
     );
 };

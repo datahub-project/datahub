@@ -13,6 +13,7 @@ fragment entityPreview on Entity {
         }
         platformNativeType
         properties {
+            name
             description
             customProperties {
                 key
@@ -45,7 +46,9 @@ fragment entityPreview on Entity {
             lastName
             fullName
         }
-        editableInfo {
+        editableProperties {
+            displayName
+            title
             pictureLink
         }
     }
@@ -186,11 +189,13 @@ fragment entityPreview on Entity {
     ... on GlossaryTerm {
         name
         hierarchicalName
-        glossaryTermInfo {
-            definition
+        properties {
+            name
+            description
             termSource
             sourceRef
             sourceUrl
+            rawSchema
             customProperties {
                 key
                 value
@@ -243,6 +248,11 @@ fragment entityPreview on Entity {
     ... on Tag {
         name
         description
+        properties {
+            name
+            description
+            colorHex
+        }
     }
     ... on DataPlatform {
         ...nonConflictingPlatformFields

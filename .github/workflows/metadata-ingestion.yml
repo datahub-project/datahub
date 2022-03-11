@@ -19,9 +19,11 @@ jobs:
 
   metadata-ingestion-general:
     runs-on: ubuntu-latest
+    env:
+      SPARK_VERSION: 3.0.3
     strategy:
       matrix:
-        python-version: ["3.6", "3.9.9"]
+        python-version: ["3.6", "3.9"]
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
@@ -46,9 +48,11 @@ jobs:
 
   metadata-ingestion-by-version:
     runs-on: ubuntu-latest
+    env:
+      SPARK_VERSION: 3.0.3
     strategy:
       matrix:
-        python-version: ["3.6", "3.9.9"]
+        python-version: ["3.6", "3.9"]
       fail-fast: false
     steps:
       - uses: actions/checkout@v2

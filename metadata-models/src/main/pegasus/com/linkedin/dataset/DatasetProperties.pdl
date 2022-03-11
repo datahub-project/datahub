@@ -13,6 +13,27 @@ import com.linkedin.common.ExternalReference
 record DatasetProperties includes CustomProperties, ExternalReference {
 
   /**
+   * Display name of the Dataset
+   */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
+  name: optional string
+
+  /**
+   * Fully-qualified name of the Dataset
+   */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "addToFilters": false,
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
+  qualifiedName: optional string
+
+  /**
    * Documentation of the dataset
    */
   @Searchable = {

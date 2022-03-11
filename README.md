@@ -49,10 +49,10 @@ HOSTED_DOCS_ONLY-->
 [Town Hall](https://datahubproject.io/docs/townhalls)
 
 ---
-> 📣 Next DataHub town hall meeting on Dec 17th, 9am-10am PDT ([convert to your local time](https://greenwichmeantime.com/time/to/pacific-local/))
+> 📣 Next DataHub town hall meeting on Feb 25th, 9am-10am PDT ([convert to your local time](https://greenwichmeantime.com/time/to/pacific-local/))
 >
 > - Topic Proposals: [submit here](https://docs.google.com/forms/d/1v2ynbAXjJlqY97xE_X1DAntNrXDznOFiNfryUkMPtkI/)
-> - Signup to get a calendar invite: [here](https://www.addevent.com/event/WE11214120)
+> - Signup to get a calendar invite: [here](https://www.addevent.com/event/lD12111844)
 > - Town-hall Zoom link: [zoom.datahubproject.io](https://zoom.datahubproject.io)
 > - [Meeting details](docs/townhalls.md) & [past recordings](docs/townhall-history.md)
 
@@ -107,7 +107,9 @@ Join our [slack workspace](https://slack.datahubproject.io) for discussions and 
 
 Here are the companies that have officially adopted DataHub. Please feel free to add yours to the list if we missed it.
 
+- [Adevinta](https://www.adevinta.com/)
 - [Banksalad](https://www.banksalad.com)
+- [Cabify](https://www.cabify.com)
 - [DefinedCrowd](http://www.definedcrowd.com)
 - [DFDS](https://www.dfds.com/)
 - [Expedia Group](http://expedia.com)

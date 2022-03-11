@@ -13,7 +13,7 @@ describe('Preview', () => {
                     <Preview
                         urn="urn:li:glossaryTerm:instruments.FinancialInstrument_v1"
                         name="name"
-                        definition="definition"
+                        description="definition"
                         owners={null}
                     />
                 </TestPageContainer>

@@ -27,8 +27,8 @@ const MenuItem = styled(Menu.Item)`
 `;
 
 const DownArrow = styled(CaretDownOutlined)`
-    vertical-align: -5px;
-    font-size: 16px;
+    vertical-align: -3px;
+    font-size: 12px;
     color: ${ANTD_GRAY[7]};
 `;
 
@@ -69,6 +69,12 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
                     </MenuItem>
                 );
             })}
+            <MenuItem key="graphiQLLink">
+                <a href="/api/graphiql">GraphiQL</a>
+            </MenuItem>
+            <MenuItem key="openapiLink">
+                <a href="/openapi/swagger-ui/index.html">OpenAPI</a>
+            </MenuItem>
             <MenuItem danger key="logout" tabIndex={0}>
                 <a href="/logOut" onClick={handleLogout}>
                     Logout

@@ -1,8 +1,9 @@
 import unittest
+from itertools import chain
+from typing import Dict, Optional, Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
-from confluent_kafka.schema_registry.error import SchemaRegistryError
 from confluent_kafka.schema_registry.schema_registry_client import (
     RegisteredSchema,
     Schema,
@@ -16,7 +17,12 @@ from datahub.emitter.mce_builder import (
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.kafka import KafkaSource
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.schema_classes import BrowsePathsClass, DataPlatformInstanceClass
+from datahub.metadata.schema_classes import (
+    BrowsePathsClass,
+    DataPlatformInstanceClass,
+    KafkaSchemaClass,
+    SchemaMetadataClass,
+)
 
 
 class TestKafkaSource(object):
@@ -78,7 +84,7 @@ class TestKafkaSource(object):
             ctx,
         )
 
-        def new_get_latest_version(_):
+        def new_get_latest_version(subject_name: str) -> RegisteredSchema:
             return RegisteredSchema(
                 schema_id="schema_id_1",
                 schema=Schema(schema_str=schema_str_ref, schema_type="AVRO"),
@@ -128,109 +134,6 @@ class TestKafkaSource(object):
         )
         kafka_source.close()
         assert mock_kafka.call_count == 1
-
-    @pytest.mark.parametrize(
-        "ignore_warnings_on_schema_type",
-        [
-            pytest.param(
-                False,
-                id="ignore_warnings_on_schema_type-FALSE",
-            ),
-            pytest.param(
-                True,
-                id="ignore_warnings_on_schema_type-TRUE",
-            ),
-        ],
-    )
-    @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
-    def test_kafka_unsupported_schema_type(
-        self, mock_kafka, ignore_warnings_on_schema_type
-    ):
-        mock_kafka_instance = mock_kafka.return_value
-        mock_cluster_metadata = MagicMock()
-        mock_cluster_metadata.topics = ["foobar"]
-        mock_kafka_instance.list_topics.return_value = mock_cluster_metadata
-
-        ctx = PipelineContext(run_id="test")
-        kafka_source = KafkaSource.create(
-            {
-                "connection": {"bootstrap": "localhost:9092"},
-                "ignore_warnings_on_schema_type": f"{ignore_warnings_on_schema_type}",
-            },
-            ctx,
-        )
-        with patch.object(
-            kafka_source.schema_registry_client,
-            "get_latest_version",
-        ) as mock_get_latest_version:
-            mock_get_latest_version.return_value = RegisteredSchema(
-                schema_id="schema_id_1",
-                schema=Schema(schema_str="{}", schema_type="JSON"),
-                subject="foobar-value",
-                version=1,
-            )
-            # we use list() to force the generation of the workunits
-            list(kafka_source.get_workunits())
-            if ignore_warnings_on_schema_type:
-                assert not kafka_source.report.warnings
-            else:
-                assert kafka_source.report.warnings
-
-    @pytest.mark.parametrize(
-        "ignore_warnings_on_missing_schema,error,expect_warnings",
-        [
-            pytest.param(
-                False,
-                SchemaRegistryError(404, 40401, "Subject not found."),
-                True,
-                id="SUBJECT_NOT_FOUND-DO_NOT_IGNORE_WARNINGS",
-            ),
-            pytest.param(
-                True,
-                SchemaRegistryError(404, 40401, "Subject not found."),
-                False,
-                id="SUBJECT_NOT_FOUND-IGNORE_WARNINGS",
-            ),
-            pytest.param(
-                True,
-                SchemaRegistryError(400, -1, "Unknown error."),
-                True,
-                id="UNKNOWN_SR_ERROR-IGNORE_WARNINGS",
-            ),
-            pytest.param(
-                True,
-                Exception("Unknown exception."),
-                True,
-                id="UNKNOWN_EXCEPTION-IGNORE_WARNINGS",
-            ),
-        ],
-    )
-    @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
-    def test_kafka_warnings_on_missing_schema(
-        self, mock_kafka, ignore_warnings_on_missing_schema, error, expect_warnings
-    ):
-        mock_kafka_instance = mock_kafka.return_value
-        mock_cluster_metadata = MagicMock()
-        mock_cluster_metadata.topics = ["foobar"]
-        mock_kafka_instance.list_topics.return_value = mock_cluster_metadata
-
-        ctx = PipelineContext(run_id="test")
-        kafka_source = KafkaSource.create(
-            {
-                "connection": {"bootstrap": "localhost:9092"},
-                "ignore_warnings_on_missing_schema": f"{ignore_warnings_on_missing_schema}",
-            },
-            ctx,
-        )
-
-        with patch.object(
-            kafka_source.schema_registry_client,
-            "get_latest_version",
-        ) as mock_get_latest_version:
-            mock_get_latest_version.side_effect = [error]
-            # we use list() to force the generation of the workunits
-            list(kafka_source.get_workunits())
-            assert (len(kafka_source.report.warnings) > 0) == expect_warnings
 
     @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
     def test_kafka_source_workunits_wildcard_topic(self, mock_kafka):
@@ -378,3 +281,239 @@ class TestKafkaSource(object):
                     },
                     ctx,
                 )
+
+    @patch(
+        "datahub.ingestion.source.kafka.confluent_kafka.schema_registry.schema_registry_client.SchemaRegistryClient",
+        autospec=True,
+    )
+    @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
+    def test_kafka_source_workunits_schema_registry_subject_name_strategies(
+        self, mock_kafka_consumer, mock_schema_registry_client
+    ):
+        # Setup the topic to key/value schema mappings for all types of schema registry subject name strategies.
+        # <key=topic_name, value=(<key_schema>,<value_schema>)
+        topic_subject_schema_map: Dict[
+            str, Tuple[RegisteredSchema, RegisteredSchema]
+        ] = {
+            # TopicNameStrategy is used for subject
+            "topic1": (
+                RegisteredSchema(
+                    schema_id="schema_id_2",
+                    schema=Schema(
+                        schema_str='{"type":"record", "name":"Topic1Key", "namespace": "test.acryl", "fields": [{"name":"t1key", "type": "string"}]}',
+                        schema_type="AVRO",
+                    ),
+                    subject="topic1-key",
+                    version=1,
+                ),
+                RegisteredSchema(
+                    schema_id="schema_id_1",
+                    schema=Schema(
+                        schema_str='{"type":"record", "name":"Topic1Value", "namespace": "test.acryl", "fields": [{"name":"t1value", "type": "string"}]}',
+                        schema_type="AVRO",
+                    ),
+                    subject="topic1-value",
+                    version=1,
+                ),
+            ),
+            # RecordNameStrategy is used for subject
+            "topic2": (
+                RegisteredSchema(
+                    schema_id="schema_id_3",
+                    schema=Schema(
+                        schema_str='{"type":"record", "name":"Topic2Key", "namespace": "test.acryl", "fields": [{"name":"t2key", "type": "string"}]}',
+                        schema_type="AVRO",
+                    ),
+                    subject="test.acryl.Topic2Key",
+                    version=1,
+                ),
+                RegisteredSchema(
+                    schema_id="schema_id_4",
+                    schema=Schema(
+                        schema_str='{"type":"record", "name":"Topic2Value", "namespace": "test.acryl", "fields": [{"name":"t2value", "type": "string"}]}',
+                        schema_type="AVRO",
+                    ),
+                    subject="test.acryl.Topic2Value",
+                    version=1,
+                ),
+            ),
+            # TopicRecordNameStrategy is used for subject
+            "topic3": (
+                RegisteredSchema(
+                    schema_id="schema_id_4",
+                    schema=Schema(
+                        schema_str='{"type":"record", "name":"Topic3Key", "namespace": "test.acryl", "fields": [{"name":"t3key", "type": "string"}]}',
+                        schema_type="AVRO",
+                    ),
+                    subject="topic3-test.acryl.Topic3Key-key",
+                    version=1,
+                ),
+                RegisteredSchema(
+                    schema_id="schema_id_5",
+                    schema=Schema(
+                        schema_str='{"type":"record", "name":"Topic3Value", "namespace": "test.acryl", "fields": [{"name":"t3value", "type": "string"}]}',
+                        schema_type="AVRO",
+                    ),
+                    subject="topic3-test.acryl.Topic3Value-value",
+                    version=1,
+                ),
+            ),
+        }
+
+        # Mock the kafka consumer
+        mock_kafka_instance = mock_kafka_consumer.return_value
+        mock_cluster_metadata = MagicMock()
+        mock_cluster_metadata.topics = list(topic_subject_schema_map.keys())
+        mock_cluster_metadata.topics.append("schema_less_topic")
+        mock_kafka_instance.list_topics.return_value = mock_cluster_metadata
+
+        # Mock the schema registry client
+        # - mock get_subjects: all subjects in topic_subject_schema_map
+        mock_schema_registry_client.return_value.get_subjects.return_value = [
+            v.subject for v in chain(*topic_subject_schema_map.values())
+        ]
+
+        # - mock get_latest_version
+        def mock_get_latest_version(subject_name: str) -> Optional[RegisteredSchema]:
+            for registered_schema in chain(*topic_subject_schema_map.values()):
+                if registered_schema.subject == subject_name:
+                    return registered_schema
+            return None
+
+        mock_schema_registry_client.return_value.get_latest_version = (
+            mock_get_latest_version
+        )
+
+        # Test the kafka source
+        source_config = {
+            "connection": {"bootstrap": "localhost:9092"},
+            # Setup the topic_subject_map for topic2 which uses RecordNameStrategy
+            "topic_subject_map": {
+                "topic2-key": "test.acryl.Topic2Key",
+                "topic2-value": "test.acryl.Topic2Value",
+            },
+        }
+        ctx = PipelineContext(run_id="test")
+        kafka_source = KafkaSource.create(source_config, ctx)
+        workunits = list(kafka_source.get_workunits())
+
+        mock_kafka_consumer.assert_called_once()
+        mock_kafka_instance.list_topics.assert_called_once()
+        assert len(workunits) == 4
+        for i, wu in enumerate(workunits):
+            assert isinstance(wu.metadata, MetadataChangeEvent)
+            mce: MetadataChangeEvent = wu.metadata
+
+            if i < len(topic_subject_schema_map.keys()):
+                # First 3 workunits (topics) must have schemaMetadata aspect
+                assert isinstance(mce.proposedSnapshot.aspects[1], SchemaMetadataClass)
+                schemaMetadataAspect: SchemaMetadataClass = (
+                    mce.proposedSnapshot.aspects[1]
+                )
+                assert isinstance(schemaMetadataAspect.platformSchema, KafkaSchemaClass)
+                # Make sure the schema name is present in topic_subject_schema_map.
+                assert schemaMetadataAspect.schemaName in topic_subject_schema_map
+                # Make sure the schema_str matches for the key schema.
+                assert (
+                    schemaMetadataAspect.platformSchema.keySchema
+                    == topic_subject_schema_map[schemaMetadataAspect.schemaName][
+                        0
+                    ].schema.schema_str
+                )
+                # Make sure the schema_str matches for the value schema.
+                assert (
+                    schemaMetadataAspect.platformSchema.documentSchema
+                    == topic_subject_schema_map[schemaMetadataAspect.schemaName][
+                        1
+                    ].schema.schema_str
+                )
+                # Make sure we have 2 fields, one from the key schema & one from the value schema.
+                assert len(schemaMetadataAspect.fields) == 2
+            else:
+                # Last topic('schema_less_topic') has no schema defined in the registry.
+                # The schemaMetadata aspect should not be present for this.
+                for aspect in mce.proposedSnapshot.aspects:
+                    assert not isinstance(aspect, SchemaMetadataClass)
+
+    @pytest.mark.parametrize(
+        "ignore_warnings_on_schema_type",
+        [
+            pytest.param(
+                False,
+                id="ignore_warnings_on_schema_type-FALSE",
+            ),
+            pytest.param(
+                True,
+                id="ignore_warnings_on_schema_type-TRUE",
+            ),
+        ],
+    )
+    @patch(
+        "datahub.ingestion.source.kafka.confluent_kafka.schema_registry.schema_registry_client.SchemaRegistryClient",
+        autospec=True,
+    )
+    @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
+    def test_kafka_ignore_warnings_on_schema_type(
+        self,
+        mock_kafka_consumer,
+        mock_schema_registry_client,
+        ignore_warnings_on_schema_type,
+    ):
+        # define the key and value schemas for topic1
+        topic1_key_schema = RegisteredSchema(
+            schema_id="schema_id_2",
+            schema=Schema(
+                schema_str="{}",
+                schema_type="JSON",
+            ),
+            subject="topic1-key",
+            version=1,
+        )
+        topic1_value_schema = RegisteredSchema(
+            schema_id="schema_id_1",
+            schema=Schema(
+                schema_str="{}",
+                schema_type="JSON",
+            ),
+            subject="topic1-value",
+            version=1,
+        )
+
+        # Mock the kafka consumer
+        mock_kafka_instance = mock_kafka_consumer.return_value
+        mock_cluster_metadata = MagicMock()
+        mock_cluster_metadata.topics = ["topic1"]
+        mock_kafka_instance.list_topics.return_value = mock_cluster_metadata
+
+        # Mock the schema registry client
+        mock_schema_registry_client.return_value.get_subjects.return_value = [
+            "topic1-key",
+            "topic1-value",
+        ]
+
+        # - mock get_latest_version
+        def mock_get_latest_version(subject_name: str) -> Optional[RegisteredSchema]:
+            if subject_name == "topic1-key":
+                return topic1_key_schema
+            elif subject_name == "topic1-value":
+                return topic1_value_schema
+            return None
+
+        mock_schema_registry_client.return_value.get_latest_version = (
+            mock_get_latest_version
+        )
+
+        # Test the kafka source
+        source_config = {
+            "connection": {"bootstrap": "localhost:9092"},
+            "ignore_warnings_on_schema_type": f"{ignore_warnings_on_schema_type}",
+        }
+        ctx = PipelineContext(run_id="test")
+        kafka_source = KafkaSource.create(source_config, ctx)
+        workunits = list(kafka_source.get_workunits())
+
+        assert len(workunits) == 1
+        if ignore_warnings_on_schema_type:
+            assert not kafka_source.report.warnings
+        else:
+            assert kafka_source.report.warnings

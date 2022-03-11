@@ -24,7 +24,6 @@ from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
-from datahub.ingestion.source.sql.sql_common import SqlContainerSubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -257,9 +256,8 @@ class GlueSource(Source):
                 # append S3 format if different ones exist
                 if len(s3_formats[s3_uri]) > 1:
                     node_urn = make_s3_urn(
-                        s3_uri,
+                        f"{s3_uri}.{node_args.get('format')}",
                         self.env,
-                        suffix=node_args.get("format"),
                     )
 
                 else:
@@ -545,7 +543,7 @@ class GlueSource(Source):
         container_workunits = gen_containers(
             container_key=database_container_key,
             name=database,
-            sub_types=[SqlContainerSubTypes.DATABASE],
+            sub_types=["Database"],
             domain_urn=domain_urn,
         )
 

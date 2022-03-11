@@ -17,7 +17,7 @@ create or replace role datahub_role;
 
 // Grant privileges to use and select from your target warehouses / dbs / schemas / tables
 grant operate, usage on warehouse <your-warehouse> to role datahub_role;
-grant usage on <your-database> to role datahub_role;
+grant usage on DATABASE <your-database> to role datahub_role;
 grant usage on all schemas in database <your-database> to role datahub_role; 
 grant select on all tables in database <your-database> to role datahub_role; 
 grant select on all external tables in database <your-database> to role datahub_role;
@@ -123,6 +123,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `include_tables`               |          | `True`                                                                     | Whether tables should be ingested.                                                                                                                                                      |
 | `include_views`                |          | `True`                                                                     | Whether views should be ingested.                                                                                                                                                       |
 | `include_table_lineage`        |          | `True`                                                                     | If enabled, populates the snowflake table-to-table and s3-to-snowflake table lineage. Requires role to be `accountadmin`                                                                |
+| `include_view_lineage`         |          | `True`                                                                     | If enabled, populates the snowflake view->table and table->view lineages (no view->view lineage yet). Requires role to be `accountadmin`, and `include_table_lineage` to be `True`.     |
 | `bucket_duration`              |          | `"DAY"`                                                                    | Duration to bucket lineage data extraction by. Can be `"DAY"` or `"HOUR"`.                                                                                                              |
 | `start_time`                   |          | Start of last full day in UTC (or hour, depending on `bucket_duration`)    | Earliest time of lineage data to consider. For the bootstrap run, set it as far back in time as possible.                                                                               |
 | `end_time`                     |          | End of last full day in UTC (or hour, depending on `bucket_duration`)      | Latest time of lineage data to consider.                                                                                                                                                |

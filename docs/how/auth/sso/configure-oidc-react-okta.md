@@ -82,7 +82,7 @@ AUTH_OIDC_BASE_URL=your-datahub-url
 AUTH_OIDC_SCOPE="openid profile email groups"
 ```
 
-Replacing the placeholders above with the client id & client secret received from Google in Step 3f.
+Replacing the placeholders above with the client id & client secret received from Okta in Step 2.
 
 > **Pro Tip!** You can easily enable Okta to return the groups that a user is associated with, which will be provisioned in DataHub, along with the user logging in, 
 > if they do not already exist in DataHub. You can enable your Okta application to return a 'groups' claim from the Okta Console at Applications > Your Application -> Sign On -> OpenID Connect ID Token Settings (Requires an edit).

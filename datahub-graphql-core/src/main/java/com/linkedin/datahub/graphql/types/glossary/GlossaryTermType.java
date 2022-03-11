@@ -46,6 +46,7 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, Bro
         GLOSSARY_TERM_KEY_ASPECT_NAME,
         GLOSSARY_TERM_INFO_ASPECT_NAME,
         GLOSSARY_RELATED_TERM_ASPECT_NAME,
+        INSTITUTIONAL_MEMORY_ASPECT_NAME,
         OWNERSHIP_ASPECT_NAME,
         STATUS_ASPECT_NAME,
         BROWSE_PATHS_ASPECT_NAME,
@@ -76,7 +77,7 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, Bro
 
         try {
             final Map<Urn, EntityResponse> glossaryTermMap = _entityClient.batchGetV2(GLOSSARY_TERM_ENTITY_NAME,
-                new HashSet<>(glossaryTermUrns), null, context.getAuthentication());
+                new HashSet<>(glossaryTermUrns), ASPECTS_TO_RESOLVE, context.getAuthentication());
 
             final List<EntityResponse> gmsResults = new ArrayList<>();
             for (Urn urn : glossaryTermUrns) {

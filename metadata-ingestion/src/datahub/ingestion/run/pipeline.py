@@ -8,13 +8,14 @@ from typing import Any, Dict, Iterable, List, Optional
 import click
 from pydantic import validator
 
+import datahub
 from datahub.configuration.common import (
     ConfigModel,
     DynamicTypedConfig,
     PipelineExecutionError,
 )
 from datahub.ingestion.api.committable import CommitPolicy
-from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
+from datahub.ingestion.api.common import EndOfStream, PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import Sink, WriteCallback
 from datahub.ingestion.api.source import Extractor, Source
 from datahub.ingestion.api.transform import Transformer
@@ -178,6 +179,7 @@ class Pipeline:
 
         callback = LoggingCallback()
         extractor: Extractor = self.extractor_class()
+        self.source.get_report().cli_version = datahub.nice_version_name()
         for wu in itertools.islice(
             self.source.get_workunits(), 10 if self.preview_mode else None
         ):
@@ -195,6 +197,18 @@ class Pipeline:
             if not self.dry_run:
                 self.sink.handle_work_unit_end(wu)
         self.source.close()
+        # no more data is coming, we need to let the transformers produce any additional records if they are holding on to state
+        for record_envelope in self.transform(
+            [
+                RecordEnvelope(
+                    record=EndOfStream(), metadata={"workunit_id": "end-of-stream"}
+                )
+            ]
+        ):
+            if not self.dry_run and not isinstance(record_envelope.record, EndOfStream):
+                # TODO: propagate EndOfStream and other control events to sinks, to allow them to flush etc.
+                self.sink.write_record_async(record_envelope, callback)
+
         self.sink.close()
         self.process_commits()
 
@@ -266,15 +280,13 @@ class Pipeline:
     def log_ingestion_stats(self) -> None:
 
         telemetry.telemetry_instance.ping(
-            "ingest", "source_type", self.config.source.type
-        )
-        telemetry.telemetry_instance.ping("ingest", "sink_type", self.config.sink.type)
-        telemetry.telemetry_instance.ping(
-            "ingest",
-            "records_written",
-            # bucket by taking floor of log of the number of records written
-            # report the bucket as a label so the count is not collapsed
-            str(10 ** int(log10(self.sink.get_report().records_written + 1))),
+            "ingest_stats",
+            {
+                "source_type": self.config.source.type,
+                "sink_type": self.config.sink.type,
+                "records_written": 10
+                ** int(log10(self.sink.get_report().records_written + 1)),
+            },
         )
 
     def pretty_print_summary(self, warnings_as_failure: bool = False) -> int:

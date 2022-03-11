@@ -6,15 +6,9 @@ import { useAddOwnerMutation } from '../../../../../../../graphql/mutations.gene
 import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
 import { CorpUser, EntityType, OwnerEntityType, SearchResult } from '../../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import { useEntityData } from '../../../../EntityContext';
 import { CustomAvatar } from '../../../../../../shared/avatar';
 import analytics, { EventType, EntityActionType } from '../../../../../../analytics';
-
-type Props = {
-    visible: boolean;
-    onClose: () => void;
-    refetch?: () => Promise<any>;
-};
+import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
 
 const SearchResultContainer = styled.div`
     display: flex;
@@ -33,15 +27,22 @@ const SearchResultDisplayName = styled.div`
     margin-left: 12px;
 `;
 
+type Props = {
+    urn: string;
+    type: EntityType;
+    visible: boolean;
+    onClose: () => void;
+    refetch?: () => Promise<any>;
+};
+
 type SelectedActor = {
     displayName: string;
     type: EntityType;
     urn: string;
 };
 
-export const AddOwnerModal = ({ visible, onClose, refetch }: Props) => {
+export const AddOwnerModal = ({ urn, type, visible, onClose, refetch }: Props) => {
     const entityRegistry = useEntityRegistry();
-    const { urn, entityType } = useEntityData();
     const [selectedActor, setSelectedActor] = useState<SelectedActor | undefined>(undefined);
     const [userSearch, { data: userSearchData }] = useGetSearchResultsLazyQuery();
     const [groupSearch, { data: groupSearchData }] = useGetSearchResultsLazyQuery();
@@ -74,7 +75,7 @@ export const AddOwnerModal = ({ visible, onClose, refetch }: Props) => {
             analytics.event({
                 type: EventType.EntityActionEvent,
                 actionType: EntityActionType.UpdateOwnership,
-                entityType,
+                entityType: type,
                 entityUrn: urn,
             });
         } catch (e: unknown) {
@@ -112,12 +113,12 @@ export const AddOwnerModal = ({ visible, onClose, refetch }: Props) => {
     };
 
     // Invokes the search API as the user types
-    const handleSearch = (type: EntityType, text: string, searchQuery: any) => {
+    const handleSearch = (entityType: EntityType, text: string, searchQuery: any) => {
         if (text.length > 2) {
             searchQuery({
                 variables: {
                     input: {
-                        type,
+                        type: entityType,
                         query: text,
                         start: 0,
                         count: 5,
@@ -172,9 +173,13 @@ export const AddOwnerModal = ({ visible, onClose, refetch }: Props) => {
 
     const selectValue = (selectedActor && [selectedActor.displayName]) || [];
 
+    // Handle the Enter press
+    useEnterKeyListener({
+        querySelectorToExecuteClick: '#addOwnerButton',
+    });
     return (
         <Modal
-            title="Add owner"
+            title="Add Owner"
             visible={visible}
             onCancel={onClose}
             footer={
@@ -182,7 +187,7 @@ export const AddOwnerModal = ({ visible, onClose, refetch }: Props) => {
                     <Button onClick={onClose} type="text">
                         Cancel
                     </Button>
-                    <Button disabled={selectedActor === undefined} onClick={onOk}>
+                    <Button id="addOwnerButton" disabled={selectedActor === undefined} onClick={onOk}>
                         Add
                     </Button>
                 </>
@@ -191,6 +196,8 @@ export const AddOwnerModal = ({ visible, onClose, refetch }: Props) => {
             <Form component={false}>
                 <Form.Item>
                     <Select
+                        autoFocus
+                        filterOption={false}
                         value={selectValue}
                         mode="multiple"
                         ref={inputEl}

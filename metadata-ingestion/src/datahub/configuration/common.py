@@ -165,3 +165,7 @@ class KeyValuePattern(ConfigModel):
         """Return the list of allowed strings as a list, after taking into account deny patterns, if possible"""
         assert self.is_fully_specified_key()
         return self.rules
+
+
+class VersionedConfig(ConfigModel):
+    version: str = "1"

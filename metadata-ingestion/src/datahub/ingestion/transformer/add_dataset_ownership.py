@@ -12,7 +12,9 @@ from datahub.configuration.common import (
 from datahub.configuration.import_resolver import pydantic_resolve_key
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.ingestion.transformer.dataset_transformer import DatasetTransformer
+from datahub.ingestion.transformer.dataset_transformer import (
+    DatasetOwnershipTransformer,
+)
 from datahub.metadata.schema_classes import (
     DatasetSnapshotClass,
     MetadataChangeEventClass,
@@ -48,13 +50,14 @@ class AddDatasetOwnershipConfig(ConfigModel):
         return v
 
 
-class AddDatasetOwnership(DatasetTransformer):
+class AddDatasetOwnership(DatasetOwnershipTransformer):
     """Transformer that adds owners to datasets according to a callback function."""
 
     ctx: PipelineContext
     config: AddDatasetOwnershipConfig
 
     def __init__(self, config: AddDatasetOwnershipConfig, ctx: PipelineContext):
+        super().__init__()
         self.ctx = ctx
         self.config = config
         if self.config.semantics == Semantics.PATCH and self.ctx.graph is None:
@@ -105,8 +108,7 @@ class AddDatasetOwnership(DatasetTransformer):
             return mce_ownership
 
     def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventClass:
-        if not isinstance(mce.proposedSnapshot, DatasetSnapshotClass):
-            return mce
+        assert isinstance(mce.proposedSnapshot, DatasetSnapshotClass)
         owners_to_add = self.config.get_owners_to_add(mce.proposedSnapshot)
         if owners_to_add:
             ownership = builder.get_or_add_aspect(

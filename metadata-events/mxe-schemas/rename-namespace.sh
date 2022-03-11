@@ -1,6 +1,6 @@
 #!/bin/sh
 
-SCRIPT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
+SCRIPT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]:-$0}" )" >/dev/null && pwd )"
 
 # Rename all com.linkedin.* to com.linkedin.pegasus2avro.*, except for com.linkedin.avro2pegasus.*
 find $SCRIPT_ROOT/../mxe-schemas/src/renamed -type f -print0 | \
