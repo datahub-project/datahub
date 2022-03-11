@@ -129,6 +129,12 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
         password: Optional[pydantic.SecretStr] = None,
         role: Optional[str] = None,
     ) -> str:
+        if username is None:
+            username = self.username
+        if password is None:
+            password = self.password
+        if role is None:
+            role = self.role
         return make_sqlalchemy_uri(
             self.scheme,
             username,
