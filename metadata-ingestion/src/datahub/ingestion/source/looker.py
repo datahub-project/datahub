@@ -21,6 +21,7 @@ from typing import (
 
 import looker_sdk
 from looker_sdk.error import SDKError
+from looker_sdk.rtl.transport import TransportOptions
 from looker_sdk.sdk.api31.methods import Looker31SDK
 from looker_sdk.sdk.api31.models import (
     Dashboard,
@@ -66,6 +67,7 @@ class LookerAPIConfig(ConfigModel):
     client_id: str
     client_secret: str
     base_url: str
+    transport_options: Optional[TransportOptions]
 
 
 class LookerAPI:
@@ -82,7 +84,7 @@ class LookerAPI:
         # try authenticating current user to check connectivity
         # (since it's possible to initialize an invalid client without any complaints)
         try:
-            self.client.me()
+            self.client.me(transport_options=config.transport_options)
         except SDKError as e:
             raise ConfigurationError(
                 "Failed to initialize Looker client. Please check your configuration."
@@ -577,7 +579,7 @@ class LookerDashboardSource(Source):
                 explore_events.extend(events)
                 self.reporter.report_upstream_latency(start_time, end_time)
                 logger.info(
-                    f"Running time of fetch_one_explore for {explore_id}: {(end_time-start_time).total_seconds()}"
+                    f"Running time of fetch_one_explore for {explore_id}: {(end_time - start_time).total_seconds()}"
                 )
 
         return explore_events
@@ -593,7 +595,11 @@ class LookerDashboardSource(Source):
         start_time = datetime.datetime.now()
         events: List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]] = []
         looker_explore = LookerExplore.from_api(
-            model, explore, self.client, self.reporter
+            model,
+            explore,
+            self.client,
+            self.reporter,
+            self.source_config.transport_options,
         )
         if looker_explore is not None:
             events = (
@@ -755,7 +761,9 @@ class LookerDashboardSource(Source):
                 "user_id",
             ]
             dashboard_object = self.client.dashboard(
-                dashboard_id=dashboard_id, fields=",".join(fields)
+                dashboard_id=dashboard_id,
+                fields=",".join(fields),
+                transport_options=self.source_config.transport_options,
             )
         except SDKError:
             # A looker dashboard could be deleted in between the list and the get
@@ -786,9 +794,15 @@ class LookerDashboardSource(Source):
         return workunits, dashboard_id, start_time, datetime.datetime.now()
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        dashboards = self.client.all_dashboards(fields="id")
+        dashboards = self.client.all_dashboards(
+            fields="id", transport_options=self.source_config.transport_options
+        )
         deleted_dashboards = (
-            self.client.search_dashboards(fields="id", deleted="true")
+            self.client.search_dashboards(
+                fields="id",
+                deleted="true",
+                transport_options=self.source_config.transport_options,
+            )
             if self.source_config.include_deleted
             else []
         )
@@ -810,7 +824,7 @@ class LookerDashboardSource(Source):
             for async_workunit in concurrent.futures.as_completed(async_workunits):
                 work_units, dashboard_id, start_time, end_time = async_workunit.result()
                 logger.info(
-                    f"Running time of process_dashboard for {dashboard_id} = {(end_time-start_time).total_seconds()}"
+                    f"Running time of process_dashboard for {dashboard_id} = {(end_time - start_time).total_seconds()}"
                 )
                 self.reporter.report_upstream_latency(start_time, end_time)
                 for mwu in work_units:
