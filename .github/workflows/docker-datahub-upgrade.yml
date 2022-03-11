@@ -58,7 +58,7 @@ jobs:
         with:
           # list of Docker images to use as base name for tags
           images: |
-            acryldata/datahub-upgrade
+            anshbansal/datahub-upgrade
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
