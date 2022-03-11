@@ -86,6 +86,15 @@ def sql_lineage_parser_impl_func_wrapper(
     queue: multiprocessing.Queue,
     sql_query: str,
 ) -> None:
+    """
+    The wrapper function that computes the tables and columns using the SqlLineageSQLParserImpl
+    and puts the results on the shared IPC queue. This is used to isolate SqlLineageSQLParserImpl
+    functionality in a separate process, and hence protect our sources from memory leaks originating in
+    the sqllineage module.
+    :param queue: The shared IPC queue on to which the results will be put.
+    :param sql_query: The SQL query to extract the tables & columns from.
+    :return: None.
+    """
     exception_details: Optional[Tuple[Optional[Type[BaseException]], str]] = None
     tables: List[str] = []
     columns: List[str] = []
@@ -97,6 +106,7 @@ def sql_lineage_parser_impl_func_wrapper(
         exc_info = sys.exc_info()
         exc_msg: str = str(exc_info[1]) + "".join(traceback.format_tb(exc_info[2]))
         exception_details = (exc_info[0], exc_msg)
+        logger.error(exc_msg)
     finally:
         queue.put((tables, columns, exception_details))
 
@@ -110,6 +120,10 @@ class SqlLineageSQLParser(SQLParser):
     def _get_tables_columns_process_wrapped(
         sql_query: str,
     ) -> Tuple[List[str], List[str]]:
+        # Invoke sql_lineage_parser_impl_func_wrapper in a separate process to avoid
+        # memory leaks from sqllineage module used by SqlLineageSQLParserImpl. This will help
+        # shield our sources like lookml & redash, that need to parse a large number of SQL statements,
+        # from causing significant memory leaks in the datahub cli during ingestion.
         queue: multiprocessing.Queue = Queue()
         process: multiprocessing.Process = Process(
             target=sql_lineage_parser_impl_func_wrapper,
