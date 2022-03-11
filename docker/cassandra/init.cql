@@ -1,9 +1,9 @@
-create keyspace datahub WITH REPLICATION = {
+create keyspace if not exists datahub WITH REPLICATION = {
   'class' : 'SimpleStrategy',
   'replication_factor' : 1
 };
 
-create table datahub.metadata_aspect_v2 (
+create table if not exists datahub.metadata_aspect_v2 (
   urn                           varchar,
   aspect                        varchar,
   version                       bigint,
@@ -24,7 +24,7 @@ insert into datahub.metadata_aspect_v2 (urn, aspect, version, metadata, createdo
   toTimestamp(now()),
   'urn:li:corpuser:__datahub_system',
   'corpuser'
-);
+) if not exists;
 
 insert into datahub.metadata_aspect_v2 (urn, aspect, version, metadata, createdon, createdby, entity) values(
   'urn:li:corpuser:datahub',
@@ -34,4 +34,4 @@ insert into datahub.metadata_aspect_v2 (urn, aspect, version, metadata, createdo
   toTimestamp(now()),
   'urn:li:corpuser:__datahub_system',
   'corpuser'
-);
+) if not exists;
