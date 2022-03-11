@@ -62,4 +62,5 @@
             <circle id="blue_satellite" cy="-80" r="10" transform="rotate(57)"/>
         </g>
     </g>
+
 </svg>
