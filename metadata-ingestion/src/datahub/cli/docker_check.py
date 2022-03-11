@@ -30,7 +30,10 @@ ENSURE_EXIT_SUCCESS = [
 CONTAINERS_TO_CHECK_IF_PRESENT = [
     # We only add this container in some cases, but if it's present, we
     # definitely want to check that it exits properly.
+    "mysql",
     "mysql-setup",
+    "cassandra",
+    "cassandra-setup",
     "neo4j",
 ]
 
