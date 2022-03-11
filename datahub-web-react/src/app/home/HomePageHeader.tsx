@@ -147,7 +147,7 @@ export const HomePageHeader = () => {
     };
 
     // Fetch results
-    const { data: searchResultsData, loading: searchResultsLoading } = useGetSearchResultsForMultipleQuery({
+    const { data: searchResultsData } = useGetSearchResultsForMultipleQuery({
         variables: {
             input: {
                 types: [],
@@ -161,7 +161,7 @@ export const HomePageHeader = () => {
 
     const searchResultsToShow = useMemo(() => {
         let result: string[] | undefined = [];
-        if (!searchResultsLoading) {
+        if (searchResultsData) {
             const entities = searchResultsData?.searchAcrossEntities?.searchResults.map((searchResult) => {
                 return searchResult?.entity;
             });
@@ -171,7 +171,7 @@ export const HomePageHeader = () => {
             });
         }
         return result?.sort(sortRandom);
-    }, [searchResultsData, searchResultsLoading, entityRegistry]);
+    }, [searchResultsData, entityRegistry]);
 
     return (
         <Background>
