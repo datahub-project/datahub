@@ -109,7 +109,7 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 
 - [Adevinta](https://www.adevinta.com/)
 - [Banksalad](https://www.banksalad.com)
-- [Cabify](https://www.cabify.com)
+- [Cabify](https://cabify.tech/)
 - [DefinedCrowd](http://www.definedcrowd.com)
 - [DFDS](https://www.dfds.com/)
 - [Expedia Group](http://expedia.com)
