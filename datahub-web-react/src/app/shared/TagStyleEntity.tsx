@@ -6,8 +6,6 @@ import { ApolloError } from '@apollo/client';
 import styled from 'styled-components';
 import { ChromePicker } from 'react-color';
 import ColorHash from 'color-hash';
-import rgbHex from 'rgb-hex';
-
 import { PlusOutlined } from '@ant-design/icons';
 import { useGetTagQuery } from '../../graphql/tag.generated';
 import { EntityType, FacetMetadata, Maybe, Scalars } from '../../types.generated';
@@ -258,6 +256,10 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
         saveColor();
     };
 
+    const handleColorChange = (color: any) => {
+        setColorValue(color?.hex);
+    };
+
     // Update Description
     const updateDescriptionValue = (desc: string) => {
         setUpdatedDescription(desc);
@@ -312,10 +314,7 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
                 </TagName>
                 {displayColorPicker && (
                     <ColorPickerPopOver ref={colorPickerRef}>
-                        <ChromePicker
-                            color={colorValue}
-                            onChange={(c) => setColorValue(`#${rgbHex(c.rgb.r, c.rgb.g, c.rgb.b, c.rgb.a)}`)}
-                        />
+                        <ChromePicker color={colorValue} onChange={handleColorChange} />
                     </ColorPickerPopOver>
                 )}
             </div>
