@@ -60,18 +60,19 @@ class AzureADConfig(ConfigModel):
     users_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     groups_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
 
-    filteredTracking: bool = True
+    # If enabled, report will contain names of filtered users and groups.
+    filtered_tracking: bool = True
 
 
 @dataclass
 class AzureADSourceReport(SourceReport):
     filtered: List[str] = field(default_factory=list)
-    filteredTracking: bool = field(default=True, repr=False)
-    numFiltered: int = field(default=0)
+    filtered_tracking: bool = field(default=True, repr=False)
+    filtered_count: int = field(default=0)
 
     def report_filtered(self, name: str) -> None:
-        self.numFiltered += 1
-        if self.filteredTracking:
+        self.filtered_count += 1
+        if self.filtered_tracking:
             self.filtered.append(name)
 
 
@@ -89,7 +90,7 @@ class AzureADSource(Source):
     def __init__(self, config: AzureADConfig, ctx: PipelineContext):
         super().__init__(ctx)
         self.config = config
-        self.report = AzureADSourceReport(filteredTracking=self.config.filteredTracking)
+        self.report = AzureADSourceReport(filtered_tracking=self.config.filtered_tracking)
         self.token_data = {
             "grant_type": "client_credentials",
             "client_id": self.config.client_id,
