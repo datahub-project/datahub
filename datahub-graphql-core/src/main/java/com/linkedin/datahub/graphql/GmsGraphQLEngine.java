@@ -12,6 +12,8 @@ import com.linkedin.datahub.graphql.generated.ActorFilter;
 import com.linkedin.datahub.graphql.generated.AggregationMetadata;
 import com.linkedin.datahub.graphql.generated.Aspect;
 import com.linkedin.datahub.graphql.generated.Assertion;
+import com.linkedin.datahub.graphql.generated.AutoCompleteResultForEntity;
+import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.BrowseResults;
 import com.linkedin.datahub.graphql.generated.Chart;
 import com.linkedin.datahub.graphql.generated.ChartInfo;
@@ -730,7 +732,20 @@ public class GmsGraphQLEngine {
                         (env) -> ((ListDomainsResult) env.getSource()).getDomains().stream()
                             .map(Domain::getUrn)
                             .collect(Collectors.toList())))
+            )
+            .type("AutoCompleteResults", typeWiring -> typeWiring
+                .dataFetcher("entities",
+                    new EntityTypeBatchResolver(
+                        new ArrayList<>(entityTypes),
+                        (env) -> ((AutoCompleteResults) env.getSource()).getEntities()))
+            )
+            .type("AutoCompleteResultForEntity", typeWiring -> typeWiring
+                .dataFetcher("entities",
+                    new EntityTypeBatchResolver(
+                        new ArrayList<>(entityTypes),
+                        (env) -> ((AutoCompleteResultForEntity) env.getSource()).getEntities()))
             );
+        ;
     }
 
     /**
