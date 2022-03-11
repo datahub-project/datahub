@@ -90,5 +90,5 @@ jobs:
           push: ${{ needs.setup.outputs.publish == 'true' }}
           build-args: |
             RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}
-          cache-from: type=registry,${{ steps.docker_meta.outputs.tags }}buildcache
-          cache-to: type=registry,ref=${{ steps.docker_meta.outputs.tags }}buildcache,mode=max
+          cache-from: type=registry,linkedin/datahub-ingestion:buildcache
+          cache-to: type=registry,ref=linkedin/datahub-ingestion:buildcache,mode=max
