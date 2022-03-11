@@ -85,9 +85,9 @@ jobs:
         uses: actions/cache@v2
         with:
           path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          key: baseprefix1-${{ runner.os }}-buildx-ingestion--${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-buildx-
+            baseprefix1-${{ runner.os }}-buildx-ingestion-
       - name: Build and Push image
         uses: docker/build-push-action@v2
         with:

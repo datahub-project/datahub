@@ -48,18 +48,20 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          key: baseprefix1-${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}-${{ github.job }}
           restore-keys: |
-            ${{ runner.os }}-gradle-
+            baseprefix1-${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}-
+            baseprefix1-${{ runner.os }}-gradle-
       - name: Setup Cache for pip
         uses: actions/cache@v2
         if: ${{ github.event.inputs.use_cache != 'false' }}
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('**/requirements.txt', '**/setup.py') }}
+          key: baseprefix1-${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('**/requirements.txt', '**/setup.py') }}-${{ github.job }}
           restore-keys: |
-            ${{ runner.os }}-pip-${{ matrix.python-version }}-
-            ${{ runner.os }}-pip-
+            baseprefix1-${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('**/requirements.txt', '**/setup.py') }}-
+            baseprefix1-${{ runner.os }}-pip-${{ matrix.python-version }}-
+            baseprefix1-${{ runner.os }}-pip-
       - name: Run metadata-ingestion tests
         run: ./gradlew :metadata-ingestion:build :metadata-ingestion:check
       - uses: actions/upload-artifact@v2
@@ -95,18 +97,20 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          key: baseprefix1-${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}-${{ github.job }}
           restore-keys: |
-            ${{ runner.os }}-gradle-
+            baseprefix1-${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}-
+            baseprefix1-${{ runner.os }}-gradle-
       - name: Setup Cache for pip
         uses: actions/cache@v2
         if: ${{ github.event.inputs.use_cache != 'false' }}
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('**/requirements.txt', '**/setup.py') }}
+          key: baseprefix1-${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('**/requirements.txt', '**/setup.py') }}-${{ github.job }}
           restore-keys: |
-            ${{ runner.os }}-pip-${{ matrix.python-version }}-
-            ${{ runner.os }}-pip-
+            baseprefix1-${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('**/requirements.txt', '**/setup.py') }}-
+            baseprefix1-${{ runner.os }}-pip-${{ matrix.python-version }}-
+            baseprefix1-${{ runner.os }}-pip-
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh && python -m pip install --upgrade pip && pip install tox tox-gh-actions
       - name: Codegen
