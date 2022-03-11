@@ -241,7 +241,7 @@ class ConfluentJDBCSourceConnector:
             else:
                 source_table = topic
 
-            # three-level hierarchies
+            # include schema name for three-level hierarchies
             if has_three_level_hierarchy(source_platform):
                 table = [t for t in table_names if t[-1] == source_table]
                 if table and table[0][-2]:
@@ -394,7 +394,7 @@ class ConfluentJDBCSourceConnector:
                 # in connector topics
 
                 if topic in self.connector_manifest.topic_names:
-                    # three-level hierarchies
+                    # include schema name for three-level hierarchies
                     if has_three_level_hierarchy(source_platform) and table[-2]:
                         source_table = table[-2] + "." + table[-1]
 
