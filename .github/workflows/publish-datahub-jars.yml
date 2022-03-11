@@ -1,6 +1,12 @@
 name: Publish Datahub Client
 
 on:
+  workflow_dispatch:
+    inputs:
+      use_cache:
+        description: 'Whether to use cache'
+        required: true
+        default: 'true'
   workflow_run:
     workflows: ["build & test"]
     types:
@@ -45,6 +51,25 @@ jobs:
         run: |
           git remote add upstream https://github.com/linkedin/datahub.git
           git fetch upstream --tags --force
+      - name: Setup Cache for Gradle
+        uses: actions/cache@v2
+        if: ${{ github.event.inputs.use_cache != 'false' }}
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+      - name: Setup Cache for pip
+        uses: actions/cache@v2
+        if: ${{ github.event.inputs.use_cache != 'false' }}
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('**/requirements.txt', '**/setup.py') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-${{ matrix.python-version }}-
+            ${{ runner.os }}-pip-
       - name: publish datahub-client jar
         env:
           RELEASE_USERNAME: ${{ secrets.RELEASE_USERNAME }}

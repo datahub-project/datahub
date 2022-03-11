@@ -1,5 +1,11 @@
 name: metadata ingestion slow integration tests
 on:
+  workflow_dispatch:
+    inputs:
+      use_cache:
+        description: 'Whether to use cache'
+        required: true
+        default: 'true'
   push:
     branches:
       - master
@@ -28,6 +34,25 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
+      - name: Setup Cache for Gradle
+        uses: actions/cache@v2
+        if: ${{ github.event.inputs.use_cache != 'false' }}
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+      - name: Setup Cache for pip
+        uses: actions/cache@v2
+        if: ${{ github.event.inputs.use_cache != 'false' }}
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('**/requirements.txt', '**/setup.py') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-${{ matrix.python-version }}-
+            ${{ runner.os }}-pip-
       - name: Run metadata-ingestion slow integration tests
         run: ./gradlew :metadata-ingestion:testSlowIntegration
       - uses: actions/upload-artifact@v2
