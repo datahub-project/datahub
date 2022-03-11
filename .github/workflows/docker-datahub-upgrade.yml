@@ -86,4 +86,4 @@ jobs:
           tags: ${{ steps.docker_meta.outputs.tags }}
           push: ${{ needs.setup.outputs.publish == 'true' }}
           cache-from: type=registry,ref=acryldata/datahub-upgrade:head-buildcache
-          cache-to: echo "$DOCKER_CACHE_TO"
+          cache-to: ${{ env.DOCKER_CACHE_TO }}
