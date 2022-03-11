@@ -79,3 +79,5 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.docker_meta.outputs.tags }}
           push: ${{ needs.setup.outputs.publish == 'true' }}
+          cache-from: type=registry,ref=linkedin/datahub-frontend-react:head-buildcache
+          cache-to: type=registry,ref=${{ steps.docker_meta.outputs.tags }}-buildcache,mode=max

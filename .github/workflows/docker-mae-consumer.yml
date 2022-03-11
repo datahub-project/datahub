@@ -76,3 +76,5 @@ jobs:
           file: ./docker/datahub-mae-consumer/Dockerfile
           tags: ${{ steps.docker_meta.outputs.tags }}
           push: ${{ needs.setup.outputs.publish == 'true' }}
+          cache-from: type=registry,ref=linkedin/datahub-mae-consumer:head-buildcache
+          cache-to: type=registry,ref=${{ steps.docker_meta.outputs.tags }}-buildcache,mode=max
