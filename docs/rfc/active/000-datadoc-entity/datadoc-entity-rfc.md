@@ -3,7 +3,7 @@
 - Discussion Issue: (GitHub issue this was discussed in before the RFC, if any)
 - Implementation PR(s): (leave this empty)
 
-# Extend data model to model DataDoc entity 
+# Extend data model to model Notebook entity 
 
 ## Background
 [Querybook](https://www.querybook.org/) is Pinterest’s open-source big data IDE via a notebook interface. 
@@ -19,47 +19,53 @@ decides to adopt this new entity, further effort is needed.
 
 ## Detailed design
 
-### DataDoc 
+### DataDoc Model
 ![DataDoc High Level Model](datadoc-high-level-model.png) 
 
-As shown in the above diagram, DataDoc is a document which contains a list of DataDoc cells. It organizes rich text,queries, and charts into a notebook 
-to easily document analyses. It contains the following metadata:
-- dataDocKey (keyAspect)
-    - dataDocTool: The name of the DataDoc tool such as QueryBook, Notebook, and etc
-    - dataDocId: Unique id for the DataDoc
-- dataDocInfo
+As shown in the above diagram, DataDoc is a document which contains a list of DataDoc cells. It organizes rich text,
+queries, and charts into a notebook to easily document analyses. We could see that the DataDoc model is very similar as 
+Notebook. DataDoc would be viewed as a subset of Notebook. Therefore we are going to model Notebook rather than DataDoc. 
+We will include "subTypes" aspect to differentiate Notebook and DataDoc 
+
+### Notebook Data Model
+This section talks about the mininum data model of Notebook which could meet our needs.
+- notebookKey (keyAspect)
+    - notebookTool: The name of the DataDoc tool such as QueryBook, Notebook, and etc
+    - notebookId: Unique id for the DataDoc
+- notebookInfo
     - title(Searchable): The title of this DataDoc
     - description(Searchable): Detailed description about the DataDoc
     - lastModified: Captures information about who created/last modified/deleted this DataDoc and when
-    - dataDocUrl: URL for the DataDoc.
-- dataDocContent
+- notebookContent
     - content: The content of a DataDoc which is composed by a list of DataDocCell
 - editableDataDocProperties
 - ownership
 - status
 - globalTags
 - institutionalMemory
+- browsePaths
 - domains 
+- subTypes
 
-### DataDoc Cells
-DataDoc cell is the unit that compose a DataDoc. There are three types of cells: Text Cell, Query Cell, Chart Cell. Each 
-type of cell has its own metadata. Since the cell only lives within a DataDoc, we model cells as one aspect of DataDoc
+### Notebook Cells
+Notebook cell is the unit that compose a Notebook. There are three types of cells: Text Cell, Query Cell, Chart Cell. Each 
+type of cell has its own metadata. Since the cell only lives within a Notebook, we model cells as one aspect of Notebook
 rather than another entity. Here are the metadata of each type of cell:
 - TextCell
     - cellTitle: Title of the cell
     - cellId: Unique id for the cell.
-    - lastModified: Captures information about who created/last modified/deleted this DataDoc cell and when
-    - text(searchable): The actual text in a TextCell in a DataDoc
+    - lastModified: Captures information about who created/last modified/deleted this Notebook cell and when
+    - text(searchable): The actual text in a TextCell in a Notebook
 - QueryCell
     - cellTitle: Title of the cell
     - cellId: Unique id for the cell.
-    - lastModified: Captures information about who created/last modified/deleted this DataDoc cell and when
-    - rawQuery(Searchable): Raw query to explain some specific logic in a DataDoc
+    - lastModified: Captures information about who created/last modified/deleted this Notebook cell and when
+    - rawQuery(Searchable): Raw query to explain some specific logic in a Notebook
     - lastExecuted: Captures information about who last executed this query cell and when
 - ChartCell
     - cellTitle: Title of the cell
     - cellId: Unique id for the cell.
-    - lastModified: Captures information about who created/last modified/deleted this DataDoc cell and when
+    - lastModified: Captures information about who created/last modified/deleted this Notebook cell and when
 
 ## Future Work
 Querybook provides an embeddable feature. We could embed a query tab which utilize the embedded feature in Datahub 
