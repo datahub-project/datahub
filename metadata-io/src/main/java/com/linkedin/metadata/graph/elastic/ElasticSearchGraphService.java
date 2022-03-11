@@ -5,9 +5,13 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.graph.Edge;
-import com.linkedin.metadata.graph.RelatedEntity;
-import com.linkedin.metadata.graph.RelatedEntitiesResult;
+import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.graph.LineageDirection;
+import com.linkedin.metadata.graph.LineageRegistry;
+import com.linkedin.metadata.graph.LineageRelationshipArray;
+import com.linkedin.metadata.graph.RelatedEntitiesResult;
+import com.linkedin.metadata.graph.RelatedEntity;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -16,8 +20,9 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import io.opentelemetry.extension.annotations.WithSpan;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -46,11 +51,12 @@ import org.elasticsearch.index.reindex.DeleteByQueryRequest;
 @RequiredArgsConstructor
 public class ElasticSearchGraphService implements GraphService {
 
-  private static final int MAX_ELASTIC_RESULT = 10000;
-  private final RestHighLevelClient searchClient;
+  private final LineageRegistry _lineageRegistry;
+  private final RestHighLevelClient _searchClient;
   private final IndexConvention _indexConvention;
   private final ESGraphWriteDAO _graphWriteDAO;
   private final ESGraphQueryDAO _graphReadDAO;
+  private final ESIndexBuilder _indexBuilder;
 
   private static final String DOC_DELIMETER = "--";
   public static final String INDEX_NAME = "graph_service_v1";
@@ -87,6 +93,11 @@ public class ElasticSearchGraphService implements GraphService {
       e.printStackTrace();
       return rawDocId;
     }
+  }
+
+  @Override
+  public LineageRegistry getLineageRegistry() {
+    return _lineageRegistry;
   }
 
   public void addEdge(@Nonnull final Edge edge) {
@@ -140,6 +151,20 @@ public class ElasticSearchGraphService implements GraphService {
         .collect(Collectors.toList());
 
     return new RelatedEntitiesResult(offset, relationships.size(), totalCount, relationships);
+  }
+
+  @Nonnull
+  @WithSpan
+  @Override
+  public EntityLineageResult getLineage(@Nonnull Urn entityUrn, @Nonnull LineageDirection direction, int offset,
+      int count, int maxHops) {
+    ESGraphQueryDAO.LineageResponse lineageResponse =
+        _graphReadDAO.getLineage(entityUrn, direction, offset, count, maxHops);
+    return new EntityLineageResult().setRelationships(
+        new LineageRelationshipArray(lineageResponse.getLineageRelationships()))
+        .setStart(offset)
+        .setCount(count)
+        .setTotal(lineageResponse.getTotal());
   }
 
   private Filter createUrnFilter(@Nonnull final Urn urn) {
@@ -206,8 +231,8 @@ public class ElasticSearchGraphService implements GraphService {
   public void configure() {
     log.info("Setting up elastic graph index");
     try {
-      new IndexBuilder(searchClient, _indexConvention.getIndexName(INDEX_NAME),
-          GraphRelationshipMappingsBuilder.getMappings(), Collections.emptyMap()).buildIndex();
+      _indexBuilder.buildIndex(_indexConvention.getIndexName(INDEX_NAME),
+          GraphRelationshipMappingsBuilder.getMappings(), Collections.emptyMap());
     } catch (IOException e) {
       e.printStackTrace();
     }
@@ -218,9 +243,14 @@ public class ElasticSearchGraphService implements GraphService {
     DeleteByQueryRequest deleteRequest =
         new DeleteByQueryRequest(_indexConvention.getIndexName(INDEX_NAME)).setQuery(QueryBuilders.matchAllQuery());
     try {
-      searchClient.deleteByQuery(deleteRequest, RequestOptions.DEFAULT);
+      _searchClient.deleteByQuery(deleteRequest, RequestOptions.DEFAULT);
     } catch (Exception e) {
       log.error("Failed to clear graph service: {}", e.toString());
     }
+  }
+
+  @Override
+  public boolean supportsMultiHop() {
+    return true;
   }
 }

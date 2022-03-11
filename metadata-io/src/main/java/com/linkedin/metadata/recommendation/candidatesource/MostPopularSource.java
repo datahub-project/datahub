@@ -1,8 +1,8 @@
 package com.linkedin.metadata.recommendation.candidatesource;
 
 import com.codahale.metrics.Timer;
+import com.datahub.util.exception.ESQueryException;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.dao.exception.ESQueryException;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventConstants;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
 import com.linkedin.metadata.recommendation.EntityProfileParams;
@@ -11,8 +11,10 @@ import com.linkedin.metadata.recommendation.RecommendationParams;
 import com.linkedin.metadata.recommendation.RecommendationRenderType;
 import com.linkedin.metadata.recommendation.RecommendationRequestContext;
 import com.linkedin.metadata.recommendation.ScenarioType;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.opentelemetry.extension.annotations.WithSpan;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.List;
@@ -72,6 +74,7 @@ public class MostPopularSource implements RecommendationSource {
   }
 
   @Override
+  @WithSpan
   public List<RecommendationContent> getRecommendations(@Nonnull Urn userUrn,
       @Nonnull RecommendationRequestContext requestContext) {
     SearchRequest searchRequest = buildSearchRequest(userUrn);
@@ -95,15 +98,14 @@ public class MostPopularSource implements RecommendationSource {
     SearchRequest request = new SearchRequest();
     SearchSourceBuilder source = new SearchSourceBuilder();
     BoolQueryBuilder query = QueryBuilders.boolQuery();
-    // Filter for the entity view events of the user requesting recommendation
-    query.must(QueryBuilders.termQuery(DataHubUsageEventConstants.ACTOR_URN, userUrn.toString()));
+    // Filter for all entity view events
     query.must(
         QueryBuilders.termQuery(DataHubUsageEventConstants.TYPE, DataHubUsageEventType.ENTITY_VIEW_EVENT.getType()));
     source.query(query);
 
     // Find the entities with the most views
     AggregationBuilder aggregation = AggregationBuilders.terms(ENTITY_AGG_NAME)
-        .field(DataHubUsageEventConstants.ENTITY_URN + ".keyword")
+        .field(DataHubUsageEventConstants.ENTITY_URN + ESUtils.KEYWORD_SUFFIX)
         .size(MAX_CONTENT);
     source.aggregation(aggregation);
     source.size(0);

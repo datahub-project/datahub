@@ -7,10 +7,11 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilders;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
+import com.linkedin.metadata.search.utils.ESUtils;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
@@ -23,7 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class ElasticSearchService implements EntitySearchService {
 
-  private final ESIndexBuilders indexBuilders;
+  private final EntityIndexBuilders indexBuilders;
   private final ESSearchDAO esSearchDAO;
   private final ESBrowseDAO esBrowseDAO;
   private final ESWriteDAO esWriteDAO;
@@ -87,7 +88,7 @@ public class ElasticSearchService implements EntitySearchService {
 
   @Nonnull
   @Override
-  public Map<String, Long> aggregateByValue(@Nonnull String entityName, @Nonnull String field,
+  public Map<String, Long> aggregateByValue(@Nullable String entityName, @Nonnull String field,
       @Nullable Filter requestParams, int limit) {
     log.debug("Aggregating by value: {}, field: {}, requestParams: {}, limit: {}", entityName, field, requestParams,
         limit);
@@ -109,5 +110,10 @@ public class ElasticSearchService implements EntitySearchService {
   public List<String> getBrowsePaths(@Nonnull String entityName, @Nonnull Urn urn) {
     log.debug(String.format("Getting browse paths for entity entityName: %s, urn: %s", entityName, urn));
     return esBrowseDAO.getBrowsePaths(entityName, urn);
+  }
+
+  @Override
+  public int maxResultSize() {
+    return ESUtils.MAX_RESULT_SIZE;
   }
 }

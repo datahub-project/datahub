@@ -8,6 +8,8 @@ import {
     InstitutionalMemoryUpdate,
 } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
+import { useEntityData } from '../../shared/EntityContext';
+import analytics, { EventType, EntityActionType } from '../../../analytics';
 
 export type Props = {
     authenticatedUserUrn?: string;
@@ -93,6 +95,8 @@ export default function Documentation({
         setStagedDocs(newStagedDocs);
     };
 
+    const { urn, entityType } = useEntityData();
+
     const onSave = async (record: any) => {
         const row = await form.validateFields();
 
@@ -113,6 +117,12 @@ export default function Documentation({
             };
         });
         updateDocumentation({ elements: updatedInstitutionalMemory });
+        analytics.event({
+            type: EventType.EntityActionEvent,
+            actionType: EntityActionType.UpdateDescription,
+            entityType,
+            entityUrn: urn,
+        });
         setEditingIndex(-1);
     };
 
@@ -130,6 +140,12 @@ export default function Documentation({
             description: doc.description,
         }));
         updateDocumentation({ elements: updatedInstitutionalMemory });
+        analytics.event({
+            type: EventType.EntityActionEvent,
+            actionType: EntityActionType.UpdateDescription,
+            entityType,
+            entityUrn: urn,
+        });
         setStagedDocs(newDocs);
     };
 

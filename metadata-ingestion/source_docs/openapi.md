@@ -30,12 +30,14 @@ source:
     name: test_endpoint # this name will appear in DatHub
     url: https://test_endpoint.com/
     swagger_file: classicapi/doc/swagger.json  # where to search for the OpenApi definitions
-    get_token: True  # optional, if you need to get an authentication token beforehand 
+    get_token:  # optional, if you need to get an authentication token beforehand 
+        request_type: get
+        url: api/authentication/login?username={username}&password={password}
     username: your_username  # optional
     password: your_password  # optional
     forced_examples:  # optionals
-      /accounts/groupname/{name}: test
-      /accounts/username/{name}: test
+      /accounts/groupname/{name}: ['test']
+      /accounts/username/{name}: ['test']
     ignore_endpoints: [/ignore/this, /ignore/that, /also/that_other]  # optional, the endpoints to ignore
 
 sink:
@@ -137,6 +139,15 @@ and this URL will be called to get back the needed metadata.
 
 ## Config details
 
+### Token authentication
+
+If this tool needs to get an access token to interrogate the endpoints, this can be requested. Two methods are available at the moment:
+
+* 'get' : this requires username/password combination to be present in the url. Note that {username} and {password} are mandatory placeholders. They will be replaced with the true credentials at runtime. Note that username and password will be sent in the request address, so it's unsecure. If your provider allows for the other method, please go for it.
+* 'post' : username and password will be inserted in the body of the POST request
+
+In both cases, username and password are the ones defined in the configuration file.
+
 ### Getting dataset metadata from `forced_example`
 
 Suppose you have an endpoint defined in the swagger file, but without example given, and the tool is 
@@ -164,7 +175,7 @@ By specifying in the configuration file
 
 ```yaml
     forced_examples:  # optionals
-      /accounts/groupname/{name}: test
+      /accounts/groupname/{name}: ['test']
 ```
 
 the plugin is able to build a correct URL, as follows:

@@ -28,7 +28,14 @@ describe('SearchPage', () => {
     it('renders the selected filters as checked', async () => {
         const promise = Promise.resolve();
         const { getByTestId, queryByTestId } = render(
-            <MockedProvider mocks={mocks} addTypename={false}>
+            <MockedProvider
+                mocks={mocks}
+                addTypename={false}
+                defaultOptions={{
+                    watchQuery: { fetchPolicy: 'no-cache' },
+                    query: { fetchPolicy: 'no-cache' },
+                }}
+            >
                 <TestPageContainer
                     initialEntries={['/search?filter_entity=DATASET&filter_platform=kafka&page=1&query=test']}
                 >
@@ -53,7 +60,14 @@ describe('SearchPage', () => {
     it('renders multiple checked filters at once', async () => {
         const promise = Promise.resolve();
         const { getByTestId, queryByTestId } = render(
-            <MockedProvider mocks={mocks} addTypename={false}>
+            <MockedProvider
+                mocks={mocks}
+                addTypename={false}
+                defaultOptions={{
+                    watchQuery: { fetchPolicy: 'no-cache' },
+                    query: { fetchPolicy: 'no-cache' },
+                }}
+            >
                 <TestPageContainer
                     initialEntries={['/search?filter_entity=DATASET&filter_platform=kafka,hdfs&page=1&query=test']}
                 >
@@ -78,7 +92,14 @@ describe('SearchPage', () => {
     it('clicking a filter selects a new filter', async () => {
         const promise = Promise.resolve();
         const { getByTestId, queryByTestId } = render(
-            <MockedProvider mocks={mocks} addTypename={false}>
+            <MockedProvider
+                mocks={mocks}
+                addTypename={false}
+                defaultOptions={{
+                    watchQuery: { fetchPolicy: 'no-cache' },
+                    query: { fetchPolicy: 'no-cache' },
+                }}
+            >
                 <TestPageContainer
                     initialEntries={['/search?filter_entity=DATASET&filter_platform=kafka&page=1&query=test']}
                 >

@@ -2,6 +2,42 @@
 
 A list of previous Town Halls, their planned schedule, and the recording of the meeting.
 
+## 1/28/2022
+[Full YouTube video](https://youtu.be/ShlSR3dMUnE)
+
+## Agenda
+
+- Community & Roadmap Updates by Maggie Hays (Acryl Data)
+- Project Updates by Shirshanka Das  (Acryl Data)
+- Community Case Study: Adding Dataset Transformers by Eric Cooklin (Stash)
+- Demo: Data Domains & Containers by John Joyce (Acryl Data)
+- DataHub Basics — Data Profiling & Usage Stats 101 by Maggie Hays & Tamás Németh (Acryl Data)
+- Demo: Spark Lineage by Mugdha Hardikar (GS Lab) & Shirshanka Das
+
+## 12/17/2021
+[Full YouTube video](https://youtu.be/rYInKCwxu7o)
+
+## Agenda
+- Community & Roadmap Updates by Maggie Hays (Acryl Data)
+- Project Updates by Shirshanka Das (Acryl Data)
+- 2021 DataHub Community in Review by Maggie Hays
+- DataHub Basics -- Users, Groups, & Authentication 101 by Pedro Silva (Acryl Data)
+- Sneak Peek: UI-Based Ingestion by John Joyce (Acryl Data)
+- Case Study — DataHub at Grofers by Shubham Gupta
+- Top DataHub Contributors of 2021 - Maggie Hays
+- Final Surprise! We Interviewed a 10yo and a 70yo about DataHub
+
+## 11/19/2021
+[Full YouTube video](https://youtu.be/to80sEDZz7k)
+
+## Agenda
+- Community & Roadmap Updates by Maggie Hays (Acryl Data)
+- Project Updates by Shirshanka Das (Acryl Data)
+- DataHub Basics -- Lineage 101 by John Joyce & Surya Lanka (Acryl Data)
+- Introducing No-Code UI by Gabe Lyons & Shirshanka Das (Acryl Data)
+- DataHub API Authentication by John Joyce (Acryl Data)
+- Case Study: LinkedIn pilot to extend the OSS UI by Aikepaer Abuduweili & Joshua Shinavier
+
 ## 10/29/2021
 [Full YouTube video](https://youtu.be/GrS_uZhYNm0)
 

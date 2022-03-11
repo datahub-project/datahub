@@ -1,6 +1,6 @@
 namespace com.linkedin.aspect
 
-import com.linkedin.metadata.query.Filter
+import com.linkedin.metadata.query.filter.Filter
 import com.linkedin.metadata.aspect.EnvelopedAspect
 
 /**
@@ -37,4 +37,14 @@ record GetTimeseriesAspectValuesResponse {
    * The enveloped values returned by the getAspect API.
    **/
   values: array[EnvelopedAspect]
+
+  /**
+   * The optional flag to get the latest value of the aspect.
+   **/
+   getLatestValue: optional boolean
+
+  /**
+   * The optional filter value for filtering the aspects.
+   */
+   filter: optional Filter
 }

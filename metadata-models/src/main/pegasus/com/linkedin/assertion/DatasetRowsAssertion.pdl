@@ -1,0 +1,36 @@
+namespace com.linkedin.assertion
+
+import com.linkedin.common.Urn
+
+/**
+  * Assertion on rows of a dataset
+  */
+record DatasetRowsAssertion {
+
+    /**
+    * Standardized assertion operator
+    */
+    stdOperator: AssertionStdOperator
+
+    /**
+    * Native assertion type
+    */
+    nativeType: optional string // filled with the platform specific native type string
+
+    /**
+    * Standardized aggrgation function applied on rows
+    */
+    stdAggFunc: enum DatasetRowsStdAggFunc {
+
+        /**
+        * Assertion is applied on number of rows
+        */
+        ROW_COUNT
+
+        /**
+        * Other
+        */
+        _NATIVE_
+    }
+
+}

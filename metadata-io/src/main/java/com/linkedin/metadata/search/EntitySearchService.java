@@ -93,14 +93,14 @@ public interface EntitySearchService {
   /**
    * Returns number of documents per field value given the field and filters
    *
-   * @param entityName name of the entity
+   * @param entityName name of the entity, if empty aggregate over all entities
    * @param field the field name for aggregate
    * @param requestParams filters to apply before aggregating
    * @param limit the number of aggregations to return
    * @return
    */
   @Nonnull
-  Map<String, Long> aggregateByValue(@Nonnull String entityName, @Nonnull String field, @Nullable Filter requestParams,
+  Map<String, Long> aggregateByValue(@Nullable String entityName, @Nonnull String field, @Nullable Filter requestParams,
       int limit);
 
   /**
@@ -126,4 +126,9 @@ public interface EntitySearchService {
    */
   @Nonnull
   List<String> getBrowsePaths(@Nonnull String entityName, @Nonnull Urn urn);
+
+  /**
+   * Max result size returned by the underlying search backend
+   */
+  int maxResultSize();
 }

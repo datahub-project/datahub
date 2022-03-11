@@ -5,8 +5,16 @@ dependencies {
   compile project(':metadata-models')
   compile spec.product.pegasus.dataAvro1_6
 
-  testCompile externalDependency.gmaDaoApi
-  testCompile project(':metadata-testing:metadata-test-utils')
+  testCompile project(':test-models')
+
+  constraints {
+    implementation("org.apache.logging.log4j:log4j-core:2.17.0") {
+        because("previous versions are vulnerable to CVE-2021-45105")
+    }
+    implementation("org.apache.logging.log4j:log4j-api:2.17.0") {
+        because("previous versions are vulnerable to CVE-2021-45105")
+    }
+  }
 }
 
 // copy original MXE avro schema from metadata-events to resources

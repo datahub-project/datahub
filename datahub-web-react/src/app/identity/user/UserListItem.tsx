@@ -96,7 +96,11 @@ export default function UserListItem({ user, onDelete }: Props) {
             <UserItemContainer>
                 <Link to={entityRegistry.getEntityUrl(EntityType.CorpUser, user.urn)}>
                     <UserHeaderContainer>
-                        <CustomAvatar size={32} name={displayName} />
+                        <CustomAvatar
+                            size={32}
+                            name={displayName}
+                            photoUrl={user.editableProperties?.pictureLink || undefined}
+                        />
                         <div style={{ marginLeft: 16, marginRight: 20 }}>
                             <div>
                                 <Typography.Text>{displayName}</Typography.Text>

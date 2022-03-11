@@ -7,12 +7,12 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 export const Preview = ({
     urn,
     name,
-    definition,
+    description,
     owners,
 }: {
     urn: string;
     name: string;
-    definition?: string | null;
+    description?: string | null;
     owners?: Array<Owner> | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
@@ -20,7 +20,7 @@ export const Preview = ({
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, urn)}
             name={name || ''}
-            description={definition || ''}
+            description={description || ''}
             owners={owners}
             logoComponent={<BookOutlined style={{ fontSize: '20px' }} />}
             type="Glossary Term"

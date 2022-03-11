@@ -1,10 +1,10 @@
 package com.linkedin.metadata.search.utils;
 
+import com.datahub.util.ModelUtils;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.dao.BaseReadDAO;
 import com.linkedin.metadata.aspect.AspectVersion;
-import com.linkedin.metadata.dao.utils.ModelUtils;
+import com.linkedin.metadata.dao.BaseReadDAO;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -53,15 +53,21 @@ public class QueryUtils {
         .filter(e -> Objects.nonNull(e.getValue()))
         .map(e -> newCriterion(e.getKey(), e.getValue()))
         .collect(Collectors.toCollection(CriterionArray::new));
-    return new Filter().setOr(new ConjunctiveCriterionArray(ImmutableList.of(
-        new ConjunctiveCriterion().setAnd(criteria)
-    )));
+    return new Filter().setOr(
+        new ConjunctiveCriterionArray(ImmutableList.of(new ConjunctiveCriterion().setAnd(criteria))));
   }
 
   // Creates new Filter from a single Criterion with EQUAL condition (default).
   @Nonnull
   public static Filter newFilter(@Nonnull String field, @Nonnull String value) {
     return newFilter(Collections.singletonMap(field, value));
+  }
+
+  // Create singleton filter with one criterion
+  @Nonnull
+  public static Filter newFilter(@Nonnull Criterion criterion) {
+    return new Filter().setOr(new ConjunctiveCriterionArray(
+        ImmutableList.of(new ConjunctiveCriterion().setAnd(new CriterionArray(ImmutableList.of(criterion))))));
   }
 
   /**

@@ -1,30 +1,48 @@
 import collections
-import dataclasses
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Union, cast
 
-import pydantic
 import pydantic.dataclasses
+from more_itertools import partition
 from pydantic import BaseModel
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
 import datahub.emitter.mce_builder as builder
+from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import get_time_bucket
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.snowflake import BaseSnowflakeConfig
+from datahub.ingestion.source.state.checkpoint import Checkpoint
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    JobId,
+    StatefulIngestionConfig,
+    StatefulIngestionConfigBase,
+    StatefulIngestionSourceBase,
+)
+from datahub.ingestion.source.state.usage_common_state import BaseUsageCheckpointState
 from datahub.ingestion.source.usage.usage_common import (
     BaseUsageConfig,
     GenericAggregatedDataset,
+)
+from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
+    JobStatusClass,
+    OperationClass,
+    OperationTypeClass,
+    TimeWindowSizeClass,
 )
 
 logger = logging.getLogger(__name__)
 
 SnowflakeTableRef = str
 AggregatedDataset = GenericAggregatedDataset[SnowflakeTableRef]
+AggregatedAccessEvents = Dict[datetime, Dict[SnowflakeTableRef, AggregatedDataset]]
 
 SNOWFLAKE_USAGE_SQL_TEMPLATE = """
 SELECT
@@ -32,8 +50,11 @@ SELECT
     access_history.query_start_time,
     query_history.query_text,
     query_history.query_type,
+    query_history.rows_inserted,
+    query_history.rows_updated,
+    query_history.rows_deleted,
     access_history.base_objects_accessed,
-    -- access_history.direct_objects_accessed, -- might be useful in the future
+    access_history.direct_objects_accessed, -- when dealing with views, direct objects will show the view while base will show the underlying table
     -- query_history.execution_status, -- not really necessary, but should equal "SUCCESS"
     -- query_history.warehouse_name,
     access_history.user_name,
@@ -57,6 +78,16 @@ ORDER BY query_start_time DESC
 ;
 """.strip()
 
+OPERATION_STATEMENT_TYPES = {
+    "INSERT": OperationTypeClass.INSERT,
+    "UPDATE": OperationTypeClass.UPDATE,
+    "DELETE": OperationTypeClass.DELETE,
+    "CREATE": OperationTypeClass.CREATE,
+    "CREATE_TABLE": OperationTypeClass.CREATE,
+    "CREATE_TABLE_AS_SELECT": OperationTypeClass.CREATE,
+    "CREATE_SCHEMA": OperationTypeClass.CREATE,
+}
+
 
 @pydantic.dataclasses.dataclass
 class SnowflakeColumnReference:
@@ -70,17 +101,22 @@ class PermissiveModel(BaseModel):
 
 
 class SnowflakeObjectAccessEntry(PermissiveModel):
-    columns: List[SnowflakeColumnReference]
+    columns: Optional[List[SnowflakeColumnReference]]
     objectDomain: str
     objectId: int
     objectName: str
+    stageKind: Optional[str]
 
 
 class SnowflakeJoinedAccessEvent(PermissiveModel):
     query_start_time: datetime
     query_text: str
     query_type: str
+    rows_inserted: Optional[int]
+    rows_updated: Optional[int]
+    rows_deleted: Optional[int]
     base_objects_accessed: List[SnowflakeObjectAccessEntry]
+    direct_objects_accessed: List[SnowflakeObjectAccessEntry]
 
     user_name: str
     first_name: Optional[str]
@@ -90,9 +126,29 @@ class SnowflakeJoinedAccessEvent(PermissiveModel):
     role_name: str
 
 
-class SnowflakeUsageConfig(BaseSnowflakeConfig, BaseUsageConfig):
-    env: str = builder.DEFAULT_ENV
+class SnowflakeStatefulIngestionConfig(StatefulIngestionConfig):
+    """
+    Specialization of basic StatefulIngestionConfig to adding custom config.
+    This will be used to override the stateful_ingestion config param of StatefulIngestionConfigBase
+    in the SnowflakeUsageConfig.
+    """
+
+    ignore_old_state = pydantic.Field(False, alias="force_rerun")
+
+
+class SnowflakeUsageConfig(
+    BaseSnowflakeConfig, BaseUsageConfig, StatefulIngestionConfigBase
+):
     options: dict = {}
+    database_pattern: AllowDenyPattern = AllowDenyPattern(
+        deny=[r"^UTIL_DB$", r"^SNOWFLAKE$", r"^SNOWFLAKE_SAMPLE_DATA$"]
+    )
+    email_domain: Optional[str]
+    schema_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    view_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    apply_view_usage_to_tables: bool = False
+    stateful_ingestion: Optional[SnowflakeStatefulIngestionConfig] = None
 
     @pydantic.validator("role", always=True)
     def role_accountadmin(cls, v):
@@ -109,36 +165,155 @@ class SnowflakeUsageConfig(BaseSnowflakeConfig, BaseUsageConfig):
         return super().get_sql_alchemy_url(database="snowflake")
 
 
-@dataclasses.dataclass
-class SnowflakeUsageSource(Source):
-    config: SnowflakeUsageConfig
-    report: SourceReport = dataclasses.field(default_factory=SourceReport)
+class SnowflakeUsageSource(StatefulIngestionSourceBase):
+    def __init__(self, config: SnowflakeUsageConfig, ctx: PipelineContext):
+        super(SnowflakeUsageSource, self).__init__(config, ctx)
+        self.config: SnowflakeUsageConfig = config
+        self.report: SourceReport = SourceReport()
+        self.should_skip_this_run = self._should_skip_this_run()
 
     @classmethod
     def create(cls, config_dict, ctx):
         config = SnowflakeUsageConfig.parse_obj(config_dict)
-        return cls(ctx, config)
+        return cls(config, ctx)
+
+    # Stateful Ingestion Overrides.
+    def is_checkpointing_enabled(self, job_id: JobId) -> bool:
+        if job_id == self.get_default_ingestion_job_id():
+            assert self.config.stateful_ingestion
+            return self.config.stateful_ingestion.enabled
+        return False
+
+    def get_default_ingestion_job_id(self) -> JobId:
+        """
+        Default ingestion job name for snowflake_usage.
+        """
+        return JobId("snowflake_usage_ingestion")
+
+    def get_platform_instance_id(self) -> str:
+        return self.config.host_port
+
+    def create_checkpoint(self, job_id: JobId) -> Optional[Checkpoint]:
+        """
+        Create the custom checkpoint with empty state for the job.
+        """
+        assert self.ctx.pipeline_name
+        if job_id == self.get_default_ingestion_job_id():
+            return Checkpoint(
+                job_name=job_id,
+                pipeline_name=self.ctx.pipeline_name,
+                platform_instance_id=self.get_platform_instance_id(),
+                run_id=self.ctx.run_id,
+                config=self.config,
+                state=BaseUsageCheckpointState(
+                    begin_timestamp_millis=int(
+                        self.config.start_time.timestamp() * 1000
+                    ),
+                    end_timestamp_millis=int(self.config.end_time.timestamp() * 1000),
+                ),
+            )
+        return None
+
+    def _should_skip_this_run(self) -> bool:
+        # Check if forced rerun.
+        if (
+            self.config.stateful_ingestion
+            and self.config.stateful_ingestion.ignore_old_state
+        ):
+            return False
+        # Determine from the last check point state
+        last_successful_pipeline_run_end_time_millis: Optional[int] = None
+        last_checkpoint = self.get_last_checkpoint(
+            self.get_default_ingestion_job_id(), BaseUsageCheckpointState
+        )
+        if last_checkpoint and last_checkpoint.state:
+            state = cast(BaseUsageCheckpointState, last_checkpoint.state)
+            last_successful_pipeline_run_end_time_millis = state.end_timestamp_millis
+
+        if (
+            last_successful_pipeline_run_end_time_millis is not None
+            and int(self.config.start_time.timestamp() * 1000)
+            <= last_successful_pipeline_run_end_time_millis
+        ):
+            warn_msg = (
+                f"Skippig this run, since the last run's bucket duration end: "
+                f"{datetime.fromtimestamp(last_successful_pipeline_run_end_time_millis/1000, tz=timezone.utc)}"
+                f" is later than the current start_time: {self.config.start_time}"
+            )
+            logger.warning(warn_msg)
+            self.report.report_warning("skip-run", warn_msg)
+            return True
+        return False
+
+    def _get_last_successful_run_end(self) -> Optional[int]:
+        last_checkpoint = self.get_last_checkpoint(
+            self.get_default_ingestion_job_id(), BaseUsageCheckpointState
+        )
+        if last_checkpoint and last_checkpoint.state:
+            state = cast(BaseUsageCheckpointState, last_checkpoint.state)
+            return state.end_timestamp_millis
+        return None
+
+    def _init_checkpoints(self):
+        self.get_current_checkpoint(self.get_default_ingestion_job_id())
+
+    def update_default_job_summary(self) -> None:
+        summary = self.get_job_run_summary(self.get_default_ingestion_job_id())
+        if summary is not None:
+            summary.runStatus = (
+                JobStatusClass.SKIPPED
+                if self.should_skip_this_run
+                else JobStatusClass.COMPLETED
+            )
+            summary.messageId = datetime.now().strftime("%m-%d-%Y,%H:%M:%S")
+            summary.eventGranularity = TimeWindowSizeClass(
+                unit=self.config.bucket_duration, multiple=1
+            )
+            summary.numWarnings = len(self.report.warnings)
+            summary.numErrors = len(self.report.failures)
+            summary.numEntities = self.report.workunits_produced
+            summary.config = self.config.json()
+            summary.custom_summary = self.report.as_string()
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        access_events = self._get_snowflake_history()
-        aggregated_info = self._aggregate_access_events(access_events)
-
-        for time_bucket in aggregated_info.values():
-            for aggregate in time_bucket.values():
-                wu = self._make_usage_stat(aggregate)
+        if not self.should_skip_this_run:
+            # Initialize the checkpoints
+            self._init_checkpoints()
+            # Generate the workunits.
+            access_events = self._get_snowflake_history()
+            aggregated_info_items_raw, operation_aspect_work_units_raw = partition(
+                lambda x: isinstance(x, MetadataWorkUnit),
+                self._aggregate_access_events(access_events),
+            )
+            for wu in cast(Iterable[MetadataWorkUnit], operation_aspect_work_units_raw):
                 self.report.report_workunit(wu)
                 yield wu
+            aggregated_info_items = list(aggregated_info_items_raw)
+            assert len(aggregated_info_items) == 1
+
+            for time_bucket in cast(
+                AggregatedAccessEvents, aggregated_info_items[0]
+            ).values():
+                for aggregate in time_bucket.values():
+                    wu = self._make_usage_stat(aggregate)
+                    self.report.report_workunit(wu)
+                    yield wu
 
     def _make_usage_query(self) -> str:
+        start_time = int(self.config.start_time.timestamp() * 1000)
+        end_time = int(self.config.end_time.timestamp() * 1000)
         return SNOWFLAKE_USAGE_SQL_TEMPLATE.format(
-            start_time_millis=int(self.config.start_time.timestamp() * 1000),
-            end_time_millis=int(self.config.end_time.timestamp() * 1000),
+            start_time_millis=start_time, end_time_millis=end_time
         )
 
     def _make_sql_engine(self) -> Engine:
         url = self.config.get_sql_alchemy_url()
         logger.debug(f"sql_alchemy_url={url}")
-        engine = create_engine(url, **self.config.options)
+        engine = create_engine(
+            url,
+            connect_args=self.config.get_sql_alchemy_connect_args(),
+            **self.config.options,
+        )
         return engine
 
     def _get_snowflake_history(self) -> Iterable[SnowflakeJoinedAccessEvent]:
@@ -157,56 +332,177 @@ class SnowflakeUsageSource(Source):
                 event_dict = dict(row)
 
             # no use processing events that don't have a query text
-            if event_dict["query_text"] is None:
+            if not event_dict["query_text"]:
                 continue
 
-            event_dict["base_objects_accessed"] = json.loads(
-                event_dict["base_objects_accessed"]
-            )
+            def is_unsupported_object_accessed(obj: Dict[str, Any]) -> bool:
+                unsupported_keys = ["locations"]
+                return any([obj.get(key) is not None for key in unsupported_keys])
+
+            def is_dataset_pattern_allowed(
+                dataset_name: Optional[Any], dataset_type: Optional[Any]
+            ) -> bool:
+                # TODO: support table/view patterns for usage logs by pulling that information as well from the usage query
+                if not dataset_type or not dataset_name:
+                    return True
+
+                table_or_view_pattern: Optional[
+                    AllowDenyPattern
+                ] = AllowDenyPattern.allow_all()
+                # Test domain type = external_table and then add it
+                table_or_view_pattern = (
+                    self.config.table_pattern
+                    if dataset_type.lower() in {"table"}
+                    else (
+                        self.config.view_pattern
+                        if dataset_type.lower() in {"view", "materialized_view"}
+                        else None
+                    )
+                )
+                if table_or_view_pattern is None:
+                    return True
+
+                dataset_params = dataset_name.split(".")
+                assert len(dataset_params) == 3
+                if (
+                    not self.config.database_pattern.allowed(dataset_params[0])
+                    or not self.config.schema_pattern.allowed(dataset_params[1])
+                    or not table_or_view_pattern.allowed(dataset_params[2])
+                ):
+                    return False
+                return True
+
+            def is_object_valid(obj: Dict[str, Any]) -> bool:
+                if is_unsupported_object_accessed(
+                    obj
+                ) or not is_dataset_pattern_allowed(
+                    obj.get("objectName"), obj.get("objectDomain")
+                ):
+                    return False
+                return True
+
+            event_dict["base_objects_accessed"] = [
+                obj
+                for obj in json.loads(event_dict["base_objects_accessed"])
+                if is_object_valid(obj)
+            ]
+            event_dict["direct_objects_accessed"] = [
+                obj
+                for obj in json.loads(event_dict["direct_objects_accessed"])
+                if is_object_valid(obj)
+            ]
             event_dict["query_start_time"] = (
                 event_dict["query_start_time"]
             ).astimezone(tz=timezone.utc)
 
+            if not event_dict["email"] and self.config.email_domain:
+                if not event_dict["user_name"]:
+                    self.report.report_warning(
+                        "user-name-miss", f"Missing in {event_dict}"
+                    )
+                    logger.warning(
+                        f"The user_name is missing from {event_dict}. Skipping ...."
+                    )
+                    continue
+
+                event_dict[
+                    "email"
+                ] = f'{event_dict["user_name"]}@{self.config.email_domain}'.lower()
+
             try:  # big hammer try block to ensure we don't fail on parsing events
                 event = SnowflakeJoinedAccessEvent(**event_dict)
                 yield event
-            except Exception:
+            except Exception as e:
+                logger.warning(f"Failed to parse usage line {event_dict}", e)
                 self.report.report_warning(
                     "usage", f"Failed to parse usage line {event_dict}"
                 )
 
+    def _get_operation_aspect_work_unit(
+        self, event: SnowflakeJoinedAccessEvent
+    ) -> Iterable[MetadataWorkUnit]:
+        if event.query_start_time and event.query_type in OPERATION_STATEMENT_TYPES:
+            start_time = event.query_start_time
+            query_type = event.query_type
+            user_email = event.email
+            operation_type = OPERATION_STATEMENT_TYPES[query_type]
+            last_updated_timestamp: int = int(start_time.timestamp() * 1000)
+            user_urn = builder.make_user_urn(user_email.split("@")[0])
+            for obj in event.base_objects_accessed:
+                resource = obj.objectName
+                dataset_urn = builder.make_dataset_urn_with_platform_instance(
+                    "snowflake",
+                    resource.lower(),
+                    self.config.platform_instance,
+                    self.config.env,
+                )
+                operation_aspect = OperationClass(
+                    timestampMillis=last_updated_timestamp,
+                    lastUpdatedTimestamp=last_updated_timestamp,
+                    actor=user_urn,
+                    operationType=operation_type,
+                )
+                mcp = MetadataChangeProposalWrapper(
+                    entityType="dataset",
+                    aspectName="operation",
+                    changeType=ChangeTypeClass.UPSERT,
+                    entityUrn=dataset_urn,
+                    aspect=operation_aspect,
+                )
+                wu = MetadataWorkUnit(
+                    id=f"operation-aspect-{resource}-{start_time.isoformat()}",
+                    mcp=mcp,
+                )
+                yield wu
+
     def _aggregate_access_events(
         self, events: Iterable[SnowflakeJoinedAccessEvent]
-    ) -> Dict[datetime, Dict[SnowflakeTableRef, AggregatedDataset]]:
-        datasets: Dict[
-            datetime, Dict[SnowflakeTableRef, AggregatedDataset]
-        ] = collections.defaultdict(dict)
+    ) -> Iterable[Union[AggregatedAccessEvents, MetadataWorkUnit]]:
+        """
+        Emits aggregated access events combined with operational workunits from the events.
+        """
+        datasets: AggregatedAccessEvents = collections.defaultdict(dict)
 
         for event in events:
             floored_ts = get_time_bucket(
                 event.query_start_time, self.config.bucket_duration
             )
 
-            for object in event.base_objects_accessed:
+            accessed_data = (
+                event.base_objects_accessed
+                if self.config.apply_view_usage_to_tables
+                else event.direct_objects_accessed
+            )
+            for object in accessed_data:
                 resource = object.objectName
-
                 agg_bucket = datasets[floored_ts].setdefault(
                     resource,
-                    AggregatedDataset(bucket_start_time=floored_ts, resource=resource),
+                    AggregatedDataset(
+                        bucket_start_time=floored_ts,
+                        resource=resource,
+                        user_email_pattern=self.config.user_email_pattern,
+                    ),
                 )
                 agg_bucket.add_read_entry(
                     event.email,
                     event.query_text,
-                    [colRef.columnName.lower() for colRef in object.columns],
+                    [colRef.columnName.lower() for colRef in object.columns]
+                    if object.columns is not None
+                    else [],
                 )
+            if self.config.include_operational_stats:
+                yield from self._get_operation_aspect_work_unit(event)
 
-        return datasets
+        yield datasets
 
     def _make_usage_stat(self, agg: AggregatedDataset) -> MetadataWorkUnit:
         return agg.make_usage_workunit(
             self.config.bucket_duration,
-            lambda resource: builder.make_dataset_urn(
-                "snowflake", resource.lower(), self.config.env
+            lambda resource: builder.make_dataset_urn_with_platform_instance(
+                "snowflake",
+                resource.lower(),
+                self.config.platform_instance,
+                self.config.env,
             ),
             self.config.top_n_queries,
         )
@@ -215,4 +511,5 @@ class SnowflakeUsageSource(Source):
         return self.report
 
     def close(self):
-        pass
+        self.update_default_job_summary()
+        self.prepare_for_commit()

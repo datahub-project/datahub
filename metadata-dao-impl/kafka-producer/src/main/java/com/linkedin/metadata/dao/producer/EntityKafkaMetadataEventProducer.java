@@ -1,9 +1,9 @@
 package com.linkedin.metadata.dao.producer;
 
+import com.datahub.util.exception.ModelConversionException;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.EventUtils;
-import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.snapshot.Snapshot;
@@ -88,7 +88,8 @@ public class EntityKafkaMetadataEventProducer implements EntityEventProducer {
 
     GenericRecord record;
     try {
-      log.debug(String.format(String.format("Converting Pegasus snapshot to Avro snapshot urn %s", urn),
+      log.debug(String.format("Converting Pegasus snapshot to Avro snapshot urn %s\nMetadataAuditEvent: %s",
+          urn,
           metadataAuditEvent.toString()));
       record = EventUtils.pegasusToAvroMAE(metadataAuditEvent);
     } catch (IOException e) {
@@ -121,7 +122,8 @@ public class EntityKafkaMetadataEventProducer implements EntityEventProducer {
       @Nonnull final MetadataChangeLog metadataChangeLog) {
     GenericRecord record;
     try {
-      log.debug(String.format(String.format("Converting Pegasus snapshot to Avro snapshot urn %s", urn),
+      log.debug(String.format("Converting Pegasus snapshot to Avro snapshot urn %s\nMetadataChangeLog: %s",
+          urn,
           metadataChangeLog.toString()));
       record = EventUtils.pegasusToAvroMCL(metadataChangeLog);
     } catch (IOException e) {

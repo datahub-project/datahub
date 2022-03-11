@@ -19,6 +19,7 @@ import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -52,12 +53,15 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
   @Action(name = "rollback")
   @Nonnull
   @WithSpan
-  public Task<RollbackResponse> rollback(
-      @ActionParam("runId") @Nonnull String runId,
-      @ActionParam("dryRun") @Optional @Nullable Boolean dryRun
-  ) {
+  public Task<RollbackResponse> rollback(@ActionParam("runId") @Nonnull String runId,
+      @ActionParam("dryRun") @Optional @Nullable Boolean dryRun) {
     log.info("ROLLBACK RUN runId: {} dry run: {}", runId, dryRun);
     return RestliUtil.toTask(() -> {
+      if (runId.equals(EntityService.DEFAULT_RUN_ID)) {
+        throw new IllegalArgumentException(String.format(
+            "%s is a default run-id provided for non labeled ingestion runs. You cannot delete using this reserved run-id",
+            runId));
+      }
       RollbackResponse response = new RollbackResponse();
       List<AspectRowSummary> aspectRowsToDelete;
       aspectRowsToDelete = _systemMetadataService.findByRunId(runId);
@@ -65,10 +69,11 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
       log.info("found {} rows to delete...", stringifyRowCount(aspectRowsToDelete.size()));
       if (dryRun) {
         response.setAspectsAffected(aspectRowsToDelete.size());
-        response.setEntitiesAffected(aspectRowsToDelete.stream().filter(row -> row.isKeyAspect()).count());
+        response.setEntitiesAffected(
+            aspectRowsToDelete.stream().collect(Collectors.groupingBy(AspectRowSummary::getUrn)).keySet().size());
+        response.setEntitiesDeleted(aspectRowsToDelete.stream().filter(row -> row.isKeyAspect()).count());
         response.setAspectRowSummaries(
-            new AspectRowSummaryArray(aspectRowsToDelete.subList(0, Math.min(100, aspectRowsToDelete.size())))
-        );
+            new AspectRowSummaryArray(aspectRowsToDelete.subList(0, Math.min(100, aspectRowsToDelete.size()))));
         return response;
       }
 
@@ -91,8 +96,7 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
       response.setAspectsAffected(deletedRows.size() + rowsDeletedFromEntityDeletion);
       response.setEntitiesAffected(deletedRows.stream().filter(row -> row.isKeyAspect()).count());
       response.setAspectRowSummaries(
-          new AspectRowSummaryArray(deletedRows.subList(0, Math.min(100, deletedRows.size())))
-      );
+          new AspectRowSummaryArray(deletedRows.subList(0, Math.min(100, deletedRows.size()))));
       return response;
     }, MetricRegistry.name(this.getClass(), "rollback"));
   }
@@ -119,10 +123,8 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
   @Action(name = "list")
   @Nonnull
   @WithSpan
-  public Task<IngestionRunSummaryArray> list(
-      @ActionParam("pageOffset") @Optional @Nullable Integer pageOffset,
-      @ActionParam("pageSize") @Optional @Nullable Integer pageSize
-  ) {
+  public Task<IngestionRunSummaryArray> list(@ActionParam("pageOffset") @Optional @Nullable Integer pageOffset,
+      @ActionParam("pageSize") @Optional @Nullable Integer pageSize) {
     log.info("LIST RUNS offset: {} size: {}", pageOffset, pageSize);
 
     return RestliUtil.toTask(() -> new IngestionRunSummaryArray(

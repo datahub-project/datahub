@@ -18,6 +18,7 @@ from datahub.cli.docker_check import (
     get_client_with_error,
 )
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.telemetry import telemetry
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +73,7 @@ def docker_check_impl() -> None:
 
 
 @docker.command()
+@telemetry.with_telemetry
 def check() -> None:
     """Check that the Docker containers are healthy"""
     docker_check_impl()
@@ -131,8 +133,8 @@ def should_use_neo4j_for_graph_service(graph_service_override: Optional[str]) ->
 @click.option(
     "--version",
     type=str,
-    default="head",
-    help="Datahub version to be deployed. If not set, deploy latest",
+    default=None,
+    help="Datahub version to be deployed. If not set, deploy using the defaults from the quickstart compose",
 )
 @click.option(
     "--build-locally",
@@ -162,6 +164,7 @@ def should_use_neo4j_for_graph_service(graph_service_override: Optional[str]) ->
     default=None,
     help="If set, forces docker-compose to use that graph service implementation",
 )
+@telemetry.with_telemetry
 def quickstart(
     version: str,
     build_locally: bool,
@@ -215,7 +218,8 @@ def quickstart(
             logger.debug(f"Copied to {path}")
 
     # set version
-    os.environ["DATAHUB_VERSION"] = version
+    if version is not None:
+        os.environ["DATAHUB_VERSION"] = version
 
     base_command: List[str] = [
         "docker-compose",
@@ -315,6 +319,7 @@ def quickstart(
     type=click.Path(exists=True, dir_okay=False),
     help=f"The MCE json file to ingest. Defaults to downloading {BOOTSTRAP_MCES_FILE} from GitHub",
 )
+@telemetry.with_telemetry
 def ingest_sample_data(path: Optional[str]) -> None:
     """Ingest sample data into a running DataHub instance."""
 
@@ -360,7 +365,15 @@ def ingest_sample_data(path: Optional[str]) -> None:
 
 
 @docker.command()
-def nuke() -> None:
+@telemetry.with_telemetry
+@click.option(
+    "--keep-data",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Delete data volumes",
+)
+def nuke(keep_data: bool) -> None:
     """Remove all Docker containers, networks, and volumes associated with DataHub."""
 
     with get_client_with_error() as (client, error):
@@ -376,11 +389,14 @@ def nuke() -> None:
         ):
             container.remove(v=True, force=True)
 
-        click.echo("Removing volumes in the datahub project")
-        for volume in client.volumes.list(
-            filters={"label": "com.docker.compose.project=datahub"}
-        ):
-            volume.remove(force=True)
+        if keep_data:
+            click.echo("Skipping deleting data volumes in the datahub project")
+        else:
+            click.echo("Removing volumes in the datahub project")
+            for volume in client.volumes.list(
+                filters={"label": "com.docker.compose.project=datahub"}
+            ):
+                volume.remove(force=True)
 
         click.echo("Removing networks in the datahub project")
         for network in client.networks.list(

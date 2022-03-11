@@ -14,7 +14,9 @@ public enum DataHubUsageEventType {
   BROWSE_RESULT_CLICK_EVENT("BrowseResultClickEvent"),
   ENTITY_VIEW_EVENT("EntityViewEvent"),
   ENTITY_SECTION_VIEW_EVENT("EntitySectionViewEvent"),
-  ENTITY_ACTION_EVENT("EntityActionEvent");
+  ENTITY_ACTION_EVENT("EntityActionEvent"),
+  RECOMMENDATION_IMPRESSION_EVENT("RecommendationImpressionEvent"),
+  RECOMMENDATION_CLICK_EVENT("RecommendationClickEvent");
 
   private final String type;
 

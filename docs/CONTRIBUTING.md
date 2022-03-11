@@ -2,9 +2,15 @@
 
 We always welcome contributions to help make DataHub better. Take a moment to read this document if you would like to contribute.
 
-## Reporting issues
+## Provide Feedback
 
-We use GitHub issues to track bug reports, feature requests, and submitting pull requests.
+Have ideas about how to make DataHub better? Head over to [DataHub Feature Requests](https://feature-requests.datahubproject.io/) and tell us all about it!
+
+Show your support for other requests by upvoting; stay up to date on progess by subscribing for updates via email.
+
+## Reporting Issues
+
+We use GitHub issues to track bug reports and submitting pull requests.
 
 If you find a bug:
 

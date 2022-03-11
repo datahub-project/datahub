@@ -6,6 +6,7 @@ import com.linkedin.common.DatasetFieldUrn
 /**
  * Representation of mapping between fields in source dataset to the field in destination dataset
  */
+ @deprecated = "use FineGrainedLineage instead"
 record DatasetFieldMapping includes BaseFieldMapping {
   /**
    * Source fields from which the fine grained lineage is derived

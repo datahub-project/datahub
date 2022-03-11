@@ -121,10 +121,12 @@ export const sampleSchemaWithTags: Schema = {
                     {
                         term: {
                             type: EntityType.GlossaryTerm,
-                            urn: 'urn:li:glossaryTerm:sample-glossary-term',
                             name: 'sample-glossary-term',
+                            urn: 'urn:li:glossaryTerm:sample-glossary-term',
                             hierarchicalName: 'example.sample-glossary-term',
-                            glossaryTermInfo: {
+                            properties: {
+                                name: 'sample-glossary-term',
+                                description: 'sample definition',
                                 definition: 'sample definition',
                                 termSource: 'sample term source',
                             },
@@ -246,7 +248,9 @@ export const sampleSchemaWithPkFk: SchemaMetadata = {
                             urn: 'urn:li:glossaryTerm:sample-glossary-term',
                             name: 'sample-glossary-term',
                             hierarchicalName: 'example.sample-glossary-term',
-                            glossaryTermInfo: {
+                            properties: {
+                                name: 'sample-glossary-term',
+                                description: 'sample definition',
                                 definition: 'sample definition',
                                 termSource: 'sample term source',
                             },
@@ -309,6 +313,47 @@ export const sampleSchemaWithPkFk: SchemaMetadata = {
             description: 'struct representing the payment information',
             type: SchemaFieldDataType.Struct,
             nativeDataType: 'struct',
+            recursive: false,
+        } as SchemaField,
+    ],
+};
+
+export const sampleSchemaWithoutFields: SchemaMetadata | Schema | null = {
+    name: 'MockSchema',
+    platformUrn: 'mock:urn',
+    version: 1,
+    hash: '',
+    fields: [],
+};
+
+export const sampleSchemaWithKeyValueFields: SchemaMetadata | Schema | null = {
+    name: 'MockSchema',
+    platformUrn: 'mock:urn',
+    version: 1,
+    hash: '',
+    fields: [
+        {
+            fieldPath: '[key=True].[version=2.0].id',
+            nullable: true,
+            description: 'the number of items in the order',
+            type: SchemaFieldDataType.Number,
+            nativeDataType: 'number',
+            recursive: false,
+        },
+        {
+            fieldPath: 'count',
+            nullable: true,
+            description: 'the number of items in the order',
+            type: SchemaFieldDataType.Number,
+            nativeDataType: 'number',
+            recursive: false,
+        },
+        {
+            fieldPath: 'cost',
+            nullable: true,
+            description: 'the dollar value of the order',
+            type: SchemaFieldDataType.Number,
+            nativeDataType: 'number',
             recursive: false,
         } as SchemaField,
     ],

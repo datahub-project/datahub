@@ -16,7 +16,33 @@ extend type Query {
     Retrieves a set of server driven Analytics Highlight Cards to render in the UI
     """
     getHighlights: [Highlight!]!
+
+    """
+    Retrieves a set of charts regarding the ingested metadata
+    """
+    getMetadataAnalyticsCharts(input: MetadataAnalyticsInput!): [AnalyticsChartGroup!]!
 }
+
+"""
+Input to fetch metadata analytics charts
+"""
+input MetadataAnalyticsInput {
+    """
+    Entity type to fetch analytics for (If empty, queries across all entities)
+    """
+    entityType: EntityType
+
+    """
+    Urn of the domain to fetch analytics for (If empty or GLOBAL, queries across all domains)
+    """
+    domain: String
+
+    """
+    Search query to filter down result (If empty, does not apply any search query)
+    """
+    query: String
+}
+
 
 """
 For consumption by UI only
@@ -27,6 +53,7 @@ union AnalyticsChart = TimeSeriesChart | BarChart | TableChart
 For consumption by UI only
 """
 type AnalyticsChartGroup {
+    groupId: String!
     title: String!
     charts: [AnalyticsChart!]!
 }
@@ -102,12 +129,41 @@ type BarChart {
     bars: [NamedBar!]!
 }
 
+
+"""
+Parameters required to specify the page to land once clicked
+"""
+type LinkParams {
+    """
+    Context to define the search page
+    """
+    searchParams: SearchParams
+
+    """
+    Context to define the entity profile page
+    """
+    entityProfileParams: EntityProfileParams
+}
+
+"""
+For consumption by UI only
+"""
+type Cell {
+    value: String!
+    entity: Entity
+    linkParams: LinkParams
+}
+
+
 """
 For consumption by UI only
 """
 type Row {
-    # All values are expected to be strings.
+    # DEPRECATED All values are expected to be strings.
     values: [String!]!
+
+    # More detailed information about each cell in the row
+    cells: [Cell!]
 }
 
 """

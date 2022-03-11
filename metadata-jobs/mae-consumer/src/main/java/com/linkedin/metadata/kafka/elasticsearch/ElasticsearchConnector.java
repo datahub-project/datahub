@@ -44,7 +44,7 @@ public class ElasticsearchConnector {
 
       @Override
       public void afterBulk(long executionId, BulkRequest request, Throwable failure) {
-        log.info("Error feeding bulk request. No retries left", failure);
+        log.error("Error feeding bulk request. No retries left", failure);
       }
     };
 

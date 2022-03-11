@@ -4,14 +4,11 @@ There are a two ways to delete metadata from DataHub.
 - Delete metadata attached to entities by providing a specific urn or a filter that identifies a set of entities
 - Delete metadata affected by a single ingestion run
 
+To follow this guide you need to use [DataHub CLI](../cli.md).
+
 Read on to find out how to perform these kinds of deletes.
 
 _Note: Deleting metadata should only be done with care. Always use `--dry-run` to understand what will be deleted before proceeding. Prefer soft-deletes (`--soft`) unless you really want to nuke metadata rows. Hard deletes will actually delete rows in the primary store and recovering them will require using backups of the primary metadata store. Make sure you understand the implications of issuing soft-deletes versus hard-deletes before proceeding._ 
-
-## The `datahub` CLI
-
-To use the datahub CLI you follow the installation and configuration guide at [DataHub CLI](../cli.md) or you can use the `datahub-ingestion` docker image as explained in [Docker Images](../../docker/README.md). In case you are using Kubernetes you can start a pod with the `datahub-ingestion` docker image, log onto a shell on the pod and you should have the access to datahub CLI in your kubernetes cluster.
-
 
 ## Delete By Urn
 
@@ -40,6 +37,12 @@ You can optionally add `-n` or `--dry-run` to execute a dry run before issuing t
 You can optionally add `-f` or `--force` to skip confirmations
 
 _Note: make sure you surround your urn with quotes! If you do not include the quotes, your terminal may misinterpret the command._
+
+If you wish to hard-delete using a curl request you can use something like below. Replace the URN with the URN that you wish to delete
+
+```
+curl "http://localhost:8080/entities?action=delete" -X POST --data '{"urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"}'
+```
 
 ## Delete using Broader Filters
 

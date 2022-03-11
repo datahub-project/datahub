@@ -7,6 +7,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
+import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -104,7 +105,7 @@ public class TokenService {
     if (this.iss != null) {
       builder.setIssuer(this.iss);
     }
-    byte[] apiKeySecretBytes = Base64.getDecoder().decode(this.signingKey); // Key must be base64'd.
+    byte [] apiKeySecretBytes = this.signingKey.getBytes(StandardCharsets.UTF_8);
     final Key signingKey = new SecretKeySpec(apiKeySecretBytes, this.signingAlgorithm.getJcaName());
     return builder.signWith(signingKey, this.signingAlgorithm).compact();
   }
@@ -118,8 +119,10 @@ public class TokenService {
   public TokenClaims validateAccessToken(@Nonnull final String accessToken) throws TokenException {
     Objects.requireNonNull(accessToken);
     try {
+      byte [] apiKeySecretBytes = this.signingKey.getBytes(StandardCharsets.UTF_8);
+      final String base64Key = Base64.getEncoder().encodeToString(apiKeySecretBytes);
       final Claims claims = (Claims) Jwts.parserBuilder()
-          .setSigningKey(this.signingKey)
+          .setSigningKey(base64Key)
           .build()
           .parse(accessToken)
           .getBody();
@@ -135,6 +138,8 @@ public class TokenService {
               actorId,
               claims.getExpiration().getTime());
       }
+    } catch (io.jsonwebtoken.ExpiredJwtException e) {
+      throw new TokenExpiredException("Failed to validate DataHub token. Token has expired.", e);
     } catch (Exception e) {
       throw new TokenException("Failed to validate DataHub token", e);
     }

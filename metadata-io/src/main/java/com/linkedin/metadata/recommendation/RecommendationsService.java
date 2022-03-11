@@ -4,6 +4,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.recommendation.candidatesource.RecommendationSource;
 import com.linkedin.metadata.recommendation.ranker.RecommendationModuleRanker;
 import com.linkedin.metadata.utils.ConcurrencyUtils;
+import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -49,6 +50,7 @@ public class RecommendationsService {
    * @return List of recommendation modules
    */
   @Nonnull
+  @WithSpan
   public List<RecommendationModule> listRecommendations(
       @Nonnull Urn userUrn,
       @Nonnull RecommendationRequestContext requestContext,

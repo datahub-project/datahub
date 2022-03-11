@@ -79,7 +79,7 @@ public class TokenServiceTest {
     assertNotNull(token);
 
     // Validation should fail.
-    assertThrows(TokenException.class, () -> tokenService.validateAccessToken(token));
+    assertThrows(TokenExpiredException.class, () -> tokenService.validateAccessToken(token));
   }
 
   @Test

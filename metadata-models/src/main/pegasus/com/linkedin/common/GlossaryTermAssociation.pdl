@@ -9,7 +9,7 @@ record GlossaryTermAssociation {
   */
   @Searchable = {
     "fieldName": "glossaryTerms",
-    "fieldType": "URN_PARTIAL",
+    "fieldType": "URN",
     "addToFilters": true,
     "filterNameOverride": "Glossary Term"
   }

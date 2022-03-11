@@ -27,6 +27,16 @@ public class PoliciesConfig {
       "Manage Policies",
       "Create and remove access control policies. Be careful - Actors with this privilege are effectively super users.");
 
+  public static final Privilege MANAGE_INGESTION_PRIVILEGE = Privilege.of(
+      "MANAGE_INGESTION",
+      "Manage Metadata Ingestion",
+      "Create, remove, and update Metadata Ingestion sources.");
+
+  public static final Privilege MANAGE_SECRETS_PRIVILEGE = Privilege.of(
+      "MANAGE_SECRETS",
+      "Manage Secrets",
+      "Create & remove Secrets stored inside DataHub.");
+
   public static final Privilege MANAGE_USERS_AND_GROUPS_PRIVILEGE = Privilege.of(
       "MANAGE_USERS_AND_GROUPS",
       "Manage Users & Groups",
@@ -42,10 +52,19 @@ public class PoliciesConfig {
       "Generate Personal Access Tokens",
       "Generate personal access tokens for use with DataHub APIs.");
 
+
+  public static final Privilege MANAGE_DOMAINS_PRIVILEGE = Privilege.of(
+      "MANAGE_DOMAINS",
+      "Manage Domains",
+      "Create and remove Asset Domains.");
+
   public static final List<Privilege> PLATFORM_PRIVILEGES = ImmutableList.of(
       MANAGE_POLICIES_PRIVILEGE,
       MANAGE_USERS_AND_GROUPS_PRIVILEGE,
       VIEW_ANALYTICS_PRIVILEGE,
+      MANAGE_DOMAINS_PRIVILEGE,
+      MANAGE_INGESTION_PRIVILEGE,
+      MANAGE_SECRETS_PRIVILEGE,
       GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE
   );
 
@@ -64,27 +83,42 @@ public class PoliciesConfig {
   public static final Privilege EDIT_ENTITY_OWNERS_PRIVILEGE = Privilege.of(
       "EDIT_ENTITY_OWNERS",
       "Edit Owners",
-      "The ability to add and remove owners of an asset.");
+      "The ability to add and remove owners of an entity.");
 
   public static final Privilege EDIT_ENTITY_DOCS_PRIVILEGE = Privilege.of(
       "EDIT_ENTITY_DOCS",
-      "Edit Documentation",
-      "The ability to edit documentation about an asset.");
+      "Edit Description",
+      "The ability to edit the description (documentation) of an entity.");
 
   public static final Privilege EDIT_ENTITY_DOC_LINKS_PRIVILEGE = Privilege.of(
       "EDIT_ENTITY_DOC_LINKS",
       "Edit Links",
-      "The ability to edit links associated with an asset.");
+      "The ability to edit links associated with an entity.");
 
   public static final Privilege EDIT_ENTITY_STATUS_PRIVILEGE = Privilege.of(
       "EDIT_ENTITY_STATUS",
       "Edit Status",
       "The ability to edit the status of an entity (soft deleted or not).");
 
+  public static final Privilege EDIT_ENTITY_DOMAINS_PRIVILEGE = Privilege.of(
+      "EDIT_DOMAINS_PRIVILEGE",
+      "Edit Domain",
+      "The ability to edit the Domain of an entity.");
+
+  public static final Privilege EDIT_ENTITY_DEPRECATION_PRIVILEGE = Privilege.of(
+      "EDIT_DEPRECATION_PRIVILEGE",
+      "Edit Deprecation",
+      "The ability to edit the Deprecation status of an entity.");
+
+  public static final Privilege EDIT_ENTITY_ASSERTIONS_PRIVILEGE = Privilege.of(
+      "EDIT_ENTITY_ASSERTIONS",
+      "Edit Assertions",
+      "The ability to add and remove assertions from an entity.");
+
   public static final Privilege EDIT_ENTITY_PRIVILEGE = Privilege.of(
       "EDIT_ENTITY",
       "Edit All",
-      "The ability to edit any information about an asset. Super user privileges.");
+      "The ability to edit any information about an entity. Super user privileges.");
 
   public static final List<Privilege> COMMON_ENTITY_PRIVILEGES = ImmutableList.of(
       EDIT_ENTITY_TAGS_PRIVILEGE,
@@ -93,6 +127,8 @@ public class PoliciesConfig {
       EDIT_ENTITY_DOCS_PRIVILEGE,
       EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
       EDIT_ENTITY_STATUS_PRIVILEGE,
+      EDIT_ENTITY_DOMAINS_PRIVILEGE,
+      EDIT_ENTITY_DEPRECATION_PRIVILEGE,
       EDIT_ENTITY_PRIVILEGE
   );
 
@@ -115,12 +151,40 @@ public class PoliciesConfig {
       "The ability to edit the column (field) descriptions associated with a dataset schema."
   );
 
+  // Tag Privileges
+  public static final Privilege EDIT_TAG_COLOR_PRIVILEGE = Privilege.of(
+      "EDIT_TAG_COLOR",
+      "Edit Tag Color",
+      "The ability to change the color of a Tag.");
+
+  // Group Privileges
+  public static final Privilege EDIT_GROUP_MEMBERS_PRIVILEGE = Privilege.of(
+      "EDIT_GROUP_MEMBERS",
+      "Edit Group Members",
+      "The ability to add and remove members to a group.");
+
+  // User Privileges
+  public static final Privilege EDIT_USER_PROFILE_PRIVILEGE = Privilege.of(
+      "EDIT_USER_PROFILE",
+      "Edit User Profile",
+      "The ability to change the user's profile including display name, bio, title, profile image, etc.");
+
+  // User + Group Privileges
+  public static final Privilege EDIT_CONTACT_INFO_PRIVILEGE = Privilege.of(
+      "EDIT_CONTACT_INFO",
+      "Edit Contact Information",
+      "The ability to change the contact information such as email & chat handles.");
+
   public static final ResourcePrivileges DATASET_PRIVILEGES = ResourcePrivileges.of(
       "dataset",
       "Datasets",
       "Datasets indexed by DataHub", Stream.of(
           COMMON_ENTITY_PRIVILEGES,
-          ImmutableList.of(EDIT_DATASET_COL_DESCRIPTION_PRIVILEGE, EDIT_DATASET_COL_TAGS_PRIVILEGE, EDIT_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE))
+          ImmutableList.of(
+              EDIT_DATASET_COL_DESCRIPTION_PRIVILEGE,
+              EDIT_DATASET_COL_TAGS_PRIVILEGE,
+              EDIT_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE,
+              EDIT_ENTITY_ASSERTIONS_PRIVILEGE))
           .flatMap(Collection::stream)
           .collect(Collectors.toList())
   );
@@ -162,7 +226,60 @@ public class PoliciesConfig {
       "tag",
       "Tags",
       "Tags indexed by DataHub",
-      ImmutableList.of(EDIT_ENTITY_OWNERS_PRIVILEGE, EDIT_ENTITY_PRIVILEGE)
+      ImmutableList.of(EDIT_ENTITY_OWNERS_PRIVILEGE, EDIT_TAG_COLOR_PRIVILEGE, EDIT_ENTITY_DOCS_PRIVILEGE, EDIT_ENTITY_PRIVILEGE)
+  );
+
+  // Container Privileges
+  public static final ResourcePrivileges CONTAINER_PRIVILEGES = ResourcePrivileges.of(
+      "container",
+      "Containers",
+      "Containers indexed by DataHub",
+      COMMON_ENTITY_PRIVILEGES
+  );
+
+  // Domain Privileges
+  public static final ResourcePrivileges DOMAIN_PRIVILEGES = ResourcePrivileges.of(
+      "domain",
+      "Domains",
+      "Domains created on DataHub",
+      ImmutableList.of(EDIT_ENTITY_OWNERS_PRIVILEGE, EDIT_ENTITY_DOCS_PRIVILEGE, EDIT_ENTITY_DOC_LINKS_PRIVILEGE, EDIT_ENTITY_PRIVILEGE)
+  );
+
+  // Glossary Term Privileges
+  public static final ResourcePrivileges GLOSSARY_TERM_PRIVILEGES = ResourcePrivileges.of(
+      "glossaryTerm",
+      "Glossary Terms",
+      "Glossary Terms created on DataHub",
+      ImmutableList.of(
+          EDIT_ENTITY_OWNERS_PRIVILEGE,
+          EDIT_ENTITY_DOCS_PRIVILEGE,
+          EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
+          EDIT_ENTITY_DEPRECATION_PRIVILEGE,
+          EDIT_ENTITY_PRIVILEGE)
+  );
+
+  // Group Privileges
+  public static final ResourcePrivileges CORP_GROUP_PRIVILEGES = ResourcePrivileges.of(
+      "corpGroup",
+      "Groups",
+      "Groups on DataHub",
+      ImmutableList.of(
+          EDIT_ENTITY_OWNERS_PRIVILEGE,
+          EDIT_GROUP_MEMBERS_PRIVILEGE,
+          EDIT_CONTACT_INFO_PRIVILEGE,
+          EDIT_ENTITY_DOCS_PRIVILEGE,
+          EDIT_ENTITY_PRIVILEGE)
+  );
+
+  // User Privileges
+  public static final ResourcePrivileges CORP_USER_PRIVILEGES = ResourcePrivileges.of(
+      "corpuser",
+      "Users",
+      "Users on DataHub",
+      ImmutableList.of(
+          EDIT_CONTACT_INFO_PRIVILEGE,
+          EDIT_USER_PROFILE_PRIVILEGE,
+          EDIT_ENTITY_PRIVILEGE)
   );
 
   public static final List<ResourcePrivileges> RESOURCE_PRIVILEGES = ImmutableList.of(
@@ -171,7 +288,12 @@ public class PoliciesConfig {
       CHART_PRIVILEGES,
       DATA_FLOW_PRIVILEGES,
       DATA_JOB_PRIVILEGES,
-      TAG_PRIVILEGES
+      TAG_PRIVILEGES,
+      CONTAINER_PRIVILEGES,
+      DOMAIN_PRIVILEGES,
+      GLOSSARY_TERM_PRIVILEGES,
+      CORP_GROUP_PRIVILEGES,
+      CORP_USER_PRIVILEGES
   );
 
   @Data

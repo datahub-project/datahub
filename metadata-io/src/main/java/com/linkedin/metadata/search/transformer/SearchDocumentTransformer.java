@@ -1,14 +1,13 @@
 package com.linkedin.metadata.search.transformer;
 
 import com.fasterxml.jackson.databind.JsonNode;
-
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.extractor.FieldExtractor;
+import com.linkedin.metadata.models.extractor.FieldExtractor;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
@@ -16,6 +15,7 @@ import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 
@@ -23,12 +23,14 @@ import lombok.extern.slf4j.Slf4j;
  * Class that provides a utility function that transforms the snapshot object into a search document
  */
 @Slf4j
+@RequiredArgsConstructor
 public class SearchDocumentTransformer {
 
-  private SearchDocumentTransformer() {
-  }
+  // Number of elements to index for a given array.
+  // The cap improves search speed when having fields with a large number of elements
+  private final int maxArrayLength;
 
-  public static Optional<String> transformSnapshot(
+  public Optional<String> transformSnapshot(
       final RecordTemplate snapshot,
       final EntitySpec entitySpec,
       final Boolean forDelete
@@ -44,7 +46,7 @@ public class SearchDocumentTransformer {
     return Optional.of(searchDocument.toString());
   }
 
-  public static Optional<String> transformAspect(
+  public Optional<String> transformAspect(
       final Urn urn,
       final RecordTemplate aspect,
       final AspectSpec aspectSpec,
@@ -61,7 +63,7 @@ public class SearchDocumentTransformer {
     return Optional.of(searchDocument.toString());
   }
 
-  public static void setValue(final SearchableFieldSpec fieldSpec, final List<Object> fieldValues,
+  public void setValue(final SearchableFieldSpec fieldSpec, final List<Object> fieldValues,
       final ObjectNode searchDocument, final Boolean forDelete) {
     DataSchema.Type valueType = fieldSpec.getPegasusSchema().getType();
     Optional<Object> firstValue = fieldValues.stream().findFirst();
@@ -109,14 +111,15 @@ public class SearchDocumentTransformer {
 
     if (isArray || valueType == DataSchema.Type.MAP) {
       ArrayNode arrayNode = JsonNodeFactory.instance.arrayNode();
-      fieldValues.forEach(value -> getNodeForValue(valueType, value, fieldType).ifPresent(arrayNode::add));
+      fieldValues.subList(0, Math.min(fieldValues.size(), maxArrayLength))
+          .forEach(value -> getNodeForValue(valueType, value, fieldType).ifPresent(arrayNode::add));
       searchDocument.set(fieldName, arrayNode);
     } else if (!fieldValues.isEmpty()) {
       getNodeForValue(valueType, fieldValues.get(0), fieldType).ifPresent(node -> searchDocument.set(fieldName, node));
     }
   }
 
-  private static Optional<JsonNode> getNodeForValue(final DataSchema.Type schemaFieldType, final Object fieldValue,
+  private Optional<JsonNode> getNodeForValue(final DataSchema.Type schemaFieldType, final Object fieldValue,
       final FieldType fieldType) {
     switch (schemaFieldType) {
       case BOOLEAN:

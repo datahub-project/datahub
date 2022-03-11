@@ -1,5 +1,6 @@
 query appConfig {
     appConfig {
+        appVersion
         policiesConfig {
             enabled
             platformPrivileges {
@@ -22,6 +23,12 @@ query appConfig {
             enabled
         }
         identityManagementConfig {
+            enabled
+        }
+        lineageConfig {
+            supportsImpactAnalysis
+        }
+        managedIngestionConfig {
             enabled
         }
     }

@@ -1,10 +1,10 @@
 from typing import Callable, List, Union
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import ConfigModel, KeyValuePattern
 from datahub.configuration.import_resolver import pydantic_resolve_key
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.transformer.dataset_transformer import DatasetTransformer
+from datahub.ingestion.transformer.dataset_transformer import DatasetTagsTransformer
 from datahub.metadata.schema_classes import (
     DatasetSnapshotClass,
     GlobalTagsClass,
@@ -24,13 +24,14 @@ class AddDatasetTagsConfig(ConfigModel):
     _resolve_tag_fn = pydantic_resolve_key("get_tags_to_add")
 
 
-class AddDatasetTags(DatasetTransformer):
+class AddDatasetTags(DatasetTagsTransformer):
     """Transformer that adds tags to datasets according to a callback function."""
 
     ctx: PipelineContext
     config: AddDatasetTagsConfig
 
     def __init__(self, config: AddDatasetTagsConfig, ctx: PipelineContext):
+        super().__init__()
         self.ctx = ctx
         self.config = config
 
@@ -40,8 +41,7 @@ class AddDatasetTags(DatasetTransformer):
         return cls(config, ctx)
 
     def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventClass:
-        if not isinstance(mce.proposedSnapshot, DatasetSnapshotClass):
-            return mce
+        assert isinstance(mce.proposedSnapshot, DatasetSnapshotClass)
         tags_to_add = self.config.get_tags_to_add(mce.proposedSnapshot)
         if tags_to_add:
             tags = builder.get_or_add_aspect(
@@ -73,4 +73,26 @@ class SimpleAddDatasetTags(AddDatasetTags):
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SimpleAddDatasetTags":
         config = SimpleDatasetTagConfig.parse_obj(config_dict)
+        return cls(config, ctx)
+
+
+class PatternDatasetTagsConfig(ConfigModel):
+    tag_pattern: KeyValuePattern = KeyValuePattern.all()
+
+
+class PatternAddDatasetTags(AddDatasetTags):
+    """Transformer that adds a specified set of tags to each dataset."""
+
+    def __init__(self, config: PatternDatasetTagsConfig, ctx: PipelineContext):
+        tag_pattern = config.tag_pattern
+        generic_config = AddDatasetTagsConfig(
+            get_tags_to_add=lambda _: [
+                TagAssociationClass(tag=urn) for urn in tag_pattern.value(_.urn)
+            ],
+        )
+        super().__init__(generic_config, ctx)
+
+    @classmethod
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "PatternAddDatasetTags":
+        config = PatternDatasetTagsConfig.parse_obj(config_dict)
         return cls(config, ctx)

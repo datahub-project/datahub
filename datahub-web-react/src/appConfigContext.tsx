@@ -13,6 +13,12 @@ export const DEFAULT_APP_CONFIG = {
     identityManagementConfig: {
         enabled: false,
     },
+    managedIngestionConfig: {
+        enabled: false,
+    },
+    lineageConfig: {
+        supportsImpactAnalysis: false,
+    },
 };
 
 export const AppConfigContext = React.createContext<{

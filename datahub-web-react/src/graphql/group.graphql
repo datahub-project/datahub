@@ -8,6 +8,14 @@ query getGroup($urn: String!, $membersCount: Int!) {
             description
             email
         }
+        editableProperties {
+            description
+            slack
+            email
+        }
+        ownership {
+            ...ownershipFields
+        }
         relationships(input: { types: ["IsMemberOfGroup"], direction: INCOMING, start: 0, count: $membersCount }) {
             start
             count
@@ -25,7 +33,9 @@ query getGroup($urn: String!, $membersCount: Int!) {
                             lastName
                             fullName
                         }
-                        editableInfo {
+                        editableProperties {
+                            displayName
+                            title
                             pictureLink
                         }
                     }
@@ -54,7 +64,11 @@ query getGroupMembers($urn: String!, $start: Int!, $count: Int!) {
                             lastName
                             fullName
                         }
+                        properties {
+                            displayName
+                        }
                         editableInfo {
+                            displayName
                             pictureLink
                         }
                     }
@@ -99,4 +113,10 @@ mutation removeGroup($urn: String!) {
 
 mutation createGroup($input: CreateGroupInput!) {
     createGroup(input: $input)
+}
+
+mutation updateCorpGroupProperties($urn: String!, $input: CorpGroupUpdateInput!) {
+    updateCorpGroupProperties(urn: $urn, input: $input) {
+        urn
+    }
 }

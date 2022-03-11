@@ -1,0 +1,83 @@
+namespace com.linkedin.assertion
+
+import com.linkedin.common.Urn
+
+/**
+* Attributes that are applicable to single-Dataset Assertions
+**/
+record DatasetAssertionInfo {
+    /**
+    * The dataset targeted by this assertion.
+    */
+    @Relationship = {
+      "name": "Asserts",
+      "entityTypes": [ "dataset" ]
+    }
+    dataset: Urn
+
+    /**
+    * Scope of the Assertion. What part of the dataset does this assertion apply to?
+    **/
+    scope: enum DatasetAssertionScope {
+      /**
+      * This assertion applies to dataset columns
+      */
+      DATASET_COLUMN
+
+      /**
+      * This assertion applies to entire rows of the dataset
+      */
+      DATASET_ROWS
+
+      /**
+      * This assertion applies to the schema of the dataset
+      */
+      DATASET_SCHEMA
+
+      /**
+      * The scope of the assertion is unknown
+      */
+      UNKNOWN
+    }
+
+    /**
+    * One or more dataset schema fields that are targeted by this assertion
+    */
+    @Relationship = {
+      "/*": {
+        "name": "Asserts",
+        "entityTypes": [ "schemaField" ]
+      }
+    }
+    fields: optional array[Urn]
+
+    /**
+    * Standardized assertion operator
+    */
+    aggregation: optional AssertionStdAggregation
+
+    /**
+    * Standardized assertion operator
+    */
+    operator: AssertionStdOperator
+
+    /**
+    * Standard parameters required for the assertion. e.g. min_value, max_value, value, columns
+    */
+    parameters: optional AssertionStdParameters
+
+    /**
+    * Native assertion type
+    */
+    nativeType: optional string // filled with the platform specific native type string
+
+    /**
+    * Native parameters required for the assertion.
+    */
+    nativeParameters: optional map[string, string]
+
+    /*
+    * Logic for the assertion as expressed in the native assertion language. Code fragments, query strings, etc.
+    */
+    logic: optional string
+}

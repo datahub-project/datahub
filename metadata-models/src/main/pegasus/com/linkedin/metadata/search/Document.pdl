@@ -1,6 +1,0 @@
-namespace com.linkedin.metadata.search
-
-/**
- * A union of all supported document types.
- */
-typeref Document = union[CorpUserInfoDocument, DatasetDocument]

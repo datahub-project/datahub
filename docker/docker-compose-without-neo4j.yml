@@ -103,6 +103,16 @@ services:
       - "9002:9002"
     depends_on:
       - datahub-gms
+    volumes:
+      - ${HOME}/.datahub/plugins:/etc/datahub/plugins
+
+  datahub-actions:
+    image: public.ecr.aws/datahub/acryl-datahub-actions:${ACTIONS_VERSION:-v0.0.1-beta.11}
+    hostname: actions
+    env_file: datahub-actions/env/docker.env
+    depends_on:
+      - datahub-gms
+
 
 networks:
   default:

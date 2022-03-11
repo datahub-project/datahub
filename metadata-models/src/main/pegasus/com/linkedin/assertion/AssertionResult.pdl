@@ -1,0 +1,52 @@
+namespace com.linkedin.assertion
+
+/**
+ * The result of running an assertion
+ */
+record AssertionResult {
+  /**
+  *  The final result, e.g. either SUCCESS or FAILURE.
+  */
+  @TimeseriesField = {}
+  type: enum AssertionResultType {
+    /**
+    *  The Assertion Succeeded
+    */
+    SUCCESS
+    /**
+    *  The Assertion Failed
+    */
+    FAILURE
+  }
+
+  /**
+   * Number of rows for evaluated batch
+   */
+  rowCount: optional long
+
+  /**
+   * Number of rows with missing value for evaluated batch
+   */
+  missingCount: optional long
+
+  /**
+   * Number of rows with unexpected value for evaluated batch
+   */
+  unexpectedCount: optional long
+
+  /**
+   * Observed aggregate value for evaluated batch
+   */
+  actualAggValue: optional float
+
+  /**
+   * Other results of evaluation
+   */
+  nativeResults: optional map[string, string]
+
+  /**
+   * URL where full results are available
+   */
+  externalUrl: optional string
+
+}

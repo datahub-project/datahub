@@ -34,9 +34,16 @@ g. Below, add a **Logout Redirect URI**. This should be formatted as
 https://your-datahub-domain.com
 ```
 
+h. [Optional] If you're enabling DataHub login as an Okta tile, you'll need to provide the **Initiate Login URI**. You
+can set if to
+
+```
+https://your-datahub-domain.com/authenticate
+```
+
 If you're just testing locally, this can be `http://localhost:9002`.
 
-h. Click **Save**
+i. Click **Save**
 
 
 ### 2. Obtain Client Credentials
@@ -75,7 +82,7 @@ AUTH_OIDC_BASE_URL=your-datahub-url
 AUTH_OIDC_SCOPE="openid profile email groups"
 ```
 
-Replacing the placeholders above with the client id & client secret received from Google in Step 3f.
+Replacing the placeholders above with the client id & client secret received from Okta in Step 2.
 
 > **Pro Tip!** You can easily enable Okta to return the groups that a user is associated with, which will be provisioned in DataHub, along with the user logging in, 
 > if they do not already exist in DataHub. You can enable your Okta application to return a 'groups' claim from the Okta Console at Applications > Your Application -> Sign On -> OpenID Connect ID Token Settings (Requires an edit).

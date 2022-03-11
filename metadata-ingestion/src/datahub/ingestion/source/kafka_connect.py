@@ -11,6 +11,7 @@ from sqlalchemy.engine.url import make_url
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
@@ -25,14 +26,13 @@ class ProvidedConfig(ConfigModel):
     value: str
 
 
-class KafkaConnectSourceConfig(ConfigModel):
+class KafkaConnectSourceConfig(DatasetLineageProviderConfigBase):
     # See the Connect REST Interface for details
     # https://docs.confluent.io/platform/current/connect/references/restapi.html#
     connect_uri: str = "http://localhost:8083/"
     username: Optional[str] = None
     password: Optional[str] = None
     cluster_name: Optional[str] = "connect-cluster"
-    env: str = builder.DEFAULT_ENV
     construct_lineage_workunits: bool = True
     connector_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
     provided_configs: Optional[List[ProvidedConfig]] = None
@@ -725,6 +725,12 @@ class KafkaConnectSource(Source):
         )
 
         # Test the connection
+        if self.config.username is not None and self.config.password is not None:
+            logger.info(
+                f"Connecting to {self.config.connect_uri} with Authentication..."
+            )
+            self.session.auth = (self.config.username, self.config.password)
+
         test_response = self.session.get(f"{self.config.connect_uri}")
         test_response.raise_for_status()
         logger.info(f"Connection to {self.config.connect_uri} is ok")
@@ -864,8 +870,18 @@ class KafkaConnectSource(Source):
             for lineage in lineages:
                 source_dataset = lineage.source_dataset
                 source_platform = lineage.source_platform
+                source_platform_instance = (
+                    self.config.platform_instance_map.get(source_platform)
+                    if self.config.platform_instance_map
+                    else None
+                )
                 target_dataset = lineage.target_dataset
                 target_platform = lineage.target_platform
+                target_platform_instance = (
+                    self.config.platform_instance_map.get(target_platform)
+                    if self.config.platform_instance_map
+                    else None
+                )
                 job_property_bag = lineage.job_property_bag
 
                 job_id = (
@@ -876,11 +892,25 @@ class KafkaConnectSource(Source):
                 job_urn = builder.make_data_job_urn_with_flow(flow_urn, job_id)
 
                 inlets = (
-                    [builder.make_dataset_urn(source_platform, source_dataset)]
+                    [
+                        builder.make_dataset_urn_with_platform_instance(
+                            source_platform,
+                            source_dataset,
+                            platform_instance=source_platform_instance,
+                            env=self.config.env,
+                        )
+                    ]
                     if source_dataset
                     else []
                 )
-                outlets = [builder.make_dataset_urn(target_platform, target_dataset)]
+                outlets = [
+                    builder.make_dataset_urn_with_platform_instance(
+                        target_platform,
+                        target_dataset,
+                        platform_instance=target_platform_instance,
+                        env=self.config.env,
+                    )
+                ]
 
                 mcp = MetadataChangeProposalWrapper(
                     entityType="dataJob",
@@ -930,18 +960,36 @@ class KafkaConnectSource(Source):
             for lineage in lineages:
                 source_dataset = lineage.source_dataset
                 source_platform = lineage.source_platform
+                source_platform_instance = (
+                    self.config.platform_instance_map.get(source_platform)
+                    if self.config.platform_instance_map
+                    else None
+                )
                 target_dataset = lineage.target_dataset
                 target_platform = lineage.target_platform
+                target_platform_instance = (
+                    self.config.platform_instance_map.get(target_platform)
+                    if self.config.platform_instance_map
+                    else None
+                )
 
                 mcp = MetadataChangeProposalWrapper(
                     entityType="dataset",
-                    entityUrn=builder.make_dataset_urn(
-                        target_platform, target_dataset, self.config.env
+                    entityUrn=builder.make_dataset_urn_with_platform_instance(
+                        target_platform,
+                        target_dataset,
+                        platform_instance=target_platform_instance,
+                        env=self.config.env,
                     ),
                     changeType=models.ChangeTypeClass.UPSERT,
                     aspectName="dataPlatformInstance",
                     aspect=models.DataPlatformInstanceClass(
-                        platform=builder.make_data_platform_urn(target_platform)
+                        platform=builder.make_data_platform_urn(target_platform),
+                        instance=builder.make_dataplatform_instance_urn(
+                            target_platform, target_platform_instance
+                        )
+                        if target_platform_instance
+                        else None,
                     ),
                 )
 
@@ -951,13 +999,21 @@ class KafkaConnectSource(Source):
                 if source_dataset:
                     mcp = MetadataChangeProposalWrapper(
                         entityType="dataset",
-                        entityUrn=builder.make_dataset_urn(
-                            source_platform, source_dataset, self.config.env
+                        entityUrn=builder.make_dataset_urn_with_platform_instance(
+                            source_platform,
+                            source_dataset,
+                            platform_instance=source_platform_instance,
+                            env=self.config.env,
                         ),
                         changeType=models.ChangeTypeClass.UPSERT,
                         aspectName="dataPlatformInstance",
                         aspect=models.DataPlatformInstanceClass(
-                            platform=builder.make_data_platform_urn(source_platform)
+                            platform=builder.make_data_platform_urn(source_platform),
+                            instance=builder.make_dataplatform_instance_urn(
+                                source_platform, source_platform_instance
+                            )
+                            if source_platform_instance
+                            else None,
                         ),
                     )
 

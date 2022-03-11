@@ -1,12 +1,14 @@
 package com.linkedin.gms.factory.recommendation;
 
 import com.google.common.collect.ImmutableList;
+import com.linkedin.gms.factory.recommendation.candidatesource.DomainsCandidateSourceFactory;
 import com.linkedin.gms.factory.recommendation.candidatesource.HighUsageCandidateSourceFactory;
 import com.linkedin.gms.factory.recommendation.candidatesource.RecentlyViewedCandidateSourceFactory;
 import com.linkedin.gms.factory.recommendation.candidatesource.TopPlatformsCandidateSourceFactory;
 import com.linkedin.gms.factory.recommendation.candidatesource.TopTagsCandidateSourceFactory;
 import com.linkedin.gms.factory.recommendation.candidatesource.TopTermsCandidateSourceFactory;
 import com.linkedin.metadata.recommendation.RecommendationsService;
+import com.linkedin.metadata.recommendation.candidatesource.DomainsCandidateSource;
 import com.linkedin.metadata.recommendation.candidatesource.MostPopularSource;
 import com.linkedin.metadata.recommendation.candidatesource.RecentlySearchedSource;
 import com.linkedin.metadata.recommendation.candidatesource.RecentlyViewedSource;
@@ -26,7 +28,7 @@ import org.springframework.context.annotation.Import;
 
 @Configuration
 @Import({TopPlatformsCandidateSourceFactory.class, RecentlyViewedCandidateSourceFactory.class,
-    HighUsageCandidateSourceFactory.class, TopTagsCandidateSourceFactory.class, TopTermsCandidateSourceFactory.class})
+    HighUsageCandidateSourceFactory.class, TopTagsCandidateSourceFactory.class, TopTermsCandidateSourceFactory.class, DomainsCandidateSourceFactory.class})
 public class RecommendationServiceFactory {
 
   @Autowired
@@ -50,6 +52,10 @@ public class RecommendationServiceFactory {
   private TopTermsSource topTermsCandidateSource;
 
   @Autowired
+  @Qualifier("domainsCandidateSource")
+  private DomainsCandidateSource domainsCandidateSource;
+
+  @Autowired
   @Qualifier("recentlySearchedCandidateSource")
   private RecentlySearchedSource recentlySearchedCandidateSource;
 
@@ -60,6 +66,7 @@ public class RecommendationServiceFactory {
     // This is where you can add new recommendation modules.
     final List<RecommendationSource> candidateSources = ImmutableList.of(
         topPlatformsCandidateSource,
+        domainsCandidateSource,
         recentlyViewedCandidateSource, _mostPopularCandidateSource,
         topTagsCandidateSource, topTermsCandidateSource, recentlySearchedCandidateSource);
     return new RecommendationsService(candidateSources, new SimpleRecommendationRanker());

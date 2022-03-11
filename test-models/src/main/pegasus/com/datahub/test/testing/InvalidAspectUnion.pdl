@@ -1,0 +1,6 @@
+namespace com.datahub.test.testing
+
+/**
+ * For unit tests
+ */
+typeref InvalidAspectUnion = union[AspectInvalid]

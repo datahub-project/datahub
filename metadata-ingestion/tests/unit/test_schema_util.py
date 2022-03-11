@@ -73,7 +73,7 @@ def assert_field_paths_are_unique(fields: List[SchemaField]) -> None:
         assert len(avro_fields_paths) == len(set(avro_fields_paths))
 
 
-def assret_field_paths_match(
+def assert_field_paths_match(
     fields: List[SchemaField], expected_field_paths: List[str]
 ) -> None:
     log_field_paths(fields)
@@ -123,7 +123,7 @@ def test_avro_schema_to_mce_fields_sample_events_with_different_field_types():
     expected_field_paths = [
         "[version=2.0].[type=R].[type=map].[type=long].a_map_of_longs_field",
     ]
-    assret_field_paths_match(fields, expected_field_paths)
+    assert_field_paths_match(fields, expected_field_paths)
 
 
 def test_avro_schema_to_mce_fields_record_with_two_fields():
@@ -151,7 +151,7 @@ def test_avro_schema_to_mce_fields_record_with_two_fields():
         "[version=2.0].[type=name].[type=string].a",
         "[version=2.0].[type=name].[type=string].b",
     ]
-    assret_field_paths_match(fields, expected_field_paths)
+    assert_field_paths_match(fields, expected_field_paths)
 
 
 def test_avro_schema_to_mce_fields_toplevel_isnt_a_record():
@@ -162,7 +162,7 @@ def test_avro_schema_to_mce_fields_toplevel_isnt_a_record():
 """
     fields = avro_schema_to_mce_fields(schema)
     expected_field_paths = ["[version=2.0].[type=string]"]
-    assret_field_paths_match(fields, expected_field_paths)
+    assert_field_paths_match(fields, expected_field_paths)
 
 
 def test_avro_schema_namespacing():
@@ -185,7 +185,7 @@ def test_avro_schema_namespacing():
     expected_field_paths = [
         "[version=2.0].[type=name].[type=string].aStringField",
     ]
-    assret_field_paths_match(fields, expected_field_paths)
+    assert_field_paths_match(fields, expected_field_paths)
 
 
 def test_avro_schema_to_mce_fields_with_default():
@@ -208,7 +208,7 @@ def test_avro_schema_to_mce_fields_with_default():
     expected_field_paths = [
         "[version=2.0].[type=name].[type=string].aStringField",
     ]
-    assret_field_paths_match(fields, expected_field_paths)
+    assert_field_paths_match(fields, expected_field_paths)
     description = fields[0].description
     assert description and "custom, default value" in description
 
@@ -235,7 +235,7 @@ def test_avro_schema_with_recursion():
         "[version=2.0].[type=TreeNode].[type=long].value",
         "[version=2.0].[type=TreeNode].[type=array].[type=TreeNode].children",
     ]
-    assret_field_paths_match(fields, expected_field_paths)
+    assert_field_paths_match(fields, expected_field_paths)
 
 
 def test_avro_sample_payment_schema_to_mce_fields_with_nesting():
@@ -288,7 +288,7 @@ def test_avro_sample_payment_schema_to_mce_fields_with_nesting():
         "[version=2.0].[type=Payment].[type=PhoneNumber].phoneNumber.[type=string].prefix",
         "[version=2.0].[type=Payment].[type=PhoneNumber].phoneNumber.[type=string].number",
     ]
-    assret_field_paths_match(fields, expected_field_paths)
+    assert_field_paths_match(fields, expected_field_paths)
 
 
 def test_avro_schema_to_mce_fields_with_nesting_across_records():
@@ -322,7 +322,7 @@ def test_avro_schema_to_mce_fields_with_nesting_across_records():
         "[version=2.0].[type=union].[type=Person].[type=string].lastname",
         "[version=2.0].[type=union].[type=Person].[type=Address].address",
     ]
-    assret_field_paths_match(fields, expected_field_paths)
+    assert_field_paths_match(fields, expected_field_paths)
 
 
 def test_simple_record_with_primitive_types():
@@ -357,7 +357,7 @@ def test_simple_record_with_primitive_types():
         "[version=2.0].[type=Simple].[type=int].intField",
         "[version=2.0].[type=Simple].[type=enum].enumField",
     ]
-    assret_field_paths_match(fields, expected_field_paths)
+    assert_field_paths_match(fields, expected_field_paths)
 
 
 def test_simple_nested_record_with_a_string_field_for_key_schema():
@@ -384,7 +384,7 @@ def test_simple_nested_record_with_a_string_field_for_key_schema():
         "[version=2.0].[key=True].[type=SimpleNested].[type=InnerRcd].nestedRcd",
         "[version=2.0].[key=True].[type=SimpleNested].[type=InnerRcd].nestedRcd.[type=string].aStringField",
     ]
-    assret_field_paths_match(fields, expected_field_paths)
+    assert_field_paths_match(fields, expected_field_paths)
 
 
 def test_union_with_nested_record_of_union():
@@ -420,7 +420,7 @@ def test_union_with_nested_record_of_union():
         "[version=2.0].[type=UnionSample].[type=union].[type=Rcd].aUnion",
         "[version=2.0].[type=UnionSample].[type=union].[type=Rcd].aUnion.[type=string].aNullableStringField",
     ]
-    assret_field_paths_match(fields, expected_field_paths)
+    assert_field_paths_match(fields, expected_field_paths)
     assert isinstance(fields[3].type.type, StringTypeClass)
     assert fields[0].nativeDataType == "union"
     assert fields[1].nativeDataType == "boolean"
@@ -461,7 +461,7 @@ def test_nested_arrays():
         "[version=2.0].[type=NestedArray].[type=array].[type=array].[type=Foo].ar",
         "[version=2.0].[type=NestedArray].[type=array].[type=array].[type=Foo].ar.[type=long].a",
     ]
-    assret_field_paths_match(fields, expected_field_paths)
+    assert_field_paths_match(fields, expected_field_paths)
 
 
 def test_map_of_union_of_int_and_record_of_union():
@@ -498,7 +498,7 @@ def test_map_of_union_of_int_and_record_of_union():
         "[version=2.0].[type=MapSample].[type=map].[type=union].[type=Rcd].aMap.[type=union].[type=string].aUnion",
         "[version=2.0].[type=MapSample].[type=map].[type=union].[type=Rcd].aMap.[type=union].[type=int].aUnion",
     ]
-    assret_field_paths_match(fields, expected_field_paths)
+    assert_field_paths_match(fields, expected_field_paths)
 
 
 def test_recursive_avro():
@@ -526,7 +526,7 @@ def test_recursive_avro():
         "[version=2.0].[type=Recursive].[type=R].r.[type=int].anIntegerField",
         "[version=2.0].[type=Recursive].[type=R].r.[type=R].aRecursiveField",
     ]
-    assret_field_paths_match(fields, expected_field_paths)
+    assert_field_paths_match(fields, expected_field_paths)
 
 
 def test_needs_disambiguation_nested_union_of_records_with_same_field_name():
@@ -572,7 +572,7 @@ def test_needs_disambiguation_nested_union_of_records_with_same_field_name():
         "[version=2.0].[type=ABFooUnion].[type=union].[type=array].[type=array].[type=Foo].a",
         "[version=2.0].[type=ABFooUnion].[type=union].[type=array].[type=array].[type=Foo].a.[type=long].f",
     ]
-    assret_field_paths_match(fields, expected_field_paths)
+    assert_field_paths_match(fields, expected_field_paths)
 
 
 def test_mce_avro_parses_okay():
@@ -639,7 +639,7 @@ def test_key_schema_handling():
         "[version=2.0].[key=True].[type=ABFooUnion].[type=union].[type=array].[type=array].[type=Foo].a",
         "[version=2.0].[key=True].[type=ABFooUnion].[type=union].[type=array].[type=array].[type=Foo].a.[type=long].f",
     ]
-    assret_field_paths_match(fields, expected_field_paths)
+    assert_field_paths_match(fields, expected_field_paths)
     for f in fields:
         assert f.isPartOfKey
 
@@ -670,7 +670,7 @@ def test_logical_types():
         "[version=2.0].[type=test_logical_types].[type=long].timestamp_millis_logical",
         "[version=2.0].[type=test_logical_types].[type=long].timestamp_micros_logical",
     ]
-    assret_field_paths_match(fields, expected_field_paths)
+    assert_field_paths_match(fields, expected_field_paths)
 
 
 def test_ignore_exceptions():

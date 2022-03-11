@@ -8,6 +8,7 @@ import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.client.EntityClient;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +29,7 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
   private final EntityClient _entityClient;
 
   @Override
+  @WithSpan
   public CompletableFuture<SearchResults> get(DataFetchingEnvironment environment) {
     final SearchInput input = bindArgument(environment.getArgument("input"), SearchInput.class);
     final String entityName = EntityTypeMapper.getName(input.getType());

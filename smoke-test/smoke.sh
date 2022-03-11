@@ -18,9 +18,11 @@ pip install -r requirements.txt
 
 datahub docker quickstart \
 	--build-locally \
-	--quickstart-compose-file ../docker/docker-compose.yml \
-	--quickstart-compose-file ../docker/docker-compose.override.yml \
+	--quickstart-compose-file ../docker/docker-compose-without-neo4j.yml \
+	--quickstart-compose-file ../docker/docker-compose-without-neo4j.override.yml \
 	--quickstart-compose-file ../docker/docker-compose.dev.yml \
 	--dump-logs-on-failure
+
+(cd tests/cypress ; yarn install)
 
 pytest -vv --continue-on-collection-errors --junit-xml=junit.smoke.xml

@@ -8,8 +8,7 @@ import java.util.Map;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.*;
 
 
 public class ConfigEntityRegistryTest {
@@ -45,4 +44,12 @@ public class ConfigEntityRegistryTest {
     assertNotNull(entitySpec.getAspectSpec("chartInfo"));
     assertNotNull(entitySpec.getAspectSpec("status"));
   }
+
+  @Test
+  public void testEntityRegistryIdentifier() throws FileNotFoundException {
+    ConfigEntityRegistry configEntityRegistry = new ConfigEntityRegistry(
+        TestEntityProfile.class.getClassLoader().getResourceAsStream("test-entity-registry.yml"));
+    assertEquals(configEntityRegistry.getIdentifier(), "test-registry");
+  }
 }
+

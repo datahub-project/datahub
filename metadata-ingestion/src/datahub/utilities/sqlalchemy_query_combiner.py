@@ -15,11 +15,12 @@ import sqlalchemy.engine
 import sqlalchemy.sql
 from sqlalchemy.engine import Connection
 from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
-from typing_extensions import ParamSpec
+
+from datahub.ingestion.api.report import Report
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-P = ParamSpec("P")
+MAX_QUERIES_TO_COMBINE_AT_ONCE = 40
 
 
 # We need to make sure that only one query combiner attempts to patch
@@ -103,6 +104,27 @@ class _QueryFuture:
     exc: Optional[Exception] = None
 
 
+def get_query_columns(query: Any) -> List[Any]:
+    try:
+        # inner_columns will be more accurate if the column names are unnamed,
+        # since .columns will remove the "duplicates".
+        inner_columns = list(query.inner_columns)
+        return inner_columns
+    except AttributeError:
+        return list(query.columns)
+
+
+@dataclasses.dataclass
+class SQLAlchemyQueryCombinerReport(Report):
+    total_queries: int = 0
+    uncombined_queries_issued: int = 0
+
+    combined_queries_issued: int = 0
+    queries_combined: int = 0
+
+    query_exceptions: int = 0
+
+
 @dataclasses.dataclass
 class SQLAlchemyQueryCombiner:
     """
@@ -115,6 +137,12 @@ class SQLAlchemyQueryCombiner:
     catch_exceptions: bool
     is_single_row_query_method: Callable[[Any], bool]
     serial_execution_fallback_enabled: bool
+
+    # The Python GIL ensures that modifications to the report's counters
+    # are safe.
+    report: SQLAlchemyQueryCombinerReport = dataclasses.field(
+        default_factory=SQLAlchemyQueryCombinerReport
+    )
 
     # There will be one main greenlet per thread. As such, queries will be
     # queued according to the main greenlet's thread ID. We also keep track
@@ -160,7 +188,7 @@ class SQLAlchemyQueryCombiner:
 
     def _handle_execute(
         self, conn: Connection, query: Any, multiparams: Any, params: Any
-    ) -> Tuple[bool, Any]:
+    ) -> Tuple[bool, Optional[_QueryFuture]]:
         # Returns True with result if the query was handled, False if it
         # should be executed normally using the fallback method.
 
@@ -185,15 +213,14 @@ class SQLAlchemyQueryCombiner:
 
         # Figure out how many columns this query returns.
         # This also implicitly ensures that the typing is generally correct.
-        if not hasattr(query, "columns"):
-            return False, None
-        assert len(query.columns) > 0
+        assert len(get_query_columns(query)) > 0
 
         # Add query to the queue.
         queue = self._get_queue(main_greenlet)
         query_id = SQLAlchemyQueryCombiner._generate_sql_safe_identifier()
         query_future = _QueryFuture(conn, query, multiparams, params)
         queue[query_id] = query_future
+        self.report.queries_combined += 1
 
         # Yield control back to the main greenlet until the query is done.
         # We assume that the main greenlet will be the one that actually executes the query.
@@ -201,9 +228,7 @@ class SQLAlchemyQueryCombiner:
             main_greenlet.switch()
 
         del queue[query_id]
-        if query_future.exc is not None:
-            raise query_future.exc
-        return True, query_future.res
+        return True, query_future
 
     @contextlib.contextmanager
     def activate(self) -> Iterator["SQLAlchemyQueryCombiner"]:
@@ -211,6 +236,7 @@ class SQLAlchemyQueryCombiner:
             conn: Connection, query: Any, *args: Any, **kwargs: Any
         ) -> Any:
             try:
+                self.report.total_queries += 1
                 handled, result = self._handle_execute(conn, query, args, kwargs)
             except Exception as e:
                 if not self.catch_exceptions:
@@ -218,13 +244,18 @@ class SQLAlchemyQueryCombiner:
                 logger.exception(
                     f"Failed to execute query normally, using fallback: {str(query)}"
                 )
+                self.report.query_exceptions += 1
                 return _sa_execute_underlying_method(conn, query, *args, **kwargs)
             else:
                 if handled:
                     logger.debug(f"Query was handled: {str(query)}")
-                    return result
+                    assert result is not None
+                    if result.exc is not None:
+                        raise result.exc
+                    return result.res
                 else:
                     logger.debug(f"Executing query normally: {str(query)}")
+                    self.report.uncombined_queries_issued += 1
                     return _sa_execute_underlying_method(conn, query, *args, **kwargs)
 
         with _sa_execute_method_patching_lock:
@@ -254,6 +285,11 @@ class SQLAlchemyQueryCombiner:
         full_queue = self._get_queue(main_greenlet)
 
         pending_queue = {k: v for k, v in full_queue.items() if not v.done}
+
+        pending_queue = dict(
+            itertools.islice(pending_queue.items(), MAX_QUERIES_TO_COMBINE_AT_ONCE)
+        )
+
         if pending_queue:
             queue_item = next(iter(pending_queue.values()))
 
@@ -266,15 +302,21 @@ class SQLAlchemyQueryCombiner:
                 for k, query_future in pending_queue.items()
             }
 
-            # TODO: determine if we need to use col.label() here.
             combined_cols = itertools.chain(
-                *[[col for col in cte.columns] for _, cte in ctes.items()]
+                *[
+                    [
+                        col  # .label(self._generate_sql_safe_identifier())
+                        for col in get_query_columns(cte)
+                    ]
+                    for _, cte in ctes.items()
+                ]
             )
             combined_query = sqlalchemy.select(combined_cols)
             for cte in ctes.values():
                 combined_query.append_from(cte)
 
             logger.debug(f"Executing combined query: {str(combined_query)}")
+            self.report.combined_queries_issued += 1
             sa_res = _sa_execute_underlying_method(queue_item.conn, combined_query)
 
             # Fetch the results and ensure that exactly one row is returned.
@@ -308,6 +350,7 @@ class SQLAlchemyQueryCombiner:
                 continue
 
             logger.debug(f"Executing query via fallback: {str(query_future.query)}")
+            self.report.uncombined_queries_issued += 1
             try:
                 res = _sa_execute_underlying_method(
                     query_future.conn,
@@ -337,6 +380,7 @@ class SQLAlchemyQueryCombiner:
                 if not self.serial_execution_fallback_enabled:
                     raise e
                 logger.exception(f"Failed to execute queue using combiner: {str(e)}")
+                self.report.query_exceptions += 1
                 self._execute_queue_fallback(main_greenlet)
 
             for let in list(pool):
