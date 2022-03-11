@@ -58,7 +58,7 @@ jobs:
         with:
           # list of Docker images to use as base name for tags
           images: |
-            anshbansal/datahub-upgrade
+            acryldata/datahub-upgrade
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
@@ -85,5 +85,5 @@ jobs:
           file: ./docker/datahub-upgrade/Dockerfile
           tags: ${{ steps.docker_meta.outputs.tags }}
           push: ${{ needs.setup.outputs.publish == 'true' }}
-          cache-from: type=registry,ref=${{ steps.docker_meta.outputs.tags }}-buildcache
+          cache-from: type=registry,ref=acryldata/datahub-upgrade:head-buildcache
           cache-to: ${{ env.DOCKER_CACHE_TO }}
