@@ -36,8 +36,8 @@ source:
     database: dbname
 
     # Credentials
-    username: SYSTEM
-    password: example
+    username: ${HANA_USER}
+    password: ${HANA_PASS}
 
 sink:
   # sink configs
