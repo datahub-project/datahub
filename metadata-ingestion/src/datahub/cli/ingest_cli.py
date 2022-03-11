@@ -122,8 +122,14 @@ def parse_restli_response(response):
 @ingest.command()
 @click.argument("page_offset", type=int, default=0)
 @click.argument("page_size", type=int, default=100)
+@click.option(
+    "--include-soft-deletes",
+    is_flag=True,
+    default=False,
+    help="If enabled, will list ingestion runs which have been soft deleted",
+)
 @telemetry.with_telemetry
-def list_runs(page_offset: int, page_size: int) -> None:
+def list_runs(page_offset: int, page_size: int, include_soft_deletes: bool) -> None:
     """List recent ingestion runs to datahub"""
 
     session, gms_host = get_session_and_host()
@@ -133,6 +139,7 @@ def list_runs(page_offset: int, page_size: int) -> None:
     payload_obj = {
         "pageOffset": page_offset,
         "pageSize": page_size,
+        "includeSoft": include_soft_deletes
     }
 
     payload = json.dumps(payload_obj)
@@ -159,11 +166,17 @@ def list_runs(page_offset: int, page_size: int) -> None:
 
 @ingest.command()
 @click.option("--run-id", required=True, type=str)
+@click.option(
+    "--include-soft-deletes",
+    is_flag=True,
+    default=False,
+    help="If enabled, will show ingestion runs which have been soft deleted",
+)
 @telemetry.with_telemetry
-def show(run_id: str) -> None:
+def show(run_id: str, include_soft_deletes: bool) -> None:
     """Describe a provided ingestion run to datahub"""
 
-    payload_obj = {"runId": run_id, "dryRun": True}
+    payload_obj = {"runId": run_id, "dryRun": True, "hardDelete": include_soft_deletes}
     structured_rows, entities_affected, aspects_affected = post_rollback_endpoint(
         payload_obj, "/runs?action=rollback"
     )

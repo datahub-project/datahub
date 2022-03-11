@@ -660,8 +660,8 @@ public abstract class EntityService {
       aspectsToGet.add(DATA_PLATFORM_INSTANCE);
     }
 
-    boolean shouldCheckStatus = isAspectProvided(entityType, STATUS, includedAspects);
-    if (shouldCheckStatus) {
+    boolean shouldHaveStatusSet = isAspectProvided(entityType, STATUS, includedAspects);
+    if (shouldHaveStatusSet) {
       aspectsToGet.add(STATUS);
     }
 
@@ -693,7 +693,7 @@ public abstract class EntityService {
           .ifPresent(aspect -> aspects.add(Pair.of(DATA_PLATFORM_INSTANCE, aspect)));
     }
 
-    if (shouldCheckStatus && latestAspects.get(STATUS) == null) {
+    if (shouldHaveStatusSet) {
       Status status = new Status();
       status.setRemoved(false);
       aspects.add(Pair.of(STATUS,status));

@@ -368,7 +368,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     return RestliUtil.toTask(() -> {
       RollbackResponse response = new RollbackResponse();
       List<AspectRowSummary> aspectRowsToDelete =
-          _systemMetadataService.findByRegistry(finalRegistryName, finalRegistryVersion.toString());
+          _systemMetadataService.findByRegistry(finalRegistryName, finalRegistryVersion.toString(), false);
       log.info("found {} rows to delete...", stringifyRowCount(aspectRowsToDelete.size()));
       response.setAspectsAffected(aspectRowsToDelete.size());
       response.setEntitiesAffected(

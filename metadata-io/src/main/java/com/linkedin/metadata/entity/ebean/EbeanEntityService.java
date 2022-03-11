@@ -28,8 +28,12 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
+import com.linkedin.metadata.utils.AuditStampUtils;
+import com.linkedin.metadata.utils.BrowseUtil;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.metadata.utils.GenericAspectUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
@@ -557,14 +561,10 @@ public class EbeanEntityService extends EntityService {
             additionalRowsDeleted = _entityDao.deleteUrn(urn);
           } else if (entitySpec.hasAspect("status")) {
             // soft delete by setting status.removed=true (if applicable)
-            final Status statusAspect =  new Status();
+            final Status statusAspect = new Status();
             statusAspect.setRemoved(true);
-            final SystemMetadata systemMetadata = new SystemMetadata();
-            systemMetadata.setRunId(DEFAULT_RUN_ID);
-            systemMetadata.setLastObserved(System.currentTimeMillis());
-            final AuditStamp auditStamp = new AuditStamp()
-                    .setActor(UrnUtils.getUrn(SYSTEM_ACTOR))
-                    .setTime(Clock.systemUTC().millis());
+            final SystemMetadata systemMetadata = SystemMetadataUtils.createDefaultSystemMetadata();
+            final AuditStamp auditStamp = AuditStampUtils.createDefaultAuditStamp();
 
             this.ingestAspect(entityUrn, "status", statusAspect, auditStamp, systemMetadata);
           }
