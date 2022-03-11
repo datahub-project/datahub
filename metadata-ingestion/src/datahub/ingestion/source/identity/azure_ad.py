@@ -202,8 +202,8 @@ class AzureADSource(Source):
                 odata_type = azure_ad_member.get("@odata.type")
                 if odata_type == "#microsoft.graph.user":
                     self._add_user_to_group_membership(
-                        azure_ad_member,
                         parent_corp_group_urn,
+                        azure_ad_member,
                         user_urn_to_group_membership,
                     )
                 elif odata_type == "#microsoft.graph.group":
@@ -220,8 +220,8 @@ class AzureADSource(Source):
 
     def _add_user_to_group_membership(
         self,
-        azure_ad_user: dict,
         group_urn: str,
+        azure_ad_user: dict,
         user_urn_to_group_membership: Dict[str, GroupMembershipClass],
     ) -> None:
         user_urn = self._map_azure_ad_user_to_urn(azure_ad_user)
