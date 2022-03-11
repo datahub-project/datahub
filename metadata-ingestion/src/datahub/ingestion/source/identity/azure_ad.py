@@ -90,7 +90,9 @@ class AzureADSource(Source):
     def __init__(self, config: AzureADConfig, ctx: PipelineContext):
         super().__init__(ctx)
         self.config = config
-        self.report = AzureADSourceReport(filtered_tracking=self.config.filtered_tracking)
+        self.report = AzureADSourceReport(
+            filtered_tracking=self.config.filtered_tracking
+        )
         self.token_data = {
             "grant_type": "client_credentials",
             "client_id": self.config.client_id,
