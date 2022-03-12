@@ -256,6 +256,10 @@ By default, we extract usage stats for the last day, with the recommendation tha
 | `user_email_pattern.allow`      |          | *                                                              | List of regex patterns for user emails to include in usage.                                                                                                                             |
 | `user_email_pattern.deny`       |          |                                                                | List of regex patterns for user emails to exclude from usage.                                                                                                                           |
 | `user_email_pattern.ignoreCase` |          | `True`                                                         | Whether to ignore case sensitivity during pattern matching.                                                                                                                             |
+| `table_pattern.allow`          |          |                    | List of regex patterns for tables to include in ingestion.                                                                                                                              |
+| `table_pattern.deny`           |          |                    | List of regex patterns for tables to exclude from ingestion.                                                                                                                            |
+| `schema_pattern.allow`         |          |                    | List of regex patterns for schemas to include in ingestion.                                                                                                                             |
+| `schema_pattern.deny`          |          |                    | List of regex patterns for schemas to exclude from ingestion.                                                                                                       
 
 ## Questions
 
