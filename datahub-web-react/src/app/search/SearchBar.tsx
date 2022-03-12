@@ -117,7 +117,7 @@ export const SearchBar = ({
                 : []),
         ],
     }));
-   
+
     return (
         <AutoCompleteContainer style={style}>
             <StyledAutoComplete
@@ -137,7 +137,7 @@ export const SearchBar = ({
             >
                 <StyledSearchBar
                     placeholder={placeholderText}
-                    onPressEnter={(e) => {
+                    onPressEnter={() => {
                         // e.stopPropagation();
                         onSearch(filterSearchQuery(searchQuery || ''));
                     }}
