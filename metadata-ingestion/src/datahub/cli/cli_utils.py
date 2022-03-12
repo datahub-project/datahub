@@ -524,7 +524,7 @@ def get_latest_timeseries_aspect_values(
         "aspect": timeseries_aspect_name,
         "latestValue": True,
     }
-    end_point = f"/aspects?action=getTimeseriesAspectValues"
+    end_point = "/aspects?action=getTimeseriesAspectValues"
     try:
         response = session.post(url=gms_host + end_point, data=json.dumps(query_body))
         response.raise_for_status()
@@ -565,12 +565,17 @@ def get_aspects_for_entity(
                 timeseries_aspect
             )
             if aspect_cls is not None:
+                aspect_value = values[0]
+                # Decode the json-encoded generic aspect value.
+                aspect_value["aspect"]["value"] = json.loads(
+                    aspect_value["aspect"]["value"]
+                )
                 aspect_list.append(
                     # Follow the convention used for non-timeseries aspects.
                     {
                         aspect_cls.RECORD_SCHEMA.fullname.replace(
                             "pegasus2avro.", ""
-                        ): values[0]
+                        ): aspect_value
                     }
                 )
 
