@@ -166,17 +166,25 @@ def with_telemetry(func: Callable[..., T]) -> Callable[..., T]:
     @wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
 
-        action = f"function:{func.__module__}.{func.__name__}"
+        action = f"{func.__module__}.{func.__name__}"
 
-        telemetry_instance.ping(action)
+        telemetry_instance.ping("function-call", {"action": action, "status": "start"})
         try:
             res = func(*args, **kwargs)
-            telemetry_instance.ping(f"{action}:result", {"status": "completed"})
+            telemetry_instance.ping(
+                "function-call",
+                {action: action, "status": "completed"},
+            )
             return res
         # Catch general exceptions
         except Exception as e:
             telemetry_instance.ping(
-                f"{action}:result", {"status": "error", "error": get_full_class_name(e)}
+                "function-call",
+                {
+                    action: action,
+                    "status": "error",
+                    "error": get_full_class_name(e),
+                },
             )
             raise e
         # System exits (used in ingestion and Docker commands) are not caught by the exception handler,
@@ -184,18 +192,31 @@ def with_telemetry(func: Callable[..., T]) -> Callable[..., T]:
         except SystemExit as e:
             # Forward successful exits
             if e.code == 0:
-                telemetry_instance.ping(f"{action}:result", {"status": "completed"})
+                telemetry_instance.ping(
+                    "function-call",
+                    {
+                        action: action,
+                        "status": "completed",
+                    },
+                )
                 sys.exit(0)
             # Report failed exits
             else:
                 telemetry_instance.ping(
-                    f"{action}:result",
-                    {"status": "error", "error": get_full_class_name(e)},
+                    "function-call",
+                    {
+                        action: action,
+                        "status": "error",
+                        "error": get_full_class_name(e),
+                    },
                 )
                 sys.exit(e.code)
         # Catch SIGINTs
         except KeyboardInterrupt:
-            telemetry_instance.ping(f"{action}:result", {"status": "cancelled"})
+            telemetry_instance.ping(
+                "function-call",
+                {action: action, "status": "cancelled"},
+            )
             sys.exit(0)
 
     return wrapper
