@@ -17,7 +17,8 @@ task installMetadata(dependsOn: [ environmentSetup,':metadata-ingestion:install'
 task installPackage(type: Exec, dependsOn: installMetadata){
   inputs.file file('setup.py')
   outputs.dir("${venv_name}")
-  commandLine "${venv_name}/bin/pip", 'install', '-e', '.[test]'
+  commandLine 'bash', '-x', '-c',
+    "source ${venv_name}/bin/activate && ${venv_name}/bin/pip", 'install', '-e', '.[test]'
 }
 
 task lint(type: Exec, dependsOn: installPackage) {
