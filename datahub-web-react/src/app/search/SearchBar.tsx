@@ -242,7 +242,7 @@ export const SearchBar = ({
             return [...autoCompleteQueryOptions, ...autoCompleteEntityOptions];
         }
         return emptyQueryOptions;
-    }, [effectiveQuery, emptyQueryOptions, autoCompleteEntityOptions, autoCompleteQueryOptions]);
+    }, [emptyQueryOptions, autoCompleteEntityOptions, autoCompleteQueryOptions]);
 
     return (
         <AutoCompleteContainer style={style}>
