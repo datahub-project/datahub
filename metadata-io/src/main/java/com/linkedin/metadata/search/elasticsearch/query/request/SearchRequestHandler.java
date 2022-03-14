@@ -102,9 +102,14 @@ public class SearchRequestHandler {
   public static BoolQueryBuilder getFilterQuery(@Nullable Filter filter) {
     BoolQueryBuilder filterQuery = ESUtils.buildFilterQuery(filter);
 
-    // Filter out entities that are marked "removed" if and only if filter does not contain a criterion referencing removed
-    if (filter == null || (filter.hasCriteria() && filter.getCriteria().stream()
-            .anyMatch(criterion -> criterion.getField().equals(REMOVED)))) {
+    boolean removedInOrFilter = false;
+    if (filter != null) {
+      removedInOrFilter = filter.getOr().stream().anyMatch(
+              or -> or.getAnd().stream().anyMatch(criterion -> criterion.getField().equals(REMOVED))
+      );
+    }
+
+    if (!removedInOrFilter) {
       filterQuery.mustNot(QueryBuilders.matchQuery(REMOVED, true));
     }
 

@@ -153,7 +153,6 @@ def delete(
         )
     else:
         # Filter based delete
-
         deletion_result = delete_with_filters(
             env=env,
             platform=platform,

@@ -334,7 +334,7 @@ def get_urns_by_filter(
             }
         )
 
-    if include_removed is not None:
+    if include_removed:
         filter_criteria.append(
             {
                 "field": "removed",
