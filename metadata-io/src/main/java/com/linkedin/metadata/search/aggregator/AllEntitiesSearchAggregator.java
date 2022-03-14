@@ -47,13 +47,13 @@ public class AllEntitiesSearchAggregator {
   private final EntitySearchServiceCache _entitySearchServiceCache;
 
   public AllEntitiesSearchAggregator(EntityRegistry entityRegistry, EntitySearchService entitySearchService,
-      SearchRanker searchRanker, CacheManager cacheManager, int batchSize) {
+      SearchRanker searchRanker, CacheManager cacheManager, int batchSize, boolean enableCache) {
     _entityRegistry = entityRegistry;
     _entitySearchService = entitySearchService;
     _searchRanker = searchRanker;
     _cacheManager = cacheManager;
     _nonEmptyEntitiesCache = new NonEmptyEntitiesCache(entityRegistry, entitySearchService, cacheManager);
-    _entitySearchServiceCache = new EntitySearchServiceCache(cacheManager, entitySearchService, batchSize);
+    _entitySearchServiceCache = new EntitySearchServiceCache(cacheManager, entitySearchService, batchSize, enableCache);
   }
 
   @Nonnull
