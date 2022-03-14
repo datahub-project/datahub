@@ -3,7 +3,8 @@ import logging
 from dataclasses import dataclass, field
 from hashlib import md5
 from typing import Dict, Iterable, List, Optional, Tuple, cast
-
+from importlib import import_module
+from pydantic import BaseModel
 import confluent_kafka
 from confluent_kafka.schema_registry.schema_registry_client import Schema
 
@@ -45,6 +46,7 @@ from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     JobStatusClass,
 )
+#from datahub.ingestion.source.confluent_schema_registry import ConfluentSchemaRegistryClient
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +70,7 @@ class KafkaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigBase):
     topic_subject_map: Dict[str, str] = dict()
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[KafkaSourceStatefulIngestionConfig] = None
+    schema_registry_class:str = "datahub.ingestion.source.confluent_schema_registry.ConfluentSchemaRegistry"
 
 
 @dataclass
@@ -90,8 +93,20 @@ class KafkaSourceReport(SourceReport):
 class KafkaSource(StatefulIngestionSourceBase):
     source_config: KafkaSourceConfig
     consumer: confluent_kafka.Consumer
+
     report: KafkaSourceReport
     platform: str = "kafka"
+
+    def create_schema_registry(self, config: KafkaSourceConfig):
+        schema_registry_class = config.schema_registry_class
+        logger.info(f"Inside KafkaSource.create_schema_registry {schema_registry_class}")
+        try:
+            module_path, class_name = schema_registry_class.rsplit('.', 1)
+            module = import_module(module_path)
+            return getattr(module, class_name)()
+        except (ImportError, AttributeError) as e:
+            raise ImportError(schema_registry_class)
+
 
     def __init__(self, config: KafkaSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
@@ -111,43 +126,11 @@ class KafkaSource(StatefulIngestionSourceBase):
                 **self.source_config.connection.consumer_config,
             }
         )
-        # Use the fully qualified name for SchemaRegistryClient to make it mock patchable for testing.
-        self.schema_registry_client = (
-            confluent_kafka.schema_registry.schema_registry_client.SchemaRegistryClient(
-                {
-                    "url": self.source_config.connection.schema_registry_url,
-                    **self.source_config.connection.schema_registry_config,
-                }
-            )
-        )
+        self.schema_registry_client = self.create_schema_registry(config)
+
         self.report = KafkaSourceReport()
+        self.schema_registry_client.create(config, self.report)
         self.known_schema_registry_subjects: List[str] = []
-        try:
-            self.known_schema_registry_subjects.extend(
-                self.schema_registry_client.get_subjects()
-            )
-        except Exception as e:
-            logger.warning(f"Failed to get subjects from schema registry: {e}")
-
-    def _get_subject_for_topic(self, topic: str, is_key_schema: bool) -> Optional[str]:
-        subject_key_suffix: str = "-key" if is_key_schema else "-value"
-        # For details on schema registry subject name strategy,
-        # see: https://docs.confluent.io/platform/current/schema-registry/serdes-develop/index.html#how-the-naming-strategies-work
-
-        # User-provided subject for the topic overrides the rest, regardless of the subject name strategy.
-        # However, it is a must when the RecordNameStrategy is used as the schema registry subject name strategy.
-        # The subject name format for RecordNameStrategy is: <fully-qualified record name>-<key/value> (cannot be inferred from topic name).
-        subject_key = topic + subject_key_suffix
-        if subject_key in self.source_config.topic_subject_map:
-            return self.source_config.topic_subject_map[subject_key]
-
-        # Subject name format when the schema registry subject name strategy is
-        #  (a) TopicNameStrategy(default strategy): <topic name>-<key/value>
-        #  (b) TopicRecordNameStrategy: <topic name>-<fully-qualified record name>-<key/value>
-        for subject in self.known_schema_registry_subjects:
-            if subject.startswith(topic) and subject.endswith(subject_key_suffix):
-                return subject
-        return None
 
     def is_checkpointing_enabled(self, job_id: JobId) -> bool:
         if (
@@ -245,62 +228,6 @@ class KafkaSource(StatefulIngestionSourceBase):
             # Clean up stale entities.
             yield from self.gen_removed_entity_workunits()
 
-    @staticmethod
-    def _compact_schema(schema_str: str) -> str:
-        # Eliminate all white-spaces for a compact representation.
-        return json.dumps(json.loads(schema_str), separators=(",", ":"))
-
-    def get_schema_str_replace_confluent_ref_avro(
-        self, schema: Schema, schema_seen: Optional[set] = None
-    ) -> str:
-        if not schema.references:
-            return self._compact_schema(schema.schema_str)
-
-        if schema_seen is None:
-            schema_seen = set()
-        schema_str = self._compact_schema(schema.schema_str)
-        for schema_ref in schema.references:
-            ref_subject = schema_ref["subject"]
-            if ref_subject in schema_seen:
-                continue
-
-            if ref_subject not in self.known_schema_registry_subjects:
-                logger.warning(
-                    f"{ref_subject} is not present in the list of registered subjects with schema registry!"
-                )
-
-            reference_schema = self.schema_registry_client.get_latest_version(
-                subject_name=ref_subject
-            )
-            schema_seen.add(ref_subject)
-            logger.debug(
-                f"ref for {ref_subject} is {reference_schema.schema.schema_str}"
-            )
-            # Replace only external type references with the reference schema recursively.
-            # NOTE: The type pattern is dependent on _compact_schema.
-            avro_type_kwd = '"type"'
-            ref_name = schema_ref["name"]
-            # Try by name first
-            pattern_to_replace = f'{avro_type_kwd}:"{ref_name}"'
-            if pattern_to_replace not in schema_str:
-                # Try by subject
-                pattern_to_replace = f'{avro_type_kwd}:"{ref_subject}"'
-                if pattern_to_replace not in schema_str:
-                    logger.warning(
-                        f"Not match for external schema type: {{name:{ref_name}, subject:{ref_subject}}} in schema:{schema_str}"
-                    )
-                else:
-                    logger.debug(
-                        f"External schema matches by subject, {pattern_to_replace}"
-                    )
-            else:
-                logger.debug(f"External schema matches by name, {pattern_to_replace}")
-            schema_str = schema_str.replace(
-                pattern_to_replace,
-                f"{avro_type_kwd}:{self.get_schema_str_replace_confluent_ref_avro(reference_schema.schema, schema_seen)}",
-            )
-        return schema_str
-
     def _add_topic_to_checkpoint(self, topic: str) -> None:
         cur_checkpoint = self.get_current_checkpoint(
             self.get_default_ingestion_job_id()
@@ -316,105 +243,8 @@ class KafkaSource(StatefulIngestionSourceBase):
                 )
             )
 
-    def _get_schema_and_fields(
-        self, topic: str, is_key_schema: bool
-    ) -> Tuple[Optional[Schema], List[SchemaField]]:
-        schema: Optional[Schema] = None
-        schema_type_str: str = "key" if is_key_schema else "value"
-        topic_subject: Optional[str] = self._get_subject_for_topic(
-            topic=topic, is_key_schema=is_key_schema
-        )
-        if topic_subject is not None:
-            logger.debug(
-                f"The {schema_type_str} schema subject:'{topic_subject}' is found for topic:'{topic}'."
-            )
-            try:
-                registered_schema = self.schema_registry_client.get_latest_version(
-                    subject_name=topic_subject
-                )
-                schema = registered_schema.schema
-            except Exception as e:
-                logger.warning(
-                    f"For topic: {topic}, failed to get {schema_type_str} schema from schema registry using subject:'{topic_subject}': {e}."
-                )
-                self.report.report_warning(
-                    topic,
-                    f"failed to get {schema_type_str} schema from schema registry using subject:'{topic_subject}': {e}.",
-                )
-        else:
-            logger.debug(
-                f"For topic: {topic}, the schema registry subject for the {schema_type_str} schema is not found."
-            )
-            if not is_key_schema:
-                # Value schema is always expected. Report a warning.
-                self.report.report_warning(
-                    topic,
-                    f"The schema registry subject for the {schema_type_str} schema is not found."
-                    f" The topic is either schema-less, or no messages have been written to the topic yet.",
-                )
-
-        # Obtain the schema fields from schema for the topic.
-        fields: List[SchemaField] = []
-        if schema is not None:
-            fields = self._get_schema_fields(
-                topic=topic, schema=schema, is_key_schema=is_key_schema
-            )
-        return (schema, fields)
-
-    def _get_schema_fields(
-        self, topic: str, schema: Schema, is_key_schema: bool
-    ) -> List[SchemaField]:
-        # Parse the schema and convert it to SchemaFields.
-        fields: List[SchemaField] = []
-        if schema.schema_type == "AVRO":
-            cleaned_str = self.get_schema_str_replace_confluent_ref_avro(schema)
-            # "value.id" or "value.[type=string]id"
-            fields = schema_util.avro_schema_to_mce_fields(
-                cleaned_str, is_key_schema=is_key_schema
-            )
-        else:
-            self.report.report_warning(
-                topic,
-                f"Parsing kafka schema type {schema.schema_type} is currently not implemented",
-            )
-        return fields
-
-    def _get_schema_metadata(
-        self, topic: str, platform_urn: str
-    ) -> Optional[SchemaMetadata]:
-        # Process the value schema
-        schema, fields = self._get_schema_and_fields(
-            topic=topic, is_key_schema=False
-        )  # type: Tuple[Optional[Schema], List[SchemaField]]
-
-        # Process the key schema
-        key_schema, key_fields = self._get_schema_and_fields(
-            topic=topic, is_key_schema=True
-        )  # type:Tuple[Optional[Schema], List[SchemaField]]
-
-        # Create the schemaMetadata aspect.
-        if schema is not None or key_schema is not None:
-            # create a merged string for the combined schemas and compute an md5 hash across
-            schema_as_string = (schema.schema_str if schema is not None else "") + (
-                key_schema.schema_str if key_schema is not None else ""
-            )
-            md5_hash = md5(schema_as_string.encode()).hexdigest()
-
-            return SchemaMetadata(
-                schemaName=topic,
-                version=0,
-                hash=md5_hash,
-                platform=platform_urn,
-                platformSchema=KafkaSchema(
-                    documentSchema=schema.schema_str if schema is not None else "",
-                    keySchema=key_schema.schema_str if key_schema else None,
-                ),
-                fields=key_fields + fields,
-            )
-        return None
-
     def _extract_record(self, topic: str) -> Iterable[MetadataWorkUnit]:  # noqa: C901
-        logger.debug(f"topic = {topic}")
+        logger.debug(f"Modified version topic = {topic}")
 
         # 1. Create the default dataset snapshot for the topic.
         dataset_name = topic
@@ -431,7 +261,7 @@ class KafkaSource(StatefulIngestionSourceBase):
         )
 
         # 2. Attach schemaMetadata aspect
-        schema_metadata = self._get_schema_metadata(topic, platform_urn)
+        schema_metadata = self.schema_registry_client.get_schema_metadata(topic, platform_urn)
         if schema_metadata is not None:
             dataset_snapshot.aspects.append(schema_metadata)
 
@@ -500,3 +330,21 @@ class KafkaSource(StatefulIngestionSourceBase):
         self.prepare_for_commit()
         if self.consumer:
             self.consumer.close()
+
+class SchemaRegistry():
+    """This is interface that represents SchemaRegistry for kafka. """
+    def get_schema_metadata(
+            self, topic: str, platform_urn: str
+    ) -> Optional[SchemaMetadata]:
+        """
+        This method should take name of the kafka topic as input and return a SchemaMetadata object for that topic.
+        :param topic:
+        :param platform_urn:
+        :return:
+        """
+
+
+        pass
+
+
+
