@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { ShareAltOutlined } from '@ant-design/icons';
-import { DataFlow, EntityType, PlatformType, SearchResult } from '../../../types.generated';
+import { DataFlow, EntityType, OwnershipType, PlatformType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
@@ -89,6 +89,9 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 },
                 {
                     component: SidebarOwnerSection,
+                    properties: {
+                        defaultOwnerType: OwnershipType.TechnicalOwner,
+                    },
                 },
                 {
                     component: SidebarDomainSection,
