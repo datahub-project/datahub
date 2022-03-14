@@ -635,5 +635,24 @@
       }
     },
     "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:unknown",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "name": "Unknown Platform",
+              "displayName": "N/A",
+              "type": "OTHERS",
+              "datasetNameDelimiter": "."
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
   }
 ]
