@@ -11,7 +11,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
@@ -25,9 +24,6 @@ import javax.annotation.Nonnull;
 public class RetentionServiceFactory {
 
   @Autowired
-  ApplicationContext applicationContext;
-
-  @Autowired
   @Qualifier("entityService")
   private EntityService _entityService;
 
@@ -39,8 +35,8 @@ public class RetentionServiceFactory {
   @DependsOn({"datastaxSession", "entityService"})
   @ConditionalOnProperty(name = "ENTITY_SERVICE_IMPL", havingValue = "datastax")
   @Nonnull
-  protected RetentionService createDatastaxInstance() {
-    RetentionService retentionService = new DatastaxRetentionService(_entityService, applicationContext.getBean(CqlSession.class), _batchSize);
+  protected RetentionService createDatastaxInstance(CqlSession session) {
+    RetentionService retentionService = new DatastaxRetentionService(_entityService, session, _batchSize);
     _entityService.setRetentionService(retentionService);
     return retentionService;
   }
@@ -50,8 +46,8 @@ public class RetentionServiceFactory {
   @DependsOn({"ebeanServer", "entityService"})
   @ConditionalOnProperty(name = "ENTITY_SERVICE_IMPL", havingValue = "ebean", matchIfMissing = true)
   @Nonnull
-  protected RetentionService createEbeanInstance() {
-    RetentionService retentionService = new EbeanRetentionService(_entityService, applicationContext.getBean(EbeanServer.class), _batchSize);
+  protected RetentionService createEbeanInstance(EbeanServer server) {
+    RetentionService retentionService = new EbeanRetentionService(_entityService, server, _batchSize);
     _entityService.setRetentionService(retentionService);
     return retentionService;
   }
