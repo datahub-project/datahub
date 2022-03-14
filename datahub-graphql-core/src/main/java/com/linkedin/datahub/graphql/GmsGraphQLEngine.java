@@ -514,6 +514,10 @@ public class GmsGraphQLEngine {
             .type("Container", typeWiring -> typeWiring
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
                 .dataFetcher("entities", new ContainerEntitiesResolver(entityClient))
+                .dataFetcher("domain", new LoadableTypeResolver<>(domainType, (env) -> {
+                    final Container container = env.getSource();
+                    return container.getDomain() != null ? container.getDomain().getUrn() : null;
+                }))
                 .dataFetcher("platform",
                     new LoadableTypeResolver<>(dataPlatformType,
                         (env) -> ((Container) env.getSource()).getPlatform().getUrn()))
