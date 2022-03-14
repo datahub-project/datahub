@@ -24,6 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 public class AppStartEvent extends LineageEvent {
 
   private static final String PLATFORM_INSTANCE_KEY = "platformInstance";
+  private static final String PLATFORM_SPARK = "spark";
   private final String sparkUser;
   private Config pipelineConfig;
 
@@ -41,8 +42,8 @@ public class AppStartEvent extends LineageEvent {
 
     if (this.pipelineConfig.hasPath(PLATFORM_INSTANCE_KEY)) {
       try {
-        DataPlatformInstance dpi = new DataPlatformInstance().setPlatform(new DataPlatformUrn("spark")).setInstance(
-            LineageUtils.dataPlatformInstanceUrn("spark", this.pipelineConfig.getString(PLATFORM_INSTANCE_KEY)));
+        DataPlatformInstance dpi = new DataPlatformInstance().setPlatform(new DataPlatformUrn(PLATFORM_SPARK)).setInstance(
+            LineageUtils.dataPlatformInstanceUrn(PLATFORM_SPARK, this.pipelineConfig.getString(PLATFORM_INSTANCE_KEY)));
         mcps.add(MetadataChangeProposalWrapper
             .create(b -> b.entityType("dataFlow").entityUrn(flowUrn).upsert().aspect(dpi)));
       } catch (URISyntaxException e) {

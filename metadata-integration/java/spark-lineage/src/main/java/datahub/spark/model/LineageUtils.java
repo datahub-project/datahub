@@ -4,6 +4,7 @@ import com.linkedin.common.FabricType;
 import com.linkedin.common.urn.DataFlowUrn;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
+import com.linkedin.common.urn.TupleKey;
 import com.linkedin.common.urn.Urn;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -39,7 +40,8 @@ public class LineageUtils {
   }
 
   public static Urn dataPlatformInstanceUrn(String platform, String instance) throws URISyntaxException {
-    return new Urn("urn:li:dataPlatformInstance:(" + new DataPlatformUrn(platform).toString() + "," + instance + ")");
+    return new Urn("dataPlatformInstance",
+        new TupleKey(Arrays.asList(new DataPlatformUrn(platform).toString(), instance)));
   }
 
   public static DataFlowUrn flowUrn(String master, String appName) {
@@ -78,18 +80,17 @@ public class LineageUtils {
   public static Config parseSparkConfig() {
     SparkConf conf = SparkEnv.get().conf();
     String propertiesString = Arrays.stream(conf.getAllWithPrefix("spark.datahub."))
-            .map(tup -> tup._1 + "= \"" + tup._2 + "\"")
-            .collect(Collectors.joining("\n"));
+        .map(tup -> tup._1 + "= \"" + tup._2 + "\"").collect(Collectors.joining("\n"));
     return ConfigFactory.parseString(propertiesString);
   }
-  
-  //TODO: URN creation with platform instance needs to be inside DatasetUrn class
-  public static DatasetUrn createDatasetUrn(String platform, String platformInstance, String name, FabricType fabricType) {
-    String datasteName =  platformInstance == null ? name : platformInstance + "." + name;
+
+  // TODO: URN creation with platform instance needs to be inside DatasetUrn class
+  public static DatasetUrn createDatasetUrn(String platform, String platformInstance, String name,
+      FabricType fabricType) {
+    String datasteName = platformInstance == null ? name : platformInstance + "." + name;
     return new DatasetUrn(new DataPlatformUrn(platform), datasteName, fabricType);
-    }
-    
-  
+  }
+
   /* This is for generating urn from a hash of the plan */
 
   /*
