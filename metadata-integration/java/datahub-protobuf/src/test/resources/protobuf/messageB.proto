@@ -1,0 +1,17 @@
+syntax = "proto3";
+package protobuf;
+
+import "google/protobuf/wrappers.proto";
+import "protobuf/messageA.proto";
+
+/**
+ * This contains nested types.
+ *
+ * Owned by TeamB
+ */
+message MessageB {
+  google.protobuf.Int64Value id = 1; // wrapped int64
+  string value = 2; // message value
+  protobuf.MessageA nested = 3; // nested message a
+  google.protobuf.BoolValue hot = 6; // Indicator
+}

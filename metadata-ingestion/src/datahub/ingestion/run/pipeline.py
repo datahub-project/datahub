@@ -8,7 +8,6 @@ from typing import Any, Dict, Iterable, List, Optional
 import click
 from pydantic import validator
 
-import datahub
 from datahub.configuration.common import (
     ConfigModel,
     DynamicTypedConfig,
@@ -117,18 +116,18 @@ class Pipeline:
             preview_mode=preview_mode,
         )
 
+        sink_type = self.config.sink.type
+        sink_class = sink_registry.get(sink_type)
+        sink_config = self.config.sink.dict().get("config", {})
+        self.sink: Sink = sink_class.create(sink_config, self.ctx)
+        logger.debug(f"Sink type:{self.config.sink.type},{sink_class} configured")
+
         source_type = self.config.source.type
         source_class = source_registry.get(source_type)
         self.source: Source = source_class.create(
             self.config.source.dict().get("config", {}), self.ctx
         )
         logger.debug(f"Source type:{source_type},{source_class} configured")
-
-        sink_type = self.config.sink.type
-        sink_class = sink_registry.get(sink_type)
-        sink_config = self.config.sink.dict().get("config", {})
-        self.sink: Sink = sink_class.create(sink_config, self.ctx)
-        logger.debug(f"Sink type:{self.config.sink.type},{sink_class} configured")
 
         self.extractor_class = extractor_registry.get(self.config.source.extractor)
 
@@ -179,7 +178,6 @@ class Pipeline:
 
         callback = LoggingCallback()
         extractor: Extractor = self.extractor_class()
-        self.source.get_report().cli_version = datahub.nice_version_name()
         for wu in itertools.islice(
             self.source.get_workunits(), 10 if self.preview_mode else None
         ):
