@@ -8,6 +8,7 @@ import com.google.common.collect.Iterators;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
@@ -475,12 +476,7 @@ public class DatastaxEntityService extends EntityService {
       String latestMetadata = latest.getMetadata();
 
       // 3. Check if this is a key aspect
-      Boolean isKeyAspect = false;
-      try {
-        isKeyAspect = getKeyAspectName(Urn.createFromString(urn)).equals(aspectName);
-      } catch (URISyntaxException e) {
-        e.printStackTrace();
-      }
+      Boolean isKeyAspect = getKeyAspectName(UrnUtils.getUrn(urn)).equals(aspectName);
 
       // 4. Fetch all preceding aspects, that match
       List<DatastaxAspect> aspectsToDelete = new ArrayList<>();
