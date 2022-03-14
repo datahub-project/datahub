@@ -410,7 +410,7 @@ class LookerDashboardSource(Source):
                 fields = self._get_fields_from_query(element.look.query)
                 if element.look.query.view is not None:
                     explores = [element.look.query.view]
-                logger.info(
+                logger.debug(
                     "Element {}: Explores added: {}".format(element.title, explores)
                 )
                 for exp in explores:
@@ -578,7 +578,7 @@ class LookerDashboardSource(Source):
                 events, explore_id, start_time, end_time = future.result()
                 explore_events.extend(events)
                 self.reporter.report_upstream_latency(start_time, end_time)
-                logger.warning(
+                logger.debug(
                     f"Running time of fetch_one_explore for {explore_id}: {(end_time - start_time).total_seconds()}"
                 )
 
@@ -823,7 +823,7 @@ class LookerDashboardSource(Source):
             ]
             for async_workunit in concurrent.futures.as_completed(async_workunits):
                 work_units, dashboard_id, start_time, end_time = async_workunit.result()
-                logger.info(
+                logger.debug(
                     f"Running time of process_dashboard for {dashboard_id} = {(end_time - start_time).total_seconds()}"
                 )
                 self.reporter.report_upstream_latency(start_time, end_time)
