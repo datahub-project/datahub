@@ -578,7 +578,7 @@ class LookerDashboardSource(Source):
                 events, explore_id, start_time, end_time = future.result()
                 explore_events.extend(events)
                 self.reporter.report_upstream_latency(start_time, end_time)
-                logger.info(
+                logger.warning(
                     f"Running time of fetch_one_explore for {explore_id}: {(end_time - start_time).total_seconds()}"
                 )
 
