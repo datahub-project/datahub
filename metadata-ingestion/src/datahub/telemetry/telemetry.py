@@ -191,7 +191,7 @@ def with_telemetry(func: Callable[..., T]) -> Callable[..., T]:
             res = func(*args, **kwargs)
             telemetry_instance.ping(
                 "function-call",
-                {action: action, "status": "completed"},
+                {"action": action, "status": "completed"},
             )
             return res
         # Catch general exceptions
@@ -199,7 +199,7 @@ def with_telemetry(func: Callable[..., T]) -> Callable[..., T]:
             telemetry_instance.ping(
                 "function-call",
                 {
-                    action: action,
+                    "action": action,
                     "status": "error",
                     "error": get_full_class_name(e),
                 },
@@ -213,7 +213,7 @@ def with_telemetry(func: Callable[..., T]) -> Callable[..., T]:
                 telemetry_instance.ping(
                     "function-call",
                     {
-                        action: action,
+                        "action": action,
                         "status": "completed",
                     },
                 )
@@ -223,7 +223,7 @@ def with_telemetry(func: Callable[..., T]) -> Callable[..., T]:
                 telemetry_instance.ping(
                     "function-call",
                     {
-                        action: action,
+                        "action": action,
                         "status": "error",
                         "error": get_full_class_name(e),
                     },
@@ -233,7 +233,7 @@ def with_telemetry(func: Callable[..., T]) -> Callable[..., T]:
         except KeyboardInterrupt:
             telemetry_instance.ping(
                 "function-call",
-                {action: action, "status": "cancelled"},
+                {"action": action, "status": "cancelled"},
             )
             sys.exit(0)
 
