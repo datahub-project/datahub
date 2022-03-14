@@ -135,17 +135,15 @@ class Telemetry:
 
     def ping(
         self,
-        action: str,
+        event_name: str,
         properties: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
         Send a single telemetry event.
 
         Args:
-            category (str): category for the event
-            action (str): action taken
-            label (Optional[str], optional): label for the event
-            value (Optional[int], optional): value for the event
+            event_name (str): name of the event to send.
+            properties (Optional[Dict[str, Any]]): metadata for the event
         """
 
         if not self.enabled or self.mp is None:
@@ -154,7 +152,7 @@ class Telemetry:
         # send event
         try:
             logger.info("Sending Telemetry")
-            self.mp.track(self.client_id, action, properties)
+            self.mp.track(self.client_id, event_name, properties)
 
         except Exception as e:
             logger.debug(f"Error reporting telemetry: {e}")
@@ -183,15 +181,17 @@ def with_telemetry(func: Callable[..., T]) -> Callable[..., T]:
     @wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
 
-        action = f"{func.__module__}.{func.__name__}"
+        function = f"{func.__module__}.{func.__name__}"
 
         telemetry_instance.init_tracking()
-        telemetry_instance.ping("function-call", {"action": action, "status": "start"})
+        telemetry_instance.ping(
+            "function-call", {"function": function, "status": "start"}
+        )
         try:
             res = func(*args, **kwargs)
             telemetry_instance.ping(
                 "function-call",
-                {"action": action, "status": "completed"},
+                {"function": function, "status": "completed"},
             )
             return res
         # System exits (used in ingestion and Docker commands) are not caught by the exception handler,
@@ -202,7 +202,7 @@ def with_telemetry(func: Callable[..., T]) -> Callable[..., T]:
                 telemetry_instance.ping(
                     "function-call",
                     {
-                        "action": action,
+                        "function": function,
                         "status": "completed",
                     },
                 )
@@ -212,7 +212,7 @@ def with_telemetry(func: Callable[..., T]) -> Callable[..., T]:
                 telemetry_instance.ping(
                     "function-call",
                     {
-                        "action": action,
+                        "function": function,
                         "status": "error",
                         "error": get_full_class_name(e),
                     },
@@ -222,7 +222,7 @@ def with_telemetry(func: Callable[..., T]) -> Callable[..., T]:
         except KeyboardInterrupt:
             telemetry_instance.ping(
                 "function-call",
-                {"action": action, "status": "cancelled"},
+                {"function": function, "status": "cancelled"},
             )
             sys.exit(0)
 
@@ -231,7 +231,7 @@ def with_telemetry(func: Callable[..., T]) -> Callable[..., T]:
             telemetry_instance.ping(
                 "function-call",
                 {
-                    "action": action,
+                    "function": function,
                     "status": "error",
                     "error": get_full_class_name(e),
                 },
