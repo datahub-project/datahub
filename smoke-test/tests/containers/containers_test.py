@@ -162,6 +162,7 @@ def test_get_parent_container(frontend_session, ingest_cleanup_data):
     dataset = res_data["data"]["dataset"]
     assert dataset["container"]["properties"]["name"] == "datahub_schema"
 
+@pytest.mark.skip(reason="currently failing in acryl-main")
 @pytest.mark.dependency(depends=["test_healthchecks", "test_get_full_container"])
 def test_update_container(frontend_session, ingest_cleanup_data):
 

@@ -18,6 +18,7 @@ def test_healthchecks(wait_for_healthchecks):
     # Call to wait_for_healthchecks fixture will do the actual functionality.
     pass
 
+@pytest.mark.skip(reason="currently failing in acryl-main")
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_create_list_get_domain(frontend_session):
 

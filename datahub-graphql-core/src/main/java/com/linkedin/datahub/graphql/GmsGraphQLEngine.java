@@ -222,7 +222,6 @@ public class GmsGraphQLEngine {
     private final GitVersion gitVersion;
     private final boolean supportsImpactAnalysis;
     private final TimeseriesAspectService timeseriesAspectService;
-
     private final IngestionConfiguration ingestionConfiguration;
 
     private final DatasetType datasetType;
