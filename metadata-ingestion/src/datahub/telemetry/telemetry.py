@@ -123,14 +123,17 @@ class Telemetry:
             return
 
         logger.info("Sending init Telemetry")
-        self.mp.people_set(
-            self.client_id,
-            {
-                "datahub_version": datahub_package.nice_version_name(),
-                "os": platform.system(),
-                "python_version": platform.python_version(),
-            },
-        )
+        try:
+            self.mp.people_set(
+                self.client_id,
+                {
+                    "datahub_version": datahub_package.nice_version_name(),
+                    "os": platform.system(),
+                    "python_version": platform.python_version(),
+                },
+            )
+        except Exception as e:
+            logger.debug(f"Error reporting telemetry: {e}")
         self.init_track = True
 
     def ping(
