@@ -194,17 +194,6 @@ def with_telemetry(func: Callable[..., T]) -> Callable[..., T]:
                 {"action": action, "status": "completed"},
             )
             return res
-        # Catch general exceptions
-        except Exception as e:
-            telemetry_instance.ping(
-                "function-call",
-                {
-                    "action": action,
-                    "status": "error",
-                    "error": get_full_class_name(e),
-                },
-            )
-            raise e
         # System exits (used in ingestion and Docker commands) are not caught by the exception handler,
         # so we need to catch them here.
         except SystemExit as e:
@@ -236,5 +225,17 @@ def with_telemetry(func: Callable[..., T]) -> Callable[..., T]:
                 {"action": action, "status": "cancelled"},
             )
             sys.exit(0)
+
+        # Catch general exceptions
+        except Exception as e:
+            telemetry_instance.ping(
+                "function-call",
+                {
+                    "action": action,
+                    "status": "error",
+                    "error": get_full_class_name(e),
+                },
+            )
+            raise e
 
     return wrapper
