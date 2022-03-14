@@ -28,9 +28,9 @@ if [[ $SKIP_EBEAN_CHECK != true ]]; then
   fi
 fi
 
-WAIT_FOR_DATASTAX=""
-if [[ $ENTITY_SERVICE_IMPL == datastax ]] && [[ $SKIP_DATASTAX_CHECK != true ]]; then
-  WAIT_FOR_DATASTAX=" -wait tcp://$DATASTAX_DATASOURCE_HOST "
+WAIT_FOR_CASSANDRA=""
+if [[ $ENTITY_SERVICE_IMPL == cassandra ]] && [[ $SKIP_CASSANDRA_CHECK != true ]]; then
+  WAIT_FOR_CASSANDRA=" -wait tcp://$CASSANDRA_DATASOURCE_HOST "
 fi
 
 WAIT_FOR_KAFKA=""
@@ -55,7 +55,7 @@ fi
 
 COMMON="
     $WAIT_FOR_EBEAN \
-    $WAIT_FOR_DATASTAX \
+    $WAIT_FOR_CASSANDRA \
     $WAIT_FOR_KAFKA \
     $WAIT_FOR_NEO4J \
     -timeout 240s \

@@ -4,7 +4,7 @@ import com.datastax.oss.driver.api.core.CqlSession;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RetentionService;
-import com.linkedin.metadata.entity.datastax.DatastaxRetentionService;
+import com.linkedin.metadata.entity.cassandra.CassandraRetentionService;
 import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
 import io.ebean.EbeanServer;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,11 +32,11 @@ public class RetentionServiceFactory {
 
 
   @Bean(name = "retentionService")
-  @DependsOn({"datastaxSession", "entityService"})
-  @ConditionalOnProperty(name = "ENTITY_SERVICE_IMPL", havingValue = "datastax")
+  @DependsOn({"cassandraSession", "entityService"})
+  @ConditionalOnProperty(name = "ENTITY_SERVICE_IMPL", havingValue = "cassandra")
   @Nonnull
-  protected RetentionService createDatastaxInstance(CqlSession session) {
-    RetentionService retentionService = new DatastaxRetentionService(_entityService, session, _batchSize);
+  protected RetentionService createCassandraInstance(CqlSession session) {
+    RetentionService retentionService = new CassandraRetentionService(_entityService, session, _batchSize);
     _entityService.setRetentionService(retentionService);
     return retentionService;
   }

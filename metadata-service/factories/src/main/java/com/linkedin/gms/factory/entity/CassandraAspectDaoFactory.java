@@ -1,7 +1,7 @@
 package com.linkedin.gms.factory.entity;
 
 import com.datastax.oss.driver.api.core.CqlSession;
-import com.linkedin.metadata.entity.datastax.DatastaxAspectDao;
+import com.linkedin.metadata.entity.cassandra.CassandraAspectDao;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,14 +11,14 @@ import javax.annotation.Nonnull;
 
 
 @Configuration
-public class DatastaxAspectDaoFactory {
+public class CassandraAspectDaoFactory {
 
 
-  @Bean(name = "datastaxAspectDao")
-  @ConditionalOnProperty(name = "ENTITY_SERVICE_IMPL", havingValue = "datastax")
-  @DependsOn({"datastaxSession"})
+  @Bean(name = "cassandraAspectDao")
+  @ConditionalOnProperty(name = "ENTITY_SERVICE_IMPL", havingValue = "cassandra")
+  @DependsOn({"cassandraSession"})
   @Nonnull
-  protected DatastaxAspectDao createInstance(CqlSession session) {
-    return new DatastaxAspectDao(session);
+  protected CassandraAspectDao createInstance(CqlSession session) {
+    return new CassandraAspectDao(session);
   }
 }

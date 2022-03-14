@@ -3,8 +3,8 @@ package com.linkedin.gms.factory.entity;
 import com.linkedin.gms.factory.common.TopicConventionFactory;
 import com.linkedin.metadata.dao.producer.EntityKafkaMetadataEventProducer;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.datastax.DatastaxAspectDao;
-import com.linkedin.metadata.entity.datastax.DatastaxEntityService;
+import com.linkedin.metadata.entity.cassandra.CassandraAspectDao;
+import com.linkedin.metadata.entity.cassandra.CassandraEntityService;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanEntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -23,17 +23,17 @@ import javax.annotation.Nonnull;
 public class EntityServiceFactory {
 
   @Bean(name = "entityService")
-  @DependsOn({"datastaxAspectDao", "kafkaEventProducer", TopicConventionFactory.TOPIC_CONVENTION_BEAN, "entityRegistry"})
-  @ConditionalOnProperty(name = "ENTITY_SERVICE_IMPL", havingValue = "datastax")
+  @DependsOn({"cassandraAspectDao", "kafkaEventProducer", TopicConventionFactory.TOPIC_CONVENTION_BEAN, "entityRegistry"})
+  @ConditionalOnProperty(name = "ENTITY_SERVICE_IMPL", havingValue = "cassandra")
   @Nonnull
-  protected EntityService createDatastaxInstance(
+  protected EntityService createCassandraInstance(
       Producer<String, ? extends IndexedRecord> producer,
       TopicConvention convention,
-      DatastaxAspectDao aspectDao,
+      CassandraAspectDao aspectDao,
       EntityRegistry entityRegistry) {
 
     final EntityKafkaMetadataEventProducer metadataProducer = new EntityKafkaMetadataEventProducer(producer, convention);
-    return new DatastaxEntityService(aspectDao, metadataProducer, entityRegistry);
+    return new CassandraEntityService(aspectDao, metadataProducer, entityRegistry);
   }
 
   @Bean(name = "entityService")
