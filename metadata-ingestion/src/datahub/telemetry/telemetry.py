@@ -29,6 +29,7 @@ class Telemetry:
 
     client_id: str
     enabled: bool = True
+    tracking_init: bool = False
 
     def __init__(self):
 
@@ -47,14 +48,6 @@ class Telemetry:
                 self.mp = Mixpanel(
                     MIXPANEL_TOKEN, consumer=Consumer(request_timeout=int(TIMEOUT))
                 )
-                self.mp.people_set(
-                    self.client_id,
-                    {
-                        "datahub_version": datahub_package.nice_version_name(),
-                        "os": platform.system(),
-                        "python_version": platform.python_version(),
-                    },
-                )
             except Exception as e:
                 logger.debug(f"Error connecting to mixpanel: {e}")
 
@@ -62,6 +55,7 @@ class Telemetry:
         """
         Update the config file with the current client ID and enabled status.
         """
+        logger.info("Updating telemetry config")
 
         if not DATAHUB_FOLDER.exists():
             os.makedirs(DATAHUB_FOLDER)
@@ -124,6 +118,21 @@ class Telemetry:
                     f"{CONFIG_FILE} had an IOError, please inspect this file for issues."
                 )
 
+    def init_tracking(self) -> None:
+        if not self.enabled or self.mp is None or self.tracking_init is True:
+            return
+
+        logger.info("Sending init Telemetry")
+        self.mp.people_set(
+            self.client_id,
+            {
+                "datahub_version": datahub_package.nice_version_name(),
+                "os": platform.system(),
+                "python_version": platform.python_version(),
+            },
+        )
+        self.init_track = True
+
     def ping(
         self,
         action: str,
@@ -144,6 +153,7 @@ class Telemetry:
 
         # send event
         try:
+            logger.info("Sending Telemetry")
             self.mp.track(self.client_id, action, properties)
 
         except Exception as e:
@@ -153,6 +163,13 @@ class Telemetry:
 telemetry_instance = Telemetry()
 
 T = TypeVar("T")
+
+
+def set_telemetry_enable(enable: bool) -> Any:
+    telemetry_instance.enabled = enable
+    if not enable:
+        logger.info("Disabling Telemetry locally due to server config")
+    telemetry_instance.update_config()
 
 
 def get_full_class_name(obj):
@@ -168,6 +185,7 @@ def with_telemetry(func: Callable[..., T]) -> Callable[..., T]:
 
         action = f"function:{func.__module__}.{func.__name__}"
 
+        telemetry_instance.init_tracking()
         telemetry_instance.ping(action)
         try:
             res = func(*args, **kwargs)
