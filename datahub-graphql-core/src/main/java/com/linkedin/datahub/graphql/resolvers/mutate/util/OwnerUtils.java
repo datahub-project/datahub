@@ -18,6 +18,7 @@ import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -34,6 +35,7 @@ public class OwnerUtils {
 
   public static void addOwner(
       Urn ownerUrn,
+      OwnershipType type,
       Urn resourceUrn,
       Urn actor,
       EntityService entityService
@@ -43,7 +45,7 @@ public class OwnerUtils {
         Constants.OWNERSHIP_ASPECT_NAME,
         entityService,
         new Ownership());
-    addOwner(ownershipAspect, ownerUrn);
+    addOwner(ownershipAspect, ownerUrn, type);
     persistAspect(resourceUrn, Constants.OWNERSHIP_ASPECT_NAME, ownershipAspect, actor, entityService);
   }
 
@@ -63,23 +65,22 @@ public class OwnerUtils {
     persistAspect(resourceUrn, Constants.OWNERSHIP_ASPECT_NAME, ownershipAspect, actor, entityService);
   }
 
-  private static void addOwner(Ownership ownershipAspect, Urn ownerUrn) {
+  private static void addOwner(Ownership ownershipAspect, Urn ownerUrn, OwnershipType type) {
     if (!ownershipAspect.hasOwners()) {
       ownershipAspect.setOwners(new OwnerArray());
     }
 
-    OwnerArray ownerArray = ownershipAspect.getOwners();
-
-    // if owner exists, do not add it again
-    if (ownerArray.stream().anyMatch(association -> association.getOwner().equals(ownerUrn))) {
-      return;
-    }
+    final OwnerArray ownerArray = new OwnerArray(ownershipAspect.getOwners()
+        .stream()
+        .filter(owner ->  !owner.getOwner().equals(ownerUrn))
+        .collect(Collectors.toList()));
 
     Owner newOwner = new Owner();
-    newOwner.setType(OwnershipType.DATAOWNER);
+    newOwner.setType(type);
     newOwner.setSource(new OwnershipSource().setType(OwnershipSourceType.MANUAL));
     newOwner.setOwner(ownerUrn);
     ownerArray.add(newOwner);
+    ownershipAspect.setOwners(ownerArray);
   }
 
   private static void removeOwner(Ownership ownership, Urn ownerUrn) {

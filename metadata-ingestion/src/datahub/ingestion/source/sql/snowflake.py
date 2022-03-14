@@ -1,7 +1,6 @@
 import json
 import logging
 from collections import defaultdict
-from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import pydantic
@@ -9,35 +8,25 @@ import pydantic
 # This import verifies that the dependencies are available.
 import snowflake.sqlalchemy  # noqa: F401
 import sqlalchemy.engine
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import serialization
-from snowflake.connector.network import (
-    DEFAULT_AUTHENTICATOR,
-    EXTERNAL_BROWSER_AUTHENTICATOR,
-    KEY_PAIR_AUTHENTICATOR,
-)
 from snowflake.sqlalchemy import custom_types, snowdialect
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.sql import sqltypes, text
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.ingestion.source.sql.sql_common import (
     RecordTypeClass,
-    SQLAlchemyConfig,
     SQLAlchemySource,
-    SQLSourceReport,
     SqlWorkUnit,
     TimeTypeClass,
-    make_sqlalchemy_uri,
     register_custom_type,
 )
+from datahub.ingestion.source_config.sql.snowflake import SnowflakeConfig
+from datahub.ingestion.source_report.sql.snowflake import SnowflakeReport
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageTypeClass,
     UpstreamClass,
@@ -54,144 +43,7 @@ register_custom_type(custom_types.VARIANT, RecordTypeClass)
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-APPLICATION_NAME = "acryl_datahub"
-
 snowdialect.ischema_names["GEOGRAPHY"] = sqltypes.NullType
-
-
-@dataclass
-class SnowflakeReport(SQLSourceReport):
-    num_table_to_table_edges_scanned: int = 0
-    num_table_to_view_edges_scanned: int = 0
-    num_view_to_table_edges_scanned: int = 0
-    num_external_table_edges_scanned: int = 0
-    upstream_lineage: Dict[str, List[str]] = field(default_factory=dict)
-    # https://community.snowflake.com/s/topic/0TO0Z000000Unu5WAC/releases
-    saas_version: str = ""
-    role: str = ""
-    role_grants: List[str] = field(default_factory=list)
-
-
-class BaseSnowflakeConfig(BaseTimeWindowConfig):
-    # Note: this config model is also used by the snowflake-usage source.
-
-    scheme = "snowflake"
-
-    username: Optional[str] = None
-    password: Optional[pydantic.SecretStr] = pydantic.Field(default=None, exclude=True)
-    private_key_path: Optional[str]
-    private_key_password: Optional[pydantic.SecretStr] = pydantic.Field(
-        default=None, exclude=True
-    )
-    authentication_type: Optional[str] = "DEFAULT_AUTHENTICATOR"
-    host_port: str
-    warehouse: Optional[str]
-    role: Optional[str]
-    include_table_lineage: Optional[bool] = True
-    include_view_lineage: Optional[bool] = True
-
-    connect_args: Optional[dict]
-
-    @pydantic.validator("authentication_type", always=True)
-    def authenticator_type_is_valid(cls, v, values, **kwargs):
-        valid_auth_types = {
-            "DEFAULT_AUTHENTICATOR": DEFAULT_AUTHENTICATOR,
-            "EXTERNAL_BROWSER_AUTHENTICATOR": EXTERNAL_BROWSER_AUTHENTICATOR,
-            "KEY_PAIR_AUTHENTICATOR": KEY_PAIR_AUTHENTICATOR,
-        }
-        if v not in valid_auth_types.keys():
-            raise ValueError(
-                f"unsupported authenticator type '{v}' was provided,"
-                f" use one of {list(valid_auth_types.keys())}"
-            )
-        else:
-            if v == "KEY_PAIR_AUTHENTICATOR":
-                # If we are using key pair auth, we need the private key path and password to be set
-                if values.get("private_key_path") is None:
-                    raise ValueError(
-                        f"'private_key_path' was none "
-                        f"but should be set when using {v} authentication"
-                    )
-                if values.get("private_key_password") is None:
-                    raise ValueError(
-                        f"'private_key_password' was none "
-                        f"but should be set when using {v} authentication"
-                    )
-            logger.info(f"using authenticator type '{v}'")
-        return valid_auth_types.get(v)
-
-    @pydantic.validator("include_view_lineage")
-    def validate_include_view_lineage(cls, v, values):
-        if not values.get("include_table_lineage") and v:
-            raise ValueError(
-                "include_table_lineage must be True for include_view_lineage to be set."
-            )
-        return v
-
-    def get_sql_alchemy_url(self, database=None):
-        return make_sqlalchemy_uri(
-            self.scheme,
-            self.username,
-            self.password.get_secret_value() if self.password else None,
-            self.host_port,
-            f'"{database}"' if database is not None else database,
-            uri_opts={
-                # Drop the options if value is None.
-                key: value
-                for (key, value) in {
-                    "authenticator": self.authentication_type,
-                    "warehouse": self.warehouse,
-                    "role": self.role,
-                    "application": APPLICATION_NAME,
-                }.items()
-                if value
-            },
-        )
-
-    def get_sql_alchemy_connect_args(self) -> dict:
-        if self.authentication_type != KEY_PAIR_AUTHENTICATOR:
-            return {}
-        if self.connect_args is None:
-            if self.private_key_path is None:
-                raise ValueError("missing required private key path to read key from")
-            if self.private_key_password is None:
-                raise ValueError("missing required private key password")
-            with open(self.private_key_path, "rb") as key:
-                p_key = serialization.load_pem_private_key(
-                    key.read(),
-                    password=self.private_key_password.get_secret_value().encode(),
-                    backend=default_backend(),
-                )
-
-            pkb = p_key.private_bytes(
-                encoding=serialization.Encoding.DER,
-                format=serialization.PrivateFormat.PKCS8,
-                encryption_algorithm=serialization.NoEncryption(),
-            )
-            self.connect_args = {"private_key": pkb}
-        return self.connect_args
-
-
-class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
-    database_pattern: AllowDenyPattern = AllowDenyPattern(
-        deny=[r"^UTIL_DB$", r"^SNOWFLAKE$", r"^SNOWFLAKE_SAMPLE_DATA$"]
-    )
-
-    database: Optional[str]  # deprecated
-
-    @pydantic.validator("database")
-    def note_database_opt_deprecation(cls, v, values, **kwargs):
-        logger.warning(
-            "snowflake's `database` option has been deprecated; use database_pattern instead"
-        )
-        values["database_pattern"].allow = f"^{v}$"
-        return None
-
-    def get_sql_alchemy_url(self, database: str = None) -> str:
-        return super().get_sql_alchemy_url(database=database)
-
-    def get_sql_alchemy_connect_args(self) -> dict:
-        return super().get_sql_alchemy_connect_args()
 
 
 class SnowflakeSource(SQLAlchemySource):
@@ -201,6 +53,7 @@ class SnowflakeSource(SQLAlchemySource):
         self._external_lineage_map: Optional[Dict[str, Set[str]]] = None
         self.report: SnowflakeReport = SnowflakeReport()
         self.config: SnowflakeConfig = config
+        self.provision_role_in_progress: bool = False
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -210,7 +63,20 @@ class SnowflakeSource(SQLAlchemySource):
     def get_metadata_engine(
         self, database: Optional[str] = None
     ) -> sqlalchemy.engine.Engine:
-        url = self.config.get_sql_alchemy_url(database=database)
+        if self.provision_role_in_progress and self.config.provision_role is not None:
+            username: Optional[str] = self.config.provision_role.admin_username
+            password: Optional[
+                pydantic.SecretStr
+            ] = self.config.provision_role.admin_password
+            role: Optional[str] = self.config.provision_role.admin_role
+        else:
+            username = self.config.username
+            password = self.config.password
+            role = self.config.role
+
+        url = self.config.get_sql_alchemy_url(
+            database=database, username=username, password=password, role=role
+        )
         logger.debug(f"sql_alchemy_url={url}")
         return create_engine(
             url,
@@ -643,8 +509,104 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
             return UpstreamLineage(upstreams=upstream_tables), column_lineage
         return None
 
+    def add_config_to_report(self):
+        self.report.cleaned_host_port = self.config.host_port
+
+        if self.config.provision_role is not None:
+            self.report.run_ingestion = self.config.provision_role.run_ingestion
+
+    def do_provision_role_internal(self):
+        provision_role_block = self.config.provision_role
+        if provision_role_block is None:
+            return
+        self.report.provision_role_done = not provision_role_block.dry_run
+
+        role = self.config.role
+        if role is None:
+            role = "datahub_role"
+            self.warn(
+                logger,
+                "role-grant",
+                f"role not specified during provision role using {role} as default",
+            )
+        self.report.role = role
+
+        warehouse = self.config.warehouse
+
+        logger.info("Creating connection for provision_role")
+        engine = self.get_metadata_engine(database=None)
+
+        sqls: List[str] = []
+        if provision_role_block.drop_role_if_exists:
+            sqls.append(f"DROP ROLE IF EXISTS {role}")
+
+        sqls.append(f"CREATE ROLE IF NOT EXISTS {role}")
+
+        if warehouse is None:
+            self.warn(
+                logger, "role-grant", "warehouse not specified during provision role"
+            )
+        else:
+            sqls.append(f"grant operate, usage on warehouse {warehouse} to role {role}")
+
+        for inspector in self.get_inspectors():
+            db_name = self.get_db_name(inspector)
+            sqls.extend(
+                [
+                    f"grant usage on DATABASE {db_name} to role {role}",
+                    f"grant usage on all schemas in database {db_name} to role {role}",
+                    f"grant select on all tables in database {db_name} to role {role}",
+                    f"grant select on all external tables in database {db_name} to role {role}",
+                    f"grant select on all views in database {db_name} to role {role}",
+                    f"grant usage on future schemas in database {db_name} to role {role}",
+                    f"grant select on future tables in database {db_name} to role {role}",
+                ]
+            )
+        if self.config.username is not None:
+            sqls.append(f"grant role {role} to user {self.config.username}")
+
+        sqls.append(f"grant imported privileges on database snowflake to role {role}")
+
+        dry_run_str = "[DRY RUN] " if provision_role_block.dry_run else ""
+        for sql in sqls:
+            logger.info(f"{dry_run_str} Attempting to run sql {sql}")
+            if provision_role_block.dry_run:
+                continue
+            try:
+                engine.execute(sql)
+            except Exception as e:
+                self.error(logger, "role-grant", f"Exception: {e}")
+
+        self.report.provision_role_success = not provision_role_block.dry_run
+
+    def do_provision_role(self):
+        if (
+            self.config.provision_role is None
+            or self.config.provision_role.enabled is False
+        ):
+            return
+
+        try:
+            self.provision_role_in_progress = True
+            self.do_provision_role_internal()
+        finally:
+            self.provision_role_in_progress = False
+
+    def should_run_ingestion(self) -> bool:
+        return (
+            self.config.provision_role is None
+            or self.config.provision_role.enabled is False
+            or self.config.provision_role.run_ingestion
+        )
+
     # Override the base class method.
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+        self.add_config_to_report()
+
+        self.do_provision_role()
+        if not self.should_run_ingestion():
+            return
+
         try:
             self.inspect_version()
         except Exception as e:
