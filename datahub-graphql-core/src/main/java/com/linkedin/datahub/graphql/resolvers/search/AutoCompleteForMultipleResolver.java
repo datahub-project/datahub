@@ -18,6 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
 import static org.apache.commons.lang3.StringUtils.isBlank;
 
 /**
@@ -27,11 +28,9 @@ public class AutoCompleteForMultipleResolver implements DataFetcher<CompletableF
 
     private static final Logger _logger = LoggerFactory.getLogger(AutoCompleteForMultipleResolver.class.getName());
 
-    private final List<SearchableEntityType<?>> _searchableEntities;
     private final Map<EntityType, SearchableEntityType<?>> _typeToEntity;
 
     public AutoCompleteForMultipleResolver(@Nonnull final List<SearchableEntityType<?>> searchableEntities) {
-        _searchableEntities = searchableEntities;
         _typeToEntity = searchableEntities.stream().collect(Collectors.toMap(
             SearchableEntityType::type,
             entity -> entity
@@ -51,10 +50,18 @@ public class AutoCompleteForMultipleResolver implements DataFetcher<CompletableF
 
         List<EntityType> types = input.getTypes();
         if (types != null && types.size() > 0) {
-            return AutocompleteUtils.batchGetAutocompleteResults(types.stream().map(type -> _typeToEntity.get(type)).collect(
-                Collectors.toList()), sanitizedQuery, input, environment);
+            return AutocompleteUtils.batchGetAutocompleteResults(
+                types.stream().map(_typeToEntity::get).collect(Collectors.toList()),
+                sanitizedQuery,
+                input,
+                environment);
         }
 
-        return AutocompleteUtils.batchGetAutocompleteResults(_searchableEntities, sanitizedQuery, input, environment);
+        // By default, autocomplete only against the set of Searchable Entity Types.
+        return AutocompleteUtils.batchGetAutocompleteResults(
+            AUTO_COMPLETE_ENTITY_TYPES.stream().map(_typeToEntity::get).collect(Collectors.toList()),
+            sanitizedQuery,
+            input,
+            environment);
     }
 }
