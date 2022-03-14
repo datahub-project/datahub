@@ -1594,7 +1594,8 @@ export const mocks = [
                     suggestions: [
                         {
                             type: EntityType.Dataset,
-                            suggestions: ['The Great Test Dataset', 'Some other test'],
+                            suggestions: ['The Great Test Dataset', 'Some Other Dataset'],
+                            entities: [dataset1, dataset2],
                         },
                     ],
                 },
@@ -1618,7 +1619,8 @@ export const mocks = [
                     suggestions: [
                         {
                             type: EntityType.Dataset,
-                            suggestions: ['The Great Test Dataset', 'Some other test'],
+                            suggestions: ['The Great Test Dataset', 'Some Other Dataset'],
+                            entities: [dataset1, dataset2],
                         },
                     ],
                 },
@@ -1640,6 +1642,7 @@ export const mocks = [
                 autoComplete: {
                     query: 'j',
                     suggestions: ['jjoyce'],
+                    entities: [user1],
                 },
             },
         },

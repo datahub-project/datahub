@@ -26,7 +26,6 @@ const SuggestionText = styled.span`
     margin-left: 8px;
     margin-top: 2px;
     margin-bottom: 2px;
-    font-weight: 600;
     color: ${ANTD_GRAY[9]};
 `;
 
@@ -77,53 +76,63 @@ const renderTagSuggestion = (tag: Tag, registry: EntityRegistry) => {
     );
 };
 
-const renderUserSuggestion = (user: CorpUser, registry: EntityRegistry) => {
+const renderUserSuggestion = (query: string, user: CorpUser, registry: EntityRegistry) => {
     const displayName = registry.getDisplayName(EntityType.CorpUser, user);
-    const truncatedDisplayName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
+    const isPrefixMatch = displayName.toLowerCase().startsWith(query.toLowerCase());
+    const matchedText = (isPrefixMatch && displayName.substring(0, query.length)) || '';
+    const unmatchedText = (isPrefixMatch && displayName.substring(query.length, displayName.length)) || displayName;
     return (
         <>
             <CustomAvatar
                 size={20}
-                name={truncatedDisplayName}
+                name={displayName}
                 photoUrl={user.editableProperties?.pictureLink || undefined}
                 useDefaultAvatar={false}
                 style={{
                     marginRight: 0,
                 }}
             />
-            <SuggestionText>{displayName}</SuggestionText>
+            <SuggestionText>
+                {matchedText}
+                <Typography.Text strong>{unmatchedText}</Typography.Text>
+            </SuggestionText>
         </>
     );
 };
 
-const renderEntitySuggestion = (entity: Entity, registry: EntityRegistry) => {
+const renderEntitySuggestion = (query: string, entity: Entity, registry: EntityRegistry) => {
     // Special rendering.
     if (entity.type === EntityType.CorpUser) {
-        return renderUserSuggestion(entity as CorpUser, registry);
+        return renderUserSuggestion(query, entity as CorpUser, registry);
     }
     if (entity.type === EntityType.Tag) {
         return renderTagSuggestion(entity as Tag, registry);
     }
-
     const genericEntityProps = registry.getGenericEntityProperties(entity.type, entity);
     const platformName = genericEntityProps?.platform?.properties?.displayName || genericEntityProps?.platform?.name;
     const platformLogoUrl = genericEntityProps?.platform?.properties?.logoUrl;
-    const entityName = registry.getDisplayName(entity.type, entity);
+    const displayName = registry.getDisplayName(entity.type, entity);
     const icon =
         (platformLogoUrl && <PreviewImage preview={false} src={platformLogoUrl} alt={platformName || ''} />) ||
         registry.getIcon(entity.type, 12, IconStyleType.ACCENT);
+    const isPrefixMatch = displayName.toLowerCase().startsWith(query.toLowerCase());
+    const matchedText = isPrefixMatch ? displayName.substring(0, query.length) : '';
+    const unmatchedText = isPrefixMatch ? displayName.substring(query.length, displayName.length) : displayName;
     return (
         <>
             {icon}
-            <SuggestionText>{entityName}</SuggestionText>
+            <SuggestionText>
+                <Typography.Text strong>{matchedText}</Typography.Text>
+                {unmatchedText}
+            </SuggestionText>
         </>
     );
 };
 
-const renderItem = (entity: Entity, registry: EntityRegistry) => {
+const renderItem = (query: string, entity: Entity, registry: EntityRegistry) => {
     return {
         value: entity.urn,
-        label: <SuggestionContainer>{renderEntitySuggestion(entity, registry)}</SuggestionContainer>,
+        label: <SuggestionContainer>{renderEntitySuggestion(query, entity, registry)}</SuggestionContainer>,
         type: entity.type,
         style: { paddingLeft: 16 },
     };
@@ -222,9 +231,9 @@ export const SearchBar = ({
         () =>
             suggestions.map((entity: AutoCompleteResultForEntity) => ({
                 label: entityRegistry.getCollectionName(entity.type),
-                options: [...entity.entities.map((e: Entity) => renderItem(e, entityRegistry))],
+                options: [...entity.entities.map((e: Entity) => renderItem(effectiveQuery, e, entityRegistry))],
             })),
-        [suggestions, entityRegistry],
+        [effectiveQuery, suggestions, entityRegistry],
     );
 
     const options = useMemo(() => {
