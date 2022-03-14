@@ -50,6 +50,7 @@ const ActionButtonContainer = styled.div`
     display: flex;
     justify-content: right;
 `;
+
 const DEFAULT_PAGE_SIZE = 25;
 
 const removeExecutionsFromIngestionSource = (source) => {

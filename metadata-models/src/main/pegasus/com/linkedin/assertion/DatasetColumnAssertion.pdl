@@ -11,10 +11,10 @@ record DatasetColumnAssertion {
     */
     stdOperator: AssertionStdOperator
 
-     /**
-    * Native assertion operator
+    /**
+    * Native assertion type
     */
-    nativeOperator: optional string // filled with the platform specific native operator string
+    nativeType: optional string // filled with the platform specific native type string
     
     /**
     * Standardized aggrgation function applied on column values
@@ -69,15 +69,15 @@ record DatasetColumnAssertion {
         * Assertion is applied on column std deviation
         */
         MAX
+
+        /**
+        * Assertion is applied on column sum
+        */
+        SUM
         
         /**
         * Other
         */
         _NATIVE_
     }
-
-    /**
-    * Native aggrgation function applied on column values
-    */
-    nativeAggFunc: optional string 
 }

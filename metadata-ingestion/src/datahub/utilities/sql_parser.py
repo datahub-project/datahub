@@ -5,15 +5,15 @@ import unittest.mock
 from abc import ABCMeta, abstractmethod
 from typing import List, Set
 
+import sqlparse
+from networkx import DiGraph
+from sqllineage.core import LineageAnalyzer
 from sqllineage.core.holders import Column, SQLLineageHolder
 
-try:
-    import sqlparse
-    from networkx import DiGraph
-    from sql_metadata import Parser as MetadataSQLParser
-    from sqllineage.core import LineageAnalyzer
+import datahub.utilities.sqllineage_patch
 
-    import datahub.utilities.sqllineage_patch
+try:
+    from sql_metadata import Parser as MetadataSQLParser
 except ImportError:
     pass
 
