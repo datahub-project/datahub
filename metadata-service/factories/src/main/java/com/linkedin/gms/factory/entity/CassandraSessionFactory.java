@@ -18,15 +18,15 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @Configuration
-public class DatastaxSessionFactory {
+public class CassandraSessionFactory {
 
   @Autowired
-  @Qualifier("gmsDatastaxServiceConfig")
+  @Qualifier("gmsCassandraServiceConfig")
   private Map<String, String> sessionConfig;
 
-  @Bean(name = "datastaxSession")
-  @DependsOn({"gmsDatastaxServiceConfig"})
-  @ConditionalOnProperty(name = "ENTITY_SERVICE_IMPL", havingValue = "datastax")
+  @Bean(name = "cassandraSession")
+  @DependsOn({"gmsCassandraServiceConfig"})
+  @ConditionalOnProperty(name = "ENTITY_SERVICE_IMPL", havingValue = "cassandra")
   @Nonnull
   protected CqlSession createSession() {
     int port = Integer.parseInt(sessionConfig.get("port"));

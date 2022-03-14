@@ -1,4 +1,4 @@
-package com.linkedin.metadata.entity.datastax;
+package com.linkedin.metadata.entity.cassandra;
 
 import com.datahub.util.RecordUtils;
 import com.datastax.oss.driver.api.core.CqlSession;
@@ -37,7 +37,7 @@ import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
 
 @Slf4j
 @RequiredArgsConstructor
-public class DatastaxRetentionService extends RetentionService {
+public class CassandraRetentionService extends RetentionService {
   private final EntityService _entityService;
   private final CqlSession _cqlSession;
   private final int _batchSize;
@@ -72,13 +72,13 @@ public class DatastaxRetentionService extends RetentionService {
   public void batchApplyRetention(@Nullable String entityName, @Nullable String aspectName) {
     // TODO: This method is not actually batching anything. Cassandra makes it complicated.
     log.debug("Applying retention to all records");
-    List<DatastaxAspect.PrimaryKey> candidates = queryCandidates(entityName, aspectName);
+    List<CassandraAspect.PrimaryKey> candidates = queryCandidates(entityName, aspectName);
     int numCandidates = candidates.size();
     log.info("Found {} urn, aspect pairs with more than 1 version", numCandidates);
     Map<String, DataHubRetentionConfig> retentionPolicyMap = getAllRetentionPolicies();
 
     long i = 0;
-    for (DatastaxAspect.PrimaryKey pKey : candidates) {
+    for (CassandraAspect.PrimaryKey pKey : candidates) {
       // Only run for cases where there's multiple versions of the aspect
       if (pKey.getVersion() == 0) {
         continue;
@@ -118,26 +118,26 @@ public class DatastaxRetentionService extends RetentionService {
 
     long largestVersion = maxVersionFromUpdate.orElseGet(() -> getMaxVersion(urn, aspectName));
 
-    SimpleStatement ss = deleteFrom(DatastaxAspect.TABLE_NAME)
-        .whereColumn(DatastaxAspect.URN_COLUMN).isEqualTo(literal(urn.toString()))
-        .whereColumn(DatastaxAspect.ASPECT_COLUMN).isEqualTo(literal(aspectName))
-        .whereColumn(DatastaxAspect.VERSION_COLUMN).isGreaterThan(literal(ASPECT_LATEST_VERSION))
-        .whereColumn(DatastaxAspect.VERSION_COLUMN).isLessThanOrEqualTo(literal(largestVersion - retention.getMaxVersions() + 1L))
+    SimpleStatement ss = deleteFrom(CassandraAspect.TABLE_NAME)
+        .whereColumn(CassandraAspect.URN_COLUMN).isEqualTo(literal(urn.toString()))
+        .whereColumn(CassandraAspect.ASPECT_COLUMN).isEqualTo(literal(aspectName))
+        .whereColumn(CassandraAspect.VERSION_COLUMN).isGreaterThan(literal(ASPECT_LATEST_VERSION))
+        .whereColumn(CassandraAspect.VERSION_COLUMN).isLessThanOrEqualTo(literal(largestVersion - retention.getMaxVersions() + 1L))
         .build();
 
     _cqlSession.execute(ss);
   }
 
   private long getMaxVersion(@Nonnull final Urn urn, @Nonnull final String aspectName) {
-    SimpleStatement ss = selectFrom(DatastaxAspect.TABLE_NAME)
-        .function("max", Selector.column(DatastaxAspect.VERSION_COLUMN))
-        .whereColumn(DatastaxAspect.URN_COLUMN).isEqualTo(literal(urn.toString()))
-        .whereColumn(DatastaxAspect.ASPECT_COLUMN).isEqualTo(literal(aspectName))
-        .orderBy(DatastaxAspect.VERSION_COLUMN, ClusteringOrder.DESC)
+    SimpleStatement ss = selectFrom(CassandraAspect.TABLE_NAME)
+        .function("max", Selector.column(CassandraAspect.VERSION_COLUMN))
+        .whereColumn(CassandraAspect.URN_COLUMN).isEqualTo(literal(urn.toString()))
+        .whereColumn(CassandraAspect.ASPECT_COLUMN).isEqualTo(literal(aspectName))
+        .orderBy(CassandraAspect.VERSION_COLUMN, ClusteringOrder.DESC)
         .build();
     ResultSet rs = _cqlSession.execute(ss);
     Row row = rs.one();
-    return row.getLong(DatastaxAspect.VERSION_COLUMN);
+    return row.getLong(CassandraAspect.VERSION_COLUMN);
   }
 
   private void applyTimeBasedRetention(
@@ -145,47 +145,47 @@ public class DatastaxRetentionService extends RetentionService {
       @Nonnull final String aspectName,
       @Nonnull final TimeBasedRetention retention) {
     Timestamp threshold = new Timestamp(_clock.millis() - retention.getMaxAgeInSeconds() * 1000);
-    SimpleStatement ss = deleteFrom(DatastaxAspect.TABLE_NAME)
-        .whereColumn(DatastaxAspect.URN_COLUMN).isEqualTo(literal(urn.toString()))
-        .whereColumn(DatastaxAspect.ASPECT_COLUMN).isEqualTo(literal(aspectName))
-        .whereColumn(DatastaxAspect.CREATED_ON_COLUMN).isLessThanOrEqualTo(literal(threshold))
+    SimpleStatement ss = deleteFrom(CassandraAspect.TABLE_NAME)
+        .whereColumn(CassandraAspect.URN_COLUMN).isEqualTo(literal(urn.toString()))
+        .whereColumn(CassandraAspect.ASPECT_COLUMN).isEqualTo(literal(aspectName))
+        .whereColumn(CassandraAspect.CREATED_ON_COLUMN).isLessThanOrEqualTo(literal(threshold))
         .build();
 
     _cqlSession.execute(ss);
   }
 
-  private List<DatastaxAspect.PrimaryKey> queryCandidates(@Nullable String entityName, @Nullable String aspectName) {
-    Select select = selectFrom(DatastaxAspect.TABLE_NAME)
+  private List<CassandraAspect.PrimaryKey> queryCandidates(@Nullable String entityName, @Nullable String aspectName) {
+    Select select = selectFrom(CassandraAspect.TABLE_NAME)
         .selectors(
-            Selector.column(DatastaxAspect.URN_COLUMN),
-            Selector.column(DatastaxAspect.ASPECT_COLUMN),
-            Selector.function("max", Selector.column(DatastaxAspect.VERSION_COLUMN)).as(DatastaxAspect.VERSION_COLUMN))
+            Selector.column(CassandraAspect.URN_COLUMN),
+            Selector.column(CassandraAspect.ASPECT_COLUMN),
+            Selector.function("max", Selector.column(CassandraAspect.VERSION_COLUMN)).as(CassandraAspect.VERSION_COLUMN))
         .allowFiltering();
     if (aspectName != null) {
-      select = select.whereColumn(DatastaxAspect.ASPECT_COLUMN).isEqualTo(literal(aspectName));
+      select = select.whereColumn(CassandraAspect.ASPECT_COLUMN).isEqualTo(literal(aspectName));
     }
-    select = select.whereColumn(DatastaxAspect.VERSION_COLUMN).isGreaterThan(literal(ASPECT_LATEST_VERSION));
+    select = select.whereColumn(CassandraAspect.VERSION_COLUMN).isGreaterThan(literal(ASPECT_LATEST_VERSION));
     if (entityName != null) {
-      select = select.whereColumn(DatastaxAspect.ENTITY_COLUMN).isEqualTo(literal(entityName));
+      select = select.whereColumn(CassandraAspect.ENTITY_COLUMN).isEqualTo(literal(entityName));
     }
-    select = select.groupBy(ImmutableList.of(Selector.column(DatastaxAspect.URN_COLUMN), Selector.column(DatastaxAspect.ASPECT_COLUMN)));
+    select = select.groupBy(ImmutableList.of(Selector.column(CassandraAspect.URN_COLUMN), Selector.column(CassandraAspect.ASPECT_COLUMN)));
     SimpleStatement ss = select.build();
     ResultSet rs = _cqlSession.execute(ss);
-    return rs.all().stream().map(DatastaxAspect.PrimaryKey::fromRow).collect(Collectors.toList());
+    return rs.all().stream().map(CassandraAspect.PrimaryKey::fromRow).collect(Collectors.toList());
   }
 
   private Map<String, DataHubRetentionConfig> getAllRetentionPolicies() {
-    SimpleStatement ss = selectFrom(DatastaxAspect.TABLE_NAME)
+    SimpleStatement ss = selectFrom(CassandraAspect.TABLE_NAME)
         .all()
-        .whereColumn(DatastaxAspect.ASPECT_COLUMN).isEqualTo(literal(DATAHUB_RETENTION_ASPECT))
-        .whereColumn(DatastaxAspect.VERSION_COLUMN).isEqualTo(literal(ASPECT_LATEST_VERSION))
+        .whereColumn(CassandraAspect.ASPECT_COLUMN).isEqualTo(literal(DATAHUB_RETENTION_ASPECT))
+        .whereColumn(CassandraAspect.VERSION_COLUMN).isEqualTo(literal(ASPECT_LATEST_VERSION))
         .allowFiltering()
         .build();
     ResultSet rs = _cqlSession.execute(ss);
     return rs.all().stream()
-        .map(DatastaxAspect::fromRow)
+        .map(CassandraAspect::fromRow)
         .collect(Collectors.toMap(
-            DatastaxAspect::getUrn,
+            CassandraAspect::getUrn,
             aspect -> RecordUtils.toRecordTemplate(DataHubRetentionConfig.class, aspect.getMetadata())));
   }
 }

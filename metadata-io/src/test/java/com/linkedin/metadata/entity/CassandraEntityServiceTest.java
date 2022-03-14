@@ -11,10 +11,10 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpUserInfo;
-import com.linkedin.metadata.entity.datastax.DatastaxAspect;
-import com.linkedin.metadata.entity.datastax.DatastaxAspectDao;
-import com.linkedin.metadata.entity.datastax.DatastaxEntityService;
-import com.linkedin.metadata.entity.datastax.DatastaxRetentionService;
+import com.linkedin.metadata.entity.cassandra.CassandraAspect;
+import com.linkedin.metadata.entity.cassandra.CassandraAspectDao;
+import com.linkedin.metadata.entity.cassandra.CassandraEntityService;
+import com.linkedin.metadata.entity.cassandra.CassandraRetentionService;
 import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
@@ -52,13 +52,13 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 
-public class DatastaxEntityServiceTest extends EntityServiceTestBase<DatastaxAspectDao, DatastaxEntityService, DatastaxRetentionService> {
+public class CassandraEntityServiceTest extends EntityServiceTestBase<CassandraAspectDao, CassandraEntityService, CassandraRetentionService> {
 
   private CassandraContainer _cassandraContainer;
   private CqlSession _cqlSession;
   private static final String KEYSPACE_NAME = "test";
 
-  public DatastaxEntityServiceTest() throws EntityRegistryException {
+  public CassandraEntityServiceTest() throws EntityRegistryException {
   }
 
   private CqlSession createTestSession() {
@@ -129,7 +129,7 @@ public class DatastaxEntityServiceTest extends EntityServiceTestBase<DatastaxAsp
                               + "primary key ((urn), aspect, version)) \n"
                               + "with clustering order by (aspect asc, version asc);",
                       KEYSPACE_NAME,
-                      DatastaxAspect.TABLE_NAME));
+                      CassandraAspect.TABLE_NAME));
 
       List<KeyspaceMetadata> keyspaces = session.getCluster().getMetadata().getKeyspaces();
       List<KeyspaceMetadata> filteredKeyspaces = keyspaces
@@ -149,17 +149,17 @@ public class DatastaxEntityServiceTest extends EntityServiceTestBase<DatastaxAsp
   @BeforeMethod
   public void setupTest() {
     try (Session session = _cassandraContainer.getCluster().connect()) {
-      session.execute(String.format("TRUNCATE %s.%s;", KEYSPACE_NAME, DatastaxAspect.TABLE_NAME));
-      List<Row> rs = session.execute(String.format("SELECT * FROM %s.%s;", KEYSPACE_NAME, DatastaxAspect.TABLE_NAME))
+      session.execute(String.format("TRUNCATE %s.%s;", KEYSPACE_NAME, CassandraAspect.TABLE_NAME));
+      List<Row> rs = session.execute(String.format("SELECT * FROM %s.%s;", KEYSPACE_NAME, CassandraAspect.TABLE_NAME))
               .all();
       assertEquals(rs.size(), 0);
     }
 
     _cqlSession = createTestSession();
-    _aspectDao = new DatastaxAspectDao(_cqlSession);
+    _aspectDao = new CassandraAspectDao(_cqlSession);
     _mockProducer = mock(EntityEventProducer.class);
-    _entityService = new DatastaxEntityService(_aspectDao, _mockProducer, _testEntityRegistry);
-    _retentionService = new DatastaxRetentionService(_entityService, _cqlSession, 1000);
+    _entityService = new CassandraEntityService(_aspectDao, _mockProducer, _testEntityRegistry);
+    _retentionService = new CassandraRetentionService(_entityService, _cqlSession, 1000);
     _entityService.setRetentionService(_retentionService);
   }
 
@@ -205,12 +205,12 @@ public class DatastaxEntityServiceTest extends EntityServiceTestBase<DatastaxAsp
     // Validate retrieval of CorpUserInfo Aspect #2
     _entityService.ingestAspect(entityUrn, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata2);
     RecordTemplate readAspect2 = _entityService.getLatestAspect(entityUrn, aspectName);
-    DatastaxAspect readDatastax1 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 1);
-    DatastaxAspect readDatastax2 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 0);
+    CassandraAspect readCassandra1 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 1);
+    CassandraAspect readCassandra2 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 0);
 
     assertTrue(DataTemplateUtil.areEqual(writeAspect2, readAspect2));
-    assertTrue(DataTemplateUtil.areEqual(EntityUtils.parseSystemMetadata(readDatastax2.getSystemMetadata()), metadata2));
-    assertTrue(DataTemplateUtil.areEqual(EntityUtils.parseSystemMetadata(readDatastax1.getSystemMetadata()), metadata1));
+    assertTrue(DataTemplateUtil.areEqual(EntityUtils.parseSystemMetadata(readCassandra2.getSystemMetadata()), metadata2));
+    assertTrue(DataTemplateUtil.areEqual(EntityUtils.parseSystemMetadata(readCassandra1.getSystemMetadata()), metadata1));
 
     verify(_mockProducer, times(1)).produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.any(), mclCaptor.capture());
     mcl = mclCaptor.getValue();
@@ -252,12 +252,12 @@ public class DatastaxEntityServiceTest extends EntityServiceTestBase<DatastaxAsp
     // Validate retrieval of CorpUserInfo Aspect #2
     _entityService.ingestAspect(entityUrn, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata2);
     EnvelopedAspect readAspect2 = _entityService.getLatestEnvelopedAspect("corpuser", entityUrn, aspectName);
-    DatastaxAspect readDatastax1 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 1);
-    DatastaxAspect readDatastax2 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 0);
+    CassandraAspect readCassandra1 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 1);
+    CassandraAspect readCassandra2 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 0);
 
     assertTrue(DataTemplateUtil.areEqual(writeAspect2, new CorpUserInfo(readAspect2.getValue().data())));
-    assertTrue(DataTemplateUtil.areEqual(EntityUtils.parseSystemMetadata(readDatastax2.getSystemMetadata()), metadata2));
-    assertTrue(DataTemplateUtil.areEqual(EntityUtils.parseSystemMetadata(readDatastax1.getSystemMetadata()), metadata1));
+    assertTrue(DataTemplateUtil.areEqual(EntityUtils.parseSystemMetadata(readCassandra2.getSystemMetadata()), metadata2));
+    assertTrue(DataTemplateUtil.areEqual(EntityUtils.parseSystemMetadata(readCassandra1.getSystemMetadata()), metadata1));
 
     verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.eq(null), Mockito.any(),
         Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
@@ -313,17 +313,17 @@ public class DatastaxEntityServiceTest extends EntityServiceTestBase<DatastaxAsp
     // Validate retrieval of CorpUserInfo Aspect #2
     _entityService.ingestAspect(entityUrn, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata2);
     RecordTemplate readAspect2 = _entityService.getLatestAspect(entityUrn, aspectName);
-    DatastaxAspect readDatastax2 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 0);
+    CassandraAspect readCassandra2 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 0);
 
     assertTrue(DataTemplateUtil.areEqual(writeAspect2, readAspect2));
-    assertFalse(DataTemplateUtil.areEqual(EntityUtils.parseSystemMetadata(readDatastax2.getSystemMetadata()), metadata2));
-    assertFalse(DataTemplateUtil.areEqual(EntityUtils.parseSystemMetadata(readDatastax2.getSystemMetadata()), metadata1));
+    assertFalse(DataTemplateUtil.areEqual(EntityUtils.parseSystemMetadata(readCassandra2.getSystemMetadata()), metadata2));
+    assertFalse(DataTemplateUtil.areEqual(EntityUtils.parseSystemMetadata(readCassandra2.getSystemMetadata()), metadata1));
 
     SystemMetadata metadata3 = new SystemMetadata();
     metadata3.setLastObserved(1635792689);
     metadata3.setRunId("run-123");
 
-    assertTrue(DataTemplateUtil.areEqual(EntityUtils.parseSystemMetadata(readDatastax2.getSystemMetadata()), metadata3));
+    assertTrue(DataTemplateUtil.areEqual(EntityUtils.parseSystemMetadata(readCassandra2.getSystemMetadata()), metadata3));
 
     verify(_mockProducer, times(0)).produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.any(), mclCaptor.capture());
 
