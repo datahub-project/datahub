@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { ConsoleSqlOutlined } from '@ant-design/icons';
-import { DataJob, EntityType, PlatformType, SearchResult } from '../../../types.generated';
+import { DataJob, EntityType, OwnershipType, PlatformType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
@@ -101,6 +101,9 @@ export class DataJobEntity implements Entity<DataJob> {
                 },
                 {
                     component: SidebarOwnerSection,
+                    properties: {
+                        defaultOwnerType: OwnershipType.TechnicalOwner,
+                    },
                 },
                 {
                     component: SidebarDomainSection,
