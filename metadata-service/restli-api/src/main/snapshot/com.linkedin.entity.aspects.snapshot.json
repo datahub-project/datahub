@@ -1549,9 +1549,10 @@
       "doc" : "Fully-qualified name of the Dataset",
       "optional" : true,
       "Searchable" : {
+        "addToFilters" : false,
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
-        "fieldType" : "TEXT_PARTIAL"
+        "fieldType" : "TEXT"
       }
     }, {
       "name" : "description",
