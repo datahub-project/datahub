@@ -1,5 +1,8 @@
 # Metadata Ingestion
 
+**LEGACY**
+This is a legacy module. The examples here are not actively maintained and may not work as described. Please see the `metadata-ingestion` module for more up-to-date uses.
+
 This directory contains example apps for ingesting data into DataHub.
 
 You are more than welcome to use these examples directly, or use them as a reference for you own jobs.
