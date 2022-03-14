@@ -238,7 +238,7 @@ export const SearchBar = ({
 
     const options = useMemo(() => {
         // Display recommendations when there is no search query, autocomplete suggestions otherwise.
-        if (effectiveQuery.length > 0) {
+        if (autoCompleteEntityOptions.length > 0) {
             return [...autoCompleteQueryOptions, ...autoCompleteEntityOptions];
         }
         return emptyQueryOptions;
