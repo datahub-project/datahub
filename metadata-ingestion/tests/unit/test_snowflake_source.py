@@ -1,7 +1,3 @@
-import pytest
-
-
-@pytest.mark.integration
 def test_snowflake_uri_default_authentication():
     from datahub.ingestion.source.sql.snowflake import SnowflakeConfig
 
@@ -23,7 +19,6 @@ def test_snowflake_uri_default_authentication():
     )
 
 
-@pytest.mark.integration
 def test_snowflake_uri_external_browser_authentication():
     from datahub.ingestion.source.sql.snowflake import SnowflakeConfig
 
@@ -45,7 +40,6 @@ def test_snowflake_uri_external_browser_authentication():
     )
 
 
-@pytest.mark.integration
 def test_snowflake_uri_key_pair_authentication():
     from datahub.ingestion.source.sql.snowflake import SnowflakeConfig
 

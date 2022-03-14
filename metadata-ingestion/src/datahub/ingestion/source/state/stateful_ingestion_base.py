@@ -1,5 +1,6 @@
 import logging
 import platform
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, Optional, Type, cast
 
@@ -20,7 +21,7 @@ from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
 from datahub.ingestion.api.ingestion_job_reporting_provider_base import (
     IngestionReportingProviderBase,
 )
-from datahub.ingestion.api.source import Source
+from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.source.state.checkpoint import Checkpoint, CheckpointStateBase
 from datahub.ingestion.source.state_provider.state_provider_registry import (
     ingestion_checkpoint_provider_registry,
@@ -65,6 +66,11 @@ class StatefulIngestionConfigBase(DatasetSourceConfigBase):
     stateful_ingestion: Optional[StatefulIngestionConfig] = None
 
 
+@dataclass
+class StatefulIngestionReport(SourceReport):
+    pass
+
+
 class StatefulIngestionSourceBase(Source):
     """
     Defines the base class for all stateful sources.
@@ -80,6 +86,15 @@ class StatefulIngestionSourceBase(Source):
         self.cur_checkpoints: Dict[JobId, Optional[Checkpoint]] = {}
         self.run_summaries_to_report: Dict[JobId, DatahubIngestionRunSummaryClass] = {}
         self._initialize_checkpointing_state_provider()
+        self.report: StatefulIngestionReport = StatefulIngestionReport()
+
+    def warn(self, log: logging.Logger, key: str, reason: str) -> Any:
+        self.report.report_warning(key, reason)
+        log.warning(reason)
+
+    def error(self, log: logging.Logger, key: str, reason: str) -> Any:
+        self.report.report_failure(key, reason)
+        log.error(f"{key} => {reason}")
 
     #
     # Checkpointing specific support.
