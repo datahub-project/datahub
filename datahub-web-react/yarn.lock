@@ -14722,11 +14722,6 @@ rework@1.0.1:
     convert-source-map "^0.3.3"
     css "^2.0.0"
 
-rgb-hex@^4.0.0:
-  version "4.0.0"
-  resolved "https://registry.yarnpkg.com/rgb-hex/-/rgb-hex-4.0.0.tgz#02fb1e215e3fe5d070501579a3d2e4fa3c0acec8"
-  integrity sha512-Eg2ev5CiMBnQ9Gpflmqbwbso0CCdISqtVIow7OpYSLN1ULUv2jTB9YieS1DSSn/17AD7KkPWDPzSFzI4GSuu/Q==
-
 rgb-regex@^1.0.1:
   version "1.0.1"
   resolved "https://registry.yarnpkg.com/rgb-regex/-/rgb-regex-1.0.1.tgz#c0e0d6882df0e23be254a475e8edd41915feaeb1"
