@@ -2,11 +2,9 @@ import collections
 import dataclasses
 import datetime
 import functools
-import json
 import logging
 import os
 import re
-import tempfile
 import textwrap
 from dataclasses import dataclass
 from datetime import timedelta
@@ -23,7 +21,6 @@ from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
 
-from datahub.configuration import ConfigModel
 from datahub.configuration.common import ConfigurationError
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter import mce_builder
@@ -33,6 +30,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemyConfig,
     SQLAlchemySource,
+    SQLSourceReport,
     SqlWorkUnit,
     make_sqlalchemy_type,
     register_custom_type,
@@ -42,6 +40,7 @@ from datahub.ingestion.source.usage.bigquery_usage import (
     BQ_DATETIME_FORMAT,
     AuditLogEntry,
     BigQueryAuditMetadata,
+    BigQueryCredential,
     BigQueryTableRef,
     QueryEvent,
 )
@@ -217,26 +216,6 @@ register_custom_type(GEOGRAPHY)
 assert pybigquery.sqlalchemy_bigquery._type_map
 
 
-class BigQueryCredential(ConfigModel):
-    project_id: str
-    private_key_id: str
-    private_key: str
-    client_email: str
-    client_id: str
-    auth_uri: str = "https://accounts.google.com/o/oauth2/auth"
-    token_uri: str = "https://oauth2.googleapis.com/token"
-    auth_provider_x509_cert_url: str = "https://www.googleapis.com/oauth2/v1/certs"
-    type: str = "service_account"
-    client_x509_cert_url: Optional[str]
-
-    def __init__(self, **data: Any):
-        super().__init__(**data)  # type: ignore
-        if not self.client_x509_cert_url:
-            self.client_x509_cert_url = (
-                f"https://www.googleapis.com/robot/v1/metadata/x509/{self.client_email}"
-            )
-
-
 @dataclass
 class BigQueryPartitionColumn:
     table_catalog: str
@@ -245,13 +224,6 @@ class BigQueryPartitionColumn:
     column_name: str
     data_type: str
     partition_id: str
-
-
-def create_credential_temp_file(credential: BigQueryCredential) -> str:
-    with tempfile.NamedTemporaryFile(delete=False) as fp:
-        cred_json = json.dumps(credential.dict(), indent=4, separators=(",", ": "))
-        fp.write(cred_json.encode())
-        return fp.name
 
 
 class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
@@ -270,17 +242,18 @@ class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
     bigquery_audit_metadata_datasets: Optional[List[str]] = None
     use_exported_bigquery_audit_metadata: bool = False
     use_date_sharded_audit_log_tables: bool = False
+    _credentials_path: Optional[str] = pydantic.PrivateAttr(None)
     use_v2_audit_metadata: Optional[bool] = False
 
     def __init__(self, **data: Any):
         super().__init__(**data)
 
         if self.credential:
-            self.credentials_path = create_credential_temp_file(self.credential)
+            self._credentials_path = self.credential.create_credential_temp_file()
             logger.debug(
-                f"Creating temporary credential file at {self.credentials_path}"
+                f"Creating temporary credential file at {self._credentials_path}"
             )
-            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self.credentials_path
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._credentials_path
 
     def get_sql_alchemy_url(self):
         if self.project_id:
@@ -312,13 +285,18 @@ class BigQueryDatasetKey(ProjectIdKey):
     dataset_id: str
 
 
-class BigQuerySource(SQLAlchemySource):
-    config: BigQueryConfig
-    maximum_shard_ids: Dict[str, str] = dict()
-    lineage_metadata: Optional[Dict[str, Set[str]]] = None
+@dataclass
+class BigQueryReport(SQLSourceReport):
+    pass
 
+
+class BigQuerySource(SQLAlchemySource):
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "bigquery")
+        self.config: BigQueryConfig = config
+        self.report: BigQueryReport = BigQueryReport()
+        self.lineage_metadata: Optional[Dict[str, Set[str]]] = None
+        self.maximum_shard_ids: Dict[str, str] = dict()
 
     def get_db_name(self, inspector: Inspector = None) -> str:
         if self.config.project_id:
@@ -801,7 +779,6 @@ WHERE
         partition: Optional[str],
         custom_sql: Optional[str] = None,
     ) -> dict:
-        self.config: BigQueryConfig
         return dict(
             schema=self.config.project_id,
             table=f"{schema}.{table}",
@@ -911,8 +888,8 @@ WHERE
 
     # We can't use close as it is not called if the ingestion is not successful
     def __del__(self):
-        if self.config.credentials_path:
+        if self.config._credentials_path is not None:
             logger.debug(
-                f"Deleting temporary credential file at {self.config.credentials_path}"
+                f"Deleting temporary credential file at {self.config._credentials_path}"
             )
-            os.unlink(self.config.credentials_path)
+            os.unlink(self.config._credentials_path)

@@ -1,6 +1,7 @@
 import collections
 import dataclasses
 import logging
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Union
 
@@ -13,6 +14,7 @@ from sqlalchemy.engine import Engine
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.redshift import RedshiftConfig
@@ -87,15 +89,21 @@ class RedshiftUsageConfig(RedshiftConfig, BaseUsageConfig):
         return super().get_sql_alchemy_url()
 
 
+@dataclass
+class RedshiftUsageReport(SourceReport):
+    pass
+
+
 @dataclasses.dataclass
 class RedshiftUsageSource(Source):
-    config: RedshiftUsageConfig
-    report: SourceReport = dataclasses.field(default_factory=SourceReport)
+    def __init__(self, config: RedshiftUsageConfig, ctx: PipelineContext):
+        self.config: RedshiftUsageConfig = config
+        self.report: RedshiftUsageReport = RedshiftUsageReport()
 
     @classmethod
     def create(cls, config_dict, ctx):
         config = RedshiftUsageConfig.parse_obj(config_dict)
-        return cls(ctx, config)
+        return cls(config, ctx)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         """Gets Redshift usage stats as work units"""

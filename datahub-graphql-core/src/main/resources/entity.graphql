@@ -1391,12 +1391,12 @@ type ContainerProperties {
   description: String
 
   """
-  Custom properties of the Dataset
+  Custom properties of the Container
   """
   customProperties: [StringMapEntry!]
 
   """
-  Native platform URL of the dashboard
+  Native platform URL of the Container
   """
   externalUrl: String
 }

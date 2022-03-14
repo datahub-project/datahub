@@ -42,7 +42,6 @@ from datahub.emitter.mcp_builder import (
     gen_containers,
 )
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.sql_common_state import (
@@ -52,6 +51,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     JobId,
     StatefulIngestionConfig,
     StatefulIngestionConfigBase,
+    StatefulIngestionReport,
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
@@ -161,7 +161,7 @@ class SqlContainerSubTypes(str, Enum):
 
 
 @dataclass
-class SQLSourceReport(SourceReport):
+class SQLSourceReport(StatefulIngestionReport):
     tables_scanned: int = 0
     views_scanned: int = 0
     entities_profiled: int = 0
@@ -414,7 +414,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         super(SQLAlchemySource, self).__init__(config, ctx)
         self.config = config
         self.platform = platform
-        self.report = SQLSourceReport()
+        self.report: SQLSourceReport = SQLSourceReport()
 
         config_report = {
             config_option: config.dict().get(config_option)
@@ -448,7 +448,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
     def error(self, log: logging.Logger, key: str, reason: str) -> Any:
         self.report.report_failure(key, reason)
-        log.error(reason)
+        log.error(f"{key} => {reason}")
 
     def get_inspectors(self) -> Iterable[Inspector]:
         # This method can be overridden in the case that you want to dynamically

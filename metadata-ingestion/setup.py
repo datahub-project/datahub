@@ -127,7 +127,7 @@ plugins: Dict[str, Set[str]] = {
     "airflow": {
         "apache-airflow >= 1.10.2",
     },
-    "great-expectations": sql_common,
+    "great-expectations": sql_common | {"sqllineage==1.3.3"},
     # Source plugins
     # PyAthena is pinned with exact version because we use private method in PyAthena
     "athena": sql_common | {"PyAthena[SQLAlchemy]==2.4.1"},
@@ -211,6 +211,8 @@ mypy_stubs = {
     "types-click==0.1.12",
     "boto3-stubs[s3,glue,sagemaker]",
     "types-tabulate",
+    # avrogen package requires this
+    "types-pytz",
 }
 
 base_dev_requirements = {
@@ -223,7 +225,7 @@ base_dev_requirements = {
     "flake8>=3.8.3",
     "flake8-tidy-imports>=4.3.0",
     "isort>=5.7.0",
-    "mypy>=0.920",
+    "mypy>=0.920,<0.940",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
     "pydantic>=1.9.0",

@@ -1,16 +1,20 @@
 # BigQuery
 
+To get all metadata from BigQuery you need to use two plugins `bigquery` and `bigquery-usage`. Both of them are described in this page. These will require 2 separate recipes. We understand this is not ideal and we plan to make this easier in the future.
+
 For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
 
-## Setup
+## `bigquery`
+
+### Setup
 
 To install this plugin, run `pip install 'acryl-datahub[bigquery]'`.
 
-## Prerequisites
+### Prerequisites
 
-### Create a datahub profile in GCP:
+#### Create a datahub profile in GCP
 
-1. Create a custom role for datahub (https://cloud.google.com/iam/docs/creating-custom-roles#creating_a_custom_role)
+1. Create a custom role for datahub as per [BigQuery docs](https://cloud.google.com/iam/docs/creating-custom-roles#creating_a_custom_role)
 2. Grant the following permissions to this role:
 
 ```
@@ -31,9 +35,9 @@ To install this plugin, run `pip install 'acryl-datahub[bigquery]'`.
    resourcemanager.projects.get
 ```
 
-### Create a service account:
+#### Create a service account
 
-1. Setup a ServiceAccount (https://cloud.google.com/iam/docs/creating-managing-service-accounts#iam-service-accounts-create-console)
+1. Setup a ServiceAccount as per [BigQuery docs](https://cloud.google.com/iam/docs/creating-managing-service-accounts#iam-service-accounts-create-console)
    and assign the previously created role to this service account.
 2. Download a service account JSON keyfile.
    Example credential file:
@@ -70,7 +74,7 @@ credential:
   client_id: "123456678890"
 ```
 
-## Capabilities
+### Capabilities
 
 This plugin extracts the following:
 
@@ -87,11 +91,11 @@ This plugin extracts the following:
 
 :::tip
 
-You can also get fine-grained usage statistics for BigQuery using the `bigquery-usage` source described below.
+You can also get fine-grained usage statistics for BigQuery using the `bigquery-usage` source described [below](#bigquery-usage-plugin).
 
 :::
 
-## Quickstart recipe
+### Quickstart recipe
 
 Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
 
@@ -108,7 +112,7 @@ sink:
   # sink configs
 ```
 
-## Config details
+### Config details
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
@@ -118,11 +122,11 @@ As a SQL-based service, the Athena integration is also supported by our SQL prof
 | -------------------------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `project_id`                           |                                                                           | Autodetected                                                            | Project ID to ingest from. If not specified, will infer from environment.                                                                                                                                                                                                               |
 | `env`                                  |                                                                           | `"PROD"`                                                                | Environment to use in namespace when constructing URNs.                                                                                                                                                                                                                                 |
-| `credential.project_id`                | Required if GOOGLE_APPLICATION_CREDENTIALS enviroment variable is not set |                                                                         |                                                                                                                                                                                                                                                                                         |
-| `credential.private_key_id`            | Required if GOOGLE_APPLICATION_CREDENTIALS enviroment variable is not set |                                                                         | Any options specified here will be passed to SQLAlchemy's `create_engine` as kwargs.<br />See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details.                                                                                                 |
-| `credential.private_key`               | Required if GOOGLE_APPLICATION_CREDENTIALS enviroment variable is not set |                                                                         | Any options specified here will be passed to SQLAlchemy's `create_engine` as kwargs.<br />See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details.                                                                                                 |
-| `credential.client_email`              | Required if GOOGLE_APPLICATION_CREDENTIALS enviroment variable is not set |                                                                         | Any options specified here will be passed to SQLAlchemy's `create_engine` as kwargs.<br />See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details.                                                                                                 |
-| `credential.client_id`                 | Required if GOOGLE_APPLICATION_CREDENTIALS enviroment variable is not set |                                                                         | Any options specified here will be passed to SQLAlchemy's `create_engine` as kwargs.<br />See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details.                                                                                                 |
+| `credential.project_id`                | Required if GOOGLE_APPLICATION_CREDENTIALS enviroment variable is not set |                                                                         | See this [example recipe](https://github.com/linkedin/datahub/blob/9bdc9af7b90c6a97194eceb898543360b4eb105c/metadata-ingestion/examples/recipes/bigquery_to_datahub.yml#L8) for details                                                                                                 |
+| `credential.private_key_id`            | Required if GOOGLE_APPLICATION_CREDENTIALS enviroment variable is not set |                                                                         | See this [example recipe](https://github.com/linkedin/datahub/blob/9bdc9af7b90c6a97194eceb898543360b4eb105c/metadata-ingestion/examples/recipes/bigquery_to_datahub.yml#L8) for details                                                                                                 |
+| `credential.private_key`               | Required if GOOGLE_APPLICATION_CREDENTIALS enviroment variable is not set |                                                                         | See this [example recipe](https://github.com/linkedin/datahub/blob/9bdc9af7b90c6a97194eceb898543360b4eb105c/metadata-ingestion/examples/recipes/bigquery_to_datahub.yml#L8) for details                                                                                                 |
+| `credential.client_email`              | Required if GOOGLE_APPLICATION_CREDENTIALS enviroment variable is not set |                                                                         | See this [example recipe](https://github.com/linkedin/datahub/blob/9bdc9af7b90c6a97194eceb898543360b4eb105c/metadata-ingestion/examples/recipes/bigquery_to_datahub.yml#L8) for details                                                                                                 |
+| `credential.client_id`                 | Required if GOOGLE_APPLICATION_CREDENTIALS enviroment variable is not set |                                                                         | See this [example recipe](https://github.com/linkedin/datahub/blob/9bdc9af7b90c6a97194eceb898543360b4eb105c/metadata-ingestion/examples/recipes/bigquery_to_datahub.yml#L8) for details                                                                                                 |
 | `table_pattern.allow`                  |                                                                           |                                                                         | List of regex patterns for tables to include in ingestion.                                                                                                                                                                                                                              |
 | `table_pattern.deny`                   |                                                                           |                                                                         | List of regex patterns for tables to exclude from ingestion.                                                                                                                                                                                                                            |
 | `table_pattern.ignoreCase`             |                                                                           | `True`                                                                  | Whether to ignore case sensitivity during pattern matching.                                                                                                                                                                                                                             |
@@ -163,7 +167,7 @@ Note: the bigquery_audit_metadata_datasets parameter receives a list of datasets
 
 Note: Since bigquery source also supports dataset level lineage, the auth client will require additional permissions to be able to access the google audit logs. Refer the permissions section in bigquery-usage section below which also accesses the audit logs.
 
-## Profiling
+### Profiling
 
 Profiling can profile normal/partitioned and sharded tables as well but due to performance reasons, we only profile the latest partition for Partitioned tables and the latest shard for sharded tables.
 
@@ -184,11 +188,11 @@ Due to performance reasons, we only profile the latest partition for Partitioned
 You can set partition explicitly with `partition.partition_datetime` property if you want. (partition will be applied to all partitioned tables)
 :::
 
-# BigQuery Usage Stats
+## `bigquery-usage`
 
 For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
 
-## Setup
+### Setup
 
 To install this plugin, run `pip install 'acryl-datahub[bigquery-usage]'`.
 
@@ -203,7 +207,7 @@ The Google Identity must have one of the following OAuth scopes granted to it:
 
 And should be authorized on all projects you'd like to ingest usage stats from.
 
-## Capabilities
+### Capabilities
 
 This plugin extracts the following:
 
@@ -217,7 +221,7 @@ This plugin extracts the following:
 
 :::
 
-## Quickstart recipe
+### Quickstart recipe
 
 Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
 
@@ -239,29 +243,34 @@ sink:
   # sink configs
 ```
 
-## Config details
+### Config details
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
 By default, we extract usage stats for the last day, with the recommendation that this source is executed every day.
 
-| Field                           | Required | Default                                                        | Description                                                                                                                                                                                                                                                                                                                                                                            |
-| ------------------------------- | -------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `projects`                      |          |                                                                |                                                                                                                                                                                                                                                                                                                                                                                        |
-| `extra_client_options`          |          |                                                                |                                                                                                                                                                                                                                                                                                                                                                                        |
-| `env`                           |          | `"PROD"`                                                       | Environment to use in namespace when constructing URNs.                                                                                                                                                                                                                                                                                                                                |
-| `start_time`                    |          | Last full day in UTC (or hour, depending on `bucket_duration`) | Earliest date of usage logs to consider.                                                                                                                                                                                                                                                                                                                                               |
-| `end_time`                      |          | Last full day in UTC (or hour, depending on `bucket_duration`) | Latest date of usage logs to consider.                                                                                                                                                                                                                                                                                                                                                 |
-| `top_n_queries`                 |          | `10`                                                           | Number of top queries to save to each table.                                                                                                                                                                                                                                                                                                                                           |
-| `include_operational_stats`     |          | `true`                                                         | Whether to display operational stats.                                                                                                                                                                                                                                                                                                                                                  |
-| `extra_client_options`          |          |                                                                | Additional options to pass to `google.cloud.logging_v2.client.Client`.                                                                                                                                                                                                                                                                                                                 |
-| `query_log_delay`               |          |                                                                | To account for the possibility that the query event arrives after the read event in the audit logs, we wait for at least `query_log_delay` additional events to be processed before attempting to resolve BigQuery job information from the logs. If `query_log_delay` is `None`, it gets treated as an unlimited delay, which prioritizes correctness at the expense of memory usage. |
-| `max_query_duration`            |          | `15`                                                           | Correction to pad `start_time` and `end_time` with. For handling the case where the read happens within our time range but the query completion event is delayed and happens after the configured end time.                                                                                                                                                                            |
-| `table_pattern.allow`           |          |                                                                | List of regex patterns for tables to include in ingestion.                                                                                                                                                                                                                                                                                                                             |
-| `table_pattern.deny`            |          |                                                                | List of regex patterns for tables to exclude in ingestion.                                                                                                                                                                                                                                                                                                                             |
-| `user_email_pattern.allow`      |          | \*                                                             | List of regex patterns for user emails to include in usage.                                                                                                                                                                                                                                                                                                                            |
-| `user_email_pattern.deny`       |          |                                                                | List of regex patterns for user emails to exclude from usage.                                                                                                                                                                                                                                                                                                                          |
-| `user_email_pattern.ignoreCase` |          | `True`                                                         | Whether to ignore case sensitivity during pattern matching.                                                                                                                                                                                                                                                                                                                            |
+| Field                           | Required                                                                  | Default                                                        | Description                                                                                                                                                                                                                                                                                                                                                                            |
+| ------------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `projects`                      |                                                                           |                                                                |                                                                                                                                                                                                                                                                                                                                                                                        |
+| `credential.project_id`         | Required if GOOGLE_APPLICATION_CREDENTIALS enviroment variable is not set |                                                                | See this [example recipe](https://github.com/linkedin/datahub/blob/9bdc9af7b90c6a97194eceb898543360b4eb105c/metadata-ingestion/examples/recipes/bigquery_to_datahub.yml#L8) for details                                                                                                                                                                                                |
+| `credential.private_key_id`     | Required if GOOGLE_APPLICATION_CREDENTIALS enviroment variable is not set |                                                                | See this [example recipe](https://github.com/linkedin/datahub/blob/9bdc9af7b90c6a97194eceb898543360b4eb105c/metadata-ingestion/examples/recipes/bigquery_to_datahub.yml#L8) for details                                                                                                                                                                                                |
+| `credential.private_key`        | Required if GOOGLE_APPLICATION_CREDENTIALS enviroment variable is not set |                                                                | See this [example recipe](https://github.com/linkedin/datahub/blob/9bdc9af7b90c6a97194eceb898543360b4eb105c/metadata-ingestion/examples/recipes/bigquery_to_datahub.yml#L8) for details                                                                                                                                                                                                |
+| `credential.client_email`       | Required if GOOGLE_APPLICATION_CREDENTIALS enviroment variable is not set |                                                                | See this [example recipe](https://github.com/linkedin/datahub/blob/9bdc9af7b90c6a97194eceb898543360b4eb105c/metadata-ingestion/examples/recipes/bigquery_to_datahub.yml#L8) for details                                                                                                                                                                                                |
+| `credential.client_id`          | Required if GOOGLE_APPLICATION_CREDENTIALS enviroment variable is not set |                                                                | See this [example recipe](https://github.com/linkedin/datahub/blob/9bdc9af7b90c6a97194eceb898543360b4eb105c/metadata-ingestion/examples/recipes/bigquery_to_datahub.yml#L8) for details                                                                                                                                                                                                |
+| `extra_client_options`          |                                                                           |                                                                |                                                                                                                                                                                                                                                                                                                                                                                        |
+| `env`                           |                                                                           | `"PROD"`                                                       | Environment to use in namespace when constructing URNs.                                                                                                                                                                                                                                                                                                                                |
+| `start_time`                    |                                                                           | Last full day in UTC (or hour, depending on `bucket_duration`) | Earliest date of usage logs to consider.                                                                                                                                                                                                                                                                                                                                               |
+| `end_time`                      |                                                                           | Last full day in UTC (or hour, depending on `bucket_duration`) | Latest date of usage logs to consider.                                                                                                                                                                                                                                                                                                                                                 |
+| `top_n_queries`                 |                                                                           | `10`                                                           | Number of top queries to save to each table.                                                                                                                                                                                                                                                                                                                                           |
+| `include_operational_stats`     |                                                                           | `true`                                                         | Whether to display operational stats.                                                                                                                                                                                                                                                                                                                                                  |
+| `extra_client_options`          |                                                                           |                                                                | Additional options to pass to `google.cloud.logging_v2.client.Client`.                                                                                                                                                                                                                                                                                                                 |
+| `query_log_delay`               |                                                                           |                                                                | To account for the possibility that the query event arrives after the read event in the audit logs, we wait for at least `query_log_delay` additional events to be processed before attempting to resolve BigQuery job information from the logs. If `query_log_delay` is `None`, it gets treated as an unlimited delay, which prioritizes correctness at the expense of memory usage. |
+| `max_query_duration`            |                                                                           | `15`                                                           | Correction to pad `start_time` and `end_time` with. For handling the case where the read happens within our time range but the query completion event is delayed and happens after the configured end time.                                                                                                                                                                            |
+| `table_pattern.allow`           |                                                                           |                                                                | List of regex patterns for tables to include in ingestion.                                                                                                                                                                                                                                                                                                                             |
+| `table_pattern.deny`            |                                                                           |                                                                | List of regex patterns for tables to exclude in ingestion.                                                                                                                                                                                                                                                                                                                             |
+| `user_email_pattern.allow`      |                                                                           | \*                                                             | List of regex patterns for user emails to include in usage.                                                                                                                                                                                                                                                                                                                            |
+| `user_email_pattern.deny`       |                                                                           |                                                                | List of regex patterns for user emails to exclude from usage.                                                                                                                                                                                                                                                                                                                          |
+| `user_email_pattern.ignoreCase` |                                                                           | `True`                                                         | Whether to ignore case sensitivity during pattern matching.                                                                                                                                                                                                                                                                                                                            |
 
 ## Compatibility
 

@@ -23,6 +23,7 @@ action_list:
       class_name: DataHubValidationAction
       server_url: http://localhost:8080
       graceful_exceptions: False
+      parse_table_names_from_sql: True
       platform_instance_map:
         my_postgresql_datasource: postgres1
         runtime_postgres_datasource: postgres1
