@@ -693,7 +693,7 @@ public abstract class EntityService {
           .ifPresent(aspect -> aspects.add(Pair.of(DATA_PLATFORM_INSTANCE, aspect)));
     }
 
-    if (shouldHaveStatusSet) {
+    if (shouldHaveStatusSet && latestAspects.get(STATUS) != null) {
       Status status = new Status();
       status.setRemoved(false);
       aspects.add(Pair.of(STATUS, status));
