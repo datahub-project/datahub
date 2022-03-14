@@ -61,7 +61,7 @@ export const BrowseResultsPage = () => {
                 <LegacyBrowsePath type={entityType} path={path} isBrowsable />
             </Affix>
             {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
-            {data && data.browse && (
+            {data && data.browse && !loading && (
                 <BrowseResults
                     type={entityType}
                     rootPath={rootPath}
