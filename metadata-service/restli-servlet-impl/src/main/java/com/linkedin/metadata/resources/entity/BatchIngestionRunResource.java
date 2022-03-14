@@ -140,9 +140,10 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
     log.info("LIST RUNS offset: {} size: {}", pageOffset, pageSize);
 
     return RestliUtil.toTask(() -> {
-              List<IngestionRunSummary> summaries = _systemMetadataService.listRuns(pageOffset != null ?
-                              pageOffset : DEFAULT_OFFSET, pageSize != null ? pageSize : DEFAULT_PAGE_SIZE,
-                              includeSoft != null ? includeSoft : DEFAULT_INCLUDE_SOFT_DELETED);
+              List<IngestionRunSummary> summaries = _systemMetadataService.listRuns(
+                      pageOffset != null ? pageOffset : DEFAULT_OFFSET,
+                      pageSize != null ? pageSize : DEFAULT_PAGE_SIZE,
+                      includeSoft != null ? includeSoft : DEFAULT_INCLUDE_SOFT_DELETED);
 
               return new IngestionRunSummaryArray(summaries);
             }, MetricRegistry.name(this.getClass(), "list"));
