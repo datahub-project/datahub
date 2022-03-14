@@ -66,20 +66,19 @@ public class EbeanEntityService extends EntityService {
   private final EbeanAspectDao _aspectDao;
   private final JacksonDataTemplateCodec _dataTemplateCodec = new JacksonDataTemplateCodec();
 
-  public EbeanEntityService(@Nonnull final EbeanAspectDao entityDao, @Nonnull final EntityEventProducer eventProducer,
+  public EbeanEntityService(@Nonnull final EbeanAspectDao aspectDao, @Nonnull final EntityEventProducer eventProducer,
       @Nonnull final EntityRegistry entityRegistry) {
     super(eventProducer, entityRegistry);
-    _aspectDao = entityDao;
+    _aspectDao = aspectDao;
   }
 
   @Nonnull
-  private Map<String, EbeanAspectV2> getLatestEbeanAspectForUrn(@Nonnull final Urn urn,
-    @Nonnull final Set<String> aspectNames) {
+  private Map<String, EbeanAspectV2> getLatestAspectForUrn(@Nonnull final Urn urn, @Nonnull final Set<String> aspectNames) {
       Set<Urn> urns = new HashSet<>();
       urns.add(urn);
 
       Map<String, EbeanAspectV2> result = new HashMap<>();
-      getLatestAspectEbeans(urns, aspectNames).forEach((key, aspectEntry) -> {
+      getLatestAspect(urns, aspectNames).forEach((key, aspectEntry) -> {
         final String aspectName = key.getAspect();
         result.put(aspectName, aspectEntry);
       });
@@ -87,8 +86,7 @@ public class EbeanEntityService extends EntityService {
   }
 
   @Nonnull
-  private Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> getLatestAspectEbeans(@Nonnull final Set<Urn> urns,
-      @Nonnull final Set<String> aspectNames) {
+  private Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> getLatestAspect(@Nonnull final Set<Urn> urns, @Nonnull final Set<String> aspectNames) {
 
     log.debug("Invoked getLatestAspects with urns: {}, aspectNames: {}", urns, aspectNames);
 
@@ -109,7 +107,7 @@ public class EbeanEntityService extends EntityService {
   @Override
   @Nonnull
   public Map<String, RecordTemplate> getLatestAspectsForUrn(@Nonnull final Urn urn, @Nonnull final Set<String> aspectNames) {
-    Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> batchGetResults = getLatestAspectEbeans(new HashSet<>(Arrays.asList(urn)), aspectNames);
+    Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> batchGetResults = getLatestAspect(new HashSet<>(Arrays.asList(urn)), aspectNames);
 
     final Map<String, RecordTemplate> result = new HashMap<>();
     batchGetResults.forEach((key, aspectEntry) -> {
@@ -125,7 +123,7 @@ public class EbeanEntityService extends EntityService {
   public Map<Urn, List<RecordTemplate>> getLatestAspects(@Nonnull final Set<Urn> urns,
       @Nonnull final Set<String> aspectNames) {
 
-    Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> batchGetResults = getLatestAspectEbeans(urns, aspectNames);
+    Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> batchGetResults = getLatestAspect(urns, aspectNames);
 
     // Fetch from db and populate urn -> aspect map.
     final Map<Urn, List<RecordTemplate>> urnToAspects = new HashMap<>();
@@ -180,7 +178,7 @@ public class EbeanEntityService extends EntityService {
     final EbeanAspectV2.PrimaryKey primaryKey = new EbeanAspectV2.PrimaryKey(urn.toString(), aspectName, version);
     final Optional<EbeanAspectV2> maybeAspect = Optional.ofNullable(_aspectDao.getAspect(primaryKey));
     return maybeAspect.map(
-        ebeanAspect -> EntityUtils.toAspectRecord(urn, aspectName, ebeanAspect.getMetadata(), getEntityRegistry())).orElse(null);
+        aspect -> EntityUtils.toAspectRecord(urn, aspectName, aspect.getMetadata(), getEntityRegistry())).orElse(null);
   }
 
   @Override
@@ -250,17 +248,17 @@ public class EbeanEntityService extends EntityService {
 
     final EbeanAspectV2.PrimaryKey primaryKey = new EbeanAspectV2.PrimaryKey(urn.toString(), aspectName, version);
     final Optional<EbeanAspectV2> maybeAspect = Optional.ofNullable(_aspectDao.getAspect(primaryKey));
-    RecordTemplate aspect =
-        maybeAspect.map(ebeanAspect -> EntityUtils.toAspectRecord(urn, aspectName, ebeanAspect.getMetadata(), getEntityRegistry()))
+    RecordTemplate aspectRecord =
+        maybeAspect.map(aspect -> EntityUtils.toAspectRecord(urn, aspectName, aspect.getMetadata(), getEntityRegistry()))
             .orElse(null);
 
-    if (aspect == null) {
+    if (aspectRecord == null) {
       return null;
     }
 
     Aspect resultAspect = new Aspect();
 
-    RecordUtils.setSelectedRecordTemplateInUnion(resultAspect, aspect);
+    RecordUtils.setSelectedRecordTemplateInUnion(resultAspect, aspectRecord);
     result.setAspect(resultAspect);
     result.setVersion(version);
 
@@ -319,7 +317,7 @@ public class EbeanEntityService extends EntityService {
         .map(Pair::getFirst)
         .collect(Collectors.toSet());
 
-      Map<String, EbeanAspectV2> latestAspects = getLatestEbeanAspectForUrn(urn, aspectNames);
+      Map<String, EbeanAspectV2> latestAspects = getLatestAspectForUrn(urn, aspectNames);
       Map<String, Long> nextVersions = _aspectDao.getNextVersions(urn.toString(), aspectNames);
 
       List<Pair<String, UpdateAspectResult>> result = new ArrayList<>();
