@@ -2,6 +2,7 @@ package datahub.server;
 
 import org.mockserver.integration.ClientAndServer;
 import org.mockserver.matchers.Times;
+import org.mockserver.socket.PortFactory;
 
 import static org.mockserver.integration.ClientAndServer.startClientAndServer;
 import static org.mockserver.model.HttpRequest.*;
@@ -20,7 +21,7 @@ public class TestDataHubServer {
   }
 
   public TestDataHubServer() {
-    mockServer = startClientAndServer();
+    mockServer = startClientAndServer(PortFactory.findFreePort());
     init();
   }
 
