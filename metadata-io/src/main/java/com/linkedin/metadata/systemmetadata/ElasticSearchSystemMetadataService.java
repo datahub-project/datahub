@@ -97,7 +97,9 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
   @Override
   public void setDocStatus(String urn, boolean removed) {
     // searchBy findByParams
-    final List<AspectRowSummary> aspectList = findByParams(ImmutableMap.of("urn", urn), false);
+    // If status.removed -> false (from removed to not removed) --> get soft deleted entities.
+    // If status.removed -> true (from not removed to removed) --> do not get soft deleted entities.
+    final List<AspectRowSummary> aspectList = findByParams(ImmutableMap.of("urn", urn), !removed);
     // for each -> toDocId and set removed to true for all
     aspectList.forEach(aspect -> {
       final String docId = toDocId(aspect.getUrn(), aspect.getAspectName());

@@ -75,6 +75,10 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
       log.info("found {} rows to delete...", stringifyRowCount(aspectRowsToDelete.size()));
       if (dryRun) {
 
+        if (!doHardDelete) {
+          aspectRowsToDelete.removeIf(AspectRowSummary::isKeyAspect);
+        }
+
         response.setAspectsAffected(aspectRowsToDelete.size());
         response.setEntitiesAffected(
             aspectRowsToDelete.stream().collect(Collectors.groupingBy(AspectRowSummary::getUrn)).keySet().size());

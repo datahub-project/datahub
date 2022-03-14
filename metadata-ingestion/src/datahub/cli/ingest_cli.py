@@ -139,7 +139,7 @@ def list_runs(page_offset: int, page_size: int, include_soft_deletes: bool) -> N
     payload_obj = {
         "pageOffset": page_offset,
         "pageSize": page_size,
-        "includeSoft": include_soft_deletes
+        "includeSoft": include_soft_deletes,
     }
 
     payload = json.dumps(payload_obj)

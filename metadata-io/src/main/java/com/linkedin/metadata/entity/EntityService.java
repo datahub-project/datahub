@@ -696,7 +696,7 @@ public abstract class EntityService {
     if (shouldHaveStatusSet) {
       Status status = new Status();
       status.setRemoved(false);
-      aspects.add(Pair.of(STATUS,status));
+      aspects.add(Pair.of(STATUS, status));
     }
 
     return aspects;
