@@ -1,5 +1,6 @@
 import logging
 import os
+import platform
 import sys
 
 import click
@@ -18,6 +19,7 @@ from datahub.cli.telemetry import telemetry as telemetry_cli
 from datahub.cli.timeline_cli import timeline
 from datahub.configuration import SensitiveError
 from datahub.telemetry import telemetry
+from datahub.utilities.server_config_util import get_gms_config
 
 logger = logging.getLogger(__name__)
 
@@ -156,4 +158,11 @@ def main(**kwargs):
                 **kwargs,
             )
         )
+        logger.info(
+            f"DataHub CLI version: {datahub_package.__version__} at {datahub_package.__file__}"
+        )
+        logger.info(
+            f"Python version: {sys.version} at {sys.executable} on {platform.platform()}"
+        )
+        logger.info(f"GMS config {get_gms_config()}")
         sys.exit(1)
