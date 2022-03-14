@@ -67,6 +67,7 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
     document.put("lastUpdated", systemMetadata.getLastObserved());
     document.put("registryName", systemMetadata.getRegistryName());
     document.put("registryVersion", systemMetadata.getRegistryVersion());
+    document.put("removed", false);
     return document.toString();
   }
 

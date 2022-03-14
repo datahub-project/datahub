@@ -166,17 +166,11 @@ def list_runs(page_offset: int, page_size: int, include_soft_deletes: bool) -> N
 
 @ingest.command()
 @click.option("--run-id", required=True, type=str)
-@click.option(
-    "--include-soft-deletes",
-    is_flag=True,
-    default=False,
-    help="If enabled, will show ingestion runs which have been soft deleted",
-)
 @telemetry.with_telemetry
-def show(run_id: str, include_soft_deletes: bool) -> None:
+def show(run_id: str) -> None:
     """Describe a provided ingestion run to datahub"""
 
-    payload_obj = {"runId": run_id, "dryRun": True, "hardDelete": include_soft_deletes}
+    payload_obj = {"runId": run_id, "dryRun": True, "hardDelete": True}
     structured_rows, entities_affected, aspects_affected = post_rollback_endpoint(
         payload_obj, "/runs?action=rollback"
     )
