@@ -67,7 +67,7 @@ HOSTED_DOCS_ONLY-->
 ## Introduction
 
 DataHub is an open-source metadata platform for the modern data stack. Read about the architectures of different metadata systems and why DataHub excels [here](https://engineering.linkedin.com/blog/2020/datahub-popular-metadata-architectures-explained). Also read our
-[LinkedIn Engineering blog post](https://engineering.linkedin.com/blog/2019/data-hub), check out our [Strata presentation](https://speakerdeck.com/shirshanka/the-evolution-of-metadata-linkedins-journey-strata-nyc-2019) and watch our [Crunch Conference Talk](https://www.youtube.com/watch?v=OB-O0Y6OYDE). You should also visit [DataHub Architecture](docs/architecture/architecture.md) to get a better understanding of how DataHub is implemented and [DataHub Onboarding Guide](docs/modeling/extending-the-metadata-model.md) to understand how to extend DataHub for your own use cases.
+[LinkedIn Engineering blog post](https://engineering.linkedin.com/blog/2019/data-hub), check out our [Strata presentation](https://speakerdeck.com/shirshanka/the-evolution-of-metadata-linkedins-journey-strata-nyc-2019) and watch our [Crunch Conference Talk](https://www.youtube.com/watch?v=OB-O0Y6OYDE). You should also visit [DataHub Architecture](docs/architecture/architecture.md) to get a better understanding of how DataHub is implemented.
 
 ## Quickstart
 
@@ -99,6 +99,10 @@ Check out DataHub's [Features](docs/features.md) & [Roadmap](https://feature-req
 
 We welcome contributions from the community. Please refer to our [Contributing Guidelines](docs/CONTRIBUTING.md) for more details. We also have a [contrib](contrib) directory for incubating experimental features.
 
+### Extending
+
+If you need to understand how to extend our model with custom types, please see [Extending the Metadata Model](docs/modeling/extending-the-metadata-model.md)
+
 ## Community
 
 Join our [slack workspace](https://slack.datahubproject.io) for discussions and important announcements. You can also find out more about our upcoming [town hall meetings](docs/townhalls.md) and view past recordings.
@@ -109,7 +113,7 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 
 - [Adevinta](https://www.adevinta.com/)
 - [Banksalad](https://www.banksalad.com)
-- [Cabify](https://www.cabify.com)
+- [Cabify](https://cabify.tech/)
 - [DefinedCrowd](http://www.definedcrowd.com)
 - [DFDS](https://www.dfds.com/)
 - [Expedia Group](http://expedia.com)

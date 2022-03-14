@@ -211,6 +211,8 @@ mypy_stubs = {
     "types-click==0.1.12",
     "boto3-stubs[s3,glue,sagemaker]",
     "types-tabulate",
+    # avrogen package requires this
+    "types-pytz",
 }
 
 base_dev_requirements = {

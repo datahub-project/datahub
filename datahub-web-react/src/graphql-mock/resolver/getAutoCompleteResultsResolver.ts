@@ -86,6 +86,7 @@ export const getAutoCompleteResultsResolver = {
                     suggestions: suggestions.filter((s, i) => {
                         return suggestions.indexOf(s) === i;
                     }),
+                    entities: [],
                     __typename: 'AutoCompleteResults',
                 },
             },
