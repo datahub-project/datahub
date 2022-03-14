@@ -1,12 +1,14 @@
+import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 from urllib.parse import urlparse
 
 # These imports verify that the dependencies are available.
 import psycopg2  # noqa: F401
 import pydantic  # noqa: F401
+import sqlalchemy
 import sqlalchemy_redshift  # noqa: F401
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine import Connection, reflection
@@ -24,8 +26,8 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.postgres import PostgresConfig
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
+    SQLSourceReport,
     SqlWorkUnit,
-    logger,
 )
 
 # TRICKY: it's necessary to import the Postgres source because
@@ -40,6 +42,8 @@ from datahub.metadata.schema_classes import (
     DatasetSnapshotClass,
     UpstreamClass,
 )
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 class LineageMode(Enum):
@@ -336,18 +340,11 @@ def _get_schema_column_info(self, connection, schema=None, **kw):
 
 def _get_external_db_mapping(connection):
     # SQL query to get mapping of external schemas in redshift to its external database.
-    try:
-        result = connection.execute(
-            """
-            select * from svv_external_schemas
-            """
-        )
-        return result
-    except Exception as e:
-        logger.error(
-            "Error querying svv_external_schemas to get external database mapping.", e
-        )
-        return None
+    return connection.execute(
+        """
+        select * from svv_external_schemas
+        """
+    )
 
 
 # This monkey-patching enables us to batch fetch the table descriptions, rather than
@@ -360,15 +357,23 @@ RedshiftDialect._get_schema_column_info = _get_schema_column_info
 redshift_datetime_format = "%Y-%m-%d %H:%M:%S"
 
 
+@dataclass
+class RedshiftReport(SQLSourceReport):
+    # https://forums.aws.amazon.com/ann.jspa?annID=9105
+    saas_version: str = ""
+    upstream_lineage: Dict[str, List[str]] = field(default_factory=dict)
+
+
 class RedshiftSource(SQLAlchemySource):
-    config: RedshiftConfig
-    catalog_metadata: Dict = {}
     eskind_to_platform = {1: "glue", 2: "hive", 3: "postgres", 4: "redshift"}
 
     def __init__(self, config: RedshiftConfig, ctx: PipelineContext):
         super().__init__(config, ctx, "redshift")
+        self.catalog_metadata: Dict = {}
+        self.config: RedshiftConfig = config
         self._lineage_map: Optional[Dict[str, LineageItem]] = None
         self._all_tables_set: Optional[Set[str]] = None
+        self.report: RedshiftReport = RedshiftReport()
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -376,9 +381,12 @@ class RedshiftSource(SQLAlchemySource):
         return cls(config, ctx)
 
     def get_catalog_metadata(self, conn: Connection) -> None:
-        catalog_metadata = _get_external_db_mapping(conn)
-        if catalog_metadata is None:
+        try:
+            catalog_metadata = _get_external_db_mapping(conn)
+        except Exception as e:
+            self.error(logger, "external-svv_external_schemas", f"Error was {e}")
             return
+
         db_name = self.get_db_name()
 
         external_schema_mapping = {}
@@ -401,15 +409,30 @@ class RedshiftSource(SQLAlchemySource):
     def get_inspectors(self) -> Iterable[Inspector]:
         # This method can be overridden in the case that you want to dynamically
         # run on multiple databases.
-        url = self.config.get_sql_alchemy_url()
-        logger.debug(f"sql_alchemy_url={url}")
-        engine = create_engine(url, **self.config.options)
+        engine = self.get_metadata_engine()
         with engine.connect() as conn:
             self.get_catalog_metadata(conn)
             inspector = inspect(conn)
             yield inspector
 
+    def get_metadata_engine(self) -> sqlalchemy.engine.Engine:
+        url = self.config.get_sql_alchemy_url()
+        logger.debug(f"sql_alchemy_url={url}")
+        return create_engine(url, **self.config.options)
+
+    def inspect_version(self) -> Any:
+        db_engine = self.get_metadata_engine()
+        logger.info("Checking current version")
+        for db_row in db_engine.execute("select version()"):
+            self.report.saas_version = db_row[0]
+
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+        try:
+            self.inspect_version()
+        except Exception as e:
+            self.report.report_failure("version", f"Error: {e}")
+            return
+
         for wu in super().get_workunits():
             yield wu
             if (
@@ -498,9 +521,7 @@ class RedshiftSource(SQLAlchemySource):
         db_name = self.get_db_name()
         all_tables_set = set()
 
-        url = self.config.get_sql_alchemy_url()
-        logger.debug(f"sql_alchemy_url={url}")
-        engine = create_engine(url, **self.config.options)
+        engine = self.get_metadata_engine()
         for db_row in engine.execute(all_tables_query):
             all_tables_set.add(
                 f'{db_name}.{db_row["schemaname"]}.{db_row["tablename"]}'
@@ -554,9 +575,7 @@ class RedshiftSource(SQLAlchemySource):
         if not self._all_tables_set:
             self._all_tables_set = self._get_all_tables()
 
-        url = self.config.get_sql_alchemy_url()
-        logger.debug(f"sql_alchemy_url={url}")
-        engine = create_engine(url, **self.config.options)
+        engine = self.get_metadata_engine()
 
         db_name = self.get_db_name()
 
@@ -593,17 +612,21 @@ class RedshiftSource(SQLAlchemySource):
                         )
                     except Exception as e:
                         target.query_parser_failed_sqls.append(db_row["ddl"])
-                        logger.warning(
+                        self.warn(
+                            logger,
+                            "parsing-query",
                             f'Error parsing query {db_row["ddl"]} for getting lineage .'
-                            f"\nError was {e}."
+                            f"\nError was {e}.",
                         )
                 else:
                     if lineage_type == lineage_type.COPY:
                         platform = LineageDatasetPlatform.S3
                         path = db_row["filename"].strip()
                         if urlparse(path).scheme != "s3":
-                            logger.warning(
-                                f"Only s3 source supported with copy. The source was: {path}.  ."
+                            self.warn(
+                                logger,
+                                "non-s3-lineage",
+                                f"Only s3 source supported with copy. The source was: {path}.",
                             )
                             continue
                     else:
@@ -624,7 +647,9 @@ class RedshiftSource(SQLAlchemySource):
                         source.platform == LineageDatasetPlatform.REDSHIFT
                         and source.path not in self._all_tables_set
                     ):
-                        logger.warning(f"{source.path} missing table")
+                        self.warn(
+                            logger, "missing-table", f"{source.path} missing table"
+                        )
                         continue
 
                     target.upstreams.add(source)
@@ -648,10 +673,7 @@ class RedshiftSource(SQLAlchemySource):
                 )
 
         except Exception as e:
-            logger.warning(
-                f"Extracting {lineage_type.name} lineage from Redshift failed."
-                f"Continuing...\nError was {e}."
-            )
+            self.warn(logger, f"extract-{lineage_type.name}", f"Error was {e}")
 
     def _populate_lineage(self) -> None:
 
@@ -957,7 +979,11 @@ class RedshiftSource(SQLAlchemySource):
         if custom_properties:
             properties = DatasetPropertiesClass(customProperties=custom_properties)
 
-        if not upstream_lineage:
+        if upstream_lineage:
+            self.report.upstream_lineage[dataset_urn] = [
+                u.dataset for u in upstream_lineage
+            ]
+        else:
             return None, properties
 
         mcp = MetadataChangeProposalWrapper(

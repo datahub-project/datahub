@@ -30,6 +30,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemyConfig,
     SQLAlchemySource,
+    SQLSourceReport,
     SqlWorkUnit,
     make_sqlalchemy_type,
     register_custom_type,
@@ -284,13 +285,18 @@ class BigQueryDatasetKey(ProjectIdKey):
     dataset_id: str
 
 
-class BigQuerySource(SQLAlchemySource):
-    config: BigQueryConfig
-    maximum_shard_ids: Dict[str, str] = dict()
-    lineage_metadata: Optional[Dict[str, Set[str]]] = None
+@dataclass
+class BigQueryReport(SQLSourceReport):
+    pass
 
+
+class BigQuerySource(SQLAlchemySource):
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "bigquery")
+        self.config: BigQueryConfig = config
+        self.report: BigQueryReport = BigQueryReport()
+        self.lineage_metadata: Optional[Dict[str, Set[str]]] = None
+        self.maximum_shard_ids: Dict[str, str] = dict()
 
     def get_db_name(self, inspector: Inspector = None) -> str:
         if self.config.project_id:
@@ -772,7 +778,6 @@ WHERE
         partition: Optional[str],
         custom_sql: Optional[str] = None,
     ) -> dict:
-        self.config: BigQueryConfig
         return dict(
             schema=self.config.project_id,
             table=f"{schema}.{table}",
