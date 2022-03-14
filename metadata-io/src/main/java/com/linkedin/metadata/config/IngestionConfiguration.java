@@ -10,10 +10,10 @@ public class IngestionConfiguration {
   /**
    * Whether managed ingestion is enabled
    */
-  private boolean enabled;
+  public boolean enabled;
 
   /**
    * The default CLI version to use in managed ingestion
    */
-  private String defaultCliVersion;
+  public String defaultCliVersion;
 }

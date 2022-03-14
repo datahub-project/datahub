@@ -101,9 +101,7 @@ snowflake_common = {
     "cryptography",
 }
 
-microsoft_common = {
-    "msal==1.16.0"
-}
+microsoft_common = {"msal==1.16.0"}
 
 data_lake_base = {
     *aws_common,
@@ -129,7 +127,7 @@ plugins: Dict[str, Set[str]] = {
     "airflow": {
         "apache-airflow >= 1.10.2",
     },
-    "great-expectations": sql_common,
+    "great-expectations": sql_common | {"sqllineage==1.3.3"},
     # Source plugins
     # PyAthena is pinned with exact version because we use private method in PyAthena
     "athena": sql_common | {"PyAthena[SQLAlchemy]==2.4.1"},
@@ -188,7 +186,7 @@ plugins: Dict[str, Set[str]] = {
     "trino": sql_common | {"trino"},
     "starburst-trino-usage": sql_common | {"trino"},
     "nifi": {"requests", "packaging"},
-    "powerbi": {"orderedset"} | microsoft_common
+    "powerbi": {"orderedset"} | microsoft_common,
 }
 
 all_exclude_plugins: Set[str] = {
@@ -213,6 +211,8 @@ mypy_stubs = {
     "types-click==0.1.12",
     "boto3-stubs[s3,glue,sagemaker]",
     "types-tabulate",
+    # avrogen package requires this
+    "types-pytz",
 }
 
 base_dev_requirements = {

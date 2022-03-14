@@ -1,6 +1,5 @@
 [
     {
-        "@odata.id": "https://graph.microsoft.com/v2/00000000-0000-0000-0000-000000000000/directoryObjects/005203a5-d73b-4b21-8077-d96ee309b454/Microsoft.DirectoryServices.Group",
         "id": "00000000-0000-0000-0000-000000000000",
         "deletedDateTime": null,
         "classification": null,
@@ -35,7 +34,6 @@
         "onPremisesProvisioningErrors": []
     },
     {
-        "@odata.id": "https://graph.microsoft.com/v2/00000000-0000-0000-0000-000000000001/directoryObjects/005203a5-d73b-4b21-8077-d96ee309b454/Microsoft.DirectoryServices.Group",
         "id": "00000000-0000-0000-0000-0000000000001",
         "deletedDateTime": null,
         "classification": null,
