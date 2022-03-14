@@ -49,9 +49,9 @@ def test_bigquery_uri_with_credential():
     try:
 
         assert config.get_sql_alchemy_url() == "bigquery://test-project"
-        assert config.credentials_path
+        assert config._credentials_path
 
-        with open(config.credentials_path) as jsonFile:
+        with open(config._credentials_path) as jsonFile:
             json_credential = json.load(jsonFile)
             jsonFile.close()
 
@@ -60,8 +60,8 @@ def test_bigquery_uri_with_credential():
         assert expected_credential == credential
 
     except AssertionError as e:
-        if config.credentials_path:
-            os.unlink(str(config.credentials_path))
+        if config._credentials_path:
+            os.unlink(str(config._credentials_path))
         raise e
 
 

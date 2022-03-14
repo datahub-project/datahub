@@ -143,7 +143,7 @@ The default provisioning behavior can be customized using the following configs.
 # User and groups provisioning
 AUTH_OIDC_JIT_PROVISIONING_ENABLED=true
 AUTH_OIDC_PRE_PROVISIONING_REQUIRED=false
-AUTH_OIDC_EXTRACT_GROUPS_ENABLED=true
+AUTH_OIDC_EXTRACT_GROUPS_ENABLED=false
 AUTH_OIDC_GROUPS_CLAIM=<your-groups-claim-name>
 ```
 
@@ -151,7 +151,7 @@ AUTH_OIDC_GROUPS_CLAIM=<your-groups-claim-name>
 - `AUTH_OIDC_PRE_PROVISIONING_REQUIRED`: Whether the user should already exist in DataHub when they login, failing login if they are not. This is appropriate for situations in which users and groups are batch ingested and tightly controlled inside your environment. Defaults to false.
   the userNameClaim field will contain an email address, and we want to omit the domain name suffix of the email, we can specify a custom
   regex to do so. (e.g. `([^@]+)`)
-- `AUTH_OIDC_EXTRACT_GROUPS_ENABLED`: Only applies if `AUTH_OIDC_JIT_PROVISIONING_ENABLED` is set to true. This determines whether we should attempt to extract a list of group names from a particular claim in the OIDC attributes. Defaults to true. 
+- `AUTH_OIDC_EXTRACT_GROUPS_ENABLED`: Only applies if `AUTH_OIDC_JIT_PROVISIONING_ENABLED` is set to true. This determines whether we should attempt to extract a list of group names from a particular claim in the OIDC attributes. Note that if this is enabled, each login will re-sync group membership with the groups in your Identity Provider, clearing the group membership that has been assigned through the DataHub UI. Enable with care! Defaults to false.
 - `AUTH_OIDC_GROUPS_CLAIM`: Only applies if `AUTH_OIDC_EXTRACT_GROUPS_ENABLED` is set to true. This determines which OIDC claim will contain a list of string group names. Defaults to 'groups'
 
 

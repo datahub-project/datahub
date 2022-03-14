@@ -19,6 +19,7 @@ export enum EventType {
     RecommendationClickEvent,
     SearchAcrossLineageEvent,
     SearchAcrossLineageResultsViewEvent,
+    DownloadAsCsvEvent,
 }
 
 /**
@@ -135,7 +136,6 @@ export const EntityActionType = {
     UpdateSchemaTerms: 'UpdateSchemaTerms',
     ClickExternalUrl: 'ClickExternalUrl',
 };
-
 export interface EntityActionEvent extends BaseEvent {
     type: EventType.EntityActionEvent;
     actionType: string;
@@ -176,6 +176,14 @@ export interface SearchAcrossLineageResultsViewEvent extends BaseEvent {
     total: number;
 }
 
+export interface DownloadAsCsvEvent extends BaseEvent {
+    type: EventType.DownloadAsCsvEvent;
+    query: string;
+    // optional parameter if its coming from inside an entity page
+    entityUrn?: string;
+    path: string;
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -193,4 +201,5 @@ export type Event =
     | RecommendationImpressionEvent
     | SearchAcrossLineageEvent
     | SearchAcrossLineageResultsViewEvent
+    | DownloadAsCsvEvent
     | RecommendationClickEvent;

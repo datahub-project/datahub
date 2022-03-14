@@ -82,6 +82,7 @@ module.exports = {
           "metadata-ingestion/as-a-library",
           "metadata-integration/java/as-a-library",
           "metadata-ingestion/integration_docs/great-expectations",
+          "metadata-integration/java/datahub-protobuf/README",
         ],
       },
       {

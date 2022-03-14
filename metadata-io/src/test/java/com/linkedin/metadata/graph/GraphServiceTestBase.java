@@ -426,6 +426,28 @@ abstract public class GraphServiceTestBase {
     downstreamLineage = service.getLineage(datasetThreeUrn, LineageDirection.DOWNSTREAM, 0, 1000, 1);
     assertEquals(downstreamLineage.getTotal().intValue(), 0);
     assertEquals(downstreamLineage.getRelationships().size(), 0);
+
+    upstreamLineage = service.getLineage(dataJobOneUrn, LineageDirection.UPSTREAM, 0, 1000, 1);
+    assertEquals(upstreamLineage.getTotal().intValue(), 2);
+    assertEquals(upstreamLineage.getRelationships().size(), 2);
+    relationships = upstreamLineage.getRelationships().stream().collect(Collectors.toMap(LineageRelationship::getEntity,
+        Function.identity()));
+    assertTrue(relationships.containsKey(datasetOneUrn));
+    assertEquals(relationships.get(datasetOneUrn).getType(), consumes);
+    assertTrue(relationships.containsKey(datasetTwoUrn));
+    assertEquals(relationships.get(datasetTwoUrn).getType(), consumes);
+
+    downstreamLineage = service.getLineage(dataJobOneUrn, LineageDirection.DOWNSTREAM, 0, 1000, 1);
+    assertEquals(downstreamLineage.getTotal().intValue(), 3);
+    assertEquals(downstreamLineage.getRelationships().size(), 3);
+    relationships = downstreamLineage.getRelationships().stream().collect(Collectors.toMap(LineageRelationship::getEntity,
+        Function.identity()));
+    assertTrue(relationships.containsKey(datasetThreeUrn));
+    assertEquals(relationships.get(datasetThreeUrn).getType(), produces);
+    assertTrue(relationships.containsKey(datasetFourUrn));
+    assertEquals(relationships.get(datasetFourUrn).getType(), produces);
+    assertTrue(relationships.containsKey(dataJobTwoUrn));
+    assertEquals(relationships.get(dataJobTwoUrn).getType(), downstreamOf);
   }
 
   @DataProvider(name = "FindRelatedEntitiesSourceEntityFilterTests")
