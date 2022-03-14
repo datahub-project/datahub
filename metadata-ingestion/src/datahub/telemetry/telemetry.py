@@ -133,7 +133,7 @@ class Telemetry:
                 },
             )
         except Exception as e:
-            logger.warning(f"Error reporting telemetry: {e}")
+            logger.debug(f"Error reporting telemetry: {e}")
         self.init_track = True
 
     def ping(
@@ -160,7 +160,7 @@ class Telemetry:
             self.mp.track(self.client_id, action, properties)
 
         except Exception as e:
-            logger.warning(f"Error reporting telemetry: {e}")
+            logger.debug(f"Error reporting telemetry: {e}")
 
 
 telemetry_instance = Telemetry()
