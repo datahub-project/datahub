@@ -7,7 +7,6 @@ from typing import Union, cast
 from datahub.configuration.common import OperationalError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.entrypoints import set_gms_config
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
 from datahub.ingestion.api.sink import Sink, SinkReport, WriteCallback
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -17,6 +16,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeProposal,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.usage import UsageAggregation
+from datahub.utilities.server_config_util import set_gms_config
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +57,7 @@ class DatahubRestSink(Sink):
             .get("linkedin/datahub", {})
             .get("version", "")
         )
+        logger.info("Setting gms config")
         set_gms_config(gms_config)
         self.executor = concurrent.futures.ThreadPoolExecutor(
             max_workers=self.config.max_threads
