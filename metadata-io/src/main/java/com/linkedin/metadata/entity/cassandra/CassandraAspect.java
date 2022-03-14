@@ -1,4 +1,4 @@
-package com.linkedin.metadata.entity.datastax;
+package com.linkedin.metadata.entity.cassandra;
 
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.linkedin.metadata.entity.EntityAspect;
@@ -17,7 +17,7 @@ import java.sql.Timestamp;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class DatastaxAspect implements EntityAspect {
+public class CassandraAspect implements EntityAspect {
 
   @Getter
   @NoArgsConstructor
@@ -30,10 +30,10 @@ public class DatastaxAspect implements EntityAspect {
     private long version;
 
     public static PrimaryKey fromRow(Row r) {
-      return new DatastaxAspect.PrimaryKey(
-          r.getString(DatastaxAspect.URN_COLUMN),
-          r.getString(DatastaxAspect.ASPECT_COLUMN),
-          r.getLong(DatastaxAspect.VERSION_COLUMN));
+      return new CassandraAspect.PrimaryKey(
+          r.getString(CassandraAspect.URN_COLUMN),
+          r.getString(CassandraAspect.ASPECT_COLUMN),
+          r.getLong(CassandraAspect.VERSION_COLUMN));
     }
   }
 
@@ -65,19 +65,19 @@ public class DatastaxAspect implements EntityAspect {
         urn, aspect, version, metadata, createdOn, createdBy, createdFor, systemMetadata);
   }
 
-  public DatastaxAspect.PrimaryKey toPrimaryKey() {
+  public CassandraAspect.PrimaryKey toPrimaryKey() {
     return new PrimaryKey(getUrn(), getAspect(), getVersion());
   }
 
-  public static DatastaxAspect fromRow(@Nonnull Row r) {
-    return new DatastaxAspect(
-        r.getString(DatastaxAspect.URN_COLUMN),
-        r.getString(DatastaxAspect.ASPECT_COLUMN),
-        r.getLong(DatastaxAspect.VERSION_COLUMN),
-        r.getString(DatastaxAspect.METADATA_COLUMN),
-        r.getString(DatastaxAspect.SYSTEM_METADATA_COLUMN),
-        r.getInstant(DatastaxAspect.CREATED_ON_COLUMN) == null ? null : Timestamp.from(r.getInstant(DatastaxAspect.CREATED_ON_COLUMN)),
-        r.getString(DatastaxAspect.CREATED_BY_COLUMN),
-        r.getString(DatastaxAspect.CREATED_FOR_COLUMN));
+  public static CassandraAspect fromRow(@Nonnull Row r) {
+    return new CassandraAspect(
+        r.getString(CassandraAspect.URN_COLUMN),
+        r.getString(CassandraAspect.ASPECT_COLUMN),
+        r.getLong(CassandraAspect.VERSION_COLUMN),
+        r.getString(CassandraAspect.METADATA_COLUMN),
+        r.getString(CassandraAspect.SYSTEM_METADATA_COLUMN),
+        r.getInstant(CassandraAspect.CREATED_ON_COLUMN) == null ? null : Timestamp.from(r.getInstant(CassandraAspect.CREATED_ON_COLUMN)),
+        r.getString(CassandraAspect.CREATED_BY_COLUMN),
+        r.getString(CassandraAspect.CREATED_FOR_COLUMN));
   }
 }
