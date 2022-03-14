@@ -78,7 +78,7 @@ const renderTagSuggestion = (tag: Tag, registry: EntityRegistry) => {
 
 const renderUserSuggestion = (query: string, user: CorpUser, registry: EntityRegistry) => {
     const displayName = registry.getDisplayName(EntityType.CorpUser, user);
-    const isPrefixMatch = displayName.toLowerCase().startsWith(query.toLowerCase());
+    const isPrefixMatch = displayName.toLowerCase().indexOf(query.toLowerCase()) > -1;
     const matchedText = (isPrefixMatch && displayName.substring(0, query.length)) || '';
     const unmatchedText = (isPrefixMatch && displayName.substring(query.length, displayName.length)) || displayName;
     return (
