@@ -215,7 +215,7 @@ class SQLAlchemyQueryCombiner:
         # This also implicitly ensures that the typing is generally correct.
         try:
             assert len(get_query_columns(query)) > 0
-        except Exception as e:
+        except AttributeError as e:
             logger.exception(
                 f"Failed to assert count of columns returned by query: {str(query)}"
             )
