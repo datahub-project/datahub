@@ -28,5 +28,11 @@ record ActionRequestStatus {
   /**
    * Audit stamp containing who last modified the status and when.
    */
+  @Searchable = {
+    "/time": {
+        "fieldName": "lastModified",
+        "fieldType": "DATETIME"
+      }
+  }
   lastModified: AuditStamp
 }

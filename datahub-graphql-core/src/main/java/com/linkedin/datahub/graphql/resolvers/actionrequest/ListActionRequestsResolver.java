@@ -1,8 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.actionrequest;
 
 import com.linkedin.common.urn.Urn;
-
-import com.datahub.authentication.Authentication;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ActionRequestAssignee;
 import com.linkedin.datahub.graphql.generated.ActionRequestStatus;
@@ -13,7 +11,6 @@ import com.linkedin.datahub.graphql.generated.ListActionRequestsResult;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.identity.GroupMembership;
-import com.linkedin.metadata.aspect.CorpUserAspect;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -23,8 +20,6 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.metadata.snapshot.CorpUserSnapshot;
-import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
@@ -38,6 +33,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.actionrequest.ActionRequestUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
 
@@ -80,7 +76,8 @@ public class ListActionRequestsResolver implements DataFetcher<CompletableFuture
         if (assignee == null) {
           // Case 1: If no assignee filter provided, fall back to filtering for current user and their groups.
           actorUrn = Urn.createFromString(context.getActorUrn());
-          final Optional<GroupMembership> maybeGroupMembership = resolveGroupMembership(actorUrn, context.getAuthentication());
+          final Optional<GroupMembership> maybeGroupMembership =
+              resolveGroupMembership(actorUrn, context.getAuthentication(), _entityClient);
           groupUrns = maybeGroupMembership.<List<Urn>>map(GroupMembership::getGroups).orElse(null);
         } else {
           // Case 2: Caller provided a user or group assignee filter.
@@ -124,22 +121,6 @@ public class ListActionRequestsResolver implements DataFetcher<CompletableFuture
         throw new RuntimeException("Failed to list action requests", e);
       }
     });
-  }
-
-  private Optional<GroupMembership> resolveGroupMembership(final Urn actor, final Authentication authentication) {
-    try {
-      final CorpUserSnapshot corpUser = _entityClient.get(actor, authentication).getValue().getCorpUserSnapshot();
-      for (CorpUserAspect aspect : corpUser.getAspects()) {
-        if (aspect.isGroupMembership()) {
-          // Found group membership.
-          return Optional.of(aspect.getGroupMembership());
-        }
-      }
-
-    } catch (RemoteInvocationException e) {
-      throw new RuntimeException(String.format("Failed to fetch corpUser for urn %s", actor), e);
-    }
-    return Optional.empty();
   }
 
   private Filter createFilter(
