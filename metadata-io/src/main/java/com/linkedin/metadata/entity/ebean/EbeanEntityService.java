@@ -15,6 +15,7 @@ import com.linkedin.data.template.JacksonDataTemplateCodec;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.EntityService;
@@ -555,14 +556,14 @@ public class EbeanEntityService extends EntityService {
           if (hardDelete) {
             // If this is the key aspect, delete the entity entirely.
             additionalRowsDeleted = _entityDao.deleteUrn(urn);
-          } else if (entitySpec.hasAspect("status")) {
+          } else if (entitySpec.hasAspect(Constants.STATUS_ASPECT_NAME)) {
             // soft delete by setting status.removed=true (if applicable)
             final Status statusAspect = new Status();
             statusAspect.setRemoved(true);
             final SystemMetadata systemMetadata = SystemMetadataUtils.createDefaultSystemMetadata();
             final AuditStamp auditStamp = AuditStampUtils.createDefaultAuditStamp();
 
-            this.ingestAspect(entityUrn, "status", statusAspect, auditStamp, systemMetadata);
+            this.ingestAspect(entityUrn, Constants.STATUS_ASPECT_NAME, statusAspect, auditStamp, systemMetadata);
           }
         } else {
           // Else, only delete the specific aspect.

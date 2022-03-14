@@ -126,7 +126,7 @@ public class ESSystemMetadataDAO {
     }
 
     if (!includeSoftDeleted) {
-      finalQuery = finalQuery.mustNot(QueryBuilders.termQuery("removed", "true"));
+      finalQuery.mustNot(QueryBuilders.termQuery("removed", "true"));
     }
 
     searchSourceBuilder.query(finalQuery);
