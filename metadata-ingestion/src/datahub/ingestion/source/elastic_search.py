@@ -281,7 +281,12 @@ class ElasticsearchSource(Source):
         index_mappings = raw_index_metadata["mappings"]
         index_settings = raw_index_metadata["settings"]
         index_properties: Dict[str, str] = index_settings["index"]
-        properties.update({k:v for (k,v) in index_properties.items() if k not in ["analysis", "version", "lifecycle"]})
+        if "analysis" in index_properties:
+            del index_properties["analysis"]
+        if "version" in index_properties:
+            del index_properties["version"]
+        if "lifecycle" in index_properties:
+            del index_properties["lifecycle"]
         index_mappings_json_str: str = json.dumps(index_mappings)
         md5_hash = md5(index_mappings_json_str.encode()).hexdigest()
         schema_fields = list(
