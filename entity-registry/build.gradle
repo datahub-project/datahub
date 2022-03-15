@@ -15,6 +15,8 @@ dependencies {
   compile externalDependency.mavenArtifact
 
   testCompile externalDependency.testng
+  testCompile externalDependency.mockito
+  testCompile externalDependency.mockitoInline
   testCompile project(':test-models')
 
 }
