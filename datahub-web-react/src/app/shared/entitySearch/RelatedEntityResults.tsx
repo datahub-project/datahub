@@ -1,80 +1,30 @@
-import { Empty, Menu } from 'antd';
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import styled from 'styled-components';
-import { EntityType, SearchResult } from '../../../types.generated';
-// import { navigateToSubviewUrl } from './routingUtils/navigateToSubviewUrl';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import RelatedEntity from './RelatedEntity';
+import { Col, Row } from 'antd';
+import { EmbeddedListSearch } from '../../entity/shared/components/styled/search/EmbeddedListSearch';
 
-const MenuWrapper = styled.div`
-    border: 2px solid #f5f5f5;
-`;
-
-const Content = styled.div`
-    margin-left: 32px;
-    flex-grow: 1;
-`;
-
-const DetailWrapper = styled.div`
-    display: inline-flex;
-    width: 100%;
+const GroupAssetsWrapper = styled(Row)`
+    height: calc(100vh - 245px);
+    overflow: auto;
 `;
 
 type Props = {
-    searchResult: {
-        [key in EntityType]?: Array<SearchResult>;
-    };
-    emptyMessage?: string;
-    menuItemChangeHook?: (string) => void;
+    fixedQuery?: string | null;
 };
 
-export default function RelatedEntityResults({ searchResult, emptyMessage, menuItemChangeHook }: Props) {
-    const entityRegistry = useEntityRegistry();
-    const menuOptions: Array<EntityType> = Object.keys(searchResult) as Array<EntityType>;
-    const [selectedKey, setSelectedKey] = useState('');
-    useEffect(() => {
-        if (menuOptions && menuOptions.length > 0 && selectedKey.length === 0) {
-            const firstEntityType = entityRegistry.getPathName(menuOptions[0] as EntityType);
-            setSelectedKey(firstEntityType);
-            menuItemChangeHook?.(firstEntityType);
-        }
-    }, [menuOptions, entityRegistry, selectedKey, menuItemChangeHook]);
-
-    const onMenuClick = ({ key }) => {
-        setSelectedKey(key);
-        menuItemChangeHook?.(key);
-    };
-
+export default function RelatedEntityResults({ fixedQuery }: Props) {
+    console.log(fixedQuery); // TODO: remove this log
     return (
-        <DetailWrapper>
-            {menuOptions && menuOptions.length > 0 ? (
-                <>
-                    <MenuWrapper>
-                        <Menu
-                            selectable={false}
-                            mode="inline"
-                            style={{ width: 256 }}
-                            selectedKeys={[selectedKey]}
-                            onClick={(key) => {
-                                onMenuClick(key);
-                            }}
-                        >
-                            {menuOptions.map((option) => (
-                                <Menu.Item key={entityRegistry.getPathName(option)}>
-                                    {entityRegistry.getCollectionName(option)}
-                                </Menu.Item>
-                            ))}
-                        </Menu>
-                    </MenuWrapper>
-                    <Content>
-                        {!!selectedKey && <RelatedEntity searchResult={searchResult} entityPath={selectedKey} />}
-                    </Content>
-                </>
-            ) : (
-                <Content>
-                    <Empty description={emptyMessage || 'No data'} image={Empty.PRESENTED_IMAGE_SIMPLE} />
-                </Content>
-            )}
-        </DetailWrapper>
+        <>
+            <GroupAssetsWrapper>
+                <Col md={24} lg={24} xl={24}>
+                    <EmbeddedListSearch
+                        fixedQuery={fixedQuery}
+                        emptySearchQuery="*"
+                        placeholderText="Filter entities..."
+                    />
+                </Col>
+            </GroupAssetsWrapper>
+        </>
     );
 }

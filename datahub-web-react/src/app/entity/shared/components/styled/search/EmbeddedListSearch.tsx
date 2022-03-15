@@ -47,6 +47,7 @@ type SearchResultsInterface = {
 type Props = {
     emptySearchQuery?: string | null;
     fixedFilter?: FacetFilterInput | null;
+    fixedQuery?: string | null;
     placeholderText?: string | null;
     useGetSearchResults?: (params: GetSearchResultsParams) => {
         data: SearchResultsInterface | undefined | null;
@@ -58,6 +59,7 @@ type Props = {
 export const EmbeddedListSearch = ({
     emptySearchQuery,
     fixedFilter,
+    fixedQuery,
     placeholderText,
     useGetSearchResults = useWrappedSearchResults,
 }: Props) => {
@@ -93,13 +95,18 @@ export const EmbeddedListSearch = ({
     });
 
     const onSearch = (q: string) => {
-        let finalQuery = q;
+        let finalQuery = ``;
         if (q.trim().length === 0) {
             if (emptySearchQuery) {
                 finalQuery = emptySearchQuery;
             } else {
                 return;
             }
+        } else {
+            if (fixedQuery) {
+                finalQuery = `(${q}) AND (${fixedQuery})`;
+            }
+            finalQuery = q;
         }
         navigateToEntitySearchUrl({
             baseUrl: location.pathname,
