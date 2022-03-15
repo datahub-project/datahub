@@ -3,17 +3,10 @@ import React, { ReactNode } from 'react';
 import { FolderOpenOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import {
-    GlobalTags,
-    Owner,
-    GlossaryTerms,
-    SearchInsight,
-    Container,
-    Entity,
-    EntityType,
-    Domain,
-} from '../../types.generated';
+
+import { GlobalTags, Owner, GlossaryTerms, SearchInsight, Container, EntityType, Domain } from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
+
 import AvatarsGroup from '../shared/avatar/AvatarsGroup';
 import TagTermGroup from '../shared/tags/TagTermGroup';
 import { ANTD_GRAY } from '../entity/shared/constants';
@@ -156,7 +149,7 @@ interface Props {
     onClick?: () => void;
     // this is provided by the impact analysis view. it is used to display
     // how the listed node is connected to the source node
-    path?: Entity[];
+    degree?: number;
 }
 
 export default function DefaultPreviewCard({
@@ -182,7 +175,7 @@ export default function DefaultPreviewCard({
     titleSizePx,
     dataTestID,
     onClick,
-    path,
+    degree,
 }: Props) {
     // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
     // in those cases, we may want to enrich the preview w/ context about the container entity
@@ -231,15 +224,15 @@ export default function DefaultPreviewCard({
                                     <EntityCountText>{entityCount.toLocaleString()} entities</EntityCountText>
                                 </>
                             ) : null}
-                            {path && (
+                            {degree !== undefined && degree !== null && (
                                 <span>
                                     <PlatformDivider />
                                     <Tooltip
-                                        title={`This entity is a ${getNumberWithOrdinal(
-                                            path?.length + 1,
-                                        )} degree connection to ${entityData?.name || 'the source entity'}`}
+                                        title={`This entity is a ${getNumberWithOrdinal(degree)} degree connection to ${
+                                            entityData?.name || 'the source entity'
+                                        }`}
                                     >
-                                        <PlatformText>{getNumberWithOrdinal(path?.length + 1)}</PlatformText>
+                                        <PlatformText>{getNumberWithOrdinal(degree)}</PlatformText>
                                     </Tooltip>
                                 </span>
                             )}

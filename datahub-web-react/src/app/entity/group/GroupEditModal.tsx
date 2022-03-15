@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { message, Button, Input, Modal, Typography, Form } from 'antd';
 import { useUpdateCorpGroupPropertiesMutation } from '../../../graphql/group.generated';
+import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
 
 type PropsData = {
     email: string | undefined;
@@ -63,6 +64,11 @@ export default function GroupEditModal({ visible, onClose, onSave, editModalData
         onClose();
     };
 
+    // Handle the Enter press
+    useEnterKeyListener({
+        querySelectorToExecuteClick: '#editGroupButton',
+    });
+
     return (
         <Modal
             title="Edit Profile"
@@ -73,7 +79,7 @@ export default function GroupEditModal({ visible, onClose, onSave, editModalData
                     <Button onClick={onClose} type="text">
                         Cancel
                     </Button>
-                    <Button onClick={onSaveChanges} disabled={saveButtonEnabled}>
+                    <Button id="editGroupButton" onClick={onSaveChanges} disabled={saveButtonEnabled}>
                         Save Changes
                     </Button>
                 </>

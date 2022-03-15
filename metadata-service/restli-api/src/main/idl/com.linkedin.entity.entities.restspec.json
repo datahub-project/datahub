@@ -231,6 +231,38 @@
       } ],
       "returns" : "com.linkedin.metadata.search.SearchResult"
     }, {
+      "name" : "searchAcrossLineage",
+      "parameters" : [ {
+        "name" : "urn",
+        "type" : "string"
+      }, {
+        "name" : "direction",
+        "type" : "string"
+      }, {
+        "name" : "entities",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "optional" : true
+      }, {
+        "name" : "input",
+        "type" : "string",
+        "optional" : true
+      }, {
+        "name" : "filter",
+        "type" : "com.linkedin.metadata.query.filter.Filter",
+        "optional" : true
+      }, {
+        "name" : "sort",
+        "type" : "com.linkedin.metadata.query.filter.SortCriterion",
+        "optional" : true
+      }, {
+        "name" : "start",
+        "type" : "int"
+      }, {
+        "name" : "count",
+        "type" : "int"
+      } ],
+      "returns" : "com.linkedin.metadata.search.LineageSearchResult"
+    }, {
       "name" : "setWritable",
       "parameters" : [ {
         "name" : "value",

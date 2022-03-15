@@ -1,0 +1,81 @@
+namespace com.linkedin.assertion
+
+/**
+ * The function that is applied to the aggregation input (schema, rows, column values) before evaluating an operator.
+ */
+enum AssertionStdAggregation {
+  /**
+  * Assertion is applied on number of rows.
+  */
+  ROW_COUNT
+
+  /**
+  * Assertion is applied on all columns.
+  */
+  COLUMNS
+
+  /**
+  * Assertion is applied on number of columns.
+  */
+  COLUMN_COUNT
+
+  /**
+  * Assertion is applied on individual column value.
+  */
+  IDENTITY
+
+  /**
+  * Assertion is applied on column mean
+  */
+  MEAN
+
+  /**
+  * Assertion is applied on column median
+  */
+  MEDIAN
+
+  /**
+  * Assertion is applied on number of distinct values in column
+  */
+  UNIQUE_COUNT
+
+  /**
+  * Assertion is applied on proportion of distinct values in column
+  */
+  UNIQUE_PROPOTION
+
+  /**
+  * Assertion is applied on number of null values in column
+  */
+  NULL_COUNT
+
+  /**
+  * Assertion is applied on proportion of null values in column
+  */
+  NULL_PROPORTION
+
+  /**
+  * Assertion is applied on column std deviation
+  */
+  STDDEV
+
+  /**
+  * Assertion is applied on column min
+  */
+  MIN
+
+  /**
+  * Assertion is applied on column std deviation
+  */
+  MAX
+
+  /**
+  * Assertion is applied on column sum
+  */
+  SUM
+
+  /**
+  * Other
+  */
+  _NATIVE_
+}

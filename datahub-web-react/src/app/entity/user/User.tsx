@@ -41,9 +41,9 @@ export class UserEntity implements Entity<CorpUser> {
 
     getPathName: () => string = () => 'user';
 
-    getEntityName = () => 'User';
+    getEntityName = () => 'Person';
 
-    getCollectionName: () => string = () => 'Users';
+    getCollectionName: () => string = () => 'People';
 
     renderProfile: (urn: string) => JSX.Element = (_) => <UserProfile />;
 

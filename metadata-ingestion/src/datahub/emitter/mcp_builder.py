@@ -12,7 +12,12 @@ from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     ContainerClass,
     DomainsClass,
+    GlobalTagsClass,
+    OwnerClass,
+    OwnershipClass,
+    OwnershipTypeClass,
     SubTypesClass,
+    TagAssociationClass,
 )
 
 
@@ -73,12 +78,53 @@ def add_domain_to_entity_wu(
     yield wu
 
 
+def add_owner_to_entity_wu(
+    entity_type: str, entity_urn: str, owner_urn: str
+) -> Iterable[MetadataWorkUnit]:
+    mcp = MetadataChangeProposalWrapper(
+        entityType=entity_type,
+        changeType=ChangeTypeClass.UPSERT,
+        entityUrn=f"{entity_urn}",
+        aspectName="ownership",
+        aspect=OwnershipClass(
+            owners=[
+                OwnerClass(
+                    owner=owner_urn,
+                    type=OwnershipTypeClass.DATAOWNER,
+                )
+            ]
+        ),
+    )
+    wu = MetadataWorkUnit(id=f"{owner_urn}-to-{entity_urn}", mcp=mcp)
+    yield wu
+
+
+def add_tags_to_entity_wu(
+    entity_type: str, entity_urn: str, tags: List[str]
+) -> Iterable[MetadataWorkUnit]:
+    mcp = MetadataChangeProposalWrapper(
+        entityType=entity_type,
+        changeType=ChangeTypeClass.UPSERT,
+        entityUrn=f"{entity_urn}",
+        aspectName="globalTags",
+        aspect=GlobalTagsClass(
+            tags=[TagAssociationClass(f"urn:li:tag:{tag}") for tag in tags]
+        ),
+    )
+    wu = MetadataWorkUnit(id=f"tags-to-{entity_urn}", mcp=mcp)
+    yield wu
+
+
 def gen_containers(
     container_key: KeyType,
     name: str,
     sub_types: List[str],
     parent_container_key: Optional[PlatformKey] = None,
     domain_urn: Optional[str] = None,
+    description: Optional[str] = None,
+    owner_urn: Optional[str] = None,
+    external_url: Optional[str] = None,
+    tags: Optional[List[str]] = None,
 ) -> Iterable[MetadataWorkUnit]:
     container_urn = make_container_urn(
         guid=container_key.guid(),
@@ -90,7 +136,12 @@ def gen_containers(
         # entityKeyAspect=ContainerKeyClass(guid=schema_container_key.guid()),
         aspectName="containerProperties",
         aspect=ContainerProperties(
-            name=name, customProperties=dataclasses.asdict(container_key)
+            name=name,
+            description=description,
+            customProperties={
+                k: v for k, v in dataclasses.asdict(container_key).items() if v
+            },
+            externalUrl=external_url,
         ),
     )
     wu = MetadataWorkUnit(id=f"container-info-{name}-{container_urn}", mcp=mcp)
@@ -132,6 +183,20 @@ def gen_containers(
             domain_urn=domain_urn,
         )
 
+    if owner_urn:
+        yield from add_owner_to_entity_wu(
+            entity_type="container",
+            entity_urn=container_urn,
+            owner_urn=owner_urn,
+        )
+
+    if tags:
+        yield from add_tags_to_entity_wu(
+            entity_type="container",
+            entity_urn=container_urn,
+            tags=tags,
+        )
+
     if parent_container_key:
         parent_container_urn = make_container_urn(
             guid=parent_container_key.guid(),
@@ -171,4 +236,21 @@ def add_dataset_to_container(
         # aspect=ContainerKeyClass(guid=schema_container_key.guid())
     )
     wu = MetadataWorkUnit(id=f"container-{container_urn}-to-{dataset_urn}", mcp=mcp)
+    yield wu
+
+
+def add_entity_to_container(
+    container_key: KeyType, entity_type: str, entity_urn: str
+) -> Iterable[MetadataWorkUnit]:
+    container_urn = make_container_urn(
+        guid=container_key.guid(),
+    )
+    mcp = MetadataChangeProposalWrapper(
+        entityType=entity_type,
+        changeType=ChangeTypeClass.UPSERT,
+        entityUrn=entity_urn,
+        aspectName="container",
+        aspect=ContainerClass(container=f"{container_urn}"),
+    )
+    wu = MetadataWorkUnit(id=f"container-{container_urn}-to-{entity_urn}", mcp=mcp)
     yield wu
