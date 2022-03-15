@@ -4,8 +4,6 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.metadata.models.annotation.RelationshipAnnotation;
-import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -23,8 +21,8 @@ import static org.testng.Assert.assertTrue;
 public class LineageRegistryTest {
   @Test
   public void testRegistryWhenEmpty() {
-    EntityRegistry entityRegistry = Mockito.mock(EntityRegistry.class);
-    Mockito.when(entityRegistry.getEntitySpecs()).thenReturn(Collections.emptyMap());
+    EntityRegistry entityRegistry = mock(EntityRegistry.class);
+    when(entityRegistry.getEntitySpecs()).thenReturn(Collections.emptyMap());
     LineageRegistry lineageRegistry = new LineageRegistry(entityRegistry);
     LineageRegistry.LineageSpec lineageSpec = lineageRegistry.getLineageSpec("dataset");
     assertNull(lineageSpec);
@@ -33,21 +31,21 @@ public class LineageRegistryTest {
   @Test
   public void testRegistry() {
     Map<String, EntitySpec> mockEntitySpecs = new HashMap<>();
-    EntitySpec mockDatasetSpec = Mockito.mock(EntitySpec.class);
+    EntitySpec mockDatasetSpec = mock(EntitySpec.class);
     List<RelationshipFieldSpec> datasetRelations =
         ImmutableList.of(buildSpec("DownstreamOf", ImmutableList.of("dataset"), true, true),
             buildSpec("AssociatedWith", ImmutableList.of("tag"), true, false),
             buildSpec("AssociatedWith", ImmutableList.of("glossaryTerm"), true, false));
-    Mockito.when(mockDatasetSpec.getRelationshipFieldSpecs()).thenReturn(datasetRelations);
+    when(mockDatasetSpec.getRelationshipFieldSpecs()).thenReturn(datasetRelations);
     mockEntitySpecs.put("dataset", mockDatasetSpec);
-    EntitySpec mockJobSpec = Mockito.mock(EntitySpec.class);
+    EntitySpec mockJobSpec = mock(EntitySpec.class);
     List<RelationshipFieldSpec> jobRelations =
         ImmutableList.of(buildSpec("Produces", ImmutableList.of("dataset"), false, true),
             buildSpec("Consumes", ImmutableList.of("dataset"), true, true));
-    Mockito.when(mockJobSpec.getRelationshipFieldSpecs()).thenReturn(jobRelations);
+    when(mockJobSpec.getRelationshipFieldSpecs()).thenReturn(jobRelations);
     mockEntitySpecs.put("dataJob", mockJobSpec);
-    EntityRegistry entityRegistry = Mockito.mock(EntityRegistry.class);
-    Mockito.when(entityRegistry.getEntitySpecs()).thenReturn(mockEntitySpecs);
+    EntityRegistry entityRegistry = mock(EntityRegistry.class);
+    when(entityRegistry.getEntitySpecs()).thenReturn(mockEntitySpecs);
 
     LineageRegistry lineageRegistry = new LineageRegistry(entityRegistry);
     LineageRegistry.LineageSpec lineageSpec = lineageRegistry.getLineageSpec("dataset");
@@ -65,8 +63,8 @@ public class LineageRegistryTest {
 
   private RelationshipFieldSpec buildSpec(String relationshipType, List<String> destinationEntityTypes,
       boolean isUpstream, boolean isLineage) {
-    RelationshipFieldSpec spec = Mockito.mock(RelationshipFieldSpec.class);
-    Mockito.when(spec.getRelationshipAnnotation()).thenReturn(
+    RelationshipFieldSpec spec = mock(RelationshipFieldSpec.class);
+    when(spec.getRelationshipAnnotation()).thenReturn(
         new RelationshipAnnotation(relationshipType, destinationEntityTypes, isUpstream, isLineage));
     return spec;
   }
