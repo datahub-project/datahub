@@ -11,7 +11,12 @@ record AutoCompleteResult {
   query: string
 
   /**
-   * A list of typeahead suggestions
+   * A list of typeahead suggestions -- Just the text
    */
   suggestions: array[string]
+
+  /**
+   * Specific entities to recommend
+   */
+  entities: array[AutoCompleteEntity]
 }

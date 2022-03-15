@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useHistory } from 'react-router';
 import { useTheme } from 'styled-components';
 
@@ -71,6 +71,19 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
             });
         }
     };
+
+    // Load correct autocomplete results on initial page load.
+    useEffect(() => {
+        if (initialQuery && initialQuery.trim() !== '') {
+            getAutoCompleteResults({
+                variables: {
+                    input: {
+                        query: initialQuery,
+                    },
+                },
+            });
+        }
+    }, [initialQuery, getAutoCompleteResults]);
 
     return (
         <>
