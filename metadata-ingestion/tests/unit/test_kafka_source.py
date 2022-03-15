@@ -26,7 +26,7 @@ from datahub.metadata.schema_classes import (
 
 
 class KafkaSourceTest(unittest.TestCase):
-    def test_get_schema_str_replace_confluent_ref_avro(self):
+    def get_schema_str_replace_confluent_ref_avro(self):
 
         # References external schema 'TestTopic1' in the definition of 'my_field1' field.
         schema_str_orig = """

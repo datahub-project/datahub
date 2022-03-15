@@ -97,13 +97,11 @@ class KafkaSource(StatefulIngestionSourceBase):
     report: KafkaSourceReport
     platform: str = "kafka"
 
-    def create_schema_registry(self, config: KafkaSourceConfig):
-        schema_registry_class = config.schema_registry_class
-        logger.info(f"Inside KafkaSource.create_schema_registry {schema_registry_class}")
+    def create_schema_registry(self, schema_registry_class:str):
         try:
             module_path, class_name = schema_registry_class.rsplit('.', 1)
             module = import_module(module_path)
-            return getattr(module, class_name)()
+            return getattr(module, class_name)
         except (ImportError, AttributeError) as e:
             raise ImportError(schema_registry_class)
 
@@ -126,11 +124,8 @@ class KafkaSource(StatefulIngestionSourceBase):
                 **self.source_config.connection.consumer_config,
             }
         )
-        self.schema_registry_client = self.create_schema_registry(config)
-
         self.report = KafkaSourceReport()
-        self.schema_registry_client.create(config, self.report)
-        self.known_schema_registry_subjects: List[str] = []
+        self.schema_registry_client =  self.create_schema_registry(config.schema_registry_class).create(config, self.report)
 
     def is_checkpointing_enabled(self, job_id: JobId) -> bool:
         if (
@@ -244,7 +239,7 @@ class KafkaSource(StatefulIngestionSourceBase):
             )
 
     def _extract_record(self, topic: str) -> Iterable[MetadataWorkUnit]:  # noqa: C901
-        logger.debug(f"Modified version topic = {topic}")
+        logger.debug(f"topic = {topic}")
 
         # 1. Create the default dataset snapshot for the topic.
         dataset_name = topic
@@ -260,7 +255,7 @@ class KafkaSource(StatefulIngestionSourceBase):
             aspects=[Status(removed=False)],  # we append to this list later on
         )
 
-        # 2. Attach schemaMetadata aspect
+        # 2. Attach schemaMetadata aspect (pass control to SchemaRegistry)
         schema_metadata = self.schema_registry_client.get_schema_metadata(topic, platform_urn)
         if schema_metadata is not None:
             dataset_snapshot.aspects.append(schema_metadata)
@@ -332,6 +327,8 @@ class KafkaSource(StatefulIngestionSourceBase):
             self.consumer.close()
 
 class SchemaRegistry():
+
+
     """This is interface that represents SchemaRegistry for kafka. """
     def get_schema_metadata(
             self, topic: str, platform_urn: str
