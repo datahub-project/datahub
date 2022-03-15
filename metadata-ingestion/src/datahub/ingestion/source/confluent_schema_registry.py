@@ -23,14 +23,9 @@ class ConfluentSchemaRegistry(SchemaRegistry):
     This is confluent schema registry specific implementation of datahub.ingestion.source.kafka import SchemaRegistry
     It knows how to get SchemaMetadata of a topic from ConfluentSchemaRegistry
     """
-
     def __init__(self, source_config, report ):
         self.source_config = source_config
         self.report = report
-
-    @classmethod
-    def create(self, source_config, report):
-
         # Use the fully qualified name for SchemaRegistryClient to make it mock patchable for testing.
         self.schema_registry_client = (
             confluent_kafka.schema_registry.schema_registry_client.SchemaRegistryClient(
@@ -47,6 +42,10 @@ class ConfluentSchemaRegistry(SchemaRegistry):
             )
         except Exception as e:
             logger.warning(f"Failed to get subjects from schema registry: {e}")
+
+    @classmethod
+    def create(cls, source_config, report):
+        return cls(source_config, report)
 
     def _get_subject_for_topic(self, topic: str, is_key_schema: bool) -> Optional[str]:
         subject_key_suffix: str = "-key" if is_key_schema else "-value"
@@ -67,70 +66,6 @@ class ConfluentSchemaRegistry(SchemaRegistry):
             if subject.startswith(topic) and subject.endswith(subject_key_suffix):
                 return subject
         return None
-
-    def _get_schema_and_fields(
-        self, topic: str, is_key_schema: bool
-    ) -> Tuple[Optional[Schema], List[SchemaField]]:
-        schema: Optional[Schema] = None
-        schema_type_str: str = "key" if is_key_schema else "value"
-        topic_subject: Optional[str] = self._get_subject_for_topic(
-            topic=topic, is_key_schema=is_key_schema
-        )
-        if topic_subject is not None:
-            logger.info(
-                f"The {schema_type_str} schema subject:'{topic_subject}' is found for topic:'{topic}'."
-            )
-            try:
-                logger.info(f"Inside kafka.py calling schema_registry_client.get_latest_version {topic_subject}")
-                registered_schema = self.schema_registry_client.get_latest_version(
-                    subject_name=topic_subject
-                )
-                schema = registered_schema.schema
-            except Exception as e:
-                logger.warning(
-                    f"For topic: {topic}, failed to get {schema_type_str} schema from schema registry using subject:'{topic_subject}': {e}."
-                )
-                self.report.report_warning(
-                    topic,
-                    f"failed to get {schema_type_str} schema from schema registry using subject:'{topic_subject}': {e}.",
-                )
-        else:
-            logger.debug(
-                f"For topic: {topic}, the schema registry subject for the {schema_type_str} schema is not found."
-            )
-            if not is_key_schema:
-                # Value schema is always expected. Report a warning.
-                self.report.report_warning(
-                    topic,
-                    f"The schema registry subject for the {schema_type_str} schema is not found."
-                    f" The topic is either schema-less, or no messages have been written to the topic yet.",
-                )
-
-        # Obtain the schema fields from schema for the topic.
-        fields: List[SchemaField] = []
-        if schema is not None:
-            fields = self._get_schema_fields(
-                topic=topic, schema=schema, is_key_schema=is_key_schema
-            )
-        return (schema, fields)
-
-    def _get_schema_fields(
-        self, topic: str, schema: Schema, is_key_schema: bool
-    ) -> List[SchemaField]:
-        # Parse the schema and convert it to SchemaFields.
-        fields: List[SchemaField] = []
-        if schema.schema_type == "AVRO":
-            cleaned_str = self.get_schema_str_replace_confluent_ref_avro(schema)
-            # "value.id" or "value.[type=string]id"
-            fields = schema_util.avro_schema_to_mce_fields(
-                cleaned_str, is_key_schema=is_key_schema
-            )
-        else:
-            self.report.report_warning(
-                topic,
-                f"Parsing kafka schema type {schema.schema_type} is currently not implemented",
-            )
-        return fields
 
     @staticmethod
     def _compact_schema(schema_str: str) -> str:
@@ -188,6 +123,102 @@ class ConfluentSchemaRegistry(SchemaRegistry):
             )
         return schema_str
 
+    def _get_schema_and_fields(
+            self, topic: str, is_key_schema: bool
+    ) -> Tuple[Optional[Schema], List[SchemaField]]:
+        schema: Optional[Schema] = None
+        schema_type_str: str = "key" if is_key_schema else "value"
+        topic_subject: Optional[str] = self._get_subject_for_topic(
+            topic=topic, is_key_schema=is_key_schema
+        )
+        if topic_subject is not None:
+            logger.debug(
+                f"The {schema_type_str} schema subject:'{topic_subject}' is found for topic:'{topic}'."
+            )
+            try:
+                registered_schema = self.schema_registry_client.get_latest_version(
+                    subject_name=topic_subject
+                )
+                schema = registered_schema.schema
+            except Exception as e:
+                logger.warning(
+                    f"For topic: {topic}, failed to get {schema_type_str} schema from schema registry using subject:'{topic_subject}': {e}."
+                )
+                self.report.report_warning(
+                    topic,
+                    f"failed to get {schema_type_str} schema from schema registry using subject:'{topic_subject}': {e}.",
+                )
+        else:
+            logger.debug(
+                f"For topic: {topic}, the schema registry subject for the {schema_type_str} schema is not found."
+            )
+            if not is_key_schema:
+                # Value schema is always expected. Report a warning.
+                self.report.report_warning(
+                    topic,
+                    f"The schema registry subject for the {schema_type_str} schema is not found."
+                    f" The topic is either schema-less, or no messages have been written to the topic yet.",
+                )
+
+        # Obtain the schema fields from schema for the topic.
+        fields: List[SchemaField] = []
+        if schema is not None:
+            fields = self._get_schema_fields(
+                topic=topic, schema=schema, is_key_schema=is_key_schema
+            )
+        return (schema, fields)
+
+    def _get_schema_fields(
+            self, topic: str, schema: Schema, is_key_schema: bool
+    ) -> List[SchemaField]:
+        # Parse the schema and convert it to SchemaFields.
+        fields: List[SchemaField] = []
+        if schema.schema_type == "AVRO":
+            cleaned_str = self.get_schema_str_replace_confluent_ref_avro(schema)
+            # "value.id" or "value.[type=string]id"
+            fields = schema_util.avro_schema_to_mce_fields(
+                cleaned_str, is_key_schema=is_key_schema
+            )
+        else:
+            self.report.report_warning(
+                topic,
+                f"Parsing kafka schema type {schema.schema_type} is currently not implemented",
+            )
+        return fields
+
+    def _get_schema_metadata(
+            self, topic: str, platform_urn: str
+    ) -> Optional[SchemaMetadata]:
+        # Process the value schema
+        schema, fields = self._get_schema_and_fields(
+            topic=topic, is_key_schema=False
+        )  # type: Tuple[Optional[Schema], List[SchemaField]]
+
+        # Process the key schema
+        key_schema, key_fields = self._get_schema_and_fields(
+            topic=topic, is_key_schema=True
+        )  # type:Tuple[Optional[Schema], List[SchemaField]]
+
+        # Create the schemaMetadata aspect.
+        if schema is not None or key_schema is not None:
+            # create a merged string for the combined schemas and compute an md5 hash across
+            schema_as_string = (schema.schema_str if schema is not None else "") + (
+                key_schema.schema_str if key_schema is not None else ""
+            )
+            md5_hash = md5(schema_as_string.encode()).hexdigest()
+
+            return SchemaMetadata(
+                schemaName=topic,
+                version=0,
+                hash=md5_hash,
+                platform=platform_urn,
+                platformSchema=KafkaSchema(
+                    documentSchema=schema.schema_str if schema is not None else "",
+                    keySchema=key_schema.schema_str if key_schema else None,
+                ),
+                fields=key_fields + fields,
+            )
+        return None
 
     def get_schema_metadata(
             self, topic: str, platform_urn: str
