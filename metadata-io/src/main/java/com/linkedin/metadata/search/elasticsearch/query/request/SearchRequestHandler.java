@@ -108,7 +108,7 @@ public class SearchRequestHandler {
               or -> or.getAnd().stream().anyMatch(criterion -> criterion.getField().equals(REMOVED))
       );
     }
-
+    // Filter out entities that are marked "removed" if and only if filter does not contain a criterion referencing it.
     if (!removedInOrFilter) {
       filterQuery.mustNot(QueryBuilders.matchQuery(REMOVED, true));
     }
