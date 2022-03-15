@@ -7,6 +7,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AddOwnerInput;
 import com.linkedin.datahub.graphql.generated.OwnerEntityType;
+import com.linkedin.datahub.graphql.generated.OwnershipType;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
@@ -30,6 +31,7 @@ public class AddOwnerResolver implements DataFetcher<CompletableFuture<Boolean>>
 
     Urn ownerUrn = Urn.createFromString(input.getOwnerUrn());
     OwnerEntityType ownerEntityType = input.getOwnerEntityType();
+    OwnershipType type = input.getType() == null ? OwnershipType.NONE : input.getType();
     Urn targetUrn = Urn.createFromString(input.getResourceUrn());
 
     if (!OwnerUtils.isAuthorizedToUpdateOwners(environment.getContext(), targetUrn)) {
@@ -50,6 +52,8 @@ public class AddOwnerResolver implements DataFetcher<CompletableFuture<Boolean>>
         Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActorUrn());
         OwnerUtils.addOwner(
             ownerUrn,
+            // Assumption Alert: Assumes that GraphQL ownership type === GMS ownership type
+            com.linkedin.common.OwnershipType.valueOf(type.name()),
             targetUrn,
             actor,
             _entityService

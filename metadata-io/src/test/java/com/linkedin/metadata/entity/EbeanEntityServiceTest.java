@@ -43,8 +43,6 @@ import static org.testng.Assert.assertTrue;
 
 public class EbeanEntityServiceTest extends EntityServiceTestBase<EbeanAspectDao, EbeanEntityService, EbeanRetentionService> {
 
-  private EbeanServer _server;
-
   public EbeanEntityServiceTest() throws EntityRegistryException {
   }
 
@@ -67,12 +65,12 @@ public class EbeanEntityServiceTest extends EntityServiceTestBase<EbeanAspectDao
 
   @BeforeMethod
   public void setupTest() {
-    _server = EbeanServerFactory.create(createTestingH2ServerConfig());
+    EbeanServer server = EbeanServerFactory.create(createTestingH2ServerConfig());
     _mockProducer = mock(EntityEventProducer.class);
-    _aspectDao = new EbeanAspectDao(_server);
+    _aspectDao = new EbeanAspectDao(server);
     _aspectDao.setConnectionValidated(true);
     _entityService = new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry);
-    _retentionService = new EbeanRetentionService(_entityService, _server, 1000);
+    _retentionService = new EbeanRetentionService(_entityService, server, 1000);
     _entityService.setRetentionService(_retentionService);
   }
 

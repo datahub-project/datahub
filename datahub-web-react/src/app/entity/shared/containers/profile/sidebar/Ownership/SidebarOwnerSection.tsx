@@ -7,7 +7,7 @@ import { useEntityData, useRefetch } from '../../../../EntityContext';
 import { SidebarHeader } from '../SidebarHeader';
 import { AddOwnerModal } from './AddOwnerModal';
 
-export const SidebarOwnerSection = () => {
+export const SidebarOwnerSection = ({ properties }: { properties?: any }) => {
     const { urn, entityType, entityData } = useEntityData();
     const refetch = useRefetch();
     const [showAddModal, setShowAddModal] = useState(false);
@@ -32,6 +32,8 @@ export const SidebarOwnerSection = () => {
             </div>
             <AddOwnerModal
                 urn={urn}
+                defaultOwnerType={properties?.defaultOwnerType}
+                hideOwnerType={properties?.hideOwnerType || false}
                 type={entityType}
                 visible={showAddModal}
                 refetch={refetch}
