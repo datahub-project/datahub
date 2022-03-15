@@ -152,6 +152,11 @@ def delete(
             registry_id=registry_id, soft=soft, dry_run=dry_run
         )
     else:
+        # log warn include_removed + hard is the only way to work
+        if include_removed and soft:
+            logger.warn(
+                "A filtered delete including soft deleted entities is redundant, because it is a soft delete by default. Please use --include-removed in conjunction with --hard"
+            )
         # Filter based delete
         deletion_result = delete_with_filters(
             env=env,
