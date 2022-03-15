@@ -22,7 +22,7 @@ def test_hana_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
             container_name="testhana",
             container_port=39041,
             hostname="localhost",
-            timeout=500,
+            timeout=700,
             pause=50,
         )
 
