@@ -400,6 +400,46 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:superset",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": ".",
+              "name": "superset",
+              "displayName": "Superset",
+              "type": "RELATIONAL_DB",
+              "logoUrl": "/assets/platforms/supersetlogo.png"
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:datahub",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": ".",
+              "name": "datahub",
+              "displayName": "DataHub",
+              "type": "RELATIONAL_DB",
+              "logoUrl": "/assets/platforms/datahublogo.png"
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
         "urn": "urn:li:dataPlatform:redshift",
         "aspects": [
           {
@@ -628,6 +668,25 @@
               "displayName": "Great Expectations",
               "type": "OTHERS",
               "logoUrl": "/assets/platforms/greatexpectationslogo.png",
+              "datasetNameDelimiter": "."
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:unknown",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "name": "Unknown Platform",
+              "displayName": "N/A",
+              "type": "OTHERS",
               "datasetNameDelimiter": "."
             }
           }
