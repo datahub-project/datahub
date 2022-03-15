@@ -51,7 +51,8 @@ framework_common = {
     # Markupsafe breaking change broke Jinja and some other libs
     # Pinning it to a version which works even though we are not using explicitly
     # https://github.com/aws/aws-sam-cli/issues/3661
-    "markupsafe==2.0.1",
+    # Airflow compatibility: https://github.com/apache/airflow/blob/2.2.2/setup.cfg#L125
+    "markupsafe>=1.1.1,<=2.0.1",
     "Deprecated",
     "types-Deprecated",
 }

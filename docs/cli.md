@@ -139,7 +139,7 @@ Commands:
   check      Helper commands for checking various aspects of DataHub.
   delete     Delete metadata from datahub using a single urn or a combination of filters
   docker     Helper commands for setting up and interacting with a local DataHub instance using Docker.
-  get        Get metadata for an entity with an optional list of aspects to project
+  get        Get metadata for an entity with an optional list of aspects to project.
   ingest     Ingest metadata into DataHub.
   init       Configure which datahub instance to connect to
   put        Update a single aspect of an entity
@@ -200,7 +200,7 @@ datahub delete --urn "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset
 
 ### get
 
-The `get` command allows you to easily retrieve metadata from DataHub, by using the REST API.
+The `get` command allows you to easily retrieve metadata from DataHub, by using the REST API. This works for both versioned aspects and timeseries aspects. For timeseries aspects, it fetches the latest value.
 For example the following command gets the ownership aspect from the dataset `urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)`
 
 ```console
