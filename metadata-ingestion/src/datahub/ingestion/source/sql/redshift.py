@@ -494,7 +494,7 @@ class RedshiftSource(SQLAlchemySource):
             table_schema as schemaname,
             table_name as tablename
         from
-            information_schema.tables
+            pg_catalog.svv_tables
         where
             table_type = 'BASE TABLE'
             and table_schema not in ('information_schema', 'pg_catalog', 'pg_internal')
