@@ -67,8 +67,7 @@ LEFT JOIN
 LEFT JOIN
     snowflake.account_usage.users users
     ON access_history.user_name = users.name
-WHERE   ARRAY_SIZE(base_objects_accessed) > 0
-    AND query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
+WHERE   query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
     AND query_start_time < to_timestamp_ltz({end_time_millis}, 3)
 ORDER BY query_start_time DESC
 ;
@@ -296,7 +295,6 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
                 min(query_start_time) as min_time,
                 max(query_start_time) as max_time
             from snowflake.account_usage.access_history
-            where ARRAY_SIZE(base_objects_accessed) > 0
         """
         with PerfTimer() as timer:
             for db_row in engine.execute(query):

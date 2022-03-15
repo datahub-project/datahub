@@ -1,5 +1,4 @@
 import collections
-import dataclasses
 import heapq
 import json
 import logging
@@ -8,17 +7,7 @@ import re
 import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import (
-    Any,
-    Counter,
-    Dict,
-    Iterable,
-    List,
-    MutableMapping,
-    Optional,
-    Union,
-    cast,
-)
+from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Union, cast
 
 import cachetools
 import pydantic
@@ -32,11 +21,15 @@ from datahub.configuration.source_common import DatasetSourceConfigBase
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import Source
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.usage.parsing_util import parse_with_exception_logging
 from datahub.ingestion.source.usage.usage_common import (
     BaseUsageConfig,
     GenericAggregatedDataset,
+)
+from datahub.ingestion.source_report.usage.bigquery_usage import (
+    BigQueryUsageSourceReport,
 )
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
@@ -382,13 +375,10 @@ class QueryEvent:
     def can_parse_exported_bigquery_audit_metadata(
         cls, row: BigQueryAuditMetadata
     ) -> bool:
-        try:
-            row["timestamp"]
-            row["protoPayload"]
-            row["metadata"]
-            return True
-        except (KeyError, TypeError):
-            return False
+        row["timestamp"]
+        row["protoPayload"]
+        row["metadata"]
+        return True
 
     @classmethod
     def from_exported_bigquery_audit_metadata(
@@ -561,14 +551,6 @@ class BigQueryUsageConfig(DatasetSourceConfigBase, BaseUsageConfig):
 
     def get_deny_pattern_string(self) -> str:
         return "|".join(self.table_pattern.deny) if self.table_pattern else ""
-
-
-@dataclass
-class BigQueryUsageSourceReport(SourceReport):
-    dropped_table: Counter[str] = dataclasses.field(default_factory=collections.Counter)
-
-    def report_dropped(self, key: str) -> None:
-        self.dropped_table[key] += 1
 
 
 class BigQueryUsageSource(Source):
@@ -776,36 +758,34 @@ class BigQueryUsageSource(Source):
         num_query_events: int = 0
         for entry in entries:
             event: Optional[Union[ReadEvent, QueryEvent]] = None
-            try:
+
+            entry_identifier = f"{entry.log_name}-{entry.insert_id}"
+            with parse_with_exception_logging(
+                self, parse_entry=entry, entry_identifier=entry_identifier
+            ):
                 if ReadEvent.can_parse_entry(entry):
                     event = ReadEvent.from_entry(entry)
                     num_read_events += 1
-                elif QueryEvent.can_parse_entry(entry):
+
+            with parse_with_exception_logging(
+                self, parse_entry=entry, entry_identifier=entry_identifier
+            ):
+                if QueryEvent.can_parse_entry(entry):
                     event = QueryEvent.from_entry(entry)
                     num_query_events += 1
                     wu = self._create_operation_aspect_work_unit(event)
                     if wu:
                         yield wu
-                elif QueryEvent.can_parse_entry_v2(entry):
+
+            with parse_with_exception_logging(
+                self, parse_entry=entry, entry_identifier=entry_identifier
+            ):
+                if QueryEvent.can_parse_entry_v2(entry):
                     event = QueryEvent.from_entry_v2(entry)
                     num_query_events += 1
                     wu = self._create_operation_aspect_work_unit(event)
                     if wu:
                         yield wu
-                else:
-                    self.report.report_warning(
-                        f"{entry.log_name}-{entry.insert_id}",
-                        "Log entry cannot be parsed as either ReadEvent or QueryEvent.",
-                    )
-                    logger.warning(
-                        f"Log entry cannot be parsed as either ReadEvent or QueryEvent: {entry!r}"
-                    )
-            except Exception as e:
-                self.report.report_failure(
-                    f"{entry.log_name}-{entry.insert_id}",
-                    f"unable to parse log entry: {entry!r}, exception: {e}",
-                )
-                logger.error("Error while parsing GCP log entries", e)
 
             if event:
                 yield event
@@ -928,7 +908,7 @@ class BigQueryUsageSource(Source):
             self.config.top_n_queries,
         )
 
-    def get_report(self) -> SourceReport:
+    def get_report(self) -> BigQueryUsageSourceReport:
         return self.report
 
     # We can't use close as it is not called if the ingestion is not successful

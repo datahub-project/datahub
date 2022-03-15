@@ -44,6 +44,8 @@ from datahub.ingestion.source.usage.bigquery_usage import (
     BigQueryTableRef,
     QueryEvent,
 )
+from datahub.ingestion.source.usage.parsing_util import parse_with_exception_logging
+from datahub.ingestion.source_report.sql.bigquery import BigQueryReport
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.key import DatasetKey
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -285,11 +287,6 @@ class BigQueryDatasetKey(ProjectIdKey):
     dataset_id: str
 
 
-@dataclass
-class BigQueryReport(SQLSourceReport):
-    pass
-
-
 class BigQuerySource(SQLAlchemySource):
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "bigquery")
@@ -305,21 +302,24 @@ class BigQuerySource(SQLAlchemySource):
             return self._get_project_id(inspector)
 
     def _compute_big_query_lineage(self) -> None:
-        if self.config.include_table_lineage:
-            lineage_client_project_id = self._get_lineage_client_project_id()
-            if self.config.use_exported_bigquery_audit_metadata:
-                self._compute_bigquery_lineage_via_exported_bigquery_audit_metadata(
-                    lineage_client_project_id
-                )
-            else:
-                self._compute_bigquery_lineage_via_gcp_logging(
-                    lineage_client_project_id
-                )
+        if not self.config.include_table_lineage:
+            return
 
-            if self.lineage_metadata is not None:
-                logger.info(
-                    f"Built lineage map containing {len(self.lineage_metadata)} entries."
-                )
+        lineage_client_project_id = self._get_lineage_client_project_id()
+        if self.config.use_exported_bigquery_audit_metadata:
+            self._compute_bigquery_lineage_via_exported_bigquery_audit_metadata(
+                lineage_client_project_id
+            )
+        else:
+            self._compute_bigquery_lineage_via_gcp_logging(lineage_client_project_id)
+
+        if self.lineage_metadata is None:
+            return
+
+        self.report.lineage_metadata_entries = len(self.lineage_metadata)
+        logger.info(
+            f"Built lineage map containing {len(self.lineage_metadata)} entries."
+        )
 
     def _compute_bigquery_lineage_via_gcp_logging(
         self, lineage_client_project_id: Optional[str]
@@ -398,18 +398,26 @@ class BigQuerySource(SQLAlchemySource):
         template: str,
     ) -> Union[Iterable[AuditLogEntry], Iterable[BigQueryAuditMetadata]]:
         # Add a buffer to start and end time to account for delays in logging events.
+        start_time = (self.config.start_time - self.config.max_query_duration).strftime(
+            BQ_DATETIME_FORMAT
+        )
+        self.report.start_time = start_time
+
+        end_time = (self.config.end_time + self.config.max_query_duration).strftime(
+            BQ_DATETIME_FORMAT
+        )
+        self.report.end_time = end_time
+
         filter = template.format(
-            start_time=(
-                self.config.start_time - self.config.max_query_duration
-            ).strftime(BQ_DATETIME_FORMAT),
-            end_time=(self.config.end_time + self.config.max_query_duration).strftime(
-                BQ_DATETIME_FORMAT
-            ),
+            start_time=start_time,
+            end_time=end_time,
         )
 
         assert self.config.log_page_size is not None
 
-        logger.info("Start loading log entries from BigQuery")
+        logger.info(
+            f"Start loading log entries from BigQuery start_time={start_time} and end_time={end_time}"
+        )
         for client in clients:
             entries = client.list_entries(
                 filter_=filter, page_size=self.config.log_page_size
@@ -417,9 +425,15 @@ class BigQuerySource(SQLAlchemySource):
             item = 0
             for entry in entries:
                 item = item + 1
+
+                # In loop intentionally so in case of failures we do get numbers
+                self.report.num_total_log_entries = item
+
                 if item % self.config.log_page_size == 0:
                     logger.info(f"Read {item} entry from log entries")
                 yield entry
+
+        self.report.num_total_log_entries = item
         logger.info(f"Finished loading {item} log entries from BigQuery")
 
     def _get_exported_bigquery_audit_metadata(
@@ -431,9 +445,12 @@ class BigQuerySource(SQLAlchemySource):
         start_time: str = (
             self.config.start_time - self.config.max_query_duration
         ).strftime(BQ_DATETIME_FORMAT)
+        self.report.start_time = start_time
+
         end_time: str = (
             self.config.end_time + self.config.max_query_duration
         ).strftime(BQ_DATETIME_FORMAT)
+        self.report.end_time = end_time
 
         for dataset in self.config.bigquery_audit_metadata_datasets:
             logger.info(
@@ -480,23 +497,27 @@ class BigQuerySource(SQLAlchemySource):
         for entry in entries:
             num_total_log_entries += 1
             event: Optional[QueryEvent] = None
-            try:
+
+            entry_identifier = f"{entry.log_name}-{entry.insert_id}"
+
+            with parse_with_exception_logging(
+                self, parse_entry=entry, entry_identifier=entry_identifier
+            ):
                 if QueryEvent.can_parse_entry(entry):
                     event = QueryEvent.from_entry(entry)
-                    num_parsed_log_entires += 1
-                elif QueryEvent.can_parse_entry_v2(entry):
+
+            with parse_with_exception_logging(
+                self, parse_entry=entry, entry_identifier=entry_identifier
+            ):
+                if event is not None and QueryEvent.can_parse_entry_v2(entry):
                     event = QueryEvent.from_entry_v2(entry)
-                    num_parsed_log_entires += 1
-                else:
-                    raise RuntimeError("Unable to parse log entry as QueryEvent.")
-            except Exception as e:
-                self.report.report_failure(
-                    f"{entry.log_name}-{entry.insert_id}",
-                    f"unable to parse log entry: {entry!r}",
-                )
-                logger.error("Unable to parse GCP log entry.", e)
+
             if event is not None:
+                num_parsed_log_entires += 1
                 yield event
+
+            self.report.num_parsed_log_entires = num_parsed_log_entires
+
         logger.info(
             f"Parsing BigQuery log entries: Number of log entries scanned={num_total_log_entries}, "
             f"number of log entries successfully parsed={num_parsed_log_entires}"
@@ -505,24 +526,29 @@ class BigQuerySource(SQLAlchemySource):
     def _parse_exported_bigquery_audit_metadata(
         self, audit_metadata_rows: Iterable[BigQueryAuditMetadata]
     ) -> Iterable[QueryEvent]:
+        num_total_audit_entries: int = 0
+        num_parsed_audit_entires: int = 0
         for audit_metadata in audit_metadata_rows:
+            num_total_audit_entries += 1
             event: Optional[QueryEvent] = None
-            try:
+
+            entry_identifier = (
+                f"{audit_metadata['logName']}-{audit_metadata['insertId']}"
+            )
+            with parse_with_exception_logging(
+                self, parse_entry=audit_metadata, entry_identifier=entry_identifier
+            ):
                 if QueryEvent.can_parse_exported_bigquery_audit_metadata(
                     audit_metadata
                 ):
                     event = QueryEvent.from_exported_bigquery_audit_metadata(
                         audit_metadata
                     )
-                else:
-                    raise RuntimeError("Unable to parse log entry as QueryEvent.")
-            except Exception as e:
-                self.report.report_failure(
-                    f"""{audit_metadata["logName"]}-{audit_metadata["insertId"]}""",
-                    f"unable to parse log entry: {audit_metadata!r}",
-                )
-                logger.error("Unable to parse GCP log entry.", e)
+
+            self.report.num_total_audit_entries = num_total_audit_entries
+            self.report.num_parsed_audit_entires = num_parsed_audit_entires
             if event is not None:
+                num_parsed_audit_entires += 1
                 yield event
 
     def _create_lineage_map(self, entries: Iterable[QueryEvent]) -> Dict[str, Set[str]]:
@@ -674,6 +700,15 @@ WHERE
         config = BigQueryConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
+    def add_config_to_report(self):
+        self.report.use_exported_bigquery_audit_metadata = (
+            self.config.use_exported_bigquery_audit_metadata
+        )
+        if self.config.use_v2_audit_metadata:
+            self.report.use_v2_audit_metadata = True
+        else:
+            self.report.use_v2_audit_metadata = False
+
     # Overriding the get_workunits method to first compute the workunits using the base SQLAlchemySource
     # and then computing lineage information only for those datasets that were ingested. This helps us to
     # maintain a clear separation between SQLAlchemySource and the BigQuerySource. Also, this way we honor
@@ -681,6 +716,7 @@ WHERE
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         # only compute the lineage if the object is none. This is is safety check in case if in future refactoring we
         # end up computing lineage multiple times.
+        self.add_config_to_report()
         if self.lineage_metadata is None:
             self._compute_big_query_lineage()
         with patch.dict(
