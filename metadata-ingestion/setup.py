@@ -141,6 +141,7 @@ plugins: Dict[str, Set[str]] = {
     "datahub-business-glossary": set(),
     "data-lake": {*data_lake_base, *data_lake_profiling},
     "dbt": {"requests"},
+    "delta-lake": {"delta-sharing>=0.4.0"},
     "druid": sql_common | {"pydruid>=0.6.2"},
     # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
     # UnsupportedProductError
@@ -336,6 +337,7 @@ entry_points = {
         "clickhouse-usage = datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource",
         "data-lake = datahub.ingestion.source.data_lake:DataLakeSource",
         "dbt = datahub.ingestion.source.dbt:DBTSource",
+        "delta = datahub.ingestion.source.delta_lake:DeltaLakeSource",
         "druid = datahub.ingestion.source.sql.druid:DruidSource",
         "elasticsearch = datahub.ingestion.source.elastic_search:ElasticsearchSource",
         "feast = datahub.ingestion.source.feast:FeastSource",
