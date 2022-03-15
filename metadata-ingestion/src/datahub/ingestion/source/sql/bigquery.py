@@ -30,7 +30,6 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemyConfig,
     SQLAlchemySource,
-    SQLSourceReport,
     SqlWorkUnit,
     make_sqlalchemy_type,
     register_custom_type,
