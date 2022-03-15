@@ -59,6 +59,16 @@
     }
   },
   {
+    "urn": "urn:li:dataPlatform:delta_lake",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "deltalake",
+      "displayName": "Delta Lake",
+      "type": "FILE_SYSTEM",
+      "logoUrl": "/assets/platforms/deltalakelogo.png"
+    }
+  },
+  {
     "urn": "urn:li:dataPlatform:external",
     "aspect": {
       "datasetNameDelimiter": ".",
