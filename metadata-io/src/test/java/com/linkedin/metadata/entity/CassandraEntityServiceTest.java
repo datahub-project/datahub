@@ -55,7 +55,6 @@ import static org.testng.Assert.assertTrue;
 public class CassandraEntityServiceTest extends EntityServiceTestBase<CassandraAspectDao, CassandraEntityService, CassandraRetentionService> {
 
   private CassandraContainer _cassandraContainer;
-  private CqlSession _cqlSession;
   private static final String KEYSPACE_NAME = "test";
 
   public CassandraEntityServiceTest() throws EntityRegistryException {
@@ -155,11 +154,11 @@ public class CassandraEntityServiceTest extends EntityServiceTestBase<CassandraA
       assertEquals(rs.size(), 0);
     }
 
-    _cqlSession = createTestSession();
-    _aspectDao = new CassandraAspectDao(_cqlSession);
+    CqlSession session = createTestSession();
+    _aspectDao = new CassandraAspectDao(session);
     _mockProducer = mock(EntityEventProducer.class);
     _entityService = new CassandraEntityService(_aspectDao, _mockProducer, _testEntityRegistry);
-    _retentionService = new CassandraRetentionService(_entityService, _cqlSession, 1000);
+    _retentionService = new CassandraRetentionService(_entityService, session, 1000);
     _entityService.setRetentionService(_retentionService);
   }
 

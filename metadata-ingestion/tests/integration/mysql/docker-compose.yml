@@ -2,6 +2,7 @@ version: "2"
 services:
   testmysql:
     image: mysql:8
+    # image: mariadb:10.5.8 # Uncomment to run on m1
     container_name: "testmysql"
     command: --default-authentication-plugin=mysql_native_password
     environment:

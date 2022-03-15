@@ -62,11 +62,11 @@ public class CassandraEntityService extends EntityService {
   private final CassandraAspectDao _aspectDao;
 
   public CassandraEntityService(
-      @Nonnull final CassandraAspectDao entityDao,
+      @Nonnull final CassandraAspectDao aspectDao,
       @Nonnull final EntityEventProducer eventProducer,
       @Nonnull final EntityRegistry entityRegistry) {
     super(eventProducer, entityRegistry);
-    _aspectDao = entityDao;
+    _aspectDao = aspectDao;
   }
 
   @Override
