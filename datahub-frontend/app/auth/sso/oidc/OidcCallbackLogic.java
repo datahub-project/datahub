@@ -2,6 +2,7 @@ package auth.sso.oidc;
 
 import client.AuthServiceClient;
 import com.datahub.authentication.Authentication;
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.CorpGroupUrnArray;
 import com.linkedin.common.CorpuserUrnArray;
@@ -245,8 +246,22 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     if (profile.containsAttribute(groupsClaimName)) {
       try {
         final List<CorpGroupSnapshot> groupSnapshots = new ArrayList<>();
-        // We found some groups. Note that we assume it is an array of strings!
-        final Collection<String> groupNames = (Collection<String>) profile.getAttribute(groupsClaimName, Collection.class);
+        final Collection<String> groupNames;
+        final Object groupAttribute = profile.getAttribute(groupsClaimName);
+        if (groupAttribute instanceof Collection) {
+          // List of group names
+          groupNames = (Collection<String>) profile.getAttribute(groupsClaimName, Collection.class);
+        } else if (groupAttribute instanceof String) {
+          // Single group name
+          groupNames = Collections.singleton(profile.getAttribute(groupsClaimName, String.class));
+        } else {
+          log.error(String.format("Failed to parse OIDC group claim with name %s. Unknown type %s provided.",
+              groupsClaimName,
+              groupAttribute.getClass()));
+          // Return empty list. Do not throw.
+          return Collections.emptyList();
+        }
+
         for (String groupName : groupNames) {
           // Create a basic CorpGroupSnapshot from the information.
           try {
