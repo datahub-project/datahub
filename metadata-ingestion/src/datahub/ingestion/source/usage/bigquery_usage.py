@@ -527,11 +527,10 @@ class BigQueryUsageConfig(DatasetSourceConfigBase, BaseUsageConfig):
     max_query_duration: timedelta = timedelta(minutes=15)
     use_v2_audit_metadata: Optional[bool] = False
     credential: Optional[BigQueryCredential]
-    _credentials_path: Optional[str] = pydantic.PrivateAttr()
+    _credentials_path: Optional[str] = pydantic.PrivateAttr(None)
 
     def __init__(self, **data: Any):
         super().__init__(**data)
-
         if self.credential:
             self._credentials_path = self.credential.create_credential_temp_file()
             logger.debug(
@@ -573,13 +572,10 @@ class BigQueryUsageSourceReport(SourceReport):
 
 
 class BigQueryUsageSource(Source):
-    config: BigQueryUsageConfig
-    report: BigQueryUsageSourceReport
-
     def __init__(self, config: BigQueryUsageConfig, ctx: PipelineContext):
         super().__init__(ctx)
-        self.config = config
-        self.report = BigQueryUsageSourceReport()
+        self.config: BigQueryUsageConfig = config
+        self.report: BigQueryUsageSourceReport = BigQueryUsageSourceReport()
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "BigQueryUsageSource":
@@ -937,7 +933,7 @@ class BigQueryUsageSource(Source):
 
     # We can't use close as it is not called if the ingestion is not successful
     def __del__(self):
-        if self.config._credentials_path:
+        if self.config._credentials_path is not None:
             logger.debug(
                 f"Deleting temporary credential file at {self.config._credentials_path}"
             )
