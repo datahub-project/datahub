@@ -12,3 +12,5 @@ class BigQueryReport(SQLSourceReport):
     lineage_metadata_entries: int = -1
     use_v2_audit_metadata: bool = False
     use_exported_bigquery_audit_metadata: bool = False
+    start_time: str = ""
+    end_time: str = ""
