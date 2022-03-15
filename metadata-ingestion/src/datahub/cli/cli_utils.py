@@ -19,17 +19,22 @@ from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.rest_emitter import _make_curl_command
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.metadata.schema_classes import (
+    AssertionRunEventClass,
     BrowsePathsClass,
     ChartInfoClass,
     ChartKeyClass,
+    DatahubIngestionCheckpointClass,
+    DatahubIngestionRunSummaryClass,
     DataJobInputOutputClass,
     DataJobKeyClass,
     DataPlatformInstanceClass,
     DataProcessInfoClass,
     DatasetDeprecationClass,
     DatasetKeyClass,
+    DatasetProfileClass,
     DatasetPropertiesClass,
     DatasetUpstreamLineageClass,
+    DatasetUsageStatisticsClass,
     EditableDatasetPropertiesClass,
     EditableSchemaMetadataClass,
     GlobalTagsClass,
@@ -39,6 +44,7 @@ from datahub.metadata.schema_classes import (
     MLFeaturePropertiesClass,
     MLPrimaryKeyKeyClass,
     MLPrimaryKeyPropertiesClass,
+    OperationClass,
     OwnershipClass,
     SchemaMetadataClass,
     StatusClass,
@@ -470,18 +476,62 @@ type_class_to_name_map = {
     ChartKeyClass: "chartKey",
 }
 
+timeseries_class_to_aspect_name_map: Dict[Type, str] = {
+    DatahubIngestionCheckpointClass: "datahubIngestionCheckpoint",
+    DatahubIngestionRunSummaryClass: "datahubIngestionRunSummary",
+    DatasetUsageStatisticsClass: "datasetUsageStatistics",
+    DatasetProfileClass: "datasetProfile",
+    AssertionRunEventClass: "assertionRunEvent",
+    OperationClass: "operation",
+}
+
 
 def _get_pydantic_class_from_aspect_name(aspect_name: str) -> Optional[Type[Aspect]]:
     candidates = [k for (k, v) in type_class_to_name_map.items() if v == aspect_name]
-    return candidates[0] or None
+    candidates.extend(
+        [
+            k
+            for (k, v) in timeseries_class_to_aspect_name_map.items()
+            if v == aspect_name
+        ]
+    )
+    return candidates[0] if candidates else None
 
 
 def _get_aspect_name_from_aspect_class(aspect_class: str) -> str:
     class_to_name_map = {
         k.RECORD_SCHEMA.fullname.replace("pegasus2avro.", ""): v  # type: ignore
-        for (k, v) in type_class_to_name_map.items()
+        for (k, v) in (
+            set(type_class_to_name_map.items())
+            | set(timeseries_class_to_aspect_name_map.items())
+        )
     }
     return class_to_name_map.get(aspect_class, "unknown")
+
+
+def get_latest_timeseries_aspect_values(
+    entity_urn: str,
+    timeseries_aspect_name: str,
+    cached_session_host: Optional[Tuple[Session, str]],
+) -> Dict:
+    if not cached_session_host:
+        session, gms_host = get_session_and_host()
+    else:
+        session, gms_host = cached_session_host
+    query_body = {
+        "urn": entity_urn,
+        "entity": guess_entity_type(entity_urn),
+        "aspect": timeseries_aspect_name,
+        "latestValue": True,
+    }
+    end_point = "/aspects?action=getTimeseriesAspectValues"
+    try:
+        response = session.post(url=gms_host + end_point, data=json.dumps(query_body))
+        response.raise_for_status()
+        return response.json()
+    except Exception:
+        # Ignore exceptions
+        return {}
 
 
 def get_aspects_for_entity(
@@ -490,10 +540,45 @@ def get_aspects_for_entity(
     typed: bool = False,
     cached_session_host: Optional[Tuple[Session, str]] = None,
 ) -> Dict[str, Union[dict, DictWrapper]]:
-    entity_response = get_entity(entity_urn, aspects, cached_session_host)
+    # Process non-timeseries aspects
+    non_timeseries_aspects: List[str] = [
+        a for a in aspects if a not in timeseries_class_to_aspect_name_map.values()
+    ]
+    entity_response = get_entity(
+        entity_urn, non_timeseries_aspects, cached_session_host
+    )
     aspect_list: List[Dict[str, dict]] = list(entity_response["value"].values())[0][
         "aspects"
     ]
+
+    # Process timeseries aspects & append to aspect_list
+    timeseries_aspects: List[str] = [
+        a for a in aspects if a in timeseries_class_to_aspect_name_map.values()
+    ]
+    for timeseries_aspect in timeseries_aspects:
+        timeseries_response = get_latest_timeseries_aspect_values(
+            entity_urn, timeseries_aspect, cached_session_host
+        )
+        values: List[Dict] = timeseries_response.get("value", {}).get("values", [])
+        if values:
+            aspect_cls: Optional[Type] = _get_pydantic_class_from_aspect_name(
+                timeseries_aspect
+            )
+            if aspect_cls is not None:
+                aspect_value = values[0]
+                # Decode the json-encoded generic aspect value.
+                aspect_value["aspect"]["value"] = json.loads(
+                    aspect_value["aspect"]["value"]
+                )
+                aspect_list.append(
+                    # Follow the convention used for non-timeseries aspects.
+                    {
+                        aspect_cls.RECORD_SCHEMA.fullname.replace(
+                            "pegasus2avro.", ""
+                        ): aspect_value
+                    }
+                )
+
     aspect_map: Dict[str, Union[dict, DictWrapper]] = {}
     for a in aspect_list:
         aspect_class = list(a.keys())[0]
