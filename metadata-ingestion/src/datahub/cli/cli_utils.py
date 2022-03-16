@@ -635,10 +635,10 @@ def get_latest_timeseries_aspect_values(
 
 
 def get_aspects_for_entity(
-        entity_urn: str,
-        aspects: List[str],
-        typed: bool = False,
-        cached_session_host: Optional[Tuple[Session, str]] = None,
+    entity_urn: str,
+    aspects: List[str],
+    typed: bool = False,
+    cached_session_host: Optional[Tuple[Session, str]] = None,
 ) -> Dict[str, Union[dict, DictWrapper]]:
     # Process non-timeseries aspects
     non_timeseries_aspects: List[str] = [
@@ -668,7 +668,7 @@ def get_aspects_for_entity(
                 aspect_value["aspect"]["value"] = json.loads(
                     aspect_value["aspect"]["value"]
                 )
-                aspect_list.append(
+                aspect_list.update(
                     # Follow the convention used for non-timeseries aspects.
                     {
                         aspect_cls.RECORD_SCHEMA.fullname.replace(
