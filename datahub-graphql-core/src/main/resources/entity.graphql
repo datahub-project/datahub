@@ -518,7 +518,7 @@ type EntityRelationship {
     """
     Entity that is related via lineage
     """
-    entity: Entity!
+    entity: Entity
 
     """
     An AuditStamp corresponding to the last modification of this relationship
@@ -563,7 +563,7 @@ type LineageRelationship {
     """
     Entity that is related via lineage
     """
-    entity: Entity!
+    entity: Entity
 
     """
     Degree of relationship (number of hops to get to entity)
