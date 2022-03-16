@@ -1,4 +1,6 @@
 from dataclasses import dataclass
+from datetime import datetime
+from typing import Optional
 
 from datahub.ingestion.source.sql.sql_common import SQLSourceReport
 
@@ -13,8 +15,8 @@ class BigQueryReport(SQLSourceReport):
     use_v2_audit_metadata: bool = False
     use_exported_bigquery_audit_metadata: bool = False
 
-    start_time: str = ""
-    end_time: str = ""
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
 
     log_entry_start_time: str = ""
     log_entry_end_time: str = ""

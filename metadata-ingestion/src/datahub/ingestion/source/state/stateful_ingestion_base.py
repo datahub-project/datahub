@@ -88,14 +88,6 @@ class StatefulIngestionSourceBase(Source):
         self._initialize_checkpointing_state_provider()
         self.report: StatefulIngestionReport = StatefulIngestionReport()
 
-    def warn(self, log: logging.Logger, key: str, reason: str) -> Any:
-        self.report.report_warning(key, reason)
-        log.warning(reason)
-
-    def error(self, log: logging.Logger, key: str, reason: str) -> Any:
-        self.report.report_failure(key, reason)
-        log.error(f"{key} => {reason}")
-
     #
     # Checkpointing specific support.
     #

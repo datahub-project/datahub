@@ -217,7 +217,7 @@ class ElasticsearchSource(Source):
             http_auth=self.source_config.http_auth,
             url_prefix=self.source_config.url_prefix,
         )
-        self.report = ElasticsearchSourceReport()
+        self.report: ElasticsearchSourceReport = ElasticsearchSourceReport()
         self.data_stream_partition_count: Dict[str, int] = defaultdict(int)
         self.platform: str = "elasticsearch"
 

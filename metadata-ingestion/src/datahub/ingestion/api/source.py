@@ -1,8 +1,9 @@
+import logging
 import platform
 import sys
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
-from typing import Dict, Generic, Iterable, List, TypeVar
+from typing import Any, Dict, Generic, Iterable, List, TypeVar
 
 import datahub
 from datahub.ingestion.api.closeable import Closeable
@@ -54,7 +55,9 @@ class Extractor(Generic[WorkUnitType], Closeable, metaclass=ABCMeta):
 # See https://github.com/python/mypy/issues/5374 for why we suppress this mypy error.
 @dataclass  # type: ignore[misc]
 class Source(Closeable, metaclass=ABCMeta):
-    ctx: PipelineContext
+    def __init__(self, ctx: PipelineContext) -> None:
+        self.report: SourceReport
+        self.ctx: PipelineContext = ctx
 
     @classmethod
     @abstractmethod
@@ -68,3 +71,11 @@ class Source(Closeable, metaclass=ABCMeta):
     @abstractmethod
     def get_report(self) -> SourceReport:
         pass
+
+    def error(self, log: logging.Logger, key: str, reason: str) -> Any:
+        self.report.report_failure(key, reason)
+        log.error(f"{key} => {reason}")
+
+    def warn(self, log: logging.Logger, key: str, reason: str) -> Any:
+        self.report.report_warning(key, reason)
+        log.warning(reason)

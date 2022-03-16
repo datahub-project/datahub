@@ -90,7 +90,7 @@ class AzureADSource(Source):
     def __init__(self, config: AzureADConfig, ctx: PipelineContext):
         super().__init__(ctx)
         self.config = config
-        self.report = AzureADSourceReport(
+        self.report: AzureADSourceReport = AzureADSourceReport(
             filtered_tracking=self.config.filtered_tracking
         )
         self.token_data = {

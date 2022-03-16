@@ -43,7 +43,6 @@ from datahub.ingestion.source.usage.bigquery_usage import (
     BigQueryTableRef,
     QueryEvent,
 )
-from datahub.ingestion.source.usage.parsing_util import parse_with_exception_logging
 from datahub.ingestion.source_report.sql.bigquery import BigQueryReport
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.key import DatasetKey
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
@@ -290,6 +289,7 @@ class BigQuerySource(SQLAlchemySource):
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "bigquery")
         self.config: BigQueryConfig = config
+        self.ctx = ctx
         self.report: BigQueryReport = BigQueryReport()
         self.lineage_metadata: Optional[Dict[str, Set[str]]] = None
         self.maximum_shard_ids: Dict[str, str] = dict()
@@ -494,21 +494,21 @@ class BigQuerySource(SQLAlchemySource):
             num_total_log_entries += 1
             event: Optional[QueryEvent] = None
 
-            entry_identifier = f"{entry.log_name}-{entry.insert_id}"
+            missing_entry = QueryEvent.get_missing_key_entry(entry=entry)
+            if missing_entry is None:
+                event = QueryEvent.from_entry(entry)
 
-            with parse_with_exception_logging(
-                self, parse_entry=entry, entry_identifier=entry_identifier
-            ):
-                if QueryEvent.can_parse_entry(entry):
-                    event = QueryEvent.from_entry(entry)
+            missing_entry_v2 = QueryEvent.get_missing_key_entry_v2(entry=entry)
+            if event is not None and missing_entry_v2 is None:
+                event = QueryEvent.from_entry_v2(entry)
 
-            with parse_with_exception_logging(
-                self, parse_entry=entry, entry_identifier=entry_identifier
-            ):
-                if event is not None and QueryEvent.can_parse_entry_v2(entry):
-                    event = QueryEvent.from_entry_v2(entry)
-
-            if event is not None:
+            if event is None:
+                self.error(
+                    logger,
+                    f"{entry.log_name}-{entry.insert_id}",
+                    f"Unable to parse log missing {missing_entry}, missing v2 {missing_entry_v2} for {entry}",
+                )
+            else:
                 num_parsed_log_entires += 1
                 yield event
 
@@ -526,20 +526,22 @@ class BigQuerySource(SQLAlchemySource):
             self.report.num_total_audit_entries += 1
             event: Optional[QueryEvent] = None
 
-            entry_identifier = (
-                f"{audit_metadata['logName']}-{audit_metadata['insertId']}"
-            )
-            with parse_with_exception_logging(
-                self, parse_entry=audit_metadata, entry_identifier=entry_identifier
-            ):
-                if QueryEvent.can_parse_exported_bigquery_audit_metadata(
+            missing_exported_audit = (
+                QueryEvent.get_missing_key_exported_bigquery_audit_metadata(
                     audit_metadata
-                ):
-                    event = QueryEvent.from_exported_bigquery_audit_metadata(
-                        audit_metadata
-                    )
+                )
+            )
 
-            if event is not None:
+            if missing_exported_audit is not None:
+                event = QueryEvent.from_exported_bigquery_audit_metadata(audit_metadata)
+
+            if event is None:
+                self.error(
+                    logger,
+                    f"{audit_metadata['logName']}-{audit_metadata['insertId']}",
+                    f"Unable to parse audit metadata missing {missing_exported_audit} for {audit_metadata}",
+                )
+            else:
                 self.report.num_parsed_audit_entires += 1
                 yield event
 
@@ -695,6 +697,7 @@ WHERE
     def add_config_to_report(self):
         self.report.start_time = self.config.start_time
         self.report.end_time = self.config.end_time
+
         self.report.use_exported_bigquery_audit_metadata = (
             self.config.use_exported_bigquery_audit_metadata
         )

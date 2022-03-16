@@ -23,7 +23,6 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.usage.parsing_util import parse_with_exception_logging
 from datahub.ingestion.source.usage.usage_common import (
     BaseUsageConfig,
     GenericAggregatedDataset,
@@ -37,6 +36,7 @@ from datahub.metadata.schema_classes import (
     OperationTypeClass,
 )
 from datahub.utilities.delayed_iter import delayed_iter
+from datahub.utilities.parsing_util import get_missing_key, get_missing_key_any
 
 logger = logging.getLogger(__name__)
 
@@ -254,11 +254,13 @@ class ReadEvent:
 
     @classmethod
     def can_parse_entry(cls, entry: AuditLogEntry) -> bool:
-        try:
-            entry.payload["metadata"]["tableDataRead"]
-            return True
-        except (KeyError, TypeError):
-            return False
+        return ReadEvent.get_missing_key_entry(entry) is None
+
+    @classmethod
+    def get_missing_key_entry(cls, entry: AuditLogEntry) -> Optional[str]:
+        return get_missing_key(
+            inp_dict=entry.payload, keys=["metadata", "tableDataRead"]
+        )
 
     @classmethod
     def from_entry(cls, entry: AuditLogEntry) -> "ReadEvent":
@@ -311,20 +313,23 @@ class QueryEvent:
 
     @classmethod
     def can_parse_entry(cls, entry: AuditLogEntry) -> bool:
-        try:
-            entry.payload["serviceData"]["jobCompletedEvent"]["job"]
-            return True
-        except (KeyError, TypeError):
-            return False
+        return QueryEvent.get_missing_key_entry(entry) is None
+
+    @classmethod
+    def get_missing_key_entry(cls, entry: AuditLogEntry) -> Optional[str]:
+        return get_missing_key(
+            inp_dict=entry.payload, keys=["serviceData", "jobCompletedEvent", "job"]
+        )
 
     @classmethod
     def can_parse_entry_v2(cls, entry: BigQueryAuditMetadata) -> bool:
-        try:
-            payload = entry.payload
-            payload["metadata"]["jobChange"]["job"]
-            return True
-        except (KeyError, TypeError):
-            return False
+        return QueryEvent.get_missing_key_entry_v2(entry) is None
+
+    @classmethod
+    def get_missing_key_entry_v2(cls, entry: AuditLogEntry) -> Optional[str]:
+        return get_missing_key(
+            inp_dict=entry.payload, keys=["metadata", "jobChange", "job"]
+        )
 
     @classmethod
     def from_entry(cls, entry: AuditLogEntry) -> "QueryEvent":
@@ -375,10 +380,13 @@ class QueryEvent:
     def can_parse_exported_bigquery_audit_metadata(
         cls, row: BigQueryAuditMetadata
     ) -> bool:
-        row["timestamp"]
-        row["protoPayload"]
-        row["metadata"]
-        return True
+        return QueryEvent.get_missing_key_exported_bigquery_audit_metadata(row) is None
+
+    @classmethod
+    def get_missing_key_exported_bigquery_audit_metadata(
+        cls, row: BigQueryAuditMetadata
+    ) -> Optional[str]:
+        return get_missing_key_any(row, ["timestamp", "protoPayload", "metadata"])
 
     @classmethod
     def from_exported_bigquery_audit_metadata(
@@ -759,35 +767,35 @@ class BigQueryUsageSource(Source):
         for entry in entries:
             event: Optional[Union[ReadEvent, QueryEvent]] = None
 
-            entry_identifier = f"{entry.log_name}-{entry.insert_id}"
-            with parse_with_exception_logging(
-                self, parse_entry=entry, entry_identifier=entry_identifier
-            ):
-                if ReadEvent.can_parse_entry(entry):
-                    event = ReadEvent.from_entry(entry)
-                    num_read_events += 1
+            missing_read_entry = ReadEvent.get_missing_key_entry(entry)
+            if missing_read_entry is not None:
+                event = ReadEvent.from_entry(entry)
+                num_read_events += 1
 
-            with parse_with_exception_logging(
-                self, parse_entry=entry, entry_identifier=entry_identifier
-            ):
-                if QueryEvent.can_parse_entry(entry):
-                    event = QueryEvent.from_entry(entry)
-                    num_query_events += 1
-                    wu = self._create_operation_aspect_work_unit(event)
-                    if wu:
-                        yield wu
+            missing_query_entry = QueryEvent.get_missing_key_entry(entry)
+            if event is not None and missing_query_entry is not None:
+                event = QueryEvent.from_entry(entry)
+                num_query_events += 1
+                wu = self._create_operation_aspect_work_unit(event)
+                if wu:
+                    yield wu
 
-            with parse_with_exception_logging(
-                self, parse_entry=entry, entry_identifier=entry_identifier
-            ):
-                if QueryEvent.can_parse_entry_v2(entry):
-                    event = QueryEvent.from_entry_v2(entry)
-                    num_query_events += 1
-                    wu = self._create_operation_aspect_work_unit(event)
-                    if wu:
-                        yield wu
+            missing_query_entry_v2 = QueryEvent.get_missing_key_entry_v2(entry)
 
-            if event:
+            if event is not None and missing_query_entry_v2 is not None:
+                event = QueryEvent.from_entry_v2(entry)
+                num_query_events += 1
+                wu = self._create_operation_aspect_work_unit(event)
+                if wu:
+                    yield wu
+
+            if event is None:
+                self.error(
+                    logger,
+                    f"{entry.log_name}-{entry.insert_id}",
+                    f"Unable to parse event missing read {missing_query_entry}, missing query {missing_query_entry} missing v2 {missing_query_entry_v2} for {event}",
+                )
+            else:
                 yield event
 
         logger.info(
