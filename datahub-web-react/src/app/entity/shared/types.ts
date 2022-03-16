@@ -66,8 +66,8 @@ export type GenericEntityProperties = {
     editableSchemaMetadata?: Maybe<EditableSchemaMetadata>;
     editableProperties?: Maybe<DatasetEditableProperties>;
     autoRenderAspects?: Maybe<Array<RawAspect>>;
-    upstreams?: Maybe<EntityLineageResult>;
-    downstreams?: Maybe<EntityLineageResult>;
+    upstream?: Maybe<EntityLineageResult>;
+    downstream?: Maybe<EntityLineageResult>;
     subTypes?: Maybe<SubTypes>;
     entityCount?: number;
     container?: Maybe<Container>;

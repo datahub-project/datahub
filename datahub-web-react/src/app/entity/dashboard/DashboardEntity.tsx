@@ -6,7 +6,6 @@ import {
     useUpdateDashboardMutation,
 } from '../../../graphql/dashboard.generated';
 import { Dashboard, EntityType, OwnershipType, PlatformType, SearchResult } from '../../../types.generated';
-import { EntityAndType } from '../../lineage/types';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
@@ -180,14 +179,6 @@ export class DashboardEntity implements Entity<Dashboard> {
             urn: entity.urn,
             name: entity.properties?.name || '',
             type: EntityType.Dashboard,
-            // eslint-disable-next-line @typescript-eslint/dot-notation
-            downstreamChildren: entity?.['downstream']?.relationships?.map(
-                (relationship) => ({ entity: relationship.entity, type: relationship.entity.type } as EntityAndType),
-            ),
-            // eslint-disable-next-line @typescript-eslint/dot-notation
-            upstreamChildren: entity?.['upstream']?.relationships?.map(
-                (relationship) => ({ entity: relationship.entity, type: relationship.entity.type } as EntityAndType),
-            ),
             icon: entity?.platform?.properties?.logoUrl || '',
             platform: entity.tool,
         };
