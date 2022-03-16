@@ -282,6 +282,7 @@ const dataset2 = {
     downstream: null,
     health: null,
     assertions: null,
+    status: null,
 };
 
 export const dataset3 = {
@@ -484,6 +485,7 @@ export const dataset3 = {
     relationships: null,
     health: null,
     assertions: null,
+    status: null,
 } as Dataset;
 
 export const dataset4 = {
@@ -1082,6 +1084,7 @@ export const dataJob1 = {
         ],
     },
     domain: null,
+    status: null,
 } as DataJob;
 
 export const dataJob2 = {
@@ -1204,6 +1207,7 @@ export const dataJob3 = {
     domain: null,
     upstream: null,
     downstream: null,
+    status: null,
 } as DataJob;
 
 export const mlModel = {
@@ -1278,6 +1282,7 @@ export const mlModel = {
     outgoing: null,
     upstream: null,
     downstream: null,
+    status: null,
 } as MlModel;
 
 export const mlModelGroup = {
@@ -1340,6 +1345,7 @@ export const mlModelGroup = {
     outgoing: null,
     upstream: null,
     downstream: null,
+    status: null,
 } as MlModelGroup;
 
 export const recommendationModules = [
@@ -2968,6 +2974,71 @@ export const mocks = [
                     ],
                 },
             },
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsForMultipleDocument,
+            variables: {
+                input: {
+                    types: [],
+                    query: '*',
+                    start: 0,
+                    count: 20,
+                    filters: [],
+                },
+            },
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                searchAcrossEntities: {
+                    __typename: 'SearchResults',
+                    start: 0,
+                    count: 1,
+                    total: 1,
+                    searchResults: [
+                        {
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset3,
+                            },
+                            matchedFields: [],
+                            insights: [],
+                        },
+                        {
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset4,
+                            },
+                            matchedFields: [],
+                            insights: [],
+                        },
+                    ],
+                    facets: [
+                        {
+                            field: 'origin',
+                            displayName: 'origin',
+                            aggregations: [
+                                {
+                                    value: 'PROD',
+                                    count: 3,
+                                    entity: null,
+                                },
+                            ],
+                        },
+                        {
+                            field: 'platform',
+                            displayName: 'platform',
+                            aggregations: [
+                                { value: 'hdfs', count: 1, entity: null },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
+                            ],
+                        },
+                    ],
+                },
+            } as GetSearchResultsForMultipleQuery,
         },
     },
 ];

@@ -137,6 +137,9 @@ query getDataset($urn: String!) {
                 key
             }
         }
+        status {
+            removed
+        }
     }
 }
 

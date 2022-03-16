@@ -46,7 +46,6 @@ dependencies {
   annotationProcessor externalDependency.lombok
 
   testCompile project(':test-models')
-  testCompile externalDependency.parseqTest
   testCompile externalDependency.mockito
   testCompile externalDependency.testng
 

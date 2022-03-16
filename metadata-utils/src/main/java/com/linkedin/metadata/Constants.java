@@ -13,6 +13,8 @@ public class Constants {
   public static final Long ASPECT_LATEST_VERSION = 0L;
   public static final String UNKNOWN_DATA_PLATFORM = "urn:li:dataPlatform:unknown";
 
+  public static final String DEFAULT_RUN_ID = "no-run-id-provided";
+
   /**
    * Entities
    */
