@@ -7,22 +7,18 @@ import os
 import re
 import textwrap
 from dataclasses import dataclass
-from datetime import timedelta
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 from unittest.mock import patch
 
 # This import verifies that the dependencies are available.
 import pybigquery  # noqa: F401
 import pybigquery.sqlalchemy_bigquery
-import pydantic
 from dateutil import parser
 from google.cloud.bigquery import Client as BigQueryClient
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
 
-from datahub.configuration.common import ConfigurationError
-from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import PlatformKey, gen_containers
@@ -39,10 +35,10 @@ from datahub.ingestion.source.usage.bigquery_usage import (
     BQ_DATETIME_FORMAT,
     AuditLogEntry,
     BigQueryAuditMetadata,
-    BigQueryCredential,
     BigQueryTableRef,
     QueryEvent,
 )
+from datahub.ingestion.source_config.sql.bigquery import BigQueryConfig
 from datahub.ingestion.source_report.sql.bigquery import BigQueryReport
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.key import DatasetKey
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
@@ -224,55 +220,6 @@ class BigQueryPartitionColumn:
     column_name: str
     data_type: str
     partition_id: str
-
-
-class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
-    scheme: str = "bigquery"
-    project_id: Optional[str] = None
-    lineage_client_project_id: Optional[str] = None
-
-    log_page_size: Optional[pydantic.PositiveInt] = 1000
-    credential: Optional[BigQueryCredential]
-    # extra_client_options, include_table_lineage and max_query_duration are relevant only when computing the lineage.
-    extra_client_options: Dict[str, Any] = {}
-    include_table_lineage: Optional[bool] = True
-    max_query_duration: timedelta = timedelta(minutes=15)
-
-    credentials_path: Optional[str] = None
-    bigquery_audit_metadata_datasets: Optional[List[str]] = None
-    use_exported_bigquery_audit_metadata: bool = False
-    use_date_sharded_audit_log_tables: bool = False
-    _credentials_path: Optional[str] = pydantic.PrivateAttr(None)
-    use_v2_audit_metadata: Optional[bool] = False
-
-    def __init__(self, **data: Any):
-        super().__init__(**data)
-
-        if self.credential:
-            self._credentials_path = self.credential.create_credential_temp_file()
-            logger.debug(
-                f"Creating temporary credential file at {self._credentials_path}"
-            )
-            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._credentials_path
-
-    def get_sql_alchemy_url(self):
-        if self.project_id:
-            return f"{self.scheme}://{self.project_id}"
-        # When project_id is not set, we will attempt to detect the project ID
-        # based on the credentials or environment variables.
-        # See https://github.com/mxmzdlv/pybigquery#authentication.
-        return f"{self.scheme}://"
-
-    @pydantic.validator("platform_instance")
-    def bigquery_doesnt_need_platform_instance(cls, v):
-        if v is not None:
-            raise ConfigurationError(
-                "BigQuery project ids are globally unique. You do not need to specify a platform instance."
-            )
-
-    @pydantic.validator("platform")
-    def platform_is_always_bigquery(cls, v):
-        return "bigquery"
 
 
 @dataclasses.dataclass
