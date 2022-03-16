@@ -102,8 +102,8 @@ def get_platform_from_sqlalchemy_uri(sqlalchemy_uri: str) -> str:
     if sqlalchemy_uri.startswith("mssql"):
         return "mssql"
     if (
-        sqlalchemy_uri.startswith("jdbc:postgres:")
-        and sqlalchemy_uri.index("redshift.amazonaws") > 0
+        sqlalchemy_uri.startswith(("jdbc:postgres:", "postgresql"))
+        and sqlalchemy_uri.find("redshift.amazonaws") > 0
     ) or sqlalchemy_uri.startswith("redshift"):
         return "redshift"
     if sqlalchemy_uri.startswith("snowflake"):
