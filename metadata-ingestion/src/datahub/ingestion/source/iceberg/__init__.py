@@ -10,12 +10,12 @@ from iceberg.api.types.types import NestedField
 from iceberg.exceptions import NoSuchTableException
 
 from datahub.emitter.mce_builder import (
-    DEFAULT_ENV,
-    get_sys_time,
     make_data_platform_urn,
-    make_dataset_urn,
+    make_dataplatform_instance_urn,
+    make_dataset_urn_with_platform_instance,
     make_user_urn,
 )
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -33,6 +33,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaMetadata,
 )
 from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
+    DataPlatformInstanceClass,
     DatasetPropertiesClass,
     OperationClass,
     OperationTypeClass,
@@ -69,13 +71,13 @@ class IcebergSource(Source):
     def create(cls, config_dict, ctx):
         config = IcebergSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
+
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         """
         Current code supports this table name scheme:
           {namespaceName}/{tableName}
         where each name is only one level deep
         """
-        tablePath: PathProperties
         for tablePath in self.config.get_paths():
             try:
                 # TODO Stripping 'base_path/' from tablePath.  Weak code, need to be improved later
@@ -83,14 +85,15 @@ class IcebergSource(Source):
                     tablePath[len(self.config.base_path) + 1 :].split("/")
                 )
 
-                # Try to load an Iceberg table.  Might not contain one, this will be caught by NoSuchTableException.
-                table: Table = self.icebergClient.load(
-                    f"{self.config.filesystem_url}/{tablePath}"
-                )
                 if not self.config.table_pattern.allowed(datasetName):
                     # Path contained a valid Iceberg table, but is rejected by pattern.
                     self.report.report_dropped(datasetName)
                     continue
+
+                # Try to load an Iceberg table.  Might not contain one, this will be caught by NoSuchTableException.
+                table: Table = self.icebergClient.load(
+                    f"{self.config.filesystem_url}/{tablePath}"
+                )
 
                 yield from self._createIcebergWorkunit(datasetName, table)
             except NoSuchTableException:
@@ -99,7 +102,7 @@ class IcebergSource(Source):
             except Exception as e:
                 self.report.report_failure("general", f"Failed to create workunit: {e}")
                 LOGGER.exception(
-                    f"Exception while processing table {self.config.filesystem_url}/{tablePath.name}, skipping it.",
+                    f"Exception while processing table {self.config.filesystem_url}/{tablePath}, skipping it.",
                     e,
                 )
 
@@ -107,7 +110,12 @@ class IcebergSource(Source):
         self, datasetName: str, table: Table
     ) -> Iterable[MetadataWorkUnit]:
         self.report.report_table_scanned(datasetName)
-        datasetUrn = make_dataset_urn(self.platform, datasetName, self.config.env)
+        datasetUrn = make_dataset_urn_with_platform_instance(
+            self.platform,
+            datasetName,
+            self.config.platform_instance,
+            self.config.env,
+        )
         dataset_snapshot = DatasetSnapshot(
             urn=datasetUrn,
             aspects=[],
@@ -115,10 +123,15 @@ class IcebergSource(Source):
 
         customProperties = dict(table.properties())
         customProperties["location"] = table.location()
-        customProperties["snapshot-id"] = str(table.current_snapshot().snapshot_id)
-        customProperties["manifest-list"] = table.current_snapshot().manifest_location
+        # A table might not have any snapshots, i.e. no data.
+        if len(table.snapshots()) > 0:
+            customProperties["snapshot-id"] = str(table.current_snapshot().snapshot_id)
+            customProperties[
+                "manifest-list"
+            ] = table.current_snapshot().manifest_location
         dataset_properties = DatasetPropertiesClass(
             tags=[],
+            description=table.properties().get("comment", None),
             customProperties=customProperties,
         )
         dataset_snapshot.aspects.append(dataset_properties)
@@ -155,14 +168,41 @@ class IcebergSource(Source):
         self.report.report_workunit(wu)
         yield wu
 
+        dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=datasetUrn)
+        if dpi_aspect:
+            yield dpi_aspect
+
         if self.config.profiling.enabled:
             profiler = IcebergProfiler(self.report, self.config.profiling)
             yield from profiler.profileTable(
-                self.config.env, datasetName, table, schemaMetadata
+                self.config.env, datasetName, datasetUrn, table, schemaMetadata
             )
 
+    def get_dataplatform_instance_aspect(
+        self, dataset_urn: str
+    ) -> Optional[MetadataWorkUnit]:
+        # If we are a platform instance based source, emit the instance aspect
+        if self.config.platform_instance:
+            mcp = MetadataChangeProposalWrapper(
+                entityType="dataset",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=dataset_urn,
+                aspectName="dataPlatformInstance",
+                aspect=DataPlatformInstanceClass(
+                    platform=make_data_platform_urn(self.platform),
+                    instance=make_dataplatform_instance_urn(
+                        self.platform, self.config.platform_instance
+                    ),
+                ),
+            )
+            wu = MetadataWorkUnit(id=f"{dataset_urn}-dataPlatformInstance", mcp=mcp)
+            self.report.report_workunit(wu)
+            return wu
+        else:
+            return None
+
     def _createSchemaMetadata(self, dataset_name: str, table: Table) -> SchemaMetadata:
-        schema_fields = self.get_schema_fields(dataset_name, table.schema().columns())
+        schema_fields = self.get_schema_fields(table.schema().columns())
 
         schema_metadata = SchemaMetadata(
             schemaName=dataset_name,
@@ -174,28 +214,26 @@ class IcebergSource(Source):
         )
         return schema_metadata
 
-    def get_schema_fields(self, dataset_name: str, columns: Tuple) -> List[SchemaField]:
+    def get_schema_fields(self, columns: Tuple) -> List[SchemaField]:
         canonical_schema = []
         for column in columns:
-            fields = self.get_schema_fields_for_column(dataset_name, column)
+            fields = self.get_schema_fields_for_column(column)
             canonical_schema.extend(fields)
         return canonical_schema
 
     def get_schema_fields_for_column(
         self,
-        dataset_name: str,
         column: NestedField,
     ) -> List[SchemaField]:
         field_type: IcebergTypes.Type = column.type
         if field_type.is_primitive_type():
-            avro_schema = self.get_avro_schema_from_data_type(
-                column.type, column.name
-            )  # _parse_datatype(column.type)
+            avro_schema = self.get_avro_schema_from_data_type(column.type, column.name)
             newfields = schema_util.avro_schema_to_mce_fields(
                 json.dumps(avro_schema), default_nullable=True
             )
             assert len(newfields) == 1
             newfields[0].nullable = column.is_optional
+            newfields[0].description = column.doc
             return newfields
         elif field_type.is_nested_type():
             # Get avro schema for subfields along with parent complex field
@@ -207,6 +245,7 @@ class IcebergSource(Source):
 
             # First field is the parent complex field
             newfields[0].nullable = column.is_optional
+            newfields[0].description = column.doc
             return newfields
         else:
             raise ValueError()
@@ -305,7 +344,7 @@ def _parse_basic_datatype(type: IcebergTypes.PrimitiveType) -> Dict[str, Any]:
         # Also of interest: https://avro.apache.org/docs/current/spec.html#Decimal
         decimalType: IcebergTypes.DecimalType = type
         return {
-            "type": "fixed",
+            "type": "bytes",
             "logicalType": "decimal",
             "precision": decimalType.precision,
             "scale": decimalType.scale,
@@ -345,7 +384,7 @@ def _parse_basic_datatype(type: IcebergTypes.PrimitiveType) -> Dict[str, Any]:
         # utcAdjustment: bool = True
         return {
             "type": "long",
-            "logicalType": "timestamp-micros",  # or "local-timestamp-micros"
+            "logicalType": "timestamp-micros" if timestampType.adjust_to_utc else "local-timestamp-micros",
             "native_data_type": repr(timestampType),
             "_nullable": True,
             # The following seems to only be available in Netflix implementation.

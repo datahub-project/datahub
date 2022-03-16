@@ -6,7 +6,7 @@ from iceberg.core.filesystem.abfss_filesystem import AbfssFileSystem
 from iceberg.core.filesystem.filesystem_tables import FilesystemTables
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub.emitter.mce_builder import DEFAULT_ENV
+from datahub.configuration.source_common import DatasetSourceConfigBase
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.azure.azure_common import AdlsSourceConfig
 
@@ -26,8 +26,7 @@ class IcebergProfilingConfig(ConfigModel):
     # include_field_sample_values: bool = True
 
 
-class IcebergSourceConfig(ConfigModel):
-    env: str = DEFAULT_ENV
+class IcebergSourceConfig(DatasetSourceConfigBase):
     adls: Optional[AdlsSourceConfig]
     base_path: str = "/"
     max_path_depth: int = 2

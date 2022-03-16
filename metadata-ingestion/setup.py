@@ -118,6 +118,12 @@ data_lake_profiling = {
     "pyspark==3.0.3",
 }
 
+iceberg_common = {
+    # Iceberg Python SDK
+    # TODO: Local dependency for now, to be fixed
+    "iceberg@file://./metadata-ingestion/iceberg-0.0.0.tar.gz"
+}
+
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
@@ -154,6 +160,7 @@ plugins: Dict[str, Set[str]] = {
         # and column comments, and also releases HTTP and HTTPS transport schemes.
         "acryl-pyhive[hive]>=0.6.11"
     },
+    "iceberg": iceberg_common,
     "kafka": kafka_common,
     "kafka-connect": sql_common | {"requests", "JPype1"},
     "ldap": {"python-ldap>=2.4"},
@@ -365,6 +372,7 @@ entry_points = {
         "starburst-trino-usage = datahub.ingestion.source.usage.starburst_trino_usage:TrinoUsageSource",
         "nifi = datahub.ingestion.source.nifi:NifiSource",
         "powerbi = datahub.ingestion.source.powerbi:PowerBiDashboardSource",
+        "iceberg = datahub.ingestion.source.iceberg:IcebergSource",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",
