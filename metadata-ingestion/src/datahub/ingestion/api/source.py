@@ -56,7 +56,7 @@ class Extractor(Generic[WorkUnitType], Closeable, metaclass=ABCMeta):
 @dataclass  # type: ignore[misc]
 class Source(Closeable, metaclass=ABCMeta):
     def __init__(self, ctx: PipelineContext) -> None:
-        self.report: SourceReport
+        self.report: SourceReport = SourceReport()
         self.ctx: PipelineContext = ctx
 
     @classmethod

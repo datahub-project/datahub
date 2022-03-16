@@ -7,6 +7,7 @@ import re
 import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from difflib import restore
 from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Union, cast
 
 import cachetools
@@ -258,9 +259,16 @@ class ReadEvent:
 
     @classmethod
     def get_missing_key_entry(cls, entry: AuditLogEntry) -> Optional[str]:
-        return get_missing_key(
+        result = get_missing_key(
             inp_dict=entry.payload, keys=["metadata", "tableDataRead"]
         )
+        if result is None:
+            result = get_missing_key(
+                inp_dict=entry.payload, keys=["authenticationInfo", "principalEmail"]
+            )
+        if result is None:
+            result = get_missing_key(inp_dict=entry.payload, keys=["resourceName"])
+        return result
 
     @classmethod
     def from_entry(cls, entry: AuditLogEntry) -> "ReadEvent":
@@ -754,7 +762,7 @@ class BigQueryUsageSource(Source):
                 aspect=operation_aspect,
             )
             return MetadataWorkUnit(
-                id=f"operation-aspect-{destination_table}-{event.timestamp.isoformat()}",
+                id=f"{event.timestamp.isoformat()}-operation-aspect-{destination_table}",
                 mcp=mcp,
             )
         return None
@@ -768,12 +776,12 @@ class BigQueryUsageSource(Source):
             event: Optional[Union[ReadEvent, QueryEvent]] = None
 
             missing_read_entry = ReadEvent.get_missing_key_entry(entry)
-            if missing_read_entry is not None:
+            if missing_read_entry is None:
                 event = ReadEvent.from_entry(entry)
                 num_read_events += 1
 
             missing_query_entry = QueryEvent.get_missing_key_entry(entry)
-            if event is not None and missing_query_entry is not None:
+            if event is None and missing_query_entry is None:
                 event = QueryEvent.from_entry(entry)
                 num_query_events += 1
                 wu = self._create_operation_aspect_work_unit(event)
@@ -782,7 +790,7 @@ class BigQueryUsageSource(Source):
 
             missing_query_entry_v2 = QueryEvent.get_missing_key_entry_v2(entry)
 
-            if event is not None and missing_query_entry_v2 is not None:
+            if event is None and missing_query_entry_v2 is None:
                 event = QueryEvent.from_entry_v2(entry)
                 num_query_events += 1
                 wu = self._create_operation_aspect_work_unit(event)
@@ -793,7 +801,7 @@ class BigQueryUsageSource(Source):
                 self.error(
                     logger,
                     f"{entry.log_name}-{entry.insert_id}",
-                    f"Unable to parse event missing read {missing_query_entry}, missing query {missing_query_entry} missing v2 {missing_query_entry_v2} for {event}",
+                    f"Unable to parse {type(entry)} missing read {missing_query_entry}, missing query {missing_query_entry} missing v2 {missing_query_entry_v2} for {entry}",
                 )
             else:
                 yield event

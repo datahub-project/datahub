@@ -1,9 +1,10 @@
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Iterable, Iterator, Union
 
 from datahub.configuration.common import ConfigModel
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.source import Source
 from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
@@ -50,8 +51,9 @@ class FileSourceConfig(ConfigModel):
 
 @dataclass
 class GenericFileSource(Source):
-    config: FileSourceConfig
-    report: SourceReport = field(default_factory=SourceReport)
+    def __init__(self, ctx: PipelineContext, config: FileSourceConfig):
+        super().__init__(ctx)
+        self.config: FileSourceConfig = config
 
     @classmethod
     def create(cls, config_dict, ctx):

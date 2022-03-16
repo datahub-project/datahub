@@ -11,6 +11,7 @@ from sqlalchemy.engine import Engine
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.time_window_config import get_time_bucket
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.clickhouse import ClickHouseConfig
@@ -70,8 +71,9 @@ class ClickHouseUsageConfig(ClickHouseConfig, BaseUsageConfig):
 
 @dataclasses.dataclass
 class ClickHouseUsageSource(Source):
-    config: ClickHouseUsageConfig
-    report: SourceReport = dataclasses.field(default_factory=SourceReport)
+    def __init__(self, ctx: PipelineContext, config: ClickHouseUsageConfig):
+        super().__init__(ctx)
+        self.config: ClickHouseUsageConfig = config
 
     @classmethod
     def create(cls, config_dict, ctx):

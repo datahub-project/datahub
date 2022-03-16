@@ -1,5 +1,5 @@
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Union
 
 from pydantic import validator
@@ -8,7 +8,8 @@ import datahub.metadata.schema_classes as models
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.config_loader import load_config_file
 from datahub.emitter.mce_builder import get_sys_time, make_group_urn, make_user_urn
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.source import Source
 from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
 
 logger = logging.getLogger(__name__)
@@ -246,8 +247,9 @@ def get_mces_from_term(
 
 @dataclass
 class BusinessGlossaryFileSource(Source):
-    config: BusinessGlossarySourceConfig
-    report: SourceReport = field(default_factory=SourceReport)
+    def __init__(self, ctx: PipelineContext, config: BusinessGlossarySourceConfig):
+        super().__init__(ctx)
+        self.config: BusinessGlossarySourceConfig = config
 
     @classmethod
     def create(cls, config_dict, ctx):

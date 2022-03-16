@@ -1,5 +1,5 @@
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Union
 
 from pydantic import validator
@@ -19,7 +19,7 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import Source
 from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
 
 logger = logging.getLogger(__name__)
@@ -70,8 +70,9 @@ class LineageConfig(VersionedConfig):
 
 @dataclass
 class LineageFileSource(Source):
-    config: LineageFileSourceConfig
-    report: SourceReport = field(default_factory=SourceReport)
+    def __init__(self, ctx: PipelineContext, config: LineageFileSourceConfig):
+        super().__init__(ctx)
+        self.config: LineageFileSourceConfig = config
 
     @classmethod
     def create(

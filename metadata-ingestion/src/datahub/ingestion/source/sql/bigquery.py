@@ -499,7 +499,7 @@ class BigQuerySource(SQLAlchemySource):
                 event = QueryEvent.from_entry(entry)
 
             missing_entry_v2 = QueryEvent.get_missing_key_entry_v2(entry=entry)
-            if event is not None and missing_entry_v2 is None:
+            if event is None and missing_entry_v2 is None:
                 event = QueryEvent.from_entry_v2(entry)
 
             if event is None:
@@ -532,7 +532,7 @@ class BigQuerySource(SQLAlchemySource):
                 )
             )
 
-            if missing_exported_audit is not None:
+            if missing_exported_audit is None:
                 event = QueryEvent.from_exported_bigquery_audit_metadata(audit_metadata)
 
             if event is None:
