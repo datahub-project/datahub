@@ -27,6 +27,7 @@ public interface EntitySearchService {
    */
   long docCount(@Nonnull String entityName);
 
+
   /**
    * Updates or inserts the given search document.
    *

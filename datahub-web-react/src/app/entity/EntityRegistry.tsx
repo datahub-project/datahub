@@ -116,7 +116,13 @@ export default class EntityRegistry {
 
     getLineageVizConfig<T>(type: EntityType, data: T): FetchedEntity | undefined {
         const entity = validatedGet(type, this.entityTypeToEntity);
-        return entity.getLineageVizConfig?.(data) || undefined;
+        const genericEntityProperties = this.getGenericEntityProperties(type, data);
+        return (
+            ({
+                ...entity.getLineageVizConfig?.(data),
+                status: genericEntityProperties?.status,
+            } as FetchedEntity) || undefined
+        );
     }
 
     getDisplayName<T>(type: EntityType, data: T): string {
