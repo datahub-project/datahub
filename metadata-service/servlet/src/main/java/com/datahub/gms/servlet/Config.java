@@ -20,6 +20,7 @@ import javax.servlet.http.HttpServletResponse;
 import org.apache.maven.artifact.versioning.ComparableVersion;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 
 // Return a 200 for health checks
 
@@ -50,6 +51,10 @@ public class Config extends HttpServlet {
     return patchDiagnostics;
   }
 
+  private ConfigurationProvider getConfigProvider(WebApplicationContext ctx) {
+    return (ConfigurationProvider) ctx.getBean("configurationProvider");
+  }
+
   private GitVersion getGitVersion(WebApplicationContext ctx) {
     return (GitVersion) ctx.getBean("gitVersion");
   }
@@ -70,6 +75,20 @@ public class Config extends HttpServlet {
     Map<String, Object> versionConfig = new HashMap<>();
     versionConfig.put("linkedin/datahub", version.toConfig());
     config.put("versions", versionConfig);
+
+    ConfigurationProvider configProvider = getConfigProvider(ctx);
+
+    Map<String, Object> telemetryConfig = new HashMap<String, Object>() {{
+      put("enabledCli", configProvider.getTelemetry().enabledCli);
+      put("enabledIngestion", configProvider.getTelemetry().enabledIngestion);
+    }};
+    config.put("telemetry", telemetryConfig);
+
+    Map<String, Object> ingestionConfig = new HashMap<String, Object>() {{
+      put("enabled", configProvider.getIngestion().enabled);
+      put("defaultCliVersion", configProvider.getIngestion().defaultCliVersion);
+    }};
+    config.put("managedIngestion", ingestionConfig);
 
     resp.setContentType("application/json");
     PrintWriter out = resp.getWriter();

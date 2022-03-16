@@ -405,6 +405,11 @@ type AutoCompleteResultForEntity {
   The autocompletion results for specified entity type
   """
   suggestions: [String!]!
+
+  """
+  A list of entities to render in autocomplete
+  """
+  entities: [Entity!]!
 }
 
 """
@@ -435,6 +440,11 @@ type AutoCompleteResults {
 	The autocompletion results
 	"""
 	suggestions: [String!]!
+
+  """
+  A list of entities to render in autocomplete
+  """
+  entities: [Entity!]!
 }
 
 """

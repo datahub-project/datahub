@@ -23,6 +23,7 @@ import {
     SubTypes,
     Container,
     Health,
+    Status,
 } from '../../../types.generated';
 import { FetchedEntity } from '../../lineage/types';
 
@@ -71,6 +72,7 @@ export type GenericEntityProperties = {
     entityCount?: number;
     container?: Maybe<Container>;
     health?: Maybe<Health>;
+    status?: Maybe<Status>;
 };
 
 export type GenericEntityUpdate = {
