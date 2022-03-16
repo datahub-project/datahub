@@ -7,7 +7,6 @@ import re
 import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from difflib import restore
 from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Union, cast
 
 import cachetools
@@ -712,6 +711,7 @@ class BigQueryUsageSource(Source):
         ):
             if i == 0:
                 logger.info("Starting log load from BigQuery")
+            self.report.total_log_entries += 1
             yield entry
         logger.info(f"Finished loading {i} log entries from BigQuery")
 
@@ -770,20 +770,18 @@ class BigQueryUsageSource(Source):
     def _parse_bigquery_log_entries(
         self, entries: Iterable[Union[AuditLogEntry, BigQueryAuditMetadata]]
     ) -> Iterable[Union[ReadEvent, QueryEvent, MetadataWorkUnit]]:
-        num_read_events: int = 0
-        num_query_events: int = 0
         for entry in entries:
             event: Optional[Union[ReadEvent, QueryEvent]] = None
 
             missing_read_entry = ReadEvent.get_missing_key_entry(entry)
             if missing_read_entry is None:
                 event = ReadEvent.from_entry(entry)
-                num_read_events += 1
+                self.report.num_read_events += 1
 
             missing_query_entry = QueryEvent.get_missing_key_entry(entry)
             if event is None and missing_query_entry is None:
                 event = QueryEvent.from_entry(entry)
-                num_query_events += 1
+                self.report.num_query_events += 1
                 wu = self._create_operation_aspect_work_unit(event)
                 if wu:
                     yield wu
@@ -792,7 +790,7 @@ class BigQueryUsageSource(Source):
 
             if event is None and missing_query_entry_v2 is None:
                 event = QueryEvent.from_entry_v2(entry)
-                num_query_events += 1
+                self.report.num_query_events += 1
                 wu = self._create_operation_aspect_work_unit(event)
                 if wu:
                     yield wu
@@ -807,7 +805,7 @@ class BigQueryUsageSource(Source):
                 yield event
 
         logger.info(
-            f"Parsed {num_read_events} ReadEvents and {num_query_events} QueryEvents"
+            f"Parsed {self.report.num_read_events} ReadEvents and {self.report.num_query_events} QueryEvents"
         )
 
     def _join_events_by_job_id(
