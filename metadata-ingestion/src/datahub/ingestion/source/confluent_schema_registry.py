@@ -1,15 +1,13 @@
 import json
 import logging
-from dataclasses import dataclass, field
 from hashlib import md5
-from typing import Dict, Iterable, List, Optional, Tuple, cast
+from typing import List, Optional, Tuple
 
 import confluent_kafka
 from confluent_kafka.schema_registry.schema_registry_client import Schema
 
 from datahub.ingestion.extractor import schema_util
 from datahub.ingestion.source.kafka import SchemaRegistry
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     KafkaSchema,
     SchemaField,
@@ -18,12 +16,14 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 
 logger = logging.getLogger(__name__)
 
+
 class ConfluentSchemaRegistry(SchemaRegistry):
     """
     This is confluent schema registry specific implementation of datahub.ingestion.source.kafka import SchemaRegistry
     It knows how to get SchemaMetadata of a topic from ConfluentSchemaRegistry
     """
-    def __init__(self, source_config, report ):
+
+    def __init__(self, source_config, report):
         self.source_config = source_config
         self.report = report
         # Use the fully qualified name for SchemaRegistryClient to make it mock patchable for testing.
@@ -124,7 +124,7 @@ class ConfluentSchemaRegistry(SchemaRegistry):
         return schema_str
 
     def _get_schema_and_fields(
-            self, topic: str, is_key_schema: bool
+        self, topic: str, is_key_schema: bool
     ) -> Tuple[Optional[Schema], List[SchemaField]]:
         schema: Optional[Schema] = None
         schema_type_str: str = "key" if is_key_schema else "value"
@@ -169,7 +169,7 @@ class ConfluentSchemaRegistry(SchemaRegistry):
         return (schema, fields)
 
     def _get_schema_fields(
-            self, topic: str, schema: Schema, is_key_schema: bool
+        self, topic: str, schema: Schema, is_key_schema: bool
     ) -> List[SchemaField]:
         # Parse the schema and convert it to SchemaFields.
         fields: List[SchemaField] = []
@@ -187,7 +187,7 @@ class ConfluentSchemaRegistry(SchemaRegistry):
         return fields
 
     def _get_schema_metadata(
-            self, topic: str, platform_urn: str
+        self, topic: str, platform_urn: str
     ) -> Optional[SchemaMetadata]:
         # Process the value schema
         schema, fields = self._get_schema_and_fields(
@@ -221,7 +221,7 @@ class ConfluentSchemaRegistry(SchemaRegistry):
         return None
 
     def get_schema_metadata(
-            self, topic: str, platform_urn: str
+        self, topic: str, platform_urn: str
     ) -> Optional[SchemaMetadata]:
         logger.debug(f"Inside _get_schema_metadata {topic} {platform_urn}")
         # Process the value schema

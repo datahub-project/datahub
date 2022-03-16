@@ -1,12 +1,9 @@
-import json
 import logging
 from dataclasses import dataclass, field
-from hashlib import md5
-from typing import Dict, Iterable, List, Optional, Tuple, cast
 from importlib import import_module
-from pydantic import BaseModel
+from typing import Dict, Iterable, List, Optional, cast
+
 import confluent_kafka
-from confluent_kafka.schema_registry.schema_registry_client import Schema
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
@@ -22,7 +19,6 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.extractor import schema_util
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.kafka_state import KafkaCheckpointState
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -35,11 +31,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.com.linkedin.pegasus2avro.schema import (
-    KafkaSchema,
-    SchemaField,
-    SchemaMetadata,
-)
+from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaMetadata
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     ChangeTypeClass,
@@ -47,7 +39,6 @@ from datahub.metadata.schema_classes import (
     JobStatusClass,
     SubTypesClass,
 )
-#from datahub.ingestion.source.confluent_schema_registry import ConfluentSchemaRegistryClient
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +62,9 @@ class KafkaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigBase):
     topic_subject_map: Dict[str, str] = dict()
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[KafkaSourceStatefulIngestionConfig] = None
-    schema_registry_class:str = "datahub.ingestion.source.confluent_schema_registry.ConfluentSchemaRegistry"
+    schema_registry_class: str = (
+        "datahub.ingestion.source.confluent_schema_registry.ConfluentSchemaRegistry"
+    )
 
 
 @dataclass
@@ -98,14 +91,13 @@ class KafkaSource(StatefulIngestionSourceBase):
     report: KafkaSourceReport
     platform: str = "kafka"
 
-    def create_schema_registry(self, schema_registry_class:str):
+    def create_schema_registry(self, schema_registry_class: str):
         try:
-            module_path, class_name = schema_registry_class.rsplit('.', 1)
+            module_path, class_name = schema_registry_class.rsplit(".", 1)
             module = import_module(module_path)
             return getattr(module, class_name)
-        except (ImportError, AttributeError) as e:
+        except (ImportError, AttributeError):
             raise ImportError(schema_registry_class)
-
 
     def __init__(self, config: KafkaSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
@@ -126,7 +118,9 @@ class KafkaSource(StatefulIngestionSourceBase):
             }
         )
         self.report = KafkaSourceReport()
-        self.schema_registry_client =  self.create_schema_registry(config.schema_registry_class).create(config, self.report)
+        self.schema_registry_client = self.create_schema_registry(
+            config.schema_registry_class
+        ).create(config, self.report)
 
     def is_checkpointing_enabled(self, job_id: JobId) -> bool:
         if (
@@ -257,7 +251,9 @@ class KafkaSource(StatefulIngestionSourceBase):
         )
 
         # 2. Attach schemaMetadata aspect (pass control to SchemaRegistry)
-        schema_metadata = self.schema_registry_client.get_schema_metadata(topic, platform_urn)
+        schema_metadata = self.schema_registry_client.get_schema_metadata(
+            topic, platform_urn
+        )
         if schema_metadata is not None:
             dataset_snapshot.aspects.append(schema_metadata)
 
@@ -340,22 +336,9 @@ class KafkaSource(StatefulIngestionSourceBase):
         if self.consumer:
             self.consumer.close()
 
-class SchemaRegistry():
 
-
-    """This is interface that represents SchemaRegistry for kafka. """
+class SchemaRegistry:
     def get_schema_metadata(
-            self, topic: str, platform_urn: str
+        self, topic: str, platform_urn: str
     ) -> Optional[SchemaMetadata]:
-        """
-        This method should take name of the kafka topic as input and return a SchemaMetadata object for that topic.
-        :param topic:
-        :param platform_urn:
-        :return:
-        """
-
-
         pass
-
-
-
