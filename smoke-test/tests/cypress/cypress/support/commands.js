@@ -14,7 +14,7 @@ Cypress.Commands.add('login', () => {
     cy.request('POST', '/logIn', {
         username: 'datahub',
         password: 'datahub',
-    })
+    }, { retryOnStatusCodeFailure: true })
 })
 
 Cypress.Commands.add('deleteUrn', (urn) => {
