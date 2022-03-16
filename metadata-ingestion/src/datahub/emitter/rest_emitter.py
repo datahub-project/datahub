@@ -136,16 +136,12 @@ class DatahubRestEmitter:
         self._session.mount("http://", adapter)
         self._session.mount("https://", adapter)
 
-    def test_connection(self) -> str:
+    def test_connection(self) -> dict:
         response = self._session.get(f"{self._gms_server}/config")
         if response.status_code == 200:
             config: dict = response.json()
             if config.get("noCode") == "true":
-                return (
-                    config.get("versions", {})
-                    .get("linkedin/datahub", {})
-                    .get("version", "")
-                )
+                return config
 
             else:
                 # Looks like we either connected to an old GMS or to some other service. Let's see if we can determine which before raising an error

@@ -2,6 +2,9 @@ query getAutoCompleteResults($input: AutoCompleteInput!) {
     autoComplete(input: $input) {
         query
         suggestions
+        entities {
+            ...searchResultFields
+        }
     }
 }
 
@@ -11,6 +14,9 @@ query getAutoCompleteMultipleResults($input: AutoCompleteMultipleInput!) {
         suggestions {
             type
             suggestions
+            entities {
+                ...searchResultFields
+            }
         }
     }
 }

@@ -23,8 +23,8 @@ You can sign in with `datahub` as username and password.
 
 ## Build instructions
 
-If you want to build the `datahub-frontend` Docker image yourself, you can run this command from the root directory of the DataHub repository you have locally:
+If you want to build the `datahub-frontend` Docker image yourself, you can run this command from the root directory of the DataHub repository you have locally (using Buildkit):
 
-`docker build -t your_datahub_frontend -f ./docker/datahub-frontend/Dockerfile .`
+`DOCKER_BUILDKIT=1 docker build -t your_datahub_frontend -f ./docker/datahub-frontend/Dockerfile .`
 
 Please note the final `.` and that the tag `your_datahub_frontend` is determined by you.

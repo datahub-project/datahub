@@ -213,7 +213,13 @@ class SQLAlchemyQueryCombiner:
 
         # Figure out how many columns this query returns.
         # This also implicitly ensures that the typing is generally correct.
-        assert len(get_query_columns(query)) > 0
+        try:
+            assert len(get_query_columns(query)) > 0
+        except AttributeError as e:
+            logger.debug(
+                f"Query of type: '{type(query)}' does not contain attributes required by 'get_query_columns()'. AttributeError: {e}"
+            )
+            return False, None
 
         # Add query to the queue.
         queue = self._get_queue(main_greenlet)

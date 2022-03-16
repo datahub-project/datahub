@@ -60,7 +60,8 @@ public class SearchServiceTest {
     _elasticSearchService = buildEntitySearchService();
     _elasticSearchService.configure();
     _cacheManager = new ConcurrentMapCacheManager();
-    _searchService = new SearchService(_entityRegistry, _elasticSearchService, new SimpleRanker(), _cacheManager, 100);
+    _searchService =
+        new SearchService(_entityRegistry, _elasticSearchService, new SimpleRanker(), _cacheManager, 100, true);
   }
 
   @BeforeMethod
