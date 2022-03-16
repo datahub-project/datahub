@@ -1,0 +1,21 @@
+source:
+  type: deltalake
+  config:
+    url: https://sharing.delta.io/delta-sharing/
+    token: faaie590d541265bcab1f2de9813274bf233
+    shareCredentialsVersion: 1
+    schema_pattern:
+      deny:
+        - "zzz"
+      ignoreCase: true
+    table_pattern:
+      allow:
+        - "COVID_19_NYT"
+        - "lending_club"
+      ignoreCase: true
+
+sink:
+  type: file
+  config:
+    filename: "/tmp/delta_mces.json"
+
