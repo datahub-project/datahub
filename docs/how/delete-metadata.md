@@ -99,3 +99,12 @@ datahub ingest rollback --run-id <run-id>
 ```
 
 to rollback all aspects added with this run and all entities created by this run.
+
+:::note
+
+Since datahub v0.8.29, the `rollback` endpoint will now perform a *soft delete* of the entities ingested by a given run `<run-id>`. 
+This was done to preserve potential changes that were made directly via DataHub's UI and not part of the ingestion run itself. Such that this information can be retrieved later on if a re-ingestion for the same deleted entity is done.
+
+If you wish to keep old behaviour (hard delete), please use the `--hard-delete` flag (short-hand: `-d`).
+
+:::

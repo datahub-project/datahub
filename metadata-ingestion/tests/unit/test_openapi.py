@@ -261,6 +261,13 @@ paths:
                         }
                     ]
                    }
+  /redirect:
+    get:
+      operationId: redirectSomewhere
+      summary: Redirect to a different endpoint
+      responses:
+        '302':
+          description: 302 response
   /v2:
     get:
       operationId: getVersionDetailsv2

@@ -83,7 +83,7 @@ public class LineageSearchServiceTest {
     _cacheManager = new ConcurrentMapCacheManager();
     _graphService = mock(GraphService.class);
     _lineageSearchService = new LineageSearchService(
-        new SearchService(_entityRegistry, _elasticSearchService, new SimpleRanker(), _cacheManager, 100),
+        new SearchService(_entityRegistry, _elasticSearchService, new SimpleRanker(), _cacheManager, 100, true),
         _graphService, _cacheManager.getCache("test"));
   }
 
