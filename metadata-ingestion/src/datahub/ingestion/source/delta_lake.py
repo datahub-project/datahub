@@ -1,7 +1,7 @@
 from re import A
 from attr import frozen
 from dataclasses import dataclass, field
-from typing import Sequence, Optional, Iterable, Union
+from typing import Sequence, List, Optional, Iterable, Union
 import pydantic
 
 from delta_sharing.delta_sharing import SharingClient
@@ -54,9 +54,17 @@ class DeltaLakeSourceConfig(ConfigModel):
     token: str
     shareCredentialsVersion: str ="1"
     
+    share_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
     schema_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
     table_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
 
+
+@dataclass
+class DeltaLakeSourceReport(SourceReport):
+    filtered: List[str] = field(default_factory=list)
+
+    def report_dropped(self, name: str) -> None:
+        self.filtered.append(name)
 
 @dataclass
 class GenericFileSource(Source):
@@ -80,12 +88,15 @@ class GenericFileSource(Source):
     #         self.report.report_workunit(wu)
     #         yield wu
 
-    # def get_report(self):
-    #     return self.report
+    #TODO def get_field_type():
 
-    # def close(self):
-    #     pass
+    def get_report(self) -> SourceReport:
+        return self.report
 
+    def close(self):
+        pass
+
+#TODO: report dropped and filtered in WU
 
 if __name__ == "__main__":
 
@@ -100,12 +111,17 @@ if __name__ == "__main__":
     # get all shared metadata
     metadata_list=client.query_all_table_metadata()
 
-    #Filter tables and schemas
+    #Filter tables, schemas and shares
     filter_table=AllowDenyPattern(allow=["COVID_19_NYT"], deny=["LA"])
     metadata_list=[metadata for metadata in metadata_list if filter_table.allowed(metadata.table.name)]
 
     filter_schema=AllowDenyPattern(allow=["default"], deny=["LA"])
     metadata_list=[metadata for metadata in metadata_list if filter_schema.allowed(metadata.table.schema)]
+
+    filter_share=AllowDenyPattern(allow=["delta_sharing"], deny=["LA"])
+    metadata_list=[metadata for metadata in metadata_list if filter_share.allowed(metadata.table.share)]
+
+    #TODO: catch if no data left to process
 
     #TODO: transform to datahub dataset entity
 
