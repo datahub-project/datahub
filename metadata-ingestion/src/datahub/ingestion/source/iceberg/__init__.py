@@ -227,32 +227,27 @@ class IcebergSource(Source):
     ) -> List[SchemaField]:
         field_type: IcebergTypes.Type = column.type
         if field_type.is_primitive_type():
-            avro_schema = self.get_avro_schema_from_data_type(column.type, column.name)
+            avro_schema = self.get_avro_schema_from_data_type(column)
             newfields = schema_util.avro_schema_to_mce_fields(
-                json.dumps(avro_schema), default_nullable=True
+                json.dumps(avro_schema), default_nullable=column.is_optional
             )
             assert len(newfields) == 1
-            newfields[0].nullable = column.is_optional
-            newfields[0].description = column.doc
+            # newfields[0].nullable = column.is_optional
+            # newfields[0].description = column.doc
             return newfields
         elif field_type.is_nested_type():
             # Get avro schema for subfields along with parent complex field
-            avro_schema = self.get_avro_schema_from_data_type(column.type, column.name)
-
+            avro_schema = self.get_avro_schema_from_data_type(column)
             newfields = schema_util.avro_schema_to_mce_fields(
-                json.dumps(avro_schema), default_nullable=True
+                json.dumps(avro_schema), default_nullable=column.is_optional
             )
-
             # First field is the parent complex field
-            newfields[0].nullable = column.is_optional
-            newfields[0].description = column.doc
+            # newfields[0].nullable = column.is_optional
             return newfields
         else:
             raise ValueError()
 
-    def get_avro_schema_from_data_type(
-        self, column_type: IcebergTypes.Type, column_name: str
-    ) -> Dict[str, Any]:
+    def get_avro_schema_from_data_type(self, column: NestedField) -> Dict[str, Any]:
         """
         See Iceberg documentation for Avro mapping:
         https://iceberg.apache.org/#spec/#appendix-a-format-specific-requirements
@@ -262,7 +257,13 @@ class IcebergSource(Source):
         return {
             "type": "record",
             "name": "__struct_",
-            "fields": [{"name": column_name, "type": _parse_datatype(column_type)}],
+            "fields": [
+                {
+                    "name": column.name,
+                    "type": _parse_datatype(column.type, column.is_optional),
+                    "doc": column.doc,
+                }
+            ],
         }
 
     def get_report(self) -> SourceReport:
@@ -272,7 +273,7 @@ class IcebergSource(Source):
         pass
 
 
-def _parse_datatype(type: IcebergTypes.Type) -> Dict[str, Any]:
+def _parse_datatype(type: IcebergTypes.Type, nullable: bool = False) -> Dict[str, Any]:
     # Check for complex types: struct, list, map
     if type.is_list_type():
         listType: IcebergTypes.ListType = type
@@ -280,6 +281,7 @@ def _parse_datatype(type: IcebergTypes.Type) -> Dict[str, Any]:
             "type": "array",
             "items": _parse_datatype(listType.element_type),
             "native_data_type": str(type),
+            "_nullable": nullable,
         }
     elif type.is_map_type():
         mapType: IcebergTypes.MapType = type
@@ -295,27 +297,31 @@ def _parse_datatype(type: IcebergTypes.Type) -> Dict[str, Any]:
         }
     elif type.is_struct_type():
         structType: IcebergTypes.StructType = type
-        return _parse_struct_fields(structType.fields)
+        return _parse_struct_fields(structType.fields, nullable)
     else:
         # Primitive types
-        return _parse_basic_datatype(type)
+        return _parse_basic_datatype(type, nullable)
 
 
-def _parse_struct_fields(parts: tuple) -> Dict[str, Any]:
+def _parse_struct_fields(parts: Tuple[NestedField], nullable: bool) -> Dict[str, Any]:
     fields = []
+    nestedField: NestedField
     for nestedField in parts:
         field_name = nestedField.name
-        field_type = _parse_datatype(nestedField.type)
+        field_type = _parse_datatype(nestedField.type, nestedField.is_optional)
         fields.append({"name": field_name, "type": field_type})
     return {
         "type": "record",
         "name": "__struct_{}".format(str(uuid.uuid4()).replace("-", "")),
         "fields": fields,
         "native_data_type": "struct<{}>".format(parts),
+        "_nullable": nullable,
     }
 
 
-def _parse_basic_datatype(type: IcebergTypes.PrimitiveType) -> Dict[str, Any]:
+def _parse_basic_datatype(
+    type: IcebergTypes.PrimitiveType, nullable: bool
+) -> Dict[str, Any]:
     """
     See https://iceberg.apache.org/#spec/#avro
     """
@@ -325,7 +331,7 @@ def _parse_basic_datatype(type: IcebergTypes.PrimitiveType) -> Dict[str, Any]:
             return {
                 "type": _all_atomic_types[iceberg_type],
                 "native_data_type": repr(type),
-                "_nullable": True,
+                "_nullable": nullable,
             }
 
     # Fixed is a special case where it is not an atomic type and not a logical type.
@@ -336,7 +342,7 @@ def _parse_basic_datatype(type: IcebergTypes.PrimitiveType) -> Dict[str, Any]:
             "name": "name",  # TODO: Pass-in field name since it is required by Avro spec
             "size": fixedType.length,
             "native_data_type": repr(fixedType),
-            "_nullable": True,
+            "_nullable": nullable,
         }
 
     # Not an atomic type, so check for a logical type.
@@ -349,7 +355,7 @@ def _parse_basic_datatype(type: IcebergTypes.PrimitiveType) -> Dict[str, Any]:
             "precision": decimalType.precision,
             "scale": decimalType.scale,
             "native_data_type": repr(decimalType),
-            "_nullable": True,
+            "_nullable": nullable,
         }
     elif isinstance(type, IcebergTypes.UUIDType):
         uuidType: IcebergTypes.UUIDType = type
@@ -357,7 +363,7 @@ def _parse_basic_datatype(type: IcebergTypes.PrimitiveType) -> Dict[str, Any]:
             "type": "string",
             "logicalType": "uuid",
             "native_data_type": repr(uuidType),
-            "_nullable": True,
+            "_nullable": nullable,
         }
     elif isinstance(type, IcebergTypes.DateType):
         dateType: IcebergTypes.DateType = type
@@ -365,7 +371,7 @@ def _parse_basic_datatype(type: IcebergTypes.PrimitiveType) -> Dict[str, Any]:
             "type": "int",
             "logicalType": "date",
             "native_data_type": repr(dateType),
-            "_nullable": True,
+            "_nullable": nullable,
         }
     elif isinstance(type, IcebergTypes.TimeType):
         timeType: IcebergTypes.TimeType = type
@@ -373,22 +379,21 @@ def _parse_basic_datatype(type: IcebergTypes.PrimitiveType) -> Dict[str, Any]:
             "type": "long",
             "logicalType": "time-micros",
             "native_data_type": repr(timeType),
-            "_nullable": True,
+            "_nullable": nullable,
         }
     elif isinstance(type, IcebergTypes.TimestampType):
         timestampType: IcebergTypes.TimestampType = type
-        # TODO: there are 2 options for this type: with or without timezone
         # Avro supports 2 types of timestamp:
         #  - Timestamp: independent of a particular timezone or calendar (TZ information is lost)
         #  - Local Timestamp: represents a timestamp in a local timezone, regardless of what specific time zone is considered local
         # utcAdjustment: bool = True
         return {
             "type": "long",
-            "logicalType": "timestamp-micros" if timestampType.adjust_to_utc else "local-timestamp-micros",
+            "logicalType": "timestamp-micros"
+            if timestampType.adjust_to_utc
+            else "local-timestamp-micros",
             "native_data_type": repr(timestampType),
-            "_nullable": True,
-            # The following seems to only be available in Netflix implementation.
-            # "adjust-to-utc": utcAdjustment,
+            "_nullable": nullable,
         }
 
     return {"type": "null", "native_data_type": repr(type)}

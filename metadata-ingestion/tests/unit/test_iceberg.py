@@ -1,15 +1,13 @@
-import json
+from typing import Any
 
 import pytest
-from freezegun import freeze_time
 from iceberg.api import types as IcebergTypes
 from iceberg.api.types.types import NestedField
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.extractor import schema_util
 from datahub.ingestion.source.azure.azure_common import AdlsSourceConfig
 from datahub.ingestion.source.iceberg import IcebergSource, IcebergSourceConfig
-from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField, StringType
+from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
@@ -46,9 +44,6 @@ def iceberg_source() -> IcebergSource:
 #     assert schema_field.nullable == column.is_optional
 #     assert isinstance(schema_field.type.type, StringTypeClass)
 
-# type: Union["BooleanTypeClass", "FixedTypeClass", "StringTypeClass", "BytesTypeClass", "NumberTypeClass", "DateTypeClass", "TimeTypeClass",
-#             "EnumTypeClass", "NullTypeClass", "MapTypeClass", "ArrayTypeClass", "UnionTypeClass", "RecordTypeClass"],
-
 
 @pytest.mark.parametrize(
     "iceberg_type, expected_schema_field_type",
@@ -81,22 +76,28 @@ def iceberg_source() -> IcebergSource:
         ),  # Is this the right mapping or it should be a FixedType?
     ],
 )
-def test_iceberg_type_to_schema_field(iceberg_type, expected_schema_field_type):
-    """Test converting a partition value to a python built-in"""
-    column: NestedField = NestedField.required(1, "name", iceberg_type, "documentation")
+def test_iceberg_primitive_type_to_schema_field(
+    iceberg_type: IcebergTypes.PrimitiveType, expected_schema_field_type: Any
+) -> None:
+    """Test converting a primitive typed Iceberg field to a SchemaField"""
     iceberg_source_instance = iceberg_source()
-    schema_fields = iceberg_source_instance.get_schema_fields_for_column(column)
-    assert len(schema_fields) == 1
-    schema_field: SchemaField = schema_fields[0]
-    assert schema_field.description == column.doc
-    assert schema_field.nullable == column.is_optional
-    assert isinstance(schema_field.type.type, expected_schema_field_type)
+    for column in [
+        NestedField.required(
+            1, "required_field", iceberg_type, "required field documentation"
+        ),
+        NestedField.optional(
+            1, "optional_field", iceberg_type, "optional field documentation"
+        ),
+    ]:
+        schema_fields = iceberg_source_instance.get_schema_fields_for_column(column)
+        assert len(schema_fields) == 1
+        schema_field: SchemaField = schema_fields[0]
+        assert schema_field.description == column.doc
+        assert schema_field.nullable == column.is_optional
+        assert isinstance(schema_field.type.type, expected_schema_field_type)
 
 
 def test_list():
-    element: NestedField = NestedField.required(
-        1, "element", IcebergTypes.StringType.get(), "documentation"
-    )
     column: NestedField = NestedField.required(
         1,
         "listField",
