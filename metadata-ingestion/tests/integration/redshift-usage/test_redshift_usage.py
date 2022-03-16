@@ -109,12 +109,8 @@ def test_redshift_usage_filtering(pytestconfig, tmp_path):
                         "email_domain": "acryl.io",
                         "include_views": True,
                         "include_tables": True,
-                        "schema_pattern": {
-                            "allow":["public"]
-                        },
-                        "table_pattern":{
-                            "deny":["orders"]
-                        }
+                        "schema_pattern": {"allow": ["public"]},
+                        "table_pattern": {"deny": ["orders"]}
                     },
                 },
                 "sink": {
