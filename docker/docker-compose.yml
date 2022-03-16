@@ -59,6 +59,9 @@ services:
     hostname: elasticsearch
     ports:
       - "9200:9200"
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
     volumes:
       - esdata:/usr/share/elasticsearch/data
     healthcheck:

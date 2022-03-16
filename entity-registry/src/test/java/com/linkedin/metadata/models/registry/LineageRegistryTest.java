@@ -1,10 +1,9 @@
-package com.linkedin.metadata.graph;
+package com.linkedin.metadata.models.registry;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.metadata.models.annotation.RelationshipAnnotation;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import java.util.Collections;
 import java.util.HashMap;

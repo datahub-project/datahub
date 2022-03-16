@@ -44,10 +44,13 @@ export default function layoutTree(
             .filter((urn, pos) => urnsToAddInCurrentLayer.indexOf(urn) === pos)
             .filter((urn) => !nodesByUrn[urn || '']);
 
-        const layerSize = nodesToAddInCurrentLayer.length;
-
-        const layerHeight = nodesInCurrentLayer
+        const filteredNodesInCurrentLayer = nodesInCurrentLayer
             .filter(({ node }) => nodesToAddInCurrentLayer.indexOf(node.urn || '') > -1)
+            .filter(({ node }) => node.status?.removed !== true);
+
+        const layerSize = filteredNodesInCurrentLayer.length;
+
+        const layerHeight = filteredNodesInCurrentLayer
             .map(({ node }) => nodeHeightFromTitleLength(expandTitles ? node.name : undefined))
             .reduce((acc, height) => acc + height, 0);
 
@@ -58,9 +61,13 @@ export default function layoutTree(
             -((nodeHeightFromTitleLength(undefined) + VERTICAL_SPACE_BETWEEN_NODES) * (layerSize - 1)) / 2 +
             canvasHeight / 2 +
             HEADER_HEIGHT;
+
         // eslint-disable-next-line @typescript-eslint/no-loop-func
         nodesInCurrentLayer.forEach(({ node, parent }) => {
             if (!node.urn) return;
+
+            // don't show edges to soft deleted entities
+            if (node.status?.removed) return;
 
             let vizNodeForNode: VizNode;
 
