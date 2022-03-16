@@ -414,7 +414,10 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
         engine = self._make_sql_engine()
 
         logger.info("Checking usage date ranges")
-        self._check_usage_date_ranges(engine)
+        try:
+            self._check_usage_date_ranges(engine)
+        except Exception as e:
+            self.error(logger, "check-usage-data", f"Error was {e}")
 
         logger.info("Getting usage history")
         with PerfTimer() as timer:
