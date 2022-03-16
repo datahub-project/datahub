@@ -400,12 +400,12 @@ class BigQuerySource(SQLAlchemySource):
         start_time = (self.config.start_time - self.config.max_query_duration).strftime(
             BQ_DATETIME_FORMAT
         )
-        self.report.start_time = start_time
+        self.report.log_entry_start_time = start_time
 
         end_time = (self.config.end_time + self.config.max_query_duration).strftime(
             BQ_DATETIME_FORMAT
         )
-        self.report.end_time = end_time
+        self.report.log_entry_end_time = end_time
 
         filter = template.format(
             start_time=start_time,
@@ -425,14 +425,11 @@ class BigQuerySource(SQLAlchemySource):
             for entry in entries:
                 item = item + 1
 
-                # In loop intentionally so in case of failures we do get numbers
-                self.report.num_total_log_entries = item
-
                 if item % self.config.log_page_size == 0:
                     logger.info(f"Read {item} entry from log entries")
                 yield entry
 
-        self.report.num_total_log_entries = item
+        self.report.num_total_log_entries += item
         logger.info(f"Finished loading {item} log entries from BigQuery")
 
     def _get_exported_bigquery_audit_metadata(
@@ -444,12 +441,12 @@ class BigQuerySource(SQLAlchemySource):
         start_time: str = (
             self.config.start_time - self.config.max_query_duration
         ).strftime(BQ_DATETIME_FORMAT)
-        self.report.start_time = start_time
+        self.report.audit_start_time = start_time
 
         end_time: str = (
             self.config.end_time + self.config.max_query_duration
         ).strftime(BQ_DATETIME_FORMAT)
-        self.report.end_time = end_time
+        self.report.audit_end_time = end_time
 
         for dataset in self.config.bigquery_audit_metadata_datasets:
             logger.info(
@@ -525,10 +522,8 @@ class BigQuerySource(SQLAlchemySource):
     def _parse_exported_bigquery_audit_metadata(
         self, audit_metadata_rows: Iterable[BigQueryAuditMetadata]
     ) -> Iterable[QueryEvent]:
-        num_total_audit_entries: int = 0
-        num_parsed_audit_entires: int = 0
         for audit_metadata in audit_metadata_rows:
-            num_total_audit_entries += 1
+            self.report.num_total_audit_entries += 1
             event: Optional[QueryEvent] = None
 
             entry_identifier = (
@@ -544,10 +539,8 @@ class BigQuerySource(SQLAlchemySource):
                         audit_metadata
                     )
 
-            self.report.num_total_audit_entries = num_total_audit_entries
-            self.report.num_parsed_audit_entires = num_parsed_audit_entires
             if event is not None:
-                num_parsed_audit_entires += 1
+                self.report.num_parsed_audit_entires += 1
                 yield event
 
     def _create_lineage_map(self, entries: Iterable[QueryEvent]) -> Dict[str, Set[str]]:
@@ -700,6 +693,8 @@ WHERE
         return cls(config, ctx)
 
     def add_config_to_report(self):
+        self.report.start_time = self.config.start_time
+        self.report.end_time = self.config.end_time
         self.report.use_exported_bigquery_audit_metadata = (
             self.config.use_exported_bigquery_audit_metadata
         )
