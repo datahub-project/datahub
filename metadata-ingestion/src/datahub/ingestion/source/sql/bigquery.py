@@ -1,5 +1,4 @@
 import collections
-import dataclasses
 import datetime
 import functools
 import logging
@@ -25,7 +24,12 @@ from datahub.configuration.common import ConfigurationError
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import PlatformKey, gen_containers
+from datahub.emitter.mcp_builder import (
+    BigQueryDatasetKey,
+    PlatformKey,
+    ProjectIdKey,
+    gen_containers,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemyConfig,
@@ -278,6 +282,7 @@ class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
 @dataclass
 class BigQueryReport(SQLSourceReport):
     pass
+
 
 class BigQuerySource(SQLAlchemySource):
     config: BigQueryConfig
