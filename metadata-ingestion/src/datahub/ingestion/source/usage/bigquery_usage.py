@@ -498,6 +498,18 @@ class BigQueryUsageSource(Source):
         config = BigQueryUsageConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
+    def add_config_to_report(self):
+        self.report.start_time = self.config.start_time
+        self.report.end_time = self.config.end_time
+        if self.config.use_v2_audit_metadata is not None:
+            self.report.use_v2_audit_metadata = self.config.use_v2_audit_metadata
+        if self.config.query_log_delay is not None:
+            self.report.query_log_delay = self.config.query_log_delay
+        if self.config.log_page_size is not None:
+            self.report.log_page_size = self.config.log_page_size
+        self.report.allow_pattern = self.config.get_allow_pattern_string()
+        self.report.deny_pattern = self.config.get_deny_pattern_string()
+
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         clients = self._make_bigquery_clients()
         bigquery_log_entries = self._get_bigquery_log_entries(clients)
@@ -583,13 +595,17 @@ class BigQueryUsageSource(Source):
             f"use_allow_filter={use_allow_filter}, use_deny_filter={use_deny_filter}, "
             f"allow_regex={allow_regex}, deny_regex={deny_regex}"
         )
+        start_time = (self.config.start_time - self.config.max_query_duration).strftime(
+            BQ_DATETIME_FORMAT
+        )
+        self.report.log_entry_start_time = start_time
+        end_time = (self.config.end_time + self.config.max_query_duration).strftime(
+            BQ_DATETIME_FORMAT
+        )
+        self.report.log_entry_end_time = end_time
         filter = audit_templates["BQ_FILTER_RULE_TEMPLATE"].format(
-            start_time=(
-                self.config.start_time - self.config.max_query_duration
-            ).strftime(BQ_DATETIME_FORMAT),
-            end_time=(self.config.end_time + self.config.max_query_duration).strftime(
-                BQ_DATETIME_FORMAT
-            ),
+            start_time=start_time,
+            end_time=end_time,
             allow_regex=allow_regex,
             deny_regex=deny_regex,
         )
