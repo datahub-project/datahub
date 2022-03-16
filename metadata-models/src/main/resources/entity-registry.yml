@@ -59,6 +59,7 @@ entities:
       - ownership
       - status
       - globalTags
+      - glossaryTerms
       - browsePaths
       - institutionalMemory
       - domains
