@@ -572,13 +572,10 @@ class BigQueryUsageSourceReport(SourceReport):
 
 
 class BigQueryUsageSource(Source):
-    config: BigQueryUsageConfig
-    report: BigQueryUsageSourceReport
-
     def __init__(self, config: BigQueryUsageConfig, ctx: PipelineContext):
         super().__init__(ctx)
-        self.config = config
-        self.report = BigQueryUsageSourceReport()
+        self.config: BigQueryUsageConfig = config
+        self.report: BigQueryUsageSourceReport = BigQueryUsageSourceReport()
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "BigQueryUsageSource":
