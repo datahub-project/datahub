@@ -647,9 +647,7 @@ def get_aspects_for_entity(
     entity_response = get_entity(
         entity_urn, non_timeseries_aspects, cached_session_host
     )
-    aspect_list: List[Dict[str, dict]] = list(entity_response["value"].values())[0][
-        "aspects"
-    ]
+    aspect_list: Dict[str, dict] = entity_response["aspects"]
 
     # Process timeseries aspects & append to aspect_list
     timeseries_aspects: List[str] = [
@@ -680,16 +678,15 @@ def get_aspects_for_entity(
                 )
 
     aspect_map: Dict[str, Union[dict, DictWrapper]] = {}
-    for a in aspect_list:
-        aspect_class = list(a.keys())[0]
-        aspect_name = _get_aspect_name_from_aspect_class(aspect_class)
+    for a in aspect_list.values():
+        aspect_name = a["name"]
         aspect_py_class: Optional[Type[Any]] = _get_pydantic_class_from_aspect_name(
             aspect_name
         )
         if aspect_name == "unknown":
-            print(f"Failed to find aspect_name for class {aspect_class}")
+            print(f"Failed to find aspect_name for class {aspect_name}")
 
-        aspect_dict = list(a.values())[0]
+        aspect_dict = a["value"]
         if not typed:
             aspect_map[aspect_name] = aspect_dict
         elif aspect_py_class:
