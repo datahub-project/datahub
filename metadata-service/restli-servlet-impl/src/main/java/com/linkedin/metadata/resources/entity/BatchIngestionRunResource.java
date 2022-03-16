@@ -7,6 +7,7 @@ import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.AspectRowSummaryArray;
+import com.linkedin.metadata.run.IngestionRunSummary;
 import com.linkedin.metadata.run.IngestionRunSummaryArray;
 import com.linkedin.metadata.run.RollbackResponse;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
@@ -36,6 +37,8 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
 
   private static final Integer DEFAULT_OFFSET = 0;
   private static final Integer DEFAULT_PAGE_SIZE = 100;
+  private static final boolean DEFAULT_INCLUDE_SOFT_DELETED = false;
+  private static final boolean DEFAULT_HARD_DELETE = false;
   private static final Integer ELASTIC_MAX_PAGE_SIZE = 10000;
   private static final Integer ELASTIC_BATCH_DELETE_SLEEP_SEC = 5;
 
@@ -54,8 +57,11 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
   @Nonnull
   @WithSpan
   public Task<RollbackResponse> rollback(@ActionParam("runId") @Nonnull String runId,
-      @ActionParam("dryRun") @Optional @Nullable Boolean dryRun) {
+      @ActionParam("dryRun") @Optional Boolean dryRun, @ActionParam("hardDelete") @Optional Boolean hardDelete) {
     log.info("ROLLBACK RUN runId: {} dry run: {}", runId, dryRun);
+
+    boolean doHardDelete = hardDelete != null ? hardDelete : DEFAULT_HARD_DELETE;
+
     return RestliUtil.toTask(() -> {
       if (runId.equals(EntityService.DEFAULT_RUN_ID)) {
         throw new IllegalArgumentException(String.format(
@@ -64,10 +70,15 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
       }
       RollbackResponse response = new RollbackResponse();
       List<AspectRowSummary> aspectRowsToDelete;
-      aspectRowsToDelete = _systemMetadataService.findByRunId(runId);
+      aspectRowsToDelete = _systemMetadataService.findByRunId(runId, doHardDelete);
 
       log.info("found {} rows to delete...", stringifyRowCount(aspectRowsToDelete.size()));
       if (dryRun) {
+
+        if (!doHardDelete) {
+          aspectRowsToDelete.removeIf(AspectRowSummary::isKeyAspect);
+        }
+
         response.setAspectsAffected(aspectRowsToDelete.size());
         response.setEntitiesAffected(
             aspectRowsToDelete.stream().collect(Collectors.groupingBy(AspectRowSummary::getUrn)).keySet().size());
@@ -77,17 +88,17 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
         return response;
       }
 
-      RollbackRunResult rollbackRunResult = _entityService.rollbackRun(aspectRowsToDelete, runId);
+      RollbackRunResult rollbackRunResult = _entityService.rollbackRun(aspectRowsToDelete, runId, doHardDelete);
       List<AspectRowSummary> deletedRows = rollbackRunResult.getRowsRolledBack();
       Integer rowsDeletedFromEntityDeletion = rollbackRunResult.getRowsDeletedFromEntityDeletion();
 
       // since elastic limits how many rows we can access at once, we need to iteratively delete
       while (aspectRowsToDelete.size() >= ELASTIC_MAX_PAGE_SIZE) {
         sleep(ELASTIC_BATCH_DELETE_SLEEP_SEC);
-        aspectRowsToDelete = _systemMetadataService.findByRunId(runId);
+        aspectRowsToDelete = _systemMetadataService.findByRunId(runId, doHardDelete);
         log.info("{} remaining rows to delete...", stringifyRowCount(aspectRowsToDelete.size()));
         log.info("deleting...");
-        rollbackRunResult = _entityService.rollbackRun(aspectRowsToDelete, runId);
+        rollbackRunResult = _entityService.rollbackRun(aspectRowsToDelete, runId, doHardDelete);
         deletedRows.addAll(rollbackRunResult.getRowsRolledBack());
         rowsDeletedFromEntityDeletion += rollbackRunResult.getRowsDeletedFromEntityDeletion();
       }
@@ -124,11 +135,17 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
   @Nonnull
   @WithSpan
   public Task<IngestionRunSummaryArray> list(@ActionParam("pageOffset") @Optional @Nullable Integer pageOffset,
-      @ActionParam("pageSize") @Optional @Nullable Integer pageSize) {
+      @ActionParam("pageSize") @Optional @Nullable Integer pageSize,
+      @ActionParam("includeSoft") @Optional @Nullable Boolean includeSoft) {
     log.info("LIST RUNS offset: {} size: {}", pageOffset, pageSize);
 
-    return RestliUtil.toTask(() -> new IngestionRunSummaryArray(
-        _systemMetadataService.listRuns(pageOffset != null ? pageOffset : DEFAULT_OFFSET,
-            pageSize != null ? pageSize : DEFAULT_PAGE_SIZE)), MetricRegistry.name(this.getClass(), "list"));
+    return RestliUtil.toTask(() -> {
+              List<IngestionRunSummary> summaries = _systemMetadataService.listRuns(
+                      pageOffset != null ? pageOffset : DEFAULT_OFFSET,
+                      pageSize != null ? pageSize : DEFAULT_PAGE_SIZE,
+                      includeSoft != null ? includeSoft : DEFAULT_INCLUDE_SOFT_DELETED);
+
+              return new IngestionRunSummaryArray(summaries);
+            }, MetricRegistry.name(this.getClass(), "list"));
   }
 }
