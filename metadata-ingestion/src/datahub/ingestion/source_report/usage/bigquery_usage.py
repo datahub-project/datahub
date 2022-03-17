@@ -12,16 +12,13 @@ class BigQueryUsageSourceReport(SourceReport):
     total_log_entries: int = 0
     num_read_events: int = 0
     num_query_events: int = 0
-
     use_v2_audit_metadata: bool = False
     log_page_size: int = 1000
     query_log_delay: int = 0
-
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
     allow_pattern: str = ""
     deny_pattern: str = ""
-
     log_entry_start_time: str = ""
     log_entry_end_time: str = ""
 
