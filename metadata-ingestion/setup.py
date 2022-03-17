@@ -104,7 +104,7 @@ snowflake_common = {
 
 trino = {
     "trino>=0.308",
-    "trino[sqlalchemy]>=0.308"
+    "trino[sqlalchemy]>=0.308",
 }
 
 microsoft_common = {"msal==1.16.0"}
