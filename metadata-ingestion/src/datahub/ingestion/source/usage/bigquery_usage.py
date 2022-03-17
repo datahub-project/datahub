@@ -536,6 +536,7 @@ class BigQueryUsageSource(Source):
     def _get_bigquery_log_entries(
         self, clients: List[GCPLoggingClient]
     ) -> Iterable[Union[AuditLogEntry, BigQueryAuditMetadata]]:
+        self.report.total_log_entries = 0
         audit_templates: Dict[str, str] = BQ_AUDIT_V1
         if self.config.use_v2_audit_metadata:
             audit_templates = BQ_AUDIT_V2
@@ -681,6 +682,8 @@ class BigQueryUsageSource(Source):
     def _parse_bigquery_log_entries(
         self, entries: Iterable[Union[AuditLogEntry, BigQueryAuditMetadata]]
     ) -> Iterable[Union[ReadEvent, QueryEvent, MetadataWorkUnit]]:
+        self.report.num_read_events = 0
+        self.report.num_query_events = 0
         for entry in entries:
             event: Optional[Union[ReadEvent, QueryEvent]] = None
 
