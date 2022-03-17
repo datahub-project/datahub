@@ -13,7 +13,6 @@ type Props = {
 };
 
 export default function RelatedEntityResults({ fixedQuery }: Props) {
-    console.log(fixedQuery); // TODO: remove this log
     return (
         <>
             <GroupAssetsWrapper>

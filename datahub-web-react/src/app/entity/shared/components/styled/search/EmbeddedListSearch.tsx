@@ -62,7 +62,20 @@ export const EmbeddedListSearch = ({
     const entityRegistry = useEntityRegistry();
 
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
-    const query: string = params.query ? (params.query as string) : '';
+    const addFixedQuery = () => {
+        let finalQuery = ``;
+        if (params.query && fixedQuery) {
+            finalQuery = `(${params.query}) AND (${fixedQuery})`;
+        } else if (params.query) {
+            finalQuery = `${params.query}`;
+        } else if (fixedQuery) {
+            finalQuery = `${fixedQuery}`;
+        } else {
+            return '';
+        }
+        return finalQuery;
+    };
+    const query: string = addFixedQuery();
     const activeType = entityRegistry.getTypeOrDefaultFromPathName(useParams<SearchPageParams>().type || '', undefined);
     const page: number = params.page && Number(params.page as string) > 0 ? Number(params.page as string) : 1;
     const filters: Array<FacetFilterInput> = useFilters(params);
@@ -104,7 +117,6 @@ export const EmbeddedListSearch = ({
             },
         },
     });
-
     const onSearch = (q: string) => {
         let finalQuery = ``;
         if (q.trim().length === 0) {
