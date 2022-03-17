@@ -10,7 +10,7 @@ record CommonCellAttributes {
   /**
    * Title of the cell
    */
-  cellTitle: string
+  cellTitle: optional string
 
   /**
   * Unique id for the cell. This id should be globally unique for a Notebook tool even when there are multiple deployments of it. As an example, Notebook URL could be used here for QueryBook such as 'querybook.com/notebook/773/?cellId=1234'
