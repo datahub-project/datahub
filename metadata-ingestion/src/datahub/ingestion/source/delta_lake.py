@@ -1,7 +1,8 @@
-from re import A
-from attr import frozen
+from curses import meta
+import logging
+
 from dataclasses import dataclass, field
-from typing import Sequence, List, Optional, Iterable, Union
+from typing import Sequence, List, Optional, Iterable, Union, Dict,Type
 import pydantic
 
 from delta_sharing.delta_sharing import SharingClient
@@ -9,13 +10,33 @@ from delta_sharing.protocol import Table
 from delta_sharing.rest_client import QueryTableMetadataResponse
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub.configuration.common import ConfigModel
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+    ArrayTypeClass,
+    BinaryJsonSchema,
+    BooleanTypeClass,
+    BytesTypeClass,
+    DateTypeClass,
+    MapTypeClass,
+    NullTypeClass,
+    NumberTypeClass,
+    RecordTypeClass,
+    SchemaField,
+    SchemaFieldDataType,
+    SchemalessClass,
+    SchemaMetadata,
+    StringTypeClass,
+    TimeTypeClass,
+    UnionTypeClass,
+)
+
+LOGGER=logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class QueryTableMetadataResponse_extended(QueryTableMetadataResponse):
@@ -58,6 +79,23 @@ class DeltaLakeSourceConfig(ConfigModel):
     schema_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
     table_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
 
+# map delta-sharing types to DataHub classes
+_field_type_mapping: Dict[Union[Type, str], Type] = {
+    "array": ArrayTypeClass,
+    "boolean": BooleanTypeClass,
+    "binary": BytesTypeClass,#TODO: might need to change
+    "short": NumberTypeClass,
+    "integer": NumberTypeClass,
+    "short": NumberTypeClass,
+    "byte": BytesTypeClass,
+    "float": NumberTypeClass,
+    "double": NumberTypeClass,
+    "string": StringTypeClass,
+    "date": DateTypeClass,
+    "timestamp": TimeTypeClass,
+    "map": MapTypeClass,
+    "struct": UnionTypeClass,#TODO: needs custom handling if we want to show nested field in UI
+}
 
 @dataclass
 class DeltaLakeSourceReport(SourceReport):
@@ -67,15 +105,23 @@ class DeltaLakeSourceReport(SourceReport):
         self.filtered.append(name)
 
 @dataclass
-class GenericFileSource(Source):
+class DeltaLakeSource(Source):
     config: DeltaLakeSourceConfig
-    report: SourceReport = field(default_factory=SourceReport)
+    report: DeltaLakeSourceReport
+    platform: str = "deltalake"
 
-    # @classmethod
-    # def create(cls, config_dict, ctx):
-    #     config = DeltaLakeSourceConfig.parse_obj(config_dict)
-    #     return cls(ctx, config)
+    def __init__(self, ctx: PipelineContext, config: DeltaLakeSourceConfig):
+        super().__init__(ctx)
+        self.config = config
+        self.report = DeltaLakeSourceReport()
 
+
+    @classmethod
+    def create(cls, config_dict, ctx):
+        config = DeltaLakeSourceConfig.parse_obj(config_dict)
+        return cls(ctx, config)
+
+    #TODO: test connection / proper error handling
     # def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, UsageStatsWorkUnit]]:
     #     for i, obj in enumerate(iterate_generic_file(self.config.filename)):
     #         wu: Union[MetadataWorkUnit, UsageStatsWorkUnit]
@@ -88,7 +134,49 @@ class GenericFileSource(Source):
     #         self.report.report_workunit(wu)
     #         yield wu
 
-    #TODO def get_field_type():
+    def get_metadata(self,config: DeltaLakeSourceConfig)-> List[QueryTableMetadataResponse_extended]:
+        # Get the access keys for delta-sharing & start the client
+        profile = delta_sharing.protocol.DeltaSharingProfile(share_credentials_version=config.share_credentials_version, endpoint=config.url, bearer_token=config.token)
+        client = SharingClient_extended(profile)
+
+        # get all shared metadata
+        metadata_list=client.query_all_table_metadata()
+
+        #filter data and TODO report dropped items
+        metadata_list=[metadata for metadata in metadata_list if config.share_patterns.allowed(metadata.table.share)]
+        metadata_list=[metadata for metadata in metadata_list if config.schema_patterns.allowed(metadata.table.schema)]
+        metadata_list=[metadata for metadata in metadata_list if config.table_patterns.allowed(metadata.table.name)]
+
+        return metadata_list
+    
+    def get_field_type(
+        self, field_type: Union[Type, str], collection_name: str
+    ) -> SchemaFieldDataType:
+        """
+        Maps types encountered in delta-sharing to corresponding schema types.
+
+        Parameters
+        ----------
+            field_type:
+                type of a Python object
+            collection_name:
+                name of collection (for logging)
+        """
+        TypeClass: Optional[Type] = _field_type_mapping.get(field_type)
+
+        if TypeClass is None:
+            self.report.report_warning(
+                collection_name, f"unable to map type {field_type} to metadata schema"
+            )
+            TypeClass = NullTypeClass
+        
+        #TODO: this should be removed if struct nested fields are parsed properly
+        if TypeClass is UnionTypeClass:
+            self.report.report_warning(
+                collection_name, f"Warning {field_type} is a nested field this will not be processed properly and it will displayed poorly in UI."
+            )
+
+        return SchemaFieldDataType(type=TypeClass())
 
     def get_report(self) -> SourceReport:
         return self.report
@@ -97,12 +185,14 @@ class GenericFileSource(Source):
         pass
 
 #TODO: report dropped and filtered in WU
+#TODO: add message that stats are not implemented yet.
+
 
 if __name__ == "__main__":
 
     import delta_sharing
 
-    #TODO: get key from recipe
+    #get key from recipe
 
     # Get the access keys for delta-sharing & start the client
     profile = delta_sharing.protocol.DeltaSharingProfile(share_credentials_version=1, endpoint="https://sharing.delta.io/delta-sharing/", bearer_token="faaie590d541265bcab1f2de9813274bf233")
