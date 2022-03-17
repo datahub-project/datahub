@@ -1,4 +1,5 @@
 # This import verifies that the dependencies are available.
+
 import pymysql  # noqa: F401
 from sqlalchemy.dialects.mysql import base
 
@@ -29,6 +30,13 @@ class MySQLConfig(BasicSQLAlchemyConfig):
     # defaults
     host_port = "localhost:3306"
     scheme = "mysql+pymysql"
+
+    def get_identifier(self, *, schema: str, table: str) -> str:
+        regular = f"{schema}.{table}"
+        if self.database_alias:
+            return f"{self.database_alias}.{table}"
+        else:
+            return regular
 
 
 class MySQLSource(SQLAlchemySource):

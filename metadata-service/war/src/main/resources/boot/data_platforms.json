@@ -168,7 +168,7 @@
     }
   },
   {
-    "urn": "urn:li:dataPlatform:openapi",
+    "urn": "urn:li:dataPlatform:OpenApi",
     "aspect": {
       "datasetNameDelimiter": ".",
       "name": "openapi",
@@ -384,6 +384,35 @@
       "displayName": "Elasticsearch",
       "type": "OTHERS",
       "logoUrl": "/assets/platforms/elasticsearchlogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:great-expectations",
+    "aspect": {
+      "name": "Great Expectations",
+      "displayName": "Great Expectations",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/greatexpectationslogo.png",
+      "datasetNameDelimiter": "."
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:powerbi",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "powerbi",
+      "displayName": "Power BI",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/powerbilogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:unknown",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "Unknown Platform",
+      "displayName": "N/A",
+      "type": "OTHERS"
     }
   }
 ]

@@ -25,4 +25,6 @@ namespace com.linkedin.common
   } ],
   "maxLength" : 807
 }
+
+@deprecated = "use SchemaFieldPath and represent as generic Urn instead"
 typeref DatasetFieldUrn = string

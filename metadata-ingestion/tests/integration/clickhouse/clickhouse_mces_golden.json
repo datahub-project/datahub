@@ -26,7 +26,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-      "value": "{\"platform\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)\"}",
+      "value": "{\"platform\": \"urn:li:dataPlatform:clickhouse\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -83,7 +83,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-      "value": "{\"platform\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)\"}",
+      "value": "{\"platform\": \"urn:li:dataPlatform:clickhouse\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {

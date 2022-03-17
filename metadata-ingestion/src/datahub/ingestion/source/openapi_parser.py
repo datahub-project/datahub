@@ -120,10 +120,14 @@ def get_endpoints(sw_dict: dict) -> dict:  # noqa: C901
         # will track only the "get" methods, which are the ones that give us data
         if "get" in p_o.keys():
 
-            try:
+            if "200" in p_o["get"]["responses"].keys():
                 base_res = p_o["get"]["responses"]["200"]
-            except KeyError:  # if you read a plain yml file the 200 will be an integer
+            elif 200 in p_o["get"]["responses"].keys():
+                # if you read a plain yml file the 200 will be an integer
                 base_res = p_o["get"]["responses"][200]
+            else:
+                # the endpoint does not have a 200 response
+                continue
 
             if "description" in p_o["get"].keys():
                 desc = p_o["get"]["description"]
@@ -172,7 +176,8 @@ def get_endpoints(sw_dict: dict) -> dict:  # noqa: C901
             if "parameters" in p_o["get"].keys():
                 url_details[p_k]["parameters"] = p_o["get"]["parameters"]
 
-    return url_details
+    ord_d = dict(sorted(url_details.items()))  # sorting for convenience
+    return ord_d
 
 
 def guessing_url_name(url: str, examples: dict) -> str:
@@ -211,6 +216,10 @@ def guessing_url_name(url: str, examples: dict) -> str:
         ex2use = root
     elif root[:-1] in examples.keys():
         ex2use = root[:-1]
+    elif root.replace("/", ".") in examples.keys():
+        ex2use = root.replace("/", ".")
+    elif root[:-1].replace("/", ".") in examples.keys():
+        ex2use = root[:-1].replace("/", ".")
     else:
         return url
 
@@ -332,19 +341,38 @@ def extract_fields(
             return [], {}
 
 
-def get_tok(url: str, username: str = "", password: str = "") -> str:
+def get_tok(
+    url: str,
+    username: str = "",
+    password: str = "",
+    tok_url: str = "",
+    method: str = "post",
+) -> str:
     """
     Trying to post username/password to get auth.
-    Simplified version: it expect a POST at api/authenticate
     """
-    data = {"username": username, "password": password}
-    url2post = url + "api/authenticate/"
-    response = requests.post(url2post, data=data)
-    if response.status_code == 200:
-        cont = json.loads(response.content)
-        return cont["tokens"]["access"]
+    token = ""
+    url4req = url + tok_url
+    if method == "post":
+        # this will make a POST call with username and password
+        data = {"username": username, "password": password}
+        # url2post = url + "api/authenticate/"
+        response = requests.post(url4req, data=data)
+        if response.status_code == 200:
+            cont = json.loads(response.content)
+            token = cont["tokens"]["access"]
+    elif method == "get":
+        # this will make a GET call with username and password
+        response = requests.get(url4req)
+        if response.status_code == 200:
+            cont = json.loads(response.content)
+            token = cont["token"]
     else:
-        raise Exception("Unable to get a valid token")
+        raise ValueError(f"Method unrecognised: {method}")
+    if token != "":
+        return token
+    else:
+        raise Exception(f"Unable to get a valid token: {response.text}")
 
 
 def set_metadata(

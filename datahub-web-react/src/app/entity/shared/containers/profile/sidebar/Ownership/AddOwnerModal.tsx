@@ -4,18 +4,17 @@ import styled from 'styled-components';
 import { Link } from 'react-router-dom';
 import { useAddOwnerMutation } from '../../../../../../../graphql/mutations.generated';
 import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
-import { CorpUser, EntityType, OwnerEntityType, SearchResult } from '../../../../../../../types.generated';
+import {
+    CorpUser,
+    EntityType,
+    OwnerEntityType,
+    OwnershipType,
+    SearchResult,
+} from '../../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import { useEntityData } from '../../../../EntityContext';
 import { CustomAvatar } from '../../../../../../shared/avatar';
 import analytics, { EventType, EntityActionType } from '../../../../../../analytics';
-import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
-
-type Props = {
-    visible: boolean;
-    onClose: () => void;
-    refetch?: () => Promise<any>;
-};
+import { OWNERSHIP_DISPLAY_TYPES } from './ownershipUtils';
 
 const SearchResultContainer = styled.div`
     display: flex;
@@ -34,16 +33,26 @@ const SearchResultDisplayName = styled.div`
     margin-left: 12px;
 `;
 
+type Props = {
+    urn: string;
+    type: EntityType;
+    visible: boolean;
+    defaultOwnerType?: OwnershipType;
+    hideOwnerType?: boolean | undefined;
+    onClose: () => void;
+    refetch?: () => Promise<any>;
+};
+
 type SelectedActor = {
     displayName: string;
     type: EntityType;
     urn: string;
 };
 
-export const AddOwnerModal = ({ visible, onClose, refetch }: Props) => {
+export const AddOwnerModal = ({ urn, type, visible, hideOwnerType, defaultOwnerType, onClose, refetch }: Props) => {
     const entityRegistry = useEntityRegistry();
-    const { urn, entityType } = useEntityData();
     const [selectedActor, setSelectedActor] = useState<SelectedActor | undefined>(undefined);
+    const [selectedOwnerType, setSelectedOwnerType] = useState<OwnershipType>(defaultOwnerType || OwnershipType.None);
     const [userSearch, { data: userSearchData }] = useGetSearchResultsLazyQuery();
     const [groupSearch, { data: groupSearchData }] = useGetSearchResultsLazyQuery();
     const [addOwnerMutation] = useAddOwnerMutation();
@@ -66,6 +75,7 @@ export const AddOwnerModal = ({ visible, onClose, refetch }: Props) => {
                 variables: {
                     input: {
                         ownerUrn: selectedActor.urn,
+                        type: selectedOwnerType,
                         resourceUrn: urn,
                         ownerEntityType,
                     },
@@ -75,7 +85,7 @@ export const AddOwnerModal = ({ visible, onClose, refetch }: Props) => {
             analytics.event({
                 type: EventType.EntityActionEvent,
                 actionType: EntityActionType.UpdateOwnership,
-                entityType,
+                entityType: type,
                 entityUrn: urn,
             });
         } catch (e: unknown) {
@@ -112,13 +122,18 @@ export const AddOwnerModal = ({ visible, onClose, refetch }: Props) => {
         setSelectedActor(undefined);
     };
 
+    // When a user search result is selected, set the urn as the selected urn.
+    const onSelectOwnerType = (newType: OwnershipType) => {
+        setSelectedOwnerType(newType);
+    };
+
     // Invokes the search API as the user types
-    const handleSearch = (type: EntityType, text: string, searchQuery: any) => {
+    const handleSearch = (entityType: EntityType, text: string, searchQuery: any) => {
         if (text.length > 2) {
             searchQuery({
                 variables: {
                     input: {
-                        type,
+                        type: entityType,
                         query: text,
                         start: 0,
                         count: 5,
@@ -172,16 +187,20 @@ export const AddOwnerModal = ({ visible, onClose, refetch }: Props) => {
     };
 
     const selectValue = (selectedActor && [selectedActor.displayName]) || [];
+    const ownershipTypes = OWNERSHIP_DISPLAY_TYPES;
 
     // Handle the Enter press
-    useEnterKeyListener({
-        querySelectorToExecuteClick: '#addOwnerButton',
-    });
+    // TODO: Allow user to be selected prior to executed the save.
+    // useEnterKeyListener({
+    //    querySelectorToExecuteClick: selectedActor && '#addOwnerButton',
+    // });
+
     return (
         <Modal
-            title="Add owner"
+            title="Add Owner"
             visible={visible}
             onCancel={onClose}
+            keyboard
             footer={
                 <>
                     <Button onClick={onClose} type="text">
@@ -193,8 +212,9 @@ export const AddOwnerModal = ({ visible, onClose, refetch }: Props) => {
                 </>
             }
         >
-            <Form component={false}>
-                <Form.Item>
+            <Form layout="vertical" colon={false}>
+                <Form.Item name="owner" label={<Typography.Text strong>Owner</Typography.Text>}>
+                    <Typography.Paragraph>Find a user or group</Typography.Paragraph>
                     <Select
                         autoFocus
                         filterOption={false}
@@ -212,6 +232,23 @@ export const AddOwnerModal = ({ visible, onClose, refetch }: Props) => {
                         ))}
                     </Select>
                 </Form.Item>
+                {!hideOwnerType && (
+                    <Form.Item name="type" label={<Typography.Text strong>Type</Typography.Text>}>
+                        <Typography.Paragraph>Choose an owner type</Typography.Paragraph>
+                        <Select value={selectedOwnerType} onChange={onSelectOwnerType}>
+                            {ownershipTypes.map((ownerType) => (
+                                <Select.Option value={ownerType.type}>
+                                    <Typography.Text>{ownerType.name}</Typography.Text>
+                                    <div>
+                                        <Typography.Paragraph style={{ wordBreak: 'break-all' }} type="secondary">
+                                            {ownerType.description}
+                                        </Typography.Paragraph>
+                                    </div>
+                                </Select.Option>
+                            ))}
+                        </Select>
+                    </Form.Item>
+                )}
             </Form>
         </Modal>
     );

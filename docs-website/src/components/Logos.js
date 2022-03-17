@@ -17,6 +17,11 @@ const companiesByIndustry = [
         size: "small",
       },
       {
+        name: "Udemy",
+        imageUrl: "/img/logos/companies/udemy.png",
+        size: "defualt",
+      },
+      {
         name: "Geotab",
         imageUrl: "/img/logos/companies/geotab.jpg",
         size: "small",
@@ -82,6 +87,10 @@ const companiesByIndustry = [
     name: "E-Commerce",
     companies: [
       {
+        name: "Adevinta",
+        imageUrl: "/img/logos/companies/adevinta.png",
+        size: "default",
+      },      {
         name: "Grofers",
         imageUrl: "/img/logos/companies/grofers.png",
         size: "default",
@@ -106,6 +115,11 @@ const companiesByIndustry = [
   {
     name: "And More",
     companies: [
+      {
+        name: "Cabify",
+        imageUrl: "/img/logos/companies/cabify.png",
+        size: "large",
+      },
       {
         name: "Viasat",
         imageUrl: "/img/logos/companies/viasat.png",
@@ -188,6 +202,7 @@ const platformLogos = [
   { name: "Oracle", imageUrl: "/img/logos/platforms/oracle.svg" },
   { name: "Pinot", imageUrl: "/img/logos/platforms/pinot.svg" },
   { name: "PostgreSQL", imageUrl: "/img/logos/platforms/postgres.svg" },
+  { name: "PowerBI", imageUrl: "/img/logos/platforms/powerbi.png" },
   { name: "Presto", imageUrl: "/img/logos/platforms/presto.svg" },
   { name: "Redash", imageUrl: "/img/logos/platforms/redash.svg" },
   {

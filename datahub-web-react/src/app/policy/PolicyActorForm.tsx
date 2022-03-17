@@ -13,7 +13,7 @@ type Props = {
 };
 
 const SearchResultContainer = styled.div`
-    display: flex;
+    display: flex;f
     justify-content: space-between;
     align-items: center;
     padding: 12px;
@@ -27,6 +27,10 @@ const ActorForm = styled(Form)`
 
 const ActorFormHeader = styled.div`
     margin-bottom: 28px;
+`;
+
+const ActorName = styled.div`
+    margin-right: 8px;
 `;
 
 /**
@@ -142,14 +146,14 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
     const renderSearchResult = (result: SearchResult) => {
         return (
             <SearchResultContainer>
-                {entityRegistry.getDisplayName(result.entity.type, result.entity)}
+                <ActorName>{entityRegistry.getDisplayName(result.entity.type, result.entity)}</ActorName>
                 <Link
                     target="_blank"
                     rel="noopener noreferrer"
                     to={() => `/${entityRegistry.getPathName(result.entity.type)}/${result.entity.urn}`}
                 >
                     View
-                </Link>{' '}
+                </Link>
             </SearchResultContainer>
         );
     };
@@ -189,6 +193,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                 <Select
                     value={usersSelectValue}
                     mode="multiple"
+                    filterOption={false}
                     placeholder="Search for users..."
                     onSelect={(asset: any) => onSelectUserActor(asset)}
                     onDeselect={(asset: any) => onDeselectUserActor(asset)}
@@ -217,6 +222,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                     onSelect={(asset: any) => onSelectGroupActor(asset)}
                     onDeselect={(asset: any) => onDeselectGroupActor(asset)}
                     onSearch={handleGroupSearch}
+                    filterOption={false}
                     tagRender={(tagProps) => (
                         <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
                             {tagProps.value}

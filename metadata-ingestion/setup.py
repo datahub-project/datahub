@@ -23,11 +23,12 @@ def get_long_description():
 base_requirements = {
     # Compatability.
     "dataclasses>=0.6; python_version < '3.7'",
-    "typing_extensions>=3.10.0.2,<4",
+    "typing_extensions>=3.10.0.2",
     "mypy_extensions>=0.4.3",
     # Actual dependencies.
     "typing-inspect",
     "pydantic>=1.5.1",
+    "mixpanel>=4.9.0",
 }
 
 framework_common = {
@@ -44,11 +45,16 @@ framework_common = {
     "stackprinter",
     "tabulate",
     "progressbar2",
+    "termcolor>=1.0.0",
+    "types-termcolor>=1.0.0",
     "psutil>=5.8.0",
     # Markupsafe breaking change broke Jinja and some other libs
     # Pinning it to a version which works even though we are not using explicitly
     # https://github.com/aws/aws-sam-cli/issues/3661
-    "markupsafe==2.0.1",
+    # Airflow compatibility: https://github.com/apache/airflow/blob/2.2.2/setup.cfg#L125
+    "markupsafe>=1.1.1,<=2.0.1",
+    "Deprecated",
+    "types-Deprecated",
 }
 
 kafka_common = {
@@ -79,7 +85,7 @@ aws_common = {
 
 looker_common = {
     # Looker Python SDK
-    "looker-sdk==21.6.0"
+    "looker-sdk==22.2.1"
 }
 
 bigquery_common = {
@@ -101,6 +107,23 @@ trino = {
     "trino[sqlalchemy]>=0.308"
 }
 
+microsoft_common = {"msal==1.16.0"}
+
+data_lake_base = {
+    *aws_common,
+    "parse>=1.19.0",
+    "pyarrow>=6.0.1",
+    "tableschema>=1.20.2",
+    "ujson>=4.3.0",
+    "types-ujson>=4.2.1",
+    "smart-open[s3]>=5.2.1",
+}
+
+data_lake_profiling = {
+    "pydeequ==1.0.1",
+    "pyspark==3.0.3",
+}
+
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
@@ -110,6 +133,7 @@ plugins: Dict[str, Set[str]] = {
     "airflow": {
         "apache-airflow >= 1.10.2",
     },
+    "great-expectations": sql_common | {"sqllineage==1.3.3"},
     # Source plugins
     # PyAthena is pinned with exact version because we use private method in PyAthena
     "athena": sql_common | {"PyAthena[SQLAlchemy]==2.4.1"},
@@ -118,8 +142,9 @@ plugins: Dict[str, Set[str]] = {
     "bigquery-usage": bigquery_common | {"cachetools"},
     "clickhouse": sql_common | {"clickhouse-sqlalchemy==0.1.8"},
     "clickhouse-usage": sql_common | {"clickhouse-sqlalchemy==0.1.8"},
+    "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
-    "data-lake": {*aws_common, "pydeequ==1.0.1", "pyspark==3.0.3", "parse==1.19.0"},
+    "data-lake": {*data_lake_base, *data_lake_profiling},
     "dbt": {"requests"},
     "druid": sql_common | {"pydruid>=0.6.2"},
     # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
@@ -167,6 +192,7 @@ plugins: Dict[str, Set[str]] = {
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | trino,
     "nifi": {"requests", "packaging"},
+    "powerbi": {"orderedset"} | microsoft_common,
 }
 
 all_exclude_plugins: Set[str] = {
@@ -191,12 +217,15 @@ mypy_stubs = {
     "types-click==0.1.12",
     "boto3-stubs[s3,glue,sagemaker]",
     "types-tabulate",
+    # avrogen package requires this
+    "types-pytz",
 }
 
 base_dev_requirements = {
     *base_requirements,
     *framework_common,
     *mypy_stubs,
+    *data_lake_base,
     "black>=21.12b0",
     "coverage>=5.1",
     "flake8>=3.8.3",
@@ -243,6 +272,7 @@ base_dev_requirements = {
             "trino",
             "hive",
             "starburst-trino-usage",
+            "powerbi"
             # airflow is added below
         ]
         for dependency in plugins[plugin]
@@ -318,6 +348,7 @@ entry_points = {
         "ldap = datahub.ingestion.source.ldap:LDAPSource",
         "looker = datahub.ingestion.source.looker:LookerDashboardSource",
         "lookml = datahub.ingestion.source.lookml:LookMLSource",
+        "datahub-lineage-file = datahub.ingestion.source.metadata.lineage:LineageFileSource",
         "datahub-business-glossary = datahub.ingestion.source.metadata.business_glossary:BusinessGlossaryFileSource",
         "mode = datahub.ingestion.source.mode:ModeSource",
         "mongodb = datahub.ingestion.source.mongodb:MongoDBSource",
@@ -339,6 +370,7 @@ entry_points = {
         "trino = datahub.ingestion.source.sql.trino:TrinoSource",
         "starburst-trino-usage = datahub.ingestion.source.usage.starburst_trino_usage:TrinoUsageSource",
         "nifi = datahub.ingestion.source.nifi:NifiSource",
+        "powerbi = datahub.ingestion.source.powerbi:PowerBiDashboardSource",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",
@@ -392,8 +424,7 @@ setuptools.setup(
     ],
     # Package info.
     zip_safe=False,
-    # restrict python to <=3.9.9 due to https://github.com/looker-open-source/sdk-codegen/issues/944
-    python_requires=">=3.6, <=3.9.9",
+    python_requires=">=3.6",
     package_dir={"": "src"},
     packages=setuptools.find_namespace_packages(where="./src"),
     package_data={

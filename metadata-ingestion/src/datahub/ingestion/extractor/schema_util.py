@@ -271,7 +271,7 @@ class AvroToMceSchemaConverter:
                 tags = None
                 if "deprecated" in merged_props:
                     description = (
-                        f"<span style=\"color:red\">DEPRECATED: {self._schema.other_props['deprecated']}</span>\n"
+                        f"<span style=\"color:red\">DEPRECATED: {merged_props['deprecated']}</span>\n"
                         + description
                     )
                     tags = GlobalTagsClass(
@@ -357,7 +357,7 @@ class AvroToMceSchemaConverter:
         last_field_schema = self._fields_stack[-1]
         # Generate the custom-description for the field.
         description = last_field_schema.doc if last_field_schema.doc else None
-        if last_field_schema.has_default:
+        if last_field_schema.has_default and last_field_schema.default is not None:
             description = (
                 f"{description}\nField default value: {last_field_schema.default}"
             )

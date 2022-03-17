@@ -7,7 +7,7 @@ import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -30,35 +30,35 @@ public class AutocompleteUtils {
   ) {
     final int limit = input.getLimit() != null ? input.getLimit() : DEFAULT_LIMIT;
 
-    final CompletableFuture<AutoCompleteResultForEntity>[] autoCompletesFuture = entities.stream().map(entity -> {
-      return CompletableFuture.supplyAsync(() -> {
-        try {
-          final AutoCompleteResults searchResult = entity.autoComplete(
-              sanitizedQuery,
-              input.getField(),
-              input.getFilters(),
-              limit,
-              environment.getContext()
-          );
-          final AutoCompleteResultForEntity autoCompleteResultForEntity =
-              new AutoCompleteResultForEntity(entity.type(), searchResult.getSuggestions());
-          return autoCompleteResultForEntity;
-        } catch (Exception e) {
-          _logger.error("Failed to execute autocomplete all: "
-              + String.format("field %s, query %s, filters: %s, limit: %s",
-              input.getField(),
-              input.getQuery(),
-              input.getFilters(),
-              input.getLimit()) + " "
-              + e.getMessage());
-          return new AutoCompleteResultForEntity(entity.type(), new ArrayList<>());
-        }
-      });
-    }).toArray(CompletableFuture[]::new);
-    return CompletableFuture.allOf(autoCompletesFuture)
+    final List<CompletableFuture<AutoCompleteResultForEntity>> autoCompletesFuture = entities.stream().map(entity -> CompletableFuture.supplyAsync(() -> {
+      try {
+        final AutoCompleteResults searchResult = entity.autoComplete(
+            sanitizedQuery,
+            input.getField(),
+            input.getFilters(),
+            limit,
+            environment.getContext()
+        );
+        return new AutoCompleteResultForEntity(
+            entity.type(),
+            searchResult.getSuggestions(),
+            searchResult.getEntities()
+        );
+      } catch (Exception e) {
+        _logger.error("Failed to execute autocomplete all: "
+            + String.format("field %s, query %s, filters: %s, limit: %s",
+            input.getField(),
+            input.getQuery(),
+            input.getFilters(),
+            input.getLimit()) + " "
+            + e.getMessage());
+        return new AutoCompleteResultForEntity(entity.type(), Collections.emptyList(), Collections.emptyList());
+      }
+    })).collect(Collectors.toList());
+    return CompletableFuture.allOf(autoCompletesFuture.toArray(new CompletableFuture[0]))
         .thenApplyAsync((res) -> {
           AutoCompleteMultipleResults result = new AutoCompleteMultipleResults(sanitizedQuery, new ArrayList<>());
-          result.setSuggestions(Arrays.stream(autoCompletesFuture)
+          result.setSuggestions(autoCompletesFuture.stream()
               .map(CompletableFuture::join)
               .filter(
                   autoCompleteResultForEntity ->

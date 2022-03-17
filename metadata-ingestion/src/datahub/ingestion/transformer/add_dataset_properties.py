@@ -5,7 +5,9 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.import_resolver import pydantic_resolve_key
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.transformer.dataset_transformer import DatasetTransformer
+from datahub.ingestion.transformer.dataset_transformer import (
+    DatasetPropertiesTransformer,
+)
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     DatasetSnapshotClass,
@@ -28,7 +30,7 @@ class AddDatasetPropertiesConfig(ConfigModel):
     _resolve_properties_class = pydantic_resolve_key("add_properties_resolver_class")
 
 
-class AddDatasetProperties(DatasetTransformer):
+class AddDatasetProperties(DatasetPropertiesTransformer):
     """Transformer that adds properties to datasets according to a callback function."""
 
     ctx: PipelineContext
@@ -40,6 +42,7 @@ class AddDatasetProperties(DatasetTransformer):
         ctx: PipelineContext,
         **resolver_args: Dict[str, Any],
     ):
+        super().__init__()
         self.ctx = ctx
         self.config = config
         self.resolver_args = resolver_args

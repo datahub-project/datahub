@@ -1,7 +1,7 @@
 import logging
 import random
 import uuid
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Union
 
 import click
 import progressbar
@@ -16,9 +16,17 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import (
+    BigQueryDatasetKey,
+    DatabaseKey,
+    ProjectIdKey,
+    SchemaKey,
+)
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
+    ContainerKeyClass,
+    ContainerPropertiesClass,
     DataPlatformInstanceClass,
     SystemMetadataClass,
 )
@@ -133,29 +141,13 @@ def dataplatform2instance_func(
     migration_report = MigrationReport(run_id, dry_run, keep)
     system_metadata = SystemMetadataClass(runId=run_id)
 
-    all_aspects = [
-        "schemaMetadata",
-        "datasetProperties",
-        "viewProperties",
-        "subTypes",
-        "editableDatasetProperties",
-        "ownership",
-        "datasetDeprecation",
-        "institutionalMemory",
-        "editableSchemaMetadata",
-        "globalTags",
-        "glossaryTerms",
-        "upstreamLineage",
-        "datasetUpstreamLineage",
-        "status",
-    ]
-
     if not dry_run:
         rest_emitter = DatahubRestEmitter(
             gms_server=cli_utils.get_session_and_host()[1]
         )
 
     urns_to_migrate = []
+
     # we first calculate all the urns we will be migrating
     for src_entity_urn in cli_utils.get_urns_by_filter(platform=platform, env=env):
         key = dataset_urn_to_key(src_entity_urn)
@@ -213,13 +205,12 @@ def dataplatform2instance_func(
             env=str(key.origin),
         )
         log.debug(f"Will migrate {src_entity_urn} to {new_urn}")
-        relationships = migration_utils.get_incoming_relationships_dataset(
-            src_entity_urn
-        )
+        relationships = migration_utils.get_incoming_relationships(src_entity_urn)
 
         for mcp in migration_utils.clone_aspect(
             src_entity_urn,
-            aspect_names=all_aspects,
+            aspect_names=migration_utils.all_aspects,
+            entity_type="dataset",
             dst_urn=new_urn,
             dry_run=dry_run,
             run_id=run_id,
@@ -248,10 +239,8 @@ def dataplatform2instance_func(
             target_urn = relationship["entity"]
             entity_type = _get_type_from_urn(target_urn)
             relationshipType = relationship["type"]
-            aspect_name = (
-                migration_utils.get_aspect_name_from_relationship_type_and_entity(
-                    relationshipType, entity_type
-                )
+            aspect_name = migration_utils.get_aspect_name_from_relationship(
+                relationshipType, entity_type
             )
             aspect_map = cli_utils.get_aspects_for_entity(
                 target_urn, aspects=[aspect_name], typed=True
@@ -282,3 +271,178 @@ def dataplatform2instance_func(
         migration_report.on_entity_migrated(src_entity_urn, "status")  # type: ignore
 
     print(f"{migration_report}")
+    migrate_containers(
+        dry_run=dry_run,
+        env=env,
+        hard=hard,
+        instance=instance,
+        platform=platform,
+        keep=keep,
+        rest_emitter=rest_emitter,
+    )
+
+
+def migrate_containers(
+    dry_run: bool,
+    env: str,
+    platform: str,
+    hard: bool,
+    instance: str,
+    keep: bool,
+    rest_emitter: DatahubRestEmitter,
+) -> None:
+    run_id: str = f"container-migrate-{uuid.uuid4()}"
+    migration_report = MigrationReport(run_id, dry_run, keep)
+
+    # Find container ids need to be migrated
+    container_id_map: Dict[str, str] = {}
+    # Get all the containers need to be migrated
+    containers = get_containers_for_migration(env)
+    for container in progressbar.progressbar(containers, redirect_stdout=True):
+        # Generate new container key
+        subType = container["aspects"]["subTypes"]["value"]["typeNames"][0]
+        customProperties = container["aspects"]["containerProperties"]["value"][
+            "customProperties"
+        ]
+        if (env is not None and customProperties["instance"] != env) or (
+            platform is not None and customProperties["platform"] != platform
+        ):
+            log.debug(
+                f"{container['urn']} does not match filter criteria, skipping.. {customProperties} {env} {platform}"
+            )
+            continue
+
+        try:
+            newKey: Union[SchemaKey, DatabaseKey, ProjectIdKey, BigQueryDatasetKey]
+            if subType == "Schema":
+                newKey = SchemaKey.parse_obj(customProperties)
+            elif subType == "Database":
+                newKey = DatabaseKey.parse_obj(customProperties)
+            elif subType == "Project":
+                newKey = ProjectIdKey.parse_obj(customProperties)
+            elif subType == "Dataset":
+                newKey = BigQueryDatasetKey.parse_obj(customProperties)
+            else:
+                log.warning(f"Invalid subtype {subType}. Skipping")
+                continue
+        except Exception as e:
+            log.warning(f"Unable to map {customProperties} to key due to exception {e}")
+            continue
+
+        newKey.instance = instance
+
+        log.debug(
+            f"Container key migration: {container['urn']} -> urn:li:container:{newKey.guid()}"
+        )
+
+        src_urn = container["urn"]
+        dst_urn = f"urn:li:container:{newKey.guid()}"
+        container_id_map[src_urn] = dst_urn
+
+        # Clone aspects of container with the new urn
+        for mcp in migration_utils.clone_aspect(
+            src_urn,
+            aspect_names=migration_utils.all_aspects,
+            entity_type="container",
+            dst_urn=dst_urn,
+            dry_run=dry_run,
+            run_id=run_id,
+        ):
+            migration_report.on_entity_create(mcp.entityUrn, mcp.aspectName)  # type: ignore
+            assert mcp.aspect
+            # Update containerProperties to reflect the new key
+            if mcp.aspectName == "containerProperties":
+                assert isinstance(mcp.aspect, ContainerPropertiesClass)
+                containerProperties: ContainerPropertiesClass = mcp.aspect
+                containerProperties.customProperties = newKey.dict(
+                    by_alias=True, exclude_none=True
+                )
+                mcp.aspect = containerProperties
+            elif mcp.aspectName == "containerKey":
+                assert isinstance(mcp.aspect, ContainerKeyClass)
+                containerKey: ContainerKeyClass = mcp.aspect
+                containerKey.guid = newKey.guid()
+                mcp.aspect = containerKey
+            if not dry_run:
+                rest_emitter.emit_mcp(mcp)
+                migration_report.on_entity_affected(mcp.entityUrn, mcp.aspectName)  # type: ignore
+
+        process_container_relationships(
+            container_id_map=container_id_map,
+            dry_run=dry_run,
+            src_urn=src_urn,
+            dst_urn=dst_urn,
+            migration_report=migration_report,
+            rest_emitter=rest_emitter,
+        )
+
+        if not dry_run and not keep:
+            log.info(f"will {'hard' if hard else 'soft'} delete {src_urn}")
+            delete_cli._delete_one_urn(
+                src_urn, soft=not hard, run_id=run_id, entity_type="container"
+            )
+        migration_report.on_entity_migrated(src_urn, "status")  # type: ignore
+
+    print(f"{migration_report}")
+
+
+def get_containers_for_migration(env: str) -> List[Any]:
+    containers_to_migrate = list(cli_utils.get_container_ids_by_filter(env=env))
+    containers = []
+
+    increment = 20
+    for i in range(0, len(containers_to_migrate), increment):
+        for container in cli_utils.batch_get_ids(
+            containers_to_migrate[i : i + increment]
+        ):
+            log.debug(container)
+            containers.append(container)
+
+    return containers
+
+
+def process_container_relationships(
+    container_id_map: Dict[str, str],
+    dry_run: bool,
+    src_urn: str,
+    dst_urn: str,
+    migration_report: MigrationReport,
+    rest_emitter: DatahubRestEmitter,
+) -> None:
+    relationships = migration_utils.get_incoming_relationships(urn=src_urn)
+    for relationship in relationships:
+        log.debug(f"Incoming Relationship: {relationship}")
+        target_urn = relationship["entity"]
+
+        # We should use the new id if we already migrated it
+        if target_urn in container_id_map:
+            target_urn = container_id_map.get(target_urn)
+
+        entity_type = _get_type_from_urn(target_urn)
+        relationshipType = relationship["type"]
+        aspect_name = migration_utils.get_aspect_name_from_relationship(
+            relationshipType, entity_type
+        )
+        aspect_map = cli_utils.get_aspects_for_entity(
+            target_urn, aspects=[aspect_name], typed=True
+        )
+        if aspect_name in aspect_map:
+            aspect = aspect_map[aspect_name]
+            assert isinstance(aspect, DictWrapper)
+            aspect = migration_utils.modify_urn_list_for_aspect(
+                aspect_name, aspect, relationshipType, src_urn, dst_urn
+            )
+            # use mcpw
+            mcp = MetadataChangeProposalWrapper(
+                entityType=entity_type,
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=target_urn,
+                aspectName=aspect_name,
+                aspect=aspect,
+            )
+
+            if not dry_run:
+                rest_emitter.emit_mcp(mcp)
+            migration_report.on_entity_affected(mcp.entityUrn, mcp.aspectName)  # type: ignore
+        else:
+            log.debug(f"Didn't find aspect {aspect_name} for urn {target_urn}")

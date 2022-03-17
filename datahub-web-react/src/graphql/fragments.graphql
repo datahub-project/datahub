@@ -4,6 +4,9 @@ fragment globalTagsFields on GlobalTags {
             urn
             name
             description
+            properties {
+                colorHex
+            }
         }
     }
 }
@@ -36,16 +39,30 @@ fragment ownershipFields on Ownership {
                     lastName
                     fullName
                 }
+                properties {
+                    active
+                    displayName
+                    title
+                    email
+                    firstName
+                    lastName
+                    fullName
+                }
                 editableProperties {
                     displayName
                     title
                     pictureLink
+                    email
                 }
             }
             ... on CorpGroup {
                 urn
                 type
                 name
+                properties {
+                    displayName
+                    email
+                }
                 info {
                     displayName
                     email
@@ -122,6 +139,7 @@ fragment nonRecursiveDatasetFields on Dataset {
     }
     platformNativeType
     properties {
+        name
         description
         customProperties {
             key
@@ -314,6 +332,9 @@ fragment dashboardFields on Dashboard {
     }
     container {
         ...entityContainer
+    }
+    status {
+        removed
     }
 }
 
@@ -529,6 +550,9 @@ fragment nonRecursiveMLModel on MLModel {
     globalTags {
         ...globalTagsFields
     }
+    status {
+        removed
+    }
 }
 
 fragment nonRecursiveMLModelGroupFields on MLModelGroup {
@@ -542,6 +566,9 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
     }
     ownership {
         ...ownershipFields
+    }
+    status {
+        removed
     }
 }
 
