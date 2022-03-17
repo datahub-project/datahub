@@ -338,7 +338,7 @@ def get_urns_by_filter(
         filter_criteria.append(
             {
                 "field": "removed",
-                "value": "true",
+                "value": "",  # accept anything regarding removed property (true, false, non-existent)
                 "condition": "EQUAL",
             }
         )
