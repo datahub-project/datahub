@@ -267,7 +267,7 @@
           {
             "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
               "platform": "urn:li:dataPlatform:glue",
-              "instance": "some_instance_name"
+              "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)"
             }
           }
         ]
@@ -494,7 +494,7 @@
           {
             "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
               "platform": "urn:li:dataPlatform:glue",
-              "instance": "some_instance_name"
+              "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)"
             }
           }
         ]
@@ -693,7 +693,7 @@
           {
             "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
               "platform": "urn:li:dataPlatform:glue",
-              "instance": "some_instance_name"
+              "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)"
             }
           }
         ]

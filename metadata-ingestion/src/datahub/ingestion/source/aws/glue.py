@@ -13,6 +13,8 @@ from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.configuration.source_common import PlatformSourceConfigBase
 from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import (
+    make_data_platform_urn,
+    make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
 )
@@ -794,8 +796,12 @@ class GlueSource(Source):
 
         def get_data_platform_instance() -> DataPlatformInstanceClass:
             return DataPlatformInstanceClass(
-                platform=f"urn:li:dataPlatform:{self.platform}",
-                instance=self.source_config.platform_instance,
+                platform=make_data_platform_urn(self.platform),
+                instance=make_dataplatform_instance_urn(
+                    self.platform, self.source_config.platform_instance
+                )
+                if self.source_config.platform_instance
+                else None,
             )
 
         dataset_snapshot = DatasetSnapshot(
