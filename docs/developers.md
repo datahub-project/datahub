@@ -39,7 +39,7 @@ You're probably using a Java version that's too new for gradle. Run the followin
 ```
 java --version
 ```
-While it may be possible to build and run DataHub using newer versions of Java, we currently only support [Java 1.8](https://www.oracle.com/java/technologies/javase/javase-jdk8-downloads.html) (aka Java 8). Plan for Java 11 migration is being discussed in [this issue](https://github.com/linkedin/datahub/issues/1699).
+While it may be possible to build and run DataHub using newer versions of Java, we currently only support [Java 1.8](https://www.oracle.com/java/technologies/javase/javase-jdk8-downloads.html) (aka Java 8). Plan for Java 11 migration is being discussed in [this issue](https://github.com/datahub-project/datahub/issues/1699).
 
 ### Getting `cannot find symbol` error for `javax.annotation.Generated`
 

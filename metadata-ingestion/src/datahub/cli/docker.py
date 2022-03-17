@@ -294,7 +294,7 @@ def quickstart(
         _print_issue_list_and_exit(
             issues,
             header="Unable to run quickstart - the following issues were detected:",
-            footer="If you think something went wrong, please file an issue at https://github.com/linkedin/datahub/issues\n"
+            footer="If you think something went wrong, please file an issue at https://github.com/datahub-project/datahub/issues\n"
             "or send a message in our Slack https://slack.datahubproject.io/\n"
             f"Be sure to attach the logs from {log_file.name}",
         )
