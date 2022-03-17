@@ -156,11 +156,14 @@ def test_DataHubValidationAction_basic(
         data_context=ge_data_context, server_url=server_url
     )
 
-    assert datahub_action.run(
-        validation_result_suite_identifier=ge_validation_result_suite_id,
-        validation_result_suite=ge_validation_result_suite,
-        data_asset=ge_validator_sqlalchemy,
-    ) == {"datahub_notification_result": "DataHub notification succeeded"}
+    assert (
+        datahub_action.run(
+            validation_result_suite_identifier=ge_validation_result_suite_id,
+            validation_result_suite=ge_validation_result_suite,
+            data_asset=ge_validator_sqlalchemy,
+        )
+        == {"datahub_notification_result": "DataHub notification succeeded"}
+    )
 
     mock_emitter.assert_has_calls(
         [
@@ -259,11 +262,14 @@ def test_DataHubValidationAction_graceful_failure(
         data_context=ge_data_context, server_url=server_url
     )
 
-    assert datahub_action.run(
-        validation_result_suite_identifier=ge_validation_result_suite_id,
-        validation_result_suite=ge_validation_result_suite,
-        data_asset=ge_validator_sqlalchemy,
-    ) == {"datahub_notification_result": "DataHub notification failed"}
+    assert (
+        datahub_action.run(
+            validation_result_suite_identifier=ge_validation_result_suite_id,
+            validation_result_suite=ge_validation_result_suite,
+            data_asset=ge_validator_sqlalchemy,
+        )
+        == {"datahub_notification_result": "DataHub notification failed"}
+    )
 
 
 def test_DataHubValidationAction_not_supported(
@@ -279,8 +285,11 @@ def test_DataHubValidationAction_not_supported(
         data_context=ge_data_context, server_url=server_url
     )
 
-    assert datahub_action.run(
-        validation_result_suite_identifier=ge_validation_result_suite_id,
-        validation_result_suite=ge_validation_result_suite,
-        data_asset=ge_validator_pandas,
-    ) == {"datahub_notification_result": "none required"}
+    assert (
+        datahub_action.run(
+            validation_result_suite_identifier=ge_validation_result_suite_id,
+            validation_result_suite=ge_validation_result_suite,
+            data_asset=ge_validator_pandas,
+        )
+        == {"datahub_notification_result": "none required"}
+    )

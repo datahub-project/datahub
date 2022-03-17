@@ -6,6 +6,7 @@ import logging
 import os
 import re
 import tempfile
+import textwrap
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import (
@@ -22,6 +23,7 @@ from typing import (
 
 import cachetools
 import pydantic
+from google.cloud.bigquery import Client as BigQueryClient
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from more_itertools import partition
 
@@ -167,6 +169,83 @@ OPERATION_STATEMENT_TYPES = {
 }
 
 
+def bigquery_audit_metadata_query_template(
+    dataset: str,
+    use_date_sharded_tables: bool,
+    table_allow_filter: str = None,
+) -> str:
+    """
+    Receives a dataset (with project specified) and returns a query template that is used to query exported
+    v2 AuditLogs containing protoPayloads of type BigQueryAuditMetadata.
+    :param dataset: the dataset to query against in the form of $PROJECT.$DATASET
+    :param use_date_sharded_tables: whether to read from date sharded audit log tables or time partitioned audit log
+           tables
+    :param table_allow_filter: regex used to filter on log events that contain the wanted datasets
+    :return: a query template, when supplied start_time and end_time, can be used to query audit logs from BigQuery
+    """
+    allow_filter = f"""
+      AND EXISTS (SELECT *
+              from UNNEST(JSON_EXTRACT_ARRAY(protopayload_auditlog.metadataJson,
+                                             "$.jobChange.job.jobStats.queryStats.referencedTables")) AS x
+              where REGEXP_CONTAINS(x, r'(projects/.*/datasets/.*/tables/{table_allow_filter if table_allow_filter else ".*"})'))
+    """
+
+    query: str
+    if use_date_sharded_tables:
+        query = (
+            f"""
+        SELECT
+            timestamp,
+            logName,
+            insertId,
+            protopayload_auditlog AS protoPayload,
+            protopayload_auditlog.metadataJson AS metadata
+        FROM
+            `{dataset}.cloudaudit_googleapis_com_data_access_*`
+        """
+            + """
+        WHERE
+            _TABLE_SUFFIX BETWEEN "{start_date}" AND "{end_date}" AND
+        """
+        )
+    else:
+        query = f"""
+        SELECT
+            timestamp,
+            logName,
+            insertId,
+            protopayload_auditlog AS protoPayload,
+            protopayload_auditlog.metadataJson AS metadata
+        FROM
+            `{dataset}.cloudaudit_googleapis_com_data_access`
+        WHERE 1=1
+        """
+    audit_log_filter_timestamps = """AND (timestamp >= "{start_time}"
+        AND timestamp < "{end_time}"
+    );
+    """
+    audit_log_filter_query_complete = f"""
+    AND (
+            (
+                protopayload_auditlog.serviceName="bigquery.googleapis.com"
+                AND JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.jobState") = "DONE"
+                AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobConfig.queryConfig") IS NOT NULL
+                {allow_filter}
+            )
+            OR
+            JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.tableDataRead.reason") = "JOB"
+    )
+    """
+
+    query = (
+        textwrap.dedent(query)
+        + audit_log_filter_query_complete
+        + audit_log_filter_timestamps
+    )
+
+    return textwrap.dedent(query)
+
+
 @dataclass(frozen=True, order=True)
 class BigQueryTableRef:
     project: str
@@ -268,6 +347,17 @@ class ReadEvent:
             return False
 
     @classmethod
+    def can_parse_exported_bigquery_audit_metadata(
+        cls, row: BigQueryAuditMetadata
+    ) -> bool:
+        try:
+            metadata = json.loads(row["metadata"])
+            metadata["tableDataRead"]
+            return True
+        except (KeyError, TypeError):
+            return False
+
+    @classmethod
     def from_entry(cls, entry: AuditLogEntry) -> "ReadEvent":
         user = entry.payload["authenticationInfo"]["principalEmail"]
         resourceName = entry.payload["resourceName"]
@@ -294,6 +384,40 @@ class ReadEvent:
             logger.debug(
                 "jobName from read events is absent when readReason is JOB. "
                 "Auditlog entry - {logEntry}".format(logEntry=entry)
+            )
+        return readEvent
+
+    @classmethod
+    def from_exported_bigquery_audit_metadata(
+        cls, row: BigQueryAuditMetadata
+    ) -> "ReadEvent":
+        payload = row["protoPayload"]
+        user = payload["authenticationInfo"]["principalEmail"]
+        resourceName = payload["resourceName"]
+        metadata = json.loads(row["metadata"])
+        readInfo = metadata["tableDataRead"]
+
+        fields = readInfo.get("fields", [])
+
+        # https://cloud.google.com/bigquery/docs/reference/auditlogs/rest/Shared.Types/BigQueryAuditMetadata.TableDataRead.Reason
+        readReason = readInfo.get("reason")
+        jobName = None
+        if readReason == "JOB":
+            jobName = readInfo.get("jobName")
+
+        readEvent = ReadEvent(
+            actor_email=user,
+            timestamp=row["timestamp"],
+            resource=BigQueryTableRef.from_string_name(resourceName),
+            fieldsRead=fields,
+            readReason=readReason,
+            jobName=jobName,
+            payload=payload if DEBUG_INCLUDE_FULL_PAYLOADS else None,
+        )
+        if readReason == "JOB" and not jobName:
+            logger.debug(
+                "jobName from read events is absent when readReason is JOB. "
+                "Auditlog entry - {logEntry}".format(logEntry=row)
             )
         return readEvent
 
@@ -385,7 +509,8 @@ class QueryEvent:
         try:
             row["timestamp"]
             row["protoPayload"]
-            row["metadata"]
+            metadata = json.loads(row["metadata"])
+            metadata["jobChange"]["job"]
             return True
         except (KeyError, TypeError):
             return False
@@ -418,7 +543,11 @@ class QueryEvent:
             ]
 
         try:
-            statementType = job["jobConfiguration"]["query"]["statementType"]
+            # handle V2 logs - potential for refactor here
+            if "jobConfiguration" in job:
+                statementType = job["jobConfiguration"]["query"]["statementType"]
+            else:
+                statementType = job["jobConfig"]["queryConfig"]["statementType"]
         except KeyError:
             statementType = None
 
@@ -522,6 +651,10 @@ class BigQueryUsageConfig(DatasetSourceConfigBase, BaseUsageConfig):
     extra_client_options: dict = {}
     table_pattern: Optional[AllowDenyPattern] = None
 
+    bigquery_audit_metadata_datasets: Optional[List[str]] = None
+    use_exported_bigquery_audit_metadata: bool = False
+    use_date_sharded_audit_log_tables: bool = False
+
     log_page_size: Optional[pydantic.PositiveInt] = 1000
     query_log_delay: Optional[pydantic.PositiveInt] = None
     max_query_duration: timedelta = timedelta(minutes=15)
@@ -583,11 +716,24 @@ class BigQueryUsageSource(Source):
         return cls(config, ctx)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        clients = self._make_bigquery_clients()
-        bigquery_log_entries = self._get_bigquery_log_entries(clients)
-        parsed_bigquery_log_events = self._parse_bigquery_log_entries(
-            bigquery_log_entries
-        )
+        if self.config.use_exported_bigquery_audit_metadata:
+            clients = self._make_bigquery_clients()
+            bigquery_log_entries = (
+                self._get_bigquery_log_entries_via_exported_bigquery_audit_metadata(
+                    clients
+                )
+            )
+            parsed_bigquery_log_events = self._parse_exported_bigquery_audit_metadata(
+                bigquery_log_entries
+            )
+        else:
+            clients = self._make_bigquery_logging_clients()
+            bigquery_log_entries = self._get_bigquery_log_entries_via_gcp_logging(
+                clients
+            )
+            parsed_bigquery_log_events = self._parse_bigquery_log_entries(
+                bigquery_log_entries
+            )
         parsed_events_uncasted: Iterable[Union[ReadEvent, QueryEvent, MetadataWorkUnit]]
         last_updated_work_units_uncasted: Iterable[
             Union[ReadEvent, QueryEvent, MetadataWorkUnit]
@@ -614,7 +760,16 @@ class BigQueryUsageSource(Source):
                 self.report.report_workunit(wu)
                 yield wu
 
-    def _make_bigquery_clients(self) -> List[GCPLoggingClient]:
+    def _make_bigquery_clients(self) -> List[BigQueryClient]:
+        if self.config.projects is None:
+            return [BigQueryClient()]
+        else:
+            return [
+                BigQueryClient(project=project_id)
+                for project_id in self.config.projects
+            ]
+
+    def _make_bigquery_logging_clients(self) -> List[GCPLoggingClient]:
         # See https://github.com/googleapis/google-cloud-python/issues/2674 for
         # why we disable gRPC here.
         client_options = self.config.extra_client_options.copy()
@@ -629,7 +784,95 @@ class BigQueryUsageSource(Source):
                 for project_id in self.config.projects
             ]
 
-    def _get_bigquery_log_entries(
+    def _get_bigquery_log_entries_via_exported_bigquery_audit_metadata(
+        self, clients: List[BigQueryClient]
+    ) -> Iterable[BigQueryAuditMetadata]:
+        list_entry_generators_across_clients: List[
+            Iterable[BigQueryAuditMetadata]
+        ] = list()
+        for client in clients:
+            try:
+                list_entries: Iterable[
+                    BigQueryAuditMetadata
+                ] = self._get_exported_bigquery_audit_metadata(
+                    client, self.config.get_allow_pattern_string()
+                )
+                list_entry_generators_across_clients.append(list_entries)
+            except Exception as e:
+                logger.warning(
+                    f"Encountered exception retrieving AuditLogEntries for project {client.project}",
+                    e,
+                )
+                self.report.report_failure(
+                    f"{client.project}", f"unable to retrieve log entries {e}"
+                )
+
+        i: int = 0
+        entry: BigQueryAuditMetadata
+        for i, entry in enumerate(
+            heapq.merge(
+                *list_entry_generators_across_clients,
+                key=self._get_entry_timestamp,
+            )
+        ):
+            if i == 0:
+                logger.info("Starting log load from BigQuery")
+            yield entry
+        logger.info(f"Finished loading {i} log entries from BigQuery")
+
+    def _get_exported_bigquery_audit_metadata(
+        self, bigquery_client: BigQueryClient, allow_filter: str
+    ) -> Iterable[BigQueryAuditMetadata]:
+        if self.config.bigquery_audit_metadata_datasets is None:
+            return
+
+        start_time: str = (
+            self.config.start_time - self.config.max_query_duration
+        ).strftime(BQ_DATETIME_FORMAT)
+        end_time: str = (
+            self.config.end_time + self.config.max_query_duration
+        ).strftime(BQ_DATETIME_FORMAT)
+
+        for dataset in self.config.bigquery_audit_metadata_datasets:
+            logger.info(
+                f"Start loading log entries from BigQueryAuditMetadata in {dataset}"
+            )
+
+            query: str
+            if self.config.use_date_sharded_audit_log_tables:
+                start_date: str = (
+                    self.config.start_time - self.config.max_query_duration
+                ).strftime(BQ_DATE_SHARD_FORMAT)
+                end_date: str = (
+                    self.config.end_time + self.config.max_query_duration
+                ).strftime(BQ_DATE_SHARD_FORMAT)
+
+                query = bigquery_audit_metadata_query_template(
+                    dataset, self.config.use_date_sharded_audit_log_tables, allow_filter
+                ).format(
+                    start_time=start_time,
+                    end_time=end_time,
+                    start_date=start_date,
+                    end_date=end_date,
+                )
+            else:
+                query = bigquery_audit_metadata_query_template(
+                    dataset, self.config.use_date_sharded_audit_log_tables, allow_filter
+                ).format(start_time=start_time, end_time=end_time)
+            query_job = bigquery_client.query(query)
+
+            logger.info(
+                f"Finished loading log entries from BigQueryAuditMetadata in {dataset}"
+            )
+
+            yield from query_job
+
+    def _get_entry_timestamp(
+        self, entry: Union[AuditLogEntry, BigQueryAuditMetadata]
+    ) -> datetime:
+        return entry.timestamp
+
+    def _get_bigquery_log_entries_via_gcp_logging(
         self, clients: List[GCPLoggingClient]
     ) -> Iterable[Union[AuditLogEntry, BigQueryAuditMetadata]]:
         audit_templates: Dict[str, str] = BQ_AUDIT_V1
@@ -679,11 +922,6 @@ class BigQueryUsageSource(Source):
         )
         logger.debug(filter)
 
-        def get_entry_timestamp(
-            entry: Union[AuditLogEntry, BigQueryAuditMetadata]
-        ) -> datetime:
-            return entry.timestamp
-
         list_entry_generators_across_clients: List[
             Iterable[Union[AuditLogEntry, BigQueryAuditMetadata]]
         ] = list()
@@ -709,13 +947,13 @@ class BigQueryUsageSource(Source):
         for i, entry in enumerate(
             heapq.merge(
                 *list_entry_generators_across_clients,
-                key=get_entry_timestamp,
+                key=self._get_entry_timestamp,
             )
         ):
             if i == 0:
-                logger.info("Starting log load from BigQuery")
+                logger.info("Starting log load from GCP Logging")
             yield entry
-        logger.info(f"Finished loading {i} log entries from BigQuery")
+        logger.info(f"Finished loading {i} log entries from GCP Logging")
 
     def _create_operation_aspect_work_unit(
         self, event: QueryEvent
@@ -814,6 +1052,40 @@ class BigQueryUsageSource(Source):
             f"Parsed {num_read_events} ReadEvents and {num_query_events} QueryEvents"
         )
 
+    def _parse_exported_bigquery_audit_metadata(
+        self, audit_metadata_rows: Iterable[BigQueryAuditMetadata]
+    ) -> Iterable[Union[ReadEvent, QueryEvent, MetadataWorkUnit]]:
+        for audit_metadata in audit_metadata_rows:
+            event: Optional[Union[QueryEvent, ReadEvent]] = None
+            try:
+                if QueryEvent.can_parse_exported_bigquery_audit_metadata(
+                    audit_metadata
+                ):
+                    event = QueryEvent.from_exported_bigquery_audit_metadata(
+                        audit_metadata
+                    )
+                    wu = self._create_operation_aspect_work_unit(event)
+                    if wu:
+                        yield wu
+                elif ReadEvent.can_parse_exported_bigquery_audit_metadata(
+                    audit_metadata
+                ):
+                    event = ReadEvent.from_exported_bigquery_audit_metadata(
+                        audit_metadata
+                    )
+                else:
+                    raise RuntimeError(
+                        "Unable to parse log entry as QueryEvent or ReadEvent."
+                    )
+            except Exception:
+                self.report.report_failure(
+                    f"""{audit_metadata["logName"]}-{audit_metadata["insertId"]}""",
+                    f"unable to parse log entry: {audit_metadata!r}",
+                )
+                logger.error("Unable to parse GCP log entry.", audit_metadata)
+            if event is not None:
+                yield event
+
     def _join_events_by_job_id(
         self, events: Iterable[Union[ReadEvent, QueryEvent]]
     ) -> Iterable[ReadEvent]:
@@ -863,7 +1135,7 @@ class BigQueryUsageSource(Source):
                 else:
                     self.report.report_warning(
                         str(event.resource),
-                        "failed to match table read event with job; try increasing `query_log_delay` or `max_query_duration`",
+                        f"failed to match table read event {event.jobName} with job; try increasing `query_log_delay` or `max_query_duration`",
                     )
             yield event
 
