@@ -64,6 +64,7 @@ entities:
       - institutionalMemory
       - domains
       - subTypes
+      - dataPlatformInstance
   - name: corpuser
     doc: CorpUser represents an identity of a person (or an account) in the enterprise.
     keyAspect: corpUserKey

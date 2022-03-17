@@ -10,11 +10,6 @@ record NotebookKey {
   /**
   * The name of the Notebook tool such as QueryBook, etc.
   */
-  @Searchable = {
-    "fieldName": "tool",
-    "fieldType": "TEXT_PARTIAL",
-    "boostScore": 4.0
-  }
   notebookTool: string
 
   /**
