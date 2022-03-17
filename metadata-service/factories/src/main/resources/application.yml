@@ -58,6 +58,7 @@ graphService:
 
 searchService:
   resultBatchSize: ${SEARCH_SERVICE_BATCH_SIZE:100}
+  enableCache: ${SEARCH_SERVICE_ENABLE_CACHE:false}
 
 configEntityRegistry:
   # TODO: Change to read from resources on classpath.
