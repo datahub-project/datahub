@@ -35,6 +35,9 @@ fragment dataFlowFields on DataFlow {
     domain {
         ...entityDomain
     }
+    status {
+        removed
+    }
 }
 
 query getDataFlow($urn: String!) {
