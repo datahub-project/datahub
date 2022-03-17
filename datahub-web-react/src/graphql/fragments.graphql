@@ -333,6 +333,9 @@ fragment dashboardFields on Dashboard {
     container {
         ...entityContainer
     }
+    status {
+        removed
+    }
 }
 
 fragment nonRecursiveMLFeature on MLFeature {
@@ -547,6 +550,9 @@ fragment nonRecursiveMLModel on MLModel {
     globalTags {
         ...globalTagsFields
     }
+    status {
+        removed
+    }
 }
 
 fragment nonRecursiveMLModelGroupFields on MLModelGroup {
@@ -560,6 +566,9 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
     }
     ownership {
         ...ownershipFields
+    }
+    status {
+        removed
     }
 }
 

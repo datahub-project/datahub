@@ -8,6 +8,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.BrowsePaths;
+import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.TyperefDataSchema;
@@ -106,6 +107,7 @@ public abstract class EntityService {
   public static final String BROWSE_PATHS = "browsePaths";
   public static final String DATA_PLATFORM_INSTANCE = "dataPlatformInstance";
   protected static final int MAX_KEYS_PER_QUERY = 500;
+  public static final String STATUS = "status";
 
   protected EntityService(@Nonnull final EntityEventProducer producer, @Nonnull final EntityRegistry entityRegistry) {
     _producer = producer;
@@ -367,7 +369,7 @@ public abstract class EntityService {
           result.getNewSystemMetadata(), MetadataAuditOperation.UPDATE);
       produceMAETimer.stop();
     } else {
-      log.debug("Skipped producing MetadataAuditEvent for ingested aspect {}, urn {}. Aspect has not changed.", 
+      log.debug("Skipped producing MetadataAuditEvent for ingested aspect {}, urn {}. Aspect has not changed.",
         aspectName, urn);
     }
     return updatedValue;
@@ -667,6 +669,11 @@ public abstract class EntityService {
       aspectsToGet.add(DATA_PLATFORM_INSTANCE);
     }
 
+    boolean shouldHaveStatusSet = isAspectProvided(entityType, STATUS, includedAspects);
+    if (shouldHaveStatusSet) {
+      aspectsToGet.add(STATUS);
+    }
+
     List<Pair<String, RecordTemplate>> aspects = new ArrayList<>();
     final String keyAspectName = getKeyAspectName(urn);
     aspectsToGet.add(keyAspectName);
@@ -693,6 +700,12 @@ public abstract class EntityService {
     if (shouldCheckDataPlatform && latestAspects.get(DATA_PLATFORM_INSTANCE) == null) {
       DataPlatformInstanceUtils.buildDataPlatformInstance(entityType, keyAspect)
           .ifPresent(aspect -> aspects.add(Pair.of(DATA_PLATFORM_INSTANCE, aspect)));
+    }
+
+    if (shouldHaveStatusSet && latestAspects.get(STATUS) != null) {
+      Status status = new Status();
+      status.setRemoved(false);
+      aspects.add(Pair.of(STATUS, status));
     }
 
     return aspects;
@@ -830,12 +843,12 @@ public abstract class EntityService {
 
   public abstract void setWritable(boolean canWrite);
 
-  public RollbackRunResult rollbackRun(List<AspectRowSummary> aspectRows, String runId) {
-    return rollbackWithConditions(aspectRows, Collections.singletonMap("runId", runId));
+  public RollbackRunResult rollbackRun(List<AspectRowSummary> aspectRows, String runId, boolean hardDelete) {
+    return rollbackWithConditions(aspectRows, Collections.singletonMap("runId", runId), hardDelete);
   }
 
   public abstract RollbackRunResult rollbackWithConditions(List<AspectRowSummary> aspectRows,
-      Map<String, String> conditions);
+                                                           Map<String, String> conditions, boolean hardDelete);
 
   public abstract RollbackRunResult deleteUrn(Urn urn);
 

@@ -1,4 +1,3 @@
-import dataclasses
 import json
 import logging
 from datetime import datetime
@@ -102,7 +101,6 @@ class TableauConfig(ConfigModel):
         return config_clean.remove_trailing_slashes(v)
 
 
-@dataclasses.dataclass
 class WorkbookKey(PlatformKey):
     workbook_id: str
 

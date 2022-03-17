@@ -96,6 +96,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `view_browse_pattern` |   | `/{env}/{platform}/{project}/views/{name}` | Pattern for providing browse paths to views. Allowed variables are `{project}`, `{model}`, `{name}`, `{platform}` and `{env}` | 
 | `explore_naming_pattern` |   | `{model}.explore.{name}` | Pattern for providing dataset names to explores. Allowed variables are `{project}`, `{model}`, `{name}` | 
 | `explore_browse_pattern` |   | `/{env}/{platform}/{project}/explores/{model}.{name}` | Pattern for providing browse paths to explores. Allowed variables are `{project}`, `{model}`, `{name}`, `{platform}` and `{env}` | 
+| `transport_options`                                |          |        |  Populates the [TransportOptions](https://github.com/looker-open-source/sdk-codegen/blob/94d6047a0d52912ac082eb91616c1e7c379ab262/python/looker_sdk/rtl/transport.py#L70) struct for looker client |
 | `max_threads`                                |          | `os.cpuCount or 40` |  Max parallelism for Looker API calls                   |
 
 

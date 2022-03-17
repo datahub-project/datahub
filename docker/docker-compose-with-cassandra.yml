@@ -59,12 +59,15 @@ services:
     hostname: elasticsearch
     ports:
       - "9200:9200"
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
     volumes:
       - esdata:/usr/share/elasticsearch/data
     healthcheck:
-        test: ["CMD-SHELL", "curl -sS --fail 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=0s' || exit 1"]
-        start_period: 2m
-        retries: 4
+      test: ["CMD-SHELL", "curl -sS --fail 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=0s' || exit 1"]
+      start_period: 2m
+      retries: 4
 
   neo4j:
     image: neo4j:4.0.6
