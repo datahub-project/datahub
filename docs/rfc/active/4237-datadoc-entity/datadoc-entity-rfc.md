@@ -46,6 +46,8 @@ This section talks about the mininum data model of Notebook which could meet our
 - browsePaths
 - domains 
 - subTypes
+- dataPlatformInstance
+- glossaryTerms
 
 ### Notebook Cells
 Notebook cell is the unit that compose a Notebook. There are three types of cells: Text Cell, Query Cell, Chart Cell. Each 
@@ -55,12 +57,12 @@ rather than another entity. Here are the metadata of each type of cell:
     - cellTitle: Title of the cell
     - cellId: Unique id for the cell.
     - lastModified: Captures information about who created/last modified/deleted this Notebook cell and when
-    - text(searchable): The actual text in a TextCell in a Notebook
+    - text: The actual text in a TextCell in a Notebook
 - QueryCell
     - cellTitle: Title of the cell
     - cellId: Unique id for the cell.
     - lastModified: Captures information about who created/last modified/deleted this Notebook cell and when
-    - rawQuery(Searchable): Raw query to explain some specific logic in a Notebook
+    - rawQuery: Raw query to explain some specific logic in a Notebook
     - lastExecuted: Captures information about who last executed this query cell and when
 - ChartCell
     - cellTitle: Title of the cell
