@@ -172,11 +172,9 @@
                 "numrows": "1",
                 "rawdatasize": "32",
                 "totalsize": "33",
-                "transient_lastddltime": "1647532365"
+                "transient_lastddltime": "1643991015"
               },
               "externalUrl": null,
-              "name": null,
-              "qualifiedName": null,
               "description": "This table has array of structs",
               "uri": null,
               "tags": []
@@ -335,11 +333,9 @@
                 "numrows": "0",
                 "rawdatasize": "0",
                 "totalsize": "0",
-                "transient_lastddltime": "1647532369"
+                "transient_lastddltime": "1643991018"
               },
               "externalUrl": null,
-              "name": null,
-              "qualifiedName": null,
               "description": null,
               "uri": null,
               "tags": []
@@ -463,11 +459,9 @@
                 "numrows": "0",
                 "rawdatasize": "0",
                 "totalsize": "0",
-                "transient_lastddltime": "1647532369"
+                "transient_lastddltime": "1643991017"
               },
               "externalUrl": null,
-              "name": null,
-              "qualifiedName": null,
               "description": null,
               "uri": null,
               "tags": []
@@ -651,11 +645,9 @@
           {
             "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
               "customProperties": {
-                "transient_lastddltime": "1647532356"
+                "transient_lastddltime": "1643991008"
               },
               "externalUrl": null,
-              "name": null,
-              "qualifiedName": null,
               "description": null,
               "uri": null,
               "tags": []
@@ -793,11 +785,9 @@
                 "numrows": "0",
                 "rawdatasize": "0",
                 "totalsize": "0",
-                "transient_lastddltime": "1647532360"
+                "transient_lastddltime": "1643991011"
               },
               "externalUrl": null,
-              "name": null,
-              "qualifiedName": null,
               "description": null,
               "uri": null,
               "tags": []
@@ -951,11 +941,9 @@
               "customProperties": {
                 "numfiles": "0",
                 "totalsize": "0",
-                "transient_lastddltime": "1647532368"
+                "transient_lastddltime": "1643991017"
               },
               "externalUrl": null,
-              "name": null,
-              "qualifiedName": null,
               "description": null,
               "uri": null,
               "tags": []
@@ -1112,11 +1100,9 @@
                 "numrows": "0",
                 "rawdatasize": "0",
                 "totalsize": "0",
-                "transient_lastddltime": "1647532359"
+                "transient_lastddltime": "1643991011"
               },
               "externalUrl": null,
-              "name": null,
-              "qualifiedName": null,
               "description": null,
               "uri": null,
               "tags": []
@@ -1237,11 +1223,9 @@
                 "numrows": "0",
                 "rawdatasize": "0",
                 "totalsize": "0",
-                "transient_lastddltime": "1647532369"
+                "transient_lastddltime": "1643991018"
               },
               "externalUrl": null,
-              "name": null,
-              "qualifiedName": null,
               "description": null,
               "uri": null,
               "tags": []
@@ -1461,13 +1445,11 @@
           {
             "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
               "customProperties": {
-                "transient_lastddltime": "1647532368",
+                "transient_lastddltime": "1643991017",
                 "view_definition": "SELECT \"property_id\", \"service\"\nFROM \"db1\".\"array_struct_test\"",
                 "is_view": "True"
               },
               "externalUrl": null,
-              "name": null,
-              "qualifiedName": null,
               "description": null,
               "uri": null,
               "tags": []

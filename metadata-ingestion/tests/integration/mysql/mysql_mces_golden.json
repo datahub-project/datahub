@@ -788,8 +788,6 @@
             "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
               "customProperties": {},
               "externalUrl": null,
-              "name": null,
-              "qualifiedName": null,
               "description": "This is a table comment",
               "uri": null,
               "tags": []
@@ -1013,8 +1011,6 @@
                 "is_view": "True"
               },
               "externalUrl": null,
-              "name": null,
-              "qualifiedName": null,
               "description": null,
               "uri": null,
               "tags": []
