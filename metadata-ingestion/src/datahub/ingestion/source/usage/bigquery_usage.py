@@ -29,7 +29,10 @@ from datahub.metadata.schema_classes import (
     OperationTypeClass,
 )
 from datahub.utilities.delayed_iter import delayed_iter
-from datahub.utilities.parsing_util import get_missing_key, get_missing_key_any
+from datahub.utilities.parsing_util import (
+    get_first_missing_key,
+    get_first_missing_key_any,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -248,11 +251,13 @@ class ReadEvent:
     @classmethod
     def get_missing_key_entry(cls, entry: AuditLogEntry) -> Optional[str]:
         return (
-            get_missing_key(inp_dict=entry.payload, keys=["metadata", "tableDataRead"])
-            or get_missing_key(
+            get_first_missing_key(
+                inp_dict=entry.payload, keys=["metadata", "tableDataRead"]
+            )
+            or get_first_missing_key(
                 inp_dict=entry.payload, keys=["authenticationInfo", "principalEmail"]
             )
-            or get_missing_key(inp_dict=entry.payload, keys=["resourceName"])
+            or get_first_missing_key(inp_dict=entry.payload, keys=["resourceName"])
         )
 
     @classmethod
@@ -306,13 +311,13 @@ class QueryEvent:
 
     @staticmethod
     def get_missing_key_entry(entry: AuditLogEntry) -> Optional[str]:
-        return get_missing_key(
+        return get_first_missing_key(
             inp_dict=entry.payload, keys=["serviceData", "jobCompletedEvent", "job"]
         )
 
     @staticmethod
     def get_missing_key_entry_v2(entry: AuditLogEntry) -> Optional[str]:
-        return get_missing_key(
+        return get_first_missing_key(
             inp_dict=entry.payload, keys=["metadata", "jobChange", "job"]
         )
 
@@ -365,7 +370,7 @@ class QueryEvent:
     def get_missing_key_exported_bigquery_audit_metadata(
         row: BigQueryAuditMetadata,
     ) -> Optional[str]:
-        return get_missing_key_any(row, ["timestamp", "protoPayload", "metadata"])
+        return get_first_missing_key_any(row, ["timestamp", "protoPayload", "metadata"])
 
     @classmethod
     def from_exported_bigquery_audit_metadata(
