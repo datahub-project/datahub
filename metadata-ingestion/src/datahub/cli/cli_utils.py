@@ -315,6 +315,7 @@ def get_urns_by_filter(
         and entity_type == "dataset"
         or entity_type == "dataflow"
         or entity_type == "datajob"
+        or entity_type == "container"
     ):
         filter_criteria.append(
             {
