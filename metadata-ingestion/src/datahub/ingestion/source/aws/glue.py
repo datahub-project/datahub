@@ -573,7 +573,10 @@ class GlueSource(Source):
         return DatabaseKey(
             database=database,
             platform=self.platform,
-            instance=self.source_config.platform_instance,
+            instance=self.source_config.platform_instance
+            # keeps backward compatibility when platform instance is missed
+            if self.source_config.platform_instance is not None
+            else self.source_config.env,
         )
 
     def gen_database_containers(self, database: str) -> Iterable[MetadataWorkUnit]:
