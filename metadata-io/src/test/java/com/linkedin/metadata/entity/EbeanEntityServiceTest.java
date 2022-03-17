@@ -20,6 +20,9 @@ import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import io.ebean.EbeanServer;
 import io.ebean.EbeanServerFactory;
+import io.ebean.Transaction;
+import io.ebean.TxScope;
+import io.ebean.annotation.TxIsolation;
 import io.ebean.config.ServerConfig;
 import io.ebean.datasource.DataSourceConfig;
 import org.mockito.ArgumentCaptor;
@@ -327,5 +330,28 @@ public class EbeanEntityServiceTest extends EntityServiceTestBase<EbeanAspectDao
     assertEquals(3, (int) batch2.getTotal());
     assertEquals(1, batch2.getEntities().size());
     assertEquals(entityUrn3.toString(), batch2.getEntities().get(0).toString());
+  }
+
+  @Test
+  public void testNestedTransactions() throws Exception {
+    EbeanServer server = _aspectDao.getServer();
+
+    try (Transaction transaction = server.beginTransaction(TxScope.requiresNew()
+            .setIsolation(TxIsolation.REPEATABLE_READ))) {
+      transaction.setBatchMode(true);
+      // Work 1
+      try (Transaction transaction2 = server.beginTransaction(TxScope.requiresNew()
+              .setIsolation(TxIsolation.REPEATABLE_READ))) {
+        transaction2.setBatchMode(true);
+        // Work 2
+        transaction2.commit();
+      }
+      transaction.commit();
+      } catch (Exception e) {
+      System.out.printf("Top level catch %s%n", e);
+      e.printStackTrace();
+      throw e;
+    }
+    System.out.println("done");
   }
 }
