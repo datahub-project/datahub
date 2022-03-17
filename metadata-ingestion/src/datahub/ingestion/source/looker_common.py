@@ -5,6 +5,7 @@ from enum import Enum
 from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 from looker_sdk.error import SDKError
+from looker_sdk.rtl.transport import TransportOptions
 from looker_sdk.sdk.api31.methods import Looker31SDK
 from pydantic.class_validators import validator
 
@@ -309,10 +310,9 @@ class LookerUtil:
             # attempt Postgres modified type
             type_class = resolve_postgres_modified_type(native_type)
 
-        # if still not found, report a warning
+        # if still not found, log and continue
         if type_class is None:
-            reporter.report_warning(
-                native_type,
+            logger.info(
                 f"The type '{native_type}' is not recognized for field type, setting as NullTypeClass.",
             )
             type_class = NullTypeClass
@@ -500,9 +500,12 @@ class LookerExplore:
         explore_name: str,
         client: Looker31SDK,
         reporter: SourceReport,
+        transport_options: Optional[TransportOptions],
     ) -> Optional["LookerExplore"]:  # noqa: C901
         try:
-            explore = client.lookml_model_explore(model, explore_name)
+            explore = client.lookml_model_explore(
+                model, explore_name, transport_options=transport_options
+            )
             views = set()
             if explore.joins is not None and explore.joins != []:
                 if explore.view_name is not None and explore.view_name != explore.name:
