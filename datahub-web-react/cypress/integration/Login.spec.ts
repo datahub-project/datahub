@@ -19,7 +19,7 @@ describe('Login', () => {
             it('then the login should fail and the toast notification should be briefly displayed', () => {
                 login('kafkaa');
 
-                cy.contains('Failed to log in!').should('be.visible');
+                cy.contains('Failed to login').should('be.visible');
             });
         });
 

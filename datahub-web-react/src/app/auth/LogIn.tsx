@@ -48,7 +48,8 @@ export const LogIn: React.VFC<LogInProps> = () => {
                     return Promise.resolve();
                 })
                 .catch((error) => {
-                    message.error(`Failed to log in! ${error}`);
+                    console.log(`Error ${error}`)
+                    message.error(`Failed to login with Server error. Is GMS up?`);
                 })
                 .finally(() => setLoading(false));
         },
