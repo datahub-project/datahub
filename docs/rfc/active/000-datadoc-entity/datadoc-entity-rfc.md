@@ -20,7 +20,7 @@ decides to adopt this new entity, further effort is needed.
 ## Detailed design
 
 ### DataDoc Model
-![DataDoc High Level Model](datadoc-high-level-model.png) 
+![DataDoc High Level Model](DataDoc-high-level-model.png) 
 
 As shown in the above diagram, DataDoc is a document which contains a list of DataDoc cells. It organizes rich text,
 queries, and charts into a notebook to easily document analyses. We could see that the DataDoc model is very similar as 
