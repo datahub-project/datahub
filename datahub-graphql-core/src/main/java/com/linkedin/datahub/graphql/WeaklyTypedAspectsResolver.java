@@ -69,9 +69,7 @@ public class WeaklyTypedAspectsResolver implements DataFetcher<CompletableFuture
                         return;
                     }
 
-                    DataMap aspectPayload = resolvedAspect.getDataMap(resolvedAspect.keySet().iterator().next());
-
-                    result.setPayload(CODEC.mapToString(aspectPayload));
+                    result.setPayload(CODEC.mapToString(resolvedAspect));
                     result.setAspectName(aspectSpec.getName());
 
                     DataMap renderSpec = aspectSpec.getRenderSpec();
