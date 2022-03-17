@@ -246,10 +246,6 @@ class ReadEvent:
     query: Optional[str] = None  # populated via join
 
     @classmethod
-    def can_parse_entry(cls, entry: AuditLogEntry) -> bool:
-        return ReadEvent.get_missing_key_entry(entry) is None
-
-    @classmethod
     def get_missing_key_entry(cls, entry: AuditLogEntry) -> Optional[str]:
         result = get_missing_key(
             inp_dict=entry.payload, keys=["metadata", "tableDataRead"]
@@ -312,18 +308,10 @@ class QueryEvent:
     payload: Any
 
     @classmethod
-    def can_parse_entry(cls, entry: AuditLogEntry) -> bool:
-        return QueryEvent.get_missing_key_entry(entry) is None
-
-    @classmethod
     def get_missing_key_entry(cls, entry: AuditLogEntry) -> Optional[str]:
         return get_missing_key(
             inp_dict=entry.payload, keys=["serviceData", "jobCompletedEvent", "job"]
         )
-
-    @classmethod
-    def can_parse_entry_v2(cls, entry: BigQueryAuditMetadata) -> bool:
-        return QueryEvent.get_missing_key_entry_v2(entry) is None
 
     @classmethod
     def get_missing_key_entry_v2(cls, entry: AuditLogEntry) -> Optional[str]:

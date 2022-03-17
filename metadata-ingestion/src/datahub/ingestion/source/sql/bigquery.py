@@ -258,7 +258,7 @@ class BigQuerySource(SQLAlchemySource):
             self._compute_bigquery_lineage_via_gcp_logging(lineage_client_project_id)
 
         if self.lineage_metadata is None:
-            return
+            self.lineage_metadata = {}
 
         self.report.lineage_metadata_entries = len(self.lineage_metadata)
         logger.info(
@@ -341,6 +341,7 @@ class BigQuerySource(SQLAlchemySource):
         clients: List[GCPLoggingClient],
         template: str,
     ) -> Union[Iterable[AuditLogEntry], Iterable[BigQueryAuditMetadata]]:
+        self.report.num_total_log_entries = 0
         # Add a buffer to start and end time to account for delays in logging events.
         start_time = (self.config.start_time - self.config.max_query_duration).strftime(
             BQ_DATETIME_FORMAT
@@ -366,16 +367,13 @@ class BigQuerySource(SQLAlchemySource):
             entries = client.list_entries(
                 filter_=filter, page_size=self.config.log_page_size
             )
-            item = 0
             for entry in entries:
-                item = item + 1
-
-                if item % self.config.log_page_size == 0:
-                    logger.info(f"Read {item} entry from log entries")
+                self.report.num_total_log_entries += 1
                 yield entry
 
-        self.report.num_total_log_entries += item
-        logger.info(f"Finished loading {item} log entries from BigQuery")
+        logger.info(
+            f"Finished loading {self.report.num_total_log_entries} log entries from BigQuery so far"
+        )
 
     def _get_exported_bigquery_audit_metadata(
         self, bigquery_client: BigQueryClient
@@ -433,10 +431,8 @@ class BigQuerySource(SQLAlchemySource):
         self,
         entries: Union[Iterable[AuditLogEntry], Iterable[BigQueryAuditMetadata]],
     ) -> Iterable[QueryEvent]:
-        num_total_log_entries: int = 0
-        num_parsed_log_entires: int = 0
+        self.report.num_parsed_log_entires = 0
         for entry in entries:
-            num_total_log_entries += 1
             event: Optional[QueryEvent] = None
 
             missing_entry = QueryEvent.get_missing_key_entry(entry=entry)
@@ -454,19 +450,19 @@ class BigQuerySource(SQLAlchemySource):
                     f"Unable to parse log missing {missing_entry}, missing v2 {missing_entry_v2} for {entry}",
                 )
             else:
-                num_parsed_log_entires += 1
+                self.report.num_parsed_log_entires += 1
                 yield event
 
-            self.report.num_parsed_log_entires = num_parsed_log_entires
-
         logger.info(
-            f"Parsing BigQuery log entries: Number of log entries scanned={num_total_log_entries}, "
-            f"number of log entries successfully parsed={num_parsed_log_entires}"
+            "Parsing BigQuery log entries: "
+            f"number of log entries successfully parsed={self.report.num_parsed_log_entires}"
         )
 
     def _parse_exported_bigquery_audit_metadata(
         self, audit_metadata_rows: Iterable[BigQueryAuditMetadata]
     ) -> Iterable[QueryEvent]:
+        self.report.num_total_audit_entries = 0
+        self.report.num_parsed_audit_entires = 0
         for audit_metadata in audit_metadata_rows:
             self.report.num_total_audit_entries += 1
             event: Optional[QueryEvent] = None
