@@ -642,10 +642,7 @@ WHERE
         self.report.use_exported_bigquery_audit_metadata = (
             self.config.use_exported_bigquery_audit_metadata
         )
-        if self.config.use_v2_audit_metadata:
-            self.report.use_v2_audit_metadata = True
-        else:
-            self.report.use_v2_audit_metadata = False
+        self.report.use_v2_audit_metadata = self.config.use_v2_audit_metadata
 
     # Overriding the get_workunits method to first compute the workunits using the base SQLAlchemySource
     # and then computing lineage information only for those datasets that were ingested. This helps us to

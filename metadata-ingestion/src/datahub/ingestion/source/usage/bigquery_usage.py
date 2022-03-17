@@ -247,16 +247,13 @@ class ReadEvent:
 
     @classmethod
     def get_missing_key_entry(cls, entry: AuditLogEntry) -> Optional[str]:
-        result = get_missing_key(
-            inp_dict=entry.payload, keys=["metadata", "tableDataRead"]
-        )
-        if result is None:
-            result = get_missing_key(
+        return (
+            get_missing_key(inp_dict=entry.payload, keys=["metadata", "tableDataRead"])
+            or get_missing_key(
                 inp_dict=entry.payload, keys=["authenticationInfo", "principalEmail"]
             )
-        if result is None:
-            result = get_missing_key(inp_dict=entry.payload, keys=["resourceName"])
-        return result
+            or get_missing_key(inp_dict=entry.payload, keys=["resourceName"])
+        )
 
     @classmethod
     def from_entry(cls, entry: AuditLogEntry) -> "ReadEvent":
