@@ -50,10 +50,6 @@ workbook_graphql_query = """
           name
           path
         }
-        upstreamDatasources {
-          id
-          name
-        }
         datasourceFields {
           __typename
           id
@@ -124,6 +120,10 @@ workbook_graphql_query = """
         extractLastRefreshTime
         extractLastIncrementalUpdateTime
         extractLastUpdateTime
+        downstreamSheets {
+          name
+          id
+        }
         upstreamDatabases {
           id
           name
@@ -176,12 +176,17 @@ workbook_graphql_query = """
             dataType
           }
         }
-        upstreamDatasources {
-          name
-        }
         workbook {
           name
           projectName
+        }
+      }
+      upstreamDatasources {
+        name
+        id
+        downstreamSheets {
+          name
+          id
         }
       }
     }
@@ -241,21 +246,23 @@ published_datasource_graphql_query = """
     extractLastRefreshTime
     extractLastIncrementalUpdateTime
     extractLastUpdateTime
-    downstreamSheets {
-        name
-        id
-        workbook {
-            name
-            projectName
-            }
-        }
+    upstreamDatabases {
+      id
+      name
+      connectionType
+      isEmbedded
+    }
     upstreamTables {
+      id
+      name
+      schema
+      fullName
+      connectionType
+      description
+      columns {
         name
-        schema
-        fullName
-        connectionType
-        description
-        contact {name}
+        remoteType
+      }
     }
     fields {
         __typename
@@ -291,7 +298,6 @@ published_datasource_graphql_query = """
             dataType
             }
     }
-    upstreamDatasources {name}
     owner {username}
     description
     uri
