@@ -462,7 +462,7 @@ abstract public class EntityServiceTestBase<T_AD extends AspectDao, T_ES extends
         rollbackOverwrittenAspect.setAspectName(aspectName);
         rollbackOverwrittenAspect.setUrn(entityUrn1.toString());
 
-        _entityService.rollbackRun(ImmutableList.of(rollbackOverwrittenAspect), "run-123");
+        _entityService.rollbackRun(ImmutableList.of(rollbackOverwrittenAspect), "run-123", true);
 
         // assert nothing was deleted
         RecordTemplate readAspectOriginal = _entityService.getAspect(entityUrn1, aspectName, 1);
@@ -477,7 +477,7 @@ abstract public class EntityServiceTestBase<T_AD extends AspectDao, T_ES extends
         rollbackRecentAspect.setAspectName(aspectName);
         rollbackRecentAspect.setUrn(entityUrn1.toString());
 
-        _entityService.rollbackRun(ImmutableList.of(rollbackOverwrittenAspect), "run-456");
+        _entityService.rollbackRun(ImmutableList.of(rollbackOverwrittenAspect), "run-456", true);
 
         // assert the new most recent aspect is the original one
         RecordTemplate readNewRecentAspect = _entityService.getAspect(entityUrn1, aspectName, 0);
@@ -516,7 +516,7 @@ abstract public class EntityServiceTestBase<T_AD extends AspectDao, T_ES extends
         rollbackKeyWithWrongRunId.setAspectName("corpUserKey");
         rollbackKeyWithWrongRunId.setUrn(entityUrn1.toString());
 
-        _entityService.rollbackRun(ImmutableList.of(rollbackKeyWithWrongRunId), "run-456");
+        _entityService.rollbackRun(ImmutableList.of(rollbackKeyWithWrongRunId), "run-456", true);
 
         // assert nothing was deleted
         RecordTemplate readAspectOriginal = _entityService.getAspect(entityUrn1, aspectName, 1);
@@ -531,7 +531,7 @@ abstract public class EntityServiceTestBase<T_AD extends AspectDao, T_ES extends
         rollbackKeyWithCorrectRunId.setAspectName("corpUserKey");
         rollbackKeyWithCorrectRunId.setUrn(entityUrn1.toString());
 
-        _entityService.rollbackRun(ImmutableList.of(rollbackKeyWithCorrectRunId), "run-123");
+        _entityService.rollbackRun(ImmutableList.of(rollbackKeyWithCorrectRunId), "run-123", true);
 
         // assert the new most recent aspect is null
         RecordTemplate readNewRecentAspect = _entityService.getAspect(entityUrn1, aspectName, 0);

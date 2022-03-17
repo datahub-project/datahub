@@ -57,7 +57,6 @@ import java.util.stream.Collectors;
 
 import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
 import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
-import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 
 
 /**
@@ -561,11 +560,6 @@ public class EbeanEntityService extends EntityService {
     }, DEFAULT_MAX_TRANSACTION_RETRY);
 
     return result;
-  }
-
-  @Override
-  public RollbackRunResult rollbackRun(List<AspectRowSummary> aspectRows, String runId, boolean hardDelete) {
-    return rollbackWithConditions(aspectRows, Collections.singletonMap("runId", runId), hardDelete);
   }
 
   @Override
