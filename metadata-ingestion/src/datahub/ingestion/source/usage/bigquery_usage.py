@@ -362,12 +362,6 @@ class QueryEvent:
         return queryEvent
 
     @classmethod
-    def can_parse_exported_bigquery_audit_metadata(
-        cls, row: BigQueryAuditMetadata
-    ) -> bool:
-        return QueryEvent.get_missing_key_exported_bigquery_audit_metadata(row) is None
-
-    @classmethod
     def get_missing_key_exported_bigquery_audit_metadata(
         cls, row: BigQueryAuditMetadata
     ) -> Optional[str]:
