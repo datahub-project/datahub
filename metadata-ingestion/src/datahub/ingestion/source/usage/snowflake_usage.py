@@ -297,17 +297,21 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
             from snowflake.account_usage.access_history
         """
         with PerfTimer() as timer:
-            for db_row in engine.execute(query):
-                self.report.min_access_history_time = db_row[0].astimezone(
-                    tz=timezone.utc
-                )
-                self.report.max_access_history_time = db_row[1].astimezone(
-                    tz=timezone.utc
-                )
-                self.report.access_history_range_query_secs = round(
-                    timer.elapsed_seconds(), 2
-                )
-                break
+            try:
+                for db_row in engine.execute(query):
+                    if len(db_row) < 2:
+                        continue
+                    self.report.min_access_history_time = db_row[0].astimezone(
+                        tz=timezone.utc
+                    )
+                    self.report.max_access_history_time = db_row[1].astimezone(
+                        tz=timezone.utc
+                    )
+                    self.report.access_history_range_query_secs = round(
+                        timer.elapsed_seconds(), 2
+                    )
+            except Exception as e:
+                self.error(logger, "check-usage-data", f"Error was {e}")
 
     def _is_unsupported_object_accessed(self, obj: Dict[str, Any]) -> bool:
         unsupported_keys = ["locations"]
@@ -414,10 +418,7 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
         engine = self._make_sql_engine()
 
         logger.info("Checking usage date ranges")
-        try:
-            self._check_usage_date_ranges(engine)
-        except Exception as e:
-            self.error(logger, "check-usage-data", f"Error was {e}")
+        self._check_usage_date_ranges(engine)
 
         logger.info("Getting usage history")
         with PerfTimer() as timer:
