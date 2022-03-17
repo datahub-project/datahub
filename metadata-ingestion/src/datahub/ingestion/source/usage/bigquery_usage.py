@@ -304,14 +304,14 @@ class QueryEvent:
 
     payload: Any
 
-    @classmethod
-    def get_missing_key_entry(cls, entry: AuditLogEntry) -> Optional[str]:
+    @staticmethod
+    def get_missing_key_entry(entry: AuditLogEntry) -> Optional[str]:
         return get_missing_key(
             inp_dict=entry.payload, keys=["serviceData", "jobCompletedEvent", "job"]
         )
 
-    @classmethod
-    def get_missing_key_entry_v2(cls, entry: AuditLogEntry) -> Optional[str]:
+    @staticmethod
+    def get_missing_key_entry_v2(entry: AuditLogEntry) -> Optional[str]:
         return get_missing_key(
             inp_dict=entry.payload, keys=["metadata", "jobChange", "job"]
         )
@@ -361,9 +361,9 @@ class QueryEvent:
 
         return queryEvent
 
-    @classmethod
+    @staticmethod
     def get_missing_key_exported_bigquery_audit_metadata(
-        cls, row: BigQueryAuditMetadata
+        row: BigQueryAuditMetadata,
     ) -> Optional[str]:
         return get_missing_key_any(row, ["timestamp", "protoPayload", "metadata"])
 
@@ -480,12 +480,9 @@ class BigQueryUsageSource(Source):
     def add_config_to_report(self):
         self.report.start_time = self.config.start_time
         self.report.end_time = self.config.end_time
-        if self.config.use_v2_audit_metadata is not None:
-            self.report.use_v2_audit_metadata = self.config.use_v2_audit_metadata
-        if self.config.query_log_delay is not None:
-            self.report.query_log_delay = self.config.query_log_delay
-        if self.config.log_page_size is not None:
-            self.report.log_page_size = self.config.log_page_size
+        self.report.use_v2_audit_metadata = self.config.use_v2_audit_metadata
+        self.report.query_log_delay = self.config.query_log_delay
+        self.report.log_page_size = self.config.log_page_size
         self.report.allow_pattern = self.config.get_allow_pattern_string()
         self.report.deny_pattern = self.config.get_deny_pattern_string()
 
