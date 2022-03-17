@@ -2,12 +2,12 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:475c4a082c95a7428e6d919a07d06030",
+    "entityUrn": "urn:li:container:17751259af32dd0385cad799df608c40",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-      "value": "{\"customProperties\": {\"platform\": \"mysql\", \"database\": \"metagalaxy\"}, \"name\": \"metagalaxy\"}",
+      "value": "{\"customProperties\": {\"platform\": \"mysql\", \"instance\": \"PROD\", \"database\": \"metagalaxy\"}, \"name\": \"metagalaxy\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -21,7 +21,26 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:475c4a082c95a7428e6d919a07d06030",
+    "entityUrn": "urn:li:container:17751259af32dd0385cad799df608c40",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "value": "{\"platform\": \"urn:li:dataPlatform:mysql\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1586847600000,
+      "runId": "mysql-test",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "container",
+    "entityUrn": "urn:li:container:17751259af32dd0385cad799df608c40",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -40,7 +59,7 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:475c4a082c95a7428e6d919a07d06030",
+    "entityUrn": "urn:li:container:17751259af32dd0385cad799df608c40",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "domains",
@@ -59,12 +78,12 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:bd134461dbd95a1cffdd7120da4a752b",
+    "entityUrn": "urn:li:container:ba408413d97771e6470c16f9869f2e0d",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-      "value": "{\"customProperties\": {\"platform\": \"mysql\", \"database\": \"metagalaxy\", \"schema\": \"datacharmer\"}, \"name\": \"datacharmer\"}",
+      "value": "{\"customProperties\": {\"platform\": \"mysql\", \"instance\": \"PROD\", \"database\": \"metagalaxy\", \"schema\": \"datacharmer\"}, \"name\": \"datacharmer\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -78,7 +97,26 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:bd134461dbd95a1cffdd7120da4a752b",
+    "entityUrn": "urn:li:container:ba408413d97771e6470c16f9869f2e0d",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "value": "{\"platform\": \"urn:li:dataPlatform:mysql\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1586847600000,
+      "runId": "mysql-test",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ba408413d97771e6470c16f9869f2e0d",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -97,12 +135,12 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:bd134461dbd95a1cffdd7120da4a752b",
+    "entityUrn": "urn:li:container:ba408413d97771e6470c16f9869f2e0d",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:475c4a082c95a7428e6d919a07d06030\"}",
+      "value": "{\"container\": \"urn:li:container:17751259af32dd0385cad799df608c40\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -121,7 +159,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:bd134461dbd95a1cffdd7120da4a752b\"}",
+      "value": "{\"container\": \"urn:li:container:ba408413d97771e6470c16f9869f2e0d\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -296,7 +334,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:bd134461dbd95a1cffdd7120da4a752b\"}",
+      "value": "{\"container\": \"urn:li:container:ba408413d97771e6470c16f9869f2e0d\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -432,12 +470,12 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:2ee86fd5d1601cf2b56da4ec234bd89a",
+    "entityUrn": "urn:li:container:593ea3998729fdae4bdfb42206561a3a",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-      "value": "{\"customProperties\": {\"platform\": \"mysql\", \"database\": \"metagalaxy\", \"schema\": \"metagalaxy\"}, \"name\": \"metagalaxy\"}",
+      "value": "{\"customProperties\": {\"platform\": \"mysql\", \"instance\": \"PROD\", \"database\": \"metagalaxy\", \"schema\": \"metagalaxy\"}, \"name\": \"metagalaxy\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -451,7 +489,26 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:2ee86fd5d1601cf2b56da4ec234bd89a",
+    "entityUrn": "urn:li:container:593ea3998729fdae4bdfb42206561a3a",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "value": "{\"platform\": \"urn:li:dataPlatform:mysql\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1586847600000,
+      "runId": "mysql-test",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "container",
+    "entityUrn": "urn:li:container:593ea3998729fdae4bdfb42206561a3a",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -470,12 +527,12 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:2ee86fd5d1601cf2b56da4ec234bd89a",
+    "entityUrn": "urn:li:container:593ea3998729fdae4bdfb42206561a3a",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:475c4a082c95a7428e6d919a07d06030\"}",
+      "value": "{\"container\": \"urn:li:container:17751259af32dd0385cad799df608c40\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -494,7 +551,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:2ee86fd5d1601cf2b56da4ec234bd89a\"}",
+      "value": "{\"container\": \"urn:li:container:593ea3998729fdae4bdfb42206561a3a\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -705,7 +762,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:2ee86fd5d1601cf2b56da4ec234bd89a\"}",
+      "value": "{\"container\": \"urn:li:container:593ea3998729fdae4bdfb42206561a3a\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -731,6 +788,8 @@
             "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
               "customProperties": {},
               "externalUrl": null,
+              "name": null,
+              "qualifiedName": null,
               "description": "This is a table comment",
               "uri": null,
               "tags": []
@@ -925,7 +984,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:2ee86fd5d1601cf2b56da4ec234bd89a\"}",
+      "value": "{\"container\": \"urn:li:container:593ea3998729fdae4bdfb42206561a3a\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -954,6 +1013,8 @@
                 "is_view": "True"
               },
               "externalUrl": null,
+              "name": null,
+              "qualifiedName": null,
               "description": null,
               "uri": null,
               "tags": []
@@ -1092,12 +1153,12 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:001cbec12033cd997c8100f154945d66",
+    "entityUrn": "urn:li:container:36bfb6eae3f7972efbcb56dedecdfba6",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-      "value": "{\"customProperties\": {\"platform\": \"mysql\", \"database\": \"metagalaxy\", \"schema\": \"northwind\"}, \"name\": \"northwind\"}",
+      "value": "{\"customProperties\": {\"platform\": \"mysql\", \"instance\": \"PROD\", \"database\": \"metagalaxy\", \"schema\": \"northwind\"}, \"name\": \"northwind\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1111,7 +1172,26 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:001cbec12033cd997c8100f154945d66",
+    "entityUrn": "urn:li:container:36bfb6eae3f7972efbcb56dedecdfba6",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "value": "{\"platform\": \"urn:li:dataPlatform:mysql\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1586847600000,
+      "runId": "mysql-test",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "container",
+    "entityUrn": "urn:li:container:36bfb6eae3f7972efbcb56dedecdfba6",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -1130,12 +1210,12 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:001cbec12033cd997c8100f154945d66",
+    "entityUrn": "urn:li:container:36bfb6eae3f7972efbcb56dedecdfba6",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:475c4a082c95a7428e6d919a07d06030\"}",
+      "value": "{\"container\": \"urn:li:container:17751259af32dd0385cad799df608c40\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1154,7 +1234,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:001cbec12033cd997c8100f154945d66\"}",
+      "value": "{\"container\": \"urn:li:container:36bfb6eae3f7972efbcb56dedecdfba6\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1329,7 +1409,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:001cbec12033cd997c8100f154945d66\"}",
+      "value": "{\"container\": \"urn:li:container:36bfb6eae3f7972efbcb56dedecdfba6\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1459,12 +1539,12 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:88e1c87399d45eaf6a5af8b0afd1d779",
+    "entityUrn": "urn:li:container:989c003cbe689094c2b5c340a67f62be",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-      "value": "{\"customProperties\": {\"platform\": \"mysql\", \"database\": \"metagalaxy\", \"schema\": \"test_cases\"}, \"name\": \"test_cases\"}",
+      "value": "{\"customProperties\": {\"platform\": \"mysql\", \"instance\": \"PROD\", \"database\": \"metagalaxy\", \"schema\": \"test_cases\"}, \"name\": \"test_cases\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1478,7 +1558,26 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:88e1c87399d45eaf6a5af8b0afd1d779",
+    "entityUrn": "urn:li:container:989c003cbe689094c2b5c340a67f62be",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "value": "{\"platform\": \"urn:li:dataPlatform:mysql\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1586847600000,
+      "runId": "mysql-test",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "container",
+    "entityUrn": "urn:li:container:989c003cbe689094c2b5c340a67f62be",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -1497,12 +1596,12 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:88e1c87399d45eaf6a5af8b0afd1d779",
+    "entityUrn": "urn:li:container:989c003cbe689094c2b5c340a67f62be",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:475c4a082c95a7428e6d919a07d06030\"}",
+      "value": "{\"container\": \"urn:li:container:17751259af32dd0385cad799df608c40\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1521,7 +1620,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:88e1c87399d45eaf6a5af8b0afd1d779\"}",
+      "value": "{\"container\": \"urn:li:container:989c003cbe689094c2b5c340a67f62be\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {

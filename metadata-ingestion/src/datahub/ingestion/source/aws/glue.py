@@ -43,6 +43,7 @@ from datahub.metadata.schema_classes import (
     DataJobInfoClass,
     DataJobInputOutputClass,
     DataJobSnapshotClass,
+    DataPlatformInstanceClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     MetadataChangeEventClass,
@@ -788,6 +789,12 @@ class GlueSource(Source):
                 platformSchema=MySqlDDL(tableSchema=""),
             )
 
+        def get_data_platform_instance() -> DataPlatformInstanceClass:
+            return DataPlatformInstanceClass(
+                platform=f"urn:li:dataPlatform:{self.platform}",
+                instance=self.source_config.platform_instance,
+            )
+
         dataset_snapshot = DatasetSnapshot(
             urn=make_dataset_urn_with_platform_instance(
                 platform=self.platform,
@@ -807,6 +814,7 @@ class GlueSource(Source):
 
         dataset_snapshot.aspects.append(get_dataset_properties())
         dataset_snapshot.aspects.append(get_schema_metadata(self))
+        dataset_snapshot.aspects.append(get_data_platform_instance())
 
         metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         return metadata_record
