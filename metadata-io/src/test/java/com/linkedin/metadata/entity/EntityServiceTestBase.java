@@ -55,6 +55,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -199,9 +200,15 @@ abstract public class EntityServiceTestBase<T_AD extends AspectDao, T_ES extends
 
         // Entity 2
         com.linkedin.entity.Entity readEntity2 = readEntities.get(entityUrn2);
-        assertEquals(2, readEntity2.getValue().getCorpUserSnapshot().getAspects().size()); // Key + Info aspect.
-        assertTrue(DataTemplateUtil.areEqual(writeEntity2.getValue().getCorpUserSnapshot().getAspects().get(0),
-            readEntity2.getValue().getCorpUserSnapshot().getAspects().get(1)));
+        assertEquals(readEntity2.getValue().getCorpUserSnapshot().getAspects().size(), 2); // Key + Info aspect.
+        Optional<CorpUserAspect> writer2UserInfo = writeEntity2.getValue().getCorpUserSnapshot().getAspects()
+            .stream().filter(CorpUserAspect::isCorpUserInfo).findAny();
+        Optional<CorpUserAspect> reader2UserInfo = writeEntity2.getValue().getCorpUserSnapshot().getAspects()
+            .stream().filter(CorpUserAspect::isCorpUserInfo).findAny();
+
+        assertTrue(writer2UserInfo.isPresent(), "Writer2 user info exists");
+        assertTrue(reader2UserInfo.isPresent(), "Reader2 user info exists");
+        assertTrue(DataTemplateUtil.areEqual(writer2UserInfo.get(),  reader2UserInfo.get()), "UserInfo's are the same");
         CorpUserKey expectedKey2 = new CorpUserKey();
         expectedKey2.setUsername("tester2");
         assertTrue(DataTemplateUtil.areEqual(expectedKey2,
@@ -462,7 +469,7 @@ abstract public class EntityServiceTestBase<T_AD extends AspectDao, T_ES extends
         rollbackOverwrittenAspect.setAspectName(aspectName);
         rollbackOverwrittenAspect.setUrn(entityUrn1.toString());
 
-        _entityService.rollbackRun(ImmutableList.of(rollbackOverwrittenAspect), "run-123");
+        _entityService.rollbackRun(ImmutableList.of(rollbackOverwrittenAspect), "run-123", true);
 
         // assert nothing was deleted
         RecordTemplate readAspectOriginal = _entityService.getAspect(entityUrn1, aspectName, 1);
@@ -477,7 +484,7 @@ abstract public class EntityServiceTestBase<T_AD extends AspectDao, T_ES extends
         rollbackRecentAspect.setAspectName(aspectName);
         rollbackRecentAspect.setUrn(entityUrn1.toString());
 
-        _entityService.rollbackRun(ImmutableList.of(rollbackOverwrittenAspect), "run-456");
+        _entityService.rollbackRun(ImmutableList.of(rollbackOverwrittenAspect), "run-456", true);
 
         // assert the new most recent aspect is the original one
         RecordTemplate readNewRecentAspect = _entityService.getAspect(entityUrn1, aspectName, 0);
@@ -516,7 +523,7 @@ abstract public class EntityServiceTestBase<T_AD extends AspectDao, T_ES extends
         rollbackKeyWithWrongRunId.setAspectName("corpUserKey");
         rollbackKeyWithWrongRunId.setUrn(entityUrn1.toString());
 
-        _entityService.rollbackRun(ImmutableList.of(rollbackKeyWithWrongRunId), "run-456");
+        _entityService.rollbackRun(ImmutableList.of(rollbackKeyWithWrongRunId), "run-456", true);
 
         // assert nothing was deleted
         RecordTemplate readAspectOriginal = _entityService.getAspect(entityUrn1, aspectName, 1);
@@ -531,7 +538,7 @@ abstract public class EntityServiceTestBase<T_AD extends AspectDao, T_ES extends
         rollbackKeyWithCorrectRunId.setAspectName("corpUserKey");
         rollbackKeyWithCorrectRunId.setUrn(entityUrn1.toString());
 
-        _entityService.rollbackRun(ImmutableList.of(rollbackKeyWithCorrectRunId), "run-123");
+        _entityService.rollbackRun(ImmutableList.of(rollbackKeyWithCorrectRunId), "run-123", true);
 
         // assert the new most recent aspect is null
         RecordTemplate readNewRecentAspect = _entityService.getAspect(entityUrn1, aspectName, 0);

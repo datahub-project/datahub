@@ -20,6 +20,7 @@ import io.ebean.Query;
 import io.ebean.RawSql;
 import io.ebean.RawSqlBuilder;
 import io.ebean.Transaction;
+import io.ebean.TxScope;
 import io.ebean.annotation.TxIsolation;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
@@ -444,7 +445,7 @@ public class EbeanAspectDao implements AspectDao {
 
     T result = null;
     do {
-      try (Transaction transaction = _server.beginTransaction(TxIsolation.REPEATABLE_READ)) {
+      try (Transaction transaction = _server.beginTransaction(TxScope.requiresNew().setIsolation(TxIsolation.REPEATABLE_READ))) {
         transaction.setBatchMode(true);
         result = block.get();
         transaction.commit();

@@ -6,6 +6,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -14,6 +15,7 @@ import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.EntityService;
@@ -27,8 +29,10 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
+import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
@@ -373,13 +377,13 @@ public class CassandraEntityService extends EntityService {
   }
 
   @Override
-  public RollbackRunResult rollbackWithConditions(List<AspectRowSummary> aspectRows, Map<String, String> conditions) {
+  public RollbackRunResult rollbackWithConditions(List<AspectRowSummary> aspectRows, Map<String, String> conditions, boolean hardDelete) {
     List<AspectRowSummary> removedAspects = new ArrayList<>();
     AtomicInteger rowsDeletedFromEntityDeletion = new AtomicInteger(0);
 
     aspectRows.forEach(aspectToRemove -> {
 
-      RollbackResult result = deleteAspect(aspectToRemove.getUrn(), aspectToRemove.getAspectName(), conditions);
+      RollbackResult result = deleteAspect(aspectToRemove.getUrn(), aspectToRemove.getAspectName(), conditions, hardDelete);
       if (result != null) {
         Optional<AspectSpec> aspectSpec = getAspectSpec(result.entityName, result.aspectName);
         if (!aspectSpec.isPresent()) {
@@ -413,7 +417,7 @@ public class CassandraEntityService extends EntityService {
     }
 
     SystemMetadata latestKeySystemMetadata = EntityUtils.parseSystemMetadata(latestKey.getSystemMetadata());
-    RollbackResult result = deleteAspect(urn.toString(), keyAspectName, Collections.singletonMap("runId", latestKeySystemMetadata.getRunId()));
+    RollbackResult result = deleteAspect(urn.toString(), keyAspectName, Collections.singletonMap("runId", latestKeySystemMetadata.getRunId()), true);
 
     if (result != null) {
       AspectRowSummary summary = new AspectRowSummary();
@@ -445,11 +449,14 @@ public class CassandraEntityService extends EntityService {
   }
 
   @Nullable
-  public RollbackResult deleteAspect(String urn, String aspectName, Map<String, String> conditions) {
+  public RollbackResult deleteAspect(String urn, String aspectName, Map<String, String> conditions, boolean hardDelete) {
     // Validate pre-conditions before running queries
+    Urn entityUrn;
+    EntitySpec entitySpec;
     try {
-      String entityName = PegasusUtils.urnToEntityName(Urn.createFromString(urn));
-      EntitySpec entitySpec = getEntityRegistry().getEntitySpec(entityName);
+      entityUrn = Urn.createFromString(urn);
+      String entityName = PegasusUtils.urnToEntityName(entityUrn);
+      entitySpec = getEntityRegistry().getEntitySpec(entityName);
       Preconditions.checkState(entitySpec != null, String.format("Could not find entity definition for %s", entityName));
       Preconditions.checkState(entitySpec.hasAspect(aspectName), String.format("Could not find aspect %s in definition for %s", aspectName, entityName));
     } catch (URISyntaxException uriSyntaxException) {
@@ -512,8 +519,18 @@ public class CassandraEntityService extends EntityService {
         _aspectDao.deleteAspect(survivingAspect);
       } else {
         if (isKeyAspect) {
-          // If this is the key aspect, delete the entity entirely.
-          additionalRowsDeleted = _aspectDao.deleteUrn(urn);
+          if (hardDelete) {
+            // If this is the key aspect, delete the entity entirely.
+            additionalRowsDeleted = _aspectDao.deleteUrn(urn);
+          } else if (entitySpec.hasAspect(Constants.STATUS_ASPECT_NAME)) {
+            // soft delete by setting status.removed=true (if applicable)
+            final Status statusAspect = new Status();
+            statusAspect.setRemoved(true);
+            final SystemMetadata systemMetadata = SystemMetadataUtils.createDefaultSystemMetadata();
+            final AuditStamp auditStamp = AuditStampUtils.createDefaultAuditStamp();
+
+            this.ingestAspect(entityUrn, Constants.STATUS_ASPECT_NAME, statusAspect, auditStamp, systemMetadata);
+          }
         } else {
           // Else, only delete the specific aspect.
           _aspectDao.deleteAspect(latest);
@@ -531,6 +548,10 @@ public class CassandraEntityService extends EntityService {
             survivingAspect.getAspect(), previousMetadata, getEntityRegistry());
 
         final Urn urnObj = Urn.createFromString(urn);
+        // We are not deleting key aspect if hardDelete has not been set so do not return a rollback result
+        if (isKeyAspect && !hardDelete) {
+          return null;
+        }
         return new RollbackResult(urnObj, urnObj.getEntityType(), latest.getAspect(), latestValue,
             previousValue == null ? latestValue : previousValue, latestSystemMetadata,
             previousValue == null ? null : EntityUtils.parseSystemMetadata(survivingAspect.getSystemMetadata()),
