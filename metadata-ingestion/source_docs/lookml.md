@@ -109,6 +109,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `github_info.branch`            |          | `main` | The default branch in your repo that you want urls to point to. Typically `main` or `master` |  
 | `github_info.base_url`          |          | `https://github.com` | The base url for your github coordinates | 
 | `sql_parser`                                   |          | `datahub.utilities.sql_parser.DefaultSQLParser`    | See note below.                                                         |
+| `transport_options`                                |          |        |  Populates the [TransportOptions](https://github.com/looker-open-source/sdk-codegen/blob/94d6047a0d52912ac082eb91616c1e7c379ab262/python/looker_sdk/rtl/transport.py#L70) struct for looker client |
 
 Note! The integration can use an SQL parser to try to parse the tables the views depends on. This parsing is disabled by default, 
 but can be enabled by setting `parse_table_names_from_sql: True`.  The default parser is based on the [`sqllineage`](https://pypi.org/project/sqllineage/) package. 

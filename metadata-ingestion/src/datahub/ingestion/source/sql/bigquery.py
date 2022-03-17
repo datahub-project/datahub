@@ -1,5 +1,4 @@
 import collections
-import dataclasses
 import datetime
 import functools
 import logging
@@ -25,11 +24,17 @@ from datahub.configuration.common import ConfigurationError
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import PlatformKey, gen_containers
+from datahub.emitter.mcp_builder import (
+    BigQueryDatasetKey,
+    PlatformKey,
+    ProjectIdKey,
+    gen_containers,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemyConfig,
     SQLAlchemySource,
+    SQLSourceReport,
     SqlWorkUnit,
     make_sqlalchemy_type,
     register_custom_type,
@@ -241,7 +246,7 @@ class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
     bigquery_audit_metadata_datasets: Optional[List[str]] = None
     use_exported_bigquery_audit_metadata: bool = False
     use_date_sharded_audit_log_tables: bool = False
-    _credentials_path: Optional[str] = pydantic.PrivateAttr()
+    _credentials_path: Optional[str] = pydantic.PrivateAttr(None)
     use_v2_audit_metadata: Optional[bool] = False
 
     def __init__(self, **data: Any):
@@ -274,14 +279,9 @@ class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
         return "bigquery"
 
 
-@dataclasses.dataclass
-class ProjectIdKey(PlatformKey):
-    project_id: str
-
-
-@dataclasses.dataclass
-class BigQueryDatasetKey(ProjectIdKey):
-    dataset_id: str
+@dataclass
+class BigQueryReport(SQLSourceReport):
+    pass
 
 
 class BigQuerySource(SQLAlchemySource):
@@ -291,6 +291,10 @@ class BigQuerySource(SQLAlchemySource):
 
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "bigquery")
+        self.config: BigQueryConfig = config
+        self.report: BigQueryReport = BigQueryReport()
+        self.lineage_metadata: Optional[Dict[str, Set[str]]] = None
+        self.maximum_shard_ids: Dict[str, str] = dict()
 
     def get_db_name(self, inspector: Inspector = None) -> str:
         if self.config.project_id:
@@ -772,7 +776,6 @@ WHERE
         partition: Optional[str],
         custom_sql: Optional[str] = None,
     ) -> dict:
-        self.config: BigQueryConfig
         return dict(
             schema=self.config.project_id,
             table=f"{schema}.{table}",
@@ -835,14 +838,18 @@ WHERE
             project_id=db_name,
             dataset_id=schema,
             platform=self.platform,
-            instance=self.config.env,
+            instance=self.config.platform_instance
+            if self.config.platform_instance is not None
+            else self.config.env,
         )
 
     def gen_database_key(self, database: str) -> PlatformKey:
         return ProjectIdKey(
             project_id=database,
             platform=self.platform,
-            instance=self.config.env,
+            instance=self.config.platform_instance
+            if self.config.platform_instance is not None
+            else self.config.env,
         )
 
     def gen_database_containers(self, database: str) -> Iterable[MetadataWorkUnit]:
@@ -881,7 +888,7 @@ WHERE
 
     # We can't use close as it is not called if the ingestion is not successful
     def __del__(self):
-        if self.config._credentials_path:
+        if self.config._credentials_path is not None:
             logger.debug(
                 f"Deleting temporary credential file at {self.config._credentials_path}"
             )

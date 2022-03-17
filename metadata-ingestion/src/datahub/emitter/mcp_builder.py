@@ -1,7 +1,9 @@
-import dataclasses
 import hashlib
 import json
 from typing import Any, Iterable, List, Optional, TypeVar, Union
+
+from pydantic.fields import Field
+from pydantic.main import BaseModel
 
 from datahub.emitter.mce_builder import make_container_urn, make_data_platform_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -21,10 +23,9 @@ from datahub.metadata.schema_classes import (
 )
 
 
-@dataclasses.dataclass
-class DatahubKey:
+class DatahubKey(BaseModel):
     def guid(self) -> str:
-        nonnull_dict = {k: v for k, v in self.__dict__.items() if v}
+        nonnull_dict = self.dict(by_alias=True, exclude_none=True)
         json_key = json.dumps(
             nonnull_dict,
             separators=(",", ":"),
@@ -35,20 +36,25 @@ class DatahubKey:
         return str(md5_hash.hexdigest())
 
 
-@dataclasses.dataclass
 class PlatformKey(DatahubKey):
     platform: str
-    instance: Optional[str]
+    instance: Optional[str] = None
 
 
-@dataclasses.dataclass
 class DatabaseKey(PlatformKey):
     database: str
 
 
-@dataclasses.dataclass
 class SchemaKey(DatabaseKey):
-    schema: str
+    db_schema: str = Field(alias="schema")
+
+
+class ProjectIdKey(PlatformKey):
+    project_id: str
+
+
+class BigQueryDatasetKey(ProjectIdKey):
+    dataset_id: str
 
 
 class DatahubKeyJSONEncoder(json.JSONEncoder):
@@ -138,9 +144,7 @@ def gen_containers(
         aspect=ContainerProperties(
             name=name,
             description=description,
-            customProperties={
-                k: v for k, v in dataclasses.asdict(container_key).items() if v
-            },
+            customProperties=container_key.dict(exclude_none=True, by_alias=True),
             externalUrl=external_url,
         ),
     )

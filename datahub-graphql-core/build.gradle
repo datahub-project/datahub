@@ -42,7 +42,7 @@ graphqlCodegen {
 }
 
 clean {
-    delete 'mainGeneratedGraphQL'
+    delete 'src/mainGeneratedGraphQL'
 }
 
 tasks.withType(Checkstyle) {
