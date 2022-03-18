@@ -91,7 +91,7 @@ public class ESUtils {
    * <p>This approach of supporting multiple values using comma as delimiter, prevents us from specifying a value that has comma
    * as one of it's characters. This is particularly true when one of the values is an urn e.g. "urn:li:example:(1,2,3)".
    * Hence we do not split the value (using comma as delimiter) if the value starts with "urn:li:".
-   * TODO(https://github.com/linkedin/datahub-gma/issues/51): support multiple values a field can take without using
+   * TODO(https://github.com/datahub-project/datahub-gma/issues/51): support multiple values a field can take without using
    * delimiters like comma.
    *
    * <p>If the condition between a field and value is not the same as EQUAL, a Range query is constructed. This
@@ -111,7 +111,7 @@ public class ESUtils {
       if (!criterion.getValues().isEmpty()) {
         return QueryBuilders.termsQuery(criterion.getField(), criterion.getValues());
       }
-      // TODO(https://github.com/linkedin/datahub-gma/issues/51): support multiple values a field can take without using
+      // TODO(https://github.com/datahub-project/datahub-gma/issues/51): support multiple values a field can take without using
       // delimiters like comma. This is a hack to support equals with URN that has a comma in it.
       if (isUrn(criterion.getValue())) {
         return QueryBuilders.matchQuery(criterion.getField(), criterion.getValue().trim());

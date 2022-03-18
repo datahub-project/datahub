@@ -699,7 +699,7 @@ def make_dataset_urn_from_sqlalchemy_uri(
             return None
         # If data platform is snowflake, we artificially lowercase the Database name.
         # This is because DataHub also does this during ingestion.
-        # Ref: https://github.com/linkedin/datahub/blob/master/metadata-ingestion%2Fsrc%2Fdatahub%2Fingestion%2Fsource%2Fsql%2Fsnowflake.py#L272
+        # Ref: https://github.com/datahub-project/datahub/blob/master/metadata-ingestion%2Fsrc%2Fdatahub%2Fingestion%2Fsource%2Fsql%2Fsnowflake.py#L272
         schema_name = "{}.{}".format(
             url_instance.database.lower()
             if data_platform == "snowflake"

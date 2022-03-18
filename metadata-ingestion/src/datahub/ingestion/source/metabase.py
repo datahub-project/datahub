@@ -471,7 +471,7 @@ class MetabaseSource(Source):
             return None, None
 
         # Map engine names to what datahub expects in
-        # https://github.com/linkedin/datahub/blob/master/metadata-service/war/src/main/resources/boot/data_platforms.json
+        # https://github.com/datahub-project/datahub/blob/master/metadata-service/war/src/main/resources/boot/data_platforms.json
         engine = dataset_json.get("engine", "")
         platform = engine
 
