@@ -55,7 +55,7 @@ class Telemetry:
         """
         Update the config file with the current client ID and enabled status.
         """
-        logger.info("Updating telemetry config")
+        logger.debug("Updating telemetry config")
 
         if not DATAHUB_FOLDER.exists():
             os.makedirs(DATAHUB_FOLDER)
@@ -122,15 +122,18 @@ class Telemetry:
         if not self.enabled or self.mp is None or self.tracking_init is True:
             return
 
-        logger.info("Sending init Telemetry")
-        self.mp.people_set(
-            self.client_id,
-            {
-                "datahub_version": datahub_package.nice_version_name(),
-                "os": platform.system(),
-                "python_version": platform.python_version(),
-            },
-        )
+        logger.debug("Sending init Telemetry")
+        try:
+            self.mp.people_set(
+                self.client_id,
+                {
+                    "datahub_version": datahub_package.nice_version_name(),
+                    "os": platform.system(),
+                    "python_version": platform.python_version(),
+                },
+            )
+        except Exception as e:
+            logger.debug(f"Error reporting telemetry: {e}")
         self.init_track = True
 
     def ping(
@@ -153,7 +156,7 @@ class Telemetry:
 
         # send event
         try:
-            logger.info("Sending Telemetry")
+            logger.debug("Sending Telemetry")
             self.mp.track(self.client_id, action, properties)
 
         except Exception as e:

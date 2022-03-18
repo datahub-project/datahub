@@ -1,5 +1,4 @@
 import collections
-import dataclasses
 import datetime
 import functools
 import logging
@@ -25,7 +24,12 @@ from datahub.configuration.common import ConfigurationError
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import PlatformKey, gen_containers
+from datahub.emitter.mcp_builder import (
+    BigQueryDatasetKey,
+    PlatformKey,
+    ProjectIdKey,
+    gen_containers,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemyConfig,
@@ -275,22 +279,16 @@ class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
         return "bigquery"
 
 
-@dataclasses.dataclass
-class ProjectIdKey(PlatformKey):
-    project_id: str
-
-
-@dataclasses.dataclass
-class BigQueryDatasetKey(ProjectIdKey):
-    dataset_id: str
-
-
 @dataclass
 class BigQueryReport(SQLSourceReport):
     pass
 
 
 class BigQuerySource(SQLAlchemySource):
+    config: BigQueryConfig
+    maximum_shard_ids: Dict[str, str] = dict()
+    lineage_metadata: Optional[Dict[str, Set[str]]] = None
+
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "bigquery")
         self.config: BigQueryConfig = config
@@ -840,14 +838,18 @@ WHERE
             project_id=db_name,
             dataset_id=schema,
             platform=self.platform,
-            instance=self.config.env,
+            instance=self.config.platform_instance
+            if self.config.platform_instance is not None
+            else self.config.env,
         )
 
     def gen_database_key(self, database: str) -> PlatformKey:
         return ProjectIdKey(
             project_id=database,
             platform=self.platform,
-            instance=self.config.env,
+            instance=self.config.platform_instance
+            if self.config.platform_instance is not None
+            else self.config.env,
         )
 
     def gen_database_containers(self, database: str) -> Iterable[MetadataWorkUnit]:

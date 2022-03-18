@@ -1,4 +1,3 @@
-import dataclasses
 import json
 import logging
 from datetime import datetime
@@ -102,7 +101,6 @@ class TableauConfig(ConfigModel):
         return config_clean.remove_trailing_slashes(v)
 
 
-@dataclasses.dataclass
 class WorkbookKey(PlatformKey):
     workbook_id: str
 
@@ -673,7 +671,26 @@ class TableauSource(Source):
 
             yield self.get_metadata_change_event(dataset_snapshot)
 
+    # Older tableau versions do not support fetching sheet's upstreamDatasources,
+    # This achieves the same effect by using datasource's downstreamSheets
+    def get_sheetwise_upstream_datasources(self, workbook: dict) -> dict:
+        sheet_upstream_datasources: dict = {}
+
+        for embedded_ds in workbook.get("embeddedDatasources", []):
+            for sheet in embedded_ds.get("downstreamSheets", []):
+                if sheet.get("id") not in sheet_upstream_datasources:
+                    sheet_upstream_datasources[sheet.get("id")] = set()
+                sheet_upstream_datasources[sheet.get("id")].add(embedded_ds.get("id"))
+
+        for published_ds in workbook.get("upstreamDatasources", []):
+            for sheet in published_ds.get("downstreamSheets", []):
+                if sheet.get("id") not in sheet_upstream_datasources:
+                    sheet_upstream_datasources[sheet.get("id")] = set()
+                sheet_upstream_datasources[sheet.get("id")].add(published_ds.get("id"))
+        return sheet_upstream_datasources
+
     def emit_sheets_as_charts(self, workbook: Dict) -> Iterable[MetadataWorkUnit]:
+        sheet_upstream_datasources = self.get_sheetwise_upstream_datasources(workbook)
         for sheet in workbook.get("sheets", []):
             chart_snapshot = ChartSnapshot(
                 urn=builder.make_chart_urn(self.platform, sheet.get("id")),
@@ -708,9 +725,9 @@ class TableauSource(Source):
 
             # datasource urn
             datasource_urn = []
-            data_sources = sheet.get("upstreamDatasources", [])
-            for datasource in data_sources:
-                ds_id = datasource.get("id")
+            data_sources = sheet_upstream_datasources.get(sheet.get("id"), set())
+
+            for ds_id in data_sources:
                 if ds_id is None or not ds_id:
                     continue
                 ds_urn = builder.make_dataset_urn(self.platform, ds_id, self.config.env)
@@ -724,7 +741,7 @@ class TableauSource(Source):
                 title=sheet.get("name", ""),
                 lastModified=last_modified,
                 externalUrl=sheet_external_url,
-                inputs=datasource_urn,
+                inputs=sorted(datasource_urn),
                 customProperties=fields,
             )
             chart_snapshot.aspects.append(chart_info)

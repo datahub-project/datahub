@@ -51,7 +51,8 @@ framework_common = {
     # Markupsafe breaking change broke Jinja and some other libs
     # Pinning it to a version which works even though we are not using explicitly
     # https://github.com/aws/aws-sam-cli/issues/3661
-    "markupsafe==2.0.1",
+    # Airflow compatibility: https://github.com/apache/airflow/blob/2.2.2/setup.cfg#L125
+    "markupsafe>=1.1.1,<=2.0.1",
     "Deprecated",
     "types-Deprecated",
 }
@@ -232,7 +233,7 @@ base_dev_requirements = {
     "flake8>=3.8.3",
     "flake8-tidy-imports>=4.3.0",
     "isort>=5.7.0",
-    "mypy>=0.920,<0.940",
+    "mypy>=0.920",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
     "pydantic>=1.9.0",

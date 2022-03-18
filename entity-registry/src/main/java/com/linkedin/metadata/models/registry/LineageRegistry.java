@@ -1,7 +1,7 @@
-package com.linkedin.metadata.graph;
+package com.linkedin.metadata.models.registry;
 
+import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.models.annotation.RelationshipAnnotation;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -91,7 +91,7 @@ public class LineageRegistry {
     if (spec == null) {
       return Collections.emptyList();
     }
-    
+
     if (direction == LineageDirection.UPSTREAM) {
       return spec.getUpstreamEdges();
     }
