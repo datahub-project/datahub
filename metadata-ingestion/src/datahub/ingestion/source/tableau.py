@@ -242,8 +242,6 @@ class TableauSource(Source):
         self, datasource: dict, project: str, is_custom_sql: bool = False
     ) -> List[UpstreamClass]:
         upstream_tables = []
-        upstream_dbs = datasource.get("upstreamDatabases", [])
-        upstream_db = upstream_dbs[0].get("name", "") if upstream_dbs else ""
 
         for table in datasource.get("upstreamTables", []):
             # skip upstream tables when there is no column info when retrieving embedded datasource
@@ -251,6 +249,7 @@ class TableauSource(Source):
             if not is_custom_sql and not table.get("columns"):
                 continue
 
+            upstream_db = table.get("database", {}).get("name", "")
             schema = self._get_schema(table.get("schema", ""), upstream_db)
             table_urn = make_table_urn(
                 self.config.env,

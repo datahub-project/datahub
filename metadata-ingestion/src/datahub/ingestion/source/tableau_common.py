@@ -133,6 +133,9 @@ workbook_graphql_query = """
         upstreamTables {
           id
           name
+          database {
+            name
+          }
           schema
           fullName
           connectionType
@@ -214,6 +217,9 @@ custom_sql_graphql_query = """
             upstreamTables {
               id
               name
+              database {
+                name
+              }
               schema
               connectionType
             }
@@ -255,6 +261,9 @@ published_datasource_graphql_query = """
     upstreamTables {
       id
       name
+      database {
+        name
+      }
       schema
       fullName
       connectionType

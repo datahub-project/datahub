@@ -1008,6 +1008,9 @@
                                 {
                                     "id": "1704c7c3-4bb9-e6c6-6ea0-23f76e7560db",
                                     "name": "activity6",
+                                    "database": {
+                                      "name": "Marketo"
+                                    },
                                     "schema": "",
                                     "fullName": "[activity6]",
                                     "connectionType": "webdata-direct:marketo-marketo",
@@ -1058,6 +1061,9 @@
                                 {
                                     "id": "38f106d0-5219-2663-2647-bbbf5fca3866",
                                     "name": "activity11",
+                                    "database": {
+                                      "name": "Marketo"
+                                    },
                                     "schema": "",
                                     "fullName": "[activity11]",
                                     "connectionType": "webdata-direct:marketo-marketo",
@@ -1132,6 +1138,9 @@
                                 {
                                     "id": "4aee37cd-e738-e5de-3c77-7a118964ac70",
                                     "name": "activity10",
+                                    "database": {
+                                      "name": "Marketo"
+                                    },
                                     "schema": "",
                                     "fullName": "[activity10]",
                                     "connectionType": "webdata-direct:marketo-marketo",
@@ -1198,6 +1207,9 @@
                                 {
                                     "id": "6a9da5b0-a1bc-ef1b-a154-59c2627f49b0",
                                     "name": "activity7",
+                                    "database": {
+                                      "name": "Marketo"
+                                    },
                                     "schema": "",
                                     "fullName": "[activity7]",
                                     "connectionType": "webdata-direct:marketo-marketo",
@@ -1248,6 +1260,9 @@
                                 {
                                     "id": "82c42950-210b-ba3f-b2e9-53240474a8fd",
                                     "name": "campaignsTable",
+                                    "database": {
+                                      "name": "Marketo"
+                                    },
                                     "schema": "",
                                     "fullName": "[campaignsTable]",
                                     "connectionType": "webdata-direct:marketo-marketo",
@@ -2857,6 +2872,9 @@
                                 {
                                     "id": "39657832-0769-6372-60c3-687a51e2a772",
                                     "name": "customer",
+                                    "database": {
+                                      "name": "dvdrental"
+                                    },
                                     "schema": "",
                                     "fullName": "customer",
                                     "connectionType": "postgres",
@@ -2866,6 +2884,9 @@
                                 {
                                     "id": "3cdd0522-44ef-62eb-ba52-71545c258344",
                                     "name": "payment",
+                                    "database": {
+                                      "name": "dvdrental"
+                                    },
                                     "schema": "",
                                     "fullName": "payment",
                                     "connectionType": "postgres",
@@ -3051,6 +3072,9 @@
                                 {
                                     "id": "5acb3a52-00b1-0e5c-b8b2-040445db9824",
                                     "name": "address",
+                                    "database": {
+                                      "name": "dvdrental"
+                                    },
                                     "schema": "public",
                                     "fullName": "[public].[address]",
                                     "connectionType": "postgres",
@@ -3093,6 +3117,9 @@
                                 {
                                     "id": "985d7629-535b-9326-79bc-748e29e97949",
                                     "name": "actor",
+                                    "database": {
+                                      "name": "dvdrental"
+                                    },
                                     "schema": "public",
                                     "fullName": "[public].[actor]",
                                     "connectionType": "postgres",
@@ -3397,6 +3424,9 @@
                                 {
                                     "id": "15714253-8e46-a209-63cc-700705b66de9",
                                     "name": "People",
+                                    "database": {
+                                      "name": "Sample - Superstore.xls"
+                                    },
                                     "schema": "",
                                     "fullName": "[People$]",
                                     "connectionType": "excel-direct",
@@ -3415,6 +3445,9 @@
                                 {
                                     "id": "19be3c28-8e4d-ebac-b44d-8f0851d9f206",
                                     "name": "Returns",
+                                    "database": {
+                                      "name": "Sample - Superstore.xls"
+                                    },
                                     "schema": "",
                                     "fullName": "[Returns$]",
                                     "connectionType": "excel-direct",
@@ -3433,6 +3466,9 @@
                                 {
                                     "id": "b0e0c3eb-6e53-e0f5-ded1-478d5d9f7281",
                                     "name": "Orders",
+                                    "database": {
+                                      "name": "Sample - Superstore.xls"
+                                    },
                                     "schema": "",
                                     "fullName": "[Orders$]",
                                     "connectionType": "excel-direct",
@@ -6868,6 +6904,9 @@
                                 {
                                     "id": "57135afa-7602-93fe-0f9f-c7fe7c36dd5d",
                                     "name": "task",
+                                    "database": {
+                                      "name": "ven01911"
+                                    },
                                     "schema": "",
                                     "fullName": "[task]",
                                     "connectionType": "webdata-direct:servicenowitsm-servicenowitsm",
@@ -7126,6 +7165,9 @@
                                 {
                                     "id": "66f2e5af-c0f9-94b4-13d6-5fd53f6e02b7",
                                     "name": "sc_request",
+                                    "database": {
+                                      "name": "ven01911"
+                                    },
                                     "schema": "",
                                     "fullName": "[sc_request]",
                                     "connectionType": "webdata-direct:servicenowitsm-servicenowitsm",
@@ -7416,6 +7458,9 @@
                                 {
                                     "id": "6d3b8726-1f0b-312a-6013-43aec9ccba69",
                                     "name": "sc_req_item",
+                                    "database": {
+                                      "name": "ven01911"
+                                    },
                                     "schema": "",
                                     "fullName": "[sc_req_item]",
                                     "connectionType": "webdata-direct:servicenowitsm-servicenowitsm",
@@ -7730,6 +7775,9 @@
                                 {
                                     "id": "ce005441-3761-f8d4-fa42-60f14c7002c8",
                                     "name": "sc_cat_item",
+                                    "database": {
+                                      "name": "ven01911"
+                                    },
                                     "schema": "",
                                     "fullName": "[sc_cat_item]",
                                     "connectionType": "webdata-direct:servicenowitsm-servicenowitsm",
@@ -13107,6 +13155,9 @@
                             "upstreamTables": [
                                 {
                                     "id": "f306c458-6b1d-ed1d-a52c-6d72ea27d21a",
+                                    "database": {
+                                      "name": "ven01911"
+                                    },
                                     "name": "task",
                                     "schema": "",
                                     "fullName": "[task]",
@@ -13366,6 +13417,9 @@
                                 {
                                     "id": "f9588215-a80d-42e8-0bd3-c3b110a19e22",
                                     "name": "sys_user_group",
+                                    "database": {
+                                      "name": "ven01911"
+                                    },
                                     "schema": "",
                                     "fullName": "[sys_user_group]",
                                     "connectionType": "webdata-direct:servicenowitsm-servicenowitsm",
@@ -13464,6 +13518,9 @@
                                 {
                                     "id": "fffba843-b0c6-c083-0f6f-5c2ea5075d50",
                                     "name": "problem",
+                                    "database": {
+                                      "name": "ven01911"
+                                    },
                                     "schema": "",
                                     "fullName": "[problem]",
                                     "connectionType": "webdata-direct:servicenowitsm-servicenowitsm",
@@ -16710,6 +16767,9 @@
                                 {
                                     "id": "0646bea5-97f9-d806-ac63-9b63500d07e9",
                                     "name": "incident",
+                                    "database": {
+                                      "name": "ven01911"
+                                    },
                                     "schema": "",
                                     "fullName": "[incident]",
                                     "connectionType": "webdata-direct:servicenowitsm-servicenowitsm",
@@ -17037,6 +17097,9 @@
                                     "id": "22a4144f-6b0d-8fe2-d42e-d0101e38b3b8",
                                     "name": "task",
                                     "schema": "",
+                                    "database": {
+                                      "name": "ven01911"
+                                    },
                                     "fullName": "[task]",
                                     "connectionType": "webdata-direct:servicenowitsm-servicenowitsm",
                                     "description": "",
@@ -17294,6 +17357,9 @@
                                 {
                                     "id": "d0c8ed66-15df-e9b5-a86a-227f4d604922",
                                     "name": "cmdb_ci",
+                                    "database": {
+                                      "name": "ven01911"
+                                    },
                                     "schema": "",
                                     "fullName": "[cmdb_ci]",
                                     "connectionType": "webdata-direct:servicenowitsm-servicenowitsm",
@@ -21684,6 +21750,9 @@
                                 {
                                     "id": "39657832-0769-6372-60c3-687a51e2a772",
                                     "name": "customer",
+                                    "database": {
+                                      "name": "ven01911"
+                                    },
                                     "schema": "",
                                     "fullName": "customer",
                                     "connectionType": "postgres",
@@ -21693,6 +21762,9 @@
                                 {
                                     "id": "3cdd0522-44ef-62eb-ba52-71545c258344",
                                     "name": "payment",
+                                    "database": {
+                                      "name": "ven01911"
+                                    },
                                     "schema": "",
                                     "fullName": "payment",
                                     "connectionType": "postgres",
@@ -21702,6 +21774,9 @@
                                 {
                                     "id": "7df39af9-6767-4c9c-4120-155a024de062",
                                     "name": "staff",
+                                    "database": {
+                                      "name": "ven01911"
+                                    },
                                     "schema": "",
                                     "fullName": "staff",
                                     "connectionType": "postgres",
