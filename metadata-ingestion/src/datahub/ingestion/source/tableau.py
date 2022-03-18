@@ -120,6 +120,7 @@ class TableauSource(Source):
 
         self.config = config
         self.report = SourceReport()
+        self.server = None
         # This list keeps track of datasource being actively used by workbooks so that we only retrieve those
         # when emitting published data sources.
         self.datasource_ids_being_used: List[str] = []
@@ -130,7 +131,8 @@ class TableauSource(Source):
         self._authenticate()
 
     def close(self) -> None:
-        self.server.auth.sign_out()
+        if self.server is not None:
+            self.server.auth.sign_out()
 
     def _authenticate(self):
         # https://tableau.github.io/server-client-python/docs/api-ref#authentication
@@ -154,11 +156,13 @@ class TableauSource(Source):
             self.server = Server(self.config.connect_uri, use_server_version=True)
             self.server.auth.sign_in(authentication)
         except ServerResponseError as e:
+            logger.error(e)
             self.report.report_failure(
                 key="tableau-login",
                 reason=f"Unable to Login with credentials provided" f"Reason: {str(e)}",
             )
         except Exception as e:
+            logger.error(e)
             self.report.report_failure(
                 key="tableau-login", reason=f"Unable to Login" f"Reason: {str(e)}"
             )
@@ -925,6 +929,8 @@ class TableauSource(Source):
         return cls(ctx, config)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        if self.server is None:
+            return
         try:
             yield from self.emit_workbooks(self.config.workbooks_page_size)
             if self.datasource_ids_being_used:
