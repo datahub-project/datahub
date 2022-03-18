@@ -17,7 +17,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
 
 import javax.annotation.Nonnull;
- 
+
 
 @Configuration
 public class EntityServiceFactory {
@@ -26,7 +26,7 @@ public class EntityServiceFactory {
   @DependsOn({"cassandraAspectDao", "kafkaEventProducer", TopicConventionFactory.TOPIC_CONVENTION_BEAN, "entityRegistry"})
   @ConditionalOnProperty(name = "ENTITY_SERVICE_IMPL", havingValue = "cassandra")
   @Nonnull
-  protected EntityService createInstance(
+  protected EntityService createCassandraInstance(
       Producer<String, ? extends IndexedRecord> producer,
       TopicConvention convention,
       CassandraAspectDao aspectDao,
@@ -40,7 +40,7 @@ public class EntityServiceFactory {
   @DependsOn({"ebeanAspectDao", "kafkaEventProducer", TopicConventionFactory.TOPIC_CONVENTION_BEAN, "entityRegistry"})
   @ConditionalOnProperty(name = "ENTITY_SERVICE_IMPL", havingValue = "ebean", matchIfMissing = true)
   @Nonnull
-  protected EntityService createInstance(
+  protected EntityService createEbeanInstance(
       Producer<String, ? extends IndexedRecord> producer,
       TopicConvention convention,
       EbeanAspectDao aspectDao,
