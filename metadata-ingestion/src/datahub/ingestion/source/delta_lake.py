@@ -178,8 +178,7 @@ class DeltaLakeSource(Source):
         
         return wu_list
 
-    #TODO: create_workunit report scanned, create data set urn -> datasetsnapshot, add properties, ownership, schema + fields, then turn snapshot into MCE and emit workunit and report
-    # should we rewrite the metadata get to an iterator instead? less mem consumption
+    #TODO: should we rewrite the metadata get to an iterator instead? less mem consumption
 
     def _create_delta_workunit(
         self, metadata:QueryTableMetadataResponse_extended,
@@ -254,27 +253,27 @@ class DeltaLakeSource(Source):
         columns=json.loads(metadata.schema_string)
         columns=columns["fields"]#get rid of other "hull"
 
-        #TODO: where do we add the name of the field???
-
         for column in columns:
             if isinstance(column["type"], dict):    
                 #nested type
                 #TODO: this needs to be fixed
                 self.report.report_warning("Warning {} is a nested field this will not be processed properly and it will displayed poorly in UI.".format(column["name"]))
+                datahubName=column["name"]
                 nativeType=column["type"].get("type")
                 datahubType=_field_type_mapping.get(nativeType)
                 datahubDescription=column["metadata"].get("comment")
                 datahubJsonProps=json.dumps(column["type"])
 
-                datahubField=SchemaField(type=datahubType, nativeDataType=nativeType, nullable=column["nullable"], description=datahubDescription, jsonProps=datahubJsonProps)
+                datahubField=SchemaField(fieldPath=datahubName,type=datahubType, nativeDataType=nativeType, nullable=column["nullable"], description=datahubDescription, jsonProps=datahubJsonProps)
             else:
                 #primitive type
+                datahubName=column["name"]
                 nativeType=column["type"]
                 datahubType=_field_type_mapping.get(nativeType)
                 datahubType=_field_type_mapping.get(column["type"],NullTypeClass) #NullTypeClass if we cannot map
                 datahubDescription=column["metadata"].get("comment")
                 
-                datahubField=SchemaField(type=datahubType, nativeDataType=nativeType, nullable=column["nullable"], description=datahubDescription)
+                datahubField=SchemaField(fieldPath=datahubName,type=datahubType, nativeDataType=nativeType, nullable=column["nullable"], description=datahubDescription)
     
             canonical_schema.append(datahubField)
         return canonical_schema
