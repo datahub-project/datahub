@@ -123,7 +123,7 @@ export default function CreateDomainModal({ visible, onClose, onCreate }: Props)
                     <Typography.Paragraph>
                         An optional description for your new domain. You can change this later.
                     </Typography.Paragraph>
-                    <Form.Item name="description" rules={[{ whitespace: true }, { min: 2, max: 150 }]} hasFeedback>
+                    <Form.Item name="description" rules={[{ whitespace: true }, { min: 1, max: 500 }]} hasFeedback>
                         <Input
                             placeholder="A description for your domain"
                             value={stagedDescription}

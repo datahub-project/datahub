@@ -85,7 +85,7 @@ export default function CreateGroupModal({ visible, onClose, onCreate }: Props) 
                                 message: 'Enter a Domain name.',
                             },
                             { whitespace: true },
-                            { min: 2, max: 50 },
+                            { min: 1, max: 50 },
                             {
                                 pattern: USER_NAME_REGEX,
                                 message: '',
@@ -102,7 +102,7 @@ export default function CreateGroupModal({ visible, onClose, onCreate }: Props) 
                 </Form.Item>
                 <Form.Item label={<Typography.Text strong>Description</Typography.Text>}>
                     <Typography.Paragraph>An optional description for your new group.</Typography.Paragraph>
-                    <Form.Item name="description" rules={[{ whitespace: true }, { min: 2, max: 150 }]} hasFeedback>
+                    <Form.Item name="description" rules={[{ whitespace: true }, { min: 1, max: 500 }]} hasFeedback>
                         <Input
                             placeholder="A description for your group"
                             value={stagedDescription}

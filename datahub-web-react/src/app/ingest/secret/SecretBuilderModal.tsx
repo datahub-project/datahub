@@ -10,10 +10,7 @@ type Props = {
     onCancel?: () => void;
 };
 /** Regex Validations */
-export const SECRET_NAME_ALPHANUMERIC = new RegExp('^[a-zA-Z0-9_]+$');
-// TODO: validation for hyphen or dash - is pending
-// export const SECRET_NAME_ALLOW_HYPHEN = new RegExp('^[a-zA-Z0-9.\-_]+$');
-// export const SECRET_NAME_ALPHANUMERIC = new RegExp('^([a-zA-Z0-9 _-]+)$');
+export const SECRET_NAME_ALPHANUMERIC = new RegExp('^[a-zA-Z0-9/]+(?:[w·-]*[a-zA-Z0-9/]+)*$');
 
 export const SecretBuilderModal = ({ initialState, visible, onSubmit, onCancel }: Props) => {
     const [secretBuilderState, setSecretBuilderState] = useState<SecretBuilderState>(initialState || {});
@@ -84,10 +81,10 @@ export const SecretBuilderModal = ({ initialState, visible, onSubmit, onCancel }
                         rules={[
                             {
                                 required: true,
-                                message: 'Enter a display name.',
+                                message: 'Enter a name.',
                             },
                             { whitespace: true },
-                            { min: 2, max: 50 },
+                            { min: 1, max: 50 },
                             {
                                 pattern: SECRET_NAME_ALPHANUMERIC,
                                 message: '',
@@ -113,8 +110,8 @@ export const SecretBuilderModal = ({ initialState, visible, onSubmit, onCancel }
                                 required: true,
                                 message: 'Enter a value.',
                             },
-                            { whitespace: true },
-                            { min: 2, max: 50 },
+                            // { whitespace: true },
+                            { min: 1 },
                         ]}
                         hasFeedback
                     >
@@ -129,7 +126,7 @@ export const SecretBuilderModal = ({ initialState, visible, onSubmit, onCancel }
                     <Typography.Paragraph>
                         An optional description to help keep track of your secret.
                     </Typography.Paragraph>
-                    <Form.Item name="description" rules={[{ whitespace: true }, { min: 2, max: 150 }]} hasFeedback>
+                    <Form.Item name="description" rules={[{ whitespace: true }, { min: 1, max: 500 }]} hasFeedback>
                         <Input
                             placeholder="The value of your secret"
                             value={secretBuilderState.description}
