@@ -180,6 +180,7 @@ subprojects {
       testCompile externalDependency.testng
       constraints {
         implementation('io.netty:netty-all:4.1.44.Final')
+        implementation('org.apache.commons:commons-compress:1.21')
       }
     }
 
