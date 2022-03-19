@@ -224,12 +224,17 @@ class RedshiftUsageSource(Source):
 
             logger.debug(f"event_dict: {event_dict}")
             # filter based on schema and table pattern
-            if self.config.schema_pattern.allowed(
+            if (
                 event_dict["schema"]
-            ) and self.config.table_pattern.allowed(event_dict["table"]):
+                and self.config.schema_pattern.allowed(event_dict["schema"])
+                and event_dict["table"]
+                and self.config.table_pattern.allowed(event_dict["table"])
+            ):
                 events.append(event_dict)
             else:
-                logger.debug(f"Filtering out {event_dict['schema']}.{event_dict['table']}")
+                logger.debug(
+                    f"Filtering out {event_dict['schema']}.{event_dict['table']}"
+                )
 
         if events:
             return events
