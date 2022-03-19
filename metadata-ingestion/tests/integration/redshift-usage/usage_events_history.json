@@ -60,9 +60,9 @@
         "endtime": "2021-09-15 00:00:00"
     },
     {
-        "userid": 1,
-        "query": 293100,
-        "usename": "test-name",
+        "userid": 5,
+        "query": 293103,
+        "usename": "real_shirshanka@acryl.io",
         "tbl": 101589,
         "querytxt": "select cost from orders",
         "database": "dev",

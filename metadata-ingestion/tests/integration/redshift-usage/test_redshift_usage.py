@@ -90,7 +90,7 @@ def test_redshift_usage_filtering(pytestconfig, tmp_path):
     )
 
     with patch(
-        "datahub.ingestion.source.usage.redshift_usage.RedshiftUsageSource._get_redshift_history"
+        "datahub.ingestion.source.usage.redshift_usage.Engine.execute"
     ) as mock_event_history:
         access_events = load_access_events(test_resources_dir)
         mock_event_history.return_value = access_events
@@ -110,7 +110,7 @@ def test_redshift_usage_filtering(pytestconfig, tmp_path):
                         "include_views": True,
                         "include_tables": True,
                         "schema_pattern": {"allow": ["public"]},
-                        "table_pattern": {"deny": ["orders"]}
+                        "table_pattern": {"deny": ["orders"]},
                     },
                 },
                 "sink": {
