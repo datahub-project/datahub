@@ -181,6 +181,7 @@ subprojects {
       constraints {
         implementation('io.netty:netty-all:4.1.44.Final')
         implementation('org.apache.commons:commons-compress:1.21')
+        implementation('org.hibernate:hibernate-validator:5.4.2.Final')
       }
     }
 
