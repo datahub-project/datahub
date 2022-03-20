@@ -51,3 +51,7 @@ query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
         }
     }
 }
+
+mutation createTerm($input: CreateTermInput!) {
+    createTerm(input: $input)
+}

@@ -296,6 +296,8 @@ type Mutation {
       The assertion to remove
       """
       urn: String!): Boolean
+
+    createTerm(input: CreateTermInput!): String
 }
 
 """
@@ -1024,6 +1026,8 @@ type GlossaryTermInfo {
     Schema definition of glossary term
     """
     rawSchema: String
+
+    parentNode: String
 }
 
 """
@@ -6590,4 +6594,29 @@ type Health {
   The causes responsible for the health status
   """
   causes: [String!]
+}
+
+"""
+Input required to add a new Term.
+"""
+input CreateTermInput {
+    """
+    Optional! A custom id to use as the primary key identifier for the domain. If not provided, a random UUID will be generated as the id.
+    """
+    id: String
+
+    """
+    Display name for the Term
+    """
+    name: String!
+
+    """
+    Optional description for the Term
+    """
+    description: String
+
+    """
+    Optional parent for the Term
+    """
+    parent: String
 }

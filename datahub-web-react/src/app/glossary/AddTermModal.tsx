@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Form, Input, Modal, Select, Typography } from 'antd';
+import { Button, Form, Input, message, Modal, Select, Typography } from 'antd';
 import { useApolloClient } from '@apollo/client';
+import { useCreateTermMutation } from '../../graphql/glossaryTerm.generated';
 import { EntityType } from '../../types.generated';
 import { GetBrowseResultsDocument } from '../../graphql/browse.generated';
 
@@ -19,6 +20,7 @@ type Parent = {
 
 export const AddTermModal = ({ visible, onClose, onCreate }: Props) => {
     const [parents, setParents] = useState<Parent[]>([]);
+    const [createTermMutation] = useCreateTermMutation();
     const client = useApolloClient();
     const entityType = EntityType.GlossaryTerm;
 
@@ -57,7 +59,28 @@ export const AddTermModal = ({ visible, onClose, onCreate }: Props) => {
     const [stagedDescription, setStagedDescription] = useState('');
 
     const onAddTerm = () => {
-        onCreate('asd', 'asda');
+        createTermMutation({
+            variables: {
+                input: {
+                    name: stagedName,
+                    description: stagedDescription,
+                },
+            },
+        })
+            .catch((e) => {
+                message.destroy();
+                message.error({ content: `Failed to create GlossaryTerm!: \n ${e.message || ''}`, duration: 3 });
+            })
+            .finally(() => {
+                message.success({
+                    content: `Created a GlossaryTerm!`,
+                    duration: 3,
+                });
+                onCreate(stagedName, stagedDescription);
+                setStagedName('');
+                setStagedDescription('');
+            });
+        onClose();
     };
     return (
         <Modal
