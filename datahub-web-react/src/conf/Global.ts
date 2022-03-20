@@ -20,6 +20,7 @@ export enum PageRoutes {
     SETTINGS = '/settings',
     DOMAINS = '/domains',
     GLOSSARIES = '/glossaries',
+    GLOSSARY_ENTITY_VIEW = '/glossary/:urn',
 }
 
 /**

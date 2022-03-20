@@ -15,6 +15,7 @@ import { SettingsPage } from './settings/SettingsPage';
 import { ManageIngestionPage } from './ingest/ManageIngestionPage';
 import { ManageDomainsPage } from './domain/ManageDomainsPage';
 import { ManageGlossaries } from './glossary/ManageGlossaries';
+import { GlossaryEntityView } from './glossary/GlossaryEntityView';
 
 /**
  * Container for all views behind an authentication wall.
@@ -27,6 +28,7 @@ export const ProtectedRoutes = (): JSX.Element => {
                 <Layout>
                     <Switch>
                         <Route exact path="/" render={() => <HomePage />} />
+                        <Route path={PageRoutes.GLOSSARY_ENTITY_VIEW} render={() => <GlossaryEntityView />} />
                         {entityRegistry.getEntities().map((entity) => (
                             <Route
                                 key={entity.getPathName()}

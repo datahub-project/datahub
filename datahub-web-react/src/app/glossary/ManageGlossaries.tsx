@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Alert, Col, Row, PageHeader, Space, Typography, Divider, Dropdown, Button, Menu } from 'antd';
 import { RightOutlined, FolderOutlined, EllipsisOutlined, FolderAddOutlined, PlusOutlined } from '@ant-design/icons';
@@ -10,6 +10,9 @@ import { useGetBrowseResultsQuery } from '../../graphql/browse.generated';
 import { BrowseCfg } from '../../conf';
 import { EntityType, GlossaryTerm } from '../../types.generated';
 import { GlossariesTreeSidebar } from './GlossariesTreeSidebar';
+import { useEntityRegistry } from '../useEntityRegistry';
+import { ProfileNavBrowsePath } from '../entity/shared/containers/profile/nav/ProfileNavBrowsePath';
+import { AddTermModal } from './AddTermModal';
 
 const ManageGlossariesHeader = styled(PageHeader)`
     box-shadow: 0px 2px 6px rgba(0, 0, 0, 0.05);
@@ -32,27 +35,6 @@ const ResultLink = styled(Link)`
     }
 `;
 
-const menu = (
-    <Menu>
-        <Menu.Item style={styles.menuItem}>
-            <a target="_blank" rel="noopener noreferrer" href="http://www.alipay.com/">
-                <Space align="baseline">
-                    <PlusOutlined />
-                    Add Term
-                </Space>
-            </a>
-        </Menu.Item>
-        <Menu.Item style={styles.menuItem}>
-            <a target="_blank" rel="noopener noreferrer" href="http://www.taobao.com/">
-                <Space align="baseline">
-                    <FolderAddOutlined />
-                    Add Node
-                </Space>
-            </a>
-        </Menu.Item>
-    </Menu>
-);
-
 const ResultCard = ({ to, name, count }: { to: string; name?: string; count?: number }) => (
     <ResultLink to={to}>
         <Row key={`${name}_key`} justify="space-between" style={styles.row}>
@@ -72,17 +54,21 @@ const ResultCard = ({ to, name, count }: { to: string; name?: string; count?: nu
 );
 
 export const ManageGlossaries = () => {
+    const [isAddingTerm, setIsAddingTerm] = useState(false);
     const location = useLocation();
     const params = QueryString.parse(location.search);
+    const entityRegistry = useEntityRegistry();
 
     const rootPath = location.pathname;
     const path = rootPath.split('/').slice(2);
+
+    console.log(path);
 
     const page: number = params.page && Number(params.page as string) > 0 ? Number(params.page as string) : 1;
 
     const entityType = EntityType.GlossaryTerm;
 
-    const { data, loading, error } = useGetBrowseResultsQuery({
+    const { data, loading, error, refetch } = useGetBrowseResultsQuery({
         variables: {
             input: {
                 type: entityType,
@@ -97,6 +83,29 @@ export const ManageGlossaries = () => {
     if (error || (!loading && !error && !data)) {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
     }
+
+    const onMenuSelect = ({ key }) => {
+        if (key === 'addTerm') {
+            setIsAddingTerm(true);
+        }
+    };
+
+    const menu = (
+        <Menu onClick={onMenuSelect}>
+            <Menu.Item style={styles.menuItem} key="addTerm">
+                <Space align="baseline">
+                    <PlusOutlined />
+                    Add Term
+                </Space>
+            </Menu.Item>
+            <Menu.Item style={styles.menuItem} key="addNode">
+                <Space align="baseline">
+                    <FolderAddOutlined />
+                    Add Node
+                </Space>
+            </Menu.Item>
+        </Menu>
+    );
 
     const DropdownMenu = () => (
         <Dropdown key="more" overlay={menu}>
@@ -131,6 +140,13 @@ export const ManageGlossaries = () => {
                     <GlossariesTreeSidebar />
                 </Col>
                 <Col span={20}>
+                    <ProfileNavBrowsePath
+                        path={path}
+                        type={entityType}
+                        breadcrumbLinksEnabled
+                        downstreams={0}
+                        upstreams={0}
+                    />
                     <ManageGlossariesHeader title="Glossary Terms" extra={[<DropdownMenu key="more" />]} />
                     {data && data.browse && (
                         <>
@@ -147,15 +163,31 @@ export const ManageGlossaries = () => {
                                 (data.browse.entities && data.browse.entities.length > 0)) &&
                                 (data?.browse?.entities as GlossaryTerm[]).map(({ properties, urn }) => (
                                     <ResultCard
-                                        to={`${rootPath}/${urn}`}
+                                        to={`/glossary/${urn}`}
                                         name={properties?.name}
                                         key={`entities-${properties?.name}`}
                                     />
                                 ))}
                         </>
                     )}
+
+                    {!data ||
+                        !data.browse ||
+                        (!data.browse.entities.length &&
+                            path.length > 1 &&
+                            entityRegistry.renderProfile(entityType, path[1]))}
                 </Col>
             </Row>
+            <AddTermModal
+                visible={isAddingTerm}
+                onClose={() => setIsAddingTerm(false)}
+                onCreate={() => {
+                    // Hack to deal with eventual consistency.
+                    setTimeout(function () {
+                        refetch?.();
+                    }, 2000);
+                }}
+            />
         </SearchablePage>
     );
 };
