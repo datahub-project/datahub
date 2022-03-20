@@ -5,10 +5,13 @@ import { RocketOutlined } from '@ant-design/icons';
 import { useHistory } from 'react-router';
 import { Message } from '../shared/Message';
 import {
+    Entity,
+    EntityType,
     FacetFilterInput,
     FacetMetadata,
+    MatchedField,
+    SearchAcrossEntitiesInput,
     SearchResult,
-    SearchResults as SearchResultType,
 } from '../../types.generated';
 import { SearchFilters } from './SearchFilters';
 import { useEntityRegistry } from '../useEntityRegistry';
@@ -19,6 +22,8 @@ import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { SearchResultsRecommendations } from './SearchResultsRecommendations';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
+import { SearchResultsInterface } from '../entity/shared/components/styled/search/types';
+import SearchExtendedMenu from '../entity/shared/components/styled/search/SearchExtendedMenu';
 
 const ResultList = styled(List)`
     &&& {
@@ -60,6 +65,8 @@ const PaginationInfoContainer = styled.div`
     padding-left: 16px;
     border-bottom: 1px solid;
     border-color: ${(props) => props.theme.styles['border-color-base']};
+    display: flex;
+    justify-content: space-between;
 `;
 
 const FiltersHeader = styled.div`
@@ -71,8 +78,8 @@ const FiltersHeader = styled.div`
     padding-bottom: 8px;
 
     width: 100%;
-    height: 46px;
-    line-height: 46px;
+    height: 47px;
+    line-height: 47px;
     border-bottom: 1px solid;
     border-color: ${(props) => props.theme.styles['border-color-base']};
 `;
@@ -97,15 +104,32 @@ const SearchResultsRecommendationsContainer = styled.div`
     margin-top: 40px;
 `;
 
+const SearchMenuContainer = styled.div`
+    margin-right: 10px;
+`;
+
 interface Props {
     query: string;
     page: number;
-    searchResponse?: SearchResultType | null;
+    searchResponse?: {
+        start: number;
+        count: number;
+        total: number;
+        searchResults?: {
+            entity: Entity;
+            matchedFields: MatchedField[];
+        }[];
+    } | null;
     filters?: Array<FacetMetadata> | null;
     selectedFilters: Array<FacetFilterInput>;
     loading: boolean;
     onChangeFilters: (filters: Array<FacetFilterInput>) => void;
     onChangePage: (page: number) => void;
+    callSearchOnVariables: (variables: {
+        input: SearchAcrossEntitiesInput;
+    }) => Promise<SearchResultsInterface | null | undefined>;
+    entityFilters: EntityType[];
+    filtersWithoutEntities: FacetFilterInput[];
 }
 
 export const SearchResults = ({
@@ -117,6 +141,9 @@ export const SearchResults = ({
     loading,
     onChangeFilters,
     onChangePage,
+    callSearchOnVariables,
+    entityFilters,
+    filtersWithoutEntities,
 }: Props) => {
     const pageStart = searchResponse?.start || 0;
     const pageSize = searchResponse?.count || 0;
@@ -167,6 +194,14 @@ export const SearchResults = ({
                             </b>{' '}
                             of <b>{totalResults}</b> results
                         </Typography.Paragraph>
+                        <SearchMenuContainer>
+                            <SearchExtendedMenu
+                                callSearchOnVariables={callSearchOnVariables}
+                                entityFilters={entityFilters}
+                                filters={filtersWithoutEntities}
+                                query={query}
+                            />
+                        </SearchMenuContainer>
                     </PaginationInfoContainer>
                     {!loading && (
                         <>

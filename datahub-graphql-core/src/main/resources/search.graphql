@@ -10,6 +10,11 @@ extend type Query {
   searchAcrossEntities(input: SearchAcrossEntitiesInput!): SearchResults
 
   """
+  Search across the results of a graph query on a node
+  """
+  searchAcrossLineage(input: SearchAcrossLineageInput!): SearchAcrossLineageResults
+
+  """
   Autocomplete a search query against a specific DataHub Entity Type
   """
   autoComplete(input: AutoCompleteInput!): AutoCompleteResults
@@ -92,6 +97,46 @@ input SearchAcrossEntitiesInput {
 }
 
 """
+Input arguments for a search query over the results of a multi-hop graph query
+"""
+input SearchAcrossLineageInput {
+    """
+    Urn of the source node
+    """
+    urn: String
+
+    """
+    The direction of the relationship, either incoming or outgoing from the source entity
+    """
+    direction: LineageDirection!
+
+    """
+    Entity types to be searched. If this is not provided, all entities will be searched.
+    """
+    types: [EntityType!]
+
+    """
+    The query string
+    """
+    query: String
+
+    """
+    The starting point of paginated results
+    """
+    start: Int
+
+    """
+    The number of elements included in the results
+    """
+    count: Int
+
+    """
+    Faceted filters applied to search results
+    """
+    filters: [FacetFilterInput!]
+}
+
+"""
 Facet filters to apply to search results
 """
 input FacetFilterInput {
@@ -154,6 +199,66 @@ type SearchResult {
   Matched field hint
   """
   matchedFields: [MatchedField!]!
+}
+
+"""
+Results returned by issueing a search across relationships query
+"""
+type SearchAcrossLineageResults {
+    """
+    The offset of the result set
+    """
+    start: Int!
+
+    """
+    The number of entities included in the result set
+    """
+    count: Int!
+
+    """
+    The total number of search results matching the query and filters
+    """
+    total: Int!
+
+    """
+    The search result entities
+    """
+    searchResults: [SearchAcrossLineageResult!]!
+
+    """
+    Candidate facet aggregations used for search filtering
+    """
+    facets: [FacetMetadata!]
+}
+
+"""
+Individual search result from a search across relationships query (has added metadata about the path)
+"""
+type SearchAcrossLineageResult {
+    """
+    The resolved DataHub Metadata Entity matching the search query
+    """
+    entity: Entity!
+
+    """
+    Insights about why the search result was matched
+    """
+    insights: [SearchInsight!]
+
+    """
+    Matched field hint
+    """
+    matchedFields: [MatchedField!]!
+
+    """
+    Optional list of entities between the source and destination node
+    """
+    path: [Entity!]
+
+    """
+    Degree of relationship (number of hops to get to entity)
+    """
+    degree: Int!
 }
 
 """
@@ -300,6 +405,11 @@ type AutoCompleteResultForEntity {
   The autocompletion results for specified entity type
   """
   suggestions: [String!]!
+
+  """
+  A list of entities to render in autocomplete
+  """
+  entities: [Entity!]!
 }
 
 """
@@ -330,6 +440,11 @@ type AutoCompleteResults {
 	The autocompletion results
 	"""
 	suggestions: [String!]!
+
+  """
+  A list of entities to render in autocomplete
+  """
+  entities: [Entity!]!
 }
 
 """

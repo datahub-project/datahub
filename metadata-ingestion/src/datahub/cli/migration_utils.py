@@ -9,6 +9,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     ChartInfoClass,
+    ContainerClass,
     DataJobInputOutputClass,
     DataProcessInfoClass,
     MLFeaturePropertiesClass,
@@ -20,44 +21,72 @@ from datahub.metadata.schema_classes import (
 
 log = logging.getLogger(__name__)
 
+all_aspects = [
+    "schemaMetadata",
+    "datasetProperties",
+    "viewProperties",
+    "subTypes",
+    "editableDatasetProperties",
+    "ownership",
+    "datasetDeprecation",
+    "institutionalMemory",
+    "editableSchemaMetadata",
+    "globalTags",
+    "glossaryTerms",
+    "upstreamLineage",
+    "datasetUpstreamLineage",
+    "status",
+    "containerProperties",
+    "dataPlatformInstance",
+    "containerKey",
+    "container",
+    "domains",
+    "containerProperties",
+    "editableContainerProperties",
+]
 
-def get_aspect_name_from_relationship_type_and_entity(
-    relationship_type: str, entity_type: str
-) -> str:
-    if relationship_type == "Produces":
-        if entity_type.lower() == "datajob":
-            return "dataJobInputOutput"
-    if relationship_type == "Consumes":
-        if entity_type.lower() == "chart":
-            return "chartInfo"
-        if entity_type.lower() == "datajob":
-            return "dataJobInputOutput"
-        if entity_type.lower() == "dataProcess":
-            return "dataProcessInfo"
-    if relationship_type == "DownstreamOf":
-        if entity_type.lower() == "dataset":
-            return "upstreamLineage"
-    if relationship_type == "ForeignKeyToDataset":
-        if entity_type.lower() == "dataset":
-            return "schemaMetadata"
-    if relationship_type == "DerivedFrom":
-        if entity_type.lower() == "mlfeature":
-            return "mlFeatureProperties"
-        if entity_type.lower() == "mlprimarykey":
-            return "mlPrimaryKeyProperties"
+
+def get_aspect_name_from_relationship(relationship_type: str, entity_type: str) -> str:
+    aspect_map = {
+        "Produces": {"datajob": "dataJobInputOutput"},
+        "Consumes": {
+            "chart": "chartInfo",
+            "datajob": "dataJobInputOutput",
+            "dataProcess": "dataProcessInfo",
+        },
+        "DownstreamOf": {"dataset": "upstreamLineage"},
+        "ForeignKeyToDataset": {"dataset": "schemaMetadata"},
+        "DerivedFrom": {
+            "mlfeature": "mlFeatureProperties",
+            "mlprimarykey": "mlPrimaryKeyProperties",
+        },
+        "IsPartOf": {
+            "container": "container",
+            "dataset": "container",
+            "dashboard": "container",
+            "chart": "container",
+        },
+    }
+
+    if (
+        relationship_type in aspect_map
+        and entity_type.lower() in aspect_map[relationship_type]
+    ):
+        return aspect_map[relationship_type][entity_type.lower()]
+
     raise Exception(
         f"Unable to map aspect name from relationship_type {relationship_type} and entity_type {entity_type}"
     )
 
 
-def modify_urn_list_for_aspect(
-    aspect_name: str,
-    aspect: DictWrapper,
-    relationship_type: str,
-    old_urn: str,
-    new_urn: str,
-) -> DictWrapper:
-    if aspect_name == "dataJobInputOutput":
+class UrnListModifier:
+    @staticmethod
+    def dataJobInputOutput_modifier(
+        aspect: DictWrapper,
+        relationship_type: str,
+        old_urn: str,
+        new_urn: str,
+    ) -> DictWrapper:
         assert isinstance(aspect, DataJobInputOutputClass)
         dataJobInputOutput: DataJobInputOutputClass = aspect
         if relationship_type == "Produces":
@@ -72,14 +101,32 @@ def modify_urn_list_for_aspect(
                 for dataset in dataJobInputOutput.inputDatasets
             ]
             return dataJobInputOutput
-    if aspect_name == "chartInfo":
+
+        raise Exception(
+            f"Unable to map aspect_name: dataJobInputOutput, relationship_type {relationship_type}"
+        )
+
+    @staticmethod
+    def chartInfo_modifier(
+        aspect: DictWrapper,
+        relationship_type: str,
+        old_urn: str,
+        new_urn: str,
+    ) -> DictWrapper:
         assert isinstance(aspect, ChartInfoClass)
         chartInfo: ChartInfoClass = aspect
         chartInfo.inputs = [
             new_urn if x == old_urn else x for x in chartInfo.inputs or []
         ]
         return chartInfo
-    if aspect_name == "dataProcessInfo":
+
+    @staticmethod
+    def dataProcessInfo_modifier(
+        aspect: DictWrapper,
+        relationship_type: str,
+        old_urn: str,
+        new_urn: str,
+    ) -> DictWrapper:
         assert isinstance(aspect, DataProcessInfoClass)
         dataProcessInfo: DataProcessInfoClass = aspect
         if dataProcessInfo.inputs is not None:
@@ -87,14 +134,28 @@ def modify_urn_list_for_aspect(
                 new_urn if x == old_urn else x for x in dataProcessInfo.inputs
             ]
         return dataProcessInfo
-    if aspect_name == "upstreamLineage":
+
+    @staticmethod
+    def upstreamLineage_modifier(
+        aspect: DictWrapper,
+        relationship_type: str,
+        old_urn: str,
+        new_urn: str,
+    ) -> DictWrapper:
         assert isinstance(aspect, UpstreamLineageClass)
         upstreamLineage: UpstreamLineageClass = aspect
         for upstream in upstreamLineage.upstreams:
             if upstream.dataset == old_urn:
                 upstream.dataset = new_urn
         return upstreamLineage
-    if aspect_name == "schemaMetadata":
+
+    @staticmethod
+    def schemaMetadata_modifier(
+        aspect: DictWrapper,
+        relationship_type: str,
+        old_urn: str,
+        new_urn: str,
+    ) -> DictWrapper:
         assert isinstance(aspect, SchemaMetadataClass)
         schemaMetadata: SchemaMetadataClass = aspect
         for foreignKey in schemaMetadata.foreignKeys or []:
@@ -104,7 +165,14 @@ def modify_urn_list_for_aspect(
             if foreignKey.foreignDataset == old_urn:
                 foreignKey.foreignDataset = new_urn
         return schemaMetadata
-    if aspect_name == "mlFeatureProperties":
+
+    @staticmethod
+    def mlFeatureProperties_modifier(
+        aspect: DictWrapper,
+        relationship_type: str,
+        old_urn: str,
+        new_urn: str,
+    ) -> DictWrapper:
         assert isinstance(aspect, MLFeaturePropertiesClass)
         mlFeatureProperties: MLFeaturePropertiesClass = aspect
         mlFeatureProperties.sources = [
@@ -112,13 +180,52 @@ def modify_urn_list_for_aspect(
             for source in mlFeatureProperties.sources or []
         ]
         return mlFeatureProperties
-    if aspect_name == "mlPrimaryKeyProperties":
+
+    @staticmethod
+    def mlPrimaryKeyProperties_modifier(
+        aspect: DictWrapper,
+        relationship_type: str,
+        old_urn: str,
+        new_urn: str,
+    ) -> DictWrapper:
         assert isinstance(aspect, MLPrimaryKeyPropertiesClass)
         ml_pk_aspect: MLPrimaryKeyPropertiesClass = aspect
         ml_pk_aspect.sources = [
             new_urn if source == old_urn else source for source in ml_pk_aspect.sources
         ]
         return ml_pk_aspect
+
+    @staticmethod
+    def container_modifier(
+        aspect: DictWrapper,
+        relationship_type: str,
+        old_urn: str,
+        new_urn: str,
+    ) -> DictWrapper:
+        assert isinstance(aspect, ContainerClass)
+        container: ContainerClass = aspect
+        container.container = (
+            new_urn if container.container == old_urn else container.container
+        )
+        return container
+
+
+def modify_urn_list_for_aspect(
+    aspect_name: str,
+    aspect: DictWrapper,
+    relationship_type: str,
+    old_urn: str,
+    new_urn: str,
+) -> DictWrapper:
+
+    if hasattr(UrnListModifier, aspect_name + "_modifier"):
+        modifier = getattr(UrnListModifier, aspect_name + "_modifier")
+        return modifier(
+            aspect=aspect,
+            relationship_type=relationship_type,
+            old_urn=old_urn,
+            new_urn=new_urn,
+        )
     raise Exception(
         f"Unable to map aspect_name: {aspect_name}, relationship_type {relationship_type}"
     )
@@ -126,6 +233,7 @@ def modify_urn_list_for_aspect(
 
 def clone_aspect(
     src_urn: str,
+    entity_type: str,
     aspect_names: List[str],
     dst_urn: str,
     run_id: str = str(uuid.uuid4()),
@@ -135,6 +243,7 @@ def clone_aspect(
     aspect_map = cli_utils.get_aspects_for_entity(
         entity_urn=src_urn, aspects=aspect_names, typed=True
     )
+
     if aspect_names is not None:
         for a in aspect_names:
             if a in aspect_map:
@@ -142,7 +251,7 @@ def clone_aspect(
                 assert isinstance(aspect_value, DictWrapper)
                 new_mcp = MetadataChangeProposalWrapper(
                     entityUrn=dst_urn,
-                    entityType="dataset",
+                    entityType=entity_type,
                     changeType=ChangeTypeClass.UPSERT,
                     aspectName=a,
                     aspect=aspect_value,
@@ -159,7 +268,7 @@ def clone_aspect(
                 log.debug(f"did not find aspect {a} in response, continuing...")
 
 
-def get_incoming_relationships_dataset(urn: str) -> Iterable[Dict]:
+def get_incoming_relationships(urn: str) -> Iterable[Dict]:
     yield from cli_utils.get_incoming_relationships(
         urn,
         types=[
@@ -168,5 +277,20 @@ def get_incoming_relationships_dataset(urn: str) -> Iterable[Dict]:
             "Produces",
             "ForeignKeyToDataset",
             "DerivedFrom",
+            "IsPartOf",
+        ],
+    )
+
+
+def get_outgoing_relationships(urn: str) -> Iterable[Dict]:
+    yield from cli_utils.get_outgoing_relationships(
+        urn,
+        types=[
+            "DownstreamOf",
+            "Consumes",
+            "Produces",
+            "ForeignKeyToDataset",
+            "DerivedFrom",
+            "IsPartOf",
         ],
     )

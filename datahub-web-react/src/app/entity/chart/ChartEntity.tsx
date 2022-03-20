@@ -15,7 +15,6 @@ import { ChartInputsTab } from '../shared/tabs/Entity/ChartInputsTab';
 import { ChartDashboardsTab } from '../shared/tabs/Entity/ChartDashboardsTab';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { capitalizeFirstLetter } from '../../shared/textUtil';
-import { EntityAndType } from '../../lineage/types';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 
 /**
@@ -180,14 +179,6 @@ export class ChartEntity implements Entity<Chart> {
             urn: entity.urn,
             name: entity.properties?.name || '',
             type: EntityType.Chart,
-            // eslint-disable-next-line @typescript-eslint/dot-notation
-            upstreamChildren: entity?.['inputs']?.relationships?.map(
-                (relationship) => ({ entity: relationship.entity, type: relationship.entity.type } as EntityAndType),
-            ),
-            // eslint-disable-next-line @typescript-eslint/dot-notation
-            downstreamChildren: entity?.['dashboards']?.relationships?.map(
-                (relationship) => ({ entity: relationship.entity, type: relationship.entity.type } as EntityAndType),
-            ),
             icon: entity?.platform?.properties?.logoUrl || '',
             platform: entity.tool,
         };

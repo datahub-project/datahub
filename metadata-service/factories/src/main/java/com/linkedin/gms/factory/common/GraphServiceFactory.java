@@ -2,7 +2,7 @@ package com.linkedin.gms.factory.common;
 
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.graph.GraphService;
-import com.linkedin.metadata.graph.Neo4jGraphService;
+import com.linkedin.metadata.graph.neo4j.Neo4jGraphService;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;

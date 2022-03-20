@@ -1,9 +1,8 @@
 import * as React from 'react';
 import { ConsoleSqlOutlined } from '@ant-design/icons';
-import { DataJob, EntityType, PlatformType, RelationshipDirection, SearchResult } from '../../../types.generated';
+import { DataJob, EntityType, OwnershipType, PlatformType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
-import { getChildrenFromRelationships } from '../../lineage/utils/getChildren';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { GetDataJobQuery, useGetDataJobQuery, useUpdateDataJobMutation } from '../../../graphql/dataJob.generated';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
@@ -101,6 +100,9 @@ export class DataJobEntity implements Entity<DataJob> {
                 },
                 {
                     component: SidebarOwnerSection,
+                    properties: {
+                        defaultOwnerType: OwnershipType.TechnicalOwner,
+                    },
                 },
                 {
                     component: SidebarDomainSection,
@@ -174,20 +176,6 @@ export class DataJobEntity implements Entity<DataJob> {
             urn: entity?.urn,
             name: entity?.properties?.name || '',
             type: EntityType.DataJob,
-            downstreamChildren: getChildrenFromRelationships({
-                // eslint-disable-next-line @typescript-eslint/dot-notation
-                incomingRelationships: entity?.['incoming'],
-                // eslint-disable-next-line @typescript-eslint/dot-notation
-                outgoingRelationships: entity?.['outgoing'],
-                direction: RelationshipDirection.Incoming,
-            }),
-            upstreamChildren: getChildrenFromRelationships({
-                // eslint-disable-next-line @typescript-eslint/dot-notation
-                incomingRelationships: entity?.['incoming'],
-                // eslint-disable-next-line @typescript-eslint/dot-notation
-                outgoingRelationships: entity?.['outgoing'],
-                direction: RelationshipDirection.Outgoing,
-            }),
             icon: entity?.dataFlow?.platform?.properties?.logoUrl || '',
             platform: entity?.dataFlow?.orchestrator || '',
         };

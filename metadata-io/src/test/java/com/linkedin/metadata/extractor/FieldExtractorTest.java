@@ -7,6 +7,7 @@ import com.linkedin.metadata.TestEntityUtil;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
+import com.linkedin.metadata.models.extractor.FieldExtractor;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;

@@ -55,6 +55,7 @@ import org.pac4j.play.PlayWebContext;
 import play.mvc.Result;
 import auth.sso.SsoManager;
 
+import static com.linkedin.metadata.Constants.*;
 import static play.mvc.Results.*;
 import static auth.AuthUtils.*;
 
@@ -125,16 +126,14 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
         if (oidcConfigs.isJitProvisioningEnabled()) {
           log.debug("Just-in-time provisioning is enabled. Beginning provisioning process...");
           CorpUserSnapshot extractedUser = extractUser(corpUserUrn, profile);
+          tryProvisionUser(extractedUser);
           if (oidcConfigs.isExtractGroupsEnabled()) {
             // Extract groups & provision them.
             List<CorpGroupSnapshot> extractedGroups = extractGroups(profile);
             tryProvisionGroups(extractedGroups);
-            if (extractedGroups.size() > 0) {
-              // Associate group with the user logging in.
-              extractedUser.getAspects().add(CorpUserAspect.create(createGroupMembership(extractedGroups)));
-            }
+            // Add users to groups on DataHub. Note that this clears existing group membership for a user if it already exists.
+            updateGroupMembership(corpUserUrn, createGroupMembership(extractedGroups));
           }
-          tryProvisionUser(extractedUser);
         } else if (oidcConfigs.isPreProvisioningRequired()) {
           // We should only allow logins for user accounts that have been pre-provisioned
           log.debug("Pre Provisioning is required. Beginning validation of extracted user...");
@@ -246,8 +245,22 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     if (profile.containsAttribute(groupsClaimName)) {
       try {
         final List<CorpGroupSnapshot> groupSnapshots = new ArrayList<>();
-        // We found some groups. Note that we assume it is an array of strings!
-        final Collection<String> groupNames = (Collection<String>) profile.getAttribute(groupsClaimName, Collection.class);
+        final Collection<String> groupNames;
+        final Object groupAttribute = profile.getAttribute(groupsClaimName);
+        if (groupAttribute instanceof Collection) {
+          // List of group names
+          groupNames = (Collection<String>) profile.getAttribute(groupsClaimName, Collection.class);
+        } else if (groupAttribute instanceof String) {
+          // Single group name
+          groupNames = Collections.singleton(profile.getAttribute(groupsClaimName, String.class));
+        } else {
+          log.error(String.format("Failed to parse OIDC group claim with name %s. Unknown type %s provided.",
+              groupsClaimName,
+              groupAttribute.getClass()));
+          // Return empty list. Do not throw.
+          return Collections.emptyList();
+        }
+
         for (String groupName : groupNames) {
           // Create a basic CorpGroupSnapshot from the information.
           try {
@@ -369,6 +382,21 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
       // Failing provisioning is something worth throwing about.
       throw new RuntimeException(String.format("Failed to provision groups with urns %s.",
           corpGroups.stream().map(CorpGroupSnapshot::getUrn).collect(Collectors.toList())), e);
+    }
+  }
+
+  private void updateGroupMembership(Urn urn, GroupMembership groupMembership) {
+    log.debug(String.format("Updating group membership for user %s", urn));
+    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+    proposal.setEntityUrn(urn);
+    proposal.setEntityType(CORP_USER_ENTITY_NAME);
+    proposal.setAspectName(GROUP_MEMBERSHIP_ASPECT_NAME);
+    proposal.setAspect(GenericAspectUtils.serializeAspect(groupMembership));
+    proposal.setChangeType(ChangeType.UPSERT);
+    try {
+      _entityClient.ingestProposal(proposal, _systemAuthentication);
+    } catch (RemoteInvocationException e) {
+      throw new RuntimeException(String.format("Failed to update group membership for user with urn %s", urn), e);
     }
   }
 

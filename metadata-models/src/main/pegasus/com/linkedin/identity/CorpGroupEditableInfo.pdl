@@ -24,7 +24,7 @@ record CorpGroupEditableInfo {
   pictureLink: Url = "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/default_avatar.png"
 
   /**
-   * Slack handle for the group
+   * Slack channel for the group
    */
   slack: optional string
 

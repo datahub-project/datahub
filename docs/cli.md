@@ -4,7 +4,7 @@ DataHub comes with a friendly cli called `datahub` that allows you to perform a 
 
 ## Release Notes
 
-You can find the release notes in [github releases](https://github.com/linkedin/datahub/releases). If you wish release notes for each bug-fix release you can find them in [acryldata releases](https://github.com/acryldata/datahub/releases).
+You can find the release notes in [github releases](https://github.com/datahub-project/datahub/releases). If you wish release notes for each bug-fix release you can find them in [acryldata releases](https://github.com/acryldata/datahub/releases).
 
 ## Installation
 ### Using pip
@@ -33,7 +33,7 @@ If you run into an error, try checking the [_common setup issues_](../metadata-i
 ### Using docker
 
 [![Docker Hub](https://img.shields.io/docker/pulls/linkedin/datahub-ingestion?style=plastic)](https://hub.docker.com/r/linkedin/datahub-ingestion)
-[![datahub-ingestion docker](https://github.com/linkedin/datahub/actions/workflows/docker-ingestion.yml/badge.svg)](https://github.com/linkedin/datahub/actions/workflows/docker-ingestion.yml)
+[![datahub-ingestion docker](https://github.com/datahub-project/datahub/actions/workflows/docker-ingestion.yml/badge.svg)](https://github.com/datahub-project/datahub/actions/workflows/docker-ingestion.yml)
 
 If you don't want to install locally, you can alternatively run metadata ingestion within a Docker container.
 We have prebuilt images available on [Docker hub](https://hub.docker.com/r/linkedin/datahub-ingestion). All plugins will be installed and enabled automatically.
@@ -139,7 +139,7 @@ Commands:
   check      Helper commands for checking various aspects of DataHub.
   delete     Delete metadata from datahub using a single urn or a combination of filters
   docker     Helper commands for setting up and interacting with a local DataHub instance using Docker.
-  get        Get metadata for an entity with an optional list of aspects to project
+  get        Get metadata for an entity with an optional list of aspects to project.
   ingest     Ingest metadata into DataHub.
   init       Configure which datahub instance to connect to
   put        Update a single aspect of an entity
@@ -183,7 +183,7 @@ The env variables take precedence over what is in the config.
 
 To help us understand how people are using DataHub, we collect anonymous usage statistics on actions such as command invocations via Mixpanel.
 We do not collect private information such as IP addresses, contents of ingestions, or credentials.
-The code responsible for collecting and broadcasting these events is open-source and can be found [within our GitHub](https://github.com/linkedin/datahub/blob/master/metadata-ingestion/src/datahub/telemetry/telemetry.py).
+The code responsible for collecting and broadcasting these events is open-source and can be found [within our GitHub](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/telemetry/telemetry.py).
 
 Telemetry is enabled by default, and the `telemetry` command lets you toggle the sending of these statistics via `telemetry enable/disable`.
 You can also disable telemetry by setting the env variable `DATAHUB_TELEMETRY_ENABLED` to `false`. If you are running CLI in a private environment with no access to public internet then you need to disable telemetry.
@@ -200,7 +200,7 @@ datahub delete --urn "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset
 
 ### get
 
-The `get` command allows you to easily retrieve metadata from DataHub, by using the REST API.
+The `get` command allows you to easily retrieve metadata from DataHub, by using the REST API. This works for both versioned aspects and timeseries aspects. For timeseries aspects, it fetches the latest value.
 For example the following command gets the ownership aspect from the dataset `urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)`
 
 ```console
@@ -245,7 +245,7 @@ datahub get --urn "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PR
 
 The `put` command allows you to write metadata into DataHub. This is a flexible way for you to issue edits to metadata from the command line.
 For example, the following command instructs `datahub` to set the `ownership` aspect of the dataset `urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)` to the value in the file `ownership.json`.
-The JSON in the `ownership.json` file needs to conform to the [`Ownership`](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/common/Ownership.pdl) Aspect model as shown below.
+The JSON in the `ownership.json` file needs to conform to the [`Ownership`](https://github.com/datahub-project/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/common/Ownership.pdl) Aspect model as shown below.
 
 ```json
 {
