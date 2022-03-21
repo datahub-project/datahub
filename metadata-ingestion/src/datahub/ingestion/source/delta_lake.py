@@ -81,7 +81,7 @@ class DeltaLakeSourceConfig(DatasetSourceConfigBase):
 
     url: str
     token: str
-    shareCredentialsVersion: str = "1"
+    share_credentials_version: int = 1
 
     share_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     schema_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
