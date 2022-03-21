@@ -179,16 +179,10 @@ subprojects {
     dependencies {
       testCompile externalDependency.testng
       constraints {
-        implementation('io.netty:netty-all:4.1.75.Final')
+        implementation('io.netty:netty-all:4.1.44.Final')
         implementation('org.apache.commons:commons-compress:1.21')
-        implementation('org.hibernate:hibernate-validator:5.4.3.Final')
         implementation('org.apache.velocity:velocity-engine-core:2.3')
-        implementation('org.eclipse.jetty:jetty-client:9.4.45.v20220203')
-        implementation('org.eclipse.jetty:jetty-http:9.4.45.v20220203')
-        implementation('org.eclipse.jetty:jetty-io:9.4.45.v20220203')
-        implementation('org.eclipse.jetty:jetty-server:9.4.45.v20220203')
-        implementation('org.eclipse.jetty:jetty-util:9.4.45.v20220203')
-        implementation('org.eclipse.jetty:jetty-webapp:9.4.45.v20220203')
+        implementation('org.hibernate:hibernate-validator:5.4.2.Final')
       }
     }
 
