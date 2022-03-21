@@ -7,6 +7,7 @@ import com.linkedin.common.ExternalReference
 
 /**
  * Information about a Notebook
+ * Note: This is IN BETA version
  */
 @Aspect = {
   "name": "notebookInfo"

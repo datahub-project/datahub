@@ -50,6 +50,7 @@ entities:
       - domains
       - container
       - deprecation
+  # Note: This is in BETA version
   - name: notebook
     keyAspect: notebookKey
     aspects:
