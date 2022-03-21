@@ -83,9 +83,9 @@ class DeltaLakeSourceConfig(DatasetSourceConfigBase):
     token: str
     shareCredentialsVersion: str = "1"
 
-    share_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
-    schema_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
-    table_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
+    share_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    schema_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
 
 
 # map delta-sharing types to DataHub classes
