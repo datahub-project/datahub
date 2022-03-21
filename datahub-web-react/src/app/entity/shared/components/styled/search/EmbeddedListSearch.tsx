@@ -36,7 +36,7 @@ function useWrappedSearchResults(params: GetSearchResultsParams) {
 export const addFixedQuery = (baseQuery: string, fixedQuery: string, emptyQuery: string) => {
     let finalQuery = ``;
     if (baseQuery && fixedQuery) {
-        finalQuery = `(*${baseQuery}*) AND (${fixedQuery})`;
+        finalQuery = baseQuery.includes(fixedQuery) ? `${baseQuery}` : `(*${baseQuery}*) AND (${fixedQuery})`;
     } else if (baseQuery) {
         finalQuery = `${baseQuery}`;
     } else if (fixedQuery) {
@@ -76,7 +76,7 @@ export const EmbeddedListSearch = ({
     const entityRegistry = useEntityRegistry();
 
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
-    const query: string = addFixedQuery(params.query as string, fixedQuery as string, emptySearchQuery as string);
+    const query: string = addFixedQuery(params?.query as string, fixedQuery as string, emptySearchQuery as string);
     const activeType = entityRegistry.getTypeOrDefaultFromPathName(useParams<SearchPageParams>().type || '', undefined);
     const page: number = params.page && Number(params.page as string) > 0 ? Number(params.page as string) : 1;
     const filters: Array<FacetFilterInput> = useFilters(params);
@@ -118,23 +118,9 @@ export const EmbeddedListSearch = ({
             },
         },
     });
-    console.log('query', query);
+
     const onSearch = (q: string) => {
         const finalQuery = addFixedQuery(q as string, fixedQuery as string, emptySearchQuery as string);
-        console.log('onSearch', finalQuery);
-        // let finalQuery = ``;
-        // if (q.trim().length === 0) {
-        //     if (emptySearchQuery) {
-        //         finalQuery = emptySearchQuery;
-        //     } else {
-        //         return;
-        //     }
-        // } else {
-        //     if (fixedQuery) {
-        //         finalQuery = `(*${q}*) AND (${fixedQuery})`;
-        //     }
-        //     finalQuery = q;
-        // }
         navigateToEntitySearchUrl({
             baseUrl: location.pathname,
             type: activeType,
