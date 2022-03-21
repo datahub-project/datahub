@@ -195,6 +195,10 @@ export const AddOwnerModal = ({ urn, type, visible, hideOwnerType, defaultOwnerT
     //    querySelectorToExecuteClick: selectedActor && '#addOwnerButton',
     // });
 
+    // console.log(makeid(5));
+    // const unique = combinedSearchResults.map((item) => (
+    //     item.uniqueId = makeid(5)s
+    // ))
     return (
         <Modal
             title="Add Owner"
@@ -228,7 +232,7 @@ export const AddOwnerModal = ({ urn, type, visible, hideOwnerType, defaultOwnerT
                         tagRender={(tagProps) => <Tag>{tagProps.value}</Tag>}
                     >
                         {combinedSearchResults?.map((result) => (
-                            <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
+                            <Select.Option value={result.entity.urn}> {renderSearchResult(result)}</Select.Option>
                         ))}
                     </Select>
                 </Form.Item>
@@ -237,7 +241,7 @@ export const AddOwnerModal = ({ urn, type, visible, hideOwnerType, defaultOwnerT
                         <Typography.Paragraph>Choose an owner type</Typography.Paragraph>
                         <Select value={selectedOwnerType} onChange={onSelectOwnerType}>
                             {ownershipTypes.map((ownerType) => (
-                                <Select.Option value={ownerType.type}>
+                                <Select.Option key={ownerType.type} value={ownerType.type}>
                                     <Typography.Text>{ownerType.name}</Typography.Text>
                                     <div>
                                         <Typography.Paragraph style={{ wordBreak: 'break-all' }} type="secondary">

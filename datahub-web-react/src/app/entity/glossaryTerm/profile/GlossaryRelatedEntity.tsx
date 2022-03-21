@@ -1,8 +1,6 @@
 import { Col, Row } from 'antd';
 import * as React from 'react';
 import styled from 'styled-components';
-// import RelatedEntityResults from '../../../shared/entitySearch/RelatedEntityResults';
-// import { EmbeddedListSearch } from '../../entity/shared/components/styled/search/EmbeddedListSearch';
 import { EmbeddedListSearch } from '../../shared/components/styled/search/EmbeddedListSearch';
 
 import { useEntityData } from '../../shared/EntityContext';
