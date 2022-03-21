@@ -90,8 +90,12 @@ class AvroToMceSchemaConverter:
 
     field_logical_type_mapping: Dict[str, Any] = {
         "date": DateTypeClass,
-        "timestamp-millis": TimeTypeClass,
         "decimal": NumberTypeClass,
+        "time-micros": TimeTypeClass,
+        "time-millis": TimeTypeClass,
+        "timestamp-micros": TimeTypeClass,
+        "timestamp-millis": TimeTypeClass,
+        "uuid": StringTypeClass,
     }
 
     def __init__(self, is_key_schema: bool, default_nullable: bool = False) -> None:
@@ -125,7 +129,7 @@ class AvroToMceSchemaConverter:
         }
 
     def _get_column_type(
-        self, field_type: Union[str, dict], logical_type: str
+        self, field_type: Union[str, dict], logical_type: Optional[str]
     ) -> SchemaFieldDataType:
         tp = field_type
         if hasattr(tp, "type"):
@@ -283,7 +287,7 @@ class AvroToMceSchemaConverter:
                     # Populate it with the simple native type for now.
                     nativeDataType=native_data_type,
                     type=self._converter._get_column_type(
-                        actual_schema.type, actual_schema.props.get("logicalType")
+                        actual_schema.type, self._actual_schema.props.get("logicalType")
                     ),
                     description=description,
                     recursive=False,

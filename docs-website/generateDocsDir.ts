@@ -10,8 +10,10 @@ import { retry } from "@octokit/plugin-retry";
 
 // Constants.
 const HOSTED_SITE_URL = "https://datahubproject.io";
-const GITHUB_EDIT_URL = "https://github.com/linkedin/datahub/blob/master";
-const GITHUB_BROWSE_URL = "https://github.com/linkedin/datahub/blob/master";
+const GITHUB_EDIT_URL =
+  "https://github.com/datahub-project/datahub/blob/master";
+const GITHUB_BROWSE_URL =
+  "https://github.com/datahub-project/datahub/blob/master";
 
 const OUTPUT_DIRECTORY = "genDocs";
 
@@ -256,10 +258,10 @@ function new_url(original: string, filepath: string): string {
     if (
       (original
         .toLowerCase()
-        .startsWith("https://github.com/linkedin/datahub/blob") ||
+        .startsWith("https://github.com/datahub-project/datahub/blob") ||
         original
           .toLowerCase()
-          .startsWith("https://github.com/linkedin/datahub/tree")) &&
+          .startsWith("https://github.com/datahub-project/datahub/tree")) &&
       (original.endsWith(".md") || original.endsWith(".pdf"))
     ) {
       throw new Error(`absolute link (${original}) found in ${filepath}`);
@@ -372,7 +374,7 @@ function markdown_sanitize_and_linkify(content: string): string {
   // Link to issues/pull requests.
   content = content.replace(
     /#(\d+)\b/g,
-    "[#$1](https://github.com/linkedin/datahub/pull/$1)"
+    "[#$1](https://github.com/datahub-project/datahub/pull/$1)"
   );
 
   // Prettify bare links to PRs.
@@ -400,7 +402,7 @@ async function generate_releases_markdown(): Promise<
 title: DataHub Releases
 sidebar_label: Releases
 slug: /releases
-custom_edit_url: https://github.com/linkedin/datahub/blob/master/docs-website/generateDocsDir.ts
+custom_edit_url: https://github.com/datahub-project/datahub/blob/master/docs-website/generateDocsDir.ts
 ---
 
 # DataHub Releases

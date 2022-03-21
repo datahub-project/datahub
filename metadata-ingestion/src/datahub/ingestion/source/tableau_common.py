@@ -133,6 +133,9 @@ workbook_graphql_query = """
         upstreamTables {
           id
           name
+          database {
+            name
+          }
           schema
           fullName
           connectionType
@@ -214,6 +217,9 @@ custom_sql_graphql_query = """
             upstreamTables {
               id
               name
+              database {
+                name
+              }
               schema
               connectionType
             }
@@ -255,6 +261,9 @@ published_datasource_graphql_query = """
     upstreamTables {
       id
       name
+      database {
+        name
+      }
       schema
       fullName
       connectionType
@@ -380,7 +389,7 @@ def make_table_urn(
     # connection_type taken from
     # https://help.tableau.com/current/api/rest_api/en-us/REST/rest_api_concepts_connectiontype.htm
     #  datahub platform mapping is found here
-    # https://github.com/linkedin/datahub/blob/master/metadata-service/war/src/main/resources/boot/data_platforms.json
+    # https://github.com/datahub-project/datahub/blob/master/metadata-service/war/src/main/resources/boot/data_platforms.json
 
     final_name = full_name.replace("[", "").replace("]", "")
     if connection_type in ("textscan", "textclean", "excel-direct", "excel", "csv"):
