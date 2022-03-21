@@ -18,7 +18,7 @@ from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.com.linkedin.pegasus2avro.schema import (  # RecordTypeClass, #TODO: Might need this one if nested Union is not needed type
+from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayTypeClass,
     BooleanTypeClass,
     BytesTypeClass,
@@ -31,7 +31,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (  # RecordTypeCla
     SchemaMetadata,
     StringTypeClass,
     TimeTypeClass,
-    UnionTypeClass,
+    RecordTypeClass,
 )
 from datahub.metadata.schema_classes import DatasetPropertiesClass
 
@@ -103,7 +103,7 @@ _field_type_mapping: Dict[Union[Type, str], Type] = {
     "date": DateTypeClass,
     "timestamp": TimeTypeClass,
     "map": MapTypeClass,
-    "struct": UnionTypeClass,  # TODO: needs custom handling if we want to show nested field in UI
+    "struct": RecordTypeClass,  # TODO: needs custom handling if we want to show nested field in UI
 }
 
 
@@ -202,7 +202,7 @@ class DeltaLakeSource(Source):
         # from metadata top level: get md.description, md.format, md.partitioncolumns
         custom_properties = {
             "Id": metadata.metadata.id,
-            "Format": metadata.metadata.format,
+            "Format": metadata.metadata.format.provider,
             "PartitionColumns": metadata.metadata.partition_columns,
         }
 
