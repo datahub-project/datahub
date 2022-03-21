@@ -654,12 +654,11 @@ class DBTSource(StatefulIngestionSourceBase):
 
     # create workunits from dbt nodes
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        # Stateful ingestion integration test was failing because of this check
-        # if self.config.write_semantics == "PATCH" and not self.ctx.graph:
-        #     raise ConfigurationError(
-        #         "With PATCH semantics, dbt source requires a datahub_api to connect to. "
-        #         "Consider using the datahub-rest sink or provide a datahub_api: configuration on your ingestion recipe."
-        #     )
+        if self.config.write_semantics == "PATCH" and not self.ctx.graph:
+            raise ConfigurationError(
+                "With PATCH semantics, dbt source requires a datahub_api to connect to. "
+                "Consider using the datahub-rest sink or provide a datahub_api: configuration on your ingestion recipe."
+            )
 
         (
             nodes,

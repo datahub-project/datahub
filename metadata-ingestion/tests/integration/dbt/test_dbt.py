@@ -274,6 +274,8 @@ def test_dbt_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         "sources_path": sources_path,
         "target_platform": "postgres",
         "load_schemas": True,
+        # This will bypass check in get_workunits function of dbt.py
+        "write_semantics": "OVERRIDE",
         # enable stateful ingestion
         **stateful_config,
     }
@@ -284,6 +286,7 @@ def test_dbt_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         "sources_path": sources_path_deleted_actor,
         "target_platform": "postgres",
         "load_schemas": True,
+        "write_semantics": "OVERRIDE",
         # enable stateful ingestion
         **stateful_config,
     }
