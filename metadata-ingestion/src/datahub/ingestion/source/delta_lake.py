@@ -259,7 +259,7 @@ class DeltaLakeSource(Source):
         for column in columns:
             if isinstance(column["type"], dict):    
                 #nested type
-                self.report.report_warning("Warning {} is a nested field this will not be processed properly and it will displayed poorly in UI.".format(column["name"]))
+                self.report.report_warning(column["name"],"Warning {} is a nested field this will not be processed properly and it will displayed poorly in UI.".format(column["name"]))
                 datahubName=column["name"]
                 nativeType=column["type"].get("type")
                 datahubType=_field_type_mapping.get(nativeType, NullTypeClass) #NullTypeClass if we cannot map
@@ -300,7 +300,7 @@ if __name__ == "__main__":
     metadata_list=client.query_all_table_metadata()
 
     #Filter tables, schemas and shares
-    filter_table=AllowDenyPattern(allow=["COVID_19_NYT"], deny=["LA"])
+    filter_table=AllowDenyPattern(allow=["COVID_19_NYT", "lending_club"], deny=["LA"])
     metadata_list=[metadata for metadata in metadata_list if filter_table.allowed(metadata.table.name)]
 
     filter_schema=AllowDenyPattern(allow=["default"], deny=["LA"])
@@ -308,6 +308,15 @@ if __name__ == "__main__":
 
     filter_share=AllowDenyPattern(allow=["delta_sharing"], deny=["LA"])
     metadata_list=[metadata for metadata in metadata_list if filter_share.allowed(metadata.table.share)]
+
+    #prepare load for metadata from ...
+
+
+    test = DeltaLakeSource(
+        ctx=PipelineContext(run_id="delta-lake-source-test"),
+        config=DeltaLakeSourceConfig(url="url",
+        token="x"))
+    test2=test._get_schema_fields(metadata_list[0].metadata)
 
 
 
