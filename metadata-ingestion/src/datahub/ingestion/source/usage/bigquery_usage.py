@@ -1,44 +1,29 @@
 import collections
-import dataclasses
 import heapq
 import json
 import logging
 import os
 import re
-import tempfile
 import textwrap
 from dataclasses import dataclass
-from datetime import datetime, timedelta
-from typing import (
-    Any,
-    Counter,
-    Dict,
-    Iterable,
-    List,
-    MutableMapping,
-    Optional,
-    Union,
-    cast,
-)
+from datetime import datetime
+from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Union, cast
 
 import cachetools
-import pydantic
 from google.cloud.bigquery import Client as BigQueryClient
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from more_itertools import partition
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration import ConfigModel
-from datahub.configuration.common import AllowDenyPattern, ConfigurationError
-from datahub.configuration.source_common import DatasetSourceConfigBase
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import Source
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.usage.usage_common import (
-    BaseUsageConfig,
-    GenericAggregatedDataset,
+from datahub.ingestion.source.usage.usage_common import GenericAggregatedDataset
+from datahub.ingestion.source_config.usage.bigquery_usage import BigQueryUsageConfig
+from datahub.ingestion.source_report.usage.bigquery_usage import (
+    BigQueryUsageSourceReport,
 )
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
@@ -46,6 +31,10 @@ from datahub.metadata.schema_classes import (
     OperationTypeClass,
 )
 from datahub.utilities.delayed_iter import delayed_iter
+from datahub.utilities.parsing_util import (
+    get_first_missing_key,
+    get_first_missing_key_any,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -339,12 +328,16 @@ class ReadEvent:
     query: Optional[str] = None  # populated via join
 
     @classmethod
-    def can_parse_entry(cls, entry: AuditLogEntry) -> bool:
-        try:
-            entry.payload["metadata"]["tableDataRead"]
-            return True
-        except (KeyError, TypeError):
-            return False
+    def get_missing_key_entry(cls, entry: AuditLogEntry) -> Optional[str]:
+        return (
+            get_first_missing_key(
+                inp_dict=entry.payload, keys=["metadata", "tableDataRead"]
+            )
+            or get_first_missing_key(
+                inp_dict=entry.payload, keys=["authenticationInfo", "principalEmail"]
+            )
+            or get_first_missing_key(inp_dict=entry.payload, keys=["resourceName"])
+        )
 
     @classmethod
     def can_parse_exported_bigquery_audit_metadata(
@@ -440,22 +433,17 @@ class QueryEvent:
 
     payload: Any
 
-    @classmethod
-    def can_parse_entry(cls, entry: AuditLogEntry) -> bool:
-        try:
-            entry.payload["serviceData"]["jobCompletedEvent"]["job"]
-            return True
-        except (KeyError, TypeError):
-            return False
+    @staticmethod
+    def get_missing_key_entry(entry: AuditLogEntry) -> Optional[str]:
+        return get_first_missing_key(
+            inp_dict=entry.payload, keys=["serviceData", "jobCompletedEvent", "job"]
+        )
 
-    @classmethod
-    def can_parse_entry_v2(cls, entry: BigQueryAuditMetadata) -> bool:
-        try:
-            payload = entry.payload
-            payload["metadata"]["jobChange"]["job"]
-            return True
-        except (KeyError, TypeError):
-            return False
+    @staticmethod
+    def get_missing_key_entry_v2(entry: AuditLogEntry) -> Optional[str]:
+        return get_first_missing_key(
+            inp_dict=entry.payload, keys=["metadata", "jobChange", "job"]
+        )
 
     @classmethod
     def from_entry(cls, entry: AuditLogEntry) -> "QueryEvent":
@@ -514,6 +502,12 @@ class QueryEvent:
             return True
         except (KeyError, TypeError):
             return False
+
+    @staticmethod
+    def get_missing_key_exported_bigquery_audit_metadata(
+        row: BigQueryAuditMetadata,
+    ) -> Optional[str]:
+        return get_first_missing_key_any(row, ["timestamp", "protoPayload", "metadata"])
 
     @classmethod
     def from_exported_bigquery_audit_metadata(
@@ -623,101 +617,6 @@ class QueryEvent:
         return query_event
 
 
-class BigQueryCredential(ConfigModel):
-    project_id: str
-    private_key_id: str
-    private_key: str
-    client_email: str
-    client_id: str
-    auth_uri: str = "https://accounts.google.com/o/oauth2/auth"
-    token_uri: str = "https://oauth2.googleapis.com/token"
-    auth_provider_x509_cert_url: str = "https://www.googleapis.com/oauth2/v1/certs"
-    type: str = "service_account"
-    client_x509_cert_url: Optional[str]
-
-    @pydantic.root_validator()
-    def validate_config(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        if values.get("client_x509_cert_url") is None:
-            values[
-                "client_x509_cert_url"
-            ] = f'https://www.googleapis.com/robot/v1/metadata/x509/{values["client_email"]}'
-        return values
-
-    def create_credential_temp_file(self) -> str:
-        with tempfile.NamedTemporaryFile(delete=False) as fp:
-            cred_json = json.dumps(self.dict(), indent=4, separators=(",", ": "))
-            fp.write(cred_json.encode())
-            return fp.name
-
-
-class BigQueryUsageConfig(DatasetSourceConfigBase, BaseUsageConfig):
-    projects: Optional[List[str]] = None
-    project_id: Optional[str] = None  # deprecated in favor of `projects`
-    extra_client_options: dict = {}
-    table_pattern: Optional[AllowDenyPattern] = None
-    use_v2_audit_metadata: Optional[bool] = False
-
-    bigquery_audit_metadata_datasets: Optional[List[str]] = None
-    use_exported_bigquery_audit_metadata: bool = False
-    use_date_sharded_audit_log_tables: bool = False
-
-    log_page_size: Optional[pydantic.PositiveInt] = 1000
-    query_log_delay: Optional[pydantic.PositiveInt] = None
-    max_query_duration: timedelta = timedelta(minutes=15)
-
-    credential: Optional[BigQueryCredential]
-    _credentials_path: Optional[str] = pydantic.PrivateAttr(None)
-
-    def __init__(self, **data: Any):
-        super().__init__(**data)
-        if self.credential:
-            self._credentials_path = self.credential.create_credential_temp_file()
-            logger.debug(
-                f"Creating temporary credential file at {self._credentials_path}"
-            )
-            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._credentials_path
-
-    @pydantic.validator("project_id")
-    def note_project_id_deprecation(cls, v, values, **kwargs):
-        logger.warning(
-            "bigquery-usage project_id option is deprecated; use projects instead"
-        )
-        values["projects"] = [v]
-        return None
-
-    @pydantic.validator("platform")
-    def platform_is_always_bigquery(cls, v):
-        return "bigquery"
-
-    @pydantic.validator("platform_instance")
-    def bigquery_platform_instance_is_meaningless(cls, v):
-        raise ConfigurationError(
-            "BigQuery project-ids are globally unique. You don't need to provide a platform_instance"
-        )
-
-    @pydantic.validator("use_exported_bigquery_audit_metadata")
-    def use_exported_bigquery_audit_metadata_uses_v2(cls, v, values):
-        if v is True and not values["use_v2_audit_metadata"]:
-            raise ConfigurationError(
-                "To use exported BigQuery audit metadata, you must also use v2 audit metadata"
-            )
-        return v
-
-    def get_allow_pattern_string(self) -> str:
-        return "|".join(self.table_pattern.allow) if self.table_pattern else ""
-
-    def get_deny_pattern_string(self) -> str:
-        return "|".join(self.table_pattern.deny) if self.table_pattern else ""
-
-
-@dataclass
-class BigQueryUsageSourceReport(SourceReport):
-    dropped_table: Counter[str] = dataclasses.field(default_factory=collections.Counter)
-
-    def report_dropped(self, key: str) -> None:
-        self.dropped_table[key] += 1
-
-
 class BigQueryUsageSource(Source):
     def __init__(self, config: BigQueryUsageConfig, ctx: PipelineContext):
         super().__init__(ctx)
@@ -728,6 +627,15 @@ class BigQueryUsageSource(Source):
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "BigQueryUsageSource":
         config = BigQueryUsageConfig.parse_obj(config_dict)
         return cls(config, ctx)
+
+    def add_config_to_report(self):
+        self.report.start_time = self.config.start_time
+        self.report.end_time = self.config.end_time
+        self.report.use_v2_audit_metadata = self.config.use_v2_audit_metadata
+        self.report.query_log_delay = self.config.query_log_delay
+        self.report.log_page_size = self.config.log_page_size
+        self.report.allow_pattern = self.config.get_allow_pattern_string()
+        self.report.deny_pattern = self.config.get_deny_pattern_string()
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         if self.config.use_exported_bigquery_audit_metadata:
@@ -889,6 +797,7 @@ class BigQueryUsageSource(Source):
     def _get_bigquery_log_entries_via_gcp_logging(
         self, clients: List[GCPLoggingClient]
     ) -> Iterable[Union[AuditLogEntry, BigQueryAuditMetadata]]:
+        self.report.total_log_entries = 0
         audit_templates: Dict[str, str] = BQ_AUDIT_V1
         if self.config.use_v2_audit_metadata:
             audit_templates = BQ_AUDIT_V2
@@ -924,13 +833,17 @@ class BigQueryUsageSource(Source):
             f"use_allow_filter={use_allow_filter}, use_deny_filter={use_deny_filter}, "
             f"allow_regex={allow_regex}, deny_regex={deny_regex}"
         )
+        start_time = (self.config.start_time - self.config.max_query_duration).strftime(
+            BQ_DATETIME_FORMAT
+        )
+        self.report.log_entry_start_time = start_time
+        end_time = (self.config.end_time + self.config.max_query_duration).strftime(
+            BQ_DATETIME_FORMAT
+        )
+        self.report.log_entry_end_time = end_time
         filter = audit_templates["BQ_FILTER_RULE_TEMPLATE"].format(
-            start_time=(
-                self.config.start_time - self.config.max_query_duration
-            ).strftime(BQ_DATETIME_FORMAT),
-            end_time=(self.config.end_time + self.config.max_query_duration).strftime(
-                BQ_DATETIME_FORMAT
-            ),
+            start_time=start_time,
+            end_time=end_time,
             allow_regex=allow_regex,
             deny_regex=deny_regex,
         )
@@ -966,6 +879,7 @@ class BigQueryUsageSource(Source):
         ):
             if i == 0:
                 logger.info("Starting log load from GCP Logging")
+            self.report.total_log_entries += 1
             yield entry
         logger.info(f"Finished loading {i} log entries from GCP Logging")
 
@@ -1016,7 +930,7 @@ class BigQueryUsageSource(Source):
                 aspect=operation_aspect,
             )
             return MetadataWorkUnit(
-                id=f"operation-aspect-{destination_table}-{event.timestamp.isoformat()}",
+                id=f"{event.timestamp.isoformat()}-operation-aspect-{destination_table}",
                 mcp=mcp,
             )
         return None
@@ -1024,46 +938,44 @@ class BigQueryUsageSource(Source):
     def _parse_bigquery_log_entries(
         self, entries: Iterable[Union[AuditLogEntry, BigQueryAuditMetadata]]
     ) -> Iterable[Union[ReadEvent, QueryEvent, MetadataWorkUnit]]:
-        num_read_events: int = 0
-        num_query_events: int = 0
+        self.report.num_read_events = 0
+        self.report.num_query_events = 0
         for entry in entries:
             event: Optional[Union[ReadEvent, QueryEvent]] = None
-            try:
-                if ReadEvent.can_parse_entry(entry):
-                    event = ReadEvent.from_entry(entry)
-                    num_read_events += 1
-                elif QueryEvent.can_parse_entry(entry):
-                    event = QueryEvent.from_entry(entry)
-                    num_query_events += 1
-                    wu = self._create_operation_aspect_work_unit(event)
-                    if wu:
-                        yield wu
-                elif QueryEvent.can_parse_entry_v2(entry):
-                    event = QueryEvent.from_entry_v2(entry)
-                    num_query_events += 1
-                    wu = self._create_operation_aspect_work_unit(event)
-                    if wu:
-                        yield wu
-                else:
-                    self.report.report_warning(
-                        f"{entry.log_name}-{entry.insert_id}",
-                        "Log entry cannot be parsed as either ReadEvent or QueryEvent.",
-                    )
-                    logger.warning(
-                        f"Log entry cannot be parsed as either ReadEvent or QueryEvent: {entry!r}"
-                    )
-            except Exception as e:
-                self.report.report_failure(
-                    f"{entry.log_name}-{entry.insert_id}",
-                    f"unable to parse log entry: {entry!r}, exception: {e}",
-                )
-                logger.error("Error while parsing GCP log entries", e)
 
-            if event:
+            missing_read_entry = ReadEvent.get_missing_key_entry(entry)
+            if missing_read_entry is None:
+                event = ReadEvent.from_entry(entry)
+                self.report.num_read_events += 1
+
+            missing_query_entry = QueryEvent.get_missing_key_entry(entry)
+            if event is None and missing_query_entry is None:
+                event = QueryEvent.from_entry(entry)
+                self.report.num_query_events += 1
+                wu = self._create_operation_aspect_work_unit(event)
+                if wu:
+                    yield wu
+
+            missing_query_entry_v2 = QueryEvent.get_missing_key_entry_v2(entry)
+
+            if event is None and missing_query_entry_v2 is None:
+                event = QueryEvent.from_entry_v2(entry)
+                self.report.num_query_events += 1
+                wu = self._create_operation_aspect_work_unit(event)
+                if wu:
+                    yield wu
+
+            if event is None:
+                self.error(
+                    logger,
+                    f"{entry.log_name}-{entry.insert_id}",
+                    f"Unable to parse {type(entry)} missing read {missing_query_entry}, missing query {missing_query_entry} missing v2 {missing_query_entry_v2} for {entry}",
+                )
+            else:
                 yield event
 
         logger.info(
-            f"Parsed {num_read_events} ReadEvents and {num_query_events} QueryEvents"
+            f"Parsed {self.report.num_read_events} ReadEvents and {self.report.num_query_events} QueryEvents"
         )
 
     def _parse_exported_bigquery_audit_metadata(
@@ -1099,6 +1011,10 @@ class BigQueryUsageSource(Source):
                 logger.error("Unable to parse GCP log entry.", audit_metadata)
             if event is not None:
                 yield event
+
+    def error(self, log: logging.Logger, key: str, reason: str) -> Any:
+        self.report.report_failure(key, reason)
+        log.error(f"{key} => {reason}")
 
     def _join_events_by_job_id(
         self, events: Iterable[Union[ReadEvent, QueryEvent]]
@@ -1214,7 +1130,7 @@ class BigQueryUsageSource(Source):
             self.config.top_n_queries,
         )
 
-    def get_report(self) -> SourceReport:
+    def get_report(self) -> BigQueryUsageSourceReport:
         return self.report
 
     # We can't use close as it is not called if the ingestion is not successful
