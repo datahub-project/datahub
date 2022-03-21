@@ -117,8 +117,11 @@ _field_type_mapping: Dict[Union[Type, str], Type] = {
 @dataclass
 class DeltaLakeSourceReport(SourceReport):
     filtered: List[str] = field(default_factory=list)
+    scanned:  List[str] = field(default_factory=list)
 
-    #TODO: this needs to be fixed i think
+    def report_table_scanned(self, name: str) -> None:
+        self.tables_scanned.append(name)
+    
     def report_dropped(self, name: str) -> None:
         self.filtered.append(name)
 
@@ -260,7 +263,7 @@ class DeltaLakeSource(Source):
                 self.report.report_warning("Warning {} is a nested field this will not be processed properly and it will displayed poorly in UI.".format(column["name"]))
                 datahubName=column["name"]
                 nativeType=column["type"].get("type")
-                datahubType=_field_type_mapping.get(nativeType)
+                datahubType=_field_type_mapping.get(nativeType, NullTypeClass) #NullTypeClass if we cannot map
                 datahubDescription=column["metadata"].get("comment")
                 datahubJsonProps=json.dumps(column["type"])
 
@@ -269,8 +272,7 @@ class DeltaLakeSource(Source):
                 #primitive type
                 datahubName=column["name"]
                 nativeType=column["type"]
-                datahubType=_field_type_mapping.get(nativeType)
-                datahubType=_field_type_mapping.get(column["type"],NullTypeClass) #NullTypeClass if we cannot map
+                datahubType=_field_type_mapping.get(nativeType, NullTypeClass) #NullTypeClass if we cannot map
                 datahubDescription=column["metadata"].get("comment")
                 
                 datahubField=SchemaField(fieldPath=datahubName,type=datahubType, nativeDataType=nativeType, nullable=column["nullable"], description=datahubDescription)
