@@ -1,9 +1,8 @@
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Sequence, Type, Union
+from typing import Dict, Iterable, List, Sequence, Type, Union
 
-import pydantic
 from delta_sharing.delta_sharing import SharingClient
 from delta_sharing.protocol import Table
 from delta_sharing.rest_client import Metadata, QueryTableMetadataResponse
@@ -11,20 +10,15 @@ from delta_sharing.rest_client import Metadata, QueryTableMetadataResponse
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetSourceConfigBase
 from datahub.emitter.mce_builder import (
-    DEFAULT_ENV,
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
-    make_domain_urn,
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
-    MetadataChangeEvent,
-    MetadataChangeProposal,
-)
-from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.metadata.com.linkedin.pegasus2avro.schema import (  # RecordTypeClass, #TODO: Might need this one if nested Union is not needed type
     ArrayTypeClass,
     BooleanTypeClass,
     BytesTypeClass,
@@ -33,9 +27,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     NullTypeClass,
     NumberTypeClass,
     OtherSchemaClass,
-    RecordTypeClass,
     SchemaField,
-    SchemaFieldDataType,
     SchemaMetadata,
     StringTypeClass,
     TimeTypeClass,
