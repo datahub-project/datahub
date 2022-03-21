@@ -63,6 +63,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 | [athena](../metadata-ingestion/source_docs/athena.md)                               | `pip install 'acryl-datahub[athena]'`                      | AWS Athena source                   |
 | [bigquery](../metadata-ingestion/source_docs/bigquery.md)                           | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source                     |
 | [bigquery-usage](../metadata-ingestion/source_docs/bigquery.md)                     | `pip install 'acryl-datahub[bigquery-usage]'`              | BigQuery usage statistics source    |
+| [cassandra](../metadata-ingestion/source_docs/cassandra.md)                         | `pip install 'acryl-datahub[cassandra]'`                   | Cassandra source                    |
 | [datahub-lineage-file](../metadata-ingestion/source_docs/file_lineage.md)           | _no additional dependencies_                               | Lineage File source                 |
 | [datahub-business-glossary](../metadata-ingestion/source_docs/business_glossary.md) | _no additional dependencies_                               | Business Glossary File source                         |
 | [dbt](../metadata-ingestion/source_docs/dbt.md)                                     | _no additional dependencies_                               | dbt source                          |
