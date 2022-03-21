@@ -248,7 +248,7 @@ base_dev_requirements = {
         for plugin in [
             "bigquery",
             "bigquery-usage",
-            "cassandra"
+            "cassandra",
             "clickhouse",
             "clickhouse-usage",
             "elasticsearch",
@@ -304,7 +304,7 @@ full_test_dev_requirements = {
         for plugin in [
             # Only include Athena for Python 3.7 or newer.
             *(["athena"] if is_py37_or_newer else []),
-            "cassandra"
+            "cassandra",
             "clickhouse",
             "druid",
             "feast",
