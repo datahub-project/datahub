@@ -79,6 +79,8 @@ from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
     JobStatusClass,
+    SubTypesClass,
+    ViewPropertiesClass,
 )
 from datahub.telemetry import telemetry
 from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombinerReport
@@ -845,12 +847,12 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 )
                 checkpoint_state.add_table_urn(dataset_urn)
         description, properties = self.get_table_properties(inspector, schema, table)
-        if description is not None or properties:
-            dataset_properties = DatasetPropertiesClass(
-                description=description,
-                customProperties=properties,
-            )
-            dataset_snapshot.aspects.append(dataset_properties)
+        dataset_properties = DatasetPropertiesClass(
+            name=table,
+            description=description,
+            customProperties=properties,
+        )
+        dataset_snapshot.aspects.append(dataset_properties)
         pk_constraints: dict = inspector.get_pk_constraint(table, schema)
         foreign_keys = self._get_foreign_keys(dataset_urn, inspector, schema, table)
         schema_fields = self.get_schema_fields(dataset_name, columns, pk_constraints)
@@ -873,6 +875,18 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
         if dpi_aspect:
             yield dpi_aspect
+        subtypes_aspect = MetadataWorkUnit(
+            id=f"{dataset_name}-subtypes",
+            mcp=MetadataChangeProposalWrapper(
+                entityType="dataset",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=dataset_urn,
+                aspectName="subTypes",
+                aspect=SubTypesClass(typeNames=["table"]),
+            ),
+        )
+        yield subtypes_aspect
+
         yield from self._get_domain_wu(
             dataset_name=dataset_name,
             entity_urn=dataset_urn,
@@ -1100,13 +1114,12 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                     BaseSQLAlchemyCheckpointState, cur_checkpoint.state
                 )
                 checkpoint_state.add_view_urn(dataset_urn)
-        if description is not None or properties:
-            dataset_properties = DatasetPropertiesClass(
-                description=description,
-                customProperties=properties,
-                # uri=dataset_name,
-            )
-            dataset_snapshot.aspects.append(dataset_properties)
+        dataset_properties = DatasetPropertiesClass(
+            name=view,
+            description=description,
+            customProperties=properties,
+        )
+        dataset_snapshot.aspects.append(dataset_properties)
         if schema_metadata:
             dataset_snapshot.aspects.append(schema_metadata)
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
@@ -1116,6 +1129,33 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
         if dpi_aspect:
             yield dpi_aspect
+        subtypes_aspect = MetadataWorkUnit(
+            id=f"{view}-subtypes",
+            mcp=MetadataChangeProposalWrapper(
+                entityType="dataset",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=dataset_urn,
+                aspectName="subTypes",
+                aspect=SubTypesClass(typeNames=["view"]),
+            ),
+        )
+        yield subtypes_aspect
+        if "view_definition" in properties:
+            view_definition_string = properties["view_definition"]
+            view_properties_aspect = ViewPropertiesClass(
+                materialized=False, viewLanguage="SQL", viewLogic=view_definition_string
+            )
+            yield MetadataWorkUnit(
+                id=f"{view}-viewProperties",
+                mcp=MetadataChangeProposalWrapper(
+                    entityType="dataset",
+                    changeType=ChangeTypeClass.UPSERT,
+                    entityUrn=dataset_urn,
+                    aspectName="viewProperties",
+                    aspect=view_properties_aspect,
+                ),
+            )
+
         yield from self._get_domain_wu(
             dataset_name=dataset_name,
             entity_urn=dataset_urn,
