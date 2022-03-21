@@ -556,7 +556,7 @@ class DataLakeSource(Source):
                 if obj.meta and obj.meta.service_name
                 else "",
             }
-
+            logger.debug(f"Adding file {base_obj_path} for ingestion")
             base_obj_paths.append((base_obj_path, properties))
 
         for aws_file in sorted(base_obj_paths, key=lambda a: a[0]):
