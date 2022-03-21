@@ -8,6 +8,7 @@ import dateutil.parser
 import requests
 from pydantic import validator
 
+from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.emitter import mce_builder
@@ -288,10 +289,19 @@ def extract_dbt_entities(
 
     return dbt_entities
 
+class S3SourceConfig(AwsSourceConfig):
+    @property
+    def s3_client(self):
+        return self.get_s3_client()
 
 def load_file_as_json(uri: str) -> Any:
     if re.match("^https?://", uri):
         return json.loads(requests.get(uri).text)
+    elif re.match("^s3://", uri):
+        from urllib.parse import urlparse
+        s3_client = S3SourceConfig.get_s3_client
+        u = urlparse(uri)
+        return json.loads(s3_client.get_object(Bucket=u.netloc, Key=u.path.lstrip('/'))['Body'].read().decode('utf-8'))
     else:
         with open(uri, "r") as f:
             return json.load(f)
