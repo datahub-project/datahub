@@ -20,30 +20,50 @@
                             }
                         }
                     ],
+                    "upstreamDatabases": [
+                        {
+                            "id": "a7825692-7de9-113d-5377-ae113331a9ec",
+                            "name": "dvdrental",
+                            "connectionType": "postgres",
+                            "isEmbedded": false
+                        }
+                    ],
                     "upstreamTables": [
                         {
+                            "id": "39657832-0769-6372-60c3-687a51e2a772",
+                            "database": {
+                                "name": "dvdrental"
+                            },
                             "name": "customer",
                             "schema": "",
                             "fullName": "customer",
                             "connectionType": "postgres",
                             "description": "",
-                            "contact": null
+                            "columns": []
                         },
                         {
+                            "id": "3cdd0522-44ef-62eb-ba52-71545c258344",
+                            "database": {
+                                "name": "dvdrental"
+                            },
                             "name": "payment",
                             "schema": "",
                             "fullName": "payment",
                             "connectionType": "postgres",
                             "description": "",
-                            "contact": null
+                            "columns": []
                         },
                         {
+                            "id": "7df39af9-6767-4c9c-4120-155a024de062",
+                            "database": {
+                                "name": "dvdrental"
+                            },
                             "name": "staff",
                             "schema": "",
                             "fullName": "staff",
                             "connectionType": "postgres",
                             "description": "",
-                            "contact": null
+                            "columns": []
                         }
                     ],
                     "fields": [
@@ -235,30 +255,153 @@
                             }
                         }
                     ],
+                    "upstreamDatabases": [
+                        {
+                            "id": "1ade1d51-bbc3-ed8d-25d2-c51f44b8b31b",
+                            "name": "Sample - Superstore.xls",
+                            "connectionType": "excel-direct",
+                            "isEmbedded": true
+                        }
+                    ],
                     "upstreamTables": [
                         {
+                            "id": "15714253-8e46-a209-63cc-700705b66de9",
+                            "database": {
+                                "name": "Sample - Superstore.xls"
+                            },
                             "name": "People",
                             "schema": "",
                             "fullName": "[People$]",
                             "connectionType": "excel-direct",
                             "description": "",
-                            "contact": null
+                            "columns": [
+                                {
+                                    "name": "Person",
+                                    "remoteType": "WSTR"
+                                },
+                                {
+                                    "name": "Region",
+                                    "remoteType": "WSTR"
+                                }
+                            ]
                         },
                         {
+                            "id": "19be3c28-8e4d-ebac-b44d-8f0851d9f206",
+                            "database": {
+                                "name": "Sample - Superstore.xls"
+                            },
                             "name": "Returns",
                             "schema": "",
                             "fullName": "[Returns$]",
                             "connectionType": "excel-direct",
                             "description": "",
-                            "contact": null
+                            "columns": [
+                                {
+                                    "name": "Returned",
+                                    "remoteType": "WSTR"
+                                },
+                                {
+                                    "name": "Order ID",
+                                    "remoteType": "WSTR"
+                                }
+                            ]
                         },
                         {
+                            "id": "b0e0c3eb-6e53-e0f5-ded1-478d5d9f7281",
+                            "database": {
+                                "name": "Sample - Superstore.xls"
+                            },
                             "name": "Orders",
                             "schema": "",
                             "fullName": "[Orders$]",
                             "connectionType": "excel-direct",
                             "description": "",
-                            "contact": null
+                            "columns": [
+                                {
+                                    "name": "Product ID",
+                                    "remoteType": "WSTR"
+                                },
+                                {
+                                    "name": "Category",
+                                    "remoteType": "WSTR"
+                                },
+                                {
+                                    "name": "Postal Code",
+                                    "remoteType": "I8"
+                                },
+                                {
+                                    "name": "City",
+                                    "remoteType": "WSTR"
+                                },
+                                {
+                                    "name": "Quantity",
+                                    "remoteType": "I8"
+                                },
+                                {
+                                    "name": "State",
+                                    "remoteType": "WSTR"
+                                },
+                                {
+                                    "name": "Order Date",
+                                    "remoteType": "DATE"
+                                },
+                                {
+                                    "name": "Customer Name",
+                                    "remoteType": "WSTR"
+                                },
+                                {
+                                    "name": "Country/Region",
+                                    "remoteType": "WSTR"
+                                },
+                                {
+                                    "name": "Sales",
+                                    "remoteType": "R8"
+                                },
+                                {
+                                    "name": "Segment",
+                                    "remoteType": "WSTR"
+                                },
+                                {
+                                    "name": "Sub-Category",
+                                    "remoteType": "WSTR"
+                                },
+                                {
+                                    "name": "Profit",
+                                    "remoteType": "R8"
+                                },
+                                {
+                                    "name": "Product Name",
+                                    "remoteType": "WSTR"
+                                },
+                                {
+                                    "name": "Customer ID",
+                                    "remoteType": "WSTR"
+                                },
+                                {
+                                    "name": "Order ID",
+                                    "remoteType": "WSTR"
+                                },
+                                {
+                                    "name": "Row ID",
+                                    "remoteType": "I8"
+                                },
+                                {
+                                    "name": "Discount",
+                                    "remoteType": "R8"
+                                },
+                                {
+                                    "name": "Ship Date",
+                                    "remoteType": "DATE"
+                                },
+                                {
+                                    "name": "Ship Mode",
+                                    "remoteType": "WSTR"
+                                },
+                                {
+                                    "name": "Region",
+                                    "remoteType": "WSTR"
+                                }
+                            ]
                         }
                     ],
                     "fields": [

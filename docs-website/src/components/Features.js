@@ -14,7 +14,7 @@ const featuresContent = [
           built at LinkedIn
         </Link>{" "}
         and subsequently{" "}
-        <Link to={"https://github.com/linkedin/datahub"}>open-sourced</Link>{" "}
+        <Link to={"https://github.com/datahub-project/datahub"}>open-sourced</Link>{" "}
         under the Apache 2.0 License. It now has a thriving community with over
         a hundred contributors, and is widely used at many companies.
       </>

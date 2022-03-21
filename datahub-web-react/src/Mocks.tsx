@@ -282,6 +282,7 @@ const dataset2 = {
     downstream: null,
     health: null,
     assertions: null,
+    status: null,
 };
 
 export const dataset3 = {
@@ -484,6 +485,7 @@ export const dataset3 = {
     relationships: null,
     health: null,
     assertions: null,
+    status: null,
 } as Dataset;
 
 export const dataset4 = {
@@ -1082,6 +1084,7 @@ export const dataJob1 = {
         ],
     },
     domain: null,
+    status: null,
 } as DataJob;
 
 export const dataJob2 = {
@@ -1204,6 +1207,7 @@ export const dataJob3 = {
     domain: null,
     upstream: null,
     downstream: null,
+    status: null,
 } as DataJob;
 
 export const mlModel = {
@@ -1278,6 +1282,7 @@ export const mlModel = {
     outgoing: null,
     upstream: null,
     downstream: null,
+    status: null,
 } as MlModel;
 
 export const mlModelGroup = {
@@ -1340,6 +1345,7 @@ export const mlModelGroup = {
     outgoing: null,
     upstream: null,
     downstream: null,
+    status: null,
 } as MlModelGroup;
 
 export const recommendationModules = [
