@@ -123,7 +123,7 @@ class DeltaLakeSourceReport(SourceReport):
 class DeltaLakeSource(Source):
     config: DeltaLakeSourceConfig
     report: DeltaLakeSourceReport
-    platform: str = "deltalake"
+    platform: str = "delta_lake"
 
     def __init__(self, ctx: PipelineContext, config: DeltaLakeSourceConfig):
         super().__init__(ctx)

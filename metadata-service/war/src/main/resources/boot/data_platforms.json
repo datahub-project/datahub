@@ -62,7 +62,7 @@
     "urn": "urn:li:dataPlatform:delta_lake",
     "aspect": {
       "datasetNameDelimiter": ".",
-      "name": "deltalake",
+      "name": "delta_lake",
       "displayName": "Delta Lake",
       "type": "FILE_SYSTEM",
       "logoUrl": "/assets/platforms/deltalakelogo.png"

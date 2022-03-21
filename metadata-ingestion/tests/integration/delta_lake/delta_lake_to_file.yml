@@ -1,5 +1,5 @@
 source:
-  type: deltalake
+  type: delta_lake
   config:
     url: https://sharing.delta.io/delta-sharing/
     token: faaie590d541265bcab1f2de9813274bf233
@@ -21,5 +21,5 @@ source:
 sink:
   type: file
   config:
-    filename: "/tmp/delta_mces.json"
+    filename: "/tmp/delta_lake_mces.json"
 
