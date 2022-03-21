@@ -13,6 +13,7 @@ query getBrowseResults($input: BrowseInput!) {
                 name
                 origin
                 properties {
+                    name
                     description
                 }
                 editableProperties {
@@ -71,11 +72,12 @@ query getBrowseResults($input: BrowseInput!) {
                 }
             }
             ... on GlossaryTerm {
-                name
                 ownership {
                     ...ownershipFields
                 }
-                glossaryTermInfo {
+                properties {
+                    name
+                    description
                     definition
                     termSource
                     sourceRef

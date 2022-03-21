@@ -1,8 +1,8 @@
+import { CopyOutlined, DeleteOutlined, PlusOutlined, RedoOutlined } from '@ant-design/icons';
 import React, { useState } from 'react';
 import { Button, Empty, Image, message, Modal, Pagination, Tooltip, Typography } from 'antd';
 import styled from 'styled-components';
 import cronstrue from 'cronstrue';
-import { DeleteOutlined, PlusOutlined, RedoOutlined } from '@ant-design/icons';
 import {
     useCreateIngestionExecutionRequestMutation,
     useCreateIngestionSourceMutation,
@@ -50,6 +50,7 @@ const ActionButtonContainer = styled.div`
     display: flex;
     justify-content: right;
 `;
+
 const DEFAULT_PAGE_SIZE = 25;
 
 const removeExecutionsFromIngestionSource = (source) => {
@@ -343,6 +344,15 @@ export const IngestionSourceList = () => {
             key: 'x',
             render: (_, record: any) => (
                 <ActionButtonContainer>
+                    <Tooltip title="Copy Ingestion Source URN">
+                        <Button
+                            style={{ marginRight: 16 }}
+                            icon={<CopyOutlined />}
+                            onClick={() => {
+                                navigator.clipboard.writeText(record.urn);
+                            }}
+                        />
+                    </Tooltip>
                     <Button style={{ marginRight: 16 }} onClick={() => onEdit(record.urn)}>
                         EDIT
                     </Button>

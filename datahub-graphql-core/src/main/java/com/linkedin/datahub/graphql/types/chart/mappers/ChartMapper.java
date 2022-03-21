@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.chart.mappers;
 
 import com.linkedin.chart.EditableChartProperties;
+import com.linkedin.common.Deprecation;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
@@ -21,15 +22,18 @@ import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.ChartKey;
 import com.linkedin.metadata.key.DataPlatformKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
@@ -53,67 +57,50 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
 
         result.setUrn(entityResponse.getUrn().toString());
         result.setType(EntityType.CHART);
+        EnvelopedAspectMap aspectMap = entityResponse.getAspects();
+        MappingHelper<Chart> mappingHelper = new MappingHelper<>(aspectMap, result);
+        mappingHelper.mapToResult(CHART_KEY_ASPECT_NAME, this::mapChartKey);
+        mappingHelper.mapToResult(CHART_INFO_ASPECT_NAME, this::mapChartInfo);
+        mappingHelper.mapToResult(CHART_QUERY_ASPECT_NAME, this::mapChartQuery);
+        mappingHelper.mapToResult(EDITABLE_CHART_PROPERTIES_ASPECT_NAME, this::mapEditableChartProperties);
+        mappingHelper.mapToResult(OWNERSHIP_ASPECT_NAME, (chart, dataMap) ->
+            chart.setOwnership(OwnershipMapper.map(new Ownership(dataMap))));
+        mappingHelper.mapToResult(STATUS_ASPECT_NAME, (chart, dataMap) ->
+            chart.setStatus(StatusMapper.map(new Status(dataMap))));
+        mappingHelper.mapToResult(GLOBAL_TAGS_ASPECT_NAME, this::mapGlobalTags);
+        mappingHelper.mapToResult(INSTITUTIONAL_MEMORY_ASPECT_NAME, (chart, dataMap) ->
+            chart.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap))));
+        mappingHelper.mapToResult(GLOSSARY_TERMS_ASPECT_NAME, (chart, dataMap) ->
+            chart.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(dataMap))));
+        mappingHelper.mapToResult(CONTAINER_ASPECT_NAME, this::mapContainers);
+        mappingHelper.mapToResult(DOMAINS_ASPECT_NAME, this::mapDomains);
+        mappingHelper.mapToResult(DEPRECATION_ASPECT_NAME, (chart, dataMap) ->
+            chart.setDeprecation(DeprecationMapper.map(new Deprecation(dataMap))));
 
-        entityResponse.getAspects().forEach((name, aspect) -> {
-            DataMap data = aspect.getValue().data();
-            if (CHART_KEY_ASPECT_NAME.equals(name)) {
-                final ChartKey gmsKey = new ChartKey(data);
-                result.setChartId(gmsKey.getChartId());
-                result.setTool(gmsKey.getDashboardTool());
-                result.setPlatform(DataPlatform.builder()
-                    .setType(EntityType.DATA_PLATFORM)
-                    .setUrn(EntityKeyUtils
-                        .convertEntityKeyToUrn(new DataPlatformKey()
-                            .setPlatformName(gmsKey.getDashboardTool()), DATA_PLATFORM_ENTITY_NAME).toString()).build());
-            } else if (CHART_INFO_ASPECT_NAME.equals(name)) {
-                final com.linkedin.chart.ChartInfo gmsChartInfo = new com.linkedin.chart.ChartInfo(data);
-                result.setInfo(mapChartInfo(gmsChartInfo));
-                result.setProperties(mapChartInfoToProperties(gmsChartInfo));
-            } else if (CHART_QUERY_ASPECT_NAME.equals(name)) {
-                final com.linkedin.chart.ChartQuery gmsChartQuery = new com.linkedin.chart.ChartQuery(data);
-                result.setQuery(mapChartQuery(gmsChartQuery));
-            } else if (EDITABLE_CHART_PROPERTIES_ASPECT_NAME.equals(name)) {
-                final EditableChartProperties editableChartProperties = new EditableChartProperties(data);
-                final ChartEditableProperties chartEditableProperties = new ChartEditableProperties();
-                chartEditableProperties.setDescription(editableChartProperties.getDescription());
-                result.setEditableProperties(chartEditableProperties);
-            } else if (OWNERSHIP_ASPECT_NAME.equals(name)) {
-                result.setOwnership(OwnershipMapper.map(new Ownership(data)));
-            } else if (STATUS_ASPECT_NAME.equals(name)) {
-                result.setStatus(StatusMapper.map(new Status(data)));
-            } else if (GLOBAL_TAGS_ASPECT_NAME.equals(name)) {
-                com.linkedin.datahub.graphql.generated.GlobalTags globalTags = GlobalTagsMapper.map(new GlobalTags(data));
-                result.setGlobalTags(globalTags);
-                result.setTags(globalTags);
-            } else if (INSTITUTIONAL_MEMORY_ASPECT_NAME.equals(name)) {
-                result.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(data)));
-            } else if (GLOSSARY_TERMS_ASPECT_NAME.equals(name)) {
-                result.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(data)));
-            } else if (CONTAINER_ASPECT_NAME.equals(name)) {
-                final com.linkedin.container.Container gmsContainer = new com.linkedin.container.Container(data);
-                result.setContainer(Container
-                    .builder()
-                    .setType(EntityType.CONTAINER)
-                    .setUrn(gmsContainer.getContainer().toString())
-                    .build());
-            } else if (DOMAINS_ASPECT_NAME.equals(name)) {
-                final Domains domains = new Domains(data);
-                // Currently we only take the first domain if it exists.
-                if (domains.getDomains().size() > 0) {
-                    result.setDomain(Domain.builder()
-                        .setType(EntityType.DOMAIN)
-                        .setUrn(domains.getDomains().get(0).toString()).build());
-                }
-            }
-        });
+        return mappingHelper.getResult();
+    }
 
-        return result;
+    private void mapChartKey(@Nonnull Chart chart, @Nonnull DataMap dataMap) {
+        final ChartKey gmsKey = new ChartKey(dataMap);
+        chart.setChartId(gmsKey.getChartId());
+        chart.setTool(gmsKey.getDashboardTool());
+        chart.setPlatform(DataPlatform.builder()
+            .setType(EntityType.DATA_PLATFORM)
+            .setUrn(EntityKeyUtils
+                .convertEntityKeyToUrn(new DataPlatformKey()
+                    .setPlatformName(gmsKey.getDashboardTool()), DATA_PLATFORM_ENTITY_NAME).toString()).build());
+    }
+
+    private void mapChartInfo(@Nonnull Chart chart, @Nonnull DataMap dataMap) {
+        final com.linkedin.chart.ChartInfo gmsChartInfo = new com.linkedin.chart.ChartInfo(dataMap);
+        chart.setInfo(mapInfo(gmsChartInfo));
+        chart.setProperties(mapChartInfoToProperties(gmsChartInfo));
     }
 
     /**
      * Maps GMS {@link com.linkedin.chart.ChartInfo} to deprecated GraphQL {@link ChartInfo}
      */
-    private ChartInfo mapChartInfo(final com.linkedin.chart.ChartInfo info) {
+    private ChartInfo mapInfo(final com.linkedin.chart.ChartInfo info) {
         final ChartInfo result = new ChartInfo();
         result.setDescription(info.getDescription());
         result.setName(info.getTitle());
@@ -182,10 +169,47 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
         return result;
     }
 
-    private ChartQuery mapChartQuery(final com.linkedin.chart.ChartQuery query) {
+    private void mapChartQuery(@Nonnull Chart chart, @Nonnull DataMap dataMap) {
+        final com.linkedin.chart.ChartQuery gmsChartQuery = new com.linkedin.chart.ChartQuery(dataMap);
+        chart.setQuery(mapQuery(gmsChartQuery));
+    }
+
+    private ChartQuery mapQuery(final com.linkedin.chart.ChartQuery query) {
         final ChartQuery result = new ChartQuery();
         result.setRawQuery(query.getRawQuery());
         result.setType(ChartQueryType.valueOf(query.getType().toString()));
         return result;
+    }
+
+    private void mapEditableChartProperties(@Nonnull Chart chart, @Nonnull DataMap dataMap) {
+        final EditableChartProperties editableChartProperties = new EditableChartProperties(dataMap);
+        final ChartEditableProperties chartEditableProperties = new ChartEditableProperties();
+        chartEditableProperties.setDescription(editableChartProperties.getDescription());
+        chart.setEditableProperties(chartEditableProperties);
+    }
+
+    private void mapGlobalTags(@Nonnull Chart chart, @Nonnull DataMap dataMap) {
+        com.linkedin.datahub.graphql.generated.GlobalTags globalTags = GlobalTagsMapper.map(new GlobalTags(dataMap));
+        chart.setGlobalTags(globalTags);
+        chart.setTags(globalTags);
+    }
+
+    private void mapContainers(@Nonnull Chart chart, @Nonnull DataMap dataMap) {
+        final com.linkedin.container.Container gmsContainer = new com.linkedin.container.Container(dataMap);
+        chart.setContainer(Container
+            .builder()
+            .setType(EntityType.CONTAINER)
+            .setUrn(gmsContainer.getContainer().toString())
+            .build());
+    }
+
+    private void mapDomains(@Nonnull Chart chart, @Nonnull DataMap dataMap) {
+        final Domains domains = new Domains(dataMap);
+        // Currently we only take the first domain if it exists.
+        if (domains.getDomains().size() > 0) {
+            chart.setDomain(Domain.builder()
+                .setType(EntityType.DOMAIN)
+                .setUrn(domains.getDomains().get(0).toString()).build());
+        }
     }
 }

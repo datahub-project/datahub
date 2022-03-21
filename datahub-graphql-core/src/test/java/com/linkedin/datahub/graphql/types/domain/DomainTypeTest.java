@@ -33,7 +33,7 @@ import org.mockito.Mockito;
 
 import org.testng.annotations.Test;
 
-import static com.linkedin.datahub.graphql.resolvers.domain.DomainTestUtils.*;
+import static com.linkedin.datahub.graphql.TestUtils.*;
 import static org.testng.Assert.*;
 
 public class DomainTypeTest {

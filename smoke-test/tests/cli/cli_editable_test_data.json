@@ -1,0 +1,15 @@
+[
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn":  "urn:li:dataset:(urn:li:dataPlatform:kafka,test-rollback,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "editableDatasetProperties",
+    "aspect": {
+      "value": "{\"description\": \"Some Documentation\" }",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  }
+]

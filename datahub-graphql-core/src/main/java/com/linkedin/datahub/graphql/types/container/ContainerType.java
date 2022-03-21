@@ -33,7 +33,8 @@ public class ContainerType implements com.linkedin.datahub.graphql.types.EntityT
       Constants.GLOBAL_TAGS_ASPECT_NAME,
       Constants.GLOSSARY_TERMS_ASPECT_NAME,
       Constants.CONTAINER_ASPECT_NAME,
-      Constants.DOMAINS_ASPECT_NAME
+      Constants.DOMAINS_ASPECT_NAME,
+      Constants.DEPRECATION_ASPECT_NAME
   );
   private final EntityClient _entityClient;
 

@@ -8,8 +8,10 @@ import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { navigateToSearchUrl } from '../search/utils/navigateToSearchUrl';
 import { SearchBar } from '../search/SearchBar';
-import { GetSearchResultsQuery, useGetAutoCompleteMultipleResultsLazyQuery } from '../../graphql/search.generated';
-import { useGetAllEntitySearchResults } from '../../utils/customGraphQL/useGetAllEntitySearchResults';
+import {
+    useGetAutoCompleteMultipleResultsLazyQuery,
+    useGetSearchResultsForMultipleQuery,
+} from '../../graphql/search.generated';
 import { EntityType } from '../../types.generated';
 import analytics, { EventType } from '../analytics';
 import { AdminHeaderLinks } from '../shared/admin/AdminHeaderLinks';
@@ -43,6 +45,7 @@ const HeaderContainer = styled.div`
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    margin-top: 20px;
     margin-bottom: 20px;
 `;
 
@@ -95,28 +98,6 @@ const SearchBarContainer = styled.div`
     text-align: center;
 `;
 
-function getSuggestionFieldsFromResult(result: GetSearchResultsQuery | undefined): string[] {
-    return (
-        (result?.search?.searchResults
-            ?.map((searchResult) => searchResult.entity)
-            ?.map((entity) => {
-                switch (entity.__typename) {
-                    case 'Dataset':
-                        return entity.name.split('.').slice(-1)[0];
-                    case 'CorpUser':
-                        return entity.username;
-                    case 'Chart':
-                        return entity.properties?.name;
-                    case 'Dashboard':
-                        return entity.properties?.name;
-                    default:
-                        return undefined;
-                }
-            })
-            .filter(Boolean) as string[]) || []
-    );
-}
-
 function truncate(input, length) {
     if (input.length > length) {
         return `${input.substring(0, length)}...`;
@@ -165,38 +146,32 @@ export const HomePageHeader = () => {
         }
     };
 
-    // fetch some results from each entity to display search suggestions
-    const allSearchResultsByType = useGetAllEntitySearchResults({
-        query: '*',
-        start: 0,
-        count: 20,
-        filters: [],
+    // Fetch results
+    const { data: searchResultsData } = useGetSearchResultsForMultipleQuery({
+        variables: {
+            input: {
+                types: [],
+                query: '*',
+                start: 0,
+                count: 20,
+                filters: [],
+            },
+        },
     });
 
-    const suggestionsLoading = Object.keys(allSearchResultsByType).some((type) => {
-        return allSearchResultsByType[type].loading;
-    });
+    const searchResultsToShow = useMemo(() => {
+        let result: string[] | undefined = [];
+        if (searchResultsData) {
+            const entities = searchResultsData?.searchAcrossEntities?.searchResults.map((searchResult) => {
+                return searchResult?.entity;
+            });
 
-    const suggestionsToShow = useMemo(() => {
-        let result: string[] = [];
-        if (!suggestionsLoading) {
-            // TODO: Make this more dynamic.
-            // Add a ticket.
-            // Colored Tags: Feature Request...
-            // ...
-            [EntityType.Dashboard, EntityType.Chart, EntityType.Dataset].forEach((type) => {
-                const suggestionsToShowForEntity = getSuggestionFieldsFromResult(
-                    allSearchResultsByType[type]?.data,
-                ).sort(sortRandom);
-                const suggestionToAddToFront = suggestionsToShowForEntity?.pop();
-                result = [...result, ...suggestionsToShowForEntity];
-                if (suggestionToAddToFront) {
-                    result.splice(0, 0, suggestionToAddToFront);
-                }
+            result = entities?.map((entity) => {
+                return entityRegistry.getDisplayName(entity.type, entity);
             });
         }
-        return result;
-    }, [suggestionsLoading, allSearchResultsByType]);
+        return result?.sort(sortRandom);
+    }, [searchResultsData, entityRegistry]);
 
     return (
         <Background>
@@ -204,7 +179,7 @@ export const HomePageHeader = () => {
                 <WelcomeText>
                     {!!user && (
                         <>
-                            Welcome back, <b>{user.info?.firstName || user.username}</b>.
+                            Welcome back, <b>{entityRegistry.getDisplayName(EntityType.CorpUser, user)}</b>.
                         </>
                     )}
                 </WelcomeText>
@@ -212,8 +187,8 @@ export const HomePageHeader = () => {
                     <AdminHeaderLinks />
                     <ManageAccount
                         urn={user?.urn || ''}
-                        pictureLink={user?.editableInfo?.pictureLink || ''}
-                        name={user?.info?.firstName || user?.username || undefined}
+                        pictureLink={user?.editableProperties?.pictureLink || ''}
+                        name={(user && entityRegistry.getDisplayName(EntityType.CorpUser, user)) || undefined}
                     />
                 </NavGroup>
             </Row>
@@ -231,18 +206,18 @@ export const HomePageHeader = () => {
                         autoCompleteStyle={styles.searchBox}
                         entityRegistry={entityRegistry}
                     />
-                    {suggestionsToShow && suggestionsToShow.length > 0 && (
+                    {searchResultsToShow && searchResultsToShow.length > 0 && (
                         <SuggestionsContainer>
                             <SuggestedQueriesText strong>Try searching for</SuggestedQueriesText>
                             <SuggestionTagContainer>
-                                {suggestionsToShow.slice(0, 3).map((suggestion) => (
+                                {searchResultsToShow.slice(0, 3).map((suggestion) => (
                                     <SuggestionButton
                                         key={suggestion}
                                         type="link"
                                         onClick={() =>
                                             navigateToSearchUrl({
                                                 type: undefined,
-                                                query: suggestion,
+                                                query: `"${suggestion}"`,
                                                 history,
                                             })
                                         }

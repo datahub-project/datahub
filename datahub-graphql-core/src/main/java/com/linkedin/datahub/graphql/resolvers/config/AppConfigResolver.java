@@ -6,6 +6,7 @@ import com.linkedin.datahub.graphql.generated.AnalyticsConfig;
 import com.linkedin.datahub.graphql.generated.AppConfig;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.IdentityManagementConfig;
+import com.linkedin.datahub.graphql.generated.LineageConfig;
 import com.linkedin.datahub.graphql.generated.ManagedIngestionConfig;
 import com.linkedin.datahub.graphql.generated.PoliciesConfig;
 import com.linkedin.datahub.graphql.generated.Privilege;
@@ -26,11 +27,17 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
   private final GitVersion _gitVersion;
   private final boolean _isAnalyticsEnabled;
   private final IngestionConfiguration _ingestionConfiguration;
+  private final boolean _supportsImpactAnalysis;
 
-  public AppConfigResolver(final GitVersion gitVersion, final boolean isAnalyticsEnabled, final IngestionConfiguration ingestionConfiguration) {
+  public AppConfigResolver(
+      final GitVersion gitVersion,
+      final boolean isAnalyticsEnabled,
+      final IngestionConfiguration ingestionConfiguration,
+      final boolean supportsImpactAnalysis) {
     _gitVersion = gitVersion;
     _isAnalyticsEnabled = isAnalyticsEnabled;
     _ingestionConfiguration = ingestionConfiguration;
+    _supportsImpactAnalysis = supportsImpactAnalysis;
   }
 
   @Override
@@ -41,6 +48,10 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     final AppConfig appConfig = new AppConfig();
 
     appConfig.setAppVersion(_gitVersion.getVersion());
+
+    final LineageConfig lineageConfig = new LineageConfig();
+    lineageConfig.setSupportsImpactAnalysis(_supportsImpactAnalysis);
+    appConfig.setLineageConfig(lineageConfig);
 
     final AnalyticsConfig analyticsConfig = new AnalyticsConfig();
     analyticsConfig.setEnabled(_isAnalyticsEnabled);
@@ -108,6 +119,16 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       return EntityType.DATA_JOB;
     } else if (com.linkedin.metadata.authorization.PoliciesConfig.TAG_PRIVILEGES.getResourceType().equals(resourceType)) {
       return EntityType.TAG;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.GLOSSARY_TERM_PRIVILEGES.getResourceType().equals(resourceType)) {
+      return EntityType.GLOSSARY_TERM;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.DOMAIN_PRIVILEGES.getResourceType().equals(resourceType)) {
+      return EntityType.DOMAIN;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.CONTAINER_PRIVILEGES.getResourceType().equals(resourceType)) {
+      return EntityType.CONTAINER;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.CORP_GROUP_PRIVILEGES.getResourceType().equals(resourceType)) {
+      return EntityType.CORP_GROUP;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.CORP_USER_PRIVILEGES.getResourceType().equals(resourceType)) {
+      return EntityType.CORP_USER;
     } else {
       return null;
     }

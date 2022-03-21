@@ -51,6 +51,12 @@
     <load-on-startup>1</load-on-startup>
     <async-supported>true</async-supported>
   </servlet>
+  <servlet>
+    <servlet-name>openapiServlet</servlet-name>
+    <servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
+    <load-on-startup>1</load-on-startup>
+    <async-supported>true</async-supported>
+  </servlet>
   <!--
     HttpRequestHandlerServlet loads the "restliServlet" spring bean as a servlet.  For details, see:
     http://static.springsource.org/spring-framework/docs/3.2.0.RC1/api/org/springframework/web/context/support/HttpRequestHandlerServlet.html
@@ -74,6 +80,10 @@
   <servlet-mapping>
     <servlet-name>apiServlet</servlet-name>
     <url-pattern>/api/*</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>openapiServlet</servlet-name>
+    <url-pattern>/openapi/*</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
     <servlet-name>authServlet</servlet-name>
@@ -108,6 +118,12 @@
   <filter-mapping>
     <filter-name>AuthenticationFilter</filter-name> <!-- mandatory -->
     <servlet-name>authServlet</servlet-name>
+    <dispatcher>REQUEST</dispatcher>
+  </filter-mapping>
+
+  <filter-mapping>
+    <filter-name>AuthenticationFilter</filter-name> <!-- mandatory -->
+    <servlet-name>openapiServlet</servlet-name>
     <dispatcher>REQUEST</dispatcher>
   </filter-mapping>
 </web-app>

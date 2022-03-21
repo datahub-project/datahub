@@ -11,7 +11,7 @@
               "name": "adlsGen1",
               "displayName": "Azure Data Lake (Gen 1)",
               "type": "FILE_SYSTEM",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/adlslogo.png"
+              "logoUrl": "/assets/platforms/adlslogo.png"
             }
           }
         ]
@@ -31,7 +31,7 @@
               "name": "adlsGen2",
               "displayName": "Azure Data Lake (Gen 2)",
               "type": "FILE_SYSTEM",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/adlslogo.png"
+              "logoUrl": "/assets/platforms/adlslogo.png"
             }
           }
         ]
@@ -70,7 +70,7 @@
               "name": "couchbase",
               "displayName": "Couchbase",
               "type": "KEY_VALUE_STORE",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/couchbaselogo.png"
+              "logoUrl": "/assets/platforms/couchbaselogo.png"
             }
           }
         ]
@@ -109,7 +109,7 @@
               "name": "hdfs",
               "displayName": "HDFS",
               "type": "FILE_SYSTEM",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/hadooplogo.png"
+              "logoUrl": "/assets/platforms/hadooplogo.png"
             }
           }
         ]
@@ -129,7 +129,7 @@
               "name": "hive",
               "displayName": "Hive",
               "type": "FILE_SYSTEM",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/hivelogo.png"
+              "logoUrl": "/assets/platforms/hivelogo.png"
             }
           }
         ]
@@ -149,7 +149,7 @@
               "name": "s3",
               "displayName": "AWS S3",
               "type": "FILE_SYSTEM",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/s3.png"
+              "logoUrl": "/assets/platforms/s3.png"
             }
           }
         ]
@@ -169,7 +169,7 @@
               "name": "kafka",
               "displayName": "Kafka",
               "type": "MESSAGE_BROKER",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/kafkalogo.png"
+              "logoUrl": "/assets/platforms/kafkalogo.png"
             }
           }
         ]
@@ -189,7 +189,7 @@
               "name": "kusto",
               "displayName": "Kusto",
               "type": "OLAP_DATASTORE",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/kustologo.png"
+              "logoUrl": "/assets/platforms/kustologo.png"
             }
           }
         ]
@@ -209,7 +209,7 @@
               "name": "mode",
               "displayName": "Mode",
               "type": "KEY_VALUE_STORE",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/modelogo.png"
+              "logoUrl": "/assets/platforms/modelogo.png"
             }
           }
         ]
@@ -229,7 +229,7 @@
               "name": "mongodb",
               "displayName": "MongoDB",
               "type": "KEY_VALUE_STORE",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/mongodblogo.png"
+              "logoUrl": "/assets/platforms/mongodblogo.png"
             }
           }
         ]
@@ -249,7 +249,7 @@
               "name": "mysql",
               "displayName": "MySQL",
               "type": "RELATIONAL_DB",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/mysqllogo.png"
+              "logoUrl": "/assets/platforms/mysqllogo.png"
             }
           }
         ]
@@ -269,7 +269,7 @@
               "name": "oracle",
               "displayName": "Oracle",
               "type": "RELATIONAL_DB",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/oraclelogo.png"
+              "logoUrl": "/assets/platforms/oraclelogo.png"
             }
           }
         ]
@@ -289,7 +289,7 @@
               "name": "pinot",
               "displayName": "Pinot",
               "type": "OLAP_DATASTORE",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/pinotlogo.png"
+              "logoUrl": "/assets/platforms/pinotlogo.png"
             }
           }
         ]
@@ -309,7 +309,7 @@
               "name": "postgres",
               "displayName": "PostgreSQL",
               "type": "RELATIONAL_DB",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/postgreslogo.png"
+              "logoUrl": "/assets/platforms/postgreslogo.png"
             }
           }
         ]
@@ -329,7 +329,7 @@
               "name": "presto",
               "displayName": "Presto",
               "type": "QUERY_ENGINE",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/prestologo.png"
+              "logoUrl": "/assets/platforms/prestologo.png"
             }
           }
         ]
@@ -349,7 +349,7 @@
               "name": "teradata",
               "displayName": "Teradata",
               "type": "RELATIONAL_DB",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/teradatalogo.png"
+              "logoUrl": "/assets/platforms/teradatalogo.png"
             }
           }
         ]
@@ -388,7 +388,47 @@
               "name": "snowflake",
               "displayName": "Snowflake",
               "type": "RELATIONAL_DB",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/snowflakelogo.png"
+              "logoUrl": "/assets/platforms/snowflakelogo.png"
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:superset",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": ".",
+              "name": "superset",
+              "displayName": "Superset",
+              "type": "RELATIONAL_DB",
+              "logoUrl": "/assets/platforms/supersetlogo.png"
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:datahub",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": ".",
+              "name": "datahub",
+              "displayName": "DataHub",
+              "type": "RELATIONAL_DB",
+              "logoUrl": "/assets/platforms/datahublogo.png"
             }
           }
         ]
@@ -408,7 +448,7 @@
               "name": "redshift",
               "displayName": "Redshift",
               "type": "RELATIONAL_DB",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/redshiftlogo.png"
+              "logoUrl": "/assets/platforms/redshiftlogo.png"
             }
           }
         ]
@@ -428,7 +468,7 @@
               "name": "mssql",
               "displayName": "SQL Server",
               "type": "RELATIONAL_DB",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/mssqllogo.png"
+              "logoUrl": "/assets/platforms/mssqllogo.png"
             }
           }
         ]
@@ -448,7 +488,7 @@
               "name": "bigquery",
               "displayName": "BigQuery",
               "type": "RELATIONAL_DB",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/bigquerylogo.png"
+              "logoUrl": "/assets/platforms/bigquerylogo.png"
             }
           }
         ]
@@ -468,7 +508,7 @@
               "name": "druid",
               "displayName": "Druid",
               "type": "OLAP_DATASTORE",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/druidlogo.png"
+              "logoUrl": "/assets/platforms/druidlogo.png"
             }
           }
         ]
@@ -488,7 +528,7 @@
               "name": "looker",
               "displayName": "Looker",
               "type": "OTHERS",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/lookerlogo.png"
+              "logoUrl": "/assets/platforms/lookerlogo.png"
             }
           }
         ]
@@ -508,7 +548,7 @@
               "name": "feast",
               "displayName": "Feast",
               "type": "OTHERS",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/feastlogo.png"
+              "logoUrl": "/assets/platforms/feastlogo.png"
             }
           }
         ]
@@ -528,7 +568,7 @@
               "name": "sagemaker",
               "displayName": "SageMaker",
               "type": "OTHERS",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/sagemakerlogo.png"
+              "logoUrl": "/assets/platforms/sagemakerlogo.png"
             }
           }
         ]
@@ -548,7 +588,7 @@
               "name": "glue",
               "displayName": "Glue",
               "type": "OTHERS",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/gluelogo.png"
+              "logoUrl": "/assets/platforms/gluelogo.png"
             }
           }
         ]
@@ -568,7 +608,86 @@
               "name": "redash",
               "displayName": "Redash",
               "type": "OTHERS",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/redashlogo.png"
+              "logoUrl": "/assets/platforms/redashlogo.png"
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:tableau",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": ".",
+              "name": "tableau",
+              "displayName": "Tableau",
+              "type": "OTHERS",
+              "logoUrl": "/assets/platforms/tableaulogo.png"
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:powerbi",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": ".",
+              "name": "powerbi",
+              "displayName": "Power BI",
+              "type": "OTHERS",
+              "logoUrl": "/assets/platforms/powerbilogo.png"
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:great-expectations",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "name": "Great Expectations",
+              "displayName": "Great Expectations",
+              "type": "OTHERS",
+              "logoUrl": "/assets/platforms/greatexpectationslogo.png",
+              "datasetNameDelimiter": "."
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:unknown",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "name": "Unknown Platform",
+              "displayName": "N/A",
+              "type": "OTHERS",
+              "datasetNameDelimiter": "."
             }
           }
         ]

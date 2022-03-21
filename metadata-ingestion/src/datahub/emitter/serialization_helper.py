@@ -7,7 +7,7 @@ def _json_transform(obj: Any, from_pattern: str, to_pattern: str) -> Any:
         if len(obj.keys()) == 1:
             key: str = list(obj.keys())[0]
             value = obj[key]
-            if key.startswith(from_pattern) >= 0:
+            if key.startswith(from_pattern):
                 new_key = key.replace(from_pattern, to_pattern, 1)
                 return {new_key: _json_transform(value, from_pattern, to_pattern)}
 

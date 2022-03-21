@@ -88,6 +88,7 @@ dependencies {
   annotationProcessor externalDependency.lombok
   
   implementation externalDependency.typesafeConfig
+  implementation externalDependency.opentracingJdbc
 
   implementation project(path: ':metadata-integration:java:datahub-client', configuration: 'shadow')
 
@@ -146,6 +147,7 @@ shadowJar {
   relocate 'org.apache.commons.codec', 'datahub.spark2.shaded.o.a.c.codec'
   relocate 'mozilla', 'datahub.spark2.shaded.mozilla'
   relocate 'com.typesafe','datahub.spark2.shaded.typesafe'
+  relocate 'io.opentracing','datahub.spark2.shaded.io.opentracing'
   finalizedBy checkShadowJar
 }
 
@@ -165,6 +167,10 @@ test {
 
 assemble {
     dependsOn shadowJar
+}
+
+task integrationTest(type: Exec ) {
+  commandLine "spark-smoke-test/smoke.sh"
 }
 
 task sourcesJar(type: Jar) {
@@ -192,7 +198,7 @@ publishing {
         scm {
           connection = 'scm:git:git://github.com/linkedin/datahub.git'
           developerConnection = 'scm:git:ssh://github.com:linkedin/datahub.git'
-          url = 'https://github.com/linkedin/datahub.git'
+          url = 'https://github.com/datahub-project/datahub.git'
         }
 
         licenses {

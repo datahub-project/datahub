@@ -42,7 +42,12 @@ enum ScenarioType {
   """
   Recommendations to show on an Entity Profile page
   """
-  ENTITY_PROFILE
+  ENTITY_PROFILE,
+
+  """
+  Recommendations to show on the search bar when clicked
+  """
+  SEARCH_BAR
 }
 
 """
@@ -248,6 +253,12 @@ type EntityProfileParams {
   Urn of the entity being shown
   """
   urn: String!
+
+  """
+  Type of the enity being displayed
+  """
+  type: EntityType!
+
 }
 
 """

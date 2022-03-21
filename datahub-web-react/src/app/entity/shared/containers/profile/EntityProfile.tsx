@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
 import { Alert, Divider } from 'antd';
+import SplitPane from 'react-split-pane';
 import { MutationHookOptions, MutationTuple, QueryHookOptions, QueryResult } from '@apollo/client/react/types/types';
 import styled from 'styled-components';
 import { useHistory } from 'react-router';
@@ -18,6 +19,7 @@ import { useEntityRegistry } from '../../../../useEntityRegistry';
 import LineageExplorer from '../../../../lineage/LineageExplorer';
 import CompactContext from '../../../../shared/CompactContext';
 import DynamicTab from '../../tabs/Entity/weaklyTypedAspects/DynamicTab';
+import analytics, { EventType } from '../../../../analytics';
 
 type Props<T, U> = {
     urn: string;
@@ -54,7 +56,9 @@ const ContentContainer = styled.div`
 const HeaderAndTabs = styled.div`
     flex-basis: 70%;
     min-width: 640px;
+    height: 100%;
 `;
+
 const HeaderAndTabsFlex = styled.div`
     display: flex;
     flex-direction: column;
@@ -67,7 +71,6 @@ const HeaderAndTabsFlex = styled.div`
 const Sidebar = styled.div`
     overflow: auto;
     flex-basis: 30%;
-    border-left: 1px solid ${ANTD_GRAY[4.5]};
     padding-left: 20px;
     padding-right: 20px;
 `;
@@ -82,6 +85,14 @@ const TabContent = styled.div`
     flex: 1;
     overflow: auto;
 `;
+
+const resizerStyles = {
+    borderLeft: `1px solid #E9E9E9`,
+    width: '2px',
+    cursor: 'col-resize',
+    margin: '0 5px',
+    height: '100%',
+};
 
 const defaultTabDisplayConfig = {
     visible: (_, _1) => true,
@@ -124,6 +135,12 @@ export const EntityProfile = <T, U>({
             tabParams?: Record<string, any>;
             method?: 'push' | 'replace';
         }) => {
+            analytics.event({
+                type: EventType.EntitySectionViewEvent,
+                entityType,
+                entityUrn: urn,
+                section: tabName.toLowerCase(),
+            });
             history[method](getEntityPath(entityType, urn, entityRegistry, false, tabName, tabParams));
         },
         [history, entityType, urn, entityRegistry],
@@ -214,6 +231,12 @@ export const EntityProfile = <T, U>({
         >
             <>
                 {showBrowseBar && <EntityProfileNavBar urn={urn} entityType={entityType} />}
+                {entityData?.status?.removed === true && (
+                    <Alert
+                        message="This entity has been soft deleted and is not discoverable via search or lineage graph"
+                        banner
+                    />
+                )}
                 {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
                 {!loading && error && (
                     <Alert type="error" message={error?.message || `Entity failed to load for urn ${urn}`} />
@@ -222,7 +245,18 @@ export const EntityProfile = <T, U>({
                     {isLineageMode ? (
                         <LineageExplorer type={entityType} urn={urn} />
                     ) : (
-                        <>
+                        <SplitPane
+                            split="vertical"
+                            minSize={window.innerWidth - 400}
+                            maxSize={window.innerWidth - 250}
+                            defaultSize={window.innerWidth - 400}
+                            resizerStyle={resizerStyles}
+                            style={{
+                                position: 'inherit',
+                                height: 'auto',
+                                overflow: 'auto',
+                            }}
+                        >
                             <HeaderAndTabs>
                                 <HeaderAndTabsFlex>
                                     <Header>
@@ -240,7 +274,7 @@ export const EntityProfile = <T, U>({
                             <Sidebar>
                                 <EntitySidebar sidebarSections={sideBarSectionsWithDefaults} />
                             </Sidebar>
-                        </>
+                        </SplitPane>
                     )}
                 </ContentContainer>
             </>

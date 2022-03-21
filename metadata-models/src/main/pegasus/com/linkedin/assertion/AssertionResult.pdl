@@ -1,51 +1,52 @@
 namespace com.linkedin.assertion
 
-import com.linkedin.timeseries.TimeseriesAspectBase
-import com.linkedin.common.ExternalReference
-import com.linkedin.common.Urn
-
 /**
- * The results of evaluating the assertion on the batch
+ * The result of running an assertion
  */
-@Aspect = {
-  "name": "assertionResult",
-  "type": "timeseries",
-}
-
-record AssertionResult includes TimeseriesAspectBase {
-  
-  /*
-  * Urn of assertion which is evaluated
+record AssertionResult {
+  /**
+  *  The final result, e.g. either SUCCESS or FAILURE.
   */
   @TimeseriesField = {}
-  assertionUrn: Urn
-
-  /*
-  * Urn of entity being asserted
-  */
-  //example - dataset urn, if dataset is being asserted
-  @TimeseriesField = {}
-  asserteeUrn: Urn
-  
-  /**
-  * Specification of the batch whose data quality is evaluated
-  */
-  batchSpec: optional BatchSpec
+  type: enum AssertionResultType {
+    /**
+    *  The Assertion Succeeded
+    */
+    SUCCESS
+    /**
+    *  The Assertion Failed
+    */
+    FAILURE
+  }
 
   /**
-  * Results of assertion
-  */
-  @TimeseriesField = {}
-  batchAssertionResult: BatchAssertionResult
-
-  /**
-  *  Native Run identifier of platform evaluating the assertions 
-  */
-  //Multiple assertions could occur in same evaluator run
-  nativeEvaluatorRunId: optional string
-
-  /**
-   * Runtime parameters of evaluation
+   * Number of rows for evaluated batch
    */
-  runtimeContext: map[string, string] = { }
+  rowCount: optional long
+
+  /**
+   * Number of rows with missing value for evaluated batch
+   */
+  missingCount: optional long
+
+  /**
+   * Number of rows with unexpected value for evaluated batch
+   */
+  unexpectedCount: optional long
+
+  /**
+   * Observed aggregate value for evaluated batch
+   */
+  actualAggValue: optional float
+
+  /**
+   * Other results of evaluation
+   */
+  nativeResults: optional map[string, string]
+
+  /**
+   * URL where full results are available
+   */
+  externalUrl: optional string
+
 }

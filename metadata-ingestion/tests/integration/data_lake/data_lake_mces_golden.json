@@ -40,7 +40,7 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "Sampling Date",
+                                "fieldPath": "2",
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
@@ -49,7 +49,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "StringType",
+                                "nativeDataType": "string",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -57,7 +57,7 @@
                                 "jsonProps": null
                             },
                             {
-                                "fieldPath": "Site ID",
+                                "fieldPath": "3",
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
@@ -66,7 +66,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "StringType",
+                                "nativeDataType": "string",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -74,7 +74,7 @@
                                 "jsonProps": null
                             },
                             {
-                                "fieldPath": "Park ID",
+                                "fieldPath": "Br \n(mg/L)",
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
@@ -83,7 +83,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "StringType",
+                                "nativeDataType": "string",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -91,7 +91,7 @@
                                 "jsonProps": null
                             },
                             {
-                                "fieldPath": "Lat (\ufffdN)",
+                                "fieldPath": "Ca \n(mg/L)",
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
@@ -100,7 +100,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "DoubleType",
+                                "nativeDataType": "number",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -108,7 +108,7 @@
                                 "jsonProps": null
                             },
                             {
-                                "fieldPath": "Long (\ufffdW)",
+                                "fieldPath": "Cl \n(mg/L)",
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
@@ -117,7 +117,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "DoubleType",
+                                "nativeDataType": "number",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -125,50 +125,16 @@
                                 "jsonProps": null
                             },
                             {
-                                "fieldPath": "Water Temp (\ufffdC)",
+                                "fieldPath": "Cond (\u00b5S/cm)",
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "StringType",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            },
-                            {
-                                "fieldPath": "Cond (\ufffdS/cm)",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "StringType",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            },
-                            {
-                                "fieldPath": "pH",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "StringType",
+                                "nativeDataType": "number",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -185,41 +151,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "StringType",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            },
-                            {
-                                "fieldPath": "Secchi Depth (m)",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "StringType",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            },
-                            {
-                                "fieldPath": "UV Absorbance, 254nm",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "DoubleType",
+                                "nativeDataType": "string",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -236,7 +168,194 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "DoubleType",
+                                "nativeDataType": "number",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "F \n(mg/L)",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "K \n(mg/L)",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "number",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "Lat (\u00b0N)",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "number",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "Long (\u00b0W)",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "number",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "Mg \n(mg/L)",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "number",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "NH3-N \n(mg N/L)",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "NO3-N+NO2-N \n(mg N/L)",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "number",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "Na \n(mg/L)",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "number",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "PO4-P \n(mg P/L)",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "Park ID",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "SO4-S \n(mg/L)",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "number",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -253,7 +372,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "DoubleType",
+                                "nativeDataType": "number",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -261,7 +380,7 @@
                                 "jsonProps": null
                             },
                             {
-                                "fieldPath": "NH3-N ",
+                                "fieldPath": "Sampling Date",
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
@@ -270,7 +389,177 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "StringType",
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "Secchi Depth (m)",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "Site ID",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "TDN \n(mg N/L)",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "number",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "TDP \n(mg P/L)",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "UV Absorbance, 254nm",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "number",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "Water Temp (\u00b0C)",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "number",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "d18O",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "dD",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "field29",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "pH",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -361,10 +650,150 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
+                                            "nestedType": null
+                                        }
                                     }
                                 },
-                                "nativeDataType": "ArrayType(StructType(List(StructField(effect_entries,ArrayType(StructType(List(StructField(effect,StringType,true),StructField(language,StructType(List(StructField(name,StringType,true),StructField(url,StringType,true))),true))),true),true),StructField(version_group,StructType(List(StructField(name,StringType,true),StructField(url,StringType,true))),true))),true)",
+                                "nativeDataType": "list",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "effect_changes.effect_entries",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
+                                            "nestedType": null
+                                        }
+                                    }
+                                },
+                                "nativeDataType": "list",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "effect_changes.effect_entries.effect",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "str",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "effect_changes.effect_entries.language",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.RecordType": {}
+                                    }
+                                },
+                                "nativeDataType": "dict",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "effect_changes.effect_entries.language.name",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "str",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "effect_changes.effect_entries.language.url",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "str",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "effect_changes.version_group",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.RecordType": {}
+                                    }
+                                },
+                                "nativeDataType": "dict",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "effect_changes.version_group.name",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "str",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "effect_changes.version_group.url",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "str",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -378,10 +807,97 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
+                                            "nestedType": null
+                                        }
                                     }
                                 },
-                                "nativeDataType": "ArrayType(StructType(List(StructField(effect,StringType,true),StructField(language,StructType(List(StructField(name,StringType,true),StructField(url,StringType,true))),true),StructField(short_effect,StringType,true))),true)",
+                                "nativeDataType": "list",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "effect_entries.effect",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "str",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "effect_entries.language",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.RecordType": {}
+                                    }
+                                },
+                                "nativeDataType": "dict",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "effect_entries.language.name",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "str",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "effect_entries.language.url",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "str",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "effect_entries.short_effect",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "str",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -395,10 +911,131 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
+                                            "nestedType": null
+                                        }
                                     }
                                 },
-                                "nativeDataType": "ArrayType(StructType(List(StructField(flavor_text,StringType,true),StructField(language,StructType(List(StructField(name,StringType,true),StructField(url,StringType,true))),true),StructField(version_group,StructType(List(StructField(name,StringType,true),StructField(url,StringType,true))),true))),true)",
+                                "nativeDataType": "list",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "flavor_text_entries.flavor_text",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "str",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "flavor_text_entries.language",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.RecordType": {}
+                                    }
+                                },
+                                "nativeDataType": "dict",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "flavor_text_entries.language.name",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "str",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "flavor_text_entries.language.url",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "str",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "flavor_text_entries.version_group",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.RecordType": {}
+                                    }
+                                },
+                                "nativeDataType": "dict",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "flavor_text_entries.version_group.name",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "str",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "flavor_text_entries.version_group.url",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "str",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -415,7 +1052,41 @@
                                         "com.linkedin.pegasus2avro.schema.RecordType": {}
                                     }
                                 },
-                                "nativeDataType": "StructType(List(StructField(name,StringType,true),StructField(url,StringType,true)))",
+                                "nativeDataType": "dict",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "generation.name",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "str",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "generation.url",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "str",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -432,7 +1103,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "LongType",
+                                "nativeDataType": "int",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -449,7 +1120,7 @@
                                         "com.linkedin.pegasus2avro.schema.BooleanType": {}
                                     }
                                 },
-                                "nativeDataType": "BooleanType",
+                                "nativeDataType": "bool",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -466,7 +1137,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "StringType",
+                                "nativeDataType": "str",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -480,10 +1151,80 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
+                                            "nestedType": null
+                                        }
                                     }
                                 },
-                                "nativeDataType": "ArrayType(StructType(List(StructField(language,StructType(List(StructField(name,StringType,true),StructField(url,StringType,true))),true),StructField(name,StringType,true))),true)",
+                                "nativeDataType": "list",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "names.language",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.RecordType": {}
+                                    }
+                                },
+                                "nativeDataType": "dict",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "names.language.name",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "str",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "names.language.url",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "str",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "names.name",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "str",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -497,10 +1238,97 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
+                                            "nestedType": null
+                                        }
                                     }
                                 },
-                                "nativeDataType": "ArrayType(StructType(List(StructField(is_hidden,BooleanType,true),StructField(pokemon,StructType(List(StructField(name,StringType,true),StructField(url,StringType,true))),true),StructField(slot,LongType,true))),true)",
+                                "nativeDataType": "list",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "pokemon.is_hidden",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                                    }
+                                },
+                                "nativeDataType": "bool",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "pokemon.pokemon",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.RecordType": {}
+                                    }
+                                },
+                                "nativeDataType": "dict",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "pokemon.pokemon.name",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "str",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "pokemon.pokemon.url",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "str",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "pokemon.slot",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "int",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -594,7 +1422,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "IntegerType",
+                                "nativeDataType": "integer",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -611,7 +1439,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "IntegerType",
+                                "nativeDataType": "integer",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -628,7 +1456,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "IntegerType",
+                                "nativeDataType": "integer",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -645,7 +1473,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "IntegerType",
+                                "nativeDataType": "integer",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -662,7 +1490,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "StringType",
+                                "nativeDataType": "string",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -756,7 +1584,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "IntegerType",
+                                "nativeDataType": "integer",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -773,7 +1601,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "StringType",
+                                "nativeDataType": "string",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -790,7 +1618,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "StringType",
+                                "nativeDataType": "string",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -807,7 +1635,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "IntegerType",
+                                "nativeDataType": "integer",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -824,7 +1652,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "StringType",
+                                "nativeDataType": "string",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -841,7 +1669,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "IntegerType",
+                                "nativeDataType": "integer",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -858,7 +1686,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "IntegerType",
+                                "nativeDataType": "integer",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -875,7 +1703,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "StringType",
+                                "nativeDataType": "string",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -892,7 +1720,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "IntegerType",
+                                "nativeDataType": "integer",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -909,7 +1737,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "IntegerType",
+                                "nativeDataType": "integer",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -926,7 +1754,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "StringType",
+                                "nativeDataType": "string",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -943,7 +1771,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "IntegerType",
+                                "nativeDataType": "integer",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -960,7 +1788,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "IntegerType",
+                                "nativeDataType": "integer",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -977,7 +1805,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "StringType",
+                                "nativeDataType": "string",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -994,7 +1822,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "IntegerType",
+                                "nativeDataType": "integer",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -1011,7 +1839,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "StringType",
+                                "nativeDataType": "string",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -1028,7 +1856,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "IntegerType",
+                                "nativeDataType": "integer",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -1045,7 +1873,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "StringType",
+                                "nativeDataType": "string",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -1062,7 +1890,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "StringType",
+                                "nativeDataType": "string",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -1079,7 +1907,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "IntegerType",
+                                "nativeDataType": "integer",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -1096,7 +1924,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "IntegerType",
+                                "nativeDataType": "integer",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -1113,7 +1941,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "IntegerType",
+                                "nativeDataType": "integer",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -1130,7 +1958,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "IntegerType",
+                                "nativeDataType": "integer",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -1147,7 +1975,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "IntegerType",
+                                "nativeDataType": "integer",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -1164,7 +1992,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "IntegerType",
+                                "nativeDataType": "integer",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -1181,7 +2009,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "IntegerType",
+                                "nativeDataType": "integer",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -1198,7 +2026,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "IntegerType",
+                                "nativeDataType": "integer",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -1215,7 +2043,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "IntegerType",
+                                "nativeDataType": "integer",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -1232,7 +2060,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "IntegerType",
+                                "nativeDataType": "integer",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -1249,7 +2077,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "IntegerType",
+                                "nativeDataType": "integer",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -1266,7 +2094,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "IntegerType",
+                                "nativeDataType": "integer",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -1351,16 +2179,16 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "1st chord",
+                                "fieldPath": "[version=2.0].[type=Root].[type=double].Progression Quality",
                                 "jsonPath": null,
-                                "nullable": false,
+                                "nullable": true,
                                 "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "LongType",
+                                "nativeDataType": "double",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -1368,16 +2196,16 @@
                                 "jsonProps": null
                             },
                             {
-                                "fieldPath": "2nd chord",
+                                "fieldPath": "[version=2.0].[type=Root].[type=long].1st chord",
                                 "jsonPath": null,
-                                "nullable": false,
+                                "nullable": true,
                                 "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "LongType",
+                                "nativeDataType": "long",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -1385,16 +2213,16 @@
                                 "jsonProps": null
                             },
                             {
-                                "fieldPath": "3rd chord",
+                                "fieldPath": "[version=2.0].[type=Root].[type=long].2nd chord",
                                 "jsonPath": null,
-                                "nullable": false,
+                                "nullable": true,
                                 "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "LongType",
+                                "nativeDataType": "long",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -1402,33 +2230,33 @@
                                 "jsonProps": null
                             },
                             {
-                                "fieldPath": "4th chord",
+                                "fieldPath": "[version=2.0].[type=Root].[type=long].3rd chord",
                                 "jsonPath": null,
-                                "nullable": false,
+                                "nullable": true,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "long",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=Root].[type=string].4th chord",
+                                "jsonPath": null,
+                                "nullable": true,
                                 "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "StringType",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            },
-                            {
-                                "fieldPath": "Progression Quality",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "DoubleType",
+                                "nativeDataType": "string",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -1522,7 +2350,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "IntegerType",
+                                "nativeDataType": "integer",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -1539,7 +2367,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "IntegerType",
+                                "nativeDataType": "integer",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -1556,7 +2384,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "IntegerType",
+                                "nativeDataType": "integer",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -1573,7 +2401,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "IntegerType",
+                                "nativeDataType": "integer",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -1590,7 +2418,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "StringType",
+                                "nativeDataType": "string",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -1681,10 +2509,46 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
+                                            "nestedType": null
+                                        }
                                     }
                                 },
-                                "nativeDataType": "ArrayType(StructType(List(StructField(code,StringType,true),StructField(name,StringType,true))),true)",
+                                "nativeDataType": "list",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "countries.code",
+                                "jsonPath": null,
+                                "nullable": true,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "str",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "countries.name",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "str",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -1769,16 +2633,16 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "weight",
+                                "fieldPath": "[version=2.0].[type=Root].[type=long].height",
                                 "jsonPath": null,
-                                "nullable": false,
+                                "nullable": true,
                                 "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "LongType",
+                                "nativeDataType": "long",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -1786,16 +2650,16 @@
                                 "jsonProps": null
                             },
                             {
-                                "fieldPath": "height",
+                                "fieldPath": "[version=2.0].[type=Root].[type=long].weight",
                                 "jsonPath": null,
-                                "nullable": false,
+                                "nullable": true,
                                 "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "LongType",
+                                "nativeDataType": "long",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -1880,57 +2744,6 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "name",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "StringType",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            },
-                            {
-                                "fieldPath": "weight",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "IntegerType",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            },
-                            {
-                                "fieldPath": "height",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "IntegerType",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            },
-                            {
                                 "fieldPath": "color",
                                 "jsonPath": null,
                                 "nullable": false,
@@ -1940,7 +2753,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "StringType",
+                                "nativeDataType": "string",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -1957,7 +2770,58 @@
                                         "com.linkedin.pegasus2avro.schema.BooleanType": {}
                                     }
                                 },
-                                "nativeDataType": "BooleanType",
+                                "nativeDataType": "boolean",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "height",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "integer",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "name",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "weight",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "integer",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -2042,57 +2906,6 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "name",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "StringType",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            },
-                            {
-                                "fieldPath": "weight",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "LongType",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            },
-                            {
-                                "fieldPath": "height",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "LongType",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            },
-                            {
                                 "fieldPath": "color",
                                 "jsonPath": null,
                                 "nullable": false,
@@ -2102,7 +2915,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "StringType",
+                                "nativeDataType": "string",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -2119,7 +2932,58 @@
                                         "com.linkedin.pegasus2avro.schema.BooleanType": {}
                                     }
                                 },
-                                "nativeDataType": "BooleanType",
+                                "nativeDataType": "bool",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "height",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "int64",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "name",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "weight",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "int64",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,

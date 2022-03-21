@@ -20,6 +20,7 @@ from datahub.configuration import SensitiveError
 from datahub.configuration.config_loader import load_config_file
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
+from datahub.utilities import memory_leak_detector
 
 logger = logging.getLogger(__name__)
 
@@ -63,11 +64,15 @@ def ingest() -> None:
     default=False,
     help="If enabled, ingestion runs with warnings will yield a non-zero error code",
 )
+@click.pass_context
 @telemetry.with_telemetry
-def run(config: str, dry_run: bool, preview: bool, strict_warnings: bool) -> None:
+@memory_leak_detector.with_leak_detection
+def run(
+    ctx: click.Context, config: str, dry_run: bool, preview: bool, strict_warnings: bool
+) -> None:
     """Ingest metadata into DataHub."""
 
-    logger.debug("DataHub CLI version: %s", datahub_package.nice_version_name())
+    logger.info("DataHub CLI version: %s", datahub_package.nice_version_name())
 
     config_file = pathlib.Path(config)
     pipeline_config = load_config_file(config_file)
@@ -117,8 +122,14 @@ def parse_restli_response(response):
 @ingest.command()
 @click.argument("page_offset", type=int, default=0)
 @click.argument("page_size", type=int, default=100)
+@click.option(
+    "--include-soft-deletes",
+    is_flag=True,
+    default=False,
+    help="If enabled, will list ingestion runs which have been soft deleted",
+)
 @telemetry.with_telemetry
-def list_runs(page_offset: int, page_size: int) -> None:
+def list_runs(page_offset: int, page_size: int, include_soft_deletes: bool) -> None:
     """List recent ingestion runs to datahub"""
 
     session, gms_host = get_session_and_host()
@@ -128,6 +139,7 @@ def list_runs(page_offset: int, page_size: int) -> None:
     payload_obj = {
         "pageOffset": page_offset,
         "pageSize": page_size,
+        "includeSoft": include_soft_deletes,
     }
 
     payload = json.dumps(payload_obj)
@@ -158,7 +170,7 @@ def list_runs(page_offset: int, page_size: int) -> None:
 def show(run_id: str) -> None:
     """Describe a provided ingestion run to datahub"""
 
-    payload_obj = {"runId": run_id, "dryRun": True}
+    payload_obj = {"runId": run_id, "dryRun": True, "hardDelete": True}
     structured_rows, entities_affected, aspects_affected = post_rollback_endpoint(
         payload_obj, "/runs?action=rollback"
     )
@@ -183,20 +195,22 @@ def show(run_id: str) -> None:
 
 @ingest.command()
 @click.option("--run-id", required=True, type=str)
+@click.option("-f", "--force", required=False, is_flag=True)
 @click.option("--dry-run", "-n", required=False, is_flag=True, default=False)
+@click.option("--hard-delete", "-d", required=False, is_flag=True, default=False)
 @telemetry.with_telemetry
-def rollback(run_id: str, dry_run: bool) -> None:
+def rollback(run_id: str, force: bool, dry_run: bool, hard_delete: bool) -> None:
     """Rollback a provided ingestion run to datahub"""
 
     cli_utils.test_connectivity_complain_exit("ingest")
 
-    if not dry_run:
+    if not force and not dry_run:
         click.confirm(
             "This will permanently delete data from DataHub. Do you want to continue?",
             abort=True,
         )
 
-    payload_obj = {"runId": run_id, "dryRun": dry_run}
+    payload_obj = {"runId": run_id, "dryRun": dry_run, "hardDelete": hard_delete}
     structured_rows, entities_affected, aspects_affected = post_rollback_endpoint(
         payload_obj, "/runs?action=rollback"
     )

@@ -51,6 +51,7 @@ class AwsSourceConfig(ConfigModel):
     aws_secret_access_key: Optional[str] = None
     aws_session_token: Optional[str] = None
     aws_role: Optional[Union[str, List[str]]] = None
+    aws_profile: Optional[str] = None
     aws_region: str
 
     def get_session(self) -> Session:
@@ -89,7 +90,7 @@ class AwsSourceConfig(ConfigModel):
                 region_name=self.aws_region,
             )
         else:
-            return Session(region_name=self.aws_region)
+            return Session(region_name=self.aws_region, profile_name=self.aws_profile)
 
     def get_s3_client(self) -> "S3Client":
         return self.get_session().client("s3")
@@ -102,19 +103,3 @@ class AwsSourceConfig(ConfigModel):
 
     def get_sagemaker_client(self) -> "SageMakerClient":
         return self.get_session().client("sagemaker")
-
-
-def make_s3_urn(s3_uri: str, env: str, suffix: Optional[str] = None) -> str:
-
-    if not s3_uri.startswith("s3://"):
-        raise ValueError("S3 URIs should begin with 's3://'")
-    # remove S3 prefix (s3://)
-    s3_name = s3_uri[5:]
-
-    if s3_name.endswith("/"):
-        s3_name = s3_name[:-1]
-
-    if suffix is not None:
-        return f"urn:li:dataset:(urn:li:dataPlatform:s3,{s3_name}_{suffix},{env})"
-
-    return f"urn:li:dataset:(urn:li:dataPlatform:s3,{s3_name},{env})"

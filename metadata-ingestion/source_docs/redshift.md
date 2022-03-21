@@ -1,8 +1,12 @@
 # Redshift
 
+To get all metadata from BigQuery you need to use two plugins `redshift` and `redshift-usage`. Both of them are described in this page. These will require 2 separate recipes. We understand this is not ideal and we plan to make this easier in the future.
+
 For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
 
-## Setup
+## `redshift`
+
+### Setup
 
 To install this plugin, run `pip install 'acryl-datahub[redshift]'`.
 
@@ -19,11 +23,7 @@ Giving a user unrestricted access to system tables gives the user visibility to 
 
 :::
 
-## Capabilities
-
-| Capability | Status | Details | 
-| -----------| ------ | ---- |
-| Platform Instance | ✔️ | [link](../../docs/platform-instances.md) |
+### Capabilities
 
 This plugin extracts the following:
 
@@ -33,14 +33,19 @@ This plugin extracts the following:
 - Table, row, and column statistics via optional [SQL profiling](./sql_profiles.md)
 - Table lineage
 
-
 :::tip
 
 You can also get fine-grained usage statistics for Redshift using the `redshift-usage` source described below.
 
 :::
 
-## Quickstart recipe
+| Capability        | Status | Details                                  | 
+|-------------------|--------|------------------------------------------|
+| Platform Instance | ✔️     | [link](../../docs/platform-instances.md) |
+| Data Containers   | ✔️     |                                          |
+| Data Domains      | ✔️     | [link](../../docs/domains.md)            |
+
+### Quickstart recipe
 
 Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
 
@@ -92,7 +97,7 @@ sink:
 
 </details>
 
-## Config details
+### Config details
 
 Like all SQL-based sources, the Redshift integration supports:
 - Stale Metadata Deletion: See [here](./stateful_ingestion.md) for more details on configuration.
@@ -100,37 +105,40 @@ Like all SQL-based sources, the Redshift integration supports:
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field                       | Required | Default            | Description                                                                                                                                                                             |
-|-----------------------------| -------- |--------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `username`                  |          |                    | Redshift username.                                                                                                                                                                      |
-| `password`                  |          |                    | Redshift password.                                                                                                                                                                      |
-| `host_port`                 | ✅       |                    | Redshift host URL.                                                                                                                                                                      |
-| `database`                  |          |                    | Redshift database.                                                                                                                                                                      |
-| `database_alias`            |          |                    | Alias to apply to database when ingesting.                                                                                                                                              |
-| `env`                       |          | `"PROD"`           | Environment to use in namespace when constructing URNs.                                                                                                                                 |
-| `platform_instance`         |          | None             | The Platform instance to use while constructing URNs.         |
-| `options.<option>`          |          |                    | Any options specified here will be passed to SQLAlchemy's `create_engine` as kwargs.<br />See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details. |
-| `table_pattern.allow`       |          |                    | List of regex patterns for tables to include in ingestion.                                                                                                                              |
-| `table_pattern.deny`        |          |                    | List of regex patterns for tables to exclude from ingestion.                                                                                                                            |
-| `table_pattern.ignoreCase`  |          | `True`             | Whether to ignore case sensitivity during pattern matching.                                                                                                                             |
-| `schema_pattern.allow`      |          |                    | List of regex patterns for schemas to include in ingestion.                                                                                                                             |
-| `schema_pattern.deny`       |          |                    | List of regex patterns for schemas to exclude from ingestion.                                                                                                                           |
-| `schema_pattern.ignoreCase` |          | `True`             | Whether to ignore case sensitivity during pattern matching.                                                                                                                             |
-| `view_pattern.allow`        |          |                    | List of regex patterns for views to include in ingestion.                                                                                                                               |
-| `view_pattern.deny`         |          |                    | List of regex patterns for views to exclude from ingestion.                                                                                                                             |
-| `view_pattern.ignoreCase`   |          | `True`             | Whether to ignore case sensitivity during pattern matching.                                                                                                                             |
-| `include_tables`            |          | `True`             | Whether tables should be ingested.                                                                                                                                                      |
-| `include_views`             |          | `True`             | Whether views should be ingested.                                                                                                                                                       |
-| `include_table_lineage`     |          | `True`             | Whether table lineage should be ingested.                                                                                                                                               |
-| `table_lineage_mode`        |          | `"stl_scan_based"` | Which table lineage collector mode to use                                                                                                                                               |
-| `include_copy_lineage`      |          | `True`             | Whether lineage should be collected from copy commands                                                                                                                                  |
-| `default_schema`            |          | `"public"`         | The default schema to use if the sql parser fails to parse the schema with `sql_based` lineage collector                                                                               |
+| Field                          | Required | Default            | Description                                                                                                                                                                             |
+|--------------------------------|----------|--------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `username`                     |          |                    | Redshift username.                                                                                                                                                                      |
+| `password`                     |          |                    | Redshift password.                                                                                                                                                                      |
+| `host_port`                    | ✅        |                    | Redshift host URL.                                                                                                                                                                      |
+| `database`                     |          |                    | Redshift database.                                                                                                                                                                      |
+| `database_alias`               |          |                    | Alias to apply to database when ingesting.                                                                                                                                              |
+| `env`                          |          | `"PROD"`           | Environment to use in namespace when constructing URNs.                                                                                                                                 |
+| `platform_instance`            |          | None               | The Platform instance to use while constructing URNs.                                                                                                                                   |
+| `options.<option>`             |          |                    | Any options specified here will be passed to SQLAlchemy's `create_engine` as kwargs.<br />See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details. |
+| `table_pattern.allow`          |          |                    | List of regex patterns for tables to include in ingestion.                                                                                                                              |
+| `table_pattern.deny`           |          |                    | List of regex patterns for tables to exclude from ingestion.                                                                                                                            |
+| `table_pattern.ignoreCase`     |          | `True`             | Whether to ignore case sensitivity during pattern matching.                                                                                                                             |
+| `schema_pattern.allow`         |          |                    | List of regex patterns for schemas to include in ingestion.                                                                                                                             |
+| `schema_pattern.deny`          |          |                    | List of regex patterns for schemas to exclude from ingestion.                                                                                                                           |
+| `schema_pattern.ignoreCase`    |          | `True`             | Whether to ignore case sensitivity during pattern matching.                                                                                                                             |
+| `view_pattern.allow`           |          |                    | List of regex patterns for views to include in ingestion.                                                                                                                               |
+| `view_pattern.deny`            |          |                    | List of regex patterns for views to exclude from ingestion.                                                                                                                             |
+| `view_pattern.ignoreCase`      |          | `True`             | Whether to ignore case sensitivity during pattern matching.                                                                                                                             |
+| `include_tables`               |          | `True`             | Whether tables should be ingested.                                                                                                                                                      |
+| `include_views`                |          | `True`             | Whether views should be ingested.                                                                                                                                                       |
+| `include_table_lineage`        |          | `True`             | Whether table lineage should be ingested.                                                                                                                                               |
+| `table_lineage_mode`           |          | `"stl_scan_based"` | Which table lineage collector mode to use                                                                                                                                               |
+| `include_copy_lineage`         |          | `True`             | Whether lineage should be collected from copy commands                                                                                                                                  |
+| `default_schema`               |          | `"public"`         | The default schema to use if the sql parser fails to parse the schema with `sql_based` lineage collector                                                                                |
+| `domain.domain_key.allow`      |          |                    | List of regex patterns for tables/schemas to set domain_key domain key (domain_key can be any string like `sales`. There can be multiple domain key specified.                          |
+| `domain.domain_key.deny`       |          |                    | List of regex patterns for tables/schemas to not assign domain_key. There can be multiple domain key specified.                                                                         |
+| `domain.domain_key.ignoreCase` |          | `True`             | Whether to ignore case sensitivity during pattern matching.There can be multiple domain key specified.                                                                                  |
 
-## Lineage
+### Lineage
 
 There are multiple lineage collector implementations as Redshift does not support table lineage out of the box.
 
-### stl_scan_based
+#### stl_scan_based
 The stl_scan based collector uses Redshift's [stl_insert](https://docs.aws.amazon.com/redshift/latest/dg/r_STL_INSERT.html) and [stl_scan](https://docs.aws.amazon.com/redshift/latest/dg/r_STL_SCAN.html) system tables to
 discover lineage between tables.
 Pros:
@@ -141,7 +149,7 @@ Cons:
 - Does not work with Spectrum/external tables because those scans do not show up in stl_scan table.
 - If a table is depending on a view then the view won't be listed as dependency. Instead the table will be connected with the view's dependencies.
 
-### sql_based
+#### sql_based
 The sql_based based collector uses Redshift's [stl_insert](https://docs.aws.amazon.com/redshift/latest/dg/r_STL_INSERT.html) to discover all the insert queries
 and uses sql parsing to discover the dependecies.
 
@@ -153,7 +161,7 @@ Cons:
 - Slow.
 - Less reliable as the query parser can fail on certain queries
 
-### mixed
+#### mixed
 Using both collector above and first applying the sql based and then the stl_scan based one.
 
 Pros:
@@ -165,10 +173,13 @@ Cons:
 - Slow
 - May be incorrect at times as the query parser can fail on certain queries
 
-# Note
-- The redshift stl redshift tables which are used for getting data lineage only retain approximately two to five days of log history. This means you cannot extract lineage from queries issued outside that window.
+:::note
 
-# Redshift Usage Stats
+The redshift stl redshift tables which are used for getting data lineage only retain approximately two to five days of log history. This means you cannot extract lineage from queries issued outside that window.
+
+:::
+
+## `redshift-usage`
 
 This plugin extracts usage statistics for datasets in Amazon Redshift. For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
 
@@ -183,10 +194,10 @@ To grant access this plugin for all system tables, please alter your datahub Red
 ALTER USER datahub_user WITH SYSLOG ACCESS UNRESTRICTED;
 ```
 
-## Setup
+### Setup
 To install this plugin, run `pip install 'acryl-datahub[redshift-usage]'`.
 
-## Capabilities
+### Capabilities
 
 | Capability | Status | Details | 
 | -----------| ------ | ---- |
@@ -206,7 +217,7 @@ This source only does usage statistics. To get the tables, views, and schemas in
 
 :::
 
-## Quickstart recipe
+### Quickstart recipe
 
 Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
 
@@ -229,7 +240,7 @@ sink:
 # sink configs
 ```
 
-## Config details
+### Config details
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
 By default, we extract usage stats for the last day, with the recommendation that this source is executed every day.

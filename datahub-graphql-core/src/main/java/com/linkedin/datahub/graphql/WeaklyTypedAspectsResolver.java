@@ -1,7 +1,7 @@
 package com.linkedin.datahub.graphql;
 
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
-
 import com.linkedin.data.codec.JacksonDataCodec;
 import com.linkedin.datahub.graphql.generated.AspectParams;
 import com.linkedin.datahub.graphql.generated.AspectRenderSpec;
@@ -9,6 +9,7 @@ import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.RawAspect;
 import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
+import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -17,7 +18,9 @@ import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import lombok.AllArgsConstructor;
@@ -44,7 +47,7 @@ public class WeaklyTypedAspectsResolver implements DataFetcher<CompletableFuture
             List<RawAspect> results = new ArrayList<>();
 
             final QueryContext context = environment.getContext();
-            final String urn = ((Entity) environment.getSource()).getUrn();
+            final String urnStr = ((Entity) environment.getSource()).getUrn();
             final EntityType entityType = ((Entity) environment.getSource()).getType();
             final String entityTypeName = EntityTypeMapper.getName(entityType);
             final AspectParams input = bindArgument(environment.getArgument("input"), AspectParams.class);
@@ -52,16 +55,21 @@ public class WeaklyTypedAspectsResolver implements DataFetcher<CompletableFuture
             EntitySpec entitySpec = _entityRegistry.getEntitySpec(entityTypeName);
             entitySpec.getAspectSpecs().stream().filter(aspectSpec -> shouldReturnAspect(aspectSpec, input)).forEach(aspectSpec -> {
                 try {
+                    Urn urn = Urn.createFromString(urnStr);
                     RawAspect result = new RawAspect();
-                    DataMap resolvedAspect =
-                        _entityClient.getRawAspect(urn, aspectSpec.getName(), 0L, context.getAuthentication());
+                    EntityResponse entityResponse =
+                        _entityClient.batchGetV2(urn.getEntityType(), Collections.singleton(urn),
+                            Collections.singleton(aspectSpec.getName()), context.getAuthentication()).get(urn);
+                    if (entityResponse == null || !entityResponse.getAspects().containsKey(aspectSpec.getName())) {
+                        return;
+                    }
+
+                    DataMap resolvedAspect = entityResponse.getAspects().get(aspectSpec.getName()).getValue().data();
                     if (resolvedAspect == null || resolvedAspect.keySet().size() != 1) {
                         return;
                     }
 
-                    DataMap aspectPayload = resolvedAspect.getDataMap(resolvedAspect.keySet().iterator().next());
-
-                    result.setPayload(CODEC.mapToString(aspectPayload));
+                    result.setPayload(CODEC.mapToString(resolvedAspect));
                     result.setAspectName(aspectSpec.getName());
 
                     DataMap renderSpec = aspectSpec.getRenderSpec();
@@ -74,8 +82,8 @@ public class WeaklyTypedAspectsResolver implements DataFetcher<CompletableFuture
                     result.setRenderSpec(resultRenderSpec);
 
                     results.add(result);
-                } catch (IOException | RemoteInvocationException e) {
-                    throw new RuntimeException("Failed to fetch aspect " + aspectSpec.getName() + " for urn " + urn + " ", e);
+                } catch (IOException | RemoteInvocationException | URISyntaxException e) {
+                    throw new RuntimeException("Failed to fetch aspect " + aspectSpec.getName() + " for urn " + urnStr + " ", e);
                 }
             });
             return results;
