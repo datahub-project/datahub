@@ -113,7 +113,7 @@ class DeltaLakeSourceReport(SourceReport):
     scanned: List[str] = field(default_factory=list)
 
     def report_table_scanned(self, name: str) -> None:
-        self.tables_scanned.append(name)
+        self.scanned.append(name)
 
     def report_dropped(self, name: str) -> None:
         self.filtered.append(name)
