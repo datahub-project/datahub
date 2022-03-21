@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Sequence, Type, Union
 
 from delta_sharing.delta_sharing import SharingClient
-from delta_sharing.protocol import Table
+from delta_sharing.protocol import Table, DeltaSharingProfile
 from delta_sharing.rest_client import Metadata, QueryTableMetadataResponse
 
 from datahub.configuration.common import AllowDenyPattern
@@ -139,7 +139,7 @@ class DeltaLakeSource(Source):
         self, config: DeltaLakeSourceConfig
     ) -> List[QueryTableMetadataResponse_extended]:
         # Get the access keys for delta-sharing & start the client
-        profile = delta_sharing.protocol.DeltaSharingProfile(
+        profile = DeltaSharingProfile(
             share_credentials_version=config.share_credentials_version,
             endpoint=config.url,
             bearer_token=config.token,
