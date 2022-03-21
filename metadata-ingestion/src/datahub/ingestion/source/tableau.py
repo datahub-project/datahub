@@ -120,6 +120,7 @@ class TableauSource(Source):
 
         self.config = config
         self.report = SourceReport()
+        self.server = None
         # This list keeps track of datasource being actively used by workbooks so that we only retrieve those
         # when emitting published data sources.
         self.datasource_ids_being_used: List[str] = []
@@ -130,7 +131,8 @@ class TableauSource(Source):
         self._authenticate()
 
     def close(self) -> None:
-        self.server.auth.sign_out()
+        if self.server is not None:
+            self.server.auth.sign_out()
 
     def _authenticate(self):
         # https://tableau.github.io/server-client-python/docs/api-ref#authentication
@@ -154,11 +156,13 @@ class TableauSource(Source):
             self.server = Server(self.config.connect_uri, use_server_version=True)
             self.server.auth.sign_in(authentication)
         except ServerResponseError as e:
+            logger.error(e)
             self.report.report_failure(
                 key="tableau-login",
                 reason=f"Unable to Login with credentials provided" f"Reason: {str(e)}",
             )
         except Exception as e:
+            logger.error(e)
             self.report.report_failure(
                 key="tableau-login", reason=f"Unable to Login" f"Reason: {str(e)}"
             )
@@ -242,8 +246,6 @@ class TableauSource(Source):
         self, datasource: dict, project: str, is_custom_sql: bool = False
     ) -> List[UpstreamClass]:
         upstream_tables = []
-        upstream_dbs = datasource.get("upstreamDatabases", [])
-        upstream_db = upstream_dbs[0].get("name", "") if upstream_dbs else ""
 
         for table in datasource.get("upstreamTables", []):
             # skip upstream tables when there is no column info when retrieving embedded datasource
@@ -251,6 +253,7 @@ class TableauSource(Source):
             if not is_custom_sql and not table.get("columns"):
                 continue
 
+            upstream_db = table.get("database", {}).get("name", "")
             schema = self._get_schema(table.get("schema", ""), upstream_db)
             table_urn = make_table_urn(
                 self.config.env,
@@ -926,6 +929,8 @@ class TableauSource(Source):
         return cls(ctx, config)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        if self.server is None:
+            return
         try:
             yield from self.emit_workbooks(self.config.workbooks_page_size)
             if self.datasource_ids_being_used:

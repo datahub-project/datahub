@@ -389,9 +389,9 @@ setuptools.setup(
     version=package_metadata["__version__"],
     url="https://datahubproject.io/",
     project_urls={
-        "Documentation": "https://datahubproject.io/docs/metadata-ingestion",
-        "Source": "https://github.com/acryldata/datahub/tree/master/metadata-ingestion",
-        "Changelog": "https://github.com/acryldata/datahub/releases",
+        "Documentation": "https://datahubproject.io/docs/",
+        "Source": "https://github.com/datahub-project/datahub",
+        "Changelog": "https://github.com/datahub-project/datahub/releases",
     },
     license="Apache License 2.0",
     description="A CLI to work with DataHub metadata",
