@@ -1,0 +1,32 @@
+namespace com.linkedin.dataprocess
+record RunResult
+{
+
+    /**
+    *  The final result, e.g. SUCCESS, FAILURE or SKIPPED.
+    */
+    type: enum RunResultType {
+    /**
+    *  The Run Succeeded
+    */
+    SUCCESS,
+    /**
+    *  The Run Failed
+    */
+    FAILURE,
+    /**
+    *  The Run Skipped
+    */
+    SKIPPED
+    },
+
+    /**
+    * It identifies the system where the native result comes from like Airflow, Azkaban, etc..
+    */
+    nativeResultType: string,
+
+    /**
+    * Other system specific native results of the run
+    */
+    nativeResults: optional map[string, string]
+}

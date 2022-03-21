@@ -1,0 +1,33 @@
+namespace com.linkedin.dataprocess
+
+import com.linkedin.common.DatasetUrn
+import com.linkedin.common.DatasetInputLineage
+import com.linkedin.common.Urn
+
+/**
+ * Information about the outputs of a Data process
+ */
+@Aspect = {
+  "name": "dataProcessInstanceDatasetOutput"
+}
+record DataProcessInstanceDatasetOutput {
+  /**
+   * Output datasets to be produced
+   */
+  @Relationship = {
+    "/*": {
+      "name": "Produces",
+      "entityTypes": [ "dataset" ]
+    }
+  }
+  @Searchable = {
+    "/*": {
+      "fieldName": "outputs",
+      "fieldType": "URN",
+      "numValuesFieldName": "numOutputDatasets",
+      "queryByDefault": false
+    }
+  }
+  outputDatasets: array[DatasetUrn]
+
+}

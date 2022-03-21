@@ -1,0 +1,114 @@
+namespace com.linkedin.dataprocess
+
+import com.linkedin.common.AuditStamp
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.ExternalReference
+import com.linkedin.common.Urn
+import com.linkedin.common.JobFlowUrn
+import com.linkedin.common.DataJobUrn
+
+/**
+ * The inputs and outputs of this data process
+ */
+@Aspect = {
+  "name": "dataProcessInstanceProperties",
+  "type": "timeseries",
+}
+record DataProcessInstanceProperties includes CustomProperties, ExternalReference {
+
+  /**
+   * Process name
+   */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
+  name: string
+
+  /**
+   * Audit stamp containing who reported the lineage and when
+   */
+  auditStamp: AuditStamp
+  
+  /**
+   * Process description
+   */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription"
+  }
+  description: optional string
+
+  /**
+   * Process type
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "addToFilters": true,
+    "filterNameOverride": "Process Type"
+  }
+  type: optional enum DataProcessType {
+    BATCH_SCHEDULED,
+    BATCH_AD_HOC,
+    STREAMING,
+    MICROSERVICE,
+    OTHER,
+  }
+
+  /**
+   * The list of upstream instances where this instance depends on 
+   */
+  @Relationship = {
+    "/*": {
+      "name": "downstreamOf",
+      "entityTypes": [ "URN" ]
+    }
+  }
+  @Searchable = {
+    "/*": {
+      "fieldName": "upstreamInstances",
+      "fieldType": "URN",
+      "queryByDefault": false
+    }
+  }
+  upstreamInstances: optional array[Urn]
+
+  /**
+   * The parent entity whose run instance it is 
+   */
+  @Relationship = {
+    "/*": {
+      "name": "instanceOf",
+      "entityTypes": [ "DataJobUrn", "JobFlowUrn" ]
+    }
+  }
+  @Searchable = {
+    "/*": {
+      "fieldName": "parent",
+      "fieldType": "URN",
+      "queryByDefault": false
+    }
+  }
+  parent: optional Urn
+
+  /**
+   * The parent DataProcessInstance where it belongs to. 
+   * If it is a Airflow Task then it should belong to an Airflow Dag run as well
+   * which will be another DataProcessInstance 
+   */
+  @Relationship = {
+    "/*": {
+      "name": "childOf",
+      "entityTypes": [ "DataProcessInstance" ]
+    }
+  }
+  @Searchable = {
+    "/*": {
+      "fieldName": "parentInstance",
+      "fieldType": "URN",
+      "queryByDefault": false
+    }
+  }
+  parentInstance: optional Urn
+}

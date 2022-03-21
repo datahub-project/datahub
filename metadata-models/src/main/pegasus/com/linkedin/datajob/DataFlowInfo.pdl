@@ -2,6 +2,7 @@ namespace com.linkedin.datajob
 
 import com.linkedin.common.CustomProperties
 import com.linkedin.common.ExternalReference
+import com.linkedin.common.DataJobUrn
 
 /**
  * Information about a Data processing flow
@@ -38,4 +39,15 @@ record DataFlowInfo includes CustomProperties, ExternalReference {
     "queryByDefault": false
   }
   project: optional string
+  
+  /**
+   * Optional list of jobs contained in this data flow
+   */
+  @Relationship = {
+    "/*": {
+      "name": "Contains",
+      "entityTypes": [ "dataJob" ]
+    }
+  }
+  jobs: optional array[DataJobUrn]
 }
