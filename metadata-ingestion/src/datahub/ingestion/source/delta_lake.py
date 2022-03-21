@@ -259,7 +259,6 @@ class DeltaLakeSource(Source):
         for column in columns:
             if isinstance(column["type"], dict):    
                 #nested type
-                #TODO: this needs to be fixed
                 self.report.report_warning("Warning {} is a nested field this will not be processed properly and it will displayed poorly in UI.".format(column["name"]))
                 datahubName=column["name"]
                 nativeType=column["type"].get("type")
