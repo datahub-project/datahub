@@ -80,7 +80,7 @@ record DataProcessInstanceProperties includes CustomProperties, ExternalReferenc
   @Relationship = {
     "/*": {
       "name": "instanceOf",
-      "entityTypes": [ "DataJobUrn", "JobFlowUrn" ]
+      "entityTypes": [ "DataJobUrn", "DataFlowUrn" ]
     }
   }
   @Searchable = {
