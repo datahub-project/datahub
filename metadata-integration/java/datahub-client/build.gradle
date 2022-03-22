@@ -91,7 +91,6 @@ shadowJar {
   mergeServiceFiles()
   // we relocate namespaces manually, because we want to know exactly which libs we are exposing and why
   // we can move to automatic relocation using ConfigureShadowRelocation after we get to a good place on these first
-  finalizedBy checkShadowJar
 }
 
 assemble {
