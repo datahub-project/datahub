@@ -217,13 +217,19 @@ class LookerUserRegistry:
         self.client = client
         self.user_map = {}
 
-    def get_by_id(self, id: int) -> Optional[LookerUser]:
+    def get_by_id(
+        self, id: int, transport_options: Optional[TransportOptions]
+    ) -> Optional[LookerUser]:
         logger.debug("Will get user {}".format(id))
         if id in self.user_map:
             return self.user_map[id]
         else:
             try:
-                raw_user: User = self.client.user(id, fields=self.fields)
+                raw_user: User = self.client.user(
+                    id,
+                    fields=self.fields,
+                    transport_options=transport_options,
+                )
                 looker_user = LookerUser._from_user(raw_user)
                 self.user_map[id] = looker_user
                 return looker_user
@@ -679,7 +685,11 @@ class LookerDashboardSource(Source):
         if not self.folder_path_cache.get(folder.id):
             ancestors = [
                 ancestor.name
-                for ancestor in client.folder_ancestors(folder.id, fields="name")
+                for ancestor in client.folder_ancestors(
+                    folder.id,
+                    fields="name",
+                    transport_options=self.source_config.transport_options,
+                )
             ]
             self.folder_path_cache[folder.id] = "/".join(ancestors + [folder.name])
         return self.folder_path_cache[folder.id]
@@ -715,7 +725,9 @@ class LookerDashboardSource(Source):
             raise ValueError("Both dashboard ID and title are None")
 
         dashboard_owner = (
-            self.user_registry.get_by_id(dashboard.user_id)
+            self.user_registry.get_by_id(
+                dashboard.user_id, self.source_config.transport_options
+            )
             if self.source_config.extract_owners and dashboard.user_id is not None
             else None
         )
