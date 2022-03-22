@@ -38,8 +38,8 @@ export const Routes = (): JSX.Element => {
             <Route path={PageRoutes.RESET_CREDENTIALS} component={ResetCredentials} />
             <ProtectedRoute isLoggedIn={isLoggedIn} render={() => <ProtectedRoutes />} />
             {/* Starting the react app locally opens /assets by default. For a smoother dev experience, we'll redirect to the homepage */}
-            <Route path={PageRoutes.ASSETS} component={() => <Redirect to="/" />} exact />
-            <Route path="/*" component={NoPageFound} />
+            <Route path={PageRoutes.ASSETS} component={() => <Redirect to="/data-catalogue" />} exact />
+            <Route path="/data-catalogue/*" component={NoPageFound} />
         </Switch>
     );
 };

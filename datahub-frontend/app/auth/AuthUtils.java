@@ -42,7 +42,7 @@ public class AuthUtils {
     public static final Integer DEFAULT_SESSION_TTL_HOURS = 720;
     public static final CorpuserUrn DEFAULT_ACTOR_URN = new CorpuserUrn("datahub");
 
-    public static final String LOGIN_ROUTE = "/login";
+    public static final String LOGIN_ROUTE = "/data-catalogue/login";
     public static final String USER_NAME = "username";
     public static final String PASSWORD = "password";
     public static final String ACTOR = "actor";

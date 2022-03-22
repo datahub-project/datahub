@@ -82,7 +82,7 @@ export const LogIn: React.VFC<LogInProps> = () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username: values.username, password: values.password }),
             };
-            fetch('/logIn', requestOptions)
+            fetch('/data-catalogue/logIn', requestOptions)
                 .then(async (response) => {
                     if (!response.ok) {
                         const data = await response.json();
@@ -104,7 +104,9 @@ export const LogIn: React.VFC<LogInProps> = () => {
 
     if (isLoggedIn) {
         const maybeRedirectUri = params.redirect_uri;
-        return <Redirect to={(maybeRedirectUri && decodeURIComponent(maybeRedirectUri as string)) || '/'} />;
+        return (
+            <Redirect to={(maybeRedirectUri && decodeURIComponent(maybeRedirectUri as string)) || '/data-catalogue'} />
+        );
     }
 
     return (

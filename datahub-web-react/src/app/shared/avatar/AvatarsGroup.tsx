@@ -25,7 +25,7 @@ export default function AvatarsGroup({ owners, entityRegistry, maxCount = 6, siz
                         <CustomAvatar
                             size={size}
                             name={entityRegistry.getDisplayName(EntityType.CorpUser, owner.owner)}
-                            url={`/${entityRegistry.getPathName(owner.owner.type)}/${owner.owner.urn}`}
+                            url={`/data-catalogue/${entityRegistry.getPathName(owner.owner.type)}/${owner.owner.urn}`}
                             photoUrl={
                                 owner.owner?.editableProperties?.pictureLink ||
                                 owner.owner?.editableInfo?.pictureLink ||
@@ -37,9 +37,9 @@ export default function AvatarsGroup({ owners, entityRegistry, maxCount = 6, siz
                             <CustomAvatar
                                 size={size || 28}
                                 name={entityRegistry.getDisplayName(EntityType.CorpGroup, owner.owner)}
-                                url={`/${entityRegistry.getPathName(owner.owner.type || EntityType.CorpGroup)}/${
-                                    owner.owner.urn
-                                }`}
+                                url={`/data-catalogue/${entityRegistry.getPathName(
+                                    owner.owner.type || EntityType.CorpGroup,
+                                )}/${owner.owner.urn}`}
                                 isGroup
                             />
                         )

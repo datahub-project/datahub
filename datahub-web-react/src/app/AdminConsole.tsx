@@ -76,14 +76,14 @@ export const AdminConsole = (): JSX.Element => {
                     <ControlMenu selectable={false} mode="inline" onSelect={onMenuItemClick}>
                         {showAnalytics && (
                             <Menu.Item key="analytics" icon={<BarChartOutlined />}>
-                                <Link onClick={onMenuItemClick} to="/analytics">
+                                <Link onClick={onMenuItemClick} to="/data-catalogue/analytics">
                                     Analytics
                                 </Link>
                             </Menu.Item>
                         )}
                         {showPolicyBuilder && (
                             <Menu.Item key="permissions" icon={<BankOutlined />}>
-                                <Link onClick={onMenuItemClick} to="/permissions">
+                                <Link onClick={onMenuItemClick} to="/data-catalogue/permissions">
                                     Permissions
                                 </Link>
                             </Menu.Item>

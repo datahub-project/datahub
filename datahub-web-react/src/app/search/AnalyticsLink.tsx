@@ -18,7 +18,7 @@ const StyledAnalyticsLink = styled(Typography.Text)`
 
 export default function AnalyticsLink() {
     return (
-        <Link to="/analytics">
+        <Link to="/data-catalogue/analytics">
             <StyledAnalyticsLink strong>
                 Analytics <Tag>Beta</Tag>
             </StyledAnalyticsLink>

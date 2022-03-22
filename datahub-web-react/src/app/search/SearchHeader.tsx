@@ -82,15 +82,8 @@ export const SearchHeader = ({
     return (
         <Header style={styles.header as any}>
             <LogoSearchContainer>
-                <Link to="/">
-                    <LogoImage
-                        src={
-                            appConfig.config !== DEFAULT_APP_CONFIG
-                                ? appConfig.config.visualConfig.logoUrl || themeConfig.assets.logoUrl
-                                : undefined
-                        }
-                        preview={false}
-                    />
+                <Link to="/data-catalogue">
+                    <LogoImage src={themeConfig.assets.logoUrl} preview={false} />
                 </Link>
                 <SearchBar
                     initialQuery={initialQuery}

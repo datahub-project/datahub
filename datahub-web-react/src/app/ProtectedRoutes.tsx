@@ -14,8 +14,8 @@ export const ProtectedRoutes = (): JSX.Element => {
             <Layout style={{ height: '100%', width: '100%' }}>
                 <Layout>
                     <Switch>
-                        <Route exact path="/" render={() => <HomePage />} />
-                        <Route path="/*" render={() => <SearchRoutes />} />
+                        <Route exact path="/data-catalogue" render={() => <HomePage />} />
+                        <Route path="/data-catalogue/*" render={() => <SearchRoutes />} />
                     </Switch>
                 </Layout>
             </Layout>

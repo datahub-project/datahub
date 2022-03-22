@@ -37,7 +37,7 @@ import { DataPlatformEntity } from './app/entity/dataPlatform/DataPlatformEntity
 /*
     Construct Apollo Client
 */
-const httpLink = createHttpLink({ uri: '/api/v2/graphql' });
+const httpLink = createHttpLink({ uri: '/data-catalogue/api/v2/graphql' });
 
 const errorLink = onError((error) => {
     const { networkError, graphQLErrors } = error;
