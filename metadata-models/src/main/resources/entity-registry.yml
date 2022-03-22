@@ -38,11 +38,6 @@ entities:
     aspects:
       - domains
       - deprecation
-  - name: dataProcessInstance
-    category: core
-    keyAspect: dataProcessInstanceKey
-    aspects:
-      - domains
   - name: chart
     keyAspect: chartKey
     aspects:
