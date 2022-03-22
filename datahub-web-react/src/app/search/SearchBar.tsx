@@ -284,9 +284,7 @@ export const SearchBar = ({
                     }}
                     style={inputStyle}
                     value={searchQuery}
-                    onChange={(e) => {
-                        setSearchQuery(e.target.value);
-                    }}
+                    onChange={(e) => setSearchQuery(e.target.value)}
                     data-testid="search-input"
                     prefix={<SearchOutlined onClick={() => onSearch(filterSearchQuery(searchQuery || ''))} />}
                 />
