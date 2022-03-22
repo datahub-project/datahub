@@ -269,9 +269,10 @@ class ElasticsearchSource(Source):
             )
 
     def _extract_mcps(self, index: str) -> Iterable[MetadataChangeProposalWrapper]:
-        logger.debug(f"index = {index}")
+        logger.info(f"index========== = {index}")
         raw_index = self.client.indices.get(index=index)
         raw_index_metadata = raw_index[index]
+        logger.info(f"raw_index_metadata========== = {raw_index_metadata}")
 
         # 0. Dedup data_streams.
         data_stream = raw_index_metadata.get("data_stream")
@@ -287,12 +288,6 @@ class ElasticsearchSource(Source):
         index_mappings = raw_index_metadata["mappings"]
         index_settings = raw_index_metadata["settings"]
         index_properties: Dict[str, str] = index_settings["index"]
-        if "analysis" in index_properties:
-            del index_properties["analysis"]
-        if "version" in index_properties:
-            del index_properties["version"]
-        if "lifecycle" in index_properties:
-            del index_properties["lifecycle"]
         index_mappings_json_str: str = json.dumps(index_mappings)
         md5_hash = md5(index_mappings_json_str.encode()).hexdigest()
         schema_fields = list(
@@ -346,6 +341,12 @@ class ElasticsearchSource(Source):
 
         # 4. Construct and emit properties if needed
         properties: Dict[str, str] = {}
+        properties.update({k: v for (k, v) in index_properties.items() if k in [
+            "number_of_shards",
+            "provided_name",
+            "number_of_replicas",
+            "uuid"
+        ]})
         index_aliases = raw_index_metadata.get("aliases", {}).keys()
         aliases: Dict[str, str] = {"aliases": ",".join(index_aliases)}
         if index_aliases:
@@ -354,8 +355,11 @@ class ElasticsearchSource(Source):
         creation_date_transform = time.strftime(
             "%Y-%m-%d %H:%M:%S", time.localtime(creation_date / 1000)
         )
-        index_properties["creation_date"] = creation_date_transform
-        properties.update(index_properties)
+        data_version = str(index_properties["version"])
+        properties.update({
+            "creation_date": creation_date_transform,
+            "version": data_version
+        })
 
         yield MetadataChangeProposalWrapper(
             entityType="dataset",
