@@ -269,10 +269,9 @@ class ElasticsearchSource(Source):
             )
 
     def _extract_mcps(self, index: str) -> Iterable[MetadataChangeProposalWrapper]:
-        logger.info(f"index========== = {index}")
+        logger.debug(f"index = {index}")
         raw_index = self.client.indices.get(index=index)
         raw_index_metadata = raw_index[index]
-        logger.info(f"raw_index_metadata========== = {raw_index_metadata}")
 
         # 0. Dedup data_streams.
         data_stream = raw_index_metadata.get("data_stream")
