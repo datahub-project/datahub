@@ -2,6 +2,7 @@ import json
 import logging
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Sequence, Type, Union
+from datahub.metadata.com.linkedin.pegasus2avro.common import DataPlatformInstance
 
 from delta_sharing.delta_sharing import SharingClient
 from delta_sharing.protocol import Table, DeltaSharingProfile
@@ -11,13 +12,14 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetSourceConfigBase
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
+    make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent, MetadataChangeProposal
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayTypeClass,
     BooleanTypeClass,
@@ -33,7 +35,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeTypeClass,
     RecordTypeClass,
 )
-from datahub.metadata.schema_classes import DatasetPropertiesClass
+from datahub.metadata.schema_classes import ChangeTypeClass, DataPlatformInstanceClass, DatasetPropertiesClass
 
 # TODO: how do we support domains
 
@@ -156,7 +158,6 @@ class DeltaLakeSource(Source):
         # get all metadata from API
         metadata_list = self.get_metadata(config=self.config)
 
-        wu_list = []
         for metadata in metadata_list:
 
             # filter data based on share
@@ -175,10 +176,8 @@ class DeltaLakeSource(Source):
                 continue
 
             # collect results
-            #wu_list.append(self._create_delta_workunit(metadata))
             yield from self._create_delta_workunit(metadata)
 
-        #return wu_list
 
     def _create_delta_workunit(
         self,
@@ -186,11 +185,11 @@ class DeltaLakeSource(Source):
     ) -> Iterable[MetadataWorkUnit]:
         self.report.report_table_scanned(metadata.table.name)
 
-        dataset_name = f"{metadata.table.schema}.{metadata.table.name}"
+        dataset_name = f"{metadata.table.share}.{metadata.table.schema}.{metadata.table.name}"
         dataset_urn = make_dataset_urn_with_platform_instance(
             platform=self.platform,
             name=dataset_name,
-            platform_instance=metadata.table.share,
+            platform_instance=self.config.platform_instance,
             env=self.config.env,
         )
         dataset_snapshot = DatasetSnapshot(
@@ -223,12 +222,31 @@ class DeltaLakeSource(Source):
         schema_metadata = self._create_schema_metadata(dataset_name, metadata)
         dataset_snapshot.aspects.append(schema_metadata)
 
-        # emit workunit
+        # emit datset workunit
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         workunit = MetadataWorkUnit(id=dataset_name, mce=mce)
         self.report.report_workunit(workunit)
 
         yield workunit
+
+        #add instance via mcp
+        if self.config.platform_instance:
+            mcp = MetadataChangeProposal(
+                entityType="dataset",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=dataset_urn,
+                aspectName="dataPlatformInstance",
+                aspect=DataPlatformInstanceClass(
+                    platform=make_data_platform_urn(self.platform),
+                    instance=make_dataplatform_instance_urn(
+                        self.platform,
+                        self.config.platform_instance
+                    )
+                )
+            )
+            workunit2=MetadataWorkUnit(id=f"{dataset_urn}-dataPlatformInstance", mcp=mcp)
+            yield workunit2
+
 
     def _create_schema_metadata(
         self, dataset_name: str, metadata: QueryTableMetadataResponse_extended
@@ -242,7 +260,7 @@ class DeltaLakeSource(Source):
             platform=make_data_platform_urn(self.platform),
             version=0,
             hash="",
-            platformSchema=OtherSchemaClass(rawSchema=""),
+            platformSchema=OtherSchemaClass(rawSchema=metadata.metadata.schema_string),
             fields=schema_fields,
         )
         return schema_metadata
@@ -330,24 +348,57 @@ if __name__ == "__main__":
         if filter_table.allowed(metadata.table.name)
     ]
 
-    filter_schema = AllowDenyPattern(allow=["default"], deny=["LA"])
-    metadata_list = [
-        metadata
-        for metadata in metadata_list
-        if filter_schema.allowed(metadata.table.schema)
-    ]
-
-    filter_share = AllowDenyPattern(allow=["delta_sharing"], deny=["LA"])
-    metadata_list = [
-        metadata
-        for metadata in metadata_list
-        if filter_share.allowed(metadata.table.share)
-    ]
-
     # prepare load for metadata from ...
-
     test = DeltaLakeSource(
         ctx=PipelineContext(run_id="delta-lake-source-test"),
         config=DeltaLakeSourceConfig(url="url", token="x"),
     )
     test2 = test._get_schema_fields(metadata_list[0].metadata)
+
+    from datahub.ingestion.run.pipeline import Pipeline
+
+    # The pipeline configuration is similar to the recipe YAML files provided to the CLI tool.
+    pipeline = Pipeline.create(
+        {
+            "source": {
+                "type": "mysql",
+                "config": {
+                    "username": "root",
+                    "password": "example",
+                    "database": "metagalaxy",
+                    "host_port": "localhost:53307",
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {"filename": "/tmp/myswql_lake_mces.json"},
+            },
+        }
+    )
+
+    # Run the pipeline and report the results.
+    pipeline.run()
+
+
+    # The pipeline configuration is similar to the recipe YAML files provided to the CLI tool.
+    pipeline = Pipeline.create(
+        {
+            "source": {
+                "type": "delta_lake",
+                "config":{
+                    "url": "https://sharing.delta.io/delta-sharing/",
+                    "token": "faaie590d541265bcab1f2de9813274bf233",
+                    "share_credentials_version": 1,
+                    "platform_instance": "core_finance"
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {"filename": "/tmp/delta_lake_mces.json"},
+            },
+        }
+    )
+
+
+    # Run the pipeline and report the results.
+    pipeline.run()
