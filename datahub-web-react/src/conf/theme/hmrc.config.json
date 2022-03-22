@@ -21,7 +21,7 @@
     "box-shadow-hover": "0px 1px 0px 0.5px rgb(239 239 239)"
   },
   "assets": {
-    "logoUrl": "/assets/hmrc-crown-logo_black.svg"
+    "logoUrl": "/data-catalogue/assets/hmrc-crown-logo_black.svg"
   },
   "content": {
     "title": "CIP Data Catalogue",

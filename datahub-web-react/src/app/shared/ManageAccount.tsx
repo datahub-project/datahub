@@ -100,7 +100,7 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
             </MenuItem>
             <Menu.Divider />
             <MenuItem danger key="logout" tabIndex={0}>
-                <a href="/" onClick={handleLogout}>
+                <a href="/data-catalogue" onClick={handleLogout}>
                     Sign Out
                 </a>
             </MenuItem>

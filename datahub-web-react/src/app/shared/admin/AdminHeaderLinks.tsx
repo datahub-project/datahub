@@ -59,7 +59,7 @@ export function AdminHeaderLinks(props: Props) {
         <LinksWrapper areLinksHidden={areLinksHidden}>
             {showAnalytics && (
                 <AdminLink>
-                    <Link to="/analytics">
+                    <Link to="/data-catalogue/analytics">
                         <Button type="text">
                             <BarChartOutlined /> Analytics
                         </Button>
@@ -68,7 +68,7 @@ export function AdminHeaderLinks(props: Props) {
             )}
             {showIngestion && (
                 <AdminLink>
-                    <Link to="/ingestion">
+                    <Link to="/data-catalogue/ingestion">
                         <Button type="text">
                             <ApiOutlined /> Ingestion
                         </Button>
@@ -82,14 +82,14 @@ export function AdminHeaderLinks(props: Props) {
                         <Menu>
                             {showGlossary && (
                                 <MenuItem key="0">
-                                    <Link to="/glossary">
+                                    <Link to="/data-catalogue/glossary">
                                         <BookOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} /> Glossary
                                     </Link>
                                 </MenuItem>
                             )}
                             {showDomains && (
                                 <MenuItem key="1">
-                                    <Link to="/domains">
+                                    <Link to="/data-catalogue/domains">
                                         <FolderOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} /> Domains
                                     </Link>
                                 </MenuItem>
@@ -106,7 +106,7 @@ export function AdminHeaderLinks(props: Props) {
             )}
             {showSettings && (
                 <AdminLink style={{ marginRight: 12 }}>
-                    <Link to="/settings">
+                    <Link to="/data-catalogue/settings">
                         <Button type="text">
                             <SettingOutlined />
                         </Button>

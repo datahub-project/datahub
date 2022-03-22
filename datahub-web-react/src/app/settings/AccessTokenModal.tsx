@@ -43,7 +43,7 @@ type Props = {
 
 export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText }: Props) => {
     const baseUrl = window.location.origin;
-    const accessTokenCurl = `curl -X POST '${baseUrl}/api/graphql' \\
+    const accessTokenCurl = `curl -X POST '${baseUrl}/data-catalogue/api/graphql' \\
 --header 'Authorization: Bearer ${accessToken}' \\
 --header 'Content-Type: application/json' \\
 --data-raw '{"query":"{\\n  me {\\n    corpUser {\\n        username\\n    }\\n  }\\n}","variables":{}}'`;

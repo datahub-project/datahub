@@ -24,7 +24,7 @@ export const BrowseResultsPage = () => {
     const rootPath = location.pathname;
     const params = QueryString.parse(location.search);
     const entityType = entityRegistry.getTypeFromPathName(type);
-    const path = rootPath.split('/').slice(3);
+    const path = rootPath.split('/').slice(4);
     const page: number = params.page && Number(params.page as string) > 0 ? Number(params.page as string) : 1;
 
     const { data, loading, error } = useGetBrowseResultsQuery({

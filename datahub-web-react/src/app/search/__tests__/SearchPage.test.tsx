@@ -15,7 +15,9 @@ describe('SearchPage', () => {
         const { getByText } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer
-                    initialEntries={['/search?filter_entity=DATASET&filter_platform=hive,kafka&page=1&query=sample']}
+                    initialEntries={[
+                        '/data-catalogue/search?filter_entity=DATASET&filter_platform=hive,kafka&page=1&query=sample',
+                    ]}
                 >
                     <Route path={PageRoutes.SEARCH_RESULTS} render={() => <SearchPage />} />
                 </TestPageContainer>
@@ -36,7 +38,9 @@ describe('SearchPage', () => {
                 }}
             >
                 <TestPageContainer
-                    initialEntries={['/search?filter_entity=DATASET&filter_platform=kafka&page=1&query=test']}
+                    initialEntries={[
+                        '/data-catalogue/search?filter_entity=DATASET&filter_platform=kafka&page=1&query=test',
+                    ]}
                 >
                     <Route path={PageRoutes.SEARCH_RESULTS} render={() => <SearchPage />} />
                 </TestPageContainer>
@@ -63,7 +67,9 @@ describe('SearchPage', () => {
                 }}
             >
                 <TestPageContainer
-                    initialEntries={['/search?filter_entity=DATASET&filter_platform=kafka,hdfs&page=1&query=test']}
+                    initialEntries={[
+                        '/data-catalogue/search?filter_entity=DATASET&filter_platform=kafka,hdfs&page=1&query=test',
+                    ]}
                 >
                     <Route path={PageRoutes.SEARCH_RESULTS} render={() => <SearchPage />} />
                 </TestPageContainer>
@@ -97,7 +103,9 @@ describe('SearchPage', () => {
                 }}
             >
                 <TestPageContainer
-                    initialEntries={['/search?filter_entity=DATASET&filter_platform=kafka&page=1&query=test']}
+                    initialEntries={[
+                        '/data-catalogue/search?filter_entity=DATASET&filter_platform=kafka&page=1&query=test',
+                    ]}
                 >
                     <Route path={PageRoutes.SEARCH_RESULTS} render={() => <SearchPage />} />
                 </TestPageContainer>

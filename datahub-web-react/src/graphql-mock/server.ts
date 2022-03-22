@@ -28,13 +28,13 @@ export function makeServer(environment = 'development') {
         routes() {
             const graphQLHandler = createGraphQLHandler(graphQLSchema, this.schema);
 
-            this.post('/api/v2/graphql', (schema, request) => {
+            this.post('/data-catalogue/api/v2/graphql', (schema, request) => {
                 return resolveRequest(schema, request) ?? graphQLHandler(schema, request);
             });
 
-            this.get('/authenticate', () => new Response(200));
+            this.get('/data-catalogue/authenticate', () => new Response(200));
 
-            this.post('/logIn', (_schema, request) => {
+            this.post('/data-catalogue/logIn', (_schema, request) => {
                 const payload = JSON.parse(request.requestBody);
                 const cookieExpiration = new Date(Date.now() + 24 * 3600 * 1000);
                 const urn = `urn:li:corpuser:${payload.username}`;
@@ -51,7 +51,7 @@ export function makeServer(environment = 'development') {
                 return new Response(200);
             });
 
-            this.post('/track', () => new Response(200));
+            this.post('/data-catalogue/track', () => new Response(200));
         },
     });
 }

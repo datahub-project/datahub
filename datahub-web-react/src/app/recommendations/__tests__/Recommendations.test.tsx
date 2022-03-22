@@ -49,7 +49,7 @@ describe('Recommendations', () => {
                     query: { fetchPolicy: 'no-cache' },
                 }}
             >
-                <TestPageContainer initialEntries={['/search?page=1&query=noresults']}>
+                <TestPageContainer initialEntries={['/data-catalogue/search?page=1&query=noresults']}>
                     <Route path={PageRoutes.SEARCH_RESULTS} render={() => <SearchPage />} />
                 </TestPageContainer>
             </MockedProvider>,

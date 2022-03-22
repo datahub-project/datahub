@@ -79,7 +79,9 @@ export default class EntityRegistry {
     }
 
     getEntityUrl(type: EntityType, urn: string, params?: Record<string, string | boolean>): string {
-        return `/${this.getPathName(type)}/${urlEncodeUrn(urn)}${params ? `?${dictToQueryStringParams(params)}` : ''}`;
+        return `/data-catalogue/${this.getPathName(type)}/${urlEncodeUrn(urn)}${
+            params ? `?${dictToQueryStringParams(params)}` : ''
+        }}`;
     }
 
     getTypeFromPathName(pathName: string): EntityType {

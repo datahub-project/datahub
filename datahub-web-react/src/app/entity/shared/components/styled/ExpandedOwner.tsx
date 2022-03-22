@@ -88,7 +88,7 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch }: Props)
 
     return (
         <OwnerTag onClose={onClose} closable={!!entityUrn}>
-            <Link to={`/${entityRegistry.getPathName(owner.owner.type)}/${owner.owner.urn}`}>
+            <Link to={`/data-catalogue/${entityRegistry.getPathName(owner.owner.type)}/${owner.owner.urn}`}>
                 <CustomAvatar name={name} photoUrl={pictureLink} useDefaultAvatar={false} />
                 {(hidePopOver && <>{name}</>) || (
                     <Popover
