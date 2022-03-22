@@ -230,6 +230,7 @@ public abstract class EntityService {
       @Nonnull final Function<Optional<RecordTemplate>, RecordTemplate> updateLambda,
       @Nonnull final AuditStamp auditStamp, @Nonnull final SystemMetadata systemMetadata) {
     validateUrn(urn);
+    validateAspect(urn, updateLambda.apply(null));
     return ingestAspectToLocalDB(urn, aspectName, updateLambda, auditStamp, systemMetadata);
   }
 
@@ -238,7 +239,17 @@ public abstract class EntityService {
       @Nonnull List<Pair<String, RecordTemplate>> aspectRecordsToIngest,
       @Nonnull final AuditStamp auditStamp, @Nonnull final SystemMetadata providedSystemMetadata) {
     validateUrn(urn);
+    aspectRecordsToIngest.forEach(pair -> validateAspect(urn, pair.getSecond()));
     return ingestAspectsToLocalDB(urn, aspectRecordsToIngest, auditStamp, providedSystemMetadata);
+  }
+
+  private void validateAspect(Urn urn, RecordTemplate aspect) {
+    EntityKeyUrnValidator validator = new EntityKeyUrnValidator(_entityRegistry);
+    validator.setCurrentEntitySpec(_entityRegistry.getEntitySpec(urn.getEntityType()));
+    RecordTemplateValidator.validate(aspect, validationResult -> {
+        throw new IllegalArgumentException("Invalid urn format for aspect: " + aspect + " for entity: " + urn + "\n Cause: "
+        + validationResult.getMessages());
+      }, validator);
   }
   /**
    * Checks whether there is an actual update to the aspect by applying the updateLambda
