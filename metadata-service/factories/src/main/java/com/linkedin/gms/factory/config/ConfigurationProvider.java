@@ -22,4 +22,9 @@ public class ConfigurationProvider {
    * Ingestion related configs
    */
   private IngestionConfiguration ingestion;
+
+  /**
+   * Telemetry related configs
+   */
+  private TelemetryConfiguration telemetry;
 }

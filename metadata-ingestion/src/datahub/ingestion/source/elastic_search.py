@@ -5,7 +5,7 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from hashlib import md5
-from typing import Any, Dict, Generator, Iterable, List, Optional, Type
+from typing import Any, Dict, Generator, Iterable, List, Optional, Tuple, Type
 
 from elasticsearch import Elasticsearch
 from pydantic import validator
@@ -167,8 +167,8 @@ class ElasticsearchSourceReport(SourceReport):
 
 class ElasticsearchSourceConfig(DatasetSourceConfigBase):
     host: str = "localhost:9200"
-    username: str = ""
-    password: str = ""
+    username: Optional[str] = None
+    password: Optional[str] = None
     url_prefix: str = ""
     index_pattern: AllowDenyPattern = AllowDenyPattern(
         allow=[".*"], deny=["^_.*", "^ilm-history.*"]
@@ -202,6 +202,12 @@ class ElasticsearchSourceConfig(DatasetSourceConfigBase):
                 raise ConfigurationError(f"port must be all digits, found {port}")
         return host_val
 
+    @property
+    def http_auth(self) -> Optional[Tuple[str, str]]:
+        if self.username is None:
+            return None
+        return self.username, self.password or ""
+
 
 class ElasticsearchSource(Source):
     def __init__(self, config: ElasticsearchSourceConfig, ctx: PipelineContext):
@@ -209,7 +215,7 @@ class ElasticsearchSource(Source):
         self.source_config = config
         self.client = Elasticsearch(
             self.source_config.host,
-            http_auth=(self.source_config.username, self.source_config.password),
+            http_auth=self.source_config.http_auth,
             url_prefix=self.source_config.url_prefix,
         )
         self.report = ElasticsearchSourceReport()

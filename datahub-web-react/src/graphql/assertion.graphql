@@ -1,0 +1,88 @@
+fragment assertionDetails on Assertion {
+    urn
+    type
+    platform {
+        urn
+        properties {
+            displayName
+            logoUrl
+        }
+        info {
+            displayName
+            logoUrl
+        }
+    }
+    info {
+        type
+        datasetAssertion {
+            scope
+            aggregation
+            operator
+            parameters {
+                value {
+                    value
+                    type
+                }
+                minValue {
+                    value
+                    type
+                }
+                maxValue {
+                    value
+                    type
+                }
+            }
+            fields {
+                urn
+                path
+            }
+            nativeType
+            nativeParameters {
+                key
+                value
+            }
+            logic
+        }
+    }
+}
+
+fragment assertionRunEventDetails on AssertionRunEvent {
+    timestampMillis
+    assertionUrn
+    status
+    runtimeContext {
+        key
+        value
+    }
+    result {
+        type
+        actualAggValue
+        rowCount
+        missingCount
+        unexpectedCount
+        externalUrl
+        nativeResults {
+            key
+            value
+        }
+    }
+}
+
+query getAssertionRuns($assertionUrn: String!, $startTime: Long, $endTime: Long, $limit: Int) {
+    assertion(urn: $assertionUrn) {
+        urn
+        ...assertionDetails
+        runEvents(status: COMPLETE, startTimeMillis: $startTime, endTimeMillis: $endTime, limit: $limit) {
+            total
+            failed
+            succeeded
+            runEvents {
+                ...assertionRunEventDetails
+            }
+        }
+    }
+}
+
+mutation deleteAssertion($urn: String!) {
+    deleteAssertion(urn: $urn)
+}

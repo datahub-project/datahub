@@ -116,6 +116,11 @@ const companiesByIndustry = [
     name: "And More",
     companies: [
       {
+        name: "Cabify",
+        imageUrl: "/img/logos/companies/cabify.png",
+        size: "large",
+      },
+      {
         name: "Viasat",
         imageUrl: "/img/logos/companies/viasat.png",
         size: "large",
@@ -197,6 +202,7 @@ const platformLogos = [
   { name: "Oracle", imageUrl: "/img/logos/platforms/oracle.svg" },
   { name: "Pinot", imageUrl: "/img/logos/platforms/pinot.svg" },
   { name: "PostgreSQL", imageUrl: "/img/logos/platforms/postgres.svg" },
+  { name: "PowerBI", imageUrl: "/img/logos/platforms/powerbi.png" },
   { name: "Presto", imageUrl: "/img/logos/platforms/presto.svg" },
   { name: "Redash", imageUrl: "/img/logos/platforms/redash.svg" },
   {

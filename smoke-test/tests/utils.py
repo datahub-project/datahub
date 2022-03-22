@@ -1,13 +1,14 @@
 import json
 
 import requests
+from typing import Any
 from datahub.cli import cli_utils
 from datahub.ingestion.run.pipeline import Pipeline
 
 GMS_ENDPOINT = "http://localhost:8080"
 FRONTEND_ENDPOINT = "http://localhost:9002"
 
-def ingest_file_via_rest(filename: str) -> None:
+def ingest_file_via_rest(filename: str) -> Any:
     pipeline = Pipeline.create(
         {
             "source": {
@@ -22,6 +23,8 @@ def ingest_file_via_rest(filename: str) -> None:
     )
     pipeline.run()
     pipeline.raise_from_status()
+
+    return pipeline
 
 
 def delete_urns_from_file(filename: str) -> None:

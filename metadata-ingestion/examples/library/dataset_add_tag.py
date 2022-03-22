@@ -24,7 +24,7 @@ graph = DataHubGraph(DatahubClientConfig(server=gms_endpoint))
 
 dataset_urn = make_dataset_urn(platform="hive", name="realestate_db.sales", env="PROD")
 
-current_tags: Optional[GlobalTagsClass] = graph.get_aspect(
+current_tags: Optional[GlobalTagsClass] = graph.get_aspect_v2(
     entity_urn=dataset_urn,
     aspect="globalTags",
     aspect_type=GlobalTagsClass,
