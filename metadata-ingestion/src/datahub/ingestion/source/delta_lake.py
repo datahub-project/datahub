@@ -1,8 +1,7 @@
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Sequence, Type, Union
-from datahub.metadata.com.linkedin.pegasus2avro.common import DataPlatformInstance
+from typing import Dict, Iterable, List, Sequence, Type
 
 from delta_sharing.delta_sharing import SharingClient
 from delta_sharing.protocol import Table, DeltaSharingProfile
@@ -10,6 +9,7 @@ from delta_sharing.rest_client import Metadata, QueryTableMetadataResponse
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetSourceConfigBase
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -20,7 +20,13 @@ from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent, MetadataChangeProposal
+from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+    SchemaField,
+    SchemaFieldDataType,
+    SchemaMetadata,
+)
+from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
     BytesTypeClass,
@@ -29,13 +35,13 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     NullTypeClass,
     NumberTypeClass,
     OtherSchemaClass,
-    SchemaField,
-    SchemaMetadata,
     StringTypeClass,
     TimeTypeClass,
     RecordTypeClass,
+    ChangeTypeClass, 
+    DataPlatformInstanceClass, 
+    DatasetPropertiesClass
 )
-from datahub.metadata.schema_classes import ChangeTypeClass, DataPlatformInstanceClass, DatasetPropertiesClass
 
 # TODO: how do we support domains
 
@@ -91,7 +97,7 @@ class DeltaLakeSourceConfig(DatasetSourceConfigBase):
 
 
 # map delta-sharing types to DataHub classes
-_field_type_mapping: Dict[Union[Type, str], Type] = {
+_field_type_mapping: Dict[str, Type] = {
     "array": ArrayTypeClass,
     "boolean": BooleanTypeClass,
     "binary": BytesTypeClass,  # TODO: might need to change
@@ -177,6 +183,99 @@ class DeltaLakeSource(Source):
 
             # collect results
             yield from self._create_delta_workunit(metadata)
+            # for mcp in self._create_delta_workunit2(metadata):
+            #     dataset_name = f"{metadata.table.share}.{metadata.table.schema}.{metadata.table.name}"
+            #     wu = MetadataWorkUnit(id=dataset_name, mcp=mcp)
+            #     self.report.report_workunit(wu)
+            #     yield wu                
+
+
+    def _create_delta_workunit2(
+        self,
+        metadata: QueryTableMetadataResponse_extended,
+    ) -> Iterable[MetadataWorkUnit]:
+        self.report.report_table_scanned(metadata.table.name)
+
+        dataset_name = f"{metadata.table.share}.{metadata.table.schema}.{metadata.table.name}"
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=dataset_name,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
+        # from metadata top level: get md.description, md.format, md.partitioncolumns
+        custom_properties = {
+            "Id": metadata.metadata.id,
+            "Format": metadata.metadata.format.provider,
+            "PartitionColumns": metadata.metadata.partition_columns,
+        }
+
+        dataset_properties = DatasetPropertiesClass(
+            tags=[],
+            description=metadata.metadata.description,
+            customProperties=custom_properties,
+        )
+
+        yield MetadataChangeProposal(
+            entityType="dataset",
+            entityUrn=dataset_urn,
+            aspectName="datasetProperties",
+            aspect=dataset_properties,
+            changeType=ChangeTypeClass.UPSERT)
+
+
+        # TODO: add documentation that ownership not implemented because not available in API
+
+        # TODO: add docu & message that stats are not implemented yet.
+        # this has to be collected from file object!
+
+        # build schema
+        # from md.schemaObject = struct(type, fields). N.B. ignore top-level struct (just container!)
+        # from md.schemaObject  -> md.so.name, md.so.type (struct or atomic), md.so.nullable, md.so.metadata.comment (if exists)
+        schema_metadata = self._create_schema_metadata(dataset_name, metadata)
+        
+        yield MetadataChangeProposalWrapper(
+            entityType="dataset",
+            entityUrn=dataset_urn,
+            aspectName="schemaMetadata",
+            aspect=schema_metadata,
+            changeType=ChangeTypeClass.UPSERT,
+        )
+
+        # emit status
+        yield MetadataChangeProposalWrapper(
+            entityType="dataset",
+            entityUrn=dataset_urn,
+            aspectName="status",
+            aspect=StatusClass(removed=False),
+            changeType=ChangeTypeClass.UPSERT,
+        )
+
+        # emit datset workunit
+        #mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+        #workunit = MetadataWorkUnit(id=dataset_name, mce=mce)
+        #self.report.report_workunit(workunit)
+
+        #yield workunit
+
+        #add instance via mcp
+        if self.config.platform_instance:
+            yield MetadataChangeProposalWrapper(
+                entityType="dataset",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=dataset_urn,
+                aspectName="dataPlatformInstance",
+                aspect=DataPlatformInstanceClass(
+                    platform=make_data_platform_urn(self.platform),
+                    instance=make_dataplatform_instance_urn(
+                        self.platform,
+                        self.config.platform_instance
+                    )
+                )
+            )
+            
+
 
 
     def _create_delta_workunit(
@@ -198,18 +297,18 @@ class DeltaLakeSource(Source):
         )
 
         # from metadata top level: get md.description, md.format, md.partitioncolumns
-        custom_properties = {
-            "Id": metadata.metadata.id,
-            "Format": metadata.metadata.format.provider,
-            "PartitionColumns": metadata.metadata.partition_columns,
-        }
+        # custom_properties = {
+        #     "Id": metadata.metadata.id,
+        #     "Format": metadata.metadata.format.provider,
+        #     "PartitionColumns": metadata.metadata.partition_columns,
+        # }
 
-        dataset_properties = DatasetPropertiesClass(
-            tags=[],
-            description=metadata.metadata.description,
-            customProperties=custom_properties,
-        )
-        dataset_snapshot.aspects.append(dataset_properties)
+        # dataset_properties = DatasetPropertiesClass(
+        #     tags=[],
+        #     description=metadata.metadata.description,
+        #     customProperties=custom_properties,
+        # )
+        # dataset_snapshot.aspects.append(dataset_properties)
 
         # TODO: add documentation that ownership not implemented because not available in API
 
@@ -231,7 +330,7 @@ class DeltaLakeSource(Source):
 
         #add instance via mcp
         if self.config.platform_instance:
-            mcp = MetadataChangeProposal(
+            mcp = MetadataChangeProposalWrapper(
                 entityType="dataset",
                 changeType=ChangeTypeClass.UPSERT,
                 entityUrn=dataset_urn,
@@ -291,7 +390,7 @@ class DeltaLakeSource(Source):
 
                 datahubField = SchemaField(
                     fieldPath=datahubName,
-                    type=datahubType,
+                    type=SchemaFieldDataType(type=datahubType()),
                     nativeDataType=nativeType,
                     nullable=column["nullable"],
                     description=datahubDescription,
@@ -308,7 +407,7 @@ class DeltaLakeSource(Source):
 
                 datahubField = SchemaField(
                     fieldPath=datahubName,
-                    type=datahubType,
+                    type=SchemaFieldDataType(type=datahubType()),
                     nativeDataType=nativeType,
                     nullable=column["nullable"],
                     description=datahubDescription,
@@ -328,32 +427,31 @@ if __name__ == "__main__":
 
     import delta_sharing
 
-    # get key from recipe
-    # Get the access keys for delta-sharing & start the client
-    profile = delta_sharing.protocol.DeltaSharingProfile(
-        share_credentials_version=1,
-        endpoint="https://sharing.delta.io/delta-sharing/",
-        bearer_token="faaie590d541265bcab1f2de9813274bf233",
-    )
-    client = SharingClient_extended(profile)
+    # # Get the access keys for delta-sharing & start the client
+    # profile = delta_sharing.protocol.DeltaSharingProfile(
+    #     share_credentials_version=1,
+    #     endpoint="https://sharing.delta.io/delta-sharing/",
+    #     bearer_token="faaie590d541265bcab1f2de9813274bf233",
+    # )
+    # client = SharingClient_extended(profile)
 
-    # get all shared metadata
-    metadata_list = client.query_all_table_metadata()
+    # # get all shared metadata
+    # metadata_list = client.query_all_table_metadata()
 
-    # Filter tables, schemas and shares
-    filter_table = AllowDenyPattern(allow=["COVID_19_NYT", "lending_club"], deny=["LA"])
-    metadata_list = [
-        metadata
-        for metadata in metadata_list
-        if filter_table.allowed(metadata.table.name)
-    ]
+    # # Filter tables, schemas and shares
+    # filter_table = AllowDenyPattern(allow=["COVID_19_NYT", "lending_club"], deny=["LA"])
+    # metadata_list = [
+    #     metadata
+    #     for metadata in metadata_list
+    #     if filter_table.allowed(metadata.table.name)
+    # ]
 
-    # prepare load for metadata from ...
-    test = DeltaLakeSource(
-        ctx=PipelineContext(run_id="delta-lake-source-test"),
-        config=DeltaLakeSourceConfig(url="url", token="x"),
-    )
-    test2 = test._get_schema_fields(metadata_list[0].metadata)
+    # # prepare load for metadata from ...
+    # test = DeltaLakeSource(
+    #     ctx=PipelineContext(run_id="delta-lake-source-test"),
+    #     config=DeltaLakeSourceConfig(url="url", token="x"),
+    # )
+    # test2 = test._get_schema_fields(metadata_list[0].metadata)
 
     from datahub.ingestion.run.pipeline import Pipeline
 
