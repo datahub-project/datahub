@@ -299,7 +299,12 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
         with PerfTimer() as timer:
             try:
                 for db_row in engine.execute(query):
-                    if len(db_row) < 2:
+                    if len(db_row) < 2 or db_row[0] is None or db_row[1] is None:
+                        self.warn(
+                            logger,
+                            "check-usage-data",
+                            f"Missing data for access_history {db_row} - Check if using Enterprise edition of Snowflake",
+                        )
                         continue
                     self.report.min_access_history_time = db_row[0].astimezone(
                         tz=timezone.utc
