@@ -208,9 +208,9 @@ def show(run_id: str) -> None:
 @click.option("--run-id", required=True, type=str)
 @click.option("-f", "--force", required=False, is_flag=True)
 @click.option("--dry-run", "-n", required=False, is_flag=True, default=False)
-@click.option("--hard-delete", "-d", required=False, is_flag=True, default=False)
+@click.option("--safe/--nuke", required=False, is_flag=True, default=True)
 @telemetry.with_telemetry
-def rollback(run_id: str, force: bool, dry_run: bool, hard_delete: bool) -> None:
+def rollback(run_id: str, force: bool, dry_run: bool, safe: bool) -> None:
     """Rollback a provided ingestion run to datahub"""
 
     cli_utils.test_connectivity_complain_exit("ingest")
@@ -221,8 +221,8 @@ def rollback(run_id: str, force: bool, dry_run: bool, hard_delete: bool) -> None
             abort=True,
         )
 
-    payload_obj = {"runId": run_id, "dryRun": dry_run, "hardDelete": hard_delete}
-    structured_rows, entities_affected, aspects_affected = post_rollback_endpoint(
+    payload_obj = {"runId": run_id, "dryRun": dry_run, "safe": safe}
+    structured_rows, entities_affected, aspects_affected, unsafe_aspects = post_rollback_endpoint(
         payload_obj, "/runs?action=rollback"
     )
 
@@ -232,7 +232,16 @@ def rollback(run_id: str, force: bool, dry_run: bool, hard_delete: bool) -> None
     click.echo(
         f"This rollback {'will' if dry_run else ''} {'delete' if dry_run else 'deleted'} {entities_affected} entities and {'will roll' if dry_run else 'rolled'} back {aspects_affected} aspects"
     )
-    click.echo(
-        f"showing first {len(structured_rows)} of {aspects_affected} aspects {'that will be' if dry_run else ''} reverted by this run"
-    )
-    click.echo(tabulate(structured_rows, RUN_TABLE_COLUMNS, tablefmt="grid"))
+
+    if (len(structured_rows) > 0):
+        click.echo(
+            f"showing first {len(structured_rows)} of {aspects_affected} aspects {'that will be' if dry_run else ''} reverted by this run"
+        )
+        click.echo(tabulate(structured_rows, RUN_TABLE_COLUMNS, tablefmt="grid"))
+
+    if (len(unsafe_aspects) > 0):
+        click.echo(
+            f"This rollback {'will leave' if dry_run else 'has left'} {len(unsafe_aspects)} aspects in an unsafe state"
+        )
+
+        click.echo(tabulate(unsafe_aspects, RUN_TABLE_COLUMNS, tablefmt="grid"))

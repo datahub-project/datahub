@@ -239,19 +239,20 @@ def post_rollback_endpoint(
     url = gms_host + path
 
     payload = json.dumps(payload_obj)
-
     response = session.post(url, payload)
 
     summary = parse_run_restli_response(response)
     rows = summary.get("aspectRowSummaries", [])
     entities_affected = summary.get("entitiesAffected", 0)
     aspects_affected = summary.get("aspectsAffected", 0)
+    unsafe_aspects = list(filter(lambda row: row['runId'] != payload_obj['runId'], rows))
+    rolled_back_aspects = list(filter(lambda row: row['runId'] == payload_obj['runId'], rows))
 
     if len(rows) == 0:
         click.secho(f"No entities found. Payload used: {payload}", fg="yellow")
 
     local_timezone = datetime.now().astimezone().tzinfo
-    structured_rows = [
+    structured_rolled_back_results = [
         [
             row.get("urn"),
             row.get("aspectName"),
@@ -260,10 +261,21 @@ def post_rollback_endpoint(
             )
             + f" ({local_timezone})",
         ]
-        for row in rows
+        for row in rolled_back_aspects
     ]
 
-    return structured_rows, entities_affected, aspects_affected
+    structured_unsafe_results = [
+        [
+            row.get("urn"),
+            row.get("aspectName"),
+            datetime.fromtimestamp(row.get("timestamp") / 1000).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
+            + f" ({local_timezone})",
+        ]
+        for row in unsafe_aspects
+    ]
+    return structured_rolled_back_results, entities_affected, aspects_affected, structured_unsafe_results
 
 
 def post_delete_endpoint(

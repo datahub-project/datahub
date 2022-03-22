@@ -57,10 +57,10 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
   @Nonnull
   @WithSpan
   public Task<RollbackResponse> rollback(@ActionParam("runId") @Nonnull String runId,
-      @ActionParam("dryRun") @Optional Boolean dryRun, @ActionParam("hardDelete") @Optional Boolean hardDelete) {
+      @ActionParam("dryRun") @Optional Boolean dryRun, @ActionParam("safe") @Optional Boolean safe) {
     log.info("ROLLBACK RUN runId: {} dry run: {}", runId, dryRun);
 
-    boolean doHardDelete = hardDelete != null ? hardDelete : DEFAULT_HARD_DELETE;
+    boolean doHardDelete = safe != null ? safe : DEFAULT_HARD_DELETE;
 
     return RestliUtil.toTask(() -> {
       if (runId.equals(EntityService.DEFAULT_RUN_ID)) {
@@ -75,22 +75,41 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
       log.info("found {} rows to delete...", stringifyRowCount(aspectRowsToDelete.size()));
       if (dryRun) {
 
-        if (!doHardDelete) {
-          aspectRowsToDelete.removeIf(AspectRowSummary::isKeyAspect);
+        long affectedAspects = aspectRowsToDelete.size();
+        long affectedEntities = aspectRowsToDelete.stream()
+                .collect(Collectors.groupingBy(AspectRowSummary::getUrn)).keySet().size();
+        final List<AspectRowSummary> keyAspects = aspectRowsToDelete.stream()
+                .filter(AspectRowSummary::isKeyAspect)
+                .collect(Collectors.toList());
+        long entitiesDeleted = keyAspects.size();
+        final AspectRowSummaryArray rowSummaries = new AspectRowSummaryArray(aspectRowsToDelete);
+
+        for (AspectRowSummary keyAspect : keyAspects) {
+          final List<AspectRowSummary> rowsAffectedFromOtherRuns = _systemMetadataService.findByUrn(keyAspect.getUrn(), false)
+                  .stream()
+                  .filter(row -> !row.getRunId().equals(runId))
+                  .collect(Collectors.toList());
+
+          affectedAspects += rowsAffectedFromOtherRuns.size();
+          rowSummaries.addAll(rowsAffectedFromOtherRuns);
         }
 
-        response.setAspectsAffected(aspectRowsToDelete.size());
-        response.setEntitiesAffected(
-            aspectRowsToDelete.stream().collect(Collectors.groupingBy(AspectRowSummary::getUrn)).keySet().size());
-        response.setEntitiesDeleted(aspectRowsToDelete.stream().filter(row -> row.isKeyAspect()).count());
-        response.setAspectRowSummaries(
-            new AspectRowSummaryArray(aspectRowsToDelete.subList(0, Math.min(100, aspectRowsToDelete.size()))));
+        // If we are soft deleting, remove key aspects from count of aspects being deleted
+        if (!doHardDelete) {
+          affectedAspects -= keyAspects.size();
+          rowSummaries.removeIf(AspectRowSummary::isKeyAspect);
+        }
+
+        response.setAspectsAffected(affectedAspects);
+        response.setEntitiesAffected(affectedEntities);
+        response.setEntitiesDeleted(entitiesDeleted);
+        response.setAspectRowSummaries(rowSummaries);
         return response;
       }
 
       RollbackRunResult rollbackRunResult = _entityService.rollbackRun(aspectRowsToDelete, runId, doHardDelete);
-      List<AspectRowSummary> deletedRows = rollbackRunResult.getRowsRolledBack();
-      Integer rowsDeletedFromEntityDeletion = rollbackRunResult.getRowsDeletedFromEntityDeletion();
+      final List<AspectRowSummary> deletedRows = rollbackRunResult.getRowsRolledBack();
+      int rowsDeletedFromEntityDeletion = rollbackRunResult.getRowsDeletedFromEntityDeletion();
 
       // since elastic limits how many rows we can access at once, we need to iteratively delete
       while (aspectRowsToDelete.size() >= ELASTIC_MAX_PAGE_SIZE) {
@@ -104,10 +123,27 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
       }
 
       log.info("finished deleting {} rows", deletedRows.size());
-      response.setAspectsAffected(deletedRows.size() + rowsDeletedFromEntityDeletion);
-      response.setEntitiesAffected(deletedRows.stream().filter(row -> row.isKeyAspect()).count());
-      response.setAspectRowSummaries(
-          new AspectRowSummaryArray(deletedRows.subList(0, Math.min(100, deletedRows.size()))));
+      int affectedAspects = deletedRows.size() + rowsDeletedFromEntityDeletion;
+      final List<AspectRowSummary> keyAspects = deletedRows.stream().filter(AspectRowSummary::isKeyAspect)
+              .collect(Collectors.toList());;
+      final long affectedEntities = keyAspects.size();
+      final AspectRowSummaryArray rowSummaries = new AspectRowSummaryArray(deletedRows);
+
+      log.info("computing aspects affected by this rollback...");
+      for (AspectRowSummary keyAspect : keyAspects) {
+        final List<AspectRowSummary> rowsAffectedFromOtherRuns = _systemMetadataService.findByUrn(keyAspect.getUrn(), false)
+                .stream()
+                .filter(row -> !row.getRunId().equals(runId))
+                .collect(Collectors.toList());
+
+        affectedAspects += rowsAffectedFromOtherRuns.size();
+        rowSummaries.addAll(rowsAffectedFromOtherRuns);
+      }
+      log.info("calculation done.");
+      response.setAspectsAffected(affectedAspects);
+      response.setEntitiesAffected(affectedEntities);
+      response.setAspectRowSummaries(rowSummaries);
+
       return response;
     }, MetricRegistry.name(this.getClass(), "rollback"));
   }
