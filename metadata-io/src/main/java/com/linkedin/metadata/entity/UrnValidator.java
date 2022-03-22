@@ -39,15 +39,16 @@ public class UrnValidator implements Validator {
     if (currentEntitySpec == null) {
       throw new IllegalStateException("Current entity spec must be set");
     }
-    if (Type.TYPEREF.equals(context.dataElement().getSchema().getType()) && ((NamedDataSchema)context.dataElement().getSchema()).getName().endsWith("Urn")) {
+    if (Type.TYPEREF.equals(context.dataElement().getSchema().getType()) && ((NamedDataSchema) context.dataElement()
+        .getSchema()).getName().endsWith("Urn")) {
       try {
         // Validate Urn matches field type and that it generates a valid key
-        String urnStr = (String)context.dataElement().getValue();
+        String urnStr = (String) context.dataElement().getValue();
         Urn urn = Urn.createFromString(urnStr);
         EntitySpec entitySpec = _entityRegistry.getEntitySpec(urn.getEntityType());
         RecordTemplate entityKey = EntityKeyUtils.convertUrnToEntityKey(urn,
             entitySpec.getKeyAspectSpec().getPegasusSchema());
-        NamedDataSchema namedDataSchema = ((NamedDataSchema)context.dataElement().getSchema());
+        NamedDataSchema namedDataSchema = ((NamedDataSchema) context.dataElement().getSchema());
         Class<? extends Urn> urnClass;
         try {
           String schemaName = ((Map<String, String>) namedDataSchema.getProperties().get("java")).get("class");
@@ -55,7 +56,7 @@ public class UrnValidator implements Validator {
           urnClass.getDeclaredMethod("createFromString", String.class).invoke(null, urnStr);
         } catch (ClassNotFoundException | ClassCastException | NoSuchMethodException e) {
           throw new IllegalArgumentException("Unrecognized Urn class: " + namedDataSchema.getName(), e);
-        } catch (InvocationTargetException |IllegalAccessException e) {
+        } catch (InvocationTargetException | IllegalAccessException e) {
           throw new IllegalArgumentException("Unable to instantiate urn type: " + namedDataSchema.getName() + " with urn: " + urnStr, e);
         }
 
