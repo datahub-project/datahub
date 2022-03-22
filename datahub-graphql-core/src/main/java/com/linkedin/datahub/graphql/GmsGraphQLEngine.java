@@ -536,7 +536,7 @@ public class GmsGraphQLEngine {
     }
 
     private void configureAnalyticsResolvers(final RuntimeWiring.Builder builder) {
-        final boolean isAnalyticsEnabled = _analyticsService != null;
+        final boolean isAnalyticsEnabled = analyticsService != null;
         builder.type("Query", typeWiring -> typeWiring.dataFetcher("isAnalyticsEnabled", new IsAnalyticsEnabledResolver(isAnalyticsEnabled)))
             .type("AnalyticsChart", typeWiring -> typeWiring.typeResolver(new AnalyticsChartTypeResolver()));
         if (isAnalyticsEnabled) {
