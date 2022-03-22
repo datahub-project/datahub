@@ -2,12 +2,6 @@
 
 ## Deploying DataHub
 
-:::note
-
-This is not recommended for production use. This is supposed to be used for small POCs only or for playing around with DataHub to get familiar with the features. Please see [Deploying with Kubernetes](deploy/kubernetes.md) for the recommended production setup.
-
-:::
-
 To deploy a new instance of DataHub, perform the following steps.
 
 1. Install [docker](https://docs.docker.com/install/), [jq](https://stedolan.github.io/jq/download/) and [docker-compose](https://docs.docker.com/compose/install/) (if
