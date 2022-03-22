@@ -14,7 +14,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     NumberTypeClass,
     SchemaField,
     StringTypeClass,
-    UnionTypeClass,
+    RecordTypeClass,
 )
 
 
@@ -55,7 +55,7 @@ def test_platform_correctly_set_delta_lake():
         ctx=PipelineContext(run_id="delta-lake-source-test1"),
         config=DeltaLakeSourceConfig(url="url", token="token"),
     )
-    assert source.platform == "deltalake"
+    assert source.platform == "delta_lake"
 
 
 def test_get_schema_fields(testdata1):
@@ -173,7 +173,7 @@ def test_get_schema_fields_nested(testdata2):
             jsonPath=None,
             nullable=True,
             description=None,
-            type=UnionTypeClass,
+            type=RecordTypeClass,
             nativeDataType="struct",
             recursive=False,
             globalTags=None,

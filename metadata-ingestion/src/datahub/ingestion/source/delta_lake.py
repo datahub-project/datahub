@@ -175,11 +175,10 @@ class DeltaLakeSource(Source):
                 continue
 
             # collect results
-            wu_list.append(self._create_delta_workunit(metadata))
+            #wu_list.append(self._create_delta_workunit(metadata))
+            yield from self._create_delta_workunit(metadata)
 
-        return wu_list
-
-    # TODO: should we rewrite the metadata get to an iterator instead? less mem consumption
+        #return wu_list
 
     def _create_delta_workunit(
         self,
@@ -226,10 +225,10 @@ class DeltaLakeSource(Source):
 
         # emit workunit
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        wu = MetadataWorkUnit(id=dataset_name, mce=mce)
-        self.report.report_workunit(wu)
+        workunit = MetadataWorkUnit(id=dataset_name, mce=mce)
+        self.report.report_workunit(workunit)
 
-        return wu
+        yield workunit
 
     def _create_schema_metadata(
         self, dataset_name: str, metadata: QueryTableMetadataResponse_extended
