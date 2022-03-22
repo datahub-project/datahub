@@ -2,11 +2,15 @@ package com.linkedin.metadata.graph.neo4j;
 
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.GraphServiceTestBase;
-import com.linkedin.metadata.graph.LineageRegistry;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.graph.RelatedEntity;
+import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
+import javax.annotation.Nonnull;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.GraphDatabase;
 import org.testng.SkipException;
@@ -14,12 +18,7 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import javax.annotation.Nonnull;
-import java.util.Comparator;
-import java.util.HashSet;
-import java.util.List;
-
-import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.*;
 
 
 public class Neo4jGraphServiceTest extends GraphServiceTestBase {

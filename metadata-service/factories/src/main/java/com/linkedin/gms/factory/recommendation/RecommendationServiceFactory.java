@@ -11,6 +11,7 @@ import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.recommendation.candidatesource.DomainsCandidateSource;
 import com.linkedin.metadata.recommendation.candidatesource.MostPopularSource;
+import com.linkedin.metadata.recommendation.candidatesource.RecentlySearchedSource;
 import com.linkedin.metadata.recommendation.candidatesource.RecentlyViewedSource;
 import com.linkedin.metadata.recommendation.candidatesource.RecommendationSource;
 import com.linkedin.metadata.recommendation.candidatesource.TopPlatformsSource;
@@ -44,7 +45,7 @@ public class RecommendationServiceFactory {
 
   @Autowired
   @Qualifier("mostPopularCandidateSource")
-  private MostPopularSource mostPopularCandidateSource;
+  private MostPopularSource _mostPopularCandidateSource;
 
   @Autowired
   @Qualifier("topTagsCandidateSource")
@@ -58,14 +59,20 @@ public class RecommendationServiceFactory {
   @Qualifier("domainsCandidateSource")
   private DomainsCandidateSource domainsCandidateSource;
 
+  @Autowired
+  @Qualifier("recentlySearchedCandidateSource")
+  private RecentlySearchedSource recentlySearchedCandidateSource;
+
   @Bean
   @Nonnull
   protected RecommendationsService getInstance() {
     // TODO: Make this class-name pluggable to minimize merge conflict potential.
     // This is where you can add new recommendation modules.
-    final List<RecommendationSource> candidateSources =
-        ImmutableList.of(topPlatformsCandidateSource, domainsCandidateSource, recentlyViewedCandidateSource,
-            mostPopularCandidateSource, topTagsCandidateSource, topTermsCandidateSource);
+    final List<RecommendationSource> candidateSources = ImmutableList.of(
+        topPlatformsCandidateSource,
+        domainsCandidateSource,
+        recentlyViewedCandidateSource, _mostPopularCandidateSource,
+        topTagsCandidateSource, topTermsCandidateSource, recentlySearchedCandidateSource);
     return new RecommendationsService(candidateSources, new SimpleRecommendationRanker());
   }
 }

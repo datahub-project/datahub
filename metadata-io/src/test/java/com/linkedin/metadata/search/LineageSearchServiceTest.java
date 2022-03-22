@@ -39,13 +39,11 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
-import static com.linkedin.metadata.DockerTestUtils.checkContainerEngine;
-import static com.linkedin.metadata.ElasticSearchTestUtils.syncAfterWrite;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-import static org.testng.Assert.assertEquals;
+import static com.linkedin.metadata.DockerTestUtils.*;
+import static com.linkedin.metadata.ElasticSearchTestUtils.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
 
 
 public class LineageSearchServiceTest {
@@ -83,7 +81,7 @@ public class LineageSearchServiceTest {
     _cacheManager = new ConcurrentMapCacheManager();
     _graphService = mock(GraphService.class);
     _lineageSearchService = new LineageSearchService(
-        new SearchService(_entityRegistry, _elasticSearchService, new SimpleRanker(), _cacheManager, 100),
+        new SearchService(_entityRegistry, _elasticSearchService, new SimpleRanker(), _cacheManager, 100, true),
         _graphService, _cacheManager.getCache("test"));
   }
 

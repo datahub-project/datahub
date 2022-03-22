@@ -5,6 +5,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.metadata.models.annotation.RelationshipAnnotation;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -12,11 +13,8 @@ import java.util.List;
 import java.util.Map;
 import org.testng.annotations.Test;
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
 
 
 public class LineageRegistryTest {

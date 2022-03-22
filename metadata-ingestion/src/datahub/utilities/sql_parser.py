@@ -1,19 +1,16 @@
 import logging
+import multiprocessing
 import re
-import unittest
-import unittest.mock
+import sys
+import traceback
 from abc import ABCMeta, abstractmethod
-from typing import List, Set
+from multiprocessing import Process, Queue
+from typing import List, Optional, Tuple, Type
 
-from sqllineage.core.holders import Column, SQLLineageHolder
+from datahub.utilities.sql_lineage_parser_impl import SqlLineageSQLParserImpl
 
 try:
-    import sqlparse
-    from networkx import DiGraph
     from sql_metadata import Parser as MetadataSQLParser
-    from sqllineage.core import LineageAnalyzer
-
-    import datahub.utilities.sqllineage_patch
 except ImportError:
     pass
 
@@ -85,122 +82,67 @@ class MetadataSQLSQLParser(SQLParser):
         return ["date" if c == self._DATE_SWAP_TOKEN else c for c in filtered_cols]
 
 
-class SqlLineageSQLParser(SQLParser):
-    _DATE_SWAP_TOKEN = "__d_a_t_e"
-    _TIMESTAMP_SWAP_TOKEN = "__t_i_m_e_s_t_a_m_p"
-    _MYVIEW_SQL_TABLE_NAME_TOKEN = "__my_view__.__sql_table_name__"
-    _MYVIEW_LOOKER_TOKEN = "my_view.SQL_TABLE_NAME"
+def sql_lineage_parser_impl_func_wrapper(
+    queue: multiprocessing.Queue,
+    sql_query: str,
+) -> None:
+    """
+    The wrapper function that computes the tables and columns using the SqlLineageSQLParserImpl
+    and puts the results on the shared IPC queue. This is used to isolate SqlLineageSQLParserImpl
+    functionality in a separate process, and hence protect our sources from memory leaks originating in
+    the sqllineage module.
+    :param queue: The shared IPC queue on to which the results will be put.
+    :param sql_query: The SQL query to extract the tables & columns from.
+    :return: None.
+    """
+    exception_details: Optional[Tuple[Optional[Type[BaseException]], str]] = None
+    tables: List[str] = []
+    columns: List[str] = []
+    try:
+        parser = SqlLineageSQLParserImpl(sql_query)
+        tables = parser.get_tables()
+        columns = parser.get_columns()
+    except BaseException:
+        exc_info = sys.exc_info()
+        exc_msg: str = str(exc_info[1]) + "".join(traceback.format_tb(exc_info[2]))
+        exception_details = (exc_info[0], exc_msg)
+        logger.error(exc_msg)
+    finally:
+        queue.put((tables, columns, exception_details))
 
+
+class SqlLineageSQLParser(SQLParser):
     def __init__(self, sql_query: str) -> None:
         super().__init__(sql_query)
+        self.tables, self.columns = self._get_tables_columns_process_wrapped(sql_query)
 
-        original_sql_query = sql_query
-
-        # SqlLineageParser makes mistakes on lateral flatten queries, use the prefix
-        if "lateral flatten" in sql_query:
-            sql_query = sql_query[: sql_query.find("lateral flatten")]
-
-        # SqlLineageParser makes mistakes on columns called "date", rename them
-        sql_query = re.sub(
-            r"(\bdate\b)", rf"{self._DATE_SWAP_TOKEN}", sql_query, flags=re.IGNORECASE
+    @staticmethod
+    def _get_tables_columns_process_wrapped(
+        sql_query: str,
+    ) -> Tuple[List[str], List[str]]:
+        # Invoke sql_lineage_parser_impl_func_wrapper in a separate process to avoid
+        # memory leaks from sqllineage module used by SqlLineageSQLParserImpl. This will help
+        # shield our sources like lookml & redash, that need to parse a large number of SQL statements,
+        # from causing significant memory leaks in the datahub cli during ingestion.
+        queue: multiprocessing.Queue = Queue()
+        process: multiprocessing.Process = Process(
+            target=sql_lineage_parser_impl_func_wrapper,
+            args=(
+                queue,
+                sql_query,
+            ),
         )
-
-        # SqlLineageParser lowercarese tablenames and we need to replace Looker specific token which should be uppercased
-        sql_query = re.sub(
-            rf"(\${{{self._MYVIEW_LOOKER_TOKEN}}})",
-            rf"{self._MYVIEW_SQL_TABLE_NAME_TOKEN}",
-            sql_query,
-        )
-
-        # SqlLineageParser makes mistakes on columns called "timestamp", rename them
-        sql_query = re.sub(
-            r"(\btimestamp\b)",
-            rf"{self._TIMESTAMP_SWAP_TOKEN}",
-            sql_query,
-            flags=re.IGNORECASE,
-        )
-
-        # SqlLineageParser does not handle "encode" directives well. Remove them
-        sql_query = re.sub(r"\sencode [a-zA-Z]*", "", sql_query, flags=re.IGNORECASE)
-
-        # Replace lookml templates with the variable otherwise sqlparse can't parse ${
-        sql_query = re.sub(r"(\${)(.+)(})", r"\2", sql_query)
-        if sql_query != original_sql_query:
-            logger.debug(f"rewrote original query {original_sql_query} as {sql_query}")
-
-        self._sql = sql_query
-
-        self._stmt = [
-            s
-            for s in sqlparse.parse(
-                # first apply sqlparser formatting just to get rid of comments, which cause
-                # inconsistencies in parsing output
-                sqlparse.format(
-                    self._sql.strip(),
-                    strip_comments=True,
-                    use_space_around_operators=True,
-                ),
-            )
-            if s.token_first(skip_cm=True)
-        ]
-
-        with unittest.mock.patch(
-            "sqllineage.core.handlers.source.SourceHandler.end_of_query_cleanup",
-            datahub.utilities.sqllineage_patch.end_of_query_cleanup_patch,
-        ):
-            with unittest.mock.patch(
-                "sqllineage.core.holders.SubQueryLineageHolder.add_column_lineage",
-                datahub.utilities.sqllineage_patch.add_column_lineage_patch,
-            ):
-                self._stmt_holders = [
-                    LineageAnalyzer().analyze(stmt) for stmt in self._stmt
-                ]
-                self._sql_holder = SQLLineageHolder.of(*self._stmt_holders)
+        process.start()
+        tables, columns, exception_details = queue.get(block=True)
+        if exception_details is not None:
+            raise exception_details[0](f"Sub-process exception: {exception_details[1]}")
+        return tables, columns
 
     def get_tables(self) -> List[str]:
-        result: List[str] = list()
-        for table in self._sql_holder.source_tables:
-            table_normalized = re.sub(r"^<default>.", "", str(table))
-            result.append(str(table_normalized))
-
-        # We need to revert TOKEN replacements
-        result = ["date" if c == self._DATE_SWAP_TOKEN else c for c in result]
-        result = [
-            "timestamp" if c == self._TIMESTAMP_SWAP_TOKEN else c for c in list(result)
-        ]
-        result = [
-            self._MYVIEW_LOOKER_TOKEN if c == self._MYVIEW_SQL_TABLE_NAME_TOKEN else c
-            for c in result
-        ]
-
-        # Sort tables to make the list deterministic
-        result.sort()
-
-        return result
+        return self.tables
 
     def get_columns(self) -> List[str]:
-        graph: DiGraph = self._sql_holder.graph  # For mypy attribute checking
-        column_nodes = [n for n in graph.nodes if isinstance(n, Column)]
-        column_graph = graph.subgraph(column_nodes)
-
-        target_columns = {column for column, deg in column_graph.out_degree if deg == 0}
-
-        result: Set[str] = set()
-        for column in target_columns:
-            # Let's drop all the count(*) and similard columns which are expression actually if it does not have an alias
-            if not any(ele in column.raw_name for ele in ["*", "(", ")"]):
-                result.add(str(column.raw_name))
-
-        # Reverting back all the previously renamed words which confuses the parser
-        result = set(["date" if c == self._DATE_SWAP_TOKEN else c for c in result])
-        result = set(
-            [
-                "timestamp" if c == self._TIMESTAMP_SWAP_TOKEN else c
-                for c in list(result)
-            ]
-        )
-        # swap back renamed date column
-        return list(result)
+        return self.columns
 
 
 class DefaultSQLParser(SQLParser):

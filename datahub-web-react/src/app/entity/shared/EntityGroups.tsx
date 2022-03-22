@@ -22,7 +22,8 @@ export default function EntityGroups({ readMore, setReadMore, groupMemberRelatio
             {groupMemberRelationships?.relationships.length === 0 && <EmptyValue />}
             {!readMore &&
                 groupMemberRelationships?.relationships.slice(0, 2).map((item) => {
-                    const entityUrn = entityRegistry.getEntityUrl(EntityType.CorpGroup, item.entity.urn);
+                    if (!item?.entity?.urn) return null;
+                    const entityUrn = entityRegistry.getEntityUrl(EntityType.CorpGroup, item?.entity?.urn);
                     return (
                         <Link to={entityUrn} key={entityUrn}>
                             <Tags>
@@ -34,6 +35,7 @@ export default function EntityGroups({ readMore, setReadMore, groupMemberRelatio
             {readMore &&
                 groupMemberRelationships?.relationships.length > 2 &&
                 groupMemberRelationships?.relationships.map((item) => {
+                    if (!item?.entity?.urn) return null;
                     const entityUrn = entityRegistry.getEntityUrl(EntityType.CorpGroup, item.entity.urn);
                     return (
                         <Link to={entityUrn} key={entityUrn}>

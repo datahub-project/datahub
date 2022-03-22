@@ -32,6 +32,10 @@ ingestion:
   enabled: ${UI_INGESTION_ENABLED:true}
   defaultCliVersion: '${UI_INGESTION_DEFAULT_CLI_VERSION:0.8.26.6}'
 
+telemetry:
+  enabledCli: ${CLI_TELEMETRY_ENABLED:true}
+  enabledIngestion: ${INGESTION_REPORTING_ENABLED:false}
+
 secretService:
   encryptionKey: ${SECRET_SERVICE_ENCRYPTION_KEY:ENCRYPTION_KEY}
 
@@ -58,6 +62,7 @@ graphService:
 
 searchService:
   resultBatchSize: ${SEARCH_SERVICE_BATCH_SIZE:100}
+  enableCache: ${SEARCH_SERVICE_ENABLE_CACHE:false}
 
 recommendationService:
   mostPopular:

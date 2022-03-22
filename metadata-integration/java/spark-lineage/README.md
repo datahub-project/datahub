@@ -56,6 +56,19 @@ spark.datahub.rest.server                   https://<server URL>
 spark.datahub.rest.token                    <token>
 ```
 
+### Configuration details
+
+| Field                                           | Required | Default | Description                                                             |
+|-------------------------------------------------|----------|---------|-------------------------------------------------------------------------|
+| spark.jars.packages                              | ✅        |         | Set with latest/required version  io.acryl:datahub-spark-lineage:0.8.23 |
+| spark.extraListeners                             | ✅        |         | datahub.spark.DatahubSparkListener                                      |
+| spark.datahub.rest.server                        | ✅        |         | Datahub server url  eg:http://localhost:8080                            |
+| spark.datahub.rest.token                         |          |         | Authentication token.                         |
+| spark.datahub.metadata.pipeline.platformInstance|          |         | Pipeline level platform instance                                        |
+| spark.datahub.metadata.dataset.platformInstance|          |         | dataset level platform instance                                        |
+| spark.datahub.metadata.dataset.env              |          | PROD    | [Supported values](https://datahubproject.io/docs/graphql/enums#fabrictype). In all other cases, will fallback to PROD           |
+
+
 ## What to Expect: The Metadata Model
 
 As of current writing, the Spark agent produces metadata related to the Spark job, tasks and lineage edges to datasets.

@@ -1,11 +1,11 @@
 import logging
 import os
+import platform
 import sys
 
 import click
-import stackprinter
-
 import datahub as datahub_package
+import stackprinter
 from datahub.cli.check_cli import check
 from datahub.cli.cli_utils import DATAHUB_CONFIG_PATH, write_datahub_config
 from datahub.cli.delete_cli import delete
@@ -18,6 +18,7 @@ from datahub.cli.telemetry import telemetry as telemetry_cli
 from datahub.cli.timeline_cli import timeline
 from datahub.configuration import SensitiveError
 from datahub.telemetry import telemetry
+from datahub.utilities.server_config_util import get_gms_config
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +49,16 @@ MAX_CONTENT_WIDTH = 120
     version=datahub_package.nice_version_name(),
     prog_name=datahub_package.__package_name__,
 )
-def datahub(debug: bool) -> None:
+@click.option(
+    "-dl",
+    "--detect-memory-leaks",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Run memory leak detection.",
+)
+@click.pass_context
+def datahub(ctx: click.Context, debug: bool, detect_memory_leaks: bool) -> None:
     # Insulate 'datahub' and all child loggers from inadvertent changes to the
     # root logger by the external site packages that we import.
     # (Eg: https://github.com/reata/sqllineage/commit/2df027c77ea0a8ea4909e471dcd1ecbf4b8aeb2f#diff-30685ea717322cd1e79c33ed8d37903eea388e1750aa00833c33c0c5b89448b3R11
@@ -74,6 +84,9 @@ def datahub(debug: bool) -> None:
         datahub_logger.setLevel(logging.INFO)
     # loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
     # print(loggers)
+    # Setup the context for the memory_leak_detector decorator.
+    ctx.ensure_object(dict)
+    ctx.obj["detect_memory_leaks"] = detect_memory_leaks
 
 
 @datahub.command()
@@ -144,4 +157,11 @@ def main(**kwargs):
                 **kwargs,
             )
         )
+        logger.info(
+            f"DataHub CLI version: {datahub_package.__version__} at {datahub_package.__file__}"
+        )
+        logger.info(
+            f"Python version: {sys.version} at {sys.executable} on {platform.platform()}"
+        )
+        logger.info(f"GMS config {get_gms_config()}")
         sys.exit(1)

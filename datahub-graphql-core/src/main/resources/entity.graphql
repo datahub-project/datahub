@@ -538,7 +538,7 @@ type EntityRelationship {
     """
     Entity that is related via lineage
     """
-    entity: Entity!
+    entity: Entity
 
     """
     An AuditStamp corresponding to the last modification of this relationship
@@ -583,7 +583,7 @@ type LineageRelationship {
     """
     Entity that is related via lineage
     """
-    entity: Entity!
+    entity: Entity
 
     """
     Degree of relationship (number of hops to get to entity)
@@ -1411,12 +1411,12 @@ type ContainerProperties {
   description: String
 
   """
-  Custom properties of the Dataset
+  Custom properties of the Container
   """
   customProperties: [StringMapEntry!]
 
   """
-  Native platform URL of the dashboard
+  Native platform URL of the Container
   """
   externalUrl: String
 }
@@ -2167,34 +2167,60 @@ Note that this field will soon become deprecated due to low usage
 """
 enum OwnershipType {
     """
-    A person or group that is in charge of developing the code
+    A person or group who is responsible for technical aspects of the asset.
     """
-    DEVELOPER
+    TECHNICAL_OWNER
 
     """
-    A person or group that is owning the data
+    A person or group who is responsible for logical, or business related, aspects of the asset.
     """
-    DATAOWNER
+    BUSINESS_OWNER
+
+    """
+    A steward, expert, or delegate responsible for the asset.
+    """
+    DATA_STEWARD
+
+    """
+    No specific type associated with the owner.
+    """
+    NONE
+
+    """
+    A person or group that owns the data.
+    Deprecated! This ownership type is no longer supported. Use TECHNICAL_OWNER instead.
+    """
+    DATAOWNER @deprecated
+
+    """
+    A person or group that is in charge of developing the code
+    Deprecated! This ownership type is no longer supported. Use TECHNICAL_OWNER instead.
+    """
+    DEVELOPER @deprecated
 
     """
     A person or a group that overseas the operation, eg a DBA or SRE
+    Deprecated! This ownership type is no longer supported. Use TECHNICAL_OWNER instead.
     """
-    DELEGATE
+    DELEGATE @deprecated
 
     """
     A person, group, or service that produces or generates the data
+    Deprecated! This ownership type is no longer supported. Use TECHNICAL_OWNER instead.
     """
-    PRODUCER
-
-    """
-    A person, group, or service that consumes the data
-    """
-    CONSUMER
+    PRODUCER @deprecated
 
     """
     A person or a group that has direct business interest
+    Deprecated! Use BUSINESS_OWNER instead.
     """
-    STAKEHOLDER
+    STAKEHOLDER @deprecated
+
+    """
+    A person, group, or service that consumes the data
+    Deprecated! This ownership type is no longer supported.
+    """
+    CONSUMER @deprecated
 }
 
 """
@@ -5099,6 +5125,577 @@ input TagAssociationInput {
 """
 Entities that are able to own other entities
 """
+type SchemaFieldRef {
+  """
+  A schema field urn
+  """
+  urn: String!
+
+  """
+  A schema field path
+  """
+  path: String!
+}
+
+"""
+An event representing an event in the assertion evaluation lifecycle.
+"""
+type AssertionRunEvent implements TimeSeriesAspect {
+  """
+  The time at which the assertion was evaluated
+  """
+  timestampMillis: Long!
+
+  """
+  Urn of assertion which is evaluated
+  """
+  assertionUrn: String!
+
+  """
+  Urn of entity on which the assertion is applicable
+  """
+  asserteeUrn: String!
+
+  """
+  Native (platform-specific) identifier for this run
+  """
+  runId: String!
+
+  """
+  The status of the assertion run as per this timeseries event.
+  """
+  status: AssertionRunStatus!
+
+  """
+  Specification of the batch which this run is evaluating
+  """
+  batchSpec: BatchSpec
+
+  """
+  Information about the partition that was evaluated
+  """
+  partitionSpec: PartitionSpec
+
+  """
+  Runtime parameters of evaluation
+  """
+  runtimeContext: [StringMapEntry!]
+
+  """
+  Results of assertion, present if the status is COMPLETE
+  """
+  result: AssertionResult
+
+}
+
+"""
+The result of evaluating an assertion.
+"""
+type AssertionResult {
+    """
+    The final result, e.g. either SUCCESS or FAILURE.
+    """
+    type: AssertionResultType!
+
+    """
+    Number of rows for evaluated batch
+    """
+    rowCount: Long
+
+    """
+    Number of rows with missing value for evaluated batch
+    """
+    missingCount: Long
+
+    """
+    Number of rows with unexpected value for evaluated batch
+    """
+    unexpectedCount: Long
+
+    """
+    Observed aggregate value for evaluated batch
+    """
+    actualAggValue: Float
+
+    """
+    URL where full results are available
+    """
+    externalUrl: String
+    
+    """
+    Native results / properties of evaluation
+    """
+    nativeResults: [StringMapEntry!]
+
+}
+
+type BatchSpec {
+    """
+    The native identifier as specified by the system operating on the batch.
+    """
+    nativeBatchId: String
+
+    """
+    A query that identifies a batch of data
+    """
+    query: String
+
+    """
+    Any limit to the number of rows in the batch, if applied
+    """
+    limit: Int
+    
+    """
+    Custom properties of the Batch
+    """
+    customProperties: [StringMapEntry!]
+}
+
+"""
+The result type of an assertion, success or failure.
+"""
+enum AssertionResultType {
+    """
+    The assertion succeeded.
+    """
+    SUCCESS
+
+    """
+    The assertion failed.
+    """
+    FAILURE
+}
+
+"""
+The state of an assertion run, as defined within an Assertion Run Event.
+"""
+enum AssertionRunStatus {
+    """
+    An assertion run has completed.
+    """
+    COMPLETE
+}
+
+"""
+An "aggregation" function that can be applied to column values of a Dataset to create the input to an Assertion Operator.
+"""
+enum AssertionStdAggregation {
+    """
+    Assertion is applied on individual column value
+    """
+    IDENTITY
+
+    """
+    Assertion is applied on column mean 
+    """
+    MEAN
+
+    """
+    Assertion is applied on column median
+    """
+    MEDIAN
+
+    """
+    Assertion is applied on number of distinct values in column
+    """
+    UNIQUE_COUNT
+
+    """
+    Assertion is applied on proportion of distinct values in column
+    """
+    UNIQUE_PROPOTION
+
+    """
+    Assertion is applied on number of null values in column
+    """
+    NULL_COUNT
+
+    """
+    Assertion is applied on proportion of null values in column
+    """
+    NULL_PROPORTION
+
+    """
+    Assertion is applied on column std deviation
+    """
+    STDDEV
+
+    """
+    Assertion is applied on column min
+    """
+    MIN
+
+    """
+    Assertion is applied on column std deviation
+    """
+    MAX
+
+    """
+    Assertion is applied on column sum
+    """
+    SUM
+
+    """
+    Assertion is applied on all columns
+    """
+    COLUMNS
+
+    """
+    Assertion is applied on number of columns
+    """
+    COLUMN_COUNT
+
+    """
+    Assertion is applied on number of rows
+    """
+    ROW_COUNT
+
+    """
+    Other
+    """
+    _NATIVE_
+}
+
+"""
+A standard operator or condition that constitutes an assertion definition
+"""
+enum AssertionStdOperator {
+    """
+    Value being asserted is between min_value and max_value
+    """
+    BETWEEN
+
+    """
+    Value being asserted is less than max_value
+    """
+    LESS_THAN
+
+    """
+    Value being asserted is less than or equal to max_value
+    """
+    LESS_THAN_OR_EQUAL_TO
+
+    """
+    Value being asserted is greater than min_value
+    """
+    GREATER_THAN
+
+    """
+    Value being asserted is greater than or equal to min_value
+    """
+    GREATER_THAN_OR_EQUAL_TO
+
+    """
+    Value being asserted is equal to value
+    """
+    EQUAL_TO
+
+    """
+    Value being asserted is not null
+    """
+    NOT_NULL 
+
+    """
+    Value being asserted contains value
+    """
+    CONTAIN
+
+    """
+    Value being asserted ends with value
+    """
+    END_WITH
+
+    """
+    Value being asserted starts with value
+    """
+    START_WITH
+
+    """
+    Value being asserted is one of the array values
+    """
+    IN
+
+    """
+    Other
+    """  
+    _NATIVE_
+}
+
+
+"""
+Parameters for AssertionStdOperators
+"""
+type AssertionStdParameters {
+  """
+  The value parameter of an assertion
+  """
+  value: AssertionStdParameter
+
+  """
+  The maxValue parameter of an assertion
+  """
+  maxValue: AssertionStdParameter
+
+  """
+  The minValue parameter of an assertion
+  """
+  minValue: AssertionStdParameter
+}
+
+"""
+Parameter for AssertionStdOperator.
+"""
+type AssertionStdParameter {
+  """
+  The parameter value
+  """
+  value: String!
+
+  """
+  The type of the parameter
+  """
+  type: AssertionStdParameterType!
+}
+
+"""
+The type of an AssertionStdParameter
+"""
+enum AssertionStdParameterType {
+  STRING
+  NUMBER
+  LIST
+  SET
+  UNKNOWN
+}
+
+"""
+The scope that a Dataset-level assertion applies to.
+"""
+enum DatasetAssertionScope {
+    """
+    Assertion applies to columns of a dataset.
+    """
+    DATASET_COLUMN,
+
+    """
+    Assertion applies to rows of a dataset.
+    """
+    DATASET_ROWS,
+
+    """
+    Assertion applies to schema of a dataset.
+    """
+    DATASET_SCHEMA
+
+    """
+    The scope of an assertion is unknown.
+    """
+    UNKNOWN
+}
+
+"""
+The top-level assertion type. Currently single Dataset assertions are the only type supported.
+"""
+enum AssertionType {
+    DATASET
+}
+
+"""
+Result returned when fetching run events for an assertion.
+"""
+type AssertionRunEventsResult {
+  """
+  The total number of run events returned
+  """
+  total: Int!
+
+  """
+  The number of failed run events
+  """
+  failed: Int!
+
+  """
+  The number of succeeded run events
+  """
+  succeeded: Int!
+
+  """
+  The run events themselves
+  """
+  runEvents: [AssertionRunEvent!]!
+}
+
+"""
+A list of Assertions Associated with an Entity
+"""
+type EntityAssertionsResult {
+  """
+  The starting offset of the result set returned
+  """
+  start: Int!
+
+  """
+  The number of assertions in the returned result set
+  """
+  count: Int!
+
+  """
+  The total number of assertions in the result set
+  """
+  total: Int!
+
+  """
+  The assertions themselves
+  """
+  assertions: [Assertion!]!
+}
+
+"""
+Operational info for an entity.
+"""
+type Operation implements TimeSeriesAspect {
+    """
+    The time at which the profile was reported
+    """
+    timestampMillis: Long!
+
+    """
+    When the entity was last updated.
+    """
+    lastUpdatedTimestamp: Long!
+
+    """
+    Actor who issued this operation.
+    """
+    actor: String
+
+    """
+    Operation type of change.
+    """
+    operationType: OperationType!
+
+    """
+    How many rows were affected by this operation.
+    """
+    numAffectedRows: Long
+
+    """
+    Which other datasets were affected by this operation.
+    """
+    affectedDatasets: [String!]
+}
+
+"""
+Enum to define the operation type when an entity changes.
+"""
+enum OperationType {
+    """
+    When data is inserted.
+    """
+    INSERT
+
+    """
+    When data is updated.
+    """
+    UPDATE
+    """
+    When data is deleted.
+    """
+    DELETE
+    """
+    When data is created.
+    """
+    CREATE
+}
+
+"""
+Information about Metadata Entity deprecation status
+"""
+type Deprecation {
+    """
+    Whether the entity has been deprecated by owner
+    """
+    deprecated: Boolean!
+
+    """
+    The time user plan to decommission this entity
+    """
+    decommissionTime: Long
+
+    """
+    Additional information about the entity deprecation plan
+    """
+    note: String
+
+    """
+    The user who will be credited for modifying this deprecation content
+    """
+    actor: String
+}
+
+"""
+Input provided when updating the association between a Metadata Entity and a Glossary Term
+"""
+input TermAssociationInput {
+    """
+    The primary key of the Glossary Term to add or remove
+    """
+    termUrn: String!
+
+    """
+    The target Metadata Entity to add or remove the Glossary Term from
+    """
+    resourceUrn: String!
+
+    """
+    An optional type of a sub resource to attach the Glossary Term to
+    """
+    subResourceType: SubResourceType
+
+    """
+    An optional sub resource identifier to attach the Glossary Term to
+    """
+    subResource: String
+}
+
+"""
+A type of Metadata Entity sub resource
+"""
+enum SubResourceType {
+    """
+    A Dataset field or column
+    """
+    DATASET_FIELD
+}
+
+"""
+Input provided when updating the association between a Metadata Entity and a Tag
+"""
+input TagAssociationInput {
+    """
+    The primary key of the Tag to add or remove
+    """
+    tagUrn: String!
+
+    """
+    The target Metadata Entity to add or remove the Tag to
+    """
+    resourceUrn: String!
+
+    """
+    An optional type of a sub resource to attach the Tag to
+    """
+    subResourceType: SubResourceType
+
+    """
+    An optional sub resource identifier to attach the Tag to
+    """
+    subResource: String
+}
+
+"""
+Entities that are able to own other entities
+"""
 enum OwnerEntityType {
   """
   A corp user owner
@@ -5124,6 +5721,11 @@ input AddOwnerInput {
     The owner type, either a user or group
     """
     ownerEntityType: OwnerEntityType!
+
+    """
+    The ownership type for the new owner. If none is provided, then a new NONE will be added.
+    """
+    type: OwnershipType
 
     """
     The urn of the resource or entity to attach or remove the owner from, for example a dataset urn

@@ -1,33 +1,11 @@
 import json
 import logging
 import time
-from dataclasses import dataclass
 from datetime import timezone
 from typing import Any, Dict, List, Optional, Union
 
-from great_expectations.checkpoint.actions import ValidationAction
-from great_expectations.core.batch import Batch
-from great_expectations.core.batch_spec import (
-    RuntimeQueryBatchSpec,
-    SqlAlchemyDatasourceBatchSpec,
-)
-from great_expectations.core.expectation_validation_result import (
-    ExpectationSuiteValidationResult,
-)
-from great_expectations.data_asset.data_asset import DataAsset
-from great_expectations.data_context.data_context import DataContext
-from great_expectations.data_context.types.resource_identifiers import (
-    ExpectationSuiteIdentifier,
-    GeCloudIdentifier,
-    ValidationResultIdentifier,
-)
-from great_expectations.execution_engine.sqlalchemy_execution_engine import (
-    SqlAlchemyExecutionEngine,
-)
-from great_expectations.validator.validator import Validator
-from sqlalchemy.engine.url import make_url
-
 import datahub.emitter.mce_builder as builder
+from dataclasses import dataclass
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.source.sql.sql_common import get_platform_from_sqlalchemy_uri
@@ -50,7 +28,29 @@ from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
 from datahub.metadata.com.linkedin.pegasus2avro.common import DataPlatformInstance
 from datahub.metadata.com.linkedin.pegasus2avro.events.metadata import ChangeType
 from datahub.metadata.schema_classes import PartitionSpecClass, PartitionTypeClass
-from datahub.utilities.sql_parser import MetadataSQLSQLParser
+from datahub.utilities.sql_parser import DefaultSQLParser
+from great_expectations.checkpoint.actions import ValidationAction
+from great_expectations.core.batch import Batch
+from great_expectations.core.batch_spec import (
+    RuntimeQueryBatchSpec,
+    SqlAlchemyDatasourceBatchSpec,
+)
+from great_expectations.core.expectation_validation_result import (
+    ExpectationSuiteValidationResult,
+)
+from great_expectations.data_asset.data_asset import DataAsset
+from great_expectations.data_context.data_context import DataContext
+from great_expectations.data_context.types.resource_identifiers import (
+    ExpectationSuiteIdentifier,
+    GeCloudIdentifier,
+    ValidationResultIdentifier,
+)
+from great_expectations.execution_engine.sqlalchemy_execution_engine import (
+    SqlAlchemyExecutionEngine,
+)
+from great_expectations.validator.validator import Validator
+from sqlalchemy.engine.base import Connection, Engine
+from sqlalchemy.engine.url import make_url
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +70,7 @@ class DataHubValidationAction(ValidationAction):
         retry_status_codes: Optional[List[int]] = None,
         retry_max_times: Optional[int] = None,
         extra_headers: Optional[Dict[str, str]] = None,
+        parse_table_names_from_sql: bool = False,
     ):
         super().__init__(data_context)
         self.server_url = server_url
@@ -81,6 +82,7 @@ class DataHubValidationAction(ValidationAction):
         self.retry_status_codes = retry_status_codes
         self.retry_max_times = retry_max_times
         self.extra_headers = extra_headers
+        self.parse_table_names_from_sql = parse_table_names_from_sql
 
     def _run(
         self,
@@ -550,13 +552,20 @@ class DataHubValidationAction(ValidationAction):
                     data_asset.active_batch_definition.datasource_name
                 ),
             }
+            sqlalchemy_uri = None
+            if isinstance(data_asset.execution_engine.engine, Engine):
+                sqlalchemy_uri = data_asset.execution_engine.engine.url
+            # For snowflake sqlalchemy_execution_engine.engine is actually instance of Connection
+            elif isinstance(data_asset.execution_engine.engine, Connection):
+                sqlalchemy_uri = data_asset.execution_engine.engine.engine.url
+
             if isinstance(ge_batch_spec, SqlAlchemyDatasourceBatchSpec):
                 # e.g. ConfiguredAssetSqlDataConnector with splitter_method or sampling_method
                 schema_name = ge_batch_spec.get("schema_name")
                 table_name = ge_batch_spec.get("table_name")
 
                 dataset_urn = make_dataset_urn_from_sqlalchemy_uri(
-                    data_asset.execution_engine.engine.url,
+                    sqlalchemy_uri,
                     schema_name,
                     table_name,
                     self.env,
@@ -590,6 +599,12 @@ class DataHubValidationAction(ValidationAction):
                     }
                 )
             elif isinstance(ge_batch_spec, RuntimeQueryBatchSpec):
+                if not self.parse_table_names_from_sql:
+                    warn(
+                        "Enable parse_table_names_from_sql in DatahubValidationAction config\
+                            to try to parse the tables being asserted from SQL query"
+                    )
+                    return []
                 query = data_asset.batches[
                     batch_identifier
                 ].batch_request.runtime_parameters["query"]
@@ -602,14 +617,15 @@ class DataHubValidationAction(ValidationAction):
                     query=query,
                     customProperties=batchSpecProperties,
                 )
-                tables = MetadataSQLSQLParser(query).get_tables()
+                tables = DefaultSQLParser(query).get_tables()
                 if len(set(tables)) != 1:
                     warn(
                         "DataHubValidationAction does not support cross dataset assertions."
                     )
+                    return []
                 for table in tables:
                     dataset_urn = make_dataset_urn_from_sqlalchemy_uri(
-                        data_asset.execution_engine.engine.url,
+                        sqlalchemy_uri,
                         None,
                         table,
                         self.env,
@@ -640,7 +656,7 @@ class DataHubValidationAction(ValidationAction):
     def get_platform_instance(self, datasource_name):
         if self.platform_instance_map and datasource_name in self.platform_instance_map:
             return self.platform_instance_map[datasource_name]
-        if datasource_name:
+        if self.platform_instance_map:
             warn(
                 f"Datasource {datasource_name} is not present in platform_instance_map"
             )
@@ -680,7 +696,15 @@ def make_dataset_urn_from_sqlalchemy_uri(
                     for {data_platform}."
             )
             return None
-        schema_name = "{}.{}".format(url_instance.database, schema_name)
+        # If data platform is snowflake, we artificially lowercase the Database name.
+        # This is because DataHub also does this during ingestion.
+        # Ref: https://github.com/linkedin/datahub/blob/master/metadata-ingestion%2Fsrc%2Fdatahub%2Fingestion%2Fsource%2Fsql%2Fsnowflake.py#L272
+        schema_name = "{}.{}".format(
+            url_instance.database.lower()
+            if data_platform == "snowflake"
+            else url_instance.database,
+            schema_name,
+        )
     elif data_platform == "bigquery":
         if url_instance.host is None or url_instance.database is None:
             warn(

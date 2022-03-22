@@ -1,17 +1,16 @@
 package com.linkedin.metadata.graph.elastic;
 
 import com.linkedin.common.urn.Urn;
-
 import com.linkedin.metadata.ElasticSearchTestUtils;
 import com.linkedin.metadata.ElasticTestUtils;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.GraphServiceTestBase;
 import com.linkedin.metadata.graph.LineageDirection;
-import com.linkedin.metadata.graph.LineageRegistry;
 import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.graph.RelatedEntity;
+import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
@@ -34,10 +33,9 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
-import static com.linkedin.metadata.DockerTestUtils.checkContainerEngine;
-import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.INDEX_NAME;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static com.linkedin.metadata.DockerTestUtils.*;
+import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.*;
+import static org.testng.Assert.*;
 
 
 public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
