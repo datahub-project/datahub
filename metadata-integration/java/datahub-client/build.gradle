@@ -91,28 +91,7 @@ shadowJar {
   mergeServiceFiles()
   // we relocate namespaces manually, because we want to know exactly which libs we are exposing and why
   // we can move to automatic relocation using ConfigureShadowRelocation after we get to a good place on these first
-  relocate 'com.fasterxml.jackson', 'datahub.shaded.jackson'
-  relocate 'net.jcip.annotations', 'datahub.shaded.annotations'
-  relocate 'javassist', 'datahub.shaded.javassist'
-  relocate 'edu.umd.cs.findbugs', 'datahub.shaded.findbugs'
-  relocate 'org.antlr', 'datahub.shaded.org.antlr'
-  relocate 'antlr', 'datahub.shaded.antlr'
-  relocate 'com.google.common', 'datahub.shaded.com.google.common'
-  relocate 'org.apache.commons', 'datahub.shaded.org.apache.commons'
-  relocate 'org.reflections', 'datahub.shaded.org.reflections'
-  relocate 'st4hidden', 'datahub.shaded.st4hidden'
-  relocate 'org.stringtemplate', 'datahub.shaded.org.stringtemplate'
-  relocate 'org.abego.treelayout', 'datahub.shaded.treelayout'
-  relocate 'org.slf4j', 'datahub.shaded.slf4j'
-  relocate 'javax.annotation', 'datahub.shaded.javax.annotation'
-  relocate 'com.github.benmanes.caffeine', 'datahub.shaded.com.github.benmanes.caffeine'
-  relocate 'org.checkerframework', 'datahub.shaded.org.checkerframework'
-  relocate 'com.google.errorprone', 'datahub.shaded.com.google.errorprone'
   finalizedBy checkShadowJar
-}
-
-checkShadowJar {
-   dependsOn shadowJar
 }
 
 assemble {
