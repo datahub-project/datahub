@@ -95,7 +95,37 @@ python -c "import webbrowser; webbrowser.open('http://localhost:8080/restli/docs
 
 #### Sample API Calls
 
-#### Ingesting Entities 
+#### Ingesting Aspects
+
+To ingest individual aspects into DataHub, you can use the following CURL:
+
+```shell
+curl --location --request POST 'http://localhost:8080/aspects?action=ingestProposal' \
+--header 'X-RestLi-Protocol-Version: 2.0.0' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+  "proposal" : {
+    "entityType": "dataset",
+    "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+    "changeType" : "UPSERT",
+    "aspectName" : "datasetUsageStatistics",
+    "aspect" : {
+      "value" : "{ \"timestampMillis\":1629840771000,\"uniqueUserCount\" : 10, \"totalSqlQueries\": 20, \"fieldCounts\": [ {\"fieldPath\": \"col1\", \"count\": 20}, {\"fieldPath\" : \"col2\", \"count\": 5} ]}",
+      "contentType": "application/json"
+    }
+  }
+}'
+```
+
+Notice that you need to provide the target entity urn, the entity type, a change type (`UPSERT` + `DELETE` supported),
+the aspect name, and a JSON-serialized aspect, which corresponds to the PDL schema defined for the aspect.
+
+For more examples of serialized aspect payloads, see [bootstrap_mce.json](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/mce_files/bootstrap_mce.json).
+
+#### Ingesting Entities (Legacy)
+
+> Note - we are deprecating support for ingesting Entities via Snapshots. Please see **Ingesting Aspects** above for the latest
+> guidance around ingesting metadata into DataHub without defining or changing the legacy snapshot models. (e.g. using ConfigEntityRegistry)
 
 The Entity Snapshot Ingest endpoints allow you to ingest multiple aspects about a particular entity at the same time. 
 
@@ -436,7 +466,306 @@ curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
 To issue a hard delete or soft-delete, or undo a particular ingestion run, you can use the [DataHub CLI](../docs/how/delete-metadata.md). 
 
 
-#### Retrieving Entities
+#### Retrieving Entity Aspects
+
+Simply curl the `entitiesV2` endpoint of GMS:
+
+```
+curl  'http://localhost:8080/entitiesV2/<url-encoded-entity-urn>'
+```
+
+For example, to retrieve the latest aspects associated with the "SampleHdfsDataset" `Dataset`: 
+
+```
+curl --header 'X-RestLi-Protocol-Version: 2.0.0' 'http://localhost:8080/entitiesV2/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahdfs%2CSampleHdfsDataset%2CPROD%29'
+```
+
+**Example Response**
+
+```json
+{
+   "urn":"urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)",
+   "aspects":{
+      "editableSchemaMetadata":{
+         "name":"editableSchemaMetadata",
+         "version":0,
+         "value":{
+            "created":{
+               "actor":"urn:li:corpuser:jdoe",
+               "time":1581407189000
+            },
+            "editableSchemaFieldInfo":[
+               {
+                  "fieldPath":"shipment_info",
+                  "globalTags":{
+                     "tags":[
+                        {
+                           "tag":"urn:li:tag:Legacy"
+                        }
+                     ]
+                  }
+               }
+            ],
+            "lastModified":{
+               "actor":"urn:li:corpuser:jdoe",
+               "time":1581407189000
+            }
+         },
+         "created":{
+            "actor":"urn:li:corpuser:UNKNOWN",
+            "time":1646245614843
+         }
+      },
+      "browsePaths":{
+         "name":"browsePaths",
+         "version":0,
+         "value":{
+            "paths":[
+               "/prod/hdfs/SampleHdfsDataset"
+            ]
+         },
+         "created":{
+            "actor":"urn:li:corpuser:UNKNOWN",
+            "time":1646245614843
+         }
+      },
+      "datasetKey":{
+         "name":"datasetKey",
+         "version":0,
+         "value":{
+            "name":"SampleHdfsDataset",
+            "platform":"urn:li:dataPlatform:hdfs",
+            "origin":"PROD"
+         },
+         "created":{
+            "actor":"urn:li:corpuser:UNKNOWN",
+            "time":1646245614843
+         }
+      },
+      "ownership":{
+         "name":"ownership",
+         "version":0,
+         "value":{
+            "owners":[
+               {
+                  "owner":"urn:li:corpuser:jdoe",
+                  "type":"DATAOWNER"
+               },
+               {
+                  "owner":"urn:li:corpuser:datahub",
+                  "type":"DATAOWNER"
+               }
+            ],
+            "lastModified":{
+               "actor":"urn:li:corpuser:jdoe",
+               "time":1581407189000
+            }
+         },
+         "created":{
+            "actor":"urn:li:corpuser:UNKNOWN",
+            "time":1646245614843
+         }
+      },
+      "dataPlatformInstance":{
+         "name":"dataPlatformInstance",
+         "version":0,
+         "value":{
+            "platform":"urn:li:dataPlatform:hdfs"
+         },
+         "created":{
+            "actor":"urn:li:corpuser:UNKNOWN",
+            "time":1646245614843
+         }
+      },
+      "institutionalMemory":{
+         "name":"institutionalMemory",
+         "version":0,
+         "value":{
+            "elements":[
+               {
+                  "createStamp":{
+                     "actor":"urn:li:corpuser:jdoe",
+                     "time":1581407189000
+                  },
+                  "description":"Sample doc",
+                  "url":"https://www.linkedin.com"
+               }
+            ]
+         },
+         "created":{
+            "actor":"urn:li:corpuser:UNKNOWN",
+            "time":1646245614843
+         }
+      },
+      "schemaMetadata":{
+         "name":"schemaMetadata",
+         "version":0,
+         "value":{
+            "created":{
+               "actor":"urn:li:corpuser:jdoe",
+               "time":1581407189000
+            },
+            "platformSchema":{
+               "com.linkedin.schema.KafkaSchema":{
+                  "documentSchema":"{\"type\":\"record\",\"name\":\"SampleHdfsSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample HDFS dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}"
+               }
+            },
+            "lastModified":{
+               "actor":"urn:li:corpuser:jdoe",
+               "time":1581407189000
+            },
+            "schemaName":"SampleHdfsSchema",
+            "fields":[
+               {
+                  "nullable":false,
+                  "fieldPath":"shipment_info",
+                  "description":"Shipment info description",
+                  "isPartOfKey":false,
+                  "type":{
+                     "type":{
+                        "com.linkedin.schema.RecordType":{
+                           
+                        }
+                     }
+                  },
+                  "nativeDataType":"varchar(100)",
+                  "recursive":false
+               },
+               {
+                  "nullable":false,
+                  "fieldPath":"shipment_info.date",
+                  "description":"Shipment info date description",
+                  "isPartOfKey":false,
+                  "type":{
+                     "type":{
+                        "com.linkedin.schema.DateType":{
+                           
+                        }
+                     }
+                  },
+                  "nativeDataType":"Date",
+                  "recursive":false
+               },
+               {
+                  "nullable":false,
+                  "fieldPath":"shipment_info.target",
+                  "description":"Shipment info target description",
+                  "isPartOfKey":false,
+                  "type":{
+                     "type":{
+                        "com.linkedin.schema.StringType":{
+                           
+                        }
+                     }
+                  },
+                  "nativeDataType":"text",
+                  "recursive":false
+               },
+               {
+                  "nullable":false,
+                  "fieldPath":"shipment_info.destination",
+                  "description":"Shipment info destination description",
+                  "isPartOfKey":false,
+                  "type":{
+                     "type":{
+                        "com.linkedin.schema.StringType":{
+                           
+                        }
+                     }
+                  },
+                  "nativeDataType":"varchar(100)",
+                  "recursive":false
+               },
+               {
+                  "nullable":false,
+                  "fieldPath":"shipment_info.geo_info",
+                  "description":"Shipment info geo_info description",
+                  "isPartOfKey":false,
+                  "type":{
+                     "type":{
+                        "com.linkedin.schema.RecordType":{
+                           
+                        }
+                     }
+                  },
+                  "nativeDataType":"varchar(100)",
+                  "recursive":false
+               },
+               {
+                  "nullable":false,
+                  "fieldPath":"shipment_info.geo_info.lat",
+                  "description":"Shipment info geo_info lat",
+                  "isPartOfKey":false,
+                  "type":{
+                     "type":{
+                        "com.linkedin.schema.NumberType":{
+                           
+                        }
+                     }
+                  },
+                  "nativeDataType":"float",
+                  "recursive":false
+               },
+               {
+                  "nullable":false,
+                  "fieldPath":"shipment_info.geo_info.lng",
+                  "description":"Shipment info geo_info lng",
+                  "isPartOfKey":false,
+                  "type":{
+                     "type":{
+                        "com.linkedin.schema.NumberType":{
+                           
+                        }
+                     }
+                  },
+                  "nativeDataType":"float",
+                  "recursive":false
+               }
+            ],
+            "version":0,
+            "hash":"",
+            "platform":"urn:li:dataPlatform:hdfs"
+         },
+         "created":{
+            "actor":"urn:li:corpuser:UNKNOWN",
+            "time":1646245614843
+         }
+      },
+      "upstreamLineage":{
+         "name":"upstreamLineage",
+         "version":0,
+         "value":{
+            "upstreams":[
+               {
+                  "auditStamp":{
+                     "actor":"urn:li:corpuser:jdoe",
+                     "time":1581407189000
+                  },
+                  "type":"TRANSFORMED",
+                  "dataset":"urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"
+               }
+            ]
+         },
+         "created":{
+            "actor":"urn:li:corpuser:UNKNOWN",
+            "time":1646245614843
+         }
+      }
+   },
+   "entityName":"dataset"
+}
+```
+
+You can also optionally limit to specific aspects using the `aspects` query parameter:
+
+```
+curl  'http://localhost:8080/entitiesV2/<url-encoded-entity-urn>?aspects=List(upstreamLineage)'
+```
+
+#### Retrieving Entities (Legacy)
+
+> Note that this method of retrieving entities is deprecated, as it uses the legacy Snapshot models. Please refer to the **Retriving Entity Aspects** section above for the
+> latest guidance. 
 
 The Entity Snapshot Get APIs allow to retrieve the latest version of each aspect associated with an Entity. 
 

@@ -35,6 +35,9 @@ const findSuggestions = ({ query, type }: AutoCompleteInput): AutoCompleteResult
                 suggestions: results.map((r) => {
                     return r.name;
                 }),
+                entities: results.map((r) => {
+                    return r;
+                }),
                 __typename: 'AutoCompleteResultForEntity',
             },
         ];
@@ -50,6 +53,7 @@ const findSuggestions = ({ query, type }: AutoCompleteInput): AutoCompleteResult
                   suggestions: datasetResults.map((r) => {
                       return (r.entity as Dataset).name;
                   }),
+                  entities: [],
                   __typename: 'AutoCompleteResultForEntity',
               }
             : null;
@@ -62,6 +66,9 @@ const findSuggestions = ({ query, type }: AutoCompleteInput): AutoCompleteResult
                   type: EntityType.Dashboard,
                   suggestions: dashboardResults.map((r) => {
                       return (r.entity as Dashboard).info?.name || '';
+                  }),
+                  entities: dashboardResults.map((r) => {
+                      return r.entity;
                   }),
                   __typename: 'AutoCompleteResultForEntity',
               }
@@ -76,6 +83,9 @@ const findSuggestions = ({ query, type }: AutoCompleteInput): AutoCompleteResult
                   suggestions: chartResults.map((r) => {
                       return (r.entity as Chart).info?.name || '';
                   }),
+                  entities: chartResults.map((r) => {
+                      return r.entity;
+                  }),
                   __typename: 'AutoCompleteResultForEntity',
               }
             : null;
@@ -88,6 +98,9 @@ const findSuggestions = ({ query, type }: AutoCompleteInput): AutoCompleteResult
                   type: EntityType.DataFlow,
                   suggestions: dataFlowResults.map((r) => {
                       return (r.entity as DataFlow).info?.name || '';
+                  }),
+                  entities: dataFlowResults.map((r) => {
+                      return r.entity;
                   }),
                   __typename: 'AutoCompleteResultForEntity',
               }
@@ -102,6 +115,9 @@ const findSuggestions = ({ query, type }: AutoCompleteInput): AutoCompleteResult
                   suggestions: dataJobResults.map((r) => {
                       return (r.entity as DataJob).info?.name || '';
                   }),
+                  entities: dataJobResults.map((r) => {
+                      return r.entity;
+                  }),
                   __typename: 'AutoCompleteResultForEntity',
               }
             : null;
@@ -114,6 +130,9 @@ const findSuggestions = ({ query, type }: AutoCompleteInput): AutoCompleteResult
                   type: EntityType.CorpUser,
                   suggestions: userResults.map((r) => {
                       return (r.entity as CorpUser).info?.fullName || '';
+                  }),
+                  entities: userResults.map((r) => {
+                      return r.entity;
                   }),
                   __typename: 'AutoCompleteResultForEntity',
               }

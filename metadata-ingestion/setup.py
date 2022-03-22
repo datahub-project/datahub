@@ -23,7 +23,7 @@ def get_long_description():
 base_requirements = {
     # Compatability.
     "dataclasses>=0.6; python_version < '3.7'",
-    "typing_extensions>=3.10.0.2,<4",
+    "typing_extensions>=3.10.0.2",
     "mypy_extensions>=0.4.3",
     # Actual dependencies.
     "typing-inspect",
@@ -51,7 +51,8 @@ framework_common = {
     # Markupsafe breaking change broke Jinja and some other libs
     # Pinning it to a version which works even though we are not using explicitly
     # https://github.com/aws/aws-sam-cli/issues/3661
-    "markupsafe==2.0.1",
+    # Airflow compatibility: https://github.com/apache/airflow/blob/2.2.2/setup.cfg#L125
+    "markupsafe>=1.1.1,<=2.0.1",
     "Deprecated",
     "types-Deprecated",
 }
@@ -84,7 +85,7 @@ aws_common = {
 
 looker_common = {
     # Looker Python SDK
-    "looker-sdk==21.6.0"
+    "looker-sdk==22.2.1"
 }
 
 bigquery_common = {
@@ -101,9 +102,7 @@ snowflake_common = {
     "cryptography",
 }
 
-microsoft_common = {
-    "msal==1.16.0"
-}
+microsoft_common = {"msal==1.16.0"}
 
 data_lake_base = {
     *aws_common,
@@ -129,6 +128,7 @@ plugins: Dict[str, Set[str]] = {
     "airflow": {
         "apache-airflow >= 1.10.2",
     },
+    "great-expectations": sql_common | {"sqllineage==1.3.3"},
     # Source plugins
     # PyAthena is pinned with exact version because we use private method in PyAthena
     "athena": sql_common | {"PyAthena[SQLAlchemy]==2.4.1"},
@@ -187,7 +187,7 @@ plugins: Dict[str, Set[str]] = {
     "trino": sql_common | {"trino"},
     "starburst-trino-usage": sql_common | {"trino"},
     "nifi": {"requests", "packaging"},
-    "powerbi": {"orderedset"} | microsoft_common
+    "powerbi": {"orderedset"} | microsoft_common,
 }
 
 all_exclude_plugins: Set[str] = {
@@ -212,6 +212,8 @@ mypy_stubs = {
     "types-click==0.1.12",
     "boto3-stubs[s3,glue,sagemaker]",
     "types-tabulate",
+    # avrogen package requires this
+    "types-pytz",
 }
 
 base_dev_requirements = {
@@ -388,8 +390,8 @@ setuptools.setup(
     url="https://datahubproject.io/",
     project_urls={
         "Documentation": "https://datahubproject.io/docs/",
-        "Source": "https://github.com/linkedin/datahub",
-        "Changelog": "https://github.com/linkedin/datahub/releases",
+        "Source": "https://github.com/datahub-project/datahub",
+        "Changelog": "https://github.com/datahub-project/datahub/releases",
     },
     license="Apache License 2.0",
     description="A CLI to work with DataHub metadata",
@@ -417,8 +419,7 @@ setuptools.setup(
     ],
     # Package info.
     zip_safe=False,
-    # restrict python to <=3.9.9 due to https://github.com/looker-open-source/sdk-codegen/issues/944
-    python_requires=">=3.6, <=3.9.9",
+    python_requires=">=3.6",
     package_dir={"": "src"},
     packages=setuptools.find_namespace_packages(where="./src"),
     package_data={

@@ -1,0 +1,21 @@
+namespace com.linkedin.assertion
+
+/**
+ * Parameters for AssertionStdOperators.
+ */
+record AssertionStdParameters {
+  /**
+   * The value parameter of an assertion
+   */
+  value: optional AssertionStdParameter
+
+  /**
+   * The maxValue parameter of an assertion
+   */
+  maxValue: optional AssertionStdParameter
+
+  /**
+   * The minValue parameter of an assertion
+   */
+  minValue: optional AssertionStdParameter
+}

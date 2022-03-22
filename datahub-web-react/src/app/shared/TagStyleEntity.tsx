@@ -308,7 +308,9 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
                     <ColorPicker>
                         <ColorPickerButton style={{ backgroundColor: colorValue }} onClick={handlePickerClick} />
                     </ColorPicker>
-                    <TitleText>{data?.tag?.properties?.name}</TitleText>
+                    <TitleText>
+                        {(data?.tag && entityRegistry.getDisplayName(EntityType.Tag, data?.tag)) || ''}
+                    </TitleText>
                 </TagName>
                 {displayColorPicker && (
                     <ColorPickerPopOver ref={colorPickerRef}>
@@ -375,7 +377,7 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
                     <StatsLabel>Owners</StatsLabel>
                     <div>
                         {data?.tag?.ownership?.owners?.map((owner) => (
-                            <ExpandedOwner entityUrn={urn} owner={owner} refetch={refetch} />
+                            <ExpandedOwner entityUrn={urn} owner={owner} refetch={refetch} hidePopOver />
                         ))}
                         {ownersEmpty && (
                             <Typography.Paragraph type="secondary">
@@ -393,13 +395,14 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
                     </div>
                     <div>
                         <AddOwnerModal
+                            hideOwnerType
                             visible={showAddModal}
                             refetch={refetch}
                             onClose={() => {
                                 setShowAddModal(false);
                             }}
                             urn={urn}
-                            entityType={EntityType.Tag}
+                            type={EntityType.Tag}
                         />
                     </div>
                 </div>

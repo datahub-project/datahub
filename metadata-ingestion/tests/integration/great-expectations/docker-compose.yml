@@ -1,0 +1,13 @@
+version: "3"
+
+services:
+  ge_postgres:
+    image: postgres:alpine
+    container_name: "ge_postgres"
+    environment:
+      POSTGRES_PASSWORD: datahub
+    volumes:  
+      - ./setup/data:/mnt/data
+      - ./setup/setup.sql:/docker-entrypoint-initdb.d/setup.sql
+    ports:
+      - "5432:5432"

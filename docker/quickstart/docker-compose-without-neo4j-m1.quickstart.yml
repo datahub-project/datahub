@@ -34,6 +34,7 @@ services:
       - KAFKA_PROPERTIES_SECURITY_PROTOCOL=PLAINTEXT
     hostname: actions
     image: public.ecr.aws/datahub/acryl-datahub-actions:${ACTIONS_VERSION:-head}
+    restart: on-failure:5
   datahub-frontend-react:
     container_name: datahub-frontend-react
     depends_on:
@@ -55,6 +56,8 @@ services:
     image: linkedin/datahub-frontend-react:${DATAHUB_VERSION:-head}
     ports:
     - 9002:9002
+    volumes:
+      - ${HOME}/.datahub/plugins:/etc/datahub/plugins
   datahub-gms:
     container_name: datahub-gms
     depends_on:
