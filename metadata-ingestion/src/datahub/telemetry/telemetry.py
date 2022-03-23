@@ -201,7 +201,7 @@ def with_telemetry(func: Callable[..., T]) -> Callable[..., T]:
         # so we need to catch them here.
         except SystemExit as e:
             # Forward successful exits
-            if e.code == 0:
+            if e.code == 0 or e.code is None:
                 telemetry_instance.ping(
                     "function-call",
                     {
@@ -209,7 +209,6 @@ def with_telemetry(func: Callable[..., T]) -> Callable[..., T]:
                         "status": "completed",
                     },
                 )
-                sys.exit(0)
             # Report failed exits
             else:
                 telemetry_instance.ping(
@@ -220,14 +219,14 @@ def with_telemetry(func: Callable[..., T]) -> Callable[..., T]:
                         "error": get_full_class_name(e),
                     },
                 )
-                sys.exit(e.code)
+            raise e
         # Catch SIGINTs
-        except KeyboardInterrupt:
+        except KeyboardInterrupt as e:
             telemetry_instance.ping(
                 "function-call",
                 {"function": function, "status": "cancelled"},
             )
-            sys.exit(0)
+            raise e
 
         # Catch general exceptions
         except Exception as e:
