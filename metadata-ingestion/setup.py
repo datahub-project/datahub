@@ -51,7 +51,8 @@ framework_common = {
     # Markupsafe breaking change broke Jinja and some other libs
     # Pinning it to a version which works even though we are not using explicitly
     # https://github.com/aws/aws-sam-cli/issues/3661
-    "markupsafe==2.0.1",
+    # Airflow compatibility: https://github.com/apache/airflow/blob/2.2.2/setup.cfg#L125
+    "markupsafe>=1.1.1,<=2.0.1",
     "Deprecated",
     "types-Deprecated",
 }
@@ -70,7 +71,7 @@ sql_common = {
     # Required for all SQL sources.
     "sqlalchemy==1.3.24",
     # Required for SQL profiling.
-    "great-expectations>=0.13.40",
+    "great-expectations>=0.14.11",
     "greenlet",
 }
 
@@ -132,7 +133,7 @@ plugins: Dict[str, Set[str]] = {
     # PyAthena is pinned with exact version because we use private method in PyAthena
     "athena": sql_common | {"PyAthena[SQLAlchemy]==2.4.1"},
     "azure-ad": set(),
-    "bigquery": sql_common | bigquery_common | {"pybigquery >= 0.6.0"},
+    "bigquery": sql_common | bigquery_common | {"sqlalchemy-bigquery>=1.4.1"},
     "bigquery-usage": bigquery_common | {"cachetools"},
     "clickhouse": sql_common | {"clickhouse-sqlalchemy==0.1.8"},
     "clickhouse-usage": sql_common | {"clickhouse-sqlalchemy==0.1.8"},
@@ -150,9 +151,11 @@ plugins: Dict[str, Set[str]] = {
     "glue": aws_common,
     "hive": sql_common
     | {
-        # Acryl Data maintains a fork of PyHive, which adds support for table comments
-        # and column comments, and also releases HTTP and HTTPS transport schemes.
-        "acryl-pyhive[hive]>=0.6.11"
+        # Acryl Data maintains a fork of PyHive
+        # - 0.6.11 adds support for table comments and column comments,
+        #   and also releases HTTP and HTTPS transport schemes
+        # - 0.6.12 adds support for Spark Thrift Server
+        "acryl-pyhive[hive]>=0.6.12"
     },
     "kafka": kafka_common,
     "kafka-connect": sql_common | {"requests", "JPype1"},
@@ -225,7 +228,7 @@ base_dev_requirements = {
     "flake8>=3.8.3",
     "flake8-tidy-imports>=4.3.0",
     "isort>=5.7.0",
-    "mypy>=0.920,<0.940",
+    "mypy>=0.920",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
     "pydantic>=1.9.0",
@@ -389,8 +392,8 @@ setuptools.setup(
     url="https://datahubproject.io/",
     project_urls={
         "Documentation": "https://datahubproject.io/docs/",
-        "Source": "https://github.com/linkedin/datahub",
-        "Changelog": "https://github.com/linkedin/datahub/releases",
+        "Source": "https://github.com/datahub-project/datahub",
+        "Changelog": "https://github.com/datahub-project/datahub/releases",
     },
     license="Apache License 2.0",
     description="A CLI to work with DataHub metadata",

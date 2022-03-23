@@ -67,8 +67,7 @@ LEFT JOIN
 LEFT JOIN
     snowflake.account_usage.users users
     ON access_history.user_name = users.name
-WHERE   ARRAY_SIZE(base_objects_accessed) > 0
-    AND query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
+WHERE   query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
     AND query_start_time < to_timestamp_ltz({end_time_millis}, 3)
 ORDER BY query_start_time DESC
 ;
@@ -296,20 +295,28 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
                 min(query_start_time) as min_time,
                 max(query_start_time) as max_time
             from snowflake.account_usage.access_history
-            where ARRAY_SIZE(base_objects_accessed) > 0
         """
         with PerfTimer() as timer:
-            for db_row in engine.execute(query):
-                self.report.min_access_history_time = db_row[0].astimezone(
-                    tz=timezone.utc
-                )
-                self.report.max_access_history_time = db_row[1].astimezone(
-                    tz=timezone.utc
-                )
-                self.report.access_history_range_query_secs = round(
-                    timer.elapsed_seconds(), 2
-                )
-                break
+            try:
+                for db_row in engine.execute(query):
+                    if len(db_row) < 2 or db_row[0] is None or db_row[1] is None:
+                        self.warn(
+                            logger,
+                            "check-usage-data",
+                            f"Missing data for access_history {db_row} - Check if using Enterprise edition of Snowflake",
+                        )
+                        continue
+                    self.report.min_access_history_time = db_row[0].astimezone(
+                        tz=timezone.utc
+                    )
+                    self.report.max_access_history_time = db_row[1].astimezone(
+                        tz=timezone.utc
+                    )
+                    self.report.access_history_range_query_secs = round(
+                        timer.elapsed_seconds(), 2
+                    )
+            except Exception as e:
+                self.error(logger, "check-usage-data", f"Error was {e}")
 
     def _is_unsupported_object_accessed(self, obj: Dict[str, Any]) -> bool:
         unsupported_keys = ["locations"]

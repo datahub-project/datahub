@@ -38,10 +38,13 @@ public class SearchServiceFactory {
   @Value("${searchService.resultBatchSize}")
   private Integer batchSize;
 
+  @Value("${searchService.enableCache}")
+  private Boolean enableCache;
+
   @Bean(name = "searchService")
   @Primary
   @Nonnull
   protected SearchService getInstance() {
-    return new SearchService(entityRegistry, entitySearchService, searchRanker, cacheManager, batchSize);
+    return new SearchService(entityRegistry, entitySearchService, searchRanker, cacheManager, batchSize, enableCache);
   }
 }

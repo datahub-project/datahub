@@ -78,7 +78,7 @@ public class ElasticSearchSystemMetadataServiceTest {
 
     syncAfterWrite(_searchClient, _indexName);
 
-    List<IngestionRunSummary> runs = _client.listRuns(0, 20);
+    List<IngestionRunSummary> runs = _client.listRuns(0, 20, false);
 
     assertEquals(runs.size(), 2);
     assertEquals(runs.get(0).getRows(), Long.valueOf(2));
@@ -107,7 +107,7 @@ public class ElasticSearchSystemMetadataServiceTest {
 
     syncAfterWrite(_searchClient, _indexName);
 
-    List<IngestionRunSummary> runs = _client.listRuns(0, 20);
+    List<IngestionRunSummary> runs = _client.listRuns(0, 20, false);
 
     assertEquals(runs.size(), 2);
     assertEquals(runs.get(0).getRows(), Long.valueOf(4));
@@ -136,7 +136,7 @@ public class ElasticSearchSystemMetadataServiceTest {
 
     syncAfterWrite(_searchClient, _indexName);
 
-    List<AspectRowSummary> rows = _client.findByRunId("abc-456");
+    List<AspectRowSummary> rows = _client.findByRunId("abc-456", false);
 
     assertEquals(rows.size(), 4);
     rows.forEach(row -> assertEquals(row.getRunId(), "abc-456"));
@@ -168,7 +168,7 @@ public class ElasticSearchSystemMetadataServiceTest {
 
     syncAfterWrite(_searchClient, _indexName);
 
-    List<AspectRowSummary> rows = _client.findByRunId("abc-456");
+    List<AspectRowSummary> rows = _client.findByRunId("abc-456", false);
 
     assertEquals(rows.size(), 2);
     rows.forEach(row -> assertEquals(row.getRunId(), "abc-456"));
@@ -180,7 +180,7 @@ public class ElasticSearchSystemMetadataServiceTest {
 
     syncAfterWrite(_searchClient, _indexName);
 
-    List<IngestionRunSummary> runs = _client.listRuns(0, 20);
+    List<IngestionRunSummary> runs = _client.listRuns(0, 20, false);
 
     assertEquals(runs.size(), 0);
   }
