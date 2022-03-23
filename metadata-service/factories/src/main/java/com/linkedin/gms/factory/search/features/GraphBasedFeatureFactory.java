@@ -18,7 +18,7 @@ public class GraphBasedFeatureFactory {
 
   @Bean(name = "graphBasedFeature")
   @Nonnull
-  protected [GraphBasedFeature getInstance() {
+  protected GraphBasedFeature getInstance() {
     return new GraphBasedFeature(graphService);
   }
 }
