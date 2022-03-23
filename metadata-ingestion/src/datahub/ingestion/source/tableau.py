@@ -5,16 +5,8 @@ from datetime import datetime
 from functools import lru_cache
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
-import dateutil.parser as dp
-from pydantic import validator
-from tableauserverclient import (
-    PersonalAccessTokenAuth,
-    Server,
-    ServerResponseError,
-    TableauAuth,
-)
-
 import datahub.emitter.mce_builder as builder
+import dateutil.parser as dp
 from datahub.configuration.common import ConfigModel, ConfigurationError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
@@ -74,6 +66,13 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 from datahub.utilities import config_clean
+from pydantic import validator
+from tableauserverclient import (
+    PersonalAccessTokenAuth,
+    Server,
+    ServerResponseError,
+    TableauAuth,
+)
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -673,7 +672,26 @@ class TableauSource(Source):
 
             yield self.get_metadata_change_event(dataset_snapshot)
 
+    # Older tableau versions do not support fetching sheet's upstreamDatasources,
+    # This achieves the same effect by using datasource's downstreamSheets
+    def get_sheetwise_upstream_datasources(self, workbook: dict) -> dict:
+        sheet_upstream_datasources: dict = {}
+
+        for embedded_ds in workbook.get("embeddedDatasources", []):
+            for sheet in embedded_ds.get("downstreamSheets", []):
+                if sheet.get("id") not in sheet_upstream_datasources:
+                    sheet_upstream_datasources[sheet.get("id")] = set()
+                sheet_upstream_datasources[sheet.get("id")].add(embedded_ds.get("id"))
+
+        for published_ds in workbook.get("upstreamDatasources", []):
+            for sheet in published_ds.get("downstreamSheets", []):
+                if sheet.get("id") not in sheet_upstream_datasources:
+                    sheet_upstream_datasources[sheet.get("id")] = set()
+                sheet_upstream_datasources[sheet.get("id")].add(published_ds.get("id"))
+        return sheet_upstream_datasources
+
     def emit_sheets_as_charts(self, workbook: Dict) -> Iterable[MetadataWorkUnit]:
+        sheet_upstream_datasources = self.get_sheetwise_upstream_datasources(workbook)
         for sheet in workbook.get("sheets", []):
             chart_snapshot = ChartSnapshot(
                 urn=builder.make_chart_urn(self.platform, sheet.get("id")),
@@ -708,9 +726,9 @@ class TableauSource(Source):
 
             # datasource urn
             datasource_urn = []
-            data_sources = sheet.get("upstreamDatasources", [])
-            for datasource in data_sources:
-                ds_id = datasource.get("id")
+            data_sources = sheet_upstream_datasources.get(sheet.get("id"), set())
+
+            for ds_id in data_sources:
                 if ds_id is None or not ds_id:
                     continue
                 ds_urn = builder.make_dataset_urn(self.platform, ds_id, self.config.env)
@@ -724,7 +742,7 @@ class TableauSource(Source):
                 title=sheet.get("name", ""),
                 lastModified=last_modified,
                 externalUrl=sheet_external_url,
-                inputs=datasource_urn,
+                inputs=sorted(datasource_urn),
                 customProperties=fields,
             )
             chart_snapshot.aspects.append(chart_info)

@@ -6,6 +6,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.RecordDataSchema;
@@ -14,6 +15,7 @@ import com.linkedin.data.template.JacksonDataTemplateCodec;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.EntityService;
@@ -26,8 +28,10 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
+import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
@@ -72,8 +76,9 @@ public class EbeanEntityService extends EntityService {
     _entityDao = entityDao;
   }
 
-  @Nonnull Map<String, EbeanAspectV2> getLatestEbeanAspectForUrn(@Nonnull final Urn urn,
-    @Nonnull final Set<String> aspectNames) {
+  @Nonnull
+  Map<String, EbeanAspectV2> getLatestEbeanAspectForUrn(@Nonnull final Urn urn,
+                                                        @Nonnull final Set<String> aspectNames) {
       Set<Urn> urns = new HashSet<>();
       urns.add(urn);
 
@@ -469,11 +474,14 @@ public class EbeanEntityService extends EntityService {
   }
 
   @Nullable
-  public RollbackResult deleteAspect(String urn, String aspectName, Map<String, String> conditions) {
+  public RollbackResult deleteAspect(String urn, String aspectName, Map<String, String> conditions, boolean hardDelete) {
     // Validate pre-conditions before running queries
+    Urn entityUrn;
+    EntitySpec entitySpec;
     try {
-      String entityName = PegasusUtils.urnToEntityName(Urn.createFromString(urn));
-      EntitySpec entitySpec = getEntityRegistry().getEntitySpec(entityName);
+      entityUrn = Urn.createFromString(urn);
+      String entityName = PegasusUtils.urnToEntityName(entityUrn);
+      entitySpec = getEntityRegistry().getEntitySpec(entityName);
       Preconditions.checkState(entitySpec != null, String.format("Could not find entity definition for %s", entityName));
       Preconditions.checkState(entitySpec.hasAspect(aspectName), String.format("Could not find aspect %s in definition for %s", aspectName, entityName));
     } catch (URISyntaxException uriSyntaxException) {
@@ -543,8 +551,18 @@ public class EbeanEntityService extends EntityService {
         _entityDao.deleteAspect(survivingAspect);
       } else {
         if (isKeyAspect) {
-          // If this is the key aspect, delete the entity entirely.
-          additionalRowsDeleted = _entityDao.deleteUrn(urn);
+          if (hardDelete) {
+            // If this is the key aspect, delete the entity entirely.
+            additionalRowsDeleted = _entityDao.deleteUrn(urn);
+          } else if (entitySpec.hasAspect(Constants.STATUS_ASPECT_NAME)) {
+            // soft delete by setting status.removed=true (if applicable)
+            final Status statusAspect = new Status();
+            statusAspect.setRemoved(true);
+            final SystemMetadata systemMetadata = SystemMetadataUtils.createDefaultSystemMetadata();
+            final AuditStamp auditStamp = AuditStampUtils.createDefaultAuditStamp();
+
+            this.ingestAspect(entityUrn, Constants.STATUS_ASPECT_NAME, statusAspect, auditStamp, systemMetadata);
+          }
         } else {
           // Else, only delete the specific aspect.
           _entityDao.deleteAspect(latest);
@@ -562,6 +580,10 @@ public class EbeanEntityService extends EntityService {
                 survivingAspect.getKey().getAspect(), previousMetadata, getEntityRegistry());
 
         final Urn urnObj = Urn.createFromString(urn);
+        // We are not deleting key aspect if hardDelete has not been set so do not return a rollback result
+        if (isKeyAspect && !hardDelete) {
+          return null;
+        }
         return new RollbackResult(urnObj, urnObj.getEntityType(), latest.getAspect(), latestValue,
             previousValue == null ? latestValue : previousValue, latestSystemMetadata,
             previousValue == null ? null : parseSystemMetadata(survivingAspect.getSystemMetadata()),
@@ -575,19 +597,19 @@ public class EbeanEntityService extends EntityService {
   }
 
   @Override
-  public RollbackRunResult rollbackRun(List<AspectRowSummary> aspectRows, String runId) {
-    return rollbackWithConditions(aspectRows, Collections.singletonMap("runId", runId));
+  public RollbackRunResult rollbackRun(List<AspectRowSummary> aspectRows, String runId, boolean hardDelete) {
+    return rollbackWithConditions(aspectRows, Collections.singletonMap("runId", runId), hardDelete);
   }
 
   @Override
-  public RollbackRunResult rollbackWithConditions(List<AspectRowSummary> aspectRows, Map<String, String> conditions) {
+  public RollbackRunResult rollbackWithConditions(List<AspectRowSummary> aspectRows, Map<String, String> conditions, boolean hardDelete) {
     List<AspectRowSummary> removedAspects = new ArrayList<>();
     AtomicInteger rowsDeletedFromEntityDeletion = new AtomicInteger(0);
 
     aspectRows.forEach(aspectToRemove -> {
 
       RollbackResult result = deleteAspect(aspectToRemove.getUrn(), aspectToRemove.getAspectName(),
-          conditions);
+          conditions, hardDelete);
       if (result != null) {
         Optional<AspectSpec> aspectSpec = getAspectSpec(result.entityName, result.aspectName);
         if (!aspectSpec.isPresent()) {
@@ -621,7 +643,8 @@ public class EbeanEntityService extends EntityService {
     }
 
     SystemMetadata latestKeySystemMetadata = parseSystemMetadata(latestKey.getSystemMetadata());
-    RollbackResult result = deleteAspect(urn.toString(), keyAspectName, Collections.singletonMap("runId", latestKeySystemMetadata.getRunId()));
+    RollbackResult result = deleteAspect(urn.toString(), keyAspectName, Collections.singletonMap("runId",
+            latestKeySystemMetadata.getRunId()), true);
 
     if (result != null) {
       AspectRowSummary summary = new AspectRowSummary();

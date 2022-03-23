@@ -15,8 +15,7 @@ import org.springframework.cache.CacheManager;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
 import org.testng.annotations.Test;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.*;
 
 
 public class CacheableSearcherTest {
@@ -26,7 +25,7 @@ public class CacheableSearcherTest {
   public void testCacheableSearcherWhenEmpty() {
     CacheableSearcher<Integer> emptySearcher =
         new CacheableSearcher<>(cacheManager.getCache("emptySearcher"), 10, this::getEmptySearchResult,
-            CacheableSearcher.QueryPagination::getFrom, null);
+            CacheableSearcher.QueryPagination::getFrom, null, true);
     assertTrue(emptySearcher.getSearchResults(0, 0).getEntities().isEmpty());
     assertTrue(emptySearcher.getSearchResults(0, 10).getEntities().isEmpty());
     assertTrue(emptySearcher.getSearchResults(5, 10).getEntities().isEmpty());
@@ -36,7 +35,7 @@ public class CacheableSearcherTest {
   public void testCacheableSearcherWithFixedNumResults() {
     CacheableSearcher<Integer> fixedBatchSearcher =
         new CacheableSearcher<>(cacheManager.getCache("fixedBatchSearcher"), 10, qs -> getSearchResult(qs, 10),
-            CacheableSearcher.QueryPagination::getFrom, null);
+            CacheableSearcher.QueryPagination::getFrom, null, true);
 
     SearchResult result = fixedBatchSearcher.getSearchResults(0, 0);
     assertTrue(result.getEntities().isEmpty());
@@ -59,7 +58,8 @@ public class CacheableSearcherTest {
   public void testCacheableSearcherWithVariableNumResults() {
     CacheableSearcher<Integer> variableBatchSearcher =
         new CacheableSearcher<>(cacheManager.getCache("variableBatchSearcher"), 10,
-            qs -> getSearchResult(qs, qs.getFrom() + qs.getSize()), CacheableSearcher.QueryPagination::getFrom, null);
+            qs -> getSearchResult(qs, qs.getFrom() + qs.getSize()), CacheableSearcher.QueryPagination::getFrom, null,
+            true);
 
     SearchResult result = variableBatchSearcher.getSearchResults(0, 0);
     assertTrue(result.getEntities().isEmpty());

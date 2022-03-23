@@ -11,10 +11,15 @@
 //
 // -- This is a parent command --
 Cypress.Commands.add('login', () => {
-    cy.request('POST', '/logIn', {
+    cy.request({
+      method: 'POST',
+      url: '/logIn',
+      body: {
         username: 'admin',
         password: 'mypass',
-    })
+      },
+      retryOnStatusCodeFailure: true,
+    });
 })
 
 Cypress.Commands.add('deleteUrn', (urn) => {

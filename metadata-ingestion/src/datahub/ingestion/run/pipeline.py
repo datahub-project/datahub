@@ -117,18 +117,18 @@ class Pipeline:
             preview_mode=preview_mode,
         )
 
+        sink_type = self.config.sink.type
+        sink_class = sink_registry.get(sink_type)
+        sink_config = self.config.sink.dict().get("config", {})
+        self.sink: Sink = sink_class.create(sink_config, self.ctx)
+        logger.debug(f"Sink type:{self.config.sink.type},{sink_class} configured")
+
         source_type = self.config.source.type
         source_class = source_registry.get(source_type)
         self.source: Source = source_class.create(
             self.config.source.dict().get("config", {}), self.ctx
         )
         logger.debug(f"Source type:{source_type},{source_class} configured")
-
-        sink_type = self.config.sink.type
-        sink_class = sink_registry.get(sink_type)
-        sink_config = self.config.sink.dict().get("config", {})
-        self.sink: Sink = sink_class.create(sink_config, self.ctx)
-        logger.debug(f"Sink type:{self.config.sink.type},{sink_class} configured")
 
         self.extractor_class = extractor_registry.get(self.config.source.extractor)
 
