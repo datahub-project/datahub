@@ -1,5 +1,6 @@
 import logging
 from collections import defaultdict
+
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
@@ -677,8 +678,6 @@ class RedshiftSource(SQLAlchemySource):
 
     def _populate_lineage(self) -> None:
 
-        db_name = self.get_db_name()
-
         stl_scan_based_lineage_query: str = """
             select
                 distinct cluster,
@@ -736,7 +735,8 @@ class RedshiftSource(SQLAlchemySource):
                 scan_type in (1, 2, 3)
             order by cluster, target_schema, target_table, starttime asc
         """.format(
-            db_name=db_name,
+            # We need the original database name for filtering
+            db_name=self.config.database,
             start_time=self.config.start_time.strftime(redshift_datetime_format),
             end_time=self.config.end_time.strftime(redshift_datetime_format),
         )
@@ -835,7 +835,8 @@ class RedshiftSource(SQLAlchemySource):
             ) as target_tables
             order by cluster, target_schema, target_table, starttime asc
         """.format(
-            db_name=db_name,
+            # We need the original database name for filtering
+            db_name=self.config.database,
             start_time=self.config.start_time.strftime(redshift_datetime_format),
             end_time=self.config.end_time.strftime(redshift_datetime_format),
         )
@@ -858,7 +859,8 @@ class RedshiftSource(SQLAlchemySource):
             and si.starttime < '{end_time}'
         order by target_schema, target_table, starttime asc
         """.format(
-            db_name=db_name,
+            # We need the original database name for filtering
+            db_name=self.config.database,
             start_time=self.config.start_time.strftime(redshift_datetime_format),
             end_time=self.config.end_time.strftime(redshift_datetime_format),
         )
@@ -915,7 +917,8 @@ class RedshiftSource(SQLAlchemySource):
         if dataset_key is None:
             return None, None
 
-        if not self._lineage_map:
+        if self._lineage_map is None:
+            logger.debug("Populating lineage")
             self._populate_lineage()
         assert self._lineage_map is not None
 
