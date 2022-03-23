@@ -3,7 +3,6 @@ import json
 import logging
 import os
 import platform
-import sys
 import uuid
 from functools import wraps
 from pathlib import Path
