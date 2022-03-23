@@ -515,7 +515,7 @@ class DebeziumSourceConnector:
         lineages: List[KafkaConnectLineage] = list()
         parser = self.get_parser(self.connector_manifest)
         source_platform = parser.source_platform
-        database_server_name = parser.server_name
+        server_name = parser.server_name
         database_name = parser.database_name
         topic_naming_pattern = r"({0})\.(\w+\.\w+)".format(server_name)
 
@@ -525,7 +525,7 @@ class DebeziumSourceConnector:
         # Get the platform/platform_instance mapping for every database_server from connect_to_platform_map
         if self.config.connect_to_platform_map:
             for db_server in self.config.connect_to_platform_map:
-                if db_server == database_server_name:
+                if db_server == server_name:
                     instance_name = self.config.connect_to_platform_map[db_server][source_platform]
 
         for topic in self.connector_manifest.topic_names:
