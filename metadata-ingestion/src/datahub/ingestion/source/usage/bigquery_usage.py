@@ -6,7 +6,6 @@ import logging
 import os
 import re
 import tempfile
-from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import (
     Any,
@@ -21,11 +20,9 @@ from typing import (
 )
 
 import cachetools
-import pydantic
-from google.cloud.logging_v2.client import Client as GCPLoggingClient
-from more_itertools import partition
-
 import datahub.emitter.mce_builder as builder
+import pydantic
+from dataclasses import dataclass
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.configuration.source_common import DatasetSourceConfigBase
@@ -44,6 +41,8 @@ from datahub.metadata.schema_classes import (
     OperationTypeClass,
 )
 from datahub.utilities.delayed_iter import delayed_iter
+from google.cloud.logging_v2.client import Client as GCPLoggingClient
+from more_itertools import partition
 
 logger = logging.getLogger(__name__)
 
@@ -488,8 +487,6 @@ class QueryEvent:
 
         return query_event
 
-<<<<<<< HEAD
-=======
 
 class BigQueryCredential(ConfigModel):
     project_id: str
@@ -517,7 +514,6 @@ class BigQueryCredential(ConfigModel):
             fp.write(cred_json.encode())
             return fp.name
 
->>>>>>> master
 
 class BigQueryUsageConfig(DatasetSourceConfigBase, BaseUsageConfig):
     projects: Optional[List[str]] = None
@@ -529,8 +525,6 @@ class BigQueryUsageConfig(DatasetSourceConfigBase, BaseUsageConfig):
     query_log_delay: Optional[pydantic.PositiveInt] = None
     max_query_duration: timedelta = timedelta(minutes=15)
     use_v2_audit_metadata: Optional[bool] = False
-<<<<<<< HEAD
-=======
     credential: Optional[BigQueryCredential]
     _credentials_path: Optional[str] = pydantic.PrivateAttr(None)
 
@@ -542,7 +536,6 @@ class BigQueryUsageConfig(DatasetSourceConfigBase, BaseUsageConfig):
                 f"Creating temporary credential file at {self._credentials_path}"
             )
             os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._credentials_path
->>>>>>> master
 
     @pydantic.validator("project_id")
     def note_project_id_deprecation(cls, v, values, **kwargs):
