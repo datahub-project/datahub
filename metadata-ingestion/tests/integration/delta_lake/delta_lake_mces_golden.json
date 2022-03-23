@@ -152,6 +152,11 @@
                         "foreignKeysSpecs": null,
                         "foreignKeys": null
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
                 }
             ]
         }
@@ -2544,6 +2549,11 @@
                         "primaryKeys": null,
                         "foreignKeysSpecs": null,
                         "foreignKeys": null
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
                     }
                 }
             ]
