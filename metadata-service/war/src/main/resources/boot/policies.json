@@ -336,7 +336,7 @@
         "allUsers":false,
         "allGroups":false,
         "users":[
-          "urn:li:corpuser:datahub"
+          "urn:li:corpuser:admin"
         ]
       },
       "privileges":[
