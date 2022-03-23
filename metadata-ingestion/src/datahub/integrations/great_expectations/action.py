@@ -1,11 +1,34 @@
 import json
 import logging
 import time
+from dataclasses import dataclass
 from datetime import timezone
 from typing import Any, Dict, List, Optional, Union
 
+from great_expectations.checkpoint.actions import ValidationAction
+from great_expectations.core.batch import Batch
+from great_expectations.core.batch_spec import (
+    RuntimeQueryBatchSpec,
+    SqlAlchemyDatasourceBatchSpec,
+)
+from great_expectations.core.expectation_validation_result import (
+    ExpectationSuiteValidationResult,
+)
+from great_expectations.data_asset.data_asset import DataAsset
+from great_expectations.data_context.data_context import DataContext
+from great_expectations.data_context.types.resource_identifiers import (
+    ExpectationSuiteIdentifier,
+    GeCloudIdentifier,
+    ValidationResultIdentifier,
+)
+from great_expectations.execution_engine.sqlalchemy_execution_engine import (
+    SqlAlchemyExecutionEngine,
+)
+from great_expectations.validator.validator import Validator
+from sqlalchemy.engine.base import Connection, Engine
+from sqlalchemy.engine.url import make_url
+
 import datahub.emitter.mce_builder as builder
-from dataclasses import dataclass
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.source.sql.sql_common import get_platform_from_sqlalchemy_uri
@@ -29,28 +52,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import DataPlatformInstan
 from datahub.metadata.com.linkedin.pegasus2avro.events.metadata import ChangeType
 from datahub.metadata.schema_classes import PartitionSpecClass, PartitionTypeClass
 from datahub.utilities.sql_parser import DefaultSQLParser
-from great_expectations.checkpoint.actions import ValidationAction
-from great_expectations.core.batch import Batch
-from great_expectations.core.batch_spec import (
-    RuntimeQueryBatchSpec,
-    SqlAlchemyDatasourceBatchSpec,
-)
-from great_expectations.core.expectation_validation_result import (
-    ExpectationSuiteValidationResult,
-)
-from great_expectations.data_asset.data_asset import DataAsset
-from great_expectations.data_context.data_context import DataContext
-from great_expectations.data_context.types.resource_identifiers import (
-    ExpectationSuiteIdentifier,
-    GeCloudIdentifier,
-    ValidationResultIdentifier,
-)
-from great_expectations.execution_engine.sqlalchemy_execution_engine import (
-    SqlAlchemyExecutionEngine,
-)
-from great_expectations.validator.validator import Validator
-from sqlalchemy.engine.base import Connection, Engine
-from sqlalchemy.engine.url import make_url
 
 logger = logging.getLogger(__name__)
 
@@ -729,6 +730,7 @@ def make_dataset_urn_from_sqlalchemy_uri(
         platform_instance=platform_instance,
         env=env,
     )
+
     return dataset_urn
 
 

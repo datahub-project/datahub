@@ -7,7 +7,6 @@ import com.linkedin.gms.factory.recommendation.candidatesource.RecentlyViewedCan
 import com.linkedin.gms.factory.recommendation.candidatesource.TopPlatformsCandidateSourceFactory;
 import com.linkedin.gms.factory.recommendation.candidatesource.TopTagsCandidateSourceFactory;
 import com.linkedin.gms.factory.recommendation.candidatesource.TopTermsCandidateSourceFactory;
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.recommendation.candidatesource.DomainsCandidateSource;
 import com.linkedin.metadata.recommendation.candidatesource.MostPopularSource;
@@ -25,14 +24,11 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.PropertySource;
 
 
 @Configuration
 @Import({TopPlatformsCandidateSourceFactory.class, RecentlyViewedCandidateSourceFactory.class,
-    MostPopularCandidateSourceFactory.class, TopTagsCandidateSourceFactory.class, TopTermsCandidateSourceFactory.class,
-    DomainsCandidateSourceFactory.class})
-@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
+    MostPopularCandidateSourceFactory.class, TopTagsCandidateSourceFactory.class, TopTermsCandidateSourceFactory.class, DomainsCandidateSourceFactory.class})
 public class RecommendationServiceFactory {
 
   @Autowired

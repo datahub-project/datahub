@@ -1,7 +1,7 @@
 # SchemaFieldPath Specification (Version 2)
 
 This document outlines the formal specification for the fieldPath member of
-the [SchemaField](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/schema/SchemaField.pdl)
+the [SchemaField](https://github.com/datahub-project/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/schema/SchemaField.pdl)
 model. This specification (version 2) takes into account the unique requirements of supporting a wide variety of nested
 types, unions and optional fields and is a substantial improvement over the current implementation (version 1).
 
@@ -9,7 +9,7 @@ types, unions and optional fields and is a substantial improvement over the curr
 
 The `fieldPath` field is currently used by datahub for not just rendering the schema fields in the UI, but also as a
 primary identifier of a field in other places such
-as [EditableSchemaFieldInfo](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/schema/EditableSchemaFieldInfo.pdl#L12),
+as [EditableSchemaFieldInfo](https://github.com/datahub-project/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/schema/EditableSchemaFieldInfo.pdl#L12),
 usage stats and data profiles. Therefore, it must satisfy the following requirements.
 
 * must be unique across all fields within a schema.
@@ -344,7 +344,7 @@ unique_v2_field_paths: List[str] = [
 ```
 
 For more examples, see
-the [unit-tests for AvroToMceSchemaConverter](https://github.com/linkedin/datahub/blob/master/metadata-ingestion/tests/unit/test_schema_util.py).
+the [unit-tests for AvroToMceSchemaConverter](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/tests/unit/test_schema_util.py).
 
 ### Backward-compatibility
 

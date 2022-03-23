@@ -1,12 +1,19 @@
-import dataclasses
 import json
 import logging
 from datetime import datetime
 from functools import lru_cache
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
-import datahub.emitter.mce_builder as builder
 import dateutil.parser as dp
+from pydantic import validator
+from tableauserverclient import (
+    PersonalAccessTokenAuth,
+    Server,
+    ServerResponseError,
+    TableauAuth,
+)
+
+import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel, ConfigurationError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
@@ -66,13 +73,6 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 from datahub.utilities import config_clean
-from pydantic import validator
-from tableauserverclient import (
-    PersonalAccessTokenAuth,
-    Server,
-    ServerResponseError,
-    TableauAuth,
-)
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -101,7 +101,6 @@ class TableauConfig(ConfigModel):
         return config_clean.remove_trailing_slashes(v)
 
 
-@dataclasses.dataclass
 class WorkbookKey(PlatformKey):
     workbook_id: str
 

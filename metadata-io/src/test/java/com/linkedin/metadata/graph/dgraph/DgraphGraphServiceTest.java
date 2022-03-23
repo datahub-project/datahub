@@ -2,8 +2,8 @@ package com.linkedin.metadata.graph.dgraph;
 
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.GraphServiceTestBase;
-import com.linkedin.metadata.graph.RelatedEntity;
 import com.linkedin.metadata.models.registry.LineageRegistry;
+import com.linkedin.metadata.graph.RelatedEntity;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import io.dgraph.DgraphClient;
@@ -15,14 +15,6 @@ import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.MethodDescriptor;
-import java.time.Duration;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
-import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testng.annotations.AfterMethod;
@@ -31,9 +23,21 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
-import static com.linkedin.metadata.DockerTestUtils.*;
-import static com.linkedin.metadata.search.utils.QueryUtils.*;
-import static org.testng.Assert.*;
+import javax.annotation.Nonnull;
+import java.time.Duration;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
+
+import static com.linkedin.metadata.DockerTestUtils.checkContainerEngine;
+import static com.linkedin.metadata.search.utils.QueryUtils.EMPTY_FILTER;
+import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
+import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 @SuppressWarnings("ArraysAsListWithZeroOrOneArgument")
 @Slf4j

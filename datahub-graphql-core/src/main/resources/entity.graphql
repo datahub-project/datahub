@@ -4552,7 +4552,7 @@ type DatasetAssertionInfo {
 }
 
 """
-Entities that are able to own other entities
+A Dataset schema field (i.e. column)
 """
 type SchemaFieldRef {
   """

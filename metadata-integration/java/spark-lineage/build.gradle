@@ -117,6 +117,10 @@ dependencies {
   testImplementation(externalDependency.testContainersPostgresql)
 }
 
+task checkShadowJar(type: Exec) { 
+   commandLine 'sh', '-c', 'scripts/check_jar.sh'
+}
+
 shadowJar {
   zip64=true	
   classifier=''
@@ -144,7 +148,13 @@ shadowJar {
   relocate 'mozilla', 'datahub.spark2.shaded.mozilla'
   relocate 'com.typesafe','datahub.spark2.shaded.typesafe'
   relocate 'io.opentracing','datahub.spark2.shaded.io.opentracing'
+  finalizedBy checkShadowJar
 }
+
+checkShadowJar {
+   dependsOn shadowJar
+}
+
 
 jacocoTestReport {
     dependsOn test // tests are required to run before generating the report

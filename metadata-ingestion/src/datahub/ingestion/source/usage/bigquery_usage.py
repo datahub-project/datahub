@@ -6,6 +6,7 @@ import logging
 import os
 import re
 import tempfile
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import (
     Any,
@@ -20,9 +21,11 @@ from typing import (
 )
 
 import cachetools
-import datahub.emitter.mce_builder as builder
 import pydantic
-from dataclasses import dataclass
+from google.cloud.logging_v2.client import Client as GCPLoggingClient
+from more_itertools import partition
+
+import datahub.emitter.mce_builder as builder
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.configuration.source_common import DatasetSourceConfigBase
@@ -41,8 +44,6 @@ from datahub.metadata.schema_classes import (
     OperationTypeClass,
 )
 from datahub.utilities.delayed_iter import delayed_iter
-from google.cloud.logging_v2.client import Client as GCPLoggingClient
-from more_itertools import partition
 
 logger = logging.getLogger(__name__)
 

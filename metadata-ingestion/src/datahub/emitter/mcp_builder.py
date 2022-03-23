@@ -2,6 +2,9 @@ import hashlib
 import json
 from typing import Any, Iterable, List, Optional, TypeVar, Union
 
+from pydantic.fields import Field
+from pydantic.main import BaseModel
+
 from datahub.emitter.mce_builder import make_container_urn, make_data_platform_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
