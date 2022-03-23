@@ -252,6 +252,7 @@ base_dev_requirements = {
             "bigquery-usage",
             "clickhouse",
             "clickhouse-usage",
+            "delta-sharing",
             "elasticsearch",
             "looker",
             "glue",
