@@ -22,7 +22,7 @@ class NotebookUrn(Urn):
         return cls(urn.get_type(), urn.get_entity_id(), urn.get_domain())
 
     @classmethod
-    def create_from_id(cls, platform_id: str, notebook_id: str) -> "NotebookUrn":
+    def create_from_ids(cls, platform_id: str, notebook_id: str) -> "NotebookUrn":
         return cls(NotebookUrn.ENTITY_TYPE, [platform_id, notebook_id])
 
     @staticmethod
