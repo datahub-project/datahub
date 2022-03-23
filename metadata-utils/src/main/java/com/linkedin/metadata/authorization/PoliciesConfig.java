@@ -241,16 +241,12 @@ public class PoliciesConfig {
               EDIT_DATASET_COL_DESCRIPTION_PRIVILEGE,
               EDIT_DATASET_COL_TAGS_PRIVILEGE,
               EDIT_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE,
-<<<<<<< HEAD
               PROPOSE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE,
               PROPOSE_DATASET_COL_TAGS_PRIVILEGE,
               MANAGE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE,
               MANAGE_DATASET_COL_TAGS_PRIVILEGE,
               EDIT_ENTITY_ASSERTIONS_PRIVILEGE
               ))
-=======
-              EDIT_ENTITY_ASSERTIONS_PRIVILEGE))
->>>>>>> master
           .flatMap(Collection::stream)
           .collect(Collectors.toList())
   );

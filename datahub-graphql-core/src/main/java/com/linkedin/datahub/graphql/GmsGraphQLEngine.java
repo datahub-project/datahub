@@ -202,6 +202,8 @@ import static com.linkedin.datahub.graphql.Constants.INGESTION_SCHEMA_FILE;
 import static com.linkedin.datahub.graphql.Constants.RECOMMENDATIONS_SCHEMA_FILE;
 import static com.linkedin.datahub.graphql.Constants.SEARCH_SCHEMA_FILE;
 import static com.linkedin.datahub.graphql.Constants.URN_FIELD_NAME;
+import static com.linkedin.datahub.graphql.Constants.CONSTRAINTS_SCHEMA_FILE;
+import static com.linkedin.datahub.graphql.Constants.ACTIONS_SCHEMA_FILE;
 import static graphql.Scalars.GraphQLLong;
 
 /**

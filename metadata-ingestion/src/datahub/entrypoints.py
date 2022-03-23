@@ -4,8 +4,9 @@ import platform
 import sys
 
 import click
-import datahub as datahub_package
 import stackprinter
+
+import datahub as datahub_package
 from datahub.cli.check_cli import check
 from datahub.cli.cli_utils import DATAHUB_CONFIG_PATH, write_datahub_config
 from datahub.cli.delete_cli import delete

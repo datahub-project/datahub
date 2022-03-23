@@ -7,6 +7,9 @@ from json.decoder import JSONDecodeError
 from typing import Dict, List, Optional, Tuple, Union
 
 import requests
+from requests.adapters import HTTPAdapter, Retry
+from requests.exceptions import HTTPError, RequestException
+
 from datahub.configuration.common import ConfigurationError, OperationalError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.serialization_helper import pre_json_transform
@@ -15,8 +18,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeProposal,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.usage import UsageAggregation
-from requests.adapters import HTTPAdapter, Retry
-from requests.exceptions import HTTPError, RequestException
 
 logger = logging.getLogger(__name__)
 

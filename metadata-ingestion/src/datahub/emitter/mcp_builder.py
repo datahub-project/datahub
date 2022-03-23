@@ -21,8 +21,6 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
     TagAssociationClass,
 )
-from pydantic.fields import Field
-from pydantic.main import BaseModel
 
 
 class DatahubKey(BaseModel):
