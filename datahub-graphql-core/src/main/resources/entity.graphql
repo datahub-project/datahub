@@ -4552,21 +4552,6 @@ type DatasetAssertionInfo {
 }
 
 """
-A Dataset schema field (i.e. column)
-"""
-type SchemaFieldRef {
-  """
-  A schema field urn
-  """
-  urn: String!
-
-  """
-  A schema field path
-  """
-  path: String!
-}
-
-"""
 An event representing an event in the assertion evaluation lifecycle.
 """
 type AssertionRunEvent implements TimeSeriesAspect {
