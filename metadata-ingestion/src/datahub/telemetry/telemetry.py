@@ -200,7 +200,8 @@ def with_telemetry(func: Callable[..., T]) -> Callable[..., T]:
         # so we need to catch them here.
         except SystemExit as e:
             # Forward successful exits
-            if e.code == 0 or e.code is None:
+            # 0 or None imply success
+            if not e.code:
                 telemetry_instance.ping(
                     "function-call",
                     {
