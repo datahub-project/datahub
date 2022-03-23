@@ -183,100 +183,6 @@ class DeltaLakeSource(Source):
 
             # collect results
             yield from self._create_delta_workunit(metadata)
-            # for mcp in self._create_delta_workunit2(metadata):
-            #     dataset_name = f"{metadata.table.share}.{metadata.table.schema}.{metadata.table.name}"
-            #     wu = MetadataWorkUnit(id=dataset_name, mcp=mcp)
-            #     self.report.report_workunit(wu)
-            #     yield wu                
-
-
-    def _create_delta_workunit2(
-        self,
-        metadata: QueryTableMetadataResponse_extended,
-    ) -> Iterable[MetadataWorkUnit]:
-        self.report.report_table_scanned(metadata.table.name)
-
-        dataset_name = f"{metadata.table.share}.{metadata.table.schema}.{metadata.table.name}"
-        dataset_urn = make_dataset_urn_with_platform_instance(
-            platform=self.platform,
-            name=dataset_name,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-        )
-
-        # from metadata top level: get md.description, md.format, md.partitioncolumns
-        custom_properties = {
-            "Id": metadata.metadata.id,
-            "Format": metadata.metadata.format.provider,
-            "PartitionColumns": metadata.metadata.partition_columns,
-        }
-
-        dataset_properties = DatasetPropertiesClass(
-            tags=[],
-            description=metadata.metadata.description,
-            customProperties=custom_properties,
-        )
-
-        yield MetadataChangeProposal(
-            entityType="dataset",
-            entityUrn=dataset_urn,
-            aspectName="datasetProperties",
-            aspect=dataset_properties,
-            changeType=ChangeTypeClass.UPSERT)
-
-
-        # TODO: add documentation that ownership not implemented because not available in API
-
-        # TODO: add docu & message that stats are not implemented yet.
-        # this has to be collected from file object!
-
-        # build schema
-        # from md.schemaObject = struct(type, fields). N.B. ignore top-level struct (just container!)
-        # from md.schemaObject  -> md.so.name, md.so.type (struct or atomic), md.so.nullable, md.so.metadata.comment (if exists)
-        schema_metadata = self._create_schema_metadata(dataset_name, metadata)
-        
-        yield MetadataChangeProposalWrapper(
-            entityType="dataset",
-            entityUrn=dataset_urn,
-            aspectName="schemaMetadata",
-            aspect=schema_metadata,
-            changeType=ChangeTypeClass.UPSERT,
-        )
-
-        # emit status
-        yield MetadataChangeProposalWrapper(
-            entityType="dataset",
-            entityUrn=dataset_urn,
-            aspectName="status",
-            aspect=StatusClass(removed=False),
-            changeType=ChangeTypeClass.UPSERT,
-        )
-
-        # emit datset workunit
-        #mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        #workunit = MetadataWorkUnit(id=dataset_name, mce=mce)
-        #self.report.report_workunit(workunit)
-
-        #yield workunit
-
-        #add instance via mcp
-        if self.config.platform_instance:
-            yield MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
-                entityUrn=dataset_urn,
-                aspectName="dataPlatformInstance",
-                aspect=DataPlatformInstanceClass(
-                    platform=make_data_platform_urn(self.platform),
-                    instance=make_dataplatform_instance_urn(
-                        self.platform,
-                        self.config.platform_instance
-                    )
-                )
-            )
-            
-
-
 
     def _create_delta_workunit(
         self,
@@ -297,18 +203,18 @@ class DeltaLakeSource(Source):
         )
 
         # from metadata top level: get md.description, md.format, md.partitioncolumns
-        # custom_properties = {
-        #     "Id": metadata.metadata.id,
-        #     "Format": metadata.metadata.format.provider,
-        #     "PartitionColumns": metadata.metadata.partition_columns,
-        # }
+        custom_properties = {
+            "Id": metadata.metadata.id,
+            "Format": metadata.metadata.format.provider,
+            "PartitionColumns": ",".join(metadata.metadata.partition_columns),
+        }
 
-        # dataset_properties = DatasetPropertiesClass(
-        #     tags=[],
-        #     description=metadata.metadata.description,
-        #     customProperties=custom_properties,
-        # )
-        # dataset_snapshot.aspects.append(dataset_properties)
+        dataset_properties = DatasetPropertiesClass(
+             tags=[],
+             description=metadata.metadata.description,
+             customProperties=custom_properties,
+        )
+        dataset_snapshot.aspects.append(dataset_properties)
 
         # TODO: add documentation that ownership not implemented because not available in API
 
