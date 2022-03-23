@@ -228,6 +228,7 @@ def delete_with_filters(
         one_result = _delete_one_urn(
             urn,
             soft=soft,
+            entity_type=entity_type,
             dry_run=dry_run,
             cached_session_host=(session, gms_host),
             cached_emitter=emitter,

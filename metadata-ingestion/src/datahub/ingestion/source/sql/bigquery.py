@@ -5,6 +5,7 @@ import logging
 import os
 import re
 import textwrap
+from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 from unittest.mock import patch
@@ -13,7 +14,12 @@ from unittest.mock import patch
 import pybigquery  # noqa: F401
 import pybigquery.sqlalchemy_bigquery
 import pydantic
-from dataclasses import dataclass
+from dateutil import parser
+from google.cloud.bigquery import Client as BigQueryClient
+from google.cloud.logging_v2.client import Client as GCPLoggingClient
+from sqlalchemy import create_engine, inspect
+from sqlalchemy.engine.reflection import Inspector
+
 from datahub.configuration.common import ConfigurationError
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter import mce_builder
@@ -51,11 +57,6 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
-from dateutil import parser
-from google.cloud.bigquery import Client as BigQueryClient
-from google.cloud.logging_v2.client import Client as GCPLoggingClient
-from sqlalchemy import create_engine, inspect
-from sqlalchemy.engine.reflection import Inspector
 
 logger = logging.getLogger(__name__)
 

@@ -7,9 +7,9 @@ import com.google.common.collect.Lists;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.graph.LineageDirection;
-import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.models.registry.LineageRegistry.EdgeInfo;
+import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.Criterion;
@@ -48,7 +48,7 @@ import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 
-import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.*;
+import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.INDEX_NAME;
 
 
 /**

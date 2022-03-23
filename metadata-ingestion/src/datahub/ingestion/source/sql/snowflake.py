@@ -3,11 +3,17 @@ import logging
 from collections import defaultdict
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
-import datahub.emitter.mce_builder as builder
 import pydantic
+
 # This import verifies that the dependencies are available.
 import snowflake.sqlalchemy  # noqa: F401
 import sqlalchemy.engine
+from snowflake.sqlalchemy import custom_types, snowdialect
+from sqlalchemy import create_engine, inspect
+from sqlalchemy.engine.reflection import Inspector
+from sqlalchemy.sql import sqltypes, text
+
+import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -29,10 +35,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import ChangeTypeClass, DatasetPropertiesClass
-from snowflake.sqlalchemy import custom_types, snowdialect
-from sqlalchemy import create_engine, inspect
-from sqlalchemy.engine.reflection import Inspector
-from sqlalchemy.sql import sqltypes, text
 
 register_custom_type(custom_types.TIMESTAMP_TZ, TimeTypeClass)
 register_custom_type(custom_types.TIMESTAMP_LTZ, TimeTypeClass)

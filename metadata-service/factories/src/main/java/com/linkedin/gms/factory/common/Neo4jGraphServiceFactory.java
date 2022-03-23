@@ -1,9 +1,9 @@
 package com.linkedin.gms.factory.common;
 
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
+import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.graph.neo4j.Neo4jGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.models.registry.LineageRegistry;
 import javax.annotation.Nonnull;
 import org.neo4j.driver.Driver;
 import org.springframework.beans.factory.annotation.Autowired;

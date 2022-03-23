@@ -2,6 +2,7 @@ import datetime
 import logging
 import traceback
 from abc import abstractmethod
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import (
     TYPE_CHECKING,
@@ -19,7 +20,11 @@ from typing import (
 from urllib.parse import quote_plus
 
 import pydantic
-from dataclasses import dataclass, field
+from sqlalchemy import create_engine, dialects, inspect
+from sqlalchemy.engine.reflection import Inspector
+from sqlalchemy.exc import ProgrammingError
+from sqlalchemy.sql import sqltypes as types
+
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -77,10 +82,6 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.telemetry import telemetry
 from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombinerReport
-from sqlalchemy import create_engine, dialects, inspect
-from sqlalchemy.engine.reflection import Inspector
-from sqlalchemy.exc import ProgrammingError
-from sqlalchemy.sql import sqltypes as types
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.ge_data_profiler import (
@@ -413,17 +414,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self.config = config
         self.platform = platform
         self.report: SQLSourceReport = SQLSourceReport()
-
-        config_report = {
-            config_option: config.dict().get(config_option)
-            for config_option in config_options_to_report
-        }
-
-        config_report = {
-            **config_report,
-            "profiling_enabled": config.profiling.enabled,
-            "platform": platform,
-        }
 
         config_report = {
             config_option: config.dict().get(config_option)

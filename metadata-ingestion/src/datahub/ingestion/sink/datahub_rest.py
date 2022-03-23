@@ -1,9 +1,9 @@
 import concurrent.futures
 import functools
 import logging
+from dataclasses import dataclass
 from typing import Union, cast
 
-from dataclasses import dataclass
 from datahub.configuration.common import OperationalError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter

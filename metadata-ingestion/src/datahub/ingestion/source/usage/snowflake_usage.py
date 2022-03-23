@@ -4,8 +4,13 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Union, cast
 
-import datahub.emitter.mce_builder as builder
 import pydantic.dataclasses
+from more_itertools import partition
+from pydantic import BaseModel
+from sqlalchemy import create_engine
+from sqlalchemy.engine import Engine
+
+import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -28,10 +33,6 @@ from datahub.metadata.schema_classes import (
     TimeWindowSizeClass,
 )
 from datahub.utilities.perf_timer import PerfTimer
-from more_itertools import partition
-from pydantic import BaseModel
-from sqlalchemy import create_engine
-from sqlalchemy.engine import Engine
 
 logger = logging.getLogger(__name__)
 

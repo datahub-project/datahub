@@ -30,8 +30,7 @@ import org.springframework.context.annotation.PropertySource;
 
 @Configuration
 @Import({TopPlatformsCandidateSourceFactory.class, RecentlyViewedCandidateSourceFactory.class,
-    MostPopularCandidateSourceFactory.class, TopTagsCandidateSourceFactory.class, TopTermsCandidateSourceFactory.class,
-    DomainsCandidateSourceFactory.class})
+    MostPopularCandidateSourceFactory.class, TopTagsCandidateSourceFactory.class, TopTermsCandidateSourceFactory.class, DomainsCandidateSourceFactory.class})
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class RecommendationServiceFactory {
 

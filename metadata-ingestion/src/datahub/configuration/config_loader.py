@@ -3,10 +3,11 @@ import pathlib
 import re
 from typing import Union
 
+from expandvars import UnboundVariable, expandvars
+
 from datahub.configuration.common import ConfigurationError, ConfigurationMechanism
 from datahub.configuration.toml import TomlConfigurationMechanism
 from datahub.configuration.yaml import YamlConfigurationMechanism
-from expandvars import UnboundVariable, expandvars
 
 
 def resolve_element(element: str) -> str:

@@ -9,8 +9,9 @@ from functools import wraps
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, TypeVar
 
-import datahub as datahub_package
 from mixpanel import Consumer, Mixpanel
+
+import datahub as datahub_package
 
 logger = logging.getLogger(__name__)
 

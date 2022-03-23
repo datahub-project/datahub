@@ -43,3 +43,4 @@ public class MostPopularCandidateSourceFactory {
     return new MostPopularSource(searchClient, indexConvention, entityService, fetchOffline);
   }
 }
+

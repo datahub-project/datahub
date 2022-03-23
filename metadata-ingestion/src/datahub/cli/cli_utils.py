@@ -11,6 +11,10 @@ import click
 import requests
 import yaml
 from avrogen.dict_wrapper import DictWrapper
+from pydantic import BaseModel, ValidationError
+from requests.models import Response
+from requests.sessions import Session
+
 from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.rest_emitter import _make_curl_command
 from datahub.emitter.serialization_helper import post_json_transform
@@ -51,9 +55,6 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
-from pydantic import BaseModel, ValidationError
-from requests.models import Response
-from requests.sessions import Session
 
 log = logging.getLogger(__name__)
 
@@ -314,6 +315,7 @@ def get_urns_by_filter(
         and entity_type == "dataset"
         or entity_type == "dataflow"
         or entity_type == "datajob"
+        or entity_type == "container"
     ):
         filter_criteria.append(
             {

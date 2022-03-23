@@ -52,6 +52,22 @@ entities:
       - domains
       - container
       - deprecation
+  - name: notebook
+    doc: Notebook represents a combination of query, text, chart and etc. This is in BETA version
+    keyAspect: notebookKey
+    aspects:
+      - notebookInfo
+      - notebookContent
+      - editableNotebookProperties
+      - ownership
+      - status
+      - globalTags
+      - glossaryTerms
+      - browsePaths
+      - institutionalMemory
+      - domains
+      - subTypes
+      - dataPlatformInstance
   - name: corpuser
     doc: CorpUser represents an identity of a person (or an account) in the enterprise.
     keyAspect: corpUserKey

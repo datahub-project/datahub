@@ -3,7 +3,6 @@ package com.datahub.gms.servlet;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.PluginEntityRegistryLoader;
@@ -21,6 +20,7 @@ import javax.servlet.http.HttpServletResponse;
 import org.apache.maven.artifact.versioning.ComparableVersion;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 
 // Return a 200 for health checks
 

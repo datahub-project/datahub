@@ -1,10 +1,10 @@
 import platform
 import sys
 from abc import ABCMeta, abstractmethod
+from dataclasses import dataclass, field
 from typing import Dict, Generic, Iterable, List, TypeVar
 
 import datahub
-from dataclasses import dataclass, field
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
 from datahub.ingestion.api.report import Report

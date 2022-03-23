@@ -193,8 +193,17 @@ import org.dataloader.BatchLoaderContextProvider;
 import org.dataloader.DataLoader;
 import org.dataloader.DataLoaderOptions;
 
-import static com.linkedin.datahub.graphql.Constants.*;
-import static graphql.Scalars.*;
+import static com.linkedin.datahub.graphql.Constants.ANALYTICS_SCHEMA_FILE;
+import static com.linkedin.datahub.graphql.Constants.APP_SCHEMA_FILE;
+import static com.linkedin.datahub.graphql.Constants.AUTH_SCHEMA_FILE;
+import static com.linkedin.datahub.graphql.Constants.GMS_SCHEMA_FILE;
+import static com.linkedin.datahub.graphql.Constants.INGESTION_SCHEMA_FILE;
+import static com.linkedin.datahub.graphql.Constants.RECOMMENDATIONS_SCHEMA_FILE;
+import static com.linkedin.datahub.graphql.Constants.SEARCH_SCHEMA_FILE;
+import static com.linkedin.datahub.graphql.Constants.URN_FIELD_NAME;
+import static com.linkedin.datahub.graphql.Constants.CONSTRAINTS_SCHEMA_FILE;
+import static com.linkedin.datahub.graphql.Constants.ACTIONS_SCHEMA_FILE;
+import static graphql.Scalars.GraphQLLong;
 
 /**
  * A {@link GraphQLEngine} configured to provide access to the entities and aspects on the the GMS graph.
@@ -215,6 +224,7 @@ public class GmsGraphQLEngine {
     private final GitVersion gitVersion;
     private final boolean supportsImpactAnalysis;
     private final TimeseriesAspectService timeseriesAspectService;
+
     private final IngestionConfiguration ingestionConfiguration;
 
     private final DatasetType datasetType;
@@ -510,12 +520,11 @@ public class GmsGraphQLEngine {
         configureContainerResolvers(builder);
         configureGlossaryTermResolvers(builder);
         configureDomainResolvers(builder);
-
+        configureAssertionResolvers(builder);
+        configurePolicyResolvers(builder);
         // Not in OSS
         configureActionRequestResolvers(builder);
         configureResolvedAuditStampResolvers(builder);
-        configureAssertionResolvers(builder);
-        configurePolicyResolvers(builder);
     }
 
     public GraphQLEngine.Builder builder() {
