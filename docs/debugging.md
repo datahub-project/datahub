@@ -124,7 +124,7 @@ ERROR: for datahub-mae-consumer  Cannot start service datahub-mae-consumer: OCI 
 ```
 
 ### `failed to register layer: devmapper: Unknown device`
-This most means that you're out of disk space (see [#1879](https://github.com/linkedin/datahub/issues/1879)).
+This most means that you're out of disk space (see [#1879](https://github.com/datahub-project/datahub/issues/1879)).
 
 ### `ERROR: for kafka-rest-proxy  Get https://registry-1.docker.io/v2/confluentinc/cp-kafka-rest/manifests/5.4.0: EOF`
 This is most likely a transient issue with [Docker Registry](https://docs.docker.com/registry/). Retry again later.
@@ -138,7 +138,7 @@ docker login
 More discussions on the same issue https://github.com/docker/hub-feedback/issues/1250
 
 ## Seeing `Table 'datahub.metadata_aspect' doesn't exist` error when logging in
-This means the database wasn't properly initialized as part of the quickstart processs (see [#1816](https://github.com/linkedin/datahub/issues/1816)). Please run the following command to manually initialize it.
+This means the database wasn't properly initialized as part of the quickstart processs (see [#1816](https://github.com/datahub-project/datahub/issues/1816)). Please run the following command to manually initialize it.
 ```
 docker exec -i mysql sh -c 'exec mysql datahub -udatahub -pdatahub' < docker/mysql/init.sql
 ```
@@ -162,7 +162,7 @@ ALTER TABLE metadata_aspect_v2 CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_
 Currently, `user.props` is a file used by the JAAS PropertyFileLoginModule solely for the purpose of **Authentication**. The file is not used as an source from which to
 ingest additional metadata about the user. For that, you'll need to ingest some custom information about your new user using the Rest.li APIs or the [File-based ingestion source](https://datahubproject.io/docs/metadata-ingestion/source_docs/file).
 
-For an example of a file that ingests user information, check out [single_mce.json](https://github.com/linkedin/datahub/blob/master/metadata-ingestion/examples/mce_files/single_mce.json), which ingests a single user object into DataHub. Notice that the "urn" field provided
+For an example of a file that ingests user information, check out [single_mce.json](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/mce_files/single_mce.json), which ingests a single user object into DataHub. Notice that the "urn" field provided
 will need to align with the custom username you've provided in user.props file. For example, if your user.props file contains:
 
 ```

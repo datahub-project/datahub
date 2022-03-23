@@ -71,7 +71,7 @@ sql_common = {
     # Required for all SQL sources.
     "sqlalchemy==1.3.24",
     # Required for SQL profiling.
-    "great-expectations>=0.13.40",
+    "great-expectations>=0.14.11",
     "greenlet",
 }
 
@@ -133,7 +133,7 @@ plugins: Dict[str, Set[str]] = {
     # PyAthena is pinned with exact version because we use private method in PyAthena
     "athena": sql_common | {"PyAthena[SQLAlchemy]==2.4.1"},
     "azure-ad": set(),
-    "bigquery": sql_common | bigquery_common | {"pybigquery >= 0.6.0"},
+    "bigquery": sql_common | bigquery_common | {"sqlalchemy-bigquery>=1.4.1"},
     "bigquery-usage": bigquery_common | {"cachetools"},
     "clickhouse": sql_common | {"clickhouse-sqlalchemy==0.1.8"},
     "clickhouse-usage": sql_common | {"clickhouse-sqlalchemy==0.1.8"},
@@ -390,8 +390,8 @@ setuptools.setup(
     url="https://datahubproject.io/",
     project_urls={
         "Documentation": "https://datahubproject.io/docs/",
-        "Source": "https://github.com/linkedin/datahub",
-        "Changelog": "https://github.com/linkedin/datahub/releases",
+        "Source": "https://github.com/datahub-project/datahub",
+        "Changelog": "https://github.com/datahub-project/datahub/releases",
     },
     license="Apache License 2.0",
     description="A CLI to work with DataHub metadata",

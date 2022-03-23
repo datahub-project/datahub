@@ -441,11 +441,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 },
             )
 
-    def warn(self, log: logging.Logger, key: str, reason: str) -> Any:
+    def warn(self, log: logging.Logger, key: str, reason: str) -> None:
         self.report.report_warning(key, reason)
-        log.warning(reason)
+        log.warning(f"{key} => {reason}")
 
-    def error(self, log: logging.Logger, key: str, reason: str) -> Any:
+    def error(self, log: logging.Logger, key: str, reason: str) -> None:
         self.report.report_failure(key, reason)
         log.error(f"{key} => {reason}")
 
@@ -590,14 +590,18 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             database=db_name,
             schema=schema,
             platform=self.platform,
-            instance=self.config.env,
+            instance=self.config.platform_instance
+            if self.config.platform_instance is not None
+            else self.config.env,
         )
 
     def gen_database_key(self, database: str) -> PlatformKey:
         return DatabaseKey(
             database=database,
             platform=self.platform,
-            instance=self.config.env,
+            instance=self.config.platform_instance
+            if self.config.platform_instance is not None
+            else self.config.env,
         )
 
     def gen_database_containers(self, database: str) -> Iterable[MetadataWorkUnit]:
