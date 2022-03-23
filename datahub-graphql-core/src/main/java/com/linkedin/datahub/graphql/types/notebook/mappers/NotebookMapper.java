@@ -70,7 +70,7 @@ public class NotebookMapper implements ModelMapper<EntityResponse, Notebook> {
     mappingHelper.mapToResult(SUB_TYPES_ASPECT_NAME, this::mapSubTypes);
     mappingHelper.mapToResult(GLOSSARY_TERMS_ASPECT_NAME, (notebook, dataMap) -> 
       notebook.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(dataMap))));
-    mappingHelper.mapToResult(DATA_PLATFORM_INSTANCE_ASPECT_NAME, this::mapDataPlatformInstance) ;
+    mappingHelper.mapToResult(DATA_PLATFORM_INSTANCE_ASPECT_NAME, this::mapDataPlatformInstance);
     return mappingHelper.getResult();
   }
 
