@@ -249,8 +249,11 @@ class TableauSource(Source):
 
         for table in datasource.get("upstreamTables", []):
             # skip upstream tables when there is no column info when retrieving embedded datasource
+            # and when table name is None
             # Schema details for these will be taken care in self.emit_custom_sql_ds()
             if not is_custom_sql and not table.get("columns"):
+                continue
+            elif table["name"] is None:
                 continue
 
             upstream_db = table.get("database", {}).get("name", "")
