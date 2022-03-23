@@ -78,10 +78,8 @@ record DataProcessInstanceProperties includes CustomProperties, ExternalReferenc
    * The parent entity whose run instance it is 
    */
   @Relationship = {
-    "/*": {
       "name": "instanceOf",
       "entityTypes": [ "DataJobUrn", "DataFlowUrn" ]
-    }
   }
   @Searchable = {
     "/*": {
@@ -98,10 +96,8 @@ record DataProcessInstanceProperties includes CustomProperties, ExternalReferenc
    * which will be another DataProcessInstance 
    */
   @Relationship = {
-    "/*": {
       "name": "childOf",
       "entityTypes": [ "DataProcessInstance" ]
-    }
   }
   @Searchable = {
     "/*": {

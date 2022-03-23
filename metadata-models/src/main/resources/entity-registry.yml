@@ -32,12 +32,14 @@ entities:
       - datahubIngestionCheckpoint
       - domains
       - deprecation
+      - versionInfo
   - name: dataFlow
     category: core
     keyAspect: dataFlowKey
     aspects:
       - domains
       - deprecation
+      - versionInfo
   - name: dataProcessInstance
     doc: DataProcessInstance represents an instance of a datajob/jobflow run
     keyAspect: dataProcessInstanceKey
