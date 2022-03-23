@@ -36,7 +36,7 @@ class KafkaConnectSourceConfig(DatasetLineageProviderConfigBase):
     construct_lineage_workunits: bool = True
     connector_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
     provided_configs: Optional[List[ProvidedConfig]] = None
-
+    connect_to_platform_map: Optional[dict] = None
 
 @dataclass
 class KafkaConnectSourceReport(SourceReport):
@@ -283,6 +283,7 @@ class ConfluentJDBCSourceConnector:
         parser = self.get_parser(self.connector_manifest)
         source_platform = parser.source_platform
         database_name = parser.database_name
+        server_name = parser.server_name
         query = parser.query
         topic_prefix = parser.topic_prefix
         transforms = parser.transforms
@@ -434,8 +435,9 @@ class ConfluentJDBCSourceConnector:
 class DebeziumSourceConnector:
     connector_manifest: ConnectorManifest
 
-    def __init__(self, connector_manifest: ConnectorManifest) -> None:
+    def __init__(self, connector_manifest: ConnectorManifest, config: KafkaConnectSourceConfig) -> None:
         self.connector_manifest = connector_manifest
+        self.config = config
         self._extract_lineages()
 
     @dataclass
@@ -513,22 +515,34 @@ class DebeziumSourceConnector:
         lineages: List[KafkaConnectLineage] = list()
         parser = self.get_parser(self.connector_manifest)
         source_platform = parser.source_platform
-        server_name = parser.server_name
+        database_server_name = parser.server_name
         database_name = parser.database_name
         topic_naming_pattern = r"({0})\.(\w+\.\w+)".format(server_name)
 
         if not self.connector_manifest.topic_names:
             return lineages
 
+        # Get the platform/platform_instance mapping for every database_server from connect_to_platform_map
+        if self.config.connect_to_platform_map:
+            for db_server in self.config.connect_to_platform_map:
+                if db_server == database_server_name:
+                    instance_name = self.config.connect_to_platform_map[db_server][source_platform]
+
         for topic in self.connector_manifest.topic_names:
             found = re.search(re.compile(topic_naming_pattern), topic)
 
             if found:
-                table_name = (
-                    database_name + "." + found.group(2)
-                    if database_name
-                    else found.group(2)
-                )
+                if (
+                    database_name
+                    and instance_name
+                ):
+                    table_name = (
+                        instance_name + "." + database_name + "." + found.group(2)
+                    )
+                elif database_name:
+                    table_name = database_name + "." + found.group(2)
+                else:
+                    table_name = found.group(2)
 
                 lineage = KafkaConnectLineage(
                     source_dataset=table_name,
@@ -796,7 +810,7 @@ class KafkaConnectSource(Source):
                     # Debezium Source Connector lineages
                     try:
                         connector_manifest = DebeziumSourceConnector(
-                            connector_manifest=connector_manifest
+                            connector_manifest=connector_manifest, config=self.config
                         ).connector_manifest
 
                     except ValueError as err:
