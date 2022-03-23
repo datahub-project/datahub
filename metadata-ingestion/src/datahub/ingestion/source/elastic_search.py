@@ -271,6 +271,7 @@ class ElasticsearchSource(Source):
     def _extract_mcps(self, index: str) -> Iterable[MetadataChangeProposalWrapper]:
         logger.debug(f"index = {index}")
         raw_index = self.client.indices.get(index=index)
+        stats_index = self.client.indices.stats(index=index)
         raw_index_metadata = raw_index[index]
 
         # 0. Dedup data_streams.
@@ -340,6 +341,7 @@ class ElasticsearchSource(Source):
 
         # 4. Construct and emit properties if needed
         properties: Dict[str, str] = {}
+        # add number_of_shards, provided_name, number_of_replicas, uuid
         properties.update({k: v for (k, v) in index_properties.items() if k in [
             "number_of_shards",
             "provided_name",
@@ -348,16 +350,30 @@ class ElasticsearchSource(Source):
         ]})
         index_aliases = raw_index_metadata.get("aliases", {}).keys()
         aliases: Dict[str, str] = {"aliases": ",".join(index_aliases)}
+        # add creation_date, version
         if index_aliases:
             properties.update(aliases)
         creation_date = float(index_properties["creation_date"])
         creation_date_transform = time.strftime(
             "%Y-%m-%d %H:%M:%S", time.localtime(creation_date / 1000)
         )
-        data_version = str(index_properties["version"])
+        data_version = index_properties["version"]
+
+        # add successful_shards, primaries_count, primaries_totalSize, all_count, all_totalSize
+        successful_shards = stats_index["_shards"]["successful"]
+        primaries_count = stats_index["_all"]["primaries"]["docs"]["count"]
+        primaries_totalSize = stats_index["_all"]["primaries"]["store"]["size_in_bytes"]
+        all_count = stats_index["_all"]["total"]["docs"]["count"]
+        all_totalSize = stats_index["_all"]["total"]["store"]["size_in_bytes"]
+
         properties.update({
             "creation_date": creation_date_transform,
-            "version": data_version
+            "version": str(data_version),
+            "successful_shards": str(successful_shards),
+            "primaries_count": str(primaries_count),
+            "primaries_totalSize": str(primaries_totalSize),
+            "all_count": str(all_count),
+            "all_totalSize": str(all_totalSize),
         })
 
         yield MetadataChangeProposalWrapper(
