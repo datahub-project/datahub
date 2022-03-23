@@ -234,7 +234,7 @@ def parse_run_restli_response(response: requests.Response) -> dict:
 def post_rollback_endpoint(
     payload_obj: dict,
     path: str,
-) -> typing.Tuple[typing.List[typing.List[str]], int, int]:
+) -> typing.Tuple[typing.List[typing.List[str]], int, int, int]:
     session, gms_host = get_session_and_host()
     url = gms_host + path
 
@@ -244,9 +244,11 @@ def post_rollback_endpoint(
     summary = parse_run_restli_response(response)
     rows = summary.get("aspectRowSummaries", [])
     entities_affected = summary.get("entitiesAffected", 0)
+    aspects_reverted = summary.get("aspectsReverted", 0)
     aspects_affected = summary.get("aspectsAffected", 0)
-    unsafe_aspects = list(filter(lambda row: row['runId'] != payload_obj['runId'], rows))
-    rolled_back_aspects = list(filter(lambda row: row['runId'] == payload_obj['runId'], rows))
+    rolled_back_aspects = list(
+        filter(lambda row: row["runId"] == payload_obj["runId"], rows)
+    )
 
     if len(rows) == 0:
         click.secho(f"No entities found. Payload used: {payload}", fg="yellow")
@@ -264,18 +266,12 @@ def post_rollback_endpoint(
         for row in rolled_back_aspects
     ]
 
-    structured_unsafe_results = [
-        [
-            row.get("urn"),
-            row.get("aspectName"),
-            datetime.fromtimestamp(row.get("timestamp") / 1000).strftime(
-                "%Y-%m-%d %H:%M:%S"
-            )
-            + f" ({local_timezone})",
-        ]
-        for row in unsafe_aspects
-    ]
-    return structured_rolled_back_results, entities_affected, aspects_affected, structured_unsafe_results
+    return (
+        structured_rolled_back_results,
+        entities_affected,
+        aspects_reverted,
+        aspects_affected,
+    )
 
 
 def post_delete_endpoint(
@@ -719,4 +715,7 @@ def get_aspects_for_entity(
             except Exception as e:
                 log.error(f"Error on {json.dumps(aspect_dict)}", e)
 
-    return {k: v for (k, v) in aspect_map.items() if k in aspects}
+    if aspects:
+        return {k: v for (k, v) in aspect_map.items() if k in aspects}
+    else:
+        return {k: v for (k, v) in aspect_map.items()}

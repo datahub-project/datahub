@@ -75,36 +75,35 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
       log.info("found {} rows to delete...", stringifyRowCount(aspectRowsToDelete.size()));
       if (dryRun) {
 
-        long affectedAspects = aspectRowsToDelete.size();
-        long affectedEntities = aspectRowsToDelete.stream()
-                .collect(Collectors.groupingBy(AspectRowSummary::getUrn)).keySet().size();
         final List<AspectRowSummary> keyAspects = aspectRowsToDelete.stream()
                 .filter(AspectRowSummary::isKeyAspect)
                 .collect(Collectors.toList());
+
         long entitiesDeleted = keyAspects.size();
+        long aspectsReverted = aspectRowsToDelete.size();
+
+        final long affectedEntities = aspectRowsToDelete.stream()
+                .collect(Collectors.groupingBy(AspectRowSummary::getUrn)).keySet().size();
         final AspectRowSummaryArray rowSummaries = new AspectRowSummaryArray(aspectRowsToDelete);
 
-        for (AspectRowSummary keyAspect : keyAspects) {
-          final List<AspectRowSummary> rowsAffectedFromOtherRuns = _systemMetadataService.findByUrn(keyAspect.getUrn(), false)
-                  .stream()
-                  .filter(row -> !row.getRunId().equals(runId))
-                  .collect(Collectors.toList());
-
-          affectedAspects += rowsAffectedFromOtherRuns.size();
-          rowSummaries.addAll(rowsAffectedFromOtherRuns);
-        }
+        // Count the number of aspects that exist referencing the key aspects we are deleting
+        long affectedAspects = keyAspects.stream()
+                .map((AspectRowSummary urn) -> _systemMetadataService.findByUrn(urn.getUrn(), false))
+                .flatMap(List::stream)
+                .filter(row -> !row.getRunId().equals(runId))
+                .count();
 
         // If we are soft deleting, remove key aspects from count of aspects being deleted
         if (!doHardDelete) {
-          affectedAspects -= keyAspects.size();
+          aspectsReverted -= keyAspects.size();
           rowSummaries.removeIf(AspectRowSummary::isKeyAspect);
         }
 
-        response.setAspectsAffected(affectedAspects);
-        response.setEntitiesAffected(affectedEntities);
-        response.setEntitiesDeleted(entitiesDeleted);
-        response.setAspectRowSummaries(rowSummaries);
-        return response;
+        return response.setAspectsAffected(affectedAspects)
+                .setAspectsReverted(aspectsReverted)
+                .setEntitiesAffected(affectedEntities)
+                .setEntitiesDeleted(entitiesDeleted)
+                .setAspectRowSummaries(rowSummaries);
       }
 
       RollbackRunResult rollbackRunResult = _entityService.rollbackRun(aspectRowsToDelete, runId, doHardDelete);
@@ -123,28 +122,28 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
       }
 
       log.info("finished deleting {} rows", deletedRows.size());
-      int affectedAspects = deletedRows.size() + rowsDeletedFromEntityDeletion;
+      int aspectsReverted = deletedRows.size() + rowsDeletedFromEntityDeletion;
       final List<AspectRowSummary> keyAspects = deletedRows.stream().filter(AspectRowSummary::isKeyAspect)
-              .collect(Collectors.toList());;
-      final long affectedEntities = keyAspects.size();
+              .collect(Collectors.toList());
+      final long entitiesDeleted = keyAspects.size();
+      final long affectedEntities = deletedRows.stream()
+              .collect(Collectors.groupingBy(AspectRowSummary::getUrn)).keySet().size();
       final AspectRowSummaryArray rowSummaries = new AspectRowSummaryArray(deletedRows);
 
       log.info("computing aspects affected by this rollback...");
-      for (AspectRowSummary keyAspect : keyAspects) {
-        final List<AspectRowSummary> rowsAffectedFromOtherRuns = _systemMetadataService.findByUrn(keyAspect.getUrn(), false)
-                .stream()
-                .filter(row -> !row.getRunId().equals(runId))
-                .collect(Collectors.toList());
-
-        affectedAspects += rowsAffectedFromOtherRuns.size();
-        rowSummaries.addAll(rowsAffectedFromOtherRuns);
-      }
+      // Count the number of aspects that exist referencing the key aspects we are deleting
+      long affectedAspects = keyAspects.stream()
+              .map((AspectRowSummary urn) -> _systemMetadataService.findByUrn(urn.getUrn(), false))
+              .flatMap(List::stream)
+              .filter(row -> !row.getRunId().equals(runId))
+              .count();
       log.info("calculation done.");
-      response.setAspectsAffected(affectedAspects);
-      response.setEntitiesAffected(affectedEntities);
-      response.setAspectRowSummaries(rowSummaries);
 
-      return response;
+      return response.setAspectsAffected(affectedAspects)
+        .setAspectsReverted(aspectsReverted)
+        .setEntitiesAffected(affectedEntities)
+        .setEntitiesDeleted(entitiesDeleted)
+        .setAspectRowSummaries(rowSummaries);
     }, MetricRegistry.name(this.getClass(), "rollback"));
   }
 

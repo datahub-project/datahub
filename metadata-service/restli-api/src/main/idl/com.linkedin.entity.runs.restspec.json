@@ -38,7 +38,7 @@
         "type" : "boolean",
         "optional" : true
       }, {
-        "name" : "hardDelete",
+        "name" : "safe",
         "type" : "boolean",
         "optional" : true
       } ],

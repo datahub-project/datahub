@@ -5175,6 +5175,10 @@
       "name" : "entitiesDeleted",
       "type" : "long",
       "optional" : true
+    }, {
+      "name" : "aspectsReverted",
+      "type" : "long",
+      "optional" : true
     } ]
   }, {
     "type" : "record",

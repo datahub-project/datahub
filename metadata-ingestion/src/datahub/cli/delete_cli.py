@@ -72,6 +72,7 @@ def delete_for_registry(
         structured_rows,
         entities_affected,
         aspects_affected,
+        unsafe_aspects,
     ) = cli_utils.post_rollback_endpoint(registry_delete, "/entities?action=deleteAll")
     deletion_result.num_entities = entities_affected
     deletion_result.num_records = aspects_affected

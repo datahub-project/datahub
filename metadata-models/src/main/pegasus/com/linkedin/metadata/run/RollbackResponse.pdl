@@ -5,4 +5,5 @@ record RollbackResponse {
     entitiesAffected: long
     aspectsAffected: long
     entitiesDeleted: optional long
+    aspectsReverted: optional long
 }

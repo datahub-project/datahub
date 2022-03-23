@@ -182,24 +182,27 @@ def show(run_id: str) -> None:
     """Describe a provided ingestion run to datahub"""
 
     payload_obj = {"runId": run_id, "dryRun": True, "hardDelete": True}
-    structured_rows, entities_affected, aspects_affected = post_rollback_endpoint(
-        payload_obj, "/runs?action=rollback"
-    )
+    (
+        structured_rows,
+        entities_affected,
+        aspects_modified,
+        aspects_affected,
+    ) = post_rollback_endpoint(payload_obj, "/runs?action=rollback")
 
-    if aspects_affected >= ELASTIC_MAX_PAGE_SIZE:
+    if aspects_modified >= ELASTIC_MAX_PAGE_SIZE:
         click.echo(
-            f"this run created at least {entities_affected} new entities and updated at least {aspects_affected} aspects"
+            f"this run created at least {entities_affected} new entities and updated at least {aspects_modified} aspects"
         )
     else:
         click.echo(
-            f"this run created {entities_affected} new entities and updated {aspects_affected} aspects"
+            f"this run created {entities_affected} new entities and updated {aspects_modified} aspects"
         )
     click.echo(
         "rolling back will delete the entities created and revert the updated aspects"
     )
     click.echo()
     click.echo(
-        f"showing first {len(structured_rows)} of {aspects_affected} aspects touched by this run"
+        f"showing first {len(structured_rows)} of {aspects_modified} aspects touched by this run"
     )
     click.echo(tabulate(structured_rows, RUN_TABLE_COLUMNS, tablefmt="grid"))
 
@@ -222,26 +225,29 @@ def rollback(run_id: str, force: bool, dry_run: bool, safe: bool) -> None:
         )
 
     payload_obj = {"runId": run_id, "dryRun": dry_run, "safe": safe}
-    structured_rows, entities_affected, aspects_affected, unsafe_aspects = post_rollback_endpoint(
-        payload_obj, "/runs?action=rollback"
-    )
+    (
+        structured_rows,
+        entities_affected,
+        aspects_reverted,
+        aspects_affected,
+    ) = post_rollback_endpoint(payload_obj, "/runs?action=rollback")
 
     click.echo(
         "Rolling back deletes the entities created by a run and reverts the updated aspects"
     )
     click.echo(
-        f"This rollback {'will' if dry_run else ''} {'delete' if dry_run else 'deleted'} {entities_affected} entities and {'will roll' if dry_run else 'rolled'} back {aspects_affected} aspects"
+        f"This rollback {'will' if dry_run else ''} {'delete' if dry_run else 'deleted'} {entities_affected} entities and {'will roll' if dry_run else 'rolled'} back {aspects_reverted} aspects"
     )
 
-    if (len(structured_rows) > 0):
+    if len(structured_rows) > 0:
         click.echo(
-            f"showing first {len(structured_rows)} of {aspects_affected} aspects {'that will be' if dry_run else ''} reverted by this run"
+            f"showing first {len(structured_rows)} of {aspects_reverted} aspects {'that will be' if dry_run else ''} reverted by this run"
         )
         click.echo(tabulate(structured_rows, RUN_TABLE_COLUMNS, tablefmt="grid"))
 
-    if (len(unsafe_aspects) > 0):
+    if len(aspects_affected) > 0:
         click.echo(
-            f"This rollback {'will leave' if dry_run else 'has left'} {len(unsafe_aspects)} aspects in an unsafe state"
+            f"This rollback {'will leave' if dry_run else 'has left'} {len(aspects_affected)} aspects in an unsafe state (associated key aspect has been deleted)"
         )
 
-        click.echo(tabulate(unsafe_aspects, RUN_TABLE_COLUMNS, tablefmt="grid"))
+        click.echo(tabulate(aspects_affected, RUN_TABLE_COLUMNS, tablefmt="grid"))

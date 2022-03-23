@@ -25,7 +25,7 @@ public interface SystemMetadataService {
 
   List<AspectRowSummary> findByRunId(String runId, boolean includeSoftDeleted);
 
-  List<AspectRowSummary> findByUrn(String Urn, boolean includeSoftDeleted);
+  List<AspectRowSummary> findByUrn(String urn, boolean includeSoftDeleted);
 
   List<AspectRowSummary> findByParams(Map<String, String> systemMetaParams, boolean includeSoftDeleted);
 
