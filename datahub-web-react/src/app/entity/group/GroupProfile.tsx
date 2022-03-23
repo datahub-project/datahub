@@ -89,11 +89,20 @@ export default function GroupProfile() {
     // Side bar data
     const sideBarData = {
         photoUrl: undefined,
-        avatarName: data?.corpGroup?.properties?.displayName || data?.corpGroup?.name || data?.corpGroup?.info?.displayName || undefined,
-        name: data?.corpGroup?.properties?.displayName || data?.corpGroup?.name || data?.corpGroup?.info?.displayName || undefined,
+        avatarName:
+            data?.corpGroup?.properties?.displayName ||
+            data?.corpGroup?.name ||
+            data?.corpGroup?.info?.displayName ||
+            undefined,
+        name:
+            data?.corpGroup?.properties?.displayName ||
+            data?.corpGroup?.name ||
+            data?.corpGroup?.info?.displayName ||
+            undefined,
         email: data?.corpGroup?.editableProperties?.email || data?.corpGroup?.properties?.email || undefined,
         slack: data?.corpGroup?.editableProperties?.slack || undefined,
-        aboutText: data?.corpGroup?.editableProperties?.description || data?.corpGroup?.properties?.description || undefined,
+        aboutText:
+            data?.corpGroup?.editableProperties?.description || data?.corpGroup?.properties?.description || undefined,
         groupMemberRelationships: groupMemberRelationships as EntityRelationshipsResult,
         groupOwnerShip: data?.corpGroup?.ownership as Ownership,
         urn,
