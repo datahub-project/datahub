@@ -4,12 +4,13 @@ import com.datahub.util.exception.ModelConversionException;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.EventUtils;
-import com.linkedin.metadata.event.EntityEventProducer;
+import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.mxe.MetadataAuditEvent;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeLog;
+import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.mxe.TopicConvention;
 import com.linkedin.mxe.TopicConventionImpl;
@@ -33,7 +34,7 @@ import org.apache.kafka.clients.producer.ProducerRecord;
  * If none is given, defaults to a {@link TopicConventionImpl} with the default delimiter of an underscore (_).
  */
 @Slf4j
-public class EntityKafkaMetadataEventProducer implements EntityEventProducer {
+public class KafkaEventProducer implements EventProducer {
 
   private final Producer<String, ? extends IndexedRecord> _producer;
   private final Optional<Callback> _callback;
@@ -45,7 +46,7 @@ public class EntityKafkaMetadataEventProducer implements EntityEventProducer {
    * @param producer The Kafka {@link Producer} to use
    * @param topicConvention the convention to use to get kafka topic names
    */
-  public EntityKafkaMetadataEventProducer(@Nonnull final Producer<String, ? extends IndexedRecord> producer,
+  public KafkaEventProducer(@Nonnull final Producer<String, ? extends IndexedRecord> producer,
       @Nonnull final TopicConvention topicConvention) {
     this(producer, topicConvention, null);
   }
@@ -57,7 +58,7 @@ public class EntityKafkaMetadataEventProducer implements EntityEventProducer {
    * @param topicConvention the convention to use to get kafka topic names
    * @param callback The {@link Callback} to invoke when the request is completed
    */
-  public EntityKafkaMetadataEventProducer(@Nonnull final Producer<String, ? extends IndexedRecord> producer,
+  public KafkaEventProducer(@Nonnull final Producer<String, ? extends IndexedRecord> producer,
       @Nonnull final TopicConvention topicConvention, @Nullable final Callback callback) {
     _producer = producer;
     _callback = Optional.ofNullable(callback);
@@ -66,6 +67,7 @@ public class EntityKafkaMetadataEventProducer implements EntityEventProducer {
 
   @Override
   @WithSpan
+  @Deprecated
   public void produceMetadataAuditEvent(@Nonnull Urn urn, @Nullable Snapshot oldSnapshot, @Nonnull Snapshot newSnapshot,
       @Nullable SystemMetadata oldSystemMetadata, @Nullable SystemMetadata newSystemMetadata,
       MetadataAuditOperation operation) {
@@ -151,6 +153,33 @@ public class EntityKafkaMetadataEventProducer implements EntityEventProducer {
         }
       });
     }
+  }
+
+  @Override
+  public void producePlatformEvent(@Nonnull String name, @Nullable String key, @Nonnull PlatformEvent event) {
+    GenericRecord record;
+    try {
+      log.debug(String.format("Converting Pegasus Event to Avro Event urn %s\nEvent: %s",
+          name,
+          event.toString()));
+      record = EventUtils.pegasusToAvroPE(event);
+    } catch (IOException e) {
+      log.error(String.format("Failed to convert Pegasus Platform Event to Avro: %s", event.toString()), e);
+      throw new ModelConversionException("Failed to convert Pegasus Platform Event to Avro", e);
+    }
+
+    final Callback callback = _callback.orElseGet(() -> (metadata, e) -> {
+      if (e != null) {
+        log.error(String.format("Failed to emit Platform Event for entity with name %s", name), e);
+      } else {
+        log.debug(String.format(
+            "Successfully emitted Platform Event for entity with name %s at offset %s, partition %s, topic %s", name,
+            metadata.offset(), metadata.partition(), metadata.topic()));
+      }
+    });
+
+    final String topic = _topicConvention.getPlatformEventTopicName();
+    _producer.send(new ProducerRecord(topic, key == null ? name : key, record), callback);
   }
 
   @VisibleForTesting

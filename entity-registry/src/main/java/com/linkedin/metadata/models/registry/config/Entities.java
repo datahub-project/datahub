@@ -12,4 +12,5 @@ import lombok.Value;
 public class Entities {
   String id;
   List<Entity> entities;
+  List<Event> events;
 }

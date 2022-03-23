@@ -12,7 +12,7 @@ import com.datahub.util.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.utils.EntityKeyUtils;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.policy.DataHubPolicyInfo;
@@ -85,7 +85,7 @@ public class IngestPoliciesStep implements BootstrapStep {
     // 3. Write key & aspect
     final MetadataChangeProposal keyAspectProposal = new MetadataChangeProposal();
     final AspectSpec keyAspectSpec = _entityService.getKeyAspectSpec(urn);
-    GenericAspect aspect = GenericAspectUtils.serializeAspect(EntityKeyUtils.convertUrnToEntityKey(urn, keyAspectSpec.getPegasusSchema()));
+    GenericAspect aspect = GenericRecordUtils.serializeAspect(EntityKeyUtils.convertUrnToEntityKey(urn, keyAspectSpec.getPegasusSchema()));
     keyAspectProposal.setAspect(aspect);
     keyAspectProposal.setAspectName(keyAspectSpec.getName());
     keyAspectProposal.setEntityType(POLICY_ENTITY_NAME);
@@ -99,7 +99,7 @@ public class IngestPoliciesStep implements BootstrapStep {
     proposal.setEntityUrn(urn);
     proposal.setEntityType(POLICY_ENTITY_NAME);
     proposal.setAspectName(POLICY_INFO_ASPECT_NAME);
-    proposal.setAspect(GenericAspectUtils.serializeAspect(info));
+    proposal.setAspect(GenericRecordUtils.serializeAspect(info));
     proposal.setChangeType(ChangeType.UPSERT);
 
     _entityService.ingestProposal(proposal,

@@ -28,7 +28,7 @@ import com.linkedin.identity.CorpGroupEditableInfo;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.execution.DataFetcherResult;
 import java.util.ArrayList;
@@ -133,7 +133,7 @@ public class CorpGroupType implements SearchableEntityType<CorpGroup>, MutableTy
             proposal.setEntityType(CORP_GROUP_ENTITY_NAME);
             proposal.setAspectName(CORP_GROUP_EDITABLE_INFO_ASPECT_NAME);
             proposal.setAspect(
-                GenericAspectUtils.serializeAspect(mapCorpGroupEditableInfo(input, existingCorpGroupEditableInfo)));
+                GenericRecordUtils.serializeAspect(mapCorpGroupEditableInfo(input, existingCorpGroupEditableInfo)));
             proposal.setChangeType(ChangeType.UPSERT);
             _entityClient.ingestProposal(proposal, context.getAuthentication());
 
