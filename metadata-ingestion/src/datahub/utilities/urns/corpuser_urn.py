@@ -11,7 +11,7 @@ class CorpuserUrn(Urn):
 
     ENTITY_TYPE: str = "corpuser"
 
-    def __init__(self, entity_type: str, entity_id: List[str], domain: str = "li"):
+    def __init__(self, entity_type: str, entity_id: List[str], domain: str = Urn.LI_DOMAIN):
         super().__init__(entity_type, entity_id, domain)
 
     @classmethod
