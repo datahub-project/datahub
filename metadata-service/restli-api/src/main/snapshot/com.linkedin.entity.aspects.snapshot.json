@@ -45,10 +45,12 @@
               "doc" : "Generic record structure for serializing an Aspect\n",
               "fields" : [ {
                 "name" : "value",
-                "type" : "bytes"
+                "type" : "bytes",
+                "doc" : "The value of the aspect, serialized as bytes."
               }, {
                 "name" : "contentType",
-                "type" : "string"
+                "type" : "string",
+                "doc" : "The content type, which represents the fashion in which the aspect was serialized.\nThe only type currently supported is application/json."
               } ]
             }
           }, {
@@ -3400,7 +3402,7 @@
     "fields" : [ {
       "name" : "auditHeader",
       "type" : "com.linkedin.avro2pegasus.events.KafkaAuditHeader",
-      "doc" : "Kafka audit header. See go/kafkaauditheader for more info.",
+      "doc" : "Kafka audit header. Currently remains unused in the open source.",
       "optional" : true
     }, {
       "name" : "entityType",

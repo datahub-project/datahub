@@ -9,7 +9,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.entity.TestEntityRegistry;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanEntityService;
-import com.linkedin.metadata.event.EntityEventProducer;
+import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
@@ -53,7 +53,7 @@ public class EbeanTimelineServiceTest {
   private EbeanServer _server;
   private EbeanTimelineService _entityTimelineService;
   private EbeanEntityService _entityService;
-  private EntityEventProducer _mockProducer;
+  private EventProducer _mockProducer;
 
   public EbeanTimelineServiceTest() throws EntityRegistryException {
   }
@@ -110,7 +110,7 @@ public class EbeanTimelineServiceTest {
     _aspectDao = new EbeanAspectDao(_server);
     _aspectDao.setConnectionValidated(true);
     _entityTimelineService = new EbeanTimelineService(_aspectDao);
-    _mockProducer = mock(EntityEventProducer.class);
+    _mockProducer = mock(EventProducer.class);
     _entityService = new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry);
   }
 
