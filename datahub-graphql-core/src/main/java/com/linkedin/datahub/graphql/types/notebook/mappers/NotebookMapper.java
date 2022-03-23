@@ -1,15 +1,17 @@
 package com.linkedin.datahub.graphql.types.notebook.mappers;
 
+import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.GlobalTags;
+import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.common.SubTypes;
-import com.linkedin.common.GlossaryTerms;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.ChartCell;
+import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Notebook;
@@ -68,7 +70,17 @@ public class NotebookMapper implements ModelMapper<EntityResponse, Notebook> {
     mappingHelper.mapToResult(SUB_TYPES_ASPECT_NAME, this::mapSubTypes);
     mappingHelper.mapToResult(GLOSSARY_TERMS_ASPECT_NAME, (notebook, dataMap) -> 
       notebook.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(dataMap))));
+    mappingHelper.mapToResult(DATA_PLATFORM_INSTANCE_ASPECT_NAME, this::mapDataPlatformInstance) ;
     return mappingHelper.getResult();
+  }
+
+  private void mapDataPlatformInstance(Notebook notebook, DataMap dataMap) {
+    DataPlatformInstance dataPlatformInstance = new DataPlatformInstance(dataMap);
+    notebook.setPlatform(DataPlatform
+        .builder()
+        .setType(EntityType.DATA_PLATFORM)
+        .setUrn(dataPlatformInstance.getPlatform().toString())
+        .build());
   }
 
   private void mapSubTypes(Notebook notebook, DataMap dataMap) {

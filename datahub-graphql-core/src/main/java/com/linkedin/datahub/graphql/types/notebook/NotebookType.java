@@ -64,7 +64,8 @@ public class NotebookType implements SearchableEntityType<Notebook>, BrowsableEn
       GLOSSARY_TERMS_ASPECT_NAME,
       INSTITUTIONAL_MEMORY_ASPECT_NAME,
       DOMAINS_ASPECT_NAME,
-      SUB_TYPES_ASPECT_NAME);
+      SUB_TYPES_ASPECT_NAME,
+      DATA_PLATFORM_INSTANCE_ASPECT_NAME);
 
   private final EntityClient _entityClient;
 
@@ -145,7 +146,7 @@ public class NotebookType implements SearchableEntityType<Notebook>, BrowsableEn
                   .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
-      throw new RuntimeException("Failed to batch load Data Doc", e);
+      throw new RuntimeException("Failed to batch load Notebook", e);
     }
   }
 

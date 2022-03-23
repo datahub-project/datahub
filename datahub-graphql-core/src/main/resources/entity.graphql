@@ -3343,6 +3343,11 @@ type Notebook implements Entity {
     The structured glossary terms associated with the notebook
     """
     glossaryTerms: GlossaryTerms
+
+    """
+    Standardized platform.
+    """
+    platform: DataPlatform!
 }
 
 """
@@ -3352,7 +3357,7 @@ type NotebookContent {
     """
     The content of a Notebook which is composed by a list of NotebookCell
     """
-    cells: [NotebookCell]!
+    cells: [NotebookCell!]!
 }
 
 """

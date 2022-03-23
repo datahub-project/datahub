@@ -914,14 +914,13 @@ public class GmsGraphQLEngine {
         .dataFetcher("relationships", new AuthenticatedResolver<>(
             new EntityRelationshipsResultResolver(graphClient)
         ))
+        .dataFetcher("platform", new AuthenticatedResolver<>(
+                new LoadableTypeResolver<>(dataPlatformType,
+                        (env) -> ((Notebook) env.getSource()).getPlatform().getUrn()))
+        )
         .dataFetcher("domain",
-            new LoadableTypeResolver<>(
-                domainType,
-                (env) -> {
-                  final Notebook notebook = env.getSource();
-                  return notebook.getDomain() != null ? notebook.getDomain().getUrn() : null;
-                }
-            )
+            new LoadableTypeResolver<>(domainType,
+                (env) -> ((Notebook) env.getSource()).getDomain().getUrn())
         )
     );
   }

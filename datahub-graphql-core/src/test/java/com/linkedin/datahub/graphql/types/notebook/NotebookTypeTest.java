@@ -6,6 +6,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.ChangeAuditStamps;
+import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTermAssociation;
 import com.linkedin.common.GlossaryTermAssociationArray;
@@ -23,6 +24,7 @@ import com.linkedin.common.TagAssociation;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.url.Url;
+import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.GlossaryTermUrn;
 import com.linkedin.common.urn.NotebookUrn;
 import com.linkedin.common.urn.TagUrn;
@@ -92,6 +94,9 @@ public class NotebookTypeTest {
 
   private static final SubTypes SUB_TYPES = new SubTypes().setTypeNames(new StringArray(ImmutableList.of("DataDoc")));
 
+  private static final DataPlatformInstance DATA_PLATFORM_INSTANCE = new DataPlatformInstance()
+      .setPlatform(new DataPlatformUrn("test_platform"));
+
   private static final NotebookInfo NOTEBOOK_INFO = new NotebookInfo()
       .setTitle("title")
       .setExternalUrl(new Url("https://querybook.com/notebook/123"))
@@ -158,6 +163,8 @@ public class NotebookTypeTest {
         Constants.GLOSSARY_TERMS_ASPECT_NAME,
         new EnvelopedAspect().setValue(new Aspect(TEST_GLOSSARY_TERMS.data()))
     );
+    notebookAspects.put(Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(DATA_PLATFORM_INSTANCE.data())));
 
     Urn notebookUrn = new NotebookUrn("querybook", "123");
     Urn dummyNotebookUrn = new NotebookUrn("querybook", "dummy");
@@ -214,9 +221,9 @@ public class NotebookTypeTest {
     assertEquals(notebook.getTags().getTags().get(0).getTag().getUrn(),
         GLOBAL_TAGS.getTags().get(0).getTag().toString());
     assertEquals(notebook.getSubTypes().getTypeNames(), SUB_TYPES.getTypeNames().stream().collect(Collectors.toList()));
-    assertEquals(
-        notebook.getGlossaryTerms().getTerms().get(0).getTerm().getUrn(),
+    assertEquals(notebook.getGlossaryTerms().getTerms().get(0).getTerm().getUrn(),
         TEST_GLOSSARY_TERMS.getTerms().get(0).getUrn().toString());
+    assertEquals(notebook.getPlatform().getUrn(), DATA_PLATFORM_INSTANCE.getPlatform().toString());
 
     // Assert second element is null.
     assertNull(result.get(1));
