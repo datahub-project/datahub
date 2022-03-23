@@ -1,26 +1,34 @@
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Sequence, Type
+from pathlib import Path
+from typing import BinaryIO, Dict, Iterable, List, Sequence, TextIO, Type, Union
 
 from delta_sharing.delta_sharing import SharingClient
-from delta_sharing.protocol import Table, DeltaSharingProfile
-from delta_sharing.rest_client import Metadata, QueryTableMetadataResponse
+from delta_sharing.protocol import DeltaSharingProfile, Table
+
+# ignore because no proper type hinting in delta-sharing source!
+from delta_sharing.rest_client import retry_with_exponential_backoff  # type: ignore
+from delta_sharing.rest_client import (
+    DataSharingRestClient,
+    Metadata,
+    QueryTableMetadataResponse,
+)
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetSourceConfigBase
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
 )
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent, MetadataChangeProposal
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
+from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaField,
     SchemaFieldDataType,
@@ -30,17 +38,17 @@ from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
     BytesTypeClass,
+    ChangeTypeClass,
+    DataPlatformInstanceClass,
+    DatasetPropertiesClass,
     DateTypeClass,
     MapTypeClass,
     NullTypeClass,
     NumberTypeClass,
     OtherSchemaClass,
+    RecordTypeClass,
     StringTypeClass,
     TimeTypeClass,
-    RecordTypeClass,
-    ChangeTypeClass, 
-    DataPlatformInstanceClass, 
-    DatasetPropertiesClass
 )
 
 # TODO: how do we support domains
@@ -48,9 +56,45 @@ from datahub.metadata.schema_classes import (
 LOGGER = logging.getLogger(__name__)
 
 # TODO: can be removed if delta-sharing accepts pull request and new version is released
+
+
 @dataclass(frozen=True)
 class QueryTableMetadataResponse_extended(QueryTableMetadataResponse):
     table: Table
+
+
+# TODO: can be removed if delta-sharing version >0.4.0 is released and required
+@dataclass(frozen=True)
+class QueryTableVersionResponse:
+    table: Table
+    delta_table_version: int
+
+
+# TODO: can be removed if delta-sharing version >0.4.0 is released and required
+class DataSharingRestClient_extended(DataSharingRestClient):
+    # ignore because no proper type hinting in delta-sharing source!
+    @retry_with_exponential_backoff  # type: ignore
+    def query_table_version(self, table: Table) -> QueryTableVersionResponse:
+        headers = self._head_internal(
+            f"/shares/{table.share}/schemas/{table.schema}/tables/{table.name}"
+        )
+
+        # it's a bug in the server if it doesn't return delta-table-version in the header
+        if "delta-table-version" not in headers:
+            raise LookupError("Missing delta-table-version header")
+
+        table_version = int(str(headers.get("delta-table-version")))
+        return QueryTableVersionResponse(table=table, delta_table_version=table_version)
+
+    def _head_internal(self, target: str) -> Dict[str, str]:
+        assert target.startswith("/"), "Targets should start with '/'"
+        response = self._session.head(f"{self._profile.endpoint}{target}")
+        try:
+            response.raise_for_status()
+            headers = response.headers
+            return headers
+        finally:
+            response.close()
 
 
 # TODO: can be removed if delta-sharing accepts pull request and new version is released
@@ -59,6 +103,15 @@ class SharingClient_extended(SharingClient):
     An extension of the delta sharing class SharingClient in order to query metadata including the table origin.
     This is done in order to ingest more easily.
     """
+
+    # TODO: can be removed if delta-sharing version >0.4.0 is released and required
+    def __init__(
+        self, profile: Union[str, BinaryIO, TextIO, Path, DeltaSharingProfile]
+    ):
+        if not isinstance(profile, DeltaSharingProfile):
+            profile = DeltaSharingProfile.read_from_file(profile)
+        self._profile = profile
+        self._rest_client = DataSharingRestClient_extended(profile)
 
     def query_table_metadata(self, table: Table) -> QueryTableMetadataResponse_extended:
         """
@@ -83,6 +136,13 @@ class SharingClient_extended(SharingClient):
         ]
 
         return querytablesmetadata
+
+    def query_table_version(self, table: Table) -> QueryTableMetadataResponse:
+        """
+        List the version of a specified table in a Delta Sharing Server.
+        :return: version of a specified table.
+        """
+        return self._rest_client.query_table_version(table=table)
 
 
 class DeltaLakeSourceConfig(DatasetSourceConfigBase):
@@ -145,7 +205,7 @@ class DeltaLakeSource(Source):
 
     def get_metadata(
         self, config: DeltaLakeSourceConfig
-    ) -> List[QueryTableMetadataResponse_extended]:
+    ) -> Sequence[QueryTableMetadataResponse_extended]:
         # Get the access keys for delta-sharing & start the client
         profile = DeltaSharingProfile(
             share_credentials_version=config.share_credentials_version,
@@ -159,7 +219,23 @@ class DeltaLakeSource(Source):
 
         return metadata_list
 
-    def get_workunits(self) -> List[MetadataWorkUnit]:
+    def get_metadata_version(
+        self, config: DeltaLakeSourceConfig, table: Table
+    ) -> QueryTableVersionResponse:
+        # Get the access keys for delta-sharing & start the client
+        profile = DeltaSharingProfile(
+            share_credentials_version=config.share_credentials_version,
+            endpoint=config.url,
+            bearer_token=config.token,
+        )
+        client = SharingClient_extended(profile)
+
+        # get all shared metadata
+        metadata_version = client.query_table_version(table=table)
+
+        return metadata_version
+
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
 
         # get all metadata from API
         metadata_list = self.get_metadata(config=self.config)
@@ -190,7 +266,9 @@ class DeltaLakeSource(Source):
     ) -> Iterable[MetadataWorkUnit]:
         self.report.report_table_scanned(metadata.table.name)
 
-        dataset_name = f"{metadata.table.share}.{metadata.table.schema}.{metadata.table.name}"
+        dataset_name = (
+            f"{metadata.table.share}.{metadata.table.schema}.{metadata.table.name}"
+        )
         dataset_urn = make_dataset_urn_with_platform_instance(
             platform=self.platform,
             name=dataset_name,
@@ -210,9 +288,9 @@ class DeltaLakeSource(Source):
         }
 
         dataset_properties = DatasetPropertiesClass(
-             tags=[],
-             description=metadata.metadata.description,
-             customProperties=custom_properties,
+            tags=[],
+            description=metadata.metadata.description,
+            customProperties=custom_properties,
         )
         dataset_snapshot.aspects.append(dataset_properties)
 
@@ -227,6 +305,9 @@ class DeltaLakeSource(Source):
         schema_metadata = self._create_schema_metadata(dataset_name, metadata)
         dataset_snapshot.aspects.append(schema_metadata)
 
+        # add Status
+        dataset_snapshot.aspects.append(StatusClass(removed=False))
+
         # emit datset workunit
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         workunit = MetadataWorkUnit(id=dataset_name, mce=mce)
@@ -234,7 +315,7 @@ class DeltaLakeSource(Source):
 
         yield workunit
 
-        #add instance via mcp
+        # add instance via mcp
         if self.config.platform_instance:
             mcp = MetadataChangeProposalWrapper(
                 entityType="dataset",
@@ -244,26 +325,29 @@ class DeltaLakeSource(Source):
                 aspect=DataPlatformInstanceClass(
                     platform=make_data_platform_urn(self.platform),
                     instance=make_dataplatform_instance_urn(
-                        self.platform,
-                        self.config.platform_instance
-                    )
-                )
+                        self.platform, self.config.platform_instance
+                    ),
+                ),
             )
-            workunit2=MetadataWorkUnit(id=f"{dataset_urn}-dataPlatformInstance", mcp=mcp)
+            workunit2 = MetadataWorkUnit(
+                id=f"{dataset_urn}-dataPlatformInstance", mcp=mcp
+            )
             yield workunit2
-
 
     def _create_schema_metadata(
         self, dataset_name: str, metadata: QueryTableMetadataResponse_extended
     ) -> SchemaMetadata:
         schema_fields = self._get_schema_fields(metadata.metadata)
 
-        # TODO: add documentation that version read.out not implemented in pypi version of API yet
+        version_number = self.get_metadata_version(
+            config=self.config, table=metadata.table
+        )
+        version_int = version_number.delta_table_version
 
         schema_metadata = SchemaMetadata(
             schemaName=dataset_name,
             platform=make_data_platform_urn(self.platform),
-            version=0,
+            version=version_int,
             hash="",
             platformSchema=OtherSchemaClass(rawSchema=metadata.metadata.schema_string),
             fields=schema_fields,
@@ -287,12 +371,13 @@ class DeltaLakeSource(Source):
                     ),
                 )
                 datahubName = column["name"]
-                nativeType = column["type"].get("type")
+                nativeType = str(column["type"].get("type"))
                 datahubType = _field_type_mapping.get(
                     nativeType, NullTypeClass
                 )  # NullTypeClass if we cannot map
                 datahubDescription = column["metadata"].get("comment")
                 datahubJsonProps = json.dumps(column["type"])
+                # send to recursion column["type"]["fields"]
 
                 datahubField = SchemaField(
                     fieldPath=datahubName,
@@ -331,19 +416,56 @@ class DeltaLakeSource(Source):
 
 if __name__ == "__main__":
 
-    import delta_sharing
+    a = 1
 
-    # # Get the access keys for delta-sharing & start the client
+    # import delta_sharing
+    # from delta_sharing.protocol import Format, Table
+    # from delta_sharing.rest_client import Metadata, Protocol
+
+    # testdata1 = QueryTableMetadataResponse_extended(
+    #     protocol=Protocol(min_reader_version=1),
+    #     metadata=Metadata(
+    #         id="test2",
+    #         name=None,
+    #         description=None,
+    #         format=Format(provider="parquet", options={}),
+    #         schema_string='{"type":"struct","fields":[{"name":"a","type":"integer","nullable":false,"metadata":{"comment":"this is a comment"}},{"name":"b","type":{"type":"struct","fields":[{"name":"d","type":"integer","nullable":false,"metadata":{}}]},"nullable":true,"metadata":{}},{"name":"c","type":{"type":"array","elementType":"integer","containsNull":false},"nullable":true,"metadata":{}},{"name":"e","type":{"type":"array","elementType":{"type":"struct","fields":[{"name":"d","type":"integer","nullable":false,"metadata":{}}]},"containsNull":true},"nullable":true,"metadata":{}},{"name":"f","type":{"type":"map","keyType":"string","valueType":"string","valueContainsNull":true},"nullable":true,"metadata":{}}]}',
+    #         partition_columns=[],
+    #     ),
+    #     table=Table(name="testdata2", share="delta_sharing", schema="default"),
+    # )
+    # source = DeltaLakeSource(
+    #     ctx=PipelineContext(run_id="delta-lake-source-test2"),
+    #     config=DeltaLakeSourceConfig(url="url", token="x"),
+    # )
+    # schema_fields = source._get_schema_fields(testdata1.metadata)
+    # testdata2=QueryTableMetadataResponse_extended(
+    #     protocol=Protocol(min_reader_version=1),
+    #     metadata=Metadata(
+    #         id="test2",
+    #         name=None,
+    #         description=None,
+    #         format=Format(provider="parquet", options={}),
+    #         schema_string='{"type":"struct","fields":[{"name":"a","type":"integer","nullable":false,"metadata":{"comment":"this is a comment"}},{"name":"b","type":{"type":"struct","fields":[{"name":"d","type":"integer","nullable":false,"metadata":{}}]},"nullable":true,"metadata":{}},{"name":"c","type":{"type":"array","elementType":"integer","containsNull":false},"nullable":true,"metadata":{}},{"name":"e","type":{"type":"array","elementType":{"type":"struct","fields":[{"name":"d","type":"integer","nullable":false,"metadata":{}}]},"containsNull":true},"nullable":true,"metadata":{}},{"name":"f","type":{"type":"map","keyType":"string","valueType":"string","valueContainsNull":true},"nullable":true,"metadata":{}}]}',
+    #         partition_columns=[],
+    #     ),
+    #     table=Table(name="testdata2", share="delta_sharing", schema="default"),
+    # )
+    # source = DeltaLakeSource(
+    #     ctx=PipelineContext(run_id="delta-lake-source-test3"),
+    #     config=DeltaLakeSourceConfig(url="url", token="x"),
+    # )
+    # schema_fields = source._get_schema_fields(testdata2.metadata)
+    # Get the access keys for delta-sharing & start the client
     # profile = delta_sharing.protocol.DeltaSharingProfile(
     #     share_credentials_version=1,
     #     endpoint="https://sharing.delta.io/delta-sharing/",
     #     bearer_token="faaie590d541265bcab1f2de9813274bf233",
     # )
     # client = SharingClient_extended(profile)
-
     # # get all shared metadata
     # metadata_list = client.query_all_table_metadata()
-
+    # a=2
     # # Filter tables, schemas and shares
     # filter_table = AllowDenyPattern(allow=["COVID_19_NYT", "lending_club"], deny=["LA"])
     # metadata_list = [
@@ -351,58 +473,52 @@ if __name__ == "__main__":
     #     for metadata in metadata_list
     #     if filter_table.allowed(metadata.table.name)
     # ]
-
     # # prepare load for metadata from ...
     # test = DeltaLakeSource(
     #     ctx=PipelineContext(run_id="delta-lake-source-test"),
     #     config=DeltaLakeSourceConfig(url="url", token="x"),
     # )
     # test2 = test._get_schema_fields(metadata_list[0].metadata)
-
-    from datahub.ingestion.run.pipeline import Pipeline
-
-    # The pipeline configuration is similar to the recipe YAML files provided to the CLI tool.
-    pipeline = Pipeline.create(
-        {
-            "source": {
-                "type": "mysql",
-                "config": {
-                    "username": "root",
-                    "password": "example",
-                    "database": "metagalaxy",
-                    "host_port": "localhost:53307",
-                },
-            },
-            "sink": {
-                "type": "file",
-                "config": {"filename": "/tmp/myswql_lake_mces.json"},
-            },
-        }
-    )
-
-    # Run the pipeline and report the results.
-    pipeline.run()
-
+    # from datahub.ingestion.run.pipeline import Pipeline
 
     # The pipeline configuration is similar to the recipe YAML files provided to the CLI tool.
-    pipeline = Pipeline.create(
-        {
-            "source": {
-                "type": "delta_lake",
-                "config":{
-                    "url": "https://sharing.delta.io/delta-sharing/",
-                    "token": "faaie590d541265bcab1f2de9813274bf233",
-                    "share_credentials_version": 1,
-                    "platform_instance": "core_finance"
-                },
-            },
-            "sink": {
-                "type": "file",
-                "config": {"filename": "/tmp/delta_lake_mces.json"},
-            },
-        }
-    )
+    # pipeline = Pipeline.create(
+    #     {
+    #         "source": {
+    #             "type": "mysql",
+    #             "config": {
+    #                 "username": "root",
+    #                 "password": "example",
+    #                 "database": "metagalaxy",
+    #                 "host_port": "localhost:53307",
+    #             },
+    #         },
+    #         "sink": {
+    #             "type": "file",
+    #             "config": {"filename": "/tmp/myswql_lake_mces.json"},
+    #         },
+    #     }
+    # )
+    # # Run the pipeline and report the results.
+    # pipeline.run()
+    # The pipeline configuration is similar to the recipe YAML files provided to the CLI tool.
+    # pipeline = Pipeline.create(
+    #     {
+    #         "source": {
+    #             "type": "delta_lake",
+    #             "config": {
+    #                 "url": "https://sharing.delta.io/delta-sharing/",
+    #                 "token": "faaie590d541265bcab1f2de9813274bf233",
+    #                 "share_credentials_version": 1,
+    #                 "platform_instance": "core_finance",
+    #             },
+    #         },
+    #         "sink": {
+    #             "type": "file",
+    #             "config": {"filename": "/tmp/delta_lake_mces.json"},
+    #         },
+    #     }
+    # )
 
-
-    # Run the pipeline and report the results.
-    pipeline.run()
+    # # Run the pipeline and report the results.
+    # pipeline.run()

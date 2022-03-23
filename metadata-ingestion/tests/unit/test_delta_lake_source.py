@@ -12,10 +12,10 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayTypeClass,
     MapTypeClass,
     NumberTypeClass,
+    RecordTypeClass,
     SchemaField,
     SchemaFieldDataType,
     StringTypeClass,
-    RecordTypeClass,
 )
 
 
