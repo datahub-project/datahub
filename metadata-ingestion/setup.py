@@ -151,9 +151,11 @@ plugins: Dict[str, Set[str]] = {
     "glue": aws_common,
     "hive": sql_common
     | {
-        # Acryl Data maintains a fork of PyHive, which adds support for table comments
-        # and column comments, and also releases HTTP and HTTPS transport schemes.
-        "acryl-pyhive[hive]>=0.6.11"
+        # Acryl Data maintains a fork of PyHive
+        # - 0.6.11 adds support for table comments and column comments,
+        #   and also releases HTTP and HTTPS transport schemes
+        # - 0.6.12 adds support for Spark Thrift Server
+        "acryl-pyhive[hive]>=0.6.12"
     },
     "kafka": kafka_common,
     "kafka-connect": sql_common | {"requests", "JPype1"},
