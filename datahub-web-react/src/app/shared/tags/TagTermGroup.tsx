@@ -282,7 +282,6 @@ export default function TagTermGroup({
                     <Tooltip overlay="Pending approval from owners">
                         <StyledTag
                             data-testid={`proposed-tag-${actionRequest?.params?.tagProposal?.tag?.name}`}
-                            disabled
                             $colorHash={actionRequest?.params?.tagProposal?.tag?.urn}
                             $color={actionRequest?.params?.tagProposal?.tag?.properties?.colorHex}
                         >
