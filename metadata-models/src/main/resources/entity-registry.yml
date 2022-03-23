@@ -38,6 +38,15 @@ entities:
     aspects:
       - domains
       - deprecation
+  - name: dataProcessInstance
+    doc: DataProcessInstance represents an instance of a datajob/jobflow run
+    keyAspect: dataProcessInstanceKey
+    aspects:
+      - dataProcessInstanceDatasetInput
+      - dataProcessInstanceDatasetOutput
+      - dataProcessInstanceProperties
+      - dataProcessInstanceRunEvent
+      - editableDataProcessInstanceProperties
   - name: chart
     keyAspect: chartKey
     aspects:
