@@ -12,7 +12,6 @@ import { EMPTY_MESSAGES } from '../../entity/shared/constants';
 import { useRemoveTagMutation, useRemoveTermMutation } from '../../../graphql/mutations.generated';
 import { DomainLink } from './DomainLink';
 import { TagProfileDrawer } from './TagProfileDrawer';
-import { randomKeyGenerator } from '../../entity/shared/utils';
 
 type Props = {
     uneditableTags?: GlobalTags | null;
@@ -169,8 +168,6 @@ export default function TagTermGroup({
         setTagProfileDrawerVisible(false);
     };
 
-    const uneditableTagsUpdated = uneditableTags?.tags?.map((i) => ({ ...i, uniqueId: randomKeyGenerator(5) }));
-
     return (
         <TagWrapper>
             {domain && (
@@ -199,11 +196,11 @@ export default function TagTermGroup({
                 </TermLink>
             ))}
             {/* uneditable tags are provided by ingestion pipelines exclusively */}
-            {uneditableTagsUpdated?.map((tag) => {
+            {uneditableTags?.tags?.map((tag) => {
                 renderedTags += 1;
                 if (maxShow && renderedTags > maxShow) return null;
                 return (
-                    <TagLink key={tag.uniqueId}>
+                    <TagLink key={tag?.tag?.urn}>
                         <StyledTag
                             onClick={() => showTagProfileDrawer(tag?.tag?.urn)}
                             $colorHash={tag?.tag?.urn}

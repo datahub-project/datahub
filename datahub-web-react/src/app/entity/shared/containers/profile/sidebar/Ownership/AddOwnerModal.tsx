@@ -15,7 +15,6 @@ import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { CustomAvatar } from '../../../../../../shared/avatar';
 import analytics, { EventType, EntityActionType } from '../../../../../../analytics';
 import { OWNERSHIP_DISPLAY_TYPES } from './ownershipUtils';
-import { randomKeyGenerator } from '../../../../utils';
 
 const SearchResultContainer = styled.div`
     display: flex;
@@ -196,7 +195,6 @@ export const AddOwnerModal = ({ urn, type, visible, hideOwnerType, defaultOwnerT
     //    querySelectorToExecuteClick: selectedActor && '#addOwnerButton',
     // });
 
-    const combinedSearchResultsUpdated = combinedSearchResults.map((i) => ({ ...i, uniqueId: randomKeyGenerator(5) }));
     return (
         <Modal
             title="Add Owner"
@@ -230,8 +228,8 @@ export const AddOwnerModal = ({ urn, type, visible, hideOwnerType, defaultOwnerT
                             onSearch={handleActorSearch}
                             tagRender={(tagProps) => <Tag>{tagProps.value}</Tag>}
                         >
-                            {combinedSearchResultsUpdated?.map((result) => (
-                                <Select.Option key={result.uniqueId} value={result.entity.urn}>
+                            {combinedSearchResults?.map((result) => (
+                                <Select.Option key={result?.entity?.urn} value={result.entity.urn}>
                                     {renderSearchResult(result)}
                                 </Select.Option>
                             ))}
