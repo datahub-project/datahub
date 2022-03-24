@@ -425,6 +425,12 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
         logger.info("Checking usage date ranges")
         self._check_usage_date_ranges(engine)
 
+        if (
+            self.report.min_access_history_time is None
+            or self.report.max_access_history_time is None
+        ):
+            return
+
         logger.info("Getting usage history")
         with PerfTimer() as timer:
             query = self._make_usage_query()
