@@ -153,7 +153,7 @@ class Telemetry:
 
         # send event
         try:
-            logger.info("Sending Telemetry")
+            logger.debug("Sending Telemetry")
             self.mp.track(self.client_id, event_name, properties)
 
         except Exception as e:

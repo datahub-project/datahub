@@ -72,6 +72,8 @@ sql_common = {
     "sqlalchemy==1.3.24",
     # Required for SQL profiling.
     "great-expectations>=0.14.11",
+    # datahub does not depend on Jinja2 directly but great expectations does. With Jinja2 3.1.0 GE 0.14.11 is breaking
+    "Jinja2<3.1.0",
     "greenlet",
 }
 
@@ -184,7 +186,7 @@ plugins: Dict[str, Set[str]] = {
     "snowflake": snowflake_common,
     "snowflake-usage": snowflake_common | {"more-itertools>=8.12.0"},
     "sqlalchemy": sql_common,
-    "superset": {"requests", "sqlalchemy", "great_expectations", "greenlet"},
+    "superset": {"requests", "sqlalchemy", "great_expectations", "greenlet", "Jinja2<3.1.0"},
     "tableau": {"tableauserverclient>=0.17.0"},
     "trino": sql_common | {"trino"},
     "starburst-trino-usage": sql_common | {"trino"},
