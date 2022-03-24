@@ -290,9 +290,10 @@ public class Application extends Controller {
   }
 
   private String mapPath(@Nonnull final String path) {
+    String strippedPath = path.replaceFirst("^/data-catalogue", "");
     // Case 1: Map legacy GraphQL path to GMS GraphQL API (for compatibility)
-    if (path.equals("/data-catalogue/api/v2/graphql")) {
-      return "/data-catalogue/api/graphql";
+    if (strippedPath.equals("/api/v2/graphql")) {
+      return "/api/graphql";
     }
 
     // Case 2: Map requests to /gms to / (Rest.li API)
