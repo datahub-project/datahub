@@ -192,9 +192,7 @@ class Pipeline:
                     if not self.dry_run:
                         self.sink.write_record_async(record_envelope, callback)
             except Exception as e:
-                logger.debug(
-                    f"Failed to extract some records due to: {e}"
-                )
+                logger.debug(f"Failed to extract some records due to: {e}")
             extractor.close()
             if not self.dry_run:
                 self.sink.handle_work_unit_end(wu)
