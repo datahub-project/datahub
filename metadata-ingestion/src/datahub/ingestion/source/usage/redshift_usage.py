@@ -2,7 +2,7 @@ import collections
 import dataclasses
 import logging
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Union, Set
 
 from dateutil import parser
 from pydantic import Field
@@ -88,9 +88,19 @@ class RedshiftUsageConfig(RedshiftConfig, BaseUsageConfig):
 
 
 @dataclasses.dataclass
+class RedshiftUsageSourceReport(SourceReport):
+    filtered: Set[str] = dataclasses.field(default_factory=set)
+
+    def report_dropped(self, key: str) -> None:
+        self.filtered.add(key)
+
+
+@dataclasses.dataclass
 class RedshiftUsageSource(Source):
     config: RedshiftUsageConfig
-    report: SourceReport = dataclasses.field(default_factory=SourceReport)
+    report: RedshiftUsageSourceReport = dataclasses.field(
+        default_factory=RedshiftUsageSourceReport
+    )
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -235,6 +245,9 @@ class RedshiftUsageSource(Source):
                 logger.debug(
                     f"Filtering out {event_dict['schema']}.{event_dict['table']}"
                 )
+                self.report.report_dropped(
+                    f"{event_dict['database']}.{event_dict['schema']}.{event_dict['table']}"
+                )
 
         if events:
             return events
@@ -361,7 +374,7 @@ class RedshiftUsageSource(Source):
             self.config.top_n_queries,
         )
 
-    def get_report(self) -> SourceReport:
+    def get_report(self) -> RedshiftUsageSourceReport:
         return self.report
 
     def close(self) -> None:
