@@ -17,21 +17,6 @@ Individual files are ingested as tables, and profiles are computed similar to th
 
 Enabling profiling will slow down ingestion runs.
 
-:::caution
-
-Running profiling against many tables or over many rows can run up significant costs.
-While we've done our best to limit the expensiveness of the queries the profiler runs, you
-should be prudent about the set of tables profiling is enabled on or the frequency
-of the profiling runs.
-
-:::
-
-Because data lake files often have messy paths, we provide the built-in option to transform names into a more readable format via the `path_spec` option. This option extracts identifiers from paths through a format string specifier where extracted components are denoted as `{name[index]}`.
-
-For instance, suppose we wanted to extract the files `/base_folder/folder_1/table_a.csv` and `/base_folder/folder_2/table_b.csv`. To ingest, we could set `base_path` to `/base_folder/` and `path_spec` to `./{name[0]}/{name[1]}.csv`, which would extract tables with names `folder_1.table_a` and `folder_2.table_b`. You could also ignore the folder component by using a `path_spec` such as `./{folder_name}/{name[0]}.csv`, which would just extract tables with names `table_a` and `table_b` – note that any component without the form `{name[index]}` is ignored.
-
-If you would like to write a more complicated function for resolving file names, then a [transformer](../transformers.md) would be a good fit.
-
 ## Capabilities
 
 Extracts:
@@ -57,15 +42,7 @@ Schemas for schemaless formats (CSV, TSV, JSON) are inferred. For CSV and TSV fi
 JSON file schemas are inferred on the basis of the entire file (given the difficulty in extracting only the first few objects of the file), which may impact performance.
 We are working on using iterator-based JSON parsers to avoid reading in the entire JSON object.
 
-:::caution
 
-If you are ingesting datasets from AWS S3, we recommend running the ingestion on a server in the same region to avoid high egress costs.
-
-:::
-
-| Capability        | Status | Details                                  |
-| ----------------- | ------ | ---------------------------------------- |
-| Platform Instance | 🛑     | [link](../../docs/platform-instances.md) |
 
 ## Quickstart recipe
 
@@ -77,11 +54,15 @@ For general pointers on writing and running a recipe, see our [main recipe guide
 source:
   type: data-lake
   config:
+    path_spec: 
+      include: "s3://covid19-lake/covid_knowledge_graph/csv/nodes/*.*"
+    aws_config:
+      aws_access_key_id: "testing",
+      aws_secret_access_key: "testing"
+      aws_region: us-east-2
     env: "PROD"
-    platform: "local-data-lake"
-    base_path: "/path/to/data/folder"
     profiling:
-      enabled: true
+      enabled: false
 
 sink:
   # sink configs
@@ -91,39 +72,110 @@ sink:
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field                                                | Required                 | Default      | Description                                                                                                                                                                                                    |
-| ---------------------------------------------------- | ------------------------ | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `env`                                                |                          | `PROD`       | Environment to use in namespace when constructing URNs.                                                                                                                                                        |
-| `platform`                                           |                          | Autodetected | Platform to use in namespace when constructing URNs. If left blank, local paths will correspond to `file` and S3 paths will correspond to `s3`.                                                                |
-| `base_path`                                          | ✅                       |              | Path of the base folder to crawl. Unless `schema_patterns` and `profile_patterns` are set, the connector will ingest all files in this folder.                                                                 |
-| `path_spec`                                          |                          |              | Format string for constructing table identifiers from the relative path. See the above [setup section](#setup) for details.                                                                                    |
-| `use_relative_path`                                  |                          | `False`      | Whether to use the relative path when constructing URNs. Has no effect when a `path_spec` is provided.                                                                                                         |
-| `ignore_dotfiles`                                    |                          | `True`       | Whether to ignore files that start with `.`. For instance, `.DS_Store`, `.bash_profile`, etc.                                                                                                                  |
-| `spark_driver_memory`                                |                          | `4g`         | Max amount of memory to grant Spark.                                                                                                                                                                           |
-| `aws_config.aws_region`                              | If ingesting from AWS S3 |              | AWS region code.                                                                                                                                                                                               |
-| `aws_config.aws_access_key_id`                       |                          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html                                                                                                                             |
-| `aws_config.aws_secret_access_key`                   |                          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html                                                                                                                             |
-| `aws_config.aws_session_token`                       |                          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html                                                                                                                             |
-| `max_rows`                                           |                          | `100`        | Maximum number of rows to use when inferring schemas for TSV and CSV files.                                                                                                                                    |
-| `schema_patterns.allow`                              |                          | `*`          | List of regex patterns for tables to ingest. Defaults to all.                                                                                                                                                  |
-| `schema_patterns.deny`                               |                          |              | List of regex patterns for tables to not ingest. Defaults to none.                                                                                                                                             |
-| `schema_patterns.ignoreCase`                         |                          | `True`       | Whether to ignore case sensitivity during pattern matching of tables to ingest.                                                                                                                                |
-| `profile_patterns.allow`                             |                          | `*`          | List of regex patterns for tables to profile (a must also be ingested for profiling). Defaults to all.                                                                                                         |
-| `profile_patterns.deny`                              |                          |              | List of regex patterns for tables to not profile (a must also be ingested for profiling). Defaults to none.                                                                                                    |
-| `profile_patterns.ignoreCase`                        |                          | `True`       | Whether to ignore case sensitivity during pattern matching of tables to profile.                                                                                                                               |
-| `profiling.enabled`                                  |                          | `False`      | Whether profiling should be done.                                                                                                                                                                              |
-| `profiling.profile_table_level_only`                 |                          | `False`      | Whether to perform profiling at table-level only or include column-level profiling as well.                                                                                                                    |
-| `profiling.max_number_of_fields_to_profile`          |                          | `None`       | A positive integer that specifies the maximum number of columns to profile for any table. `None` implies all columns. The cost of profiling goes up significantly as the number of columns to profile goes up. |
-| `profiling.include_field_null_count`                 |                          | `True`       | Whether to profile for the number of nulls for each column.                                                                                                                                                    |
-| `profiling.include_field_min_value`                  |                          | `True`       | Whether to profile for the min value of numeric columns.                                                                                                                                                       |
-| `profiling.include_field_max_value`                  |                          | `True`       | Whether to profile for the max value of numeric columns.                                                                                                                                                       |
-| `profiling.include_field_mean_value`                 |                          | `True`       | Whether to profile for the mean value of numeric columns.                                                                                                                                                      |
-| `profiling.include_field_median_value`               |                          | `True`       | Whether to profile for the median value of numeric columns.                                                                                                                                                    |
-| `profiling.include_field_stddev_value`               |                          | `True`       | Whether to profile for the standard deviation of numeric columns.                                                                                                                                              |
-| `profiling.include_field_quantiles`                  |                          | `True`       | Whether to profile for the quantiles of numeric columns.                                                                                                                                                       |
-| `profiling.include_field_distinct_value_frequencies` |                          | `False`      | Whether to profile for distinct value frequencies.                                                                                                                                                             |
-| `profiling.include_field_histogram`                  |                          | `False`      | Whether to profile for the histogram for numeric fields.                                                                                                                                                       |
-| `profiling.include_field_sample_values`              |                          | `True`       | Whether to profile for the sample values for all columns.                                                                                                                                                      |
+| Field                                                | Required                 | Default                                   | Description                                                                                                                                                                                                    |
+|------------------------------------------------------|--------------------------|-------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `path_spec.include`                                  | ✅                        |                                           | Path to table (s3 or local file system). Name variable {table} is used to mark the folder with dataset. Please check bellow examples                                                                           |
+| `path_spec.exclude`                                  |                          |                                           | list of paths in glob pattern which will be excluded while scanning for the datasets                                                                                                                           |
+| `path_spec.file_name`                                |                          | {table}                                   | Display name of the dataset.Combination of named variableds from include path and strings                                                                                                                      |
+| `path_spec.file_types`                               |                          | ["csv", "tsv", "json", "parquet", "avro"] | Files with extenstions specified here (subset of default value) only will be scanned to create dataset. Other files will be omitted.                                                                           |
+| `env`                                                |                          | `PROD`                                    | Environment to use in namespace when constructing URNs.                                                                                                                                                        |
+| `platform`                                           |                          | Autodetected                              | Platform to use in namespace when constructing URNs. If left blank, local paths will correspond to `file` and S3 paths will correspond to `s3`.                                                                |
+| `platform_instance`                                  |                          |                                           | Platform_instance for datasets and containers                                                                                                                                                                  |
+| `spark_driver_memory`                                |                          | `4g`                                      | Max amount of memory to grant Spark.                                                                                                                                                                           |
+| `aws_config.aws_region`                              | If ingesting from AWS S3 |                                           | AWS region code.                                                                                                                                                                                               |
+| `aws_config.aws_access_key_id`                       |                          | Autodetected                              | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html                                                                                                                             |
+| `aws_config.aws_secret_access_key`                   |                          | Autodetected                              | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html                                                                                                                             |
+| `aws_config.aws_session_token`                       |                          | Autodetected                              | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html                                                                                                                             |
+| `max_rows`                                           |                          | `100`                                     | Maximum number of rows to use when inferring schemas for TSV and CSV files.                                                                                                                                    |
+| `profile_patterns.allow`                             |                          | `*`                                       | List of regex patterns for tables to profile (a must also be ingested for profiling). Defaults to all.                                                                                                         |
+| `profile_patterns.deny`                              |                          |                                           | List of regex patterns for tables to not profile (a must also be ingested for profiling). Defaults to none.                                                                                                    |
+| `profile_patterns.ignoreCase`                        |                          | `True`                                    | Whether to ignore case sensitivity during pattern matching of tables to profile.                                                                                                                               |
+| `profiling.enabled`                                  |                          | `False`                                   | Whether profiling should be done.                                                                                                                                                                              |
+| `profiling.profile_table_level_only`                 |                          | `False`                                   | Whether to perform profiling at table-level only or include column-level profiling as well.                                                                                                                    |
+| `profiling.max_number_of_fields_to_profile`          |                          | `None`                                    | A positive integer that specifies the maximum number of columns to profile for any table. `None` implies all columns. The cost of profiling goes up significantly as the number of columns to profile goes up. |
+| `profiling.include_field_null_count`                 |                          | `True`                                    | Whether to profile for the number of nulls for each column.                                                                                                                                                    |
+| `profiling.include_field_min_value`                  |                          | `True`                                    | Whether to profile for the min value of numeric columns.                                                                                                                                                       |
+| `profiling.include_field_max_value`                  |                          | `True`                                    | Whether to profile for the max value of numeric columns.                                                                                                                                                       |
+| `profiling.include_field_mean_value`                 |                          | `True`                                    | Whether to profile for the mean value of numeric columns.                                                                                                                                                      |
+| `profiling.include_field_median_value`               |                          | `True`                                    | Whether to profile for the median value of numeric columns.                                                                                                                                                    |
+| `profiling.include_field_stddev_value`               |                          | `True`                                    | Whether to profile for the standard deviation of numeric columns.                                                                                                                                              |
+| `profiling.include_field_quantiles`                  |                          | `True`                                    | Whether to profile for the quantiles of numeric columns.                                                                                                                                                       |
+| `profiling.include_field_distinct_value_frequencies` |                          | `False`                                   | Whether to profile for distinct value frequencies.                                                                                                                                                             |
+| `profiling.include_field_histogram`                  |                          | `False`                                   | Whether to profile for the histogram for numeric fields.                                                                                                                                                       |
+| `profiling.include_field_sample_values`              |                          | `True`                                    | Whether to profile for the sample values for all columns.                                                                                                                                                      |
+
+## Sample path_spec.include
+
+### 
+
+- env
+- platform
+- platform_instance
+- path_spec
+    - include
+    - exclude
+    - file_types
+- all param related to profiling and aws configuration remains same
+
+## Valid path_spec.include
+
+- s3://my-bucket/foo/tests/bar.avro # single file table
+- s3://my-bucket/foo/tests/*.* # mulitple file level tables
+- s3://my-bucket/foo/tests/{table}/*.avro #table without partition
+- s3://my-bucket/foo/tests/{table}/*/*.avro #table where partitions are not specified
+- s3://my-bucket/foo/tests/{table}/*.* # table where no partitions as well as data type specified
+- s3://my-bucket/{dept}/tests/{table}/*.avro # specifying key wards to be used in display name
+- s3://my-bucket/{dept}/tests/{table}/{partition_key[0]}={partition[0]}/{partition_key[1]}={partition[1]}/*.avro # specify partition key and value format
+- s3://my-bucket/{dept}/tests/{table}/{partition[0]}/{partition[1]}/{partition[2]}/*.avro # specify partition value only format
+- s3://my-bucket/{dept}/tests/{table}/{partition[0]}/{partition[1]}/{partition[2]}/*.* # for all extensions
+- s3://my-bucket/*/{table}/{partition[0]}/{partition[1]}/{partition[2]}/*.* # table is present at 2 levels down in bucket
+- s3://my-bucket/*/*/{table}/{partition[0]}/{partition[1]}/{partition[2]}/*.* # table is present at 3 levels down in bucket
+
+## Valid path_spec.exclude
+- **/tests/**
+- s3://my-bucket/hr/**
+- **/tests/*.csv
+- s3://my-bucket/foo/*/my_table/**
+- 
+### Notes
+
+- {table} represents actual table folder
+- if no {table} tag is present then file level dataset will be created
+- include path must end with (*.*/*.type) to repesent leaf level
+- if *.type is provided then only specified type of files will be scanned
+- /*/ represents single folder
+- {partition[i]} represents value of partition
+- {partition_key[i]} represents name of the partition
+- While extracting, “i” will be used to match partition_key to partition
+- all folder levels need to be specified in include. Only exclude path can have ** like matching
+    - exclude path cannot have named variables ( {} )
+- Folder names should not contain {, }, *, / in their names
+- {folder} is reserved for internal working. please do not use in named variables
+
+
+
+If you would like to write a more complicated function for resolving file names, then a [transformer](../transformers.md) would be a good fit.
+
+:::caution
+
+Specify as long fixed prefix ( with out /*/ ) as possible. This will reduce the scanning saving time and cost specifially on AWS S3 
+
+:::
+
+:::caution
+
+Running profiling against many tables or over many rows can run up significant costs.
+While we've done our best to limit the expensiveness of the queries the profiler runs, you
+should be prudent about the set of tables profiling is enabled on or the frequency
+of the profiling runs.
+
+:::
+
+:::caution
+
+If you are ingesting datasets from AWS S3, we recommend running the ingestion on a server in the same region to avoid high egress costs.
+
+:::
 
 ## Compatibility
 

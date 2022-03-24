@@ -1,0 +1,19 @@
+---
+# see https://datahubproject.io/docs/metadata-ingestion/source_docs/file for complete documentation
+source:
+  type: "data-lake"
+  config:
+    platform_instance: data-lake-1
+    path_spec: 
+      # folder as dataset
+      include: datasets/{table}/*.*
+      exclude: datasets/unstructured_data/**
+    profiling:
+      enabled: true
+
+# see https://datahubproject.io/docs/metadata-ingestion/sink_docs/file for complete documentation
+sink:
+  type: "file"
+  config:
+    filename: "./local_data_lake_mces.json"
+
