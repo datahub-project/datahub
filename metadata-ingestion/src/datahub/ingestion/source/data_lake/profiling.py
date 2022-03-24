@@ -118,7 +118,7 @@ class _SingleColumnSpec:
     # if the histogram is a list of value frequencies (discrete data) or bins (continuous data)
     histogram_distinct: Optional[bool] = None
 
-    type_: SparkDataType = NullType
+    type_: SparkDataType = NullType  # type:ignore
 
     unique_count: Optional[int] = None
     non_null_count: Optional[int] = None
@@ -268,7 +268,9 @@ class _SingleTableProfiler:
             column_profile.nullCount = column_null_counts.get(column)
             column_profile.nullProportion = column_null_fractions.get(column)
             if self.profiling_config.include_field_sample_values:
-                column_profile.sampleValues = [str(x[column]) for x in rdd_sample]
+                column_profile.sampleValues = sorted(
+                    [str(x[column]) for x in rdd_sample]
+                )
 
             column_spec.type_ = column_types[column]
             column_spec.cardinality = _convert_to_cardinality(

@@ -112,6 +112,8 @@ data_lake_base = {
     "ujson>=4.3.0",
     "types-ujson>=4.2.1",
     "smart-open[s3]>=5.2.1",
+    "moto[s3]",
+    "wcmatch",
 }
 
 data_lake_profiling = {
