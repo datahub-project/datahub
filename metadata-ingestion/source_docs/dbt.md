@@ -61,9 +61,9 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 
 | Field                     | Required | Default  | Description                                                                                                                                           |
 | ------------------------- | -------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `manifest_path`           | ✅       |          | Path to dbt manifest JSON. See https://docs.getdbt.com/reference/artifacts/manifest-json  Note this can be a local file or a URI.                     |
-| `catalog_path`            | ✅       |          | Path to dbt catalog JSON. See https://docs.getdbt.com/reference/artifacts/catalog-json    Note this can be a local file or a URI.                     |
-| `sources_path`            |          |          | Path to dbt sources JSON. See https://docs.getdbt.com/reference/artifacts/sources-json. If not specified, last-modified fields will not be populated. Note this can be a local file or a URI. |
+| `manifest_path`           | ✅       |          | Path to dbt manifest JSON. See https://docs.getdbt.com/reference/artifacts/manifest-json  Note this can be a local file, an https URL or S3 URI.                    |
+| `catalog_path`            | ✅       |          | Path to dbt catalog JSON. See https://docs.getdbt.com/reference/artifacts/catalog-json    Note this can be a local file, an https URL or S3 URI.                    |
+| `sources_path`            |          |          | Path to dbt sources JSON. See https://docs.getdbt.com/reference/artifacts/sources-json. If not specified, last-modified fields will not be populated. Note this can be a local file, an https URL or S3 URI. |
 | `env`                     |          | `"PROD"` | Environment to use in namespace when constructing URNs.                                                                                               |
 | `target_platform`         | ✅       |          | The platform that dbt is loading onto. (e.g. bigquery / redshift / postgres etc.)                                                                                                                 |
 | `use_identifiers`         |         | `False`   | Use model [identifier](https://docs.getdbt.com/reference/resource-properties/identifier) instead of model name if defined (if not, default to model name).                                                           |
