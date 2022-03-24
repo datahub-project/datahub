@@ -13,8 +13,7 @@ This source is in **Beta** and under active development. Not yet considered read
 To install this plugin, run `pip install 'acryl-datahub[data-lake]'`. Note that because the profiling is run with PySpark, we require Spark 3.0.3 with Hadoop 3.2 to be installed (see [compatibility](#compatibility) for more details). If profiling, make sure that permissions for **s3a://** access are set because Spark and Hadoop use the s3a:// protocol to interface with AWS (schema inference outside of profiling requires s3:// access).
 
 The data lake connector extracts schemas and profiles from a variety of file formats (see below for an exhaustive list).
-Individual files are ingested as tables, and profiles are computed similar to the [SQL profiler](./sql_profiles.md).
-
+Based on  configuration, individual files or folders are ingested as tables, and profiles are computed similar to the [SQL profiler](./sql_profiles.md).
 Enabling profiling will slow down ingestion runs.
 
 ## Capabilities
@@ -57,8 +56,8 @@ source:
     path_spec: 
       include: "s3://covid19-lake/covid_knowledge_graph/csv/nodes/*.*"
     aws_config:
-      aws_access_key_id: "testing",
-      aws_secret_access_key: "testing"
+      aws_access_key_id: *****
+      aws_secret_access_key: *****
       aws_region: us-east-2
     env: "PROD"
     profiling:
@@ -74,17 +73,17 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 
 | Field                                                | Required                 | Default                                   | Description                                                                                                                                                                                                    |
 |------------------------------------------------------|--------------------------|-------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `path_spec.include`                                  | ✅                        |                                           | Path to table (s3 or local file system). Name variable {table} is used to mark the folder with dataset. Please check bellow examples                                                                           |
+| `path_spec.include`                                  | ✅                        |                                           | Path to table (s3 or local file system). Name variable {table} is used to mark the folder with dataset. In absence of {table}, file level dataset will be created. Check below examples for more details.      |
 | `path_spec.exclude`                                  |                          |                                           | list of paths in glob pattern which will be excluded while scanning for the datasets                                                                                                                           |
-| `path_spec.file_name`                                |                          | {table}                                   | Display name of the dataset.Combination of named variableds from include path and strings                                                                                                                      |
+| `path_spec.table_name`                               |                          | {table}                                   | Display name of the dataset.Combination of named variableds from include path and strings                                                                                                                      |
 | `path_spec.file_types`                               |                          | ["csv", "tsv", "json", "parquet", "avro"] | Files with extenstions specified here (subset of default value) only will be scanned to create dataset. Other files will be omitted.                                                                           |
 | `env`                                                |                          | `PROD`                                    | Environment to use in namespace when constructing URNs.                                                                                                                                                        |
 | `platform`                                           |                          | Autodetected                              | Platform to use in namespace when constructing URNs. If left blank, local paths will correspond to `file` and S3 paths will correspond to `s3`.                                                                |
-| `platform_instance`                                  |                          |                                           | Platform_instance for datasets and containers                                                                                                                                                                  |
+| `platform_instance`                                  |                          |                                           | Platform instance for datasets and containers                                                                                                                                                                  |
 | `spark_driver_memory`                                |                          | `4g`                                      | Max amount of memory to grant Spark.                                                                                                                                                                           |
 | `aws_config.aws_region`                              | If ingesting from AWS S3 |                                           | AWS region code.                                                                                                                                                                                               |
-| `aws_config.aws_access_key_id`                       |                          | Autodetected                              | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html                                                                                                                             |
-| `aws_config.aws_secret_access_key`                   |                          | Autodetected                              | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html                                                                                                                             |
+| `aws_config.aws_access_key_id`                       |                          | Autodetected (Required for s3 profiling)  | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html                                                                                                                             |
+| `aws_config.aws_secret_access_key`                   |                          | Autodetected (Required for s3 profiling)  | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html                                                                                                                             |
 | `aws_config.aws_session_token`                       |                          | Autodetected                              | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html                                                                                                                             |
 | `max_rows`                                           |                          | `100`                                     | Maximum number of rows to use when inferring schemas for TSV and CSV files.                                                                                                                                    |
 | `profile_patterns.allow`                             |                          | `*`                                       | List of regex patterns for tables to profile (a must also be ingested for profiling). Defaults to all.                                                                                                         |
@@ -104,32 +103,22 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `profiling.include_field_histogram`                  |                          | `False`                                   | Whether to profile for the histogram for numeric fields.                                                                                                                                                       |
 | `profiling.include_field_sample_values`              |                          | `True`                                    | Whether to profile for the sample values for all columns.                                                                                                                                                      |
 
-## Sample path_spec.include
-
-### 
-
-- env
-- platform
-- platform_instance
-- path_spec
-    - include
-    - exclude
-    - file_types
-- all param related to profiling and aws configuration remains same
 
 ## Valid path_spec.include
 
-- s3://my-bucket/foo/tests/bar.avro # single file table
-- s3://my-bucket/foo/tests/*.* # mulitple file level tables
-- s3://my-bucket/foo/tests/{table}/*.avro #table without partition
-- s3://my-bucket/foo/tests/{table}/*/*.avro #table where partitions are not specified
-- s3://my-bucket/foo/tests/{table}/*.* # table where no partitions as well as data type specified
-- s3://my-bucket/{dept}/tests/{table}/*.avro # specifying key wards to be used in display name
-- s3://my-bucket/{dept}/tests/{table}/{partition_key[0]}={partition[0]}/{partition_key[1]}={partition[1]}/*.avro # specify partition key and value format
-- s3://my-bucket/{dept}/tests/{table}/{partition[0]}/{partition[1]}/{partition[2]}/*.avro # specify partition value only format
-- s3://my-bucket/{dept}/tests/{table}/{partition[0]}/{partition[1]}/{partition[2]}/*.* # for all extensions
-- s3://my-bucket/*/{table}/{partition[0]}/{partition[1]}/{partition[2]}/*.* # table is present at 2 levels down in bucket
-- s3://my-bucket/*/*/{table}/{partition[0]}/{partition[1]}/{partition[2]}/*.* # table is present at 3 levels down in bucket
+```python
+s3://my-bucket/foo/tests/bar.avro # single file table   
+s3://my-bucket/foo/tests/*.* # mulitple file level tables
+s3://my-bucket/foo/tests/{table}/*.avro #table without partition
+s3://my-bucket/foo/tests/{table}/*/*.avro #table where partitions are not specified
+s3://my-bucket/foo/tests/{table}/*.* # table where no partitions as well as data type specified
+s3://my-bucket/{dept}/tests/{table}/*.avro # specifying key wards to be used in display name
+s3://my-bucket/{dept}/tests/{table}/{partition_key[0]}={partition[0]}/{partition_key[1]}={partition[1]}/*.avro # specify partition key and value format
+s3://my-bucket/{dept}/tests/{table}/{partition[0]}/{partition[1]}/{partition[2]}/*.avro # specify partition value only format
+s3://my-bucket/{dept}/tests/{table}/{partition[0]}/{partition[1]}/{partition[2]}/*.* # for all extensions
+s3://my-bucket/*/{table}/{partition[0]}/{partition[1]}/{partition[2]}/*.* # table is present at 2 levels down in bucket
+s3://my-bucket/*/*/{table}/{partition[0]}/{partition[1]}/{partition[2]}/*.* # table is present at 3 levels down in bucket
+```
 
 ## Valid path_spec.exclude
 - **/tests/**
@@ -139,16 +128,15 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 - 
 ### Notes
 
-- {table} represents actual table folder
-- if no {table} tag is present then file level dataset will be created
-- include path must end with (*.*/*.type) to repesent leaf level
-- if *.type is provided then only specified type of files will be scanned
+- {table} represents folder for which dataset will be created.
+- include path must end with (*.*/*.[ext]) to repesent leaf level.
+- if *.[ext] is provided then only files with specified type will be scanned
 - /*/ represents single folder
 - {partition[i]} represents value of partition
 - {partition_key[i]} represents name of the partition
 - While extracting, “i” will be used to match partition_key to partition
 - all folder levels need to be specified in include. Only exclude path can have ** like matching
-    - exclude path cannot have named variables ( {} )
+- exclude path cannot have named variables ( {} )
 - Folder names should not contain {, }, *, / in their names
 - {folder} is reserved for internal working. please do not use in named variables
 
@@ -158,7 +146,7 @@ If you would like to write a more complicated function for resolving file names,
 
 :::caution
 
-Specify as long fixed prefix ( with out /*/ ) as possible. This will reduce the scanning saving time and cost specifially on AWS S3 
+Specify as long fixed prefix ( with out /*/ ) as possible in `path_spec.include`. This will reduce the scanning time and cost, specifically on AWS S3 
 
 :::
 
