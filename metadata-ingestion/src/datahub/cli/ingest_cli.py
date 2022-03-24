@@ -1,3 +1,4 @@
+import csv
 import json
 import logging
 import pathlib
@@ -212,8 +213,9 @@ def show(run_id: str) -> None:
 @click.option("-f", "--force", required=False, is_flag=True)
 @click.option("--dry-run", "-n", required=False, is_flag=True, default=False)
 @click.option("--safe/--nuke", required=False, is_flag=True, default=True)
+@click.option("--save", "-s", required=False, type=str, default="")
 @telemetry.with_telemetry
-def rollback(run_id: str, force: bool, dry_run: bool, safe: bool) -> None:
+def rollback(run_id: str, force: bool, dry_run: bool, safe: bool, save: str) -> None:
     """Rollback a provided ingestion run to datahub"""
 
     cli_utils.test_connectivity_complain_exit("ingest")
@@ -239,15 +241,29 @@ def rollback(run_id: str, force: bool, dry_run: bool, safe: bool) -> None:
         f"This rollback {'will' if dry_run else ''} {'delete' if dry_run else 'deleted'} {entities_affected} entities and {'will roll' if dry_run else 'rolled'} back {aspects_reverted} aspects"
     )
 
-    if len(structured_rows) > 0:
-        click.echo(
-            f"showing first {len(structured_rows)} of {aspects_reverted} aspects {'that will be' if dry_run else ''} reverted by this run"
-        )
-        click.echo(tabulate(structured_rows, RUN_TABLE_COLUMNS, tablefmt="grid"))
+    click.echo(
+        f"showing first {len(structured_rows)} of {aspects_reverted} aspects {'that will be ' if dry_run else ''}reverted by this run"
+    )
+    click.echo(tabulate(structured_rows, RUN_TABLE_COLUMNS, tablefmt="grid"))
 
-    if len(aspects_affected) > 0:
-        click.echo(
-            f"This rollback {'will leave' if dry_run else 'has left'} {len(aspects_affected)} aspects in an unsafe state (associated key aspect has been deleted)"
-        )
+    if aspects_affected > 0:
+        if safe:
+            click.echo(
+                f"WARNING: This rollback {'will hide' if dry_run else 'has hidden'} {aspects_affected} aspects related to entities being rolled back that are not part ingestion run id."
+            )
+        else:
+            click.echo(
+                f"WARNING: This rollback {'will delete' if dry_run else 'has deleted'} {aspects_affected} aspects related to entities being rolled back that are not part ingestion run id."
+            )
 
-        click.echo(tabulate(aspects_affected, RUN_TABLE_COLUMNS, tablefmt="grid"))
+    if save:
+        try:
+            with open(save, "w") as filehandle:
+                writer = csv.writer(filehandle)
+                writer.writerow(
+                    map(lambda str: str.replace(" ", "_"), RUN_TABLE_COLUMNS)
+                )
+                writer.writerows(structured_rows)
+                filehandle.close()
+        except IOError:
+            sys.exit("Unable to write to file " + save)

@@ -19,6 +19,7 @@ import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -60,7 +61,7 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
       @ActionParam("dryRun") @Optional Boolean dryRun, @ActionParam("safe") @Optional Boolean safe) {
     log.info("ROLLBACK RUN runId: {} dry run: {}", runId, dryRun);
 
-    boolean doHardDelete = safe != null ? safe : DEFAULT_HARD_DELETE;
+    boolean doHardDelete = safe != null ? !safe : DEFAULT_HARD_DELETE;
 
     return RestliUtil.toTask(() -> {
       if (runId.equals(EntityService.DEFAULT_RUN_ID)) {
@@ -75,28 +76,34 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
       log.info("found {} rows to delete...", stringifyRowCount(aspectRowsToDelete.size()));
       if (dryRun) {
 
-        final List<AspectRowSummary> keyAspects = aspectRowsToDelete.stream()
-                .filter(AspectRowSummary::isKeyAspect)
-                .collect(Collectors.toList());
+        final Map<Boolean, List<AspectRowSummary>> aspectsSplitByIsKeyAspects = aspectRowsToDelete.stream()
+                .collect(Collectors.partitioningBy(AspectRowSummary::isKeyAspect));
+
+        final List<AspectRowSummary> keyAspects = aspectsSplitByIsKeyAspects.get(true);
+        final List<AspectRowSummary> nonKeyAspects = aspectsSplitByIsKeyAspects.get(false);
 
         long entitiesDeleted = keyAspects.size();
         long aspectsReverted = aspectRowsToDelete.size();
 
         final long affectedEntities = aspectRowsToDelete.stream()
                 .collect(Collectors.groupingBy(AspectRowSummary::getUrn)).keySet().size();
-        final AspectRowSummaryArray rowSummaries = new AspectRowSummaryArray(aspectRowsToDelete);
 
-        // Count the number of aspects that exist referencing the key aspects we are deleting
-        long affectedAspects = keyAspects.stream()
-                .map((AspectRowSummary urn) -> _systemMetadataService.findByUrn(urn.getUrn(), false))
-                .flatMap(List::stream)
-                .filter(row -> !row.getRunId().equals(runId))
-                .count();
+        final AspectRowSummaryArray rowSummaries = new AspectRowSummaryArray(keyAspects);
+        // Add non-key aspects up to a total of 100 aspect row summaries entries or all key aspects which ever is smaller.
+        rowSummaries.addAll(nonKeyAspects.subList(0, Math.min(100, Math.max(keyAspects.size(), nonKeyAspects.size()))));
+
+        long affectedAspects = 0;
 
         // If we are soft deleting, remove key aspects from count of aspects being deleted
         if (!doHardDelete) {
           aspectsReverted -= keyAspects.size();
           rowSummaries.removeIf(AspectRowSummary::isKeyAspect);
+          // Count the number of aspects that exist referencing the key aspects we are deleting
+          affectedAspects = keyAspects.stream()
+                  .map((AspectRowSummary urn) -> _systemMetadataService.findByUrn(urn.getUrn(), false))
+                  .flatMap(List::stream)
+                  .filter(row -> !row.getRunId().equals(runId))
+                  .count();
         }
 
         return response.setAspectsAffected(affectedAspects)
@@ -123,12 +130,20 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
 
       log.info("finished deleting {} rows", deletedRows.size());
       int aspectsReverted = deletedRows.size() + rowsDeletedFromEntityDeletion;
-      final List<AspectRowSummary> keyAspects = deletedRows.stream().filter(AspectRowSummary::isKeyAspect)
-              .collect(Collectors.toList());
+
+      final Map<Boolean, List<AspectRowSummary>> aspectsSplitByIsKeyAspects = aspectRowsToDelete.stream()
+              .collect(Collectors.partitioningBy(AspectRowSummary::isKeyAspect));
+
+      final List<AspectRowSummary> keyAspects = aspectsSplitByIsKeyAspects.get(true);
+      final List<AspectRowSummary> nonKeyAspects = aspectsSplitByIsKeyAspects.get(false);
+
       final long entitiesDeleted = keyAspects.size();
       final long affectedEntities = deletedRows.stream()
               .collect(Collectors.groupingBy(AspectRowSummary::getUrn)).keySet().size();
-      final AspectRowSummaryArray rowSummaries = new AspectRowSummaryArray(deletedRows);
+
+      final AspectRowSummaryArray rowSummaries = new AspectRowSummaryArray(keyAspects);
+      // Add non-key aspects up to a total of 100 aspect row summaries entries or all key aspects which ever is smaller.
+      rowSummaries.addAll(nonKeyAspects.subList(0, Math.min(100, Math.max(keyAspects.size(), nonKeyAspects.size()))));
 
       log.info("computing aspects affected by this rollback...");
       // Count the number of aspects that exist referencing the key aspects we are deleting
