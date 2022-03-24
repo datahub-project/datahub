@@ -185,7 +185,9 @@ class TableauSource(Source):
                 reason=f"Connection: {connection_type} Error: {query_data['errors']}",
             )
 
-        connection_object = query_data.get("data").get(connection_type, {}) if query_data.get('data') else {}
+        connection_object = query_data.get("data").get(connection_type, {}) \
+            if query_data.get('data') else {}
+        
         total_count = connection_object.get("totalCount", 0)
         has_next_page = connection_object.get("pageInfo", {}).get("hasNextPage", False)
         return connection_object, total_count, has_next_page
