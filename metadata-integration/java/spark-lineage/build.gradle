@@ -117,10 +117,6 @@ dependencies {
   testImplementation(externalDependency.testContainersPostgresql)
 }
 
-task checkShadowJar(type: Exec) { 
-   commandLine 'sh', '-c', 'scripts/check_jar.sh'
-}
-
 shadowJar {
   zip64=true	
   classifier=''
