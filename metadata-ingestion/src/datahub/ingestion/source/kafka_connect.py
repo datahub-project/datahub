@@ -527,6 +527,12 @@ class DebeziumSourceConnector:
             for db_server in self.config.connect_to_platform_map:
                 if db_server == server_name:
                     instance_name = self.config.connect_to_platform_map[db_server][source_platform]
+                    if self.config.platform_instance_map and self.config.platform_instance_map.get(source_platform):
+                        logger.error(
+                            f"Same source platform {source_platform} configured in both platform_instance_map and connect_to_platform_map"
+                        )
+                        self.report.report_failure("Same source platform {source_platform} configured in both platform_instance_map and connect_to_platform_map")
+
 
         for topic in self.connector_manifest.topic_names:
             found = re.search(re.compile(topic_naming_pattern), topic)
