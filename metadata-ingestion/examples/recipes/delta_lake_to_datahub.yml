@@ -1,0 +1,26 @@
+source:
+  type: delta_lake
+  config:
+    url: https://sharing.delta.io/delta-sharing/
+    token: faaie590d541265bcab1f2de9813274bf233
+    share_credentials_version: 1
+    share_pattern:
+      allow:
+        - "delta_sharing"
+      ignoreCase: true
+    schema_pattern:
+      deny:
+        - "zzz"
+      ignoreCase: true
+    table_pattern:
+      allow:
+        - "COVID_19_NYT"
+        - "lending_club"
+      ignoreCase: true
+
+# see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"
+
