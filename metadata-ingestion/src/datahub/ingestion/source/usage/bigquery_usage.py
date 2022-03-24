@@ -339,16 +339,16 @@ class ReadEvent:
             or get_first_missing_key(inp_dict=entry.payload, keys=["resourceName"])
         )
 
-    @classmethod
-    def can_parse_exported_bigquery_audit_metadata(
-        cls, row: BigQueryAuditMetadata
-    ) -> bool:
-        try:
+    @staticmethod
+    def get_missing_key_exported_bigquery_audit_metadata(
+        row: BigQueryAuditMetadata,
+    ) -> Optional[str]:
+        missing_key = get_first_missing_key_any(dict(row), ["metadata"])
+        if not missing_key:
             metadata = json.loads(row["metadata"])
-            metadata["tableDataRead"]
-            return True
-        except (KeyError, TypeError):
-            return False
+            missing_key = get_first_missing_key_any(metadata, ["tableDataRead"])
+
+        return missing_key
 
     @classmethod
     def from_entry(cls, entry: AuditLogEntry) -> "ReadEvent":
@@ -490,24 +490,18 @@ class QueryEvent:
 
         return queryEvent
 
-    @classmethod
-    def can_parse_exported_bigquery_audit_metadata(
-        cls, row: BigQueryAuditMetadata
-    ) -> bool:
-        try:
-            row["timestamp"]
-            row["protoPayload"]
-            metadata = json.loads(row["metadata"])
-            metadata["jobChange"]["job"]
-            return True
-        except (KeyError, TypeError):
-            return False
-
     @staticmethod
     def get_missing_key_exported_bigquery_audit_metadata(
         row: BigQueryAuditMetadata,
     ) -> Optional[str]:
-        return get_first_missing_key_any(row, ["timestamp", "protoPayload", "metadata"])
+        missing_key = get_first_missing_key_any(
+            dict(row), ["timestamp", "protoPayload", "metadata"]
+        )
+        if not missing_key:
+            missing_key = get_first_missing_key_any(
+                json.loads(row["metadata"]), ["jobChange"]
+            )
+        return missing_key
 
     @classmethod
     def from_exported_bigquery_audit_metadata(
@@ -983,32 +977,34 @@ class BigQueryUsageSource(Source):
     ) -> Iterable[Union[ReadEvent, QueryEvent, MetadataWorkUnit]]:
         for audit_metadata in audit_metadata_rows:
             event: Optional[Union[QueryEvent, ReadEvent]] = None
-            try:
-                if QueryEvent.can_parse_exported_bigquery_audit_metadata(
+            missing_query_event_exported_audit = (
+                QueryEvent.get_missing_key_exported_bigquery_audit_metadata(
                     audit_metadata
-                ):
-                    event = QueryEvent.from_exported_bigquery_audit_metadata(
-                        audit_metadata
-                    )
-                    wu = self._create_operation_aspect_work_unit(event)
-                    if wu:
-                        yield wu
-                elif ReadEvent.can_parse_exported_bigquery_audit_metadata(
-                    audit_metadata
-                ):
-                    event = ReadEvent.from_exported_bigquery_audit_metadata(
-                        audit_metadata
-                    )
-                else:
-                    raise RuntimeError(
-                        "Unable to parse log entry as QueryEvent or ReadEvent."
-                    )
-            except Exception:
-                self.report.report_failure(
-                    f"""{audit_metadata["logName"]}-{audit_metadata["insertId"]}""",
-                    f"unable to parse log entry: {audit_metadata!r}",
                 )
-                logger.error("Unable to parse GCP log entry.", audit_metadata)
+            )
+
+            if missing_query_event_exported_audit is None:
+                event = QueryEvent.from_exported_bigquery_audit_metadata(audit_metadata)
+                wu = self._create_operation_aspect_work_unit(event)
+                if wu:
+                    yield wu
+
+            missing_read_event_exported_audit = (
+                ReadEvent.get_missing_key_exported_bigquery_audit_metadata(
+                    audit_metadata
+                )
+            )
+            if missing_read_event_exported_audit is None:
+                event = ReadEvent.from_exported_bigquery_audit_metadata(audit_metadata)
+
+            if event is None:
+                if event is None:
+                    self.error(
+                        logger,
+                        f"{audit_metadata['logName']}-{audit_metadata['insertId']}",
+                        f"Unable to parse audit metadata missing "
+                        f"QueryEvent keys:{str(missing_query_event_exported_audit)}, ReadEvent keys: {str(missing_read_event_exported_audit)} for {audit_metadata}",
+                    )
             if event is not None:
                 yield event
 
