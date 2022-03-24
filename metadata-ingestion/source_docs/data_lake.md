@@ -42,6 +42,10 @@ JSON file schemas are inferred on the basis of the entire file (given the diffic
 We are working on using iterator-based JSON parsers to avoid reading in the entire JSON object.
 
 
+| Capability        | Status | Details                                  | 
+|-------------------|--------|------------------------------------------|
+| Platform Instance | ✔️     | [link](../../docs/platform-instances.md) |
+
 
 ## Quickstart recipe
 
@@ -129,16 +133,16 @@ s3://my-bucket/*/*/{table}/{partition[0]}/{partition[1]}/{partition[2]}/*.* # ta
 ### Notes
 
 - {table} represents folder for which dataset will be created.
-- include path must end with (*.*/*.[ext]) to repesent leaf level.
-- if *.[ext] is provided then only files with specified type will be scanned
-- /*/ represents single folder
-- {partition[i]} represents value of partition
-- {partition_key[i]} represents name of the partition
-- While extracting, “i” will be used to match partition_key to partition
-- all folder levels need to be specified in include. Only exclude path can have ** like matching
-- exclude path cannot have named variables ( {} )
-- Folder names should not contain {, }, *, / in their names
-- {folder} is reserved for internal working. please do not use in named variables
+- include path must end with (*.* or *.[ext]) to represent leaf level.
+- if *.[ext] is provided then only files with specified type will be scanned.
+- /*/ represents single folder.
+- {partition[i]} represents value of partition.
+- {partition_key[i]} represents name of the partition.
+- While extracting, “i” will be used to match partition_key to partition.
+- all folder levels need to be specified in include. Only exclude path can have ** like matching.
+- exclude path cannot have named variables ( {} ).
+- Folder names should not contain {, }, *, / in their names.
+- {folder} is reserved for internal working. please do not use in named variables.
 
 
 

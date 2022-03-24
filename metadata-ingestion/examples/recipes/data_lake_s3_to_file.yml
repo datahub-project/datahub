@@ -1,12 +1,11 @@
 ---
-# see https://datahubproject.io/docs/metadata-ingestion/source_docs/file for complete documentation
+# see https://datahubproject.io/docs/metadata-ingestion/source_docs/data_lake for complete documentation
 source:
   type: "data-lake"
   config:
     platform: s3
     path_spec: 
-      include: "s3://covid19-lake/covid_knowledge_graph/csv/nodes/{table}.*"
-      table_name: "covid_knowledge_graph.{table}"
+      include: "s3://covid19-lake/covid_knowledge_graph/csv/nodes/*.*"
     aws_config:
       aws_access_key_id: accessKey
       aws_secret_access_key: secretKey
