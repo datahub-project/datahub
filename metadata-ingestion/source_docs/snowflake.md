@@ -66,6 +66,10 @@ You can also get fine-grained usage statistics for Snowflake using the `snowflak
 | Data Containers   | ✔️     |                                          |
 | Data Domains      | ✔️     | [link](../../docs/domains.md)            |
 
+### Caveats
+
+The [caveats](#caveats-1) mentioned for `snowflake-usage` apply to `snowflake` too.
+
 ### Quickstart recipe
 
 Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
@@ -187,6 +191,11 @@ This plugin extracts the following:
 This source only does usage statistics. To get the tables, views, and schemas in your Snowflake warehouse, ingest using the `snowflake` source described above.
 
 :::
+
+### Caveats
+- Some of the features are only available in the Snowflake Enterprise Edition. This docs has notes mentioning where this applies.
+- The underlying Snowflake views that we use to get metadata have a [latency of 45 minutes to 3 hours](https://docs.snowflake.com/en/sql-reference/account-usage.html#differences-between-account-usage-and-information-schema). So we would not be able to get very recent metadata in some cases like queries you ran within that time period etc..
+- If there is any [incident going on for Snowflake](https://status.snowflake.com/) we will not be able to get the metadata until that incident is resolved.
 
 ### Quickstart recipe
 
