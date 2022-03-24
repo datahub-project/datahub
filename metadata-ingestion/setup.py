@@ -72,6 +72,8 @@ sql_common = {
     "sqlalchemy==1.3.24",
     # Required for SQL profiling.
     "great-expectations>=0.14.11",
+    # datahub does not depend on Jinja2 directly but great expectations does. With Jinja2 3.1.0 GE 0.14.11 is breaking
+    "Jinja2<3.1.0",
     "greenlet",
 }
 
