@@ -5,7 +5,7 @@ To integrate Spark with DataHub, we provide a lightweight Java agent that listen
 The Spark agent can be configured using a config file or while creating a spark Session.
 
 ## Before you begin: Versions and Release Notes
-Versioning of the jar artifact will follow the semantic versioning of the main [DataHub repo](https://github.com/linkedin/datahub) and release notes will be available [here](https://github.com/linkedin/datahub/releases).
+Versioning of the jar artifact will follow the semantic versioning of the main [DataHub repo](https://github.com/datahub-project/datahub) and release notes will be available [here](https://github.com/datahub-project/datahub/releases).
 Always check [the Maven central repository](https://search.maven.org/search?q=a:datahub-spark-lineage) for the latest released version.
 
 ### Configuration Instructions: spark-submit
@@ -47,14 +47,19 @@ spark = SparkSession.builder()
         .enableHiveSupport()
         .getOrCreate();
  ```
- 
-### Enable https and authentication token
-Add below config in spark config
 
-```
-spark.datahub.rest.server                   https://<server URL>
-spark.datahub.rest.token                    <token>
-```
+### Configuration details
+
+| Field                                           | Required | Default | Description                                                             |
+|-------------------------------------------------|----------|---------|-------------------------------------------------------------------------|
+| spark.jars.packages                              | ✅        |         | Set with latest/required version  io.acryl:datahub-spark-lineage:0.8.23 |
+| spark.extraListeners                             | ✅        |         | datahub.spark.DatahubSparkListener                                      |
+| spark.datahub.rest.server                        | ✅        |         | Datahub server url  eg:http://localhost:8080                            |
+| spark.datahub.rest.token                         |          |         | Authentication token.                         |
+| spark.datahub.metadata.pipeline.platformInstance|          |         | Pipeline level platform instance                                        |
+| spark.datahub.metadata.dataset.platformInstance|          |         | dataset level platform instance                                        |
+| spark.datahub.metadata.dataset.env              |          | PROD    | [Supported values](https://datahubproject.io/docs/graphql/enums#fabrictype). In all other cases, will fallback to PROD           |
+
 
 ## What to Expect: The Metadata Model
 

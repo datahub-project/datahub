@@ -13,9 +13,8 @@ import com.linkedin.util.Configuration;
 import com.datahub.authentication.Authentication;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.Arrays;
 import java.util.Collections;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.pac4j.core.client.Client;
 import org.pac4j.core.client.Clients;
 import org.pac4j.core.config.Config;
@@ -63,12 +62,15 @@ public class AuthModule extends AbstractModule {
     protected void configure() {
         PlayCookieSessionStore playCacheCookieStore;
         try {
+            // To generate a valid encryption key from an input value, we first
+            // hash the input to generate a fixed-length string. Then, we convert
+            // it to hex and slice the first 16 bytes, because AES key length must strictly
+            // have a specific length.
             final String aesKeyBase = _configs.getString(PAC4J_AES_KEY_BASE_CONF);
-            MessageDigest sha = MessageDigest.getInstance("SHA-1");
-            byte[] key = sha.digest(aesKeyBase.getBytes(StandardCharsets.UTF_8));
-            key = Arrays.copyOf(key, 16);
+            final String aesKeyHash = DigestUtils.sha1Hex(aesKeyBase.getBytes(StandardCharsets.UTF_8));
+            final String aesEncryptionKey = aesKeyHash.substring(0, 16);
             playCacheCookieStore = new PlayCookieSessionStore(
-                new ShiroAesDataEncrypter(new String(key)));
+                new ShiroAesDataEncrypter(aesEncryptionKey));
         } catch (Exception e) {
             throw new RuntimeException("Failed to instantiate Pac4j cookie session store!", e);
         }

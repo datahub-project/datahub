@@ -3,7 +3,6 @@ import json
 import logging
 import os
 import platform
-import sys
 import uuid
 from functools import wraps
 from pathlib import Path
@@ -55,7 +54,7 @@ class Telemetry:
         """
         Update the config file with the current client ID and enabled status.
         """
-        logger.info("Updating telemetry config")
+        logger.debug("Updating telemetry config")
 
         if not DATAHUB_FOLDER.exists():
             os.makedirs(DATAHUB_FOLDER)
@@ -122,30 +121,31 @@ class Telemetry:
         if not self.enabled or self.mp is None or self.tracking_init is True:
             return
 
-        logger.info("Sending init Telemetry")
-        self.mp.people_set(
-            self.client_id,
-            {
-                "datahub_version": datahub_package.nice_version_name(),
-                "os": platform.system(),
-                "python_version": platform.python_version(),
-            },
-        )
+        logger.debug("Sending init Telemetry")
+        try:
+            self.mp.people_set(
+                self.client_id,
+                {
+                    "datahub_version": datahub_package.nice_version_name(),
+                    "os": platform.system(),
+                    "python_version": platform.python_version(),
+                },
+            )
+        except Exception as e:
+            logger.debug(f"Error reporting telemetry: {e}")
         self.init_track = True
 
     def ping(
         self,
-        action: str,
+        event_name: str,
         properties: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
         Send a single telemetry event.
 
         Args:
-            category (str): category for the event
-            action (str): action taken
-            label (Optional[str], optional): label for the event
-            value (Optional[int], optional): value for the event
+            event_name (str): name of the event to send.
+            properties (Optional[Dict[str, Any]]): metadata for the event
         """
 
         if not self.enabled or self.mp is None:
@@ -153,8 +153,8 @@ class Telemetry:
 
         # send event
         try:
-            logger.info("Sending Telemetry")
-            self.mp.track(self.client_id, action, properties)
+            logger.debug("Sending Telemetry")
+            self.mp.track(self.client_id, event_name, properties)
 
         except Exception as e:
             logger.debug(f"Error reporting telemetry: {e}")
@@ -183,37 +183,61 @@ def with_telemetry(func: Callable[..., T]) -> Callable[..., T]:
     @wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
 
-        action = f"function:{func.__module__}.{func.__name__}"
+        function = f"{func.__module__}.{func.__name__}"
 
         telemetry_instance.init_tracking()
-        telemetry_instance.ping(action)
+        telemetry_instance.ping(
+            "function-call", {"function": function, "status": "start"}
+        )
         try:
             res = func(*args, **kwargs)
-            telemetry_instance.ping(f"{action}:result", {"status": "completed"})
-            return res
-        # Catch general exceptions
-        except Exception as e:
             telemetry_instance.ping(
-                f"{action}:result", {"status": "error", "error": get_full_class_name(e)}
+                "function-call",
+                {"function": function, "status": "completed"},
             )
-            raise e
+            return res
         # System exits (used in ingestion and Docker commands) are not caught by the exception handler,
         # so we need to catch them here.
         except SystemExit as e:
             # Forward successful exits
-            if e.code == 0:
-                telemetry_instance.ping(f"{action}:result", {"status": "completed"})
-                sys.exit(0)
+            # 0 or None imply success
+            if not e.code:
+                telemetry_instance.ping(
+                    "function-call",
+                    {
+                        "function": function,
+                        "status": "completed",
+                    },
+                )
             # Report failed exits
             else:
                 telemetry_instance.ping(
-                    f"{action}:result",
-                    {"status": "error", "error": get_full_class_name(e)},
+                    "function-call",
+                    {
+                        "function": function,
+                        "status": "error",
+                        "error": get_full_class_name(e),
+                    },
                 )
-                sys.exit(e.code)
+            raise e
         # Catch SIGINTs
-        except KeyboardInterrupt:
-            telemetry_instance.ping(f"{action}:result", {"status": "cancelled"})
-            sys.exit(0)
+        except KeyboardInterrupt as e:
+            telemetry_instance.ping(
+                "function-call",
+                {"function": function, "status": "cancelled"},
+            )
+            raise e
+
+        # Catch general exceptions
+        except Exception as e:
+            telemetry_instance.ping(
+                "function-call",
+                {
+                    "function": function,
+                    "status": "error",
+                    "error": get_full_class_name(e),
+                },
+            )
+            raise e
 
     return wrapper

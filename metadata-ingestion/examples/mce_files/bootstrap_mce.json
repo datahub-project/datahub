@@ -811,7 +811,14 @@
                   "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)",
                   "type": "TRANSFORMED"
                 }
-              ]
+              ],
+              "fineGrainedLineages": [{
+                "upstreamType": "FIELD_SET",
+                "upstreams": ["urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD),event_data)"],
+                "downstreamType": "FIELD",
+                "upstreams": ["urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_name)"],
+                "confidenceScore": 1.0
+              }]
             }
           },
           {

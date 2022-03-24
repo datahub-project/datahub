@@ -12,6 +12,7 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type
 
 import pydantic
 from looker_sdk.error import SDKError
+from looker_sdk.rtl.transport import TransportOptions
 from looker_sdk.sdk.api31.methods import Looker31SDK
 from looker_sdk.sdk.api31.models import DBConnection
 from pydantic import root_validator, validator
@@ -143,6 +144,7 @@ class LookMLSourceConfig(LookerCommonConfig):
     sql_parser: str = "datahub.utilities.sql_parser.DefaultSQLParser"
     api: Optional[LookerAPIConfig]
     project_name: Optional[str]
+    transport_options: Optional[TransportOptions]
 
     @validator("platform_instance")
     def platform_instance_not_supported(cls, v: str) -> str:
@@ -577,6 +579,7 @@ class LookerView:
                 fields,
             )
             # also store the view logic and materialization
+            view_logic = looker_viewfile.raw_file_content
             if "sql" in derived_table:
                 view_logic = derived_table["sql"]
                 view_lang = "sql"
@@ -1003,7 +1006,11 @@ class LookMLSource(Source):
             self.looker_client is not None
         ), "Failed to find a configured Looker API client"
         try:
-            model = self.looker_client.lookml_model(model_name, "project_name")
+            model = self.looker_client.lookml_model(
+                model_name,
+                "project_name",
+                transport_options=self.source_config.transport_options,
+            )
             assert (
                 model.project_name is not None
             ), f"Failed to find a project name for model {model_name}"
