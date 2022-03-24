@@ -7,7 +7,8 @@ import confluent_kafka
 from confluent_kafka.schema_registry.schema_registry_client import Schema
 
 from datahub.ingestion.extractor import schema_util
-from datahub.ingestion.source.kafka import SchemaRegistry
+from datahub.ingestion.source.kafka import KafkaSourceConfig, KafkaSourceReport
+from datahub.ingestion.source.kafka_schema_registry_base import KafkaSchemaRegistryBase
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     KafkaSchema,
     SchemaField,
@@ -17,13 +18,13 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 logger = logging.getLogger(__name__)
 
 
-class ConfluentSchemaRegistry(SchemaRegistry):
+class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
     """
     This is confluent schema registry specific implementation of datahub.ingestion.source.kafka import SchemaRegistry
     It knows how to get SchemaMetadata of a topic from ConfluentSchemaRegistry
     """
 
-    def __init__(self, source_config, report):
+    def __init__(self, source_config: KafkaSourceConfig, report: KafkaSourceReport):
         self.source_config = source_config
         self.report = report
         # Use the fully qualified name for SchemaRegistryClient to make it mock patchable for testing.
@@ -44,7 +45,9 @@ class ConfluentSchemaRegistry(SchemaRegistry):
             logger.warning(f"Failed to get subjects from schema registry: {e}")
 
     @classmethod
-    def create(cls, source_config, report):
+    def create(
+        cls, source_config: KafkaSourceConfig, report: KafkaSourceReport
+    ) -> "ConfluentSchemaRegistry":
         return cls(source_config, report)
 
     def _get_subject_for_topic(self, topic: str, is_key_schema: bool) -> Optional[str]:
