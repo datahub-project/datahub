@@ -446,7 +446,6 @@ class DataLakeSource(Source):
 
         return fields
 
-
     def get_table_profile(
         self, table_data: TableData, dataset_urn: str
     ) -> Iterable[MetadataWorkUnit]:
@@ -521,7 +520,6 @@ class DataLakeSource(Source):
 
     def ingest_table(self, table_data: TableData) -> Iterable[MetadataWorkUnit]:
 
-
         logger.info(f"Extracting table schema from file: {table_data.full_path}")
         browse_path: str = (
             strip_s3_prefix(table_data.table_path)
@@ -549,7 +547,6 @@ class DataLakeSource(Source):
             customProperties={},
         )
         dataset_snapshot.aspects.append(dataset_properties)
-
 
         fields = self.get_fields(table_data)
         schema_metadata = SchemaMetadata(
