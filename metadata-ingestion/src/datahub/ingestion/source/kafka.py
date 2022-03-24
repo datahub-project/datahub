@@ -19,6 +19,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.kafka_schema_registry_base import KafkaSchemaRegistryBase
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.kafka_state import KafkaCheckpointState
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -31,7 +32,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaMetadata
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     ChangeTypeClass,
@@ -86,17 +86,20 @@ class KafkaSourceReport(StatefulIngestionReport):
 class KafkaSource(StatefulIngestionSourceBase):
     source_config: KafkaSourceConfig
     consumer: confluent_kafka.Consumer
-
     report: KafkaSourceReport
     platform: str = "kafka"
 
-    def create_schema_registry(self, schema_registry_class: str):
+    @classmethod
+    def create_schema_registry(
+        cls, config: KafkaSourceConfig, report: KafkaSourceReport
+    ) -> KafkaSchemaRegistryBase:
         try:
-            module_path, class_name = schema_registry_class.rsplit(".", 1)
+            module_path, class_name = config.schema_registry_class.rsplit(".", 1)
             module = import_module(module_path)
-            return getattr(module, class_name)
+            schema_attribute = getattr(module, class_name)
+            return schema_attribute.create(config, report)
         except (ImportError, AttributeError):
-            raise ImportError(schema_registry_class)
+            raise ImportError(config.schema_registry_class)
 
     def __init__(self, config: KafkaSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
@@ -117,9 +120,9 @@ class KafkaSource(StatefulIngestionSourceBase):
             }
         )
         self.report = KafkaSourceReport()
-        self.schema_registry_client = self.create_schema_registry(
-            config.schema_registry_class
-        ).create(config, self.report)
+        self.schema_registry_client = KafkaSource.create_schema_registry(
+            config, self.report
+        )
 
     def is_checkpointing_enabled(self, job_id: JobId) -> bool:
         if (
@@ -321,10 +324,3 @@ class KafkaSource(StatefulIngestionSourceBase):
         self.prepare_for_commit()
         if self.consumer:
             self.consumer.close()
-
-
-class SchemaRegistry:
-    def get_schema_metadata(
-        self, topic: str, platform_urn: str
-    ) -> Optional[SchemaMetadata]:
-        pass
