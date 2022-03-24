@@ -6,7 +6,7 @@
       "name": "adlsGen1",
       "displayName": "Azure Data Lake (Gen 1)",
       "type": "FILE_SYSTEM",
-      "logoUrl": "/assets/platforms/adlslogo.png"
+      "logoUrl": "/data-catalogue/assets/platforms/adlslogo.png"
     }
   },
   {
@@ -16,7 +16,7 @@
       "name": "adlsGen2",
       "displayName": "Azure Data Lake (Gen 2)",
       "type": "FILE_SYSTEM",
-      "logoUrl": "/assets/platforms/adlslogo.png"
+      "logoUrl": "/data-catalogue/assets/platforms/adlslogo.png"
     }
   },
   {
@@ -26,7 +26,7 @@
       "name": "airflow",
       "displayName": "Airflow",
       "type": "OTHERS",
-      "logoUrl": "/assets/platforms/airflowlogo.png"
+      "logoUrl": "/data-catalogue/assets/platforms/airflowlogo.png"
     }
   },
   {
@@ -55,7 +55,7 @@
       "name": "couchbase",
       "displayName": "Couchbase",
       "type": "KEY_VALUE_STORE",
-      "logoUrl": "/assets/platforms/couchbaselogo.png"
+      "logoUrl": "/data-catalogue/assets/platforms/couchbaselogo.png"
     }
   },
   {
@@ -74,7 +74,7 @@
       "name": "hdfs",
       "displayName": "HDFS",
       "type": "FILE_SYSTEM",
-      "logoUrl": "/assets/platforms/hadooplogo.png"
+      "logoUrl": "/data-catalogue/assets/platforms/hadooplogo.png"
     }
   },
   {
@@ -94,7 +94,7 @@
       "name": "hive",
       "displayName": "Hive",
       "type": "FILE_SYSTEM",
-      "logoUrl": "/assets/platforms/hivelogo.png"
+      "logoUrl": "/data-catalogue/assets/platforms/hivelogo.png"
     }
   },
   {
@@ -114,7 +114,7 @@
       "name": "s3",
       "displayName": "AWS S3",
       "type": "FILE_SYSTEM",
-      "logoUrl": "/assets/platforms/s3.png"
+      "logoUrl": "/data-catalogue/assets/platforms/s3.png"
     }
   },
   {
@@ -124,7 +124,7 @@
       "name": "kafka",
       "displayName": "Kafka",
       "type": "MESSAGE_BROKER",
-      "logoUrl": "/assets/platforms/kafkalogo.png"
+      "logoUrl": "/data-catalogue/assets/platforms/kafkalogo.png"
     }
   },
   {
@@ -134,7 +134,7 @@
       "name": "kafka-connect",
       "displayName": "Kafka Connect",
       "type": "OTHERS",
-      "logoUrl": "/assets/platforms/kafkalogo.png"
+      "logoUrl": "/data-catalogue/assets/platforms/kafkalogo.png"
     }
   },
   {
@@ -144,7 +144,7 @@
       "name": "kusto",
       "displayName": "Kusto",
       "type": "OLAP_DATASTORE",
-      "logoUrl": "/assets/platforms/kustologo.png"
+      "logoUrl": "/data-catalogue/assets/platforms/kustologo.png"
     }
   },
   {
@@ -154,7 +154,7 @@
       "name": "mode",
       "displayName": "Mode",
       "type": "KEY_VALUE_STORE",
-      "logoUrl": "/assets/platforms/modelogo.png"
+      "logoUrl": "/data-catalogue/assets/platforms/modelogo.png"
     }
   },
   {
@@ -164,7 +164,7 @@
       "name": "mongodb",
       "displayName": "MongoDB",
       "type": "KEY_VALUE_STORE",
-      "logoUrl": "/assets/platforms/mongodblogo.png"
+      "logoUrl": "/data-catalogue/assets/platforms/mongodblogo.png"
     }
   },
   {
@@ -174,7 +174,7 @@
       "name": "mysql",
       "displayName": "MySQL",
       "type": "RELATIONAL_DB",
-      "logoUrl": "/assets/platforms/mysqllogo.png"
+      "logoUrl": "/data-catalogue/assets/platforms/mysqllogo.png"
     }
   },
   {
@@ -184,7 +184,7 @@
       "name": "mariadb",
       "displayName": "MariaDB",
       "type": "RELATIONAL_DB",
-      "logoUrl": "/assets/platforms/mariadblogo.png"
+      "logoUrl": "/data-catalogue/assets/platforms/mariadblogo.png"
     }
   },
   {
@@ -194,7 +194,7 @@
       "name": "openapi",
       "displayName": "OpenAPI",
       "type": "OTHERS",
-      "logoUrl": "/assets/platforms/openapilogo.png"
+      "logoUrl": "/data-catalogue/assets/platforms/openapilogo.png"
     }
   },
   {
@@ -204,7 +204,7 @@
       "name": "oracle",
       "displayName": "Oracle",
       "type": "RELATIONAL_DB",
-      "logoUrl": "/assets/platforms/oraclelogo.png"
+      "logoUrl": "/data-catalogue/assets/platforms/oraclelogo.png"
     }
   },
   {
@@ -214,7 +214,7 @@
       "name": "pinot",
       "displayName": "Pinot",
       "type": "OLAP_DATASTORE",
-      "logoUrl": "/assets/platforms/pinotlogo.png"
+      "logoUrl": "/data-catalogue/assets/platforms/pinotlogo.png"
     }
   },
   {
@@ -224,7 +224,7 @@
       "name": "postgres",
       "displayName": "PostgreSQL",
       "type": "RELATIONAL_DB",
-      "logoUrl": "/assets/platforms/postgreslogo.png"
+      "logoUrl": "/data-catalogue/assets/platforms/postgreslogo.png"
     }
   },
   {
@@ -234,7 +234,7 @@
       "name": "presto",
       "displayName": "Presto",
       "type": "QUERY_ENGINE",
-      "logoUrl": "/assets/platforms/prestologo.png"
+      "logoUrl": "/data-catalogue/assets/platforms/prestologo.png"
     }
   },
   {
@@ -244,7 +244,7 @@
       "name": "tableau",
       "displayName": "Tableau",
       "type": "OTHERS",
-      "logoUrl": "/assets/platforms/tableaulogo.png"
+      "logoUrl": "/data-catalogue/assets/platforms/tableaulogo.png"
     }
   },
   {
@@ -254,7 +254,7 @@
       "name": "teradata",
       "displayName": "Teradata",
       "type": "RELATIONAL_DB",
-      "logoUrl": "/assets/platforms/teradatalogo.png"
+      "logoUrl": "/data-catalogue/assets/platforms/teradatalogo.png"
     }
   },
   {
@@ -273,7 +273,7 @@
       "name": "snowflake",
       "displayName": "Snowflake",
       "type": "RELATIONAL_DB",
-      "logoUrl": "/assets/platforms/snowflakelogo.png"
+      "logoUrl": "/data-catalogue/assets/platforms/snowflakelogo.png"
     }
   },
   {
@@ -283,7 +283,7 @@
       "name": "redshift",
       "displayName": "Redshift",
       "type": "RELATIONAL_DB",
-      "logoUrl": "/assets/platforms/redshiftlogo.png"
+      "logoUrl": "/data-catalogue/assets/platforms/redshiftlogo.png"
     }
   },
   {
@@ -293,7 +293,7 @@
       "name": "mssql",
       "displayName": "SQL Server",
       "type": "RELATIONAL_DB",
-      "logoUrl": "/assets/platforms/mssqllogo.png"
+      "logoUrl": "/data-catalogue/assets/platforms/mssqllogo.png"
     }
   },
   {
@@ -303,7 +303,7 @@
       "name": "bigquery",
       "displayName": "BigQuery",
       "type": "RELATIONAL_DB",
-      "logoUrl": "/assets/platforms/bigquerylogo.png"
+      "logoUrl": "/data-catalogue/assets/platforms/bigquerylogo.png"
     }
   },
   {
@@ -313,7 +313,7 @@
       "name": "druid",
       "displayName": "Druid",
       "type": "OLAP_DATASTORE",
-      "logoUrl": "/assets/platforms/druidlogo.png"
+      "logoUrl": "/data-catalogue/assets/platforms/druidlogo.png"
     }
   },
   {
@@ -323,7 +323,7 @@
       "name": "looker",
       "displayName": "Looker",
       "type": "OTHERS",
-      "logoUrl": "/assets/platforms/lookerlogo.png"
+      "logoUrl": "/data-catalogue/assets/platforms/lookerlogo.png"
     }
   },
   {
@@ -333,7 +333,7 @@
       "name": "feast",
       "displayName": "Feast",
       "type": "OTHERS",
-      "logoUrl": "/assets/platforms/feastlogo.png"
+      "logoUrl": "/data-catalogue/assets/platforms/feastlogo.png"
     }
   },
   {
@@ -343,7 +343,7 @@
       "name": "sagemaker",
       "displayName": "SageMaker",
       "type": "OTHERS",
-      "logoUrl": "/assets/platforms/sagemakerlogo.png"
+      "logoUrl": "/data-catalogue/assets/platforms/sagemakerlogo.png"
     }
   },
   {
@@ -353,7 +353,7 @@
       "name": "glue",
       "displayName": "Glue",
       "type": "OTHERS",
-      "logoUrl": "/assets/platforms/gluelogo.png"
+      "logoUrl": "/data-catalogue/assets/platforms/gluelogo.png"
     }
   },
   {
@@ -363,7 +363,7 @@
       "name": "redash",
       "displayName": "Redash",
       "type": "OTHERS",
-      "logoUrl": "/assets/platforms/redashlogo.png"
+      "logoUrl": "/data-catalogue/assets/platforms/redashlogo.png"
     }
   },
   {
@@ -373,7 +373,7 @@
       "name": "athena",
       "displayName": "AWS Athena",
       "type": "RELATIONAL_DB",
-      "logoUrl": "/assets/platforms/awsathenalogo.png"
+      "logoUrl": "/data-catalogue/assets/platforms/awsathenalogo.png"
     }
   },
   {
@@ -383,7 +383,7 @@
       "name": "spark",
       "displayName": "Spark",
       "type": "OTHERS",
-      "logoUrl": "/assets/platforms/sparklogo.png"
+      "logoUrl": "/data-catalogue/assets/platforms/sparklogo.png"
     }
   },
   {
@@ -393,7 +393,7 @@
       "name": "dbt",
       "displayName": "dbt",
       "type": "OTHERS",
-      "logoUrl": "/assets/platforms/dbtlogo.png"
+      "logoUrl": "/data-catalogue/assets/platforms/dbtlogo.png"
     }
   },
   {
@@ -403,7 +403,7 @@
       "name": "elasticsearch",
       "displayName": "Elasticsearch",
       "type": "OTHERS",
-      "logoUrl": "/assets/platforms/elasticsearchlogo.png"
+      "logoUrl": "/data-catalogue/assets/platforms/elasticsearchlogo.png"
     }
   },
   {
@@ -412,7 +412,7 @@
       "name": "Great Expectations",
       "displayName": "Great Expectations",
       "type": "OTHERS",
-      "logoUrl": "/assets/platforms/greatexpectationslogo.png",
+      "logoUrl": "/data-catalogue/assets/platforms/greatexpectationslogo.png",
       "datasetNameDelimiter": "."
     }
   },
@@ -423,7 +423,7 @@
       "name": "powerbi",
       "displayName": "Power BI",
       "type": "OTHERS",
-      "logoUrl": "/assets/platforms/powerbilogo.png"
+      "logoUrl": "/data-catalogue/assets/platforms/powerbilogo.png"
     }
   },
   {
