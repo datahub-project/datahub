@@ -187,7 +187,7 @@ class TableauSource(Source):
 
         connection_object = (
             query_data.get("data").get(connection_type, {})
-            if query_data.get('data')
+            if query_data.get("data")
             else {}
         )
 
