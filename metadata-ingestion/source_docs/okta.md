@@ -67,7 +67,7 @@ was created outside of the connector. That means if you've used the DataHub REST
 when the Okta source is executed. If you intend to *always* pull users, groups, and their relationships from your Identity Provider, then
 this should not matter. 
 
-This is a known limitation in our data model that is being tracked by [this ticket](https://github.com/linkedin/datahub/issues/3065).
+This is a known limitation in our data model that is being tracked by [this ticket](https://github.com/datahub-project/datahub/issues/3065).
 
 
 ## Quickstart recipe
