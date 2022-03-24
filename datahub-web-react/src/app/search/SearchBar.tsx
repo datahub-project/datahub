@@ -278,8 +278,8 @@ export const SearchBar = ({
             >
                 <StyledSearchBar
                     placeholder={placeholderText}
-                    onPressEnter={(e) => {
-                        e.stopPropagation();
+                    onPressEnter={() => {
+                        // e.stopPropagation();
                         onSearch(filterSearchQuery(searchQuery || ''));
                     }}
                     style={inputStyle}
