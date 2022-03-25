@@ -4,8 +4,6 @@ on:
     workflows: ["pypi-release metadata-ingestion"]
     types:
       - completed
-  release:
-    types: [published, edited]
 
 jobs:
   setup:
