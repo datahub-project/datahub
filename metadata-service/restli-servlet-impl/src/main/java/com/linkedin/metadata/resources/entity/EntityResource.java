@@ -1,6 +1,7 @@
 package com.linkedin.metadata.resources.entity;
 
 import com.codahale.metrics.MetricRegistry;
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -13,11 +14,14 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.entity.ValidationException;
 import com.linkedin.metadata.event.EventProducer;
+import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.LineageDirection;
+import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.metadata.run.AspectRowSummary;
@@ -30,6 +34,7 @@ import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
+import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.parseq.Task;
@@ -77,6 +82,7 @@ import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_QUERY
 import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_SORT;
 import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_START;
 import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_URN;
+import static com.linkedin.metadata.search.utils.QueryUtils.*;
 import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 
 
@@ -126,6 +132,10 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Named("kafkaEventProducer")
   private EventProducer _eventProducer;
 
+  @Inject
+  @Named("graphService")
+  private GraphService _graphService;
+
   /**
    * Retrieves the value for an entity that is made up of latest versions of specified aspects.
    */
@@ -152,7 +162,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @WithSpan
   public Task<Map<String, AnyRecord>> batchGet(@Nonnull Set<String> urnStrs,
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) throws URISyntaxException {
-    log.info("BATCH GET {}", urnStrs.toString());
+    log.info("BATCH GET {}", urnStrs);
     final Set<Urn> urns = new HashSet<>();
     for (final String urnStr : urnStrs) {
       urns.add(Urn.createFromString(urnStr));
@@ -330,7 +340,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @WithSpan
   public Task<StringArray> getBrowsePaths(
       @ActionParam(value = PARAM_URN, typeref = com.linkedin.common.Urn.class) @Nonnull Urn urn) {
-    log.info("GET BROWSE PATHS for {}", urn.toString());
+    log.info("GET BROWSE PATHS for {}", urn);
     return RestliUtil.toTask(() -> new StringArray(_entitySearchService.getBrowsePaths(urnToEntityName(urn), urn)),
         MetricRegistry.name(this.getClass(), "getBrowsePaths"));
   }
@@ -341,7 +351,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     if (size < ELASTIC_MAX_PAGE_SIZE) {
       return String.valueOf(size);
     } else {
-      return "at least " + String.valueOf(size);
+      return "at least " + size;
     }
   }
 
@@ -403,6 +413,17 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       DeleteEntityResponse response = new DeleteEntityResponse();
 
       RollbackRunResult result = _entityService.deleteUrn(urn);
+
+      // Process all related entities affected by the urn being deleted, in a paginated fashion.
+      int offset = 0;
+      do {
+        final RelatedEntitiesResult relatedEntities =
+            _graphService.findRelatedEntities(null, EMPTY_FILTER, null, newFilter("urn", urnStr),
+                ImmutableList.of(),
+                newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.OUTGOING), offset, 100);
+
+        offset = relatedEntities.getEntities().size();
+      } while(offset != 0);
 
       response.setUrn(urnStr);
       response.setRows(result.getRowsDeletedFromEntityDeletion());

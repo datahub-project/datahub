@@ -1,5 +1,6 @@
 package com.linkedin.metadata.graph;
 
+import com.linkedin.data.schema.PathSpec;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
@@ -15,4 +16,14 @@ public class RelatedEntity {
    * Urn associated with the related entity.
    */
   String urn;
+
+  /**
+   * Aspect containing the relationshipType
+   */
+  String aspectName;
+
+  /**
+   * Path spec of the relationship from the aspect name to the related entity.
+   */
+  PathSpec spec;
 }

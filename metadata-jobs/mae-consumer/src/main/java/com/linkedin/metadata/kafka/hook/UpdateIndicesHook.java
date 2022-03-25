@@ -155,7 +155,8 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
       for (Object fieldValue : entry.getValue()) {
         try {
           edgesToAdd.add(
-              new Edge(urn, Urn.createFromString(fieldValue.toString()), entry.getKey().getRelationshipName()));
+              new Edge(urn, Urn.createFromString(fieldValue.toString()), entry.getKey().getRelationshipName(),
+                  aspectSpec.getName(), entry.getKey().getPath()));
         } catch (URISyntaxException e) {
           log.error("Invalid destination urn: {}", fieldValue.toString(), e);
         }

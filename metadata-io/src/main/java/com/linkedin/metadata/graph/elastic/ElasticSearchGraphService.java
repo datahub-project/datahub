@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.schema.PathSpec;
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphService;
@@ -77,6 +78,10 @@ public class ElasticSearchGraphService implements GraphService {
     searchDocument.set("destination", destinationObject);
     searchDocument.put("relationshipType", edge.getRelationshipType());
 
+    // Should this be part of a specific sub object?
+    searchDocument.put("pathSpec", edge.getPathSpec().toString());
+    searchDocument.put("aspectName", edge.getAspectName());
+
     return searchDocument.toString();
   }
 
@@ -140,12 +145,22 @@ public class ElasticSearchGraphService implements GraphService {
         .map(hit -> {
           final String urnStr = ((HashMap<String, String>) hit.getSourceAsMap().getOrDefault(destinationNode, EMPTY_HASH)).getOrDefault("urn", null);
           final String relationshipType = (String) hit.getSourceAsMap().get("relationshipType");
-          if (urnStr == null || relationshipType == null) {
+          final String aspectName = (String) hit.getSourceAsMap().getOrDefault("aspectName", null);
+          final String pathSpecStr = ((String) hit.getSourceAsMap().getOrDefault("pathSpec",null));
+
+          if (urnStr == null || relationshipType == null || aspectName == null || pathSpecStr == null) {
             log.error(String.format(
-                "Found null urn string or relationship type in Elastic index. urnStr: %s, relationshipType: %s", urnStr, relationshipType));
+                "Found null urn string, relationship type, aspect name or path spec in Elastic index. urnStr: %s, relationshipType: %s, aspectName: %s, pathSpec: %s", urnStr, relationshipType, aspectName, pathSpecStr));
             return null;
           }
-          return new RelatedEntity(relationshipType, urnStr);
+
+          if (!PathSpec.validatePathSpecString(pathSpecStr)) {
+            log.error(String.format("Path spec is invalid: %s", pathSpecStr));
+          }
+
+          final PathSpec pathSpec = new PathSpec(pathSpecStr.substring(1).split("/"));
+
+          return new RelatedEntity(relationshipType, urnStr, aspectName, pathSpec);
         })
         .filter(Objects::nonNull)
         .collect(Collectors.toList());

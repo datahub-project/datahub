@@ -3,7 +3,9 @@ package com.linkedin.metadata.graph;
 import com.linkedin.common.urn.DataFlowUrn;
 import com.linkedin.common.urn.DataJobUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
@@ -199,17 +201,17 @@ abstract public class GraphServiceTestBase {
     GraphService service = getGraphService();
 
     List<Edge> edges = Arrays.asList(
-            new Edge(datasetTwoUrn, datasetOneUrn, downstreamOf),
-            new Edge(datasetThreeUrn, datasetTwoUrn, downstreamOf),
-            new Edge(datasetFourUrn, datasetTwoUrn, downstreamOf),
+            new Edge(datasetTwoUrn, datasetOneUrn, downstreamOf, Constants.DATASET_KEY_ASPECT_NAME, PathSpec.emptyPath()),
+            new Edge(datasetThreeUrn, datasetTwoUrn, downstreamOf, Constants.DATASET_KEY_ASPECT_NAME, PathSpec.emptyPath()),
+            new Edge(datasetFourUrn, datasetTwoUrn, downstreamOf, Constants.DATASET_KEY_ASPECT_NAME, PathSpec.emptyPath()),
 
-            new Edge(datasetOneUrn, userOneUrn, hasOwner),
-            new Edge(datasetTwoUrn, userOneUrn, hasOwner),
-            new Edge(datasetThreeUrn, userTwoUrn, hasOwner),
-            new Edge(datasetFourUrn, userTwoUrn, hasOwner),
+            new Edge(datasetOneUrn, userOneUrn, hasOwner, Constants.OWNERSHIP_ASPECT_NAME, new PathSpec("owners", "*", "owner")),
+            new Edge(datasetTwoUrn, userOneUrn, hasOwner, Constants.OWNERSHIP_ASPECT_NAME, new PathSpec("owners", "*", "owner")),
+            new Edge(datasetThreeUrn, userTwoUrn, hasOwner, Constants.OWNERSHIP_ASPECT_NAME, new PathSpec("owners", "*", "owner")),
+            new Edge(datasetFourUrn, userTwoUrn, hasOwner, Constants.OWNERSHIP_ASPECT_NAME, new PathSpec("owners", "*", "owner")),
 
-            new Edge(userOneUrn, userTwoUrn, knowsUser),
-            new Edge(userTwoUrn, userOneUrn, knowsUser)
+            new Edge(userOneUrn, userTwoUrn, knowsUser, Constants.OWNERSHIP_ASPECT_NAME, PathSpec.emptyPath()),
+            new Edge(userTwoUrn, userOneUrn, knowsUser, Constants.OWNERSHIP_ASPECT_NAME, PathSpec.emptyPath())
     );
 
     edges.forEach(service::addEdge);
@@ -222,25 +224,25 @@ abstract public class GraphServiceTestBase {
     GraphService service = getGraphService();
 
     List<Edge> edges = Arrays.asList(
-            new Edge(datasetTwoUrn, datasetOneUrn, downstreamOf),
-            new Edge(datasetThreeUrn, datasetTwoUrn, downstreamOf),
-            new Edge(datasetFourUrn, datasetTwoUrn, downstreamOf),
+            new Edge(datasetTwoUrn, datasetOneUrn, downstreamOf, Constants.DATASET_KEY_ASPECT_NAME, PathSpec.emptyPath()),
+            new Edge(datasetThreeUrn, datasetTwoUrn, downstreamOf, Constants.DATASET_KEY_ASPECT_NAME, PathSpec.emptyPath()),
+            new Edge(datasetFourUrn, datasetTwoUrn, downstreamOf, Constants.DATASET_KEY_ASPECT_NAME, PathSpec.emptyPath()),
 
-            new Edge(datasetOneUrn, userOneUrn, hasOwner),
-            new Edge(datasetTwoUrn, userOneUrn, hasOwner),
-            new Edge(datasetThreeUrn, userTwoUrn, hasOwner),
-            new Edge(datasetFourUrn, userTwoUrn, hasOwner),
+            new Edge(datasetOneUrn, userOneUrn, hasOwner, Constants.OWNERSHIP_ASPECT_NAME, new PathSpec("owners", "*", "owner")),
+            new Edge(datasetTwoUrn, userOneUrn, hasOwner, Constants.OWNERSHIP_ASPECT_NAME, new PathSpec("owners", "*", "owner")),
+            new Edge(datasetThreeUrn, userTwoUrn, hasOwner, Constants.OWNERSHIP_ASPECT_NAME, new PathSpec("owners", "*", "owner")),
+            new Edge(datasetFourUrn, userTwoUrn, hasOwner, Constants.OWNERSHIP_ASPECT_NAME, new PathSpec("owners", "*", "owner")),
 
-            new Edge(userOneUrn, userTwoUrn, knowsUser),
-            new Edge(userTwoUrn, userOneUrn, knowsUser),
+            new Edge(userOneUrn, userTwoUrn, knowsUser, Constants.OWNERSHIP_ASPECT_NAME, PathSpec.emptyPath()),
+            new Edge(userTwoUrn, userOneUrn, knowsUser, Constants.OWNERSHIP_ASPECT_NAME, PathSpec.emptyPath()),
 
-            new Edge(dataJobOneUrn, datasetOneUrn, consumes),
-            new Edge(dataJobOneUrn, datasetTwoUrn, consumes),
-            new Edge(dataJobOneUrn, datasetThreeUrn, produces),
-            new Edge(dataJobOneUrn, datasetFourUrn, produces),
-            new Edge(dataJobTwoUrn, datasetOneUrn, consumes),
-            new Edge(dataJobTwoUrn, datasetTwoUrn, consumes),
-            new Edge(dataJobTwoUrn, dataJobOneUrn, downstreamOf)
+            new Edge(dataJobOneUrn, datasetOneUrn, consumes, Constants.DATASET_KEY_ASPECT_NAME, new PathSpec("*", "string")),
+            new Edge(dataJobOneUrn, datasetTwoUrn, consumes, Constants.DATASET_KEY_ASPECT_NAME, new PathSpec("*", "string")),
+            new Edge(dataJobOneUrn, datasetThreeUrn, produces, Constants.DATASET_KEY_ASPECT_NAME, new PathSpec("*", "string")),
+            new Edge(dataJobOneUrn, datasetFourUrn, produces, Constants.DATASET_KEY_ASPECT_NAME, new PathSpec("*", "string")),
+            new Edge(dataJobTwoUrn, datasetOneUrn, consumes, Constants.DATASET_KEY_ASPECT_NAME, new PathSpec("*", "string")),
+            new Edge(dataJobTwoUrn, datasetTwoUrn, consumes, Constants.DATASET_KEY_ASPECT_NAME, new PathSpec("*", "string")),
+            new Edge(dataJobTwoUrn, dataJobOneUrn, downstreamOf, Constants.DATASET_KEY_ASPECT_NAME, new PathSpec("*", "string"))
     );
 
     edges.forEach(service::addEdge);
@@ -292,24 +294,24 @@ abstract public class GraphServiceTestBase {
                     Arrays.asList()
             },
             new Object[]{
-                    Arrays.asList(new Edge(datasetOneUrn, datasetTwoUrn, downstreamOf)),
+                    Arrays.asList(new Edge(datasetOneUrn, datasetTwoUrn, downstreamOf, Constants.UPSTREAM_LINEAGE_ASPECT_NAME, new PathSpec("upstreams","*","dataset"))),
                     Arrays.asList(downstreamOfDatasetTwoRelatedEntity),
                     Arrays.asList(downstreamOfDatasetOneRelatedEntity)
             },
             new Object[]{
                     Arrays.asList(
-                            new Edge(datasetOneUrn, datasetTwoUrn, downstreamOf),
-                            new Edge(datasetTwoUrn, datasetThreeUrn, downstreamOf)
+                            new Edge(datasetOneUrn, datasetTwoUrn, downstreamOf, Constants.DATASET_KEY_ASPECT_NAME, PathSpec.emptyPath()),
+                            new Edge(datasetTwoUrn, datasetThreeUrn, downstreamOf, Constants.DATASET_KEY_ASPECT_NAME, PathSpec.emptyPath())
                     ),
                     Arrays.asList(downstreamOfDatasetTwoRelatedEntity, downstreamOfDatasetThreeRelatedEntity),
                     Arrays.asList(downstreamOfDatasetOneRelatedEntity, downstreamOfDatasetTwoRelatedEntity)
             },
             new Object[]{
                     Arrays.asList(
-                            new Edge(datasetOneUrn, datasetTwoUrn, downstreamOf),
-                            new Edge(datasetOneUrn, userOneUrn, hasOwner),
-                            new Edge(datasetTwoUrn, userTwoUrn, hasOwner),
-                            new Edge(userOneUrn, userTwoUrn, knowsUser)
+                            new Edge(datasetOneUrn, datasetTwoUrn, downstreamOf, Constants.DATASET_KEY_ASPECT_NAME, PathSpec.emptyPath()),
+                            new Edge(datasetOneUrn, userOneUrn, hasOwner, Constants.OWNERSHIP_ASPECT_NAME, new PathSpec("owners", "*", "owner")),
+                            new Edge(datasetTwoUrn, userTwoUrn, hasOwner, Constants.OWNERSHIP_ASPECT_NAME, new PathSpec("owners", "*", "owner")),
+                            new Edge(userOneUrn, userTwoUrn, knowsUser, Constants.OWNERSHIP_ASPECT_NAME, PathSpec.emptyPath())
                     ),
                     Arrays.asList(
                             downstreamOfDatasetTwoRelatedEntity,
@@ -325,9 +327,9 @@ abstract public class GraphServiceTestBase {
             },
             new Object[]{
                     Arrays.asList(
-                            new Edge(userOneUrn, userOneUrn, knowsUser),
-                            new Edge(userOneUrn, userOneUrn, knowsUser),
-                            new Edge(userOneUrn, userOneUrn, knowsUser)
+                            new Edge(userOneUrn, userOneUrn, knowsUser, Constants.OWNERSHIP_ASPECT_NAME, PathSpec.emptyPath()),
+                            new Edge(userOneUrn, userOneUrn, knowsUser, Constants.OWNERSHIP_ASPECT_NAME, PathSpec.emptyPath()),
+                            new Edge(userOneUrn, userOneUrn, knowsUser, Constants.OWNERSHIP_ASPECT_NAME, PathSpec.emptyPath())
                     ),
                     Arrays.asList(knowsUserOneRelatedEntity),
                     Arrays.asList(knowsUserOneRelatedEntity)
@@ -919,12 +921,12 @@ abstract public class GraphServiceTestBase {
     doTestFindRelatedEntitiesEntityType(anyType, "null", downstreamOf, outgoingRelationships, service);
     doTestFindRelatedEntitiesEntityType(anyType, null, downstreamOf, outgoingRelationships, service);
 
-    service.addEdge(new Edge(datasetTwoUrn, datasetOneUrn, downstreamOf));
+    service.addEdge(new Edge(datasetTwoUrn, datasetOneUrn, downstreamOf, Constants.DATASET_KEY_ASPECT_NAME, PathSpec.emptyPath()));
     syncAfterWrite();
     doTestFindRelatedEntitiesEntityType(anyType, "null", downstreamOf, outgoingRelationships, service);
     doTestFindRelatedEntitiesEntityType(anyType, null, downstreamOf, outgoingRelationships, service, downstreamOfDatasetOneRelatedEntity);
 
-    service.addEdge(new Edge(datasetOneUrn, nullUrn, downstreamOf));
+    service.addEdge(new Edge(datasetOneUrn, nullUrn, downstreamOf, Constants.DATASET_KEY_ASPECT_NAME, PathSpec.emptyPath()));
     syncAfterWrite();
     doTestFindRelatedEntitiesEntityType(anyType, "null", downstreamOf, outgoingRelationships, service, nullRelatedEntity);
     doTestFindRelatedEntitiesEntityType(anyType, null, downstreamOf, outgoingRelationships, service, nullRelatedEntity, downstreamOfDatasetOneRelatedEntity);
@@ -941,12 +943,12 @@ abstract public class GraphServiceTestBase {
     doTestFindRelatedEntitiesEntityType(anyType, "null", downstreamOf, outgoingRelationships, service);
     doTestFindRelatedEntitiesEntityType(anyType, null, downstreamOf, outgoingRelationships, service);
 
-    service.addEdge(new Edge(datasetTwoUrn, datasetOneUrn, downstreamOf));
+    service.addEdge(new Edge(datasetTwoUrn, datasetOneUrn, downstreamOf, Constants.DATASET_KEY_ASPECT_NAME, PathSpec.emptyPath()));
     syncAfterWrite();
     doTestFindRelatedEntitiesEntityType(anyType, "null", downstreamOf, outgoingRelationships, service);
     doTestFindRelatedEntitiesEntityType(anyType, null, downstreamOf, outgoingRelationships, service, downstreamOfDatasetOneRelatedEntity);
 
-    service.addEdge(new Edge(datasetOneUrn, nullUrn, downstreamOf));
+    service.addEdge(new Edge(datasetOneUrn, nullUrn, downstreamOf, Constants.DATASET_KEY_ASPECT_NAME, PathSpec.emptyPath()));
     syncAfterWrite();
     doTestFindRelatedEntitiesEntityType(anyType, "null", downstreamOf, outgoingRelationships, service, nullRelatedEntity);
     doTestFindRelatedEntitiesEntityType(anyType, null, downstreamOf, outgoingRelationships, service, nullRelatedEntity, downstreamOfDatasetOneRelatedEntity);
@@ -1397,8 +1399,7 @@ abstract public class GraphServiceTestBase {
                   Urn source = createFromString("urn:li:type" + sourceType + ":(urn:li:node" + sourceNode + ")");
                   int destinationType = destinationNode % 3;
                   Urn destination = createFromString("urn:li:type" + destinationType + ":(urn:li:node" + destinationNode + ")");
-
-                  edges.add(new Edge(source, destination, relationship));
+                  edges.add(new Edge(source, destination, relationship, source.getEntityType(), new PathSpec("")));
               }
           }
       }
