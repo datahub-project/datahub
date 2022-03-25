@@ -44,7 +44,9 @@ class BaseTimeWindowConfig(ConfigModel):
         cls, v: Any, *, values: Dict[str, Any], **kwargs: Any
     ) -> datetime:
         return v or get_time_bucket(
-            datetime.now(tz=timezone.utc), values["bucket_duration"]
+            datetime.now(tz=timezone.utc)
+            + get_bucket_duration_delta(values["bucket_duration"]),
+            values["bucket_duration"],
         )
 
     @pydantic.validator("start_time", pre=True, always=True)
@@ -52,7 +54,8 @@ class BaseTimeWindowConfig(ConfigModel):
         cls, v: Any, *, values: Dict[str, Any], **kwargs: Any
     ) -> datetime:
         return v or (
-            values["end_time"] - get_bucket_duration_delta(values["bucket_duration"])
+            values["end_time"]
+            - get_bucket_duration_delta(values["bucket_duration"]) * 2
         )
 
     @pydantic.validator("start_time", "end_time")

@@ -15,21 +15,16 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.sql.snowflake import BaseSnowflakeConfig
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     JobId,
-    StatefulIngestionConfig,
-    StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
 from datahub.ingestion.source.state.usage_common_state import BaseUsageCheckpointState
-from datahub.ingestion.source.usage.usage_common import (
-    BaseUsageConfig,
-    GenericAggregatedDataset,
-)
+from datahub.ingestion.source.usage.usage_common import GenericAggregatedDataset
+from datahub.ingestion.source_config.usage.snowflake_usage import SnowflakeUsageConfig
+from datahub.ingestion.source_report.usage.snowflake_usage import SnowflakeUsageReport
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     JobStatusClass,
@@ -37,6 +32,7 @@ from datahub.metadata.schema_classes import (
     OperationTypeClass,
     TimeWindowSizeClass,
 )
+from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
 
@@ -71,8 +67,7 @@ LEFT JOIN
 LEFT JOIN
     snowflake.account_usage.users users
     ON access_history.user_name = users.name
-WHERE   ARRAY_SIZE(base_objects_accessed) > 0
-    AND query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
+WHERE   query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
     AND query_start_time < to_timestamp_ltz({end_time_millis}, 3)
 ORDER BY query_start_time DESC
 ;
@@ -126,50 +121,11 @@ class SnowflakeJoinedAccessEvent(PermissiveModel):
     role_name: str
 
 
-class SnowflakeStatefulIngestionConfig(StatefulIngestionConfig):
-    """
-    Specialization of basic StatefulIngestionConfig to adding custom config.
-    This will be used to override the stateful_ingestion config param of StatefulIngestionConfigBase
-    in the SnowflakeUsageConfig.
-    """
-
-    ignore_old_state = pydantic.Field(False, alias="force_rerun")
-
-
-class SnowflakeUsageConfig(
-    BaseSnowflakeConfig, BaseUsageConfig, StatefulIngestionConfigBase
-):
-    options: dict = {}
-    database_pattern: AllowDenyPattern = AllowDenyPattern(
-        deny=[r"^UTIL_DB$", r"^SNOWFLAKE$", r"^SNOWFLAKE_SAMPLE_DATA$"]
-    )
-    email_domain: Optional[str]
-    schema_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    view_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    apply_view_usage_to_tables: bool = False
-    stateful_ingestion: Optional[SnowflakeStatefulIngestionConfig] = None
-
-    @pydantic.validator("role", always=True)
-    def role_accountadmin(cls, v):
-        if not v or v.lower() != "accountadmin":
-            # This isn't an error, since the privileges can be delegated to other
-            # roles as well: https://docs.snowflake.com/en/sql-reference/account-usage.html#enabling-account-usage-for-other-roles
-            logger.info(
-                'snowflake usage tables are only accessible by role "accountadmin" by default; you set %s',
-                v,
-            )
-        return v
-
-    def get_sql_alchemy_url(self):
-        return super().get_sql_alchemy_url(database="snowflake")
-
-
 class SnowflakeUsageSource(StatefulIngestionSourceBase):
     def __init__(self, config: SnowflakeUsageConfig, ctx: PipelineContext):
         super(SnowflakeUsageSource, self).__init__(config, ctx)
         self.config: SnowflakeUsageConfig = config
-        self.report: SourceReport = SourceReport()
+        self.report: SnowflakeUsageReport = SnowflakeUsageReport()
         self.should_skip_this_run = self._should_skip_this_run()
 
     @classmethod
@@ -275,7 +231,23 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
             summary.config = self.config.json()
             summary.custom_summary = self.report.as_string()
 
+    def check_email_domain_missing(self) -> Any:
+        if self.config.email_domain is not None and self.config.email_domain != "":
+            return
+
+        self.warn(
+            logger,
+            "missing-email-domain",
+            "User's without email address will be ignored from usage if you don't set email_domain property",
+        )
+
+    def add_config_to_report(self):
+        self.report.start_time = self.config.start_time
+        self.report.end_time = self.config.end_time
+
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        self.add_config_to_report()
+        self.check_email_domain_missing()
         if not self.should_skip_this_run:
             # Initialize the checkpoints
             self._init_checkpoints()
@@ -316,107 +288,161 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
         )
         return engine
 
+    def _check_usage_date_ranges(self, engine: Engine) -> Any:
+
+        query = """
+            select
+                min(query_start_time) as min_time,
+                max(query_start_time) as max_time
+            from snowflake.account_usage.access_history
+        """
+        with PerfTimer() as timer:
+            try:
+                for db_row in engine.execute(query):
+                    if len(db_row) < 2 or db_row[0] is None or db_row[1] is None:
+                        self.warn(
+                            logger,
+                            "check-usage-data",
+                            f"Missing data for access_history {db_row} - Check if using Enterprise edition of Snowflake",
+                        )
+                        continue
+                    self.report.min_access_history_time = db_row[0].astimezone(
+                        tz=timezone.utc
+                    )
+                    self.report.max_access_history_time = db_row[1].astimezone(
+                        tz=timezone.utc
+                    )
+                    self.report.access_history_range_query_secs = round(
+                        timer.elapsed_seconds(), 2
+                    )
+            except Exception as e:
+                self.error(logger, "check-usage-data", f"Error was {e}")
+
+    def _is_unsupported_object_accessed(self, obj: Dict[str, Any]) -> bool:
+        unsupported_keys = ["locations"]
+
+        if obj.get("objectDomain") in ["Stage"]:
+            return True
+
+        return any([obj.get(key) is not None for key in unsupported_keys])
+
+    def _is_object_valid(self, obj: Dict[str, Any]) -> bool:
+        if self._is_unsupported_object_accessed(
+            obj
+        ) or not self._is_dataset_pattern_allowed(
+            obj.get("objectName"), obj.get("objectDomain")
+        ):
+            return False
+        return True
+
+    def _is_dataset_pattern_allowed(
+        self, dataset_name: Optional[Any], dataset_type: Optional[Any]
+    ) -> bool:
+        # TODO: support table/view patterns for usage logs by pulling that information as well from the usage query
+        if not dataset_type or not dataset_name:
+            return True
+
+        table_or_view_pattern: Optional[AllowDenyPattern] = AllowDenyPattern.allow_all()
+        # Test domain type = external_table and then add it
+        table_or_view_pattern = (
+            self.config.table_pattern
+            if dataset_type.lower() in {"table"}
+            else (
+                self.config.view_pattern
+                if dataset_type.lower() in {"view", "materialized_view"}
+                else None
+            )
+        )
+        if table_or_view_pattern is None:
+            return True
+
+        dataset_params = dataset_name.split(".")
+        assert len(dataset_params) == 3
+        if (
+            not self.config.database_pattern.allowed(dataset_params[0])
+            or not self.config.schema_pattern.allowed(dataset_params[1])
+            or not table_or_view_pattern.allowed(dataset_params[2])
+        ):
+            return False
+        return True
+
+    def _process_snowflake_history_row(
+        self, row: Any
+    ) -> Iterable[SnowflakeJoinedAccessEvent]:
+        self.report.rows_processed += 1
+        # Make some minor type conversions.
+        if hasattr(row, "_asdict"):
+            # Compat with SQLAlchemy 1.3 and 1.4
+            # See https://docs.sqlalchemy.org/en/14/changelog/migration_14.html#rowproxy-is-no-longer-a-proxy-is-now-called-row-and-behaves-like-an-enhanced-named-tuple.
+            event_dict = row._asdict()
+        else:
+            event_dict = dict(row)
+
+        # no use processing events that don't have a query text
+        if not event_dict["query_text"]:
+            self.report.rows_missing_query_text += 1
+            return
+
+        event_dict["base_objects_accessed"] = [
+            obj
+            for obj in json.loads(event_dict["base_objects_accessed"])
+            if self._is_object_valid(obj)
+        ]
+        if len(event_dict["base_objects_accessed"]) == 0:
+            self.report.rows_zero_base_objects_accessed += 1
+
+        event_dict["direct_objects_accessed"] = [
+            obj
+            for obj in json.loads(event_dict["direct_objects_accessed"])
+            if self._is_object_valid(obj)
+        ]
+        if len(event_dict["direct_objects_accessed"]) == 0:
+            self.report.rows_zero_direct_objects_accessed += 1
+
+        event_dict["query_start_time"] = (event_dict["query_start_time"]).astimezone(
+            tz=timezone.utc
+        )
+
+        if not event_dict["email"] and self.config.email_domain:
+            if not event_dict["user_name"]:
+                self.report.report_warning("user-name-miss", f"Missing in {event_dict}")
+                logger.warning(
+                    f"The user_name is missing from {event_dict}. Skipping ...."
+                )
+                self.report.rows_missing_email += 1
+                return
+
+            event_dict[
+                "email"
+            ] = f'{event_dict["user_name"]}@{self.config.email_domain}'.lower()
+
+        try:  # big hammer try block to ensure we don't fail on parsing events
+            event = SnowflakeJoinedAccessEvent(**event_dict)
+            yield event
+        except Exception as e:
+            self.report.rows_parsing_error += 1
+            self.warn(logger, "usage", f"Failed to parse usage line {event_dict}, {e}")
+
     def _get_snowflake_history(self) -> Iterable[SnowflakeJoinedAccessEvent]:
-        query = self._make_usage_query()
         engine = self._make_sql_engine()
 
-        results = engine.execute(query)
+        logger.info("Checking usage date ranges")
+        self._check_usage_date_ranges(engine)
+
+        if (
+            self.report.min_access_history_time is None
+            or self.report.max_access_history_time is None
+        ):
+            return
+
+        logger.info("Getting usage history")
+        with PerfTimer() as timer:
+            query = self._make_usage_query()
+            results = engine.execute(query)
+            self.report.access_history_query_secs = round(timer.elapsed_seconds(), 2)
 
         for row in results:
-            # Make some minor type conversions.
-            if hasattr(row, "_asdict"):
-                # Compat with SQLAlchemy 1.3 and 1.4
-                # See https://docs.sqlalchemy.org/en/14/changelog/migration_14.html#rowproxy-is-no-longer-a-proxy-is-now-called-row-and-behaves-like-an-enhanced-named-tuple.
-                event_dict = row._asdict()
-            else:
-                event_dict = dict(row)
-
-            # no use processing events that don't have a query text
-            if not event_dict["query_text"]:
-                continue
-
-            def is_unsupported_object_accessed(obj: Dict[str, Any]) -> bool:
-                unsupported_keys = ["locations"]
-                return any([obj.get(key) is not None for key in unsupported_keys])
-
-            def is_dataset_pattern_allowed(
-                dataset_name: Optional[Any], dataset_type: Optional[Any]
-            ) -> bool:
-                # TODO: support table/view patterns for usage logs by pulling that information as well from the usage query
-                if not dataset_type or not dataset_name:
-                    return True
-
-                table_or_view_pattern: Optional[
-                    AllowDenyPattern
-                ] = AllowDenyPattern.allow_all()
-                # Test domain type = external_table and then add it
-                table_or_view_pattern = (
-                    self.config.table_pattern
-                    if dataset_type.lower() in {"table"}
-                    else (
-                        self.config.view_pattern
-                        if dataset_type.lower() in {"view", "materialized_view"}
-                        else None
-                    )
-                )
-                if table_or_view_pattern is None:
-                    return True
-
-                dataset_params = dataset_name.split(".")
-                assert len(dataset_params) == 3
-                if (
-                    not self.config.database_pattern.allowed(dataset_params[0])
-                    or not self.config.schema_pattern.allowed(dataset_params[1])
-                    or not table_or_view_pattern.allowed(dataset_params[2])
-                ):
-                    return False
-                return True
-
-            def is_object_valid(obj: Dict[str, Any]) -> bool:
-                if is_unsupported_object_accessed(
-                    obj
-                ) or not is_dataset_pattern_allowed(
-                    obj.get("objectName"), obj.get("objectDomain")
-                ):
-                    return False
-                return True
-
-            event_dict["base_objects_accessed"] = [
-                obj
-                for obj in json.loads(event_dict["base_objects_accessed"])
-                if is_object_valid(obj)
-            ]
-            event_dict["direct_objects_accessed"] = [
-                obj
-                for obj in json.loads(event_dict["direct_objects_accessed"])
-                if is_object_valid(obj)
-            ]
-            event_dict["query_start_time"] = (
-                event_dict["query_start_time"]
-            ).astimezone(tz=timezone.utc)
-
-            if not event_dict["email"] and self.config.email_domain:
-                if not event_dict["user_name"]:
-                    self.report.report_warning(
-                        "user-name-miss", f"Missing in {event_dict}"
-                    )
-                    logger.warning(
-                        f"The user_name is missing from {event_dict}. Skipping ...."
-                    )
-                    continue
-
-                event_dict[
-                    "email"
-                ] = f'{event_dict["user_name"]}@{self.config.email_domain}'.lower()
-
-            try:  # big hammer try block to ensure we don't fail on parsing events
-                event = SnowflakeJoinedAccessEvent(**event_dict)
-                yield event
-            except Exception as e:
-                logger.warning(f"Failed to parse usage line {event_dict}", e)
-                self.report.report_warning(
-                    "usage", f"Failed to parse usage line {event_dict}"
-                )
+            yield from self._process_snowflake_history_row(row)
 
     def _get_operation_aspect_work_unit(
         self, event: SnowflakeJoinedAccessEvent

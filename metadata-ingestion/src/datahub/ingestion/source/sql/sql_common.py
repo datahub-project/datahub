@@ -42,7 +42,6 @@ from datahub.emitter.mcp_builder import (
     gen_containers,
 )
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.sql_common_state import (
@@ -52,6 +51,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     JobId,
     StatefulIngestionConfig,
     StatefulIngestionConfigBase,
+    StatefulIngestionReport,
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
@@ -102,8 +102,8 @@ def get_platform_from_sqlalchemy_uri(sqlalchemy_uri: str) -> str:
     if sqlalchemy_uri.startswith("mssql"):
         return "mssql"
     if (
-        sqlalchemy_uri.startswith("jdbc:postgres:")
-        and sqlalchemy_uri.index("redshift.amazonaws") > 0
+        sqlalchemy_uri.startswith(("jdbc:postgres:", "postgresql"))
+        and sqlalchemy_uri.find("redshift.amazonaws") > 0
     ) or sqlalchemy_uri.startswith("redshift"):
         return "redshift"
     if sqlalchemy_uri.startswith("snowflake"):
@@ -161,7 +161,7 @@ class SqlContainerSubTypes(str, Enum):
 
 
 @dataclass
-class SQLSourceReport(SourceReport):
+class SQLSourceReport(StatefulIngestionReport):
     tables_scanned: int = 0
     views_scanned: int = 0
     entities_profiled: int = 0
@@ -413,7 +413,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         super(SQLAlchemySource, self).__init__(config, ctx)
         self.config = config
         self.platform = platform
-        self.report = SQLSourceReport()
+        self.report: SQLSourceReport = SQLSourceReport()
 
         config_report = {
             config_option: config.dict().get(config_option)
@@ -441,13 +441,13 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 },
             )
 
-    def warn(self, log: logging.Logger, key: str, reason: str) -> Any:
+    def warn(self, log: logging.Logger, key: str, reason: str) -> None:
         self.report.report_warning(key, reason)
-        log.warning(reason)
+        log.warning(f"{key} => {reason}")
 
-    def error(self, log: logging.Logger, key: str, reason: str) -> Any:
+    def error(self, log: logging.Logger, key: str, reason: str) -> None:
         self.report.report_failure(key, reason)
-        log.error(reason)
+        log.error(f"{key} => {reason}")
 
     def get_inspectors(self) -> Iterable[Inspector]:
         # This method can be overridden in the case that you want to dynamically
@@ -590,14 +590,18 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             database=db_name,
             schema=schema,
             platform=self.platform,
-            instance=self.config.env,
+            instance=self.config.platform_instance
+            if self.config.platform_instance is not None
+            else self.config.env,
         )
 
     def gen_database_key(self, database: str) -> PlatformKey:
         return DatabaseKey(
             database=database,
             platform=self.platform,
-            instance=self.config.env,
+            instance=self.config.platform_instance
+            if self.config.platform_instance is not None
+            else self.config.env,
         )
 
     def gen_database_containers(self, database: str) -> Iterable[MetadataWorkUnit]:
