@@ -320,6 +320,10 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
 
     def _is_unsupported_object_accessed(self, obj: Dict[str, Any]) -> bool:
         unsupported_keys = ["locations"]
+
+        if obj.get("objectDomain") in ["Stage"]:
+            return True
+
         return any([obj.get(key) is not None for key in unsupported_keys])
 
     def _is_object_valid(self, obj: Dict[str, Any]) -> bool:
@@ -424,6 +428,12 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
 
         logger.info("Checking usage date ranges")
         self._check_usage_date_ranges(engine)
+
+        if (
+            self.report.min_access_history_time is None
+            or self.report.max_access_history_time is None
+        ):
+            return
 
         logger.info("Getting usage history")
         with PerfTimer() as timer:
