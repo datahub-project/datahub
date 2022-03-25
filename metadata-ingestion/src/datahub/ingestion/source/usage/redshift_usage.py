@@ -104,7 +104,6 @@ class RedshiftUsageSource(Source):
         self.config: RedshiftUsageConfig = config
         self.report: RedshiftUsageSourceReport = RedshiftUsageSourceReport()
 
-
     @classmethod
     def create(cls, config_dict, ctx):
         config = RedshiftUsageConfig.parse_obj(config_dict)
