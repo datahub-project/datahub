@@ -42,8 +42,9 @@ public class AssertionMapper {
     if (envelopedPlatformInstance != null) {
       result.setPlatform(mapPlatform(new DataPlatformInstance(envelopedPlatformInstance.getValue().data())));
     } else {
-      // Containers must have DPI to be rendered.
-      return null;
+      final DataPlatform unknownPlatform = new DataPlatform();
+      unknownPlatform.setUrn(Constants.UNKNOWN_DATA_PLATFORM);
+      result.setPlatform(unknownPlatform);
     }
 
     return result;
