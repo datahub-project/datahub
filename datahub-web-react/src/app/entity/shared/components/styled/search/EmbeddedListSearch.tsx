@@ -17,7 +17,7 @@ import { useGetSearchResultsForMultipleQuery } from '../../../../../../graphql/s
 import { GetSearchResultsParams, SearchResultsInterface } from './types';
 
 const Container = styled.div`
-    overflow: scroll;
+    // overflow: scroll;
     height: 120;
 `;
 

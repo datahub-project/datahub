@@ -5,6 +5,11 @@ import { EmbeddedListSearch } from '../shared/components/styled/search/EmbeddedL
 const UserAssetsWrapper = styled.div`
     height: calc(100vh - 114px);
     overflow: auto;
+
+    && .embeddedListSearchClass {
+        height: calc(100vh - 209px);
+        overflow-y: auto;
+    }
 `;
 
 type Props = {

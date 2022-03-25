@@ -26,7 +26,7 @@ const FiltersContainer = styled.div`
 
 const ResultContainer = styled.div`
     flex: 1;
-    margin-bottom: 20px;
+    // margin-bottom: 20px;
 `;
 
 const PaginationInfoContainer = styled.div`
@@ -37,6 +37,11 @@ const PaginationInfoContainer = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
+    // new css - not working with absolute
+    // position: absolute;
+    // height: 55px;
+    // width: 100%;
+    // bottom: 1px;
 `;
 
 const FiltersHeader = styled.div`

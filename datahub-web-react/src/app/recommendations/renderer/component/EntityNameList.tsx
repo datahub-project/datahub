@@ -8,8 +8,6 @@ import { IconStyleType } from '../../../entity/Entity';
 import { capitalizeFirstLetter } from '../../../shared/textUtil';
 
 const StyledList = styled(List)`
-    height: calc(100vh - 208px);
-    overflow-y: auto;
     margin-top: -1px;
     box-shadow: ${(props) => props.theme.styles['box-shadow']};
     .ant-list-items > .ant-list-item {
@@ -67,6 +65,7 @@ export const EntityNameList = ({ additionalPropertiesList, entities, onClick }: 
     }
     return (
         <StyledList
+            className="embeddedListSearchClass"
             bordered
             dataSource={entities}
             renderItem={(entity, index) => {

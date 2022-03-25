@@ -4,7 +4,11 @@ import { EmbeddedListSearch } from '../shared/components/styled/search/EmbeddedL
 
 const GroupAssetsWrapper = styled.div`
     height: calc(100vh - 114px);
-    // overflow: auto;
+
+    && .embeddedListSearchClass {
+        height: calc(100vh - 208px);
+        overflow-y: auto;
+    }
 `;
 
 type Props = {

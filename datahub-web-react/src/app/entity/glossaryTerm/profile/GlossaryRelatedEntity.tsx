@@ -6,8 +6,10 @@ import { EmbeddedListSearch } from '../../shared/components/styled/search/Embedd
 import { useEntityData } from '../../shared/EntityContext';
 
 const GroupAssetsWrapper = styled(Row)`
-    height: calc(100vh - 245px);
-    overflow: auto;
+    && .embeddedListSearchClass {
+        height: calc(100vh - 336px);
+        overflow-y: auto;
+    }
 `;
 
 export default function GlossaryRelatedEntity() {
