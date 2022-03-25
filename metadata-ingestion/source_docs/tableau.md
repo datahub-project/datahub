@@ -232,6 +232,7 @@ Embedded Data source from Tableau is ingested as a Dataset in datahub.
           }
         }
         upstreamDatasources {
+          id
           name
         }
         workbook {
