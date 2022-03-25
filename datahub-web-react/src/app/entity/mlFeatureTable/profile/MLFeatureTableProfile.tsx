@@ -44,11 +44,19 @@ export const MLFeatureTableProfile = ({ urn }: { urn: string }): JSX.Element => 
                 name: TabType.Features,
                 path: TabType.Features.toLowerCase(),
                 content: <MlFeatureTableFeatures features={features} />,
+                display: {
+                    visible: (_, _1) => true,
+                    enabled: (_, _1) => true,
+                },
             },
             {
                 name: TabType.Sources,
                 path: TabType.Sources.toLowerCase(),
                 content: <SourcesView features={features} />,
+                display: {
+                    visible: (_, _1) => true,
+                    enabled: (_, _1) => true,
+                },
             },
             {
                 name: TabType.Ownership,
@@ -59,6 +67,10 @@ export const MLFeatureTableProfile = ({ urn }: { urn: string }): JSX.Element => 
                         lastModifiedAt={(ownership && ownership.lastModified?.time) || 0}
                     />
                 ),
+                display: {
+                    visible: (_, _1) => true,
+                    enabled: (_, _1) => true,
+                },
             },
         ];
     };

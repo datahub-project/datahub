@@ -518,7 +518,7 @@ type EntityRelationship {
     """
     Entity that is related via lineage
     """
-    entity: Entity!
+    entity: Entity
 
     """
     An AuditStamp corresponding to the last modification of this relationship
@@ -563,7 +563,7 @@ type LineageRelationship {
     """
     Entity that is related via lineage
     """
-    entity: Entity!
+    entity: Entity
 
     """
     Degree of relationship (number of hops to get to entity)
@@ -2147,34 +2147,60 @@ Note that this field will soon become deprecated due to low usage
 """
 enum OwnershipType {
     """
-    A person or group that is in charge of developing the code
+    A person or group who is responsible for technical aspects of the asset.
     """
-    DEVELOPER
+    TECHNICAL_OWNER
 
     """
-    A person or group that is owning the data
+    A person or group who is responsible for logical, or business related, aspects of the asset.
     """
-    DATAOWNER
+    BUSINESS_OWNER
+
+    """
+    A steward, expert, or delegate responsible for the asset.
+    """
+    DATA_STEWARD
+
+    """
+    No specific type associated with the owner.
+    """
+    NONE
+
+    """
+    A person or group that owns the data.
+    Deprecated! This ownership type is no longer supported. Use TECHNICAL_OWNER instead.
+    """
+    DATAOWNER @deprecated
+
+    """
+    A person or group that is in charge of developing the code
+    Deprecated! This ownership type is no longer supported. Use TECHNICAL_OWNER instead.
+    """
+    DEVELOPER @deprecated
 
     """
     A person or a group that overseas the operation, eg a DBA or SRE
+    Deprecated! This ownership type is no longer supported. Use TECHNICAL_OWNER instead.
     """
-    DELEGATE
+    DELEGATE @deprecated
 
     """
     A person, group, or service that produces or generates the data
+    Deprecated! This ownership type is no longer supported. Use TECHNICAL_OWNER instead.
     """
-    PRODUCER
-
-    """
-    A person, group, or service that consumes the data
-    """
-    CONSUMER
+    PRODUCER @deprecated
 
     """
     A person or a group that has direct business interest
+    Deprecated! Use BUSINESS_OWNER instead.
     """
-    STAKEHOLDER
+    STAKEHOLDER @deprecated
+
+    """
+    A person, group, or service that consumes the data
+    Deprecated! This ownership type is no longer supported.
+    """
+    CONSUMER @deprecated
 }
 
 """
@@ -5104,6 +5130,11 @@ input AddOwnerInput {
     The owner type, either a user or group
     """
     ownerEntityType: OwnerEntityType!
+
+    """
+    The ownership type for the new owner. If none is provided, then a new NONE will be added.
+    """
+    type: OwnershipType
 
     """
     The urn of the resource or entity to attach or remove the owner from, for example a dataset urn

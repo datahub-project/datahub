@@ -82,6 +82,7 @@ module.exports = {
           "metadata-ingestion/as-a-library",
           "metadata-integration/java/as-a-library",
           "metadata-ingestion/integration_docs/great-expectations",
+          "metadata-integration/java/datahub-protobuf/README",
         ],
       },
       {
@@ -202,6 +203,7 @@ module.exports = {
       "docs/ui-ingestion",
       "docs/how/search",
       "docs/how/auth/add-users",
+      "docs/how/ui-tabs-guide",
     ],
     "Developer Guides": [
       // TODO: the titles of these should not be in question form in the sidebar

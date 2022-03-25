@@ -38,6 +38,10 @@ export const MLModelGroupProfile = ({ urn }: { urn: string }): JSX.Element => {
                         models={group?.['incoming']?.relationships?.map((relationship) => relationship.entity) || []}
                     />
                 ),
+                display: {
+                    visible: (_, _1) => true,
+                    enabled: (_, _1) => true,
+                },
             },
             {
                 name: TabType.Ownership,
@@ -48,6 +52,10 @@ export const MLModelGroupProfile = ({ urn }: { urn: string }): JSX.Element => {
                         lastModifiedAt={group?.ownership?.lastModified?.time || 0}
                     />
                 ),
+                display: {
+                    visible: (_, _1) => true,
+                    enabled: (_, _1) => true,
+                },
             },
         ];
     };

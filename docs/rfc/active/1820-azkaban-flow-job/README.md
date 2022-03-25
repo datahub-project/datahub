@@ -1,6 +1,6 @@
 - Start Date: 2020-08-25
-- RFC PR: https://github.com/linkedin/datahub/pull/1820
-- Implementation PR(s): https://github.com/linkedin/datahub/pull/1732
+- RFC PR: https://github.com/datahub-project/datahub/pull/1820
+- Implementation PR(s): https://github.com/datahub-project/datahub/pull/1732
 
 # Azkaban Flows and Jobs
 
