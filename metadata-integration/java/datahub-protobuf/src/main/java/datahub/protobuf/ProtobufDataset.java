@@ -52,6 +52,7 @@ public class ProtobufDataset {
         private AuditStamp auditStamp;
         private byte[] protocBytes;
         private String messageName;
+        private String filename;
         private String schema;
         private String githubOrganization;
         private String slackTeamId;
@@ -99,6 +100,10 @@ public class ProtobufDataset {
             this.messageName = messageName;
             return this;
         }
+        public Builder setFilename(@Nullable String filename) {
+            this.filename = filename;
+            return this;
+        }
 
         public Builder setSchema(@Nullable String schema) {
             this.schema = schema;
@@ -112,7 +117,7 @@ public class ProtobufDataset {
                     this,
                     Optional.ofNullable(dataPlatformUrn).orElse(new DataPlatformUrn("kafka")),
                     datasetUrn,
-                    new ProtobufGraph(fileSet, messageName), schema,  auditStamp, fabricType)
+                    new ProtobufGraph(fileSet, messageName, filename), schema, auditStamp, fabricType)
                     .setMetadataChangeProposalVisitors(
                             List.of(
                                     new ProtobufExtensionTagVisitor()
