@@ -276,7 +276,7 @@ class TableauSource(Source):
 
         for datasource in datasource.get("upstreamDatasources", []):
             datasource_urn = builder.make_dataset_urn(
-                self.platform, datasource.get("id", ""), self.config.env
+                self.platform, datasource["id"], self.config.env
             )
             upstream_table = UpstreamClass(
                 dataset=datasource_urn,

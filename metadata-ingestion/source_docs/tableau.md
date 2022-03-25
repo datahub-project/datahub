@@ -12,7 +12,7 @@ See documentation for Tableau's metadata API at https://help.tableau.com/current
 ## Capabilities
 
 This plugin extracts Sheets, Dashboards, Embedded and Published Data sources metadata within Workbooks in a given project
-on a Tableau Online site. This plugin is in beta and has only been tested on PostgreSQL database and sample workbooks 
+on a Tableau site. This plugin is in beta and has only been tested on PostgreSQL database and sample workbooks 
 on Tableau online.
 
 Tableau's GraphQL interface is used to extract metadata information. Queries used to extract metadata are located
@@ -380,6 +380,15 @@ For custom sql data sources, the query is viewable in UI under View Definition t
 }
 ```
 
+### Lineage
+Lineages are emitted as received from Tableau's metadata API
+- Sheets contained in Dashboard
+- Embedded or Published datasources upstream to Sheet
+- Published datasources upstream to Embedded datasource
+- Tables upstream to Embedded or Published datasource
+- Custom SQL datasources upstream to Embedded or Published datasource
+- Tables upstream to Custom SQL datasource
+
 ## Quickstart recipe
 
 Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
@@ -439,7 +448,8 @@ and personal token. For more information on Tableau authentication, refer to [Ho
 
 ## Compatibility
 
-Tableau Server Version: 2021.4.0 (20214.22.0114.0959) 64-bit Linux 
+Works with Tableau Server Version 2021.1.10 and above
+It may also work for older versions
 
 
 ## Questions
