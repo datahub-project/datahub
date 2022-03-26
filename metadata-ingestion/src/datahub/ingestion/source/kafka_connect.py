@@ -1,5 +1,6 @@
 import logging
 import re
+import sys
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Tuple
 
@@ -518,10 +519,10 @@ class DebeziumSourceConnector:
         server_name = parser.server_name
         database_name = parser.database_name
         topic_naming_pattern = r"({0})\.(\w+\.\w+)".format(server_name)
-
+        instance_name = None
+        
         if not self.connector_manifest.topic_names:
             return lineages
-
         # Get the platform/platform_instance mapping for every database_server from connect_to_platform_map
         if self.config.connect_to_platform_map:
             for db_server in self.config.connect_to_platform_map:
@@ -531,8 +532,7 @@ class DebeziumSourceConnector:
                         logger.error(
                             f"Same source platform {source_platform} configured in both platform_instance_map and connect_to_platform_map"
                         )
-                        self.report.report_failure("Same source platform {source_platform} configured in both platform_instance_map and connect_to_platform_map")
-
+                        sys.exit("Config Error: Same source platform configured in both platform_instance_map and connect_to_platform_map. Fix the config and re-run again.")
 
         for topic in self.connector_manifest.topic_names:
             found = re.search(re.compile(topic_naming_pattern), topic)
@@ -754,7 +754,6 @@ class KafkaConnectSource(Source):
         test_response = self.session.get(f"{self.config.connect_uri}")
         test_response.raise_for_status()
         logger.info(f"Connection to {self.config.connect_uri} is ok")
-
         if not jpype.isJVMStarted():
             jpype.startJVM()
 
