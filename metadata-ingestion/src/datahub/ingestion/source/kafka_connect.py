@@ -39,6 +39,7 @@ class KafkaConnectSourceConfig(DatasetLineageProviderConfigBase):
     provided_configs: Optional[List[ProvidedConfig]] = None
     connect_to_platform_map: Optional[dict] = None
 
+
 @dataclass
 class KafkaConnectSourceReport(SourceReport):
     connectors_scanned: int = 0
@@ -284,7 +285,6 @@ class ConfluentJDBCSourceConnector:
         parser = self.get_parser(self.connector_manifest)
         source_platform = parser.source_platform
         database_name = parser.database_name
-        server_name = parser.server_name
         query = parser.query
         topic_prefix = parser.topic_prefix
         transforms = parser.transforms
@@ -436,7 +436,9 @@ class ConfluentJDBCSourceConnector:
 class DebeziumSourceConnector:
     connector_manifest: ConnectorManifest
 
-    def __init__(self, connector_manifest: ConnectorManifest, config: KafkaConnectSourceConfig) -> None:
+    def __init__(
+        self, connector_manifest: ConnectorManifest, config: KafkaConnectSourceConfig
+    ) -> None:
         self.connector_manifest = connector_manifest
         self.config = config
         self._extract_lineages()
@@ -520,28 +522,32 @@ class DebeziumSourceConnector:
         database_name = parser.database_name
         topic_naming_pattern = r"({0})\.(\w+\.\w+)".format(server_name)
         instance_name = None
-        
+
         if not self.connector_manifest.topic_names:
             return lineages
         # Get the platform/platform_instance mapping for every database_server from connect_to_platform_map
         if self.config.connect_to_platform_map:
             for db_server in self.config.connect_to_platform_map:
                 if db_server == server_name:
-                    instance_name = self.config.connect_to_platform_map[db_server][source_platform]
-                    if self.config.platform_instance_map and self.config.platform_instance_map.get(source_platform):
+                    instance_name = self.config.connect_to_platform_map[db_server][
+                        source_platform
+                    ]
+                    if (
+                        self.config.platform_instance_map
+                        and self.config.platform_instance_map.get(source_platform)
+                    ):
                         logger.error(
                             f"Same source platform {source_platform} configured in both platform_instance_map and connect_to_platform_map"
                         )
-                        sys.exit("Config Error: Same source platform configured in both platform_instance_map and connect_to_platform_map. Fix the config and re-run again.")
+                        sys.exit(
+                            "Config Error: Same source platform configured in both platform_instance_map and connect_to_platform_map. Fix the config and re-run again."
+                        )
 
         for topic in self.connector_manifest.topic_names:
             found = re.search(re.compile(topic_naming_pattern), topic)
 
             if found:
-                if (
-                    database_name
-                    and instance_name
-                ):
+                if database_name and instance_name:
                     table_name = (
                         instance_name + "." + database_name + "." + found.group(2)
                     )
