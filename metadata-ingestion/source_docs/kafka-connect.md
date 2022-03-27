@@ -74,7 +74,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `connector_pattern.ignoreCase` |     | `True`      | Whether to ignore case sensitivity during pattern matching.                                                                                                                                                                                                                       |
 | `env`                       |          | `"PROD"`                   | Environment to use in namespace when constructing URNs.                                                                                                                                                                                                                           |
 | `platform_instance_map`     |     |     | Platform instance mapping to use when constructing URNs. e.g.`platform_instance_map: { "hive": "warehouse" }`                                                                                                                                                                     |
-| `connect_to_platform_map`   |     |     | Platform instance mapping when multiple DB instances for a platform is available. Entry for a platform should be in either `platform_instance_map` or `connect_to_platform_map`. e.g.`connect_to_platform_map: { "finance_db_server":<br/> "postgres": "core_finance_instance" }` |
+| `connect_to_platform_map`   |     |     | Platform instance mapping when multiple DB instances for a platform is available. Entry for a platform should be in either `platform_instance_map` or `connect_to_platform_map`. e.g.`connect_to_platform_map: { "finance_db_server": "postgres": "core_finance_instance" }` |
 
 ## Compatibility
 
