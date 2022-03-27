@@ -43,9 +43,11 @@ source:
         path_key: MYSQL_CONNECTION_URL
         value: jdbc:mysql://test_mysql:3306/librarydb
     # Optional mapping of platform types to instance ids
-    platform_instance_map: # optional
-      mysql: test_mysql    # optional
-
+    platform_instance_map:   # optional
+      mysql: test_mysql      # optional
+    connect_to_platform_map: # optional
+      finance_db_server:     # optional
+        postgres: core_finance_instance # optional. 
     # Credentials
     username: admin
     password: password
@@ -53,6 +55,7 @@ source:
 sink:
   # sink configs
 ```
+
 
 ## Config details
 

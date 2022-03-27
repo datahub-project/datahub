@@ -542,6 +542,10 @@ class DebeziumSourceConnector:
                         sys.exit(
                             "Config Error: Same source platform configured in both platform_instance_map and connect_to_platform_map. Fix the config and re-run again."
                         )
+                    logger.info(
+                        f"Instance name assigned is: {instance_name} for Server Name {server_name} and source platform {source_platform}"
+                    )
+                    break
 
         for topic in self.connector_manifest.topic_names:
             found = re.search(re.compile(topic_naming_pattern), topic)
