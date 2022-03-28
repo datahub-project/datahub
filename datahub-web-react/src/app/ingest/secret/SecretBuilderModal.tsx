@@ -10,7 +10,7 @@ type Props = {
     onCancel?: () => void;
 };
 /** Regex Validations */
-export const SECRET_NAME_ALPHANUMERIC = new RegExp('^[a-zA-Z0-9/]+(?:[w·-]*[a-zA-Z0-9/]+)*$');
+export const SECRET_NAME_ALPHANUMERIC = new RegExp('^[a-zA-Z0-9_/]+(?:[w·-]*[a-zA-Z0-9/]+)*$');
 
 export const SecretBuilderModal = ({ initialState, visible, onSubmit, onCancel }: Props) => {
     const [secretBuilderState, setSecretBuilderState] = useState<SecretBuilderState>(initialState || {});
