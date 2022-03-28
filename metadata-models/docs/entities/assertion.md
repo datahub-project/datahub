@@ -13,11 +13,11 @@ Assertion is identified by globally unique identifier, which is function of deta
 
 Type and Details of assertions set on a Dataset (Table). 
 
-Scope -> Column, Rows, Schema <br />
-Inputs  -> Column(s) <br />
-Aggregation -> Max, Min, etc <br />
-Operator -> Greater Than, Not null, etc <br />
-Parameters -> Value, Min Value, MaxValue <br />
+**Scope**: Column, Rows, Schema 
+**Inputs**: Column(s) 
+**Aggregation**: Max, Min, etc 
+**Operator**: Greater Than, Not null, etc 
+**Parameters**: Value, Min Value, Max Value 
 
 ### Assertion Run Events 
 
