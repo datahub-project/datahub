@@ -265,7 +265,9 @@
       },
       "privileges": [
         "MANAGE_ENTITY_TAGS",
-        "MANAGE_ENTITY_GLOSSARY_TERMS"
+        "MANAGE_ENTITY_GLOSSARY_TERMS",
+        "MANAGE_DATASET_COL_TAGS",
+        "MANAGE_DATASET_COL_GLOSSARY_TERMS"
       ],
       "displayName": "Admin - Can Manage Proposals",
       "resources":{
@@ -323,31 +325,6 @@
         "allResources":true
       },
       "description":"Grants full edit privileges for Groups to admin",
-      "state":"ACTIVE",
-      "type":"METADATA",
-      "editable":false
-    }
-  },
-  {
-    "urn": "urn:li:dataHubPolicy:10",
-    "info": {
-      "actors":{
-        "resourceOwners":false,
-        "allUsers":false,
-        "allGroups":false,
-        "users":[
-          "urn:li:corpuser:admin"
-        ]
-      },
-      "privileges":[
-        "EDIT_ENTITY"
-      ],
-      "displayName":"Root User - Edit All Groups",
-      "resources":{
-        "type":"corpGroup",
-        "allResources":true
-      },
-      "description":"Grants full edit privileges for Groups to root 'datahub' root user.",
       "state":"ACTIVE",
       "type":"METADATA",
       "editable":false
