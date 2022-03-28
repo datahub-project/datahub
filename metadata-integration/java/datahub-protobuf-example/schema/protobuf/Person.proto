@@ -1,0 +1,32 @@
+syntax = "proto3";
+package protobuf;
+
+import "protobuf/meta/meta.proto";
+
+/**
+  The dept for people
+**/
+message Department {
+  option(meta.msg.type) = ENTITY;
+  option(meta.msg.classification) = "Classification.Sensitive";
+  option(meta.msg.team) = "TeamA";
+
+  int32 id = 1;
+  string name = 2;
+}
+
+/**
+  This is a person
+**/
+message Person {
+  option(meta.msg.type) = ENTITY;
+  option(meta.msg.classification_enum) = HighlyConfidential;
+  option(meta.msg.team) = "TeamB";
+  option(meta.msg.bool_feature) = true;
+  option(meta.msg.alert_channel) = "#alerts";
+
+  string name = 1;
+  int32 id = 2;
+  string email = 3;
+  Department dept = 4;
+}

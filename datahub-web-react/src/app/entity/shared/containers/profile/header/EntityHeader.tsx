@@ -11,6 +11,7 @@ import { ANTD_GRAY } from '../../../constants';
 import { useEntityData } from '../../../EntityContext';
 import { useEntityPath } from '../utils';
 import analytics, { EventType, EntityActionType } from '../../../../../analytics';
+import { EntityHealthStatus } from './EntityHealthStatus';
 
 const LogoContainer = styled.span`
     margin-right: 10px;
@@ -155,9 +156,17 @@ export const EntityHeader = () => {
                         </>
                     ) : null}
                 </PlatformContent>
-                <Link to={entityPath}>
-                    <EntityTitle level={3}>{entityData?.name || ' '}</EntityTitle>
-                </Link>
+                <div style={{ display: 'flex', justifyContent: 'left', alignItems: 'center' }}>
+                    <Link to={entityPath}>
+                        <EntityTitle level={3}>{entityData?.name || ' '}</EntityTitle>
+                    </Link>
+                    {entityData?.health && (
+                        <EntityHealthStatus
+                            status={entityData?.health.status}
+                            message={entityData?.health?.message || undefined}
+                        />
+                    )}
+                </div>
             </MainHeaderContent>
             {hasExternalUrl && (
                 <ExternalLinkButton href={externalUrl} onClick={sendAnalytics}>

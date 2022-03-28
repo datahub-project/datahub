@@ -1,0 +1,32 @@
+run_id: clickhouse-test
+
+source:
+  type: clickhouse
+  config:
+    username: clickhouseuser
+    password: clickhousepass
+    database: clickhousedb
+    host_port: localhost:58123
+    platform_instance: clickhousetestserver
+    schema_pattern:
+      allow:
+        - "^db1"
+    profile_pattern:
+      allow:
+        - "clickhousetestserver.db1.mv_target_table"
+    profiling:
+      enabled: true
+      include_field_null_count: true
+      include_field_min_value: true
+      include_field_max_value: true
+      include_field_mean_value: true
+      include_field_median_value: true
+      include_field_stddev_value: true
+      include_field_quantiles: true
+      include_field_distinct_value_frequencies: true
+      include_field_histogram: true
+      include_field_sample_values: true
+sink:
+  type: file
+  config:
+    filename: "./clickhouse_mces.json"

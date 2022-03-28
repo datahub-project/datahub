@@ -17,6 +17,7 @@ import { useEntityRegistry } from '../../useEntityRegistry';
 import { IconStyleType } from '../../entity/Entity';
 import { useAddTagMutation, useAddTermMutation } from '../../../graphql/mutations.generated';
 import analytics, { EventType, EntityActionType } from '../../analytics';
+import { useEnterKeyListener } from '../useEnterKeyListener';
 
 type AddTagModalProps = {
     globalTags?: GlobalTags | null;
@@ -223,6 +224,11 @@ export default function AddTagTermModal({
             });
     };
 
+    // Handle the Enter press
+    useEnterKeyListener({
+        querySelectorToExecuteClick: '#addTagButton',
+    });
+
     if (showCreateModal) {
         return (
             <CreateTagModal
@@ -249,6 +255,7 @@ export default function AddTagTermModal({
                         Cancel
                     </Button>
                     <Button
+                        id="addTagButton"
                         data-testid="add-tag-term-from-modal-btn"
                         onClick={onOk}
                         disabled={selectedValue.length === 0 || disableAdd}

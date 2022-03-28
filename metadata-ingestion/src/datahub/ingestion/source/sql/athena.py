@@ -6,6 +6,8 @@ from pyathena.common import BaseCursor
 from pyathena.model import AthenaTableMetadata
 from sqlalchemy.engine.reflection import Inspector
 
+from datahub.emitter.mcp_builder import DatabaseKey, gen_containers
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemyConfig,
     SQLAlchemySource,
@@ -94,6 +96,35 @@ class AthenaSource(SQLAlchemySource):
         if athena_config.database:
             return [schema for schema in schemas if schema == athena_config.database]
         return schemas
+
+    def gen_database_containers(
+        self, database: str
+    ) -> typing.Iterable[MetadataWorkUnit]:
+        # In Athena the schema is the database and database is not existing
+        return []
+
+    def gen_schema_key(self, db_name: str, schema: str) -> DatabaseKey:
+        return DatabaseKey(
+            platform=self.platform,
+            environment=self.config.env,
+            instance=self.config.platform_instance,
+            database=schema,
+        )
+
+    def gen_schema_containers(
+        self, schema: str, db_name: str
+    ) -> typing.Iterable[MetadataWorkUnit]:
+        database_container_key = self.gen_database_key(database=schema)
+
+        container_workunits = gen_containers(
+            database_container_key,
+            schema,
+            ["Database"],
+        )
+
+        for wu in container_workunits:
+            self.report.report_workunit(wu)
+            yield wu
 
     def close(self):
         if self.cursor:

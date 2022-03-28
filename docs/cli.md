@@ -4,7 +4,7 @@ DataHub comes with a friendly cli called `datahub` that allows you to perform a 
 
 ## Release Notes
 
-You can find the release notes in [github releases](https://github.com/linkedin/datahub/releases). If you wish release notes for each bug-fix release you can find them in [acryldata releases](https://github.com/acryldata/datahub/releases).
+You can find the release notes in [github releases](https://github.com/datahub-project/datahub/releases). If you wish release notes for each bug-fix release you can find them in [acryldata releases](https://github.com/acryldata/datahub/releases).
 
 ## Installation
 ### Using pip
@@ -33,7 +33,7 @@ If you run into an error, try checking the [_common setup issues_](../metadata-i
 ### Using docker
 
 [![Docker Hub](https://img.shields.io/docker/pulls/linkedin/datahub-ingestion?style=plastic)](https://hub.docker.com/r/linkedin/datahub-ingestion)
-[![datahub-ingestion docker](https://github.com/linkedin/datahub/actions/workflows/docker-ingestion.yml/badge.svg)](https://github.com/linkedin/datahub/actions/workflows/docker-ingestion.yml)
+[![datahub-ingestion docker](https://github.com/datahub-project/datahub/actions/workflows/docker-ingestion.yml/badge.svg)](https://github.com/datahub-project/datahub/actions/workflows/docker-ingestion.yml)
 
 If you don't want to install locally, you can alternatively run metadata ingestion within a Docker container.
 We have prebuilt images available on [Docker hub](https://hub.docker.com/r/linkedin/datahub-ingestion). All plugins will be installed and enabled automatically.
@@ -57,12 +57,13 @@ We use a plugin architecture so that you can install only the dependencies you a
 
 ### Sources
 
-| Plugin Name                                                     | Install Command                                            | Provides                            |
-|-----------------------------------------------------------------|------------------------------------------------------------| ----------------------------------- |
+| Plugin Name                                                                         | Install Command                                            | Provides                            |
+|-------------------------------------------------------------------------------------|------------------------------------------------------------| ----------------------------------- |
 | [file](../metadata-ingestion/source_docs/file.md)                                   | _included by default_                                      | File source and sink                |
 | [athena](../metadata-ingestion/source_docs/athena.md)                               | `pip install 'acryl-datahub[athena]'`                      | AWS Athena source                   |
 | [bigquery](../metadata-ingestion/source_docs/bigquery.md)                           | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source                     |
 | [bigquery-usage](../metadata-ingestion/source_docs/bigquery.md)                     | `pip install 'acryl-datahub[bigquery-usage]'`              | BigQuery usage statistics source    |
+| [datahub-lineage-file](../metadata-ingestion/source_docs/file_lineage.md)           | _no additional dependencies_                               | Lineage File source                 |
 | [datahub-business-glossary](../metadata-ingestion/source_docs/business_glossary.md) | _no additional dependencies_                               | Business Glossary File source                         |
 | [dbt](../metadata-ingestion/source_docs/dbt.md)                                     | _no additional dependencies_                               | dbt source                          |
 | [druid](../metadata-ingestion/source_docs/druid.md)                                 | `pip install 'acryl-datahub[druid]'`                       | Druid Source                        |
@@ -95,6 +96,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 | [trino](../metadata-ingestion/source_docs/trino.md)                                 | `pip install 'acryl-datahub[trino]`                        | Trino source                     |
 | [starburst-trino-usage](../metadata-ingestion/source_docs/trino.md)                 | `pip install 'acryl-datahub[starburst-trino-usage]'`       | Starburst Trino usage statistics source   |
 | [nifi](../metadata-ingestion/source_docs/nifi.md)                                   | `pip install 'acryl-datahub[nifi]`                         | Nifi source                         |
+| [powerbi](../metadata-ingestion/source_docs/powerbi.md)                             | `pip install 'acryl-datahub[powerbi]`                      | Microsoft Power BI source           |
 
 ### Sinks
 
@@ -136,7 +138,7 @@ Commands:
   check      Helper commands for checking various aspects of DataHub.
   delete     Delete metadata from datahub using a single urn or a combination of filters
   docker     Helper commands for setting up and interacting with a local DataHub instance using Docker.
-  get        Get metadata for an entity with an optional list of aspects to project
+  get        Get metadata for an entity with an optional list of aspects to project.
   ingest     Ingest metadata into DataHub.
   init       Configure which datahub instance to connect to
   put        Update a single aspect of an entity
@@ -153,7 +155,7 @@ The `docker` command allows you to start up a local DataHub instance using `data
 
 ### ingest
 
-The `ingest` command allows you to ingest metadata from your sources using ingestion configuration files, which we call recipes. The main [ingestion page](../metadata-ingestion/README.md) contains detailed instructions about how you can use the ingest command and perform advanced operations like rolling-back previously ingested metadata through the `rollback` sub-command.
+The `ingest` command allows you to ingest metadata from your sources using ingestion configuration files, which we call recipes. [Removing Metadata from DataHub](./how/delete-metadata.md) contains detailed instructions about how you can use the ingest command to perform operations like rolling-back previously ingested metadata through the `rollback` sub-command and listing all runs that happened through `list-runs` sub-command.
 
 ### check
 
@@ -178,12 +180,14 @@ The env variables take precedence over what is in the config.
 
 ### telemetry
 
-To help us understand how people are using DataHub, we collect anonymous usage statistics on actions such as command invocations via Google Analytics.
+To help us understand how people are using DataHub, we collect anonymous usage statistics on actions such as command invocations via Mixpanel.
 We do not collect private information such as IP addresses, contents of ingestions, or credentials.
-The code responsible for collecting and broadcasting these events is open-source and can be found [within our GitHub](https://github.com/linkedin/datahub/blob/master/metadata-ingestion/src/datahub/telemetry/telemetry.py).
+The code responsible for collecting and broadcasting these events is open-source and can be found [within our GitHub](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/telemetry/telemetry.py).
 
 Telemetry is enabled by default, and the `telemetry` command lets you toggle the sending of these statistics via `telemetry enable/disable`.
-You can also disable telemetry by setting `DATAHUB_TELEMETRY_ENABLED` to `false`.
+You can also disable telemetry by setting the env variable `DATAHUB_TELEMETRY_ENABLED` to `false`. If you are running CLI in a private environment with no access to public internet then you need to disable telemetry.
+
+You can set the env variable `DATAHUB_TELEMETRY_TIMEOUT` to an integer value to specify timeout in secs when sending telemetry. By default it is set to 10 seconds.
 
 ### delete
 
@@ -195,7 +199,7 @@ datahub delete --urn "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset
 
 ### get
 
-The `get` command allows you to easily retrieve metadata from DataHub, by using the REST API.
+The `get` command allows you to easily retrieve metadata from DataHub, by using the REST API. This works for both versioned aspects and timeseries aspects. For timeseries aspects, it fetches the latest value.
 For example the following command gets the ownership aspect from the dataset `urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)`
 
 ```console
@@ -240,7 +244,7 @@ datahub get --urn "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PR
 
 The `put` command allows you to write metadata into DataHub. This is a flexible way for you to issue edits to metadata from the command line.
 For example, the following command instructs `datahub` to set the `ownership` aspect of the dataset `urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)` to the value in the file `ownership.json`.
-The JSON in the `ownership.json` file needs to conform to the [`Ownership`](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/common/Ownership.pdl) Aspect model as shown below.
+The JSON in the `ownership.json` file needs to conform to the [`Ownership`](https://github.com/datahub-project/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/common/Ownership.pdl) Aspect model as shown below.
 
 ```json
 {
@@ -320,3 +324,18 @@ External Entities Affected: None
 Old Entities Migrated = {'urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)'}
 ```
 
+### timeline
+
+The `timeline` command allows you to view a version history for entities. Currently only supported for Datasets. For example,
+the following command will show you the modifications to tags for a dataset for the past week. The output includes a computed semantic version,
+relevant for schema changes only currently, the target of the modification, and a description of the change including a timestamp.
+The default output is sanitized to be more readable, but the full API output can be obtained by passing the `--verbose` flag and
+to get the raw JSON difference in addition to the API output you can add the `--raw` flag. For more details about the feature please see [the main feature page](dev-guides/timeline.md)
+
+```console
+datahub timeline --urn "urn:li:dataset:(urn:li:dataPlatform:mysql,User.UserAccount,PROD)" --category TAG --start 7daysago
+2022-02-17 14:03:42 - 0.0.0-computed
+	MODIFY TAG dataset:mysql:User.UserAccount : A change in aspect editableSchemaMetadata happened at time 2022-02-17 20:03:42.0
+2022-02-17 14:17:30 - 0.0.0-computed
+	MODIFY TAG dataset:mysql:User.UserAccount : A change in aspect editableSchemaMetadata happened at time 2022-02-17 20:17:30.118
+```

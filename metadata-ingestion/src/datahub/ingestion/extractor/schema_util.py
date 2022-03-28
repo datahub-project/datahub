@@ -90,8 +90,12 @@ class AvroToMceSchemaConverter:
 
     field_logical_type_mapping: Dict[str, Any] = {
         "date": DateTypeClass,
-        "timestamp-millis": TimeTypeClass,
         "decimal": NumberTypeClass,
+        "time-micros": TimeTypeClass,
+        "time-millis": TimeTypeClass,
+        "timestamp-micros": TimeTypeClass,
+        "timestamp-millis": TimeTypeClass,
+        "uuid": StringTypeClass,
     }
 
     def __init__(self, is_key_schema: bool, default_nullable: bool = False) -> None:
@@ -125,7 +129,7 @@ class AvroToMceSchemaConverter:
         }
 
     def _get_column_type(
-        self, field_type: Union[str, dict], logical_type: str
+        self, field_type: Union[str, dict], logical_type: Optional[str]
     ) -> SchemaFieldDataType:
         tp = field_type
         if hasattr(tp, "type"):
@@ -271,7 +275,7 @@ class AvroToMceSchemaConverter:
                 tags = None
                 if "deprecated" in merged_props:
                     description = (
-                        f"<span style=\"color:red\">DEPRECATED: {self._schema.other_props['deprecated']}</span>\n"
+                        f"<span style=\"color:red\">DEPRECATED: {merged_props['deprecated']}</span>\n"
                         + description
                     )
                     tags = GlobalTagsClass(
@@ -283,7 +287,7 @@ class AvroToMceSchemaConverter:
                     # Populate it with the simple native type for now.
                     nativeDataType=native_data_type,
                     type=self._converter._get_column_type(
-                        actual_schema.type, actual_schema.props.get("logicalType")
+                        actual_schema.type, self._actual_schema.props.get("logicalType")
                     ),
                     description=description,
                     recursive=False,
@@ -357,7 +361,7 @@ class AvroToMceSchemaConverter:
         last_field_schema = self._fields_stack[-1]
         # Generate the custom-description for the field.
         description = last_field_schema.doc if last_field_schema.doc else None
-        if last_field_schema.has_default:
+        if last_field_schema.has_default and last_field_schema.default is not None:
             description = (
                 f"{description}\nField default value: {last_field_schema.default}"
             )
@@ -447,9 +451,7 @@ class AvroToMceSchemaConverter:
         :param is_key_schema: True if it is a key-schema.
         :return: An MCE SchemaField generator.
         """
-        # Prefer the `parse` function over the deprecated `Parse` function.
-        avro_schema_parse_fn = getattr(avro.schema, "parse", "Parse")
-        avro_schema = avro_schema_parse_fn(avro_schema_string)
+        avro_schema = avro.schema.parse(avro_schema_string)
         converter = cls(is_key_schema, default_nullable)
         yield from converter._to_mce_fields(avro_schema)
 

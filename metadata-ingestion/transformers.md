@@ -4,7 +4,7 @@
 
 Oftentimes we want to modify metadata before it reaches the ingestion sink – for instance, we might want to add custom tags, ownership, properties, or patch some fields. A transformer allows us to do exactly these things.
 
-Moreover, a transformer allows one to have fine-grained control over the metadata that’s ingested without having to modify the ingestion framework's code yourself. Instead, you can write your own module that can take MCEs however you like. To configure the recipe, all that's needed is a module name as well as any arguments.
+Moreover, a transformer allows one to have fine-grained control over the metadata that’s ingested without having to modify the ingestion framework's code yourself. Instead, you can write your own module that can transform metadata events however you like. To include a transformer into a recipe, all that's needed is the name of the transformer as well as any configuration that the transformer needs.
 
 ## Provided transformers
 
@@ -287,7 +287,7 @@ transformers:
 
 In the above couple of examples, we use classes that have already been implemented in the ingestion framework. However, it’s common for more advanced cases to pop up where custom code is required, for instance if you'd like to utilize conditional logic or rewrite properties. In such cases, we can add our own modules and define the arguments it takes as a custom transformer.
 
-As an example, suppose we want to append a set of ownership fields to our metadata that are dependent upon an external source – for instance, an API endpoint or file – rather than a preset list like above. In this case, we can set a JSON file as an argument to our custom config, and our transformer will read this file and append the included ownership classes to all our MCEs (if you'd like, you could also include filtering logic for specific MCEs).
+As an example, suppose we want to append a set of ownership fields to our metadata that are dependent upon an external source – for instance, an API endpoint or file – rather than a preset list like above. In this case, we can set a JSON file as an argument to our custom config, and our transformer will read this file and append the included ownership elements to all metadata events.
 
 Our JSON file might look like the following:
 
@@ -313,30 +313,27 @@ class AddCustomOwnershipConfig(ConfigModel):
 
 ### Defining the transformer
 
-Next, we’ll define the transformer itself, which must inherit from [`datahub.ingestion.api.transform.Transformer`](./src/datahub/ingestion/api/transform.py). First, let's get all our imports in:
+Next, we’ll define the transformer itself, which must inherit from [`datahub.ingestion.api.transform.Transformer`](./src/datahub/ingestion/api/transform.py). The framework provides a helper class called [`datahub.ingestion.transformer.base_transformer.BaseTransformer`](./src/datahub/ingestion/transformer/base_transformer.py) that makes it super-simple to write transformers. 
+First, let's get all our imports in:
 
 ```python
 # append these to the start of custom_transform_example.py
-
 import json
-from typing import Iterable
+from typing import List, Optional
 
-# for constructing URNs
-import datahub.emitter.mce_builder as builder
-# for typing the config model
 from datahub.configuration.common import ConfigModel
-# for typing context and records
-from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
-# base transformer class
-from datahub.ingestion.api.transform import Transformer
-# MCE-related classes
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.transformer.add_dataset_ownership import Semantics
+from datahub.ingestion.transformer.base_transformer import (
+    BaseTransformer,
+    SingleAspectTransformer,
+)
 from datahub.metadata.schema_classes import (
-    DatasetSnapshotClass,
-    MetadataChangeEventClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
 )
+
 ```
 
 Next, let's define the base scaffolding for the class:
@@ -344,7 +341,7 @@ Next, let's define the base scaffolding for the class:
 ```python
 # append this to the end of custom_transform_example.py
 
-class AddCustomOwnership(Transformer):
+class AddCustomOwnership(BaseTransformer, SingleAspectTransformer):
     """Transformer that adds owners to datasets according to a callback function."""
 
     # context param to generate run metadata such as a run ID
@@ -356,13 +353,16 @@ class AddCustomOwnership(Transformer):
         self.ctx = ctx
         self.config = config
 
+        with open(self.config.owners_json, "r") as f:
+            raw_owner_urns = json.load(f)
+
         self.owners = [
             OwnerClass(owner=owner, type=OwnershipTypeClass.DATAOWNER)
-            for owner in json.loads(config.owner_file)
+            for owner in raw_owner_urns
         ]
 ```
 
-A transformer must have two functions: a `create()` function for initialization and a `transform()` function for executing the transformation.
+A transformer must have two functions: a `create()` function for initialization and a `transform()` function for executing the transformation. Transformers that extend `BaseTransformer` and `SingleAspectTransformer` can avoid having to implement the more complex `transform` function and just implement the `transform_aspect` function.
 
 Let's begin by adding a `create()` method for parsing our configuration dictionary:
 
@@ -371,49 +371,43 @@ Let's begin by adding a `create()` method for parsing our configuration dictiona
 
 @classmethod
 def create(cls, config_dict: dict, ctx: PipelineContext) -> "AddCustomOwnership":
-    config = AddCustomOwnershipConfig.parse_obj(config_dict)
-    return cls(config, ctx)
+  config = AddCustomOwnershipConfig.parse_obj(config_dict)
+  return cls(config, ctx)
 ```
 
-Now we need to add a `transform()` method that does the work of adding our custom ownership classes. This method will take an MCE as input and output the transformed MCE. Let's offload the processing of each MCE to another `transform_one()` class.
+Next we need to tell the helper classes which entity types and aspect we are interested in transforming. In this case, we want to only process `dataset` entities and transform the `ownership` aspect.
+
+```python
+def entity_types(self) -> List[str]:
+        return ["dataset"]
+
+    def aspect_name(self) -> str:
+        return "ownership"
+```
+
+Finally we need to implement the `transform_aspect()` method that does the work of adding our custom ownership classes. This method will be called be the framework with an optional aspect value filled out if the upstream source produced a value for this aspect. The framework takes care of pre-processing both MCE-s and MCP-s so that the `transform_aspect()` function is only called one per entity. Our job is merely to inspect the incoming aspect (or absence) and produce a transformed value for this aspect. Returning `None` from this method will effectively suppress this aspect from being emitted.
 
 ```python
 # add this as a function of AddCustomOwnership
 
-def transform(
-    self, record_envelopes: Iterable[RecordEnvelope]
-) -> Iterable[RecordEnvelope]:
+  def transform_aspect(  # type: ignore
+      self, entity_urn: str, aspect_name: str, aspect: Optional[OwnershipClass]
+  ) -> Optional[OwnershipClass]:
 
-    # loop over envelopes
-    for envelope in record_envelopes:
+      owners_to_add = self.owners
+      assert aspect is None or isinstance(aspect, OwnershipClass)
 
-        # if envelope is an MCE, add the ownership classes
-        if isinstance(envelope.record, MetadataChangeEventClass):
-            envelope.record = self.transform_one(envelope.record)
-        yield envelope
-```
+      if owners_to_add:
+          ownership = (
+              aspect
+              if aspect
+              else OwnershipClass(
+                  owners=[],
+              )
+          )
+          ownership.owners.extend(owners_to_add)
 
-With the main `transform()` method set up, the `transform_one()` method will take a single MCE and add the owners that we loaded from the JSON.
-
-```python
-# add this as a function of AddCustomOwnership
-
-def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventClass:
-    if not isinstance(mce.proposedSnapshot, DatasetSnapshotClass):
-        return mce
-
-    owners_to_add = self.owners
-
-    if owners_to_add:
-        ownership = builder.get_or_add_aspect(
-            mce,
-            OwnershipClass(
-                owners=[],
-            ),
-        )
-        ownership.owners.extend(owners_to_add)
-
-    return mce
+      return ownership
 ```
 
 ### More Sophistication: Making calls to DataHub during Transformation

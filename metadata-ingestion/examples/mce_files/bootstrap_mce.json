@@ -811,7 +811,14 @@
                   "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)",
                   "type": "TRANSFORMED"
                 }
-              ]
+              ],
+              "fineGrainedLineages": [{
+                "upstreamType": "FIELD_SET",
+                "upstreams": ["urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD),event_data)"],
+                "downstreamType": "FIELD",
+                "upstreams": ["urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_name)"],
+                "confidenceScore": 1.0
+              }]
             }
           },
           {
@@ -3139,5 +3146,101 @@
       "registryVersion": null,
       "properties": null
     }
+  },
+  {
+    "auditHeader":null,
+    "entityType":"container",
+    "entityUrn": "urn:li:container:DATABASE",
+    "changeType":"UPSERT",
+    "aspectName":"containerProperties",
+    "aspect":{
+      "value":"{\"name\": \"datahub_db\", \"description\": \"The Root DataHub DB\" }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"container",
+    "entityUrn": "urn:li:container:DATABASE",
+    "changeType":"UPSERT",
+    "aspectName":"subTypes",
+    "aspect":{
+      "value":"{\"typeNames\": [ \"Database\" ] }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"container",
+    "entityUrn": "urn:li:container:DATABASE",
+    "changeType":"UPSERT",
+    "aspectName":"dataPlatformInstance",
+    "aspect":{
+      "value":"{\"platform\": \"urn:li:dataPlatform:hive\" }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"container",
+    "entityUrn": "urn:li:container:SCHEMA",
+    "changeType":"UPSERT",
+    "aspectName":"containerProperties",
+    "aspect":{
+      "value":"{\"name\": \"datahub_schema\", \"description\": \"The Root DataHub Schema\" }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"container",
+    "entityUrn": "urn:li:container:SCHEMA",
+    "changeType":"UPSERT",
+    "aspectName":"dataPlatformInstance",
+    "aspect":{
+      "value":"{\"platform\": \"urn:li:dataPlatform:hive\" }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"container",
+    "entityUrn": "urn:li:container:SCHEMA",
+    "changeType":"UPSERT",
+    "aspectName":"subTypes",
+    "aspect":{
+      "value":"{\"typeNames\": [ \"Schema\" ] }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+    "changeType":"UPSERT",
+    "aspectName":"container",
+    "aspect":{
+      "value":"{\"container\": \"urn:li:container:SCHEMA\" }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"container",
+    "entityUrn": "urn:li:container:SCHEMA",
+    "changeType":"UPSERT",
+    "aspectName":"container",
+    "aspect":{
+      "value":"{\"container\": \"urn:li:container:DATABASE\" }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
   }
 ]

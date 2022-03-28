@@ -7,6 +7,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.BrowsePaths;
+import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.TyperefDataSchema;
@@ -39,11 +40,11 @@ import com.linkedin.util.Pair;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.HashSet;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -104,6 +105,7 @@ public abstract class EntityService {
   public static final String DEFAULT_RUN_ID = "no-run-id-provided";
   public static final String BROWSE_PATHS = "browsePaths";
   public static final String DATA_PLATFORM_INSTANCE = "dataPlatformInstance";
+  public static final String STATUS = "status";
 
   protected EntityService(@Nonnull final EntityEventProducer producer, @Nonnull final EntityRegistry entityRegistry) {
     _producer = producer;
@@ -152,7 +154,7 @@ public abstract class EntityService {
   public Map<Urn, EntityResponse> getEntitiesV2(
       @Nonnull final String entityName,
       @Nonnull final Set<Urn> urns,
-      @Nonnull final Set<String> aspectNames) throws Exception {
+      @Nonnull final Set<String> aspectNames) throws URISyntaxException {
     return getLatestEnvelopedAspects(entityName, urns, aspectNames)
         .entrySet()
         .stream()
@@ -170,7 +172,7 @@ public abstract class EntityService {
   public abstract Map<Urn, List<EnvelopedAspect>> getLatestEnvelopedAspects(
       @Nonnull final String entityName,
       @Nonnull final Set<Urn> urns,
-      @Nonnull final Set<String> aspectNames) throws Exception;
+      @Nonnull final Set<String> aspectNames) throws URISyntaxException;
 
   /**
    * Retrieves the latest aspect for the given urn as a list of enveloped aspects
@@ -658,6 +660,11 @@ public abstract class EntityService {
       aspectsToGet.add(DATA_PLATFORM_INSTANCE);
     }
 
+    boolean shouldHaveStatusSet = isAspectProvided(entityType, STATUS, includedAspects);
+    if (shouldHaveStatusSet) {
+      aspectsToGet.add(STATUS);
+    }
+
     List<Pair<String, RecordTemplate>> aspects = new ArrayList<>();
     final String keyAspectName = getKeyAspectName(urn);
     aspectsToGet.add(keyAspectName);
@@ -684,6 +691,12 @@ public abstract class EntityService {
     if (shouldCheckDataPlatform && latestAspects.get(DATA_PLATFORM_INSTANCE) == null) {
       DataPlatformInstanceUtils.buildDataPlatformInstance(entityType, keyAspect)
           .ifPresent(aspect -> aspects.add(Pair.of(DATA_PLATFORM_INSTANCE, aspect)));
+    }
+
+    if (shouldHaveStatusSet && latestAspects.get(STATUS) != null) {
+      Status status = new Status();
+      status.setRemoved(false);
+      aspects.add(Pair.of(STATUS, status));
     }
 
     return aspects;
@@ -821,12 +834,12 @@ public abstract class EntityService {
 
   public abstract void setWritable(boolean canWrite);
 
-  public RollbackRunResult rollbackRun(List<AspectRowSummary> aspectRows, String runId) {
-    return rollbackWithConditions(aspectRows, Collections.singletonMap("runId", runId));
+  public RollbackRunResult rollbackRun(List<AspectRowSummary> aspectRows, String runId, boolean hardDelete) {
+    return rollbackWithConditions(aspectRows, Collections.singletonMap("runId", runId), hardDelete);
   }
 
   public abstract RollbackRunResult rollbackWithConditions(List<AspectRowSummary> aspectRows,
-      Map<String, String> conditions);
+                                                           Map<String, String> conditions, boolean hardDelete);
 
   public abstract RollbackRunResult deleteUrn(Urn urn);
 

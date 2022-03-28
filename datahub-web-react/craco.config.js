@@ -1,6 +1,7 @@
 require('dotenv').config();
 const CracoAntDesignPlugin = require('craco-antd');
 const path = require('path');
+const CopyWebpackPlugin = require('copy-webpack-plugin');
 
 const themeConfig = require(`./src/conf/theme/${process.env.REACT_APP_THEME_CONFIG}`);
 
@@ -13,6 +14,16 @@ function addLessPrefixToKeys(styles) {
 }
 
 module.exports = {
+    webpack: {
+        plugins: {
+            add: [
+                // Self host images by copying them to the build directory
+                new CopyWebpackPlugin({
+                    patterns: [{ from: 'src/images', to: 'platforms' }],
+                }),
+            ],
+        },
+    },
     plugins: [
         {
             plugin: CracoAntDesignPlugin,

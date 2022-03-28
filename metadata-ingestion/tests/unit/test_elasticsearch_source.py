@@ -5,7 +5,11 @@ from typing import Any, Dict, List, Tuple
 
 import pytest
 
-from datahub.ingestion.source.elastic_search import ElasticToSchemaFieldConverter
+from datahub.configuration.common import ConfigurationError
+from datahub.ingestion.source.elastic_search import (
+    ElasticsearchSourceConfig,
+    ElasticToSchemaFieldConverter,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 
 logger = logging.getLogger(__name__)
@@ -2431,3 +2435,32 @@ def test_elastic_search_schema_conversion(
     mappings: Dict[str, Any] = {"properties": schema_dict}
     actual_fields = list(ElasticToSchemaFieldConverter.get_schema_fields(mappings))
     assret_field_paths_match(actual_fields, expected_field_paths)
+
+
+def test_host_port_parsing() -> None:
+    """ensure we handle different styles of host_port specifications correctly"""
+    examples = [
+        "http://localhost:9200",
+        "https://localhost:9200",
+        "localhost:9300",
+        "localhost",
+        "http://localhost:3400",
+        "192.168.0.1",
+        "192.168.0.1:9200",
+        "http://192.168.2.1",
+        "https://192.168.0.1:9300",
+        "https://192.168.0.1/",
+    ]
+    bad_examples = ["localhost:abcd", "htttp://localhost:1234", "localhost:9200//"]
+    for example in examples:
+        config_dict = {"host": example}
+        config = ElasticsearchSourceConfig.parse_obj(config_dict)
+        assert config.host == example
+
+    for bad_example in bad_examples:
+        config_dict = {"host": bad_example}
+        try:
+            config = ElasticsearchSourceConfig.parse_obj(config_dict)
+            assert False, f"{bad_example} should throw exception"
+        except Exception as e:
+            assert isinstance(e, ConfigurationError)

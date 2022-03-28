@@ -68,7 +68,7 @@ export class TagEntity implements Entity<Tag> {
     };
 
     displayName = (data: Tag) => {
-        return data.name;
+        return data.properties?.name || data.name || data.urn;
     };
 
     getGenericEntityProperties = (tag: Tag) => {
