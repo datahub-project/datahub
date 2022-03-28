@@ -13,7 +13,9 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTermAssociationArray;
 import com.linkedin.common.GlossaryTerms;
+import com.linkedin.common.Ownership;
 import com.linkedin.common.Proposals;
+import com.linkedin.container.Container;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -71,6 +73,7 @@ import static com.linkedin.metadata.Constants.*;
 public class ProposalUtils {
   public static final String PROPOSALS_ASPECT_NAME = "proposals";
   public static final String SCHEMA_PROPOSALS_ASPECT_NAME = "schemaProposals";
+  public static final String CONTAINER_ASPECT_NAME = "container";
 
   private static final ConjunctivePrivilegeGroup ALL_PRIVILEGES_GROUP = new ConjunctivePrivilegeGroup(ImmutableList.of(
       PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()
@@ -297,6 +300,32 @@ public class ProposalUtils {
     if (actors != null) {
       assignedUsers = actors.getUsers();
       assignedGroups = actors.getGroups();
+    }
+
+    // if no users or groups were assigned, attempt to assign the owners of the container
+    if (assignedUsers.isEmpty() && assignedGroups.isEmpty()) {
+      // also potentially fetch the owners of the dataset's container
+      Container containerAspect =
+          (Container) getAspectFromEntity(targetUrn.toString(), CONTAINER_ASPECT_NAME, entityService, new Container());
+
+      if (containerAspect.hasContainer()) {
+        // the dataset has a container- fetch the container's owners
+        Ownership ownership =
+            (Ownership) getAspectFromEntity(containerAspect.getContainer().toString(), OWNERSHIP_ASPECT_NAME, entityService, new Ownership());
+        if (ownership.hasOwners()) {
+          List<Urn> usersToAdd = ownership.getOwners().stream()
+              .filter(owner -> owner.getOwner().getEntityType().equals(CORP_USER_ENTITY_NAME))
+              .map(owner -> owner.getOwner())
+              .collect(Collectors.toList());
+          List<Urn> groupsToAdd = ownership.getOwners().stream()
+              .filter(owner -> owner.getOwner().getEntityType().equals(CORP_GROUP_ENTITY_NAME))
+              .map(owner -> owner.getOwner())
+              .collect(Collectors.toList());
+
+          assignedUsers.addAll(usersToAdd);
+          assignedGroups.addAll(groupsToAdd);
+        }
+      }
     }
 
     ActionRequestSnapshot snapshot = createTermProposalRequest(
