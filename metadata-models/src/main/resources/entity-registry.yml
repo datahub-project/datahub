@@ -49,7 +49,6 @@ entities:
       - dataProcessInstanceProperties
       - dataProcessInstanceTrigger
       - dataProcessInstanceRunEvent
-      - editableDataProcessInstanceProperties
   - name: chart
     keyAspect: chartKey
     aspects:
