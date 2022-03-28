@@ -47,7 +47,7 @@ entities:
       - dataProcessInstanceInput
       - dataProcessInstanceOutput
       - dataProcessInstanceProperties
-      - dataProcessInstanceTrigger
+      - dataProcessInstanceRelationships
       - dataProcessInstanceRunEvent
   - name: chart
     keyAspect: chartKey

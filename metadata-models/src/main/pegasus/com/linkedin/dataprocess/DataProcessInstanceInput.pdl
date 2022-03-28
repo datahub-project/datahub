@@ -26,5 +26,5 @@ record DataProcessInstanceInput {
       "queryByDefault": false
     }
   }
-  inputDatasets: array[Urn]
+  inputs: array[Urn]
 }

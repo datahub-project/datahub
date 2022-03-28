@@ -26,6 +26,6 @@ record DataProcessInstanceOutput {
       "queryByDefault": false
     }
   }
-  outputDatasets: array[Urn]
+  outputs: array[Urn]
 
 }

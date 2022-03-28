@@ -12,7 +12,7 @@ import com.linkedin.common.Urn
   "name": "dataProcessInstanceRunEvent",
   "type": "timeseries",
 }
-record DataProcessInstanceRunEvent includes TimeseriesAspectBase {
+record DataProcessInstanceRunEvent includes TimeseriesAspectBase, ExternalReference {
 
   @TimeseriesField = {}
   status: enum DataProcessRunStatus {
@@ -26,11 +26,11 @@ record DataProcessInstanceRunEvent includes TimeseriesAspectBase {
   /**
     * Return the try number that this Instance Run is in
     */
-  try_number: optional int
+  attempt: optional int
 
   /**
     * The final result of the Data Processing run.
     */
   @TimeseriesField = {}
-  result: optional RunResult
+  result: optional DataProcessInstanceRunResult
 }

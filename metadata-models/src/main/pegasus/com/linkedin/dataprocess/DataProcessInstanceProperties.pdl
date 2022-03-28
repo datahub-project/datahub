@@ -27,24 +27,6 @@ record DataProcessInstanceProperties includes CustomProperties, ExternalReferenc
   name: string
 
   /**
-   * Process description
-   */
-  @Searchable = {
-    "fieldType": "TEXT",
-    "hasValuesFieldName": "hasDescription"
-  }
-  description: optional string
-
-  /**
-   * Execution Id which identifyies the pipeline run. In airflow this can be a dag run id.
-   */
-  @Searchable = {
-    "fieldName": "executionId",
-    "fieldType": "KEYWORD",
-  }
-  executionId: optional string
-
-  /**
    * Process type
    */
   @Searchable = {
@@ -57,40 +39,6 @@ record DataProcessInstanceProperties includes CustomProperties, ExternalReferenc
     BATCH_AD_HOC,
     STREAMING,
   }
-
-  /**
-   * The parent entity whose run instance it is
-   */
-  @Relationship = {
-      "name": "InstanceOf",
-      "entityTypes": [ "DataJobUrn", "DataFlowUrn" ]
-  }
-  @Searchable = {
-    "/*": {
-      "fieldName": "parentTemplate",
-      "fieldType": "URN",
-      "queryByDefault": false
-    }
-  }
-  parentTemplate: optional Urn
-
-  /**
-   * The parent DataProcessInstance where it belongs to.
-   * If it is a Airflow Task then it should belong to an Airflow Dag run as well
-   * which will be another DataProcessInstance
-   */
-  @Relationship = {
-      "name": "ChildOf",
-      "entityTypes": [ "DataProcessInstance" ]
-  }
-  @Searchable = {
-    "/*": {
-      "fieldName": "parentInstance",
-      "fieldType": "URN",
-      "queryByDefault": false
-    }
-  }
-  parentInstance: optional Urn
 
   /**
   * Audit stamp containing who reported the lineage and when
