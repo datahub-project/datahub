@@ -39,7 +39,9 @@
         ]
       },
       "privileges":[
-        "EDIT_ENTITY"
+        "EDIT_ENTITY",
+        "MANAGE_DATASET_COL_TAGS",
+        "MANAGE_DATASET_COL_GLOSSARY_TERMS"
       ],
       "displayName":"Root User - Edit All Datasets",
       "resources":{
