@@ -205,6 +205,14 @@ public class PoliciesConfig {
       COMMON_ENTITY_PRIVILEGES
   );
 
+  // Data Doc Privileges
+  public static final ResourcePrivileges NOTEBOOK_PRIVILEGES = ResourcePrivileges.of(
+      "notebook",
+      "Notebook",
+      "Notebook indexed by DataHub",
+      COMMON_ENTITY_PRIVILEGES
+  );
+
   // Data Flow Privileges
   public static final ResourcePrivileges DATA_FLOW_PRIVILEGES = ResourcePrivileges.of(
       "dataFlow",
@@ -293,7 +301,8 @@ public class PoliciesConfig {
       DOMAIN_PRIVILEGES,
       GLOSSARY_TERM_PRIVILEGES,
       CORP_GROUP_PRIVILEGES,
-      CORP_USER_PRIVILEGES
+      CORP_USER_PRIVILEGES,
+      NOTEBOOK_PRIVILEGES
   );
 
   @Data
