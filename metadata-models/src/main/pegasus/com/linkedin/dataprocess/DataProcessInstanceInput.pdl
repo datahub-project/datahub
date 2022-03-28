@@ -1,17 +1,14 @@
 namespace com.linkedin.dataprocess
 
-import com.linkedin.common.DatasetUrn
-import com.linkedin.common.DatasetInputLineage
 import com.linkedin.common.Urn
-
 
 /**
  * Information about the inputs datasets of a Data process
  */
 @Aspect = {
-  "name": "dataProcessInstanceDatasetInput"
+  "name": "dataProcessInstanceInput"
 }
-record DataProcessInstanceDatasetInput {
+record DataProcessInstanceInput {
   /**
    * Input datasets to be consumed
    */
@@ -25,9 +22,9 @@ record DataProcessInstanceDatasetInput {
     "/*": {
       "fieldName": "inputs",
       "fieldType": "URN",
-      "numValuesFieldName": "numInputDatasets",
+      "numValuesFieldName": "numInputs",
       "queryByDefault": false
     }
   }
-  inputDatasets: array[DatasetUrn]
+  inputDatasets: array[Urn]
 }

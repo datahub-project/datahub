@@ -2,7 +2,7 @@ namespace com.linkedin.datajob
 
 import com.linkedin.common.CustomProperties
 import com.linkedin.common.ExternalReference
-import com.linkedin.common.DataJobUrn
+import com.linkedin.common.Urn
 
 /**
  * Information about a Data processing flow
@@ -49,5 +49,5 @@ record DataFlowInfo includes CustomProperties, ExternalReference {
       "entityTypes": [ "dataJob" ]
     }
   }
-  jobs: optional array[DataJobUrn]
+  jobs: optional array[Urn]
 }

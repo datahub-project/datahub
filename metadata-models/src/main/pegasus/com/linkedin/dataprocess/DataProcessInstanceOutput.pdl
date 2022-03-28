@@ -1,16 +1,14 @@
 namespace com.linkedin.dataprocess
 
-import com.linkedin.common.DatasetUrn
-import com.linkedin.common.DatasetInputLineage
 import com.linkedin.common.Urn
 
 /**
  * Information about the outputs of a Data process
  */
 @Aspect = {
-  "name": "dataProcessInstanceDatasetOutput"
+  "name": "dataProcessInstanceOutput"
 }
-record DataProcessInstanceDatasetOutput {
+record DataProcessInstanceOutput {
   /**
    * Output datasets to be produced
    */
@@ -24,10 +22,10 @@ record DataProcessInstanceDatasetOutput {
     "/*": {
       "fieldName": "outputs",
       "fieldType": "URN",
-      "numValuesFieldName": "numOutputDatasets",
+      "numValuesFieldName": "numOutputs",
       "queryByDefault": false
     }
   }
-  outputDatasets: array[DatasetUrn]
+  outputDatasets: array[Urn]
 
 }

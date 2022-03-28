@@ -27,11 +27,6 @@ record DataProcessInstanceProperties includes CustomProperties, ExternalReferenc
   name: string
 
   /**
-   * Audit stamp containing who reported the lineage and when
-   */
-  auditStamp: AuditStamp
-  
-  /**
    * Process description
    */
   @Searchable = {
@@ -39,6 +34,15 @@ record DataProcessInstanceProperties includes CustomProperties, ExternalReferenc
     "hasValuesFieldName": "hasDescription"
   }
   description: optional string
+
+  /**
+   * Execution Id which identifyies the pipeline run. In airflow this can be a dag run id.
+   */
+  @Searchable = {
+    "fieldName": "executionId",
+    "fieldType": "KEYWORD",
+  }
+  executionId: optional string
 
   /**
    * Process type
@@ -52,51 +56,31 @@ record DataProcessInstanceProperties includes CustomProperties, ExternalReferenc
     BATCH_SCHEDULED,
     BATCH_AD_HOC,
     STREAMING,
-    MICROSERVICE,
-    OTHER,
   }
 
   /**
-   * The list of upstream instances where this instance depends on 
+   * The parent entity whose run instance it is
    */
   @Relationship = {
-    "/*": {
-      "name": "downstreamOf",
-      "entityTypes": [ "URN" ]
-    }
-  }
-  @Searchable = {
-    "/*": {
-      "fieldName": "upstreamInstances",
-      "fieldType": "URN",
-      "queryByDefault": false
-    }
-  }
-  upstreamInstances: optional array[Urn]
-
-  /**
-   * The parent entity whose run instance it is 
-   */
-  @Relationship = {
-      "name": "instanceOf",
+      "name": "InstanceOf",
       "entityTypes": [ "DataJobUrn", "DataFlowUrn" ]
   }
   @Searchable = {
     "/*": {
-      "fieldName": "parent",
+      "fieldName": "parentTemplate",
       "fieldType": "URN",
       "queryByDefault": false
     }
   }
-  parent: optional Urn
+  parentTemplate: optional Urn
 
   /**
-   * The parent DataProcessInstance where it belongs to. 
+   * The parent DataProcessInstance where it belongs to.
    * If it is a Airflow Task then it should belong to an Airflow Dag run as well
-   * which will be another DataProcessInstance 
+   * which will be another DataProcessInstance
    */
   @Relationship = {
-      "name": "childOf",
+      "name": "ChildOf",
       "entityTypes": [ "DataProcessInstance" ]
   }
   @Searchable = {
@@ -107,4 +91,10 @@ record DataProcessInstanceProperties includes CustomProperties, ExternalReferenc
     }
   }
   parentInstance: optional Urn
+
+  /**
+  * Audit stamp containing who reported the lineage and when
+  */
+  created: AuditStamp
+
 }

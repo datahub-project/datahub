@@ -24,6 +24,11 @@ record DataProcessInstanceRunEvent includes TimeseriesAspectBase {
   }
 
   /**
+    * Return the try number that this Instance Run is in
+    */
+  try_number: int
+
+  /**
     * The final result of the Data Processing run.
     */
   @TimeseriesField = {}
