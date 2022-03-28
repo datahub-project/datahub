@@ -368,12 +368,12 @@
         "MANAGE_DATASET_COL_TAGS",
         "MANAGE_DATASET_COL_GLOSSARY_TERMS"
       ],
-      "displayName":"Root User - Manage Dataset Tag Proposals",
+      "displayName":"Root User - Manage Dataset Column Proposals",
       "resources":{
         "type":"dataset",
         "allResources":true
       },
-      "description":"Grants privileges to manage tag proposals for dataset columns.",
+      "description":"Grants privileges to manage tag + term proposals for dataset columns.",
       "state":"ACTIVE",
       "type":"METADATA",
       "editable":false
