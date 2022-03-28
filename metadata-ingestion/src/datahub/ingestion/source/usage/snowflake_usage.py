@@ -337,6 +337,8 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
     def _is_dataset_pattern_allowed(
         self, dataset_name: Optional[Any], dataset_type: Optional[Any]
     ) -> bool:
+        if not dataset_type or not dataset_name:
+            return True
         dataset_params = dataset_name.split(".")
         assert len(dataset_params) == 3
         if not self.config.database_pattern.allowed(
