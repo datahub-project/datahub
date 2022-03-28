@@ -36,7 +36,7 @@ describe('schemaProposals', () => {
       cy.contains('Proposed Schema Tag');
   
       cy.visit('/');
-      cy.get('input[data-testid=search-input]').typeSearchDisableCache('CypressNode.TermToPropose');
+      cy.get('input[data-testid=search-input]').typeSearchDisableCache('TermToPropose');
       cy.contains('DatasetToProposeOn');
       cy.contains('TermToPropose');
       cy.contains('Proposed Schema Glossary Term');
@@ -57,7 +57,7 @@ describe('schemaProposals', () => {
       cy.contains('DatasetToProposeOn').should('not.exist');
   
       cy.visit('/');
-      cy.get('input[data-testid=search-input]').typeSearchDisableCache('CypressNode.TermToPropose');
+      cy.get('input[data-testid=search-input]').typeSearchDisableCache('TermToPropose');
       cy.contains('DatasetToProposeOn').should('not.exist');
     });
 
@@ -98,7 +98,7 @@ describe('schemaProposals', () => {
       cy.contains('Proposed Schema Tag');
   
       cy.visit('/');
-      cy.get('input[data-testid=search-input]').typeSearchDisableCache('CypressNode.TermToPropose');
+      cy.get('input[data-testid=search-input]').typeSearchDisableCache('TermToPropose');
       cy.contains('DatasetToProposeOn');
       cy.contains('TermToPropose');
       cy.contains('Proposed Schema Glossary Term');
@@ -119,7 +119,7 @@ describe('schemaProposals', () => {
       cy.contains('DatasetToProposeOn');
   
       cy.visit('/');
-      cy.get('input[data-testid=search-input]').typeSearchDisableCache('CypressNode.TermToPropose');
+      cy.get('input[data-testid=search-input]').typeSearchDisableCache('TermToPropose');
       cy.contains('DatasetToProposeOn');
 
       // Verifying the accepted proposals show up on the columns

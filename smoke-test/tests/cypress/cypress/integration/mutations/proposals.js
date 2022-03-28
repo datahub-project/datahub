@@ -36,7 +36,7 @@ describe('proposals', () => {
     cy.contains('Proposed Tag');
 
     cy.visit('/');
-    cy.get('input[data-testid=search-input]').typeSearchDisableCache('CypressNode.TermToPropose');
+    cy.get('input[data-testid=search-input]').typeSearchDisableCache('TermToPropose');
     cy.contains('DatasetToProposeOn');
     cy.contains('TermToPropose');
     cy.contains('Proposed Glossary Term');
@@ -57,7 +57,7 @@ describe('proposals', () => {
     cy.contains('DatasetToProposeOn').should('not.exist');
 
     cy.visit('/');
-    cy.get('input[data-testid=search-input]').typeSearchDisableCache('CypressNode.TermToPropose');
+    cy.get('input[data-testid=search-input]').typeSearchDisableCache('TermToPropose');
     cy.contains('DatasetToProposeOn').should('not.exist');
 
     cy.visit('/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)');
@@ -112,7 +112,7 @@ describe('proposals', () => {
     cy.contains('Tag');
 
     cy.visit('/');
-    cy.get('input[data-testid=search-input]').typeSearchDisableCache('CypressNode.TermToPropose');
+    cy.get('input[data-testid=search-input]').typeSearchDisableCache('TermToPropose');
     cy.contains('DatasetToProposeOn');
     cy.contains('TermToPropose');
     cy.contains('Glossary Term');
