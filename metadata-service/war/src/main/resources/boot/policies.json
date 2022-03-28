@@ -39,9 +39,7 @@
         ]
       },
       "privileges":[
-        "EDIT_ENTITY",
-        "MANAGE_DATASET_COL_TAGS",
-        "MANAGE_DATASET_COL_GLOSSARY_TERMS"
+        "EDIT_ENTITY"
       ],
       "displayName":"Root User - Edit All Datasets",
       "resources":{
@@ -350,6 +348,32 @@
         "allResources":true
       },
       "description":"Grants full edit privileges for Groups to root 'datahub' root user.",
+      "state":"ACTIVE",
+      "type":"METADATA",
+      "editable":false
+    }
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:11",
+    "info": {
+      "actors":{
+        "resourceOwners":false,
+        "allUsers":false,
+        "allGroups":false,
+        "users":[
+          "urn:li:corpuser:admin"
+        ]
+      },
+      "privileges":[
+        "MANAGE_DATASET_COL_TAGS",
+        "MANAGE_DATASET_COL_GLOSSARY_TERMS"
+      ],
+      "displayName":"Root User - Manage Dataset Tag Proposals",
+      "resources":{
+        "type":"dataset",
+        "allResources":true
+      },
+      "description":"Grants privileges to manage tag proposals for dataset columns.",
       "state":"ACTIVE",
       "type":"METADATA",
       "editable":false
