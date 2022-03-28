@@ -52,7 +52,13 @@ This plugin extracts the following:
 - Metadata for databases, schemas, views and tables
 - Column types associated with each table
 - Table, row, and column statistics via optional [SQL profiling](./sql_profiles.md)
-- Table lineage
+- Table lineage 
+  - On Snowflake standard edition we can get
+    - table -> view lineage
+    - s3 -> table lineage
+  - On Snowflake Enterprise edition in addition to the above from Snowflake Standard edition we can get (Please see [caveats](#caveats-1))
+    - table -> table lineage
+    - view -> table lineage
 
 :::tip
 
@@ -96,6 +102,14 @@ source:
     username: "${SNOWFLAKE_USER}"
     password: "${SNOWFLAKE_PASS}"
     role: "datahub_role"
+
+    database_pattern:
+      allow:
+      - "^ACCOUNTING_DB$"
+      - "^MARKETING_DB$"
+    schema_pattern:
+      deny:
+      - "information_schema.*"
 
 sink:
   # sink configs
@@ -164,14 +178,6 @@ To install this plugin, run `pip install 'acryl-datahub[snowflake-usage]'`.
 
 ### Prerequisites 
 
-:::note
-
-Table lineage requires Snowflake's [Access History](https://docs.snowflake.com/en/user-guide/access-history.html) feature. The "accountadmin" role has this by default.
-
-The underlying access history views that we use are only available in Snowflake's enterprise edition or higher.
-
-:::
-
 In order to execute the snowflake-usage source, your Snowflake user will need to have specific privileges granted to it. Specifically, you'll need to grant access to the [Account Usage](https://docs.snowflake.com/en/sql-reference/account-usage.html) system tables, using which the DataHub source extracts information. Assuming you've followed the steps outlined in `snowflake` plugin to create a DataHub-specific User & Role, you'll simply need to execute the following commands in Snowflake. This will require a user with the `ACCOUNTADMIN` role (or a role granted the IMPORT SHARES global privilege). Please see [Snowflake docs for more details](https://docs.snowflake.com/en/user-guide/data-share-consumers.html).
 
 ```sql
@@ -219,6 +225,15 @@ source:
     # Options
     top_n_queries: 10
     email_domain: mycompany.com
+
+    database_pattern:
+      allow:
+      - "^ACCOUNTING_DB$"
+      - "^MARKETING_DB$"
+    schema_pattern:
+      deny:
+      - "information_schema.*"
+
 sink:
   # sink configs
 ```
@@ -243,8 +258,12 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `end_time`                      |          | Last full day in UTC (or hour, depending on `bucket_duration`)      | Latest date of usage logs to consider.                                           |
 | `top_n_queries`                 |          | `10`                                                                | Number of top queries to save to each table.                                     |
 | `include_operational_stats`     |          | `true`                                                              | Whether to display operational stats.                                            |
-| `database_pattern`              |          | `"^UTIL_DB$" `<br />`"^SNOWFLAKE$"`<br />`"^SNOWFLAKE_SAMPLE_DATA$" | Allow/deny patterns for db in snowflake dataset names.                           |
-| `schema_pattern`                |          |                                                                     | Allow/deny patterns for schema in snowflake dataset names.                       |
+| `database_pattern.allow`        |          |                                                                            | List of regex patterns for databases to include in ingestion.                                                                                                                           |
+| `database_pattern.deny`         |          | `"^UTIL_DB$" `<br />`"^SNOWFLAKE$"`<br />`"^SNOWFLAKE_SAMPLE_DATA$"`       | List of regex patterns for databases to exclude from ingestion.                                                                                                                         |
+| `database_pattern.ignoreCase`   |          | `True`                                                                     | Whether to ignore case sensitivity during pattern matching.                                                                                                                             |
+| `schema_pattern.allow`         |          |                                                                            | List of regex patterns for schemas to include in ingestion.                                                                                                                             |
+| `schema_pattern.deny`          |          |                                                                            | List of regex patterns for schemas to exclude from ingestion.                                                                                                                           |
+| `schema_pattern.ignoreCase`    |          | `True`                                                                     | Whether to ignore case sensitivity during pattern matching.                                                                                                                             |
 | `view_pattern`                  |          |                                                                     | Allow/deny patterns for views in snowflake dataset names.                        |
 | `table_pattern`                 |          |                                                                     | Allow/deny patterns for tables in snowflake dataset names.                       |
 | `user_email_pattern.allow`      |          | *                                                                   | List of regex patterns for user emails to include in usage.                      |
