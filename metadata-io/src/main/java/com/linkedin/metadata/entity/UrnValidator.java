@@ -76,7 +76,8 @@ public class UrnValidator implements Validator {
           }
         }
       } catch (URISyntaxException | IllegalArgumentException e) {
-        context.addResult(new Message(context.dataElement().path(), "\"Provided urn %s\" is invalid", new Object[]{context.dataElement().getValue()}));
+        context.addResult(new Message(context.dataElement().path(), "\"Provided urn %s\" is invalid: %s",
+            context.dataElement().getValue(), e.getMessage()));
         context.setHasFix(false);
       }
     }
