@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Dict, List, Optional
 
 from datahub.ingestion.source.sql.sql_common import SQLSourceReport
@@ -19,8 +20,8 @@ class SnowflakeReport(BaseSnowflakeReport, SQLSourceReport):
     ignore_start_time_lineage: Optional[bool] = None
     report_upstream_lineage: Optional[bool] = None
     upstream_lineage: Dict[str, List[str]] = field(default_factory=dict)
-    lineage_start_time: Optional[str] = None
-    lineage_end_time: Optional[str] = None
+    lineage_start_time: Optional[datetime] = None
+    lineage_end_time: Optional[datetime] = None
 
     cleaned_host_port: str = ""
     run_ingestion: bool = False
