@@ -10,6 +10,7 @@ from datahub.ingestion.source_report.sql.snowflake import BaseSnowflakeReport
 
 @dataclass
 class SnowflakeUsageReport(BaseSnowflakeReport, StatefulIngestionReport):
+    ignore_start_time_usage: Optional[bool] = None
     min_access_history_time: Optional[datetime] = None
     max_access_history_time: Optional[datetime] = None
     access_history_range_query_secs: float = -1

@@ -241,8 +241,10 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
         )
 
     def add_config_to_report(self):
-        self.report.start_time = self.config.start_time
+        if not self.config.ignore_start_time_usage:
+            self.report.start_time = self.config.start_time
         self.report.end_time = self.config.end_time
+        self.report.ignore_start_time_usage = self.config.ignore_start_time_usage
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         self.add_config_to_report()
@@ -274,7 +276,10 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
         start_time = int(self.config.start_time.timestamp() * 1000)
         end_time = int(self.config.end_time.timestamp() * 1000)
         return SNOWFLAKE_USAGE_SQL_TEMPLATE.format(
-            start_time_millis=start_time, end_time_millis=end_time
+            start_time_millis=start_time
+            if not self.config.ignore_start_time_usage
+            else 0,
+            end_time_millis=end_time,
         )
 
     def _make_sql_engine(self) -> Engine:
