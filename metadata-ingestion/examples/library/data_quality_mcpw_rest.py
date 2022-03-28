@@ -1,9 +1,9 @@
+import json
 import time
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProperties
 from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
     AssertionInfo,
     AssertionResult,
@@ -13,18 +13,16 @@ from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
     AssertionStdAggregation,
     AssertionStdOperator,
     AssertionStdParameter,
-    AssertionStdParameterType,
     AssertionStdParameters,
+    AssertionStdParameterType,
     AssertionType,
     DatasetAssertionInfo,
     DatasetAssertionScope,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.common import DataPlatformInstance
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProperties
 from datahub.metadata.com.linkedin.pegasus2avro.events.metadata import ChangeType
-from datahub.metadata.schema_classes import (
-    AssertionRunEventClass,
-    DataPlatformInstanceClass,
-    PartitionSpecClass,
-)
+from datahub.metadata.com.linkedin.pegasus2avro.timeseries import PartitionSpec
 
 
 def datasetUrn(tbl: str) -> str:
@@ -39,7 +37,7 @@ def assertionUrn(info: AssertionInfo) -> str:
     return "urn:li:assertion:432475190cc846f2894b5b3aa4d55af2"
 
 
-def emitAssertionResult(assertionResult: AssertionResult) -> None:
+def emitAssertionResult(assertionResult: AssertionRunEvent) -> None:
 
     dataset_assertionRunEvent_mcp = MetadataChangeProposalWrapper(
         entityType="assertion",
@@ -76,16 +74,19 @@ assertion_maxVal = AssertionInfo(
     type=AssertionType.DATASET,
     datasetAssertion=DatasetAssertionInfo(
         scope=DatasetAssertionScope.DATASET_COLUMN,
-        operator=AssertionStdOperator.LESS_THAN,
-        nativeType="column_value_is_less_than",
-        aggregation=AssertionStdAggregation.IDENTITY,
+        operator=AssertionStdOperator.BETWEEN,
+        nativeType="expect_column_max_to_be_between",
+        aggregation=AssertionStdAggregation.MAX,
         fields=[fldUrn("bazTable", "col1")],
         dataset=datasetUrn("bazTable"),
-        nativeParameters={"max_value": "99"},
+        nativeParameters={"max_value": "99", "min_value": "89"},
         parameters=AssertionStdParameters(
+            minValue=AssertionStdParameter(
+                type=AssertionStdParameterType.NUMBER, value="89"
+            ),
             maxValue=AssertionStdParameter(
                 type=AssertionStdParameterType.NUMBER, value="99"
-            )
+            ),
         ),
     ),
     customProperties={"suite_name": "demo_suite"},
@@ -104,7 +105,7 @@ assertion_maxVal_mcp = MetadataChangeProposalWrapper(
 emitter.emit_mcp(assertion_maxVal_mcp)
 
 # Construct an assertion platform object.
-assertion_dataPlatformInstance = DataPlatformInstanceClass(
+assertion_dataPlatformInstance = DataPlatformInstance(
     platform=builder.make_data_platform_urn("great-expectations")
 )
 
@@ -125,7 +126,7 @@ assertionResult_maxVal_batch_partition1 = AssertionRunEvent(
     timestampMillis=int(time.time() * 1000),
     assertionUrn=assertionUrn(assertion_maxVal),
     asserteeUrn=datasetUrn("bazTable"),
-    partitionSpec=PartitionSpecClass(partition=str([{"country": "IN"}])),
+    partitionSpec=PartitionSpec(partition=json.dumps([{"country": "IN"}])),
     runId="uuid1",
     status=AssertionRunStatus.COMPLETE,
     result=AssertionResult(
@@ -140,11 +141,11 @@ emitAssertionResult(
 )
 
 # Construct batch assertion result object for partition 2 batch
-assertionResult_maxVal_batch_partition2 = AssertionRunEventClass(
+assertionResult_maxVal_batch_partition2 = AssertionRunEvent(
     timestampMillis=int(time.time() * 1000),
     assertionUrn=assertionUrn(assertion_maxVal),
     asserteeUrn=datasetUrn("bazTable"),
-    partitionSpec=PartitionSpecClass(partition=str([{"country": "US"}])),
+    partitionSpec=PartitionSpec(partition=json.dumps([{"country": "US"}])),
     runId="uuid1",
     status=AssertionRunStatus.COMPLETE,
     result=AssertionResult(
@@ -159,7 +160,7 @@ emitAssertionResult(
 )
 
 # Construct batch assertion result object for full table batch.
-assertionResult_maxVal_batch_fulltable = AssertionRunEventClass(
+assertionResult_maxVal_batch_fulltable = AssertionRunEvent(
     timestampMillis=int(time.time() * 1000),
     assertionUrn=assertionUrn(assertion_maxVal),
     asserteeUrn=datasetUrn("bazTable"),

@@ -19,12 +19,12 @@ Aggregation -> Max, Min, etc <br />
 Operator -> Greater Than, Not null, etc <br />
 Parameters -> Value, Min Value, MaxValue <br />
 
-### Assertion Results 
+### Assertion Run Events 
 
-Evaluation results for an assertion tracked over time.
+Evaluation status and results for an assertion tracked over time.
 
 <details>
-<summary>Python SDK: Emit assertion for dataset </summary>
+<summary>Python SDK: Emit assertion info and results for dataset </summary>
 
 ```python
 # inlined from examples/library/data_quality_mcpw_rest.py
