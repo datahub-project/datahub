@@ -1,6 +1,7 @@
 import collections
 import json
 import logging
+import re
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Union, cast
 
@@ -338,32 +339,24 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
     def _is_dataset_pattern_allowed(
         self, dataset_name: Optional[Any], dataset_type: Optional[Any]
     ) -> bool:
-        # TODO: support table/view patterns for usage logs by pulling that information as well from the usage query
-        if not dataset_type or not dataset_name:
-            return True
-
-        table_or_view_pattern: Optional[AllowDenyPattern] = AllowDenyPattern.allow_all()
-        # Test domain type = external_table and then add it
-        table_or_view_pattern = (
-            self.config.table_pattern
-            if dataset_type.lower() in {"table"}
-            else (
-                self.config.view_pattern
-                if dataset_type.lower() in {"view", "materialized_view"}
-                else None
-            )
-        )
-        if table_or_view_pattern is None:
-            return True
-
         dataset_params = dataset_name.split(".")
         assert len(dataset_params) == 3
-        if (
-            not self.config.database_pattern.allowed(dataset_params[0])
-            or not self.config.schema_pattern.allowed(dataset_params[1])
-            or not table_or_view_pattern.allowed(dataset_params[2])
+        if not self.config.database_pattern.allowed(
+            dataset_params[0]
+        ) or not self.config.schema_pattern.allowed(dataset_params[1]):
+            return False
+
+        if dataset_type.lower() in {"table"} and not self.config.table_pattern.allowed(
+            dataset_params[2]
         ):
             return False
+
+        if dataset_type.lower() in {
+            "view",
+            "materialized_view",
+        } and not self.config.view_pattern.allowed(dataset_params[2]):
+            return False
+
         return True
 
     def _process_snowflake_history_row(
@@ -476,7 +469,7 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
                     aspect=operation_aspect,
                 )
                 wu = MetadataWorkUnit(
-                    id=f"operation-aspect-{resource}-{start_time.isoformat()}",
+                    id=f"{start_time.isoformat()}-operation-aspect-{resource}",
                     mcp=mcp,
                 )
                 yield wu
