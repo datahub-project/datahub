@@ -186,7 +186,7 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
     database: Optional[str]  # deprecated
 
     provision_role: Optional[SnowflakeProvisionRoleConfig] = None
-    ignore_start_time_lineage: bool = True
+    ignore_start_time_lineage: bool = False
     report_upstream_lineage: bool = False
 
     @pydantic.validator("database")
