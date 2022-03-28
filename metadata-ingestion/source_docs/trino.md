@@ -49,6 +49,7 @@ As a SQL-based service, the Trino integration is also supported by our SQL profi
 
 | Field                          | Required | Default  | Description                                                                                                                                                                             |
 |--------------------------------|----------|----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `connect_uri`                  |          |          | URI of database to connect to. See https://docs.sqlalchemy.org/en/14/core/engines.html#database-urls. Takes precedence over other connection parameters.   
 | `username`                     | ✅        |          | Trino username.                                                                                                                                                                         |
 | `password`                     |          |          | Trino password.                                                                                                                                                                         |
 | `host_port`                    | ✅        |          | Trino host URL.                                                                                                                                                                         |

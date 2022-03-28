@@ -107,6 +107,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 
 | Field                          | Required | Default            | Description                                                                                                                                                                             |
 |--------------------------------|----------|--------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `connect_uri`                  |          |          | URI of database to connect to. See https://docs.sqlalchemy.org/en/14/core/engines.html#database-urls. Takes precedence over other connection parameters.
 | `username`                     |          |                    | Redshift username.                                                                                                                                                                      |
 | `password`                     |          |                    | Redshift password.                                                                                                                                                                      |
 | `host_port`                    | ✅        |                    | Redshift host URL.                                                                                                                                                                      |

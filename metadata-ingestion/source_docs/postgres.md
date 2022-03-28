@@ -55,6 +55,7 @@ As a SQL-based service, the Athena integration is also supported by our SQL prof
 
 | Field                          | Required | Default  | Description                                                                                                                                                                             |
 | ------------------------------ | -------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `connect_uri`                  |          |          | URI of database to connect to. See https://docs.sqlalchemy.org/en/14/core/engines.html#database-urls. Takes precedence over other connection parameters.
 | `username`                     |          |          | PostgreSQL username.                                                                                                                                                                    |
 | `password`                     |          |          | PostgreSQL password.                                                                                                                                                                    |
 | `host_port`                    | ✅       |          | PostgreSQL host URL.                                                                                                                                                                    |

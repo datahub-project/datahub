@@ -1,5 +1,6 @@
 import datetime
 import logging
+from sqlite3 import connect
 import traceback
 from abc import abstractmethod
 from dataclasses import dataclass, field
@@ -244,13 +245,17 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase):
 class BasicSQLAlchemyConfig(SQLAlchemyConfig):
     username: Optional[str] = None
     password: Optional[pydantic.SecretStr] = None
-    host_port: str
+    host_port: Optional[str] = None
     database: Optional[str] = None
     database_alias: Optional[str] = None
-    scheme: str
+    scheme: Optional[str] = None
+    connect_uri: Optional[str] = None
 
     def get_sql_alchemy_url(self, uri_opts=None):
-        return make_sqlalchemy_uri(
+        if not ((self.host_port and self.scheme) or self.connect_uri):
+            raise ValueError ("host_port and schema or connect_uri required.")
+
+        return self.connect_uri or make_sqlalchemy_uri(
             self.scheme,
             self.username,
             self.password.get_secret_value() if self.password else None,
