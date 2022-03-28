@@ -1,7 +1,6 @@
 import collections
 import json
 import logging
-import re
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Union, cast
 
@@ -12,7 +11,6 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
