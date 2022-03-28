@@ -82,8 +82,8 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     JobStatusClass,
     SubTypesClass,
-    ViewPropertiesClass,
     UpstreamClass,
+    ViewPropertiesClass,
 )
 from datahub.telemetry import telemetry
 from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombinerReport
@@ -861,7 +861,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         dataset_snapshot.aspects.append(dataset_properties)
 
         if location_urn:
-            logger.info(f"location_urn: {location_urn}")
             external_upstream_table = UpstreamClass(
                 dataset=location_urn,
                 type=DatasetLineageTypeClass.COPY,
