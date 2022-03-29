@@ -5,7 +5,17 @@ import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 
 import { SearchablePage } from '../search/SearchablePage';
 import PolicyBuilderModal from './PolicyBuilderModal';
-import { Policy, PolicyUpdateInput, PolicyState, PolicyType, Maybe } from '../../types.generated';
+import {
+    Policy,
+    PolicyUpdateInput,
+    PolicyState,
+    PolicyType,
+    Maybe,
+    ResourceFilterInput,
+    PolicyMatchFilter,
+    PolicyMatchFilterInput,
+    PolicyMatchCriterionInput,
+} from '../../types.generated';
 import { useAppConfig } from '../useAppConfig';
 import PolicyDetailsModal from './PolicyDetailsModal';
 import {
@@ -80,6 +90,18 @@ type PrivilegeOptionType = {
     name?: Maybe<string>;
 };
 
+const toFilterInput = (filter: PolicyMatchFilter): PolicyMatchFilterInput => {
+    return {
+        criteria: filter.criteria?.map((criterion): PolicyMatchCriterionInput => {
+            return {
+                field: criterion.field,
+                values: criterion.values.map((criterionValue) => criterionValue.value),
+                condition: criterion.condition,
+            };
+        }),
+    };
+};
+
 const toPolicyInput = (policy: Omit<Policy, 'urn'>): PolicyUpdateInput => {
     let policyInput: PolicyUpdateInput = {
         type: policy.type,
@@ -96,14 +118,18 @@ const toPolicyInput = (policy: Omit<Policy, 'urn'>): PolicyUpdateInput => {
         },
     };
     if (policy.resources !== null && policy.resources !== undefined) {
+        let resourceFilter: ResourceFilterInput = {
+            type: policy.resources.type,
+            resources: policy.resources.resources,
+            allResources: policy.resources.allResources,
+        };
+        if (policy.resources.filter) {
+            resourceFilter = { ...resourceFilter, filter: toFilterInput(policy.resources.filter) };
+        }
         // Add the resource filters.
         policyInput = {
             ...policyInput,
-            resources: {
-                type: policy.resources.type,
-                resources: policy.resources.resources,
-                allResources: policy.resources.allResources,
-            },
+            resources: resourceFilter,
         };
     }
     return policyInput;
@@ -379,7 +405,7 @@ export const PoliciesPage = () => {
 
     return (
         <SearchablePage>
-            {policiesLoading && <Message type="loading" content="Loading policies..." />}
+            {policiesLoading && <Message type="loading" content="Loading policies..." style={{ marginTop: '10%' }} />}
             {policiesError && message.error('Failed to load policies :(')}
             {updateError && message.error('Failed to update the Policy :(')}
             <PoliciesContainer>

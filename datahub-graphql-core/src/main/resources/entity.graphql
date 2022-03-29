@@ -85,6 +85,11 @@ type Query {
     listPolicies(input: ListPoliciesInput!): ListPoliciesResult
 
     """
+    Get all granted privileges for the given actor and resource
+    """
+    getGrantedPrivileges(input: GetGrantedPrivilegesInput!): Privileges
+
+    """
     Incubating: Fetch an ML Model by primary key (urn)
     """
     mlModel(urn: String!): MLModel
@@ -4755,18 +4760,18 @@ type Assertion implements EntityWithRelationships & Entity {
     The primary key of the Assertion
     """
     urn: String!
-    
+
     """
     The standard Entity Type
     """
     type: EntityType!
-    
+
     """
     Standardized platform urn where the assertion is evaluated
     """
     platform: DataPlatform!
 
-    """    
+    """
     Details about assertion
     """
     info: AssertionInfo
@@ -4774,7 +4779,7 @@ type Assertion implements EntityWithRelationships & Entity {
     """
     Lifecycle events detailing individual runs of this assertion. If startTimeMillis & endTimeMillis are not provided, the most
     recent events will be returned.
-    """    
+    """
     runEvents(status: AssertionRunStatus, startTimeMillis: Long, endTimeMillis: Long, limit: Int): AssertionRunEventsResult
 
     """
@@ -4952,7 +4957,7 @@ type AssertionResult {
     URL where full results are available
     """
     externalUrl: String
-    
+
     """
     Native results / properties of evaluation
     """
@@ -4975,7 +4980,7 @@ type BatchSpec {
     Any limit to the number of rows in the batch, if applied
     """
     limit: Int
-    
+
     """
     Custom properties of the Batch
     """
@@ -5017,7 +5022,7 @@ enum AssertionStdAggregation {
     IDENTITY
 
     """
-    Assertion is applied on column mean 
+    Assertion is applied on column mean
     """
     MEAN
 
@@ -5124,7 +5129,7 @@ enum AssertionStdOperator {
     """
     Value being asserted is not null
     """
-    NOT_NULL 
+    NOT_NULL
 
     """
     Value being asserted contains value
@@ -5148,7 +5153,7 @@ enum AssertionStdOperator {
 
     """
     Other
-    """  
+    """
     _NATIVE_
 }
 
@@ -5727,7 +5732,7 @@ type ResourceFilter {
   """
   The type of the resource the policy should apply to Not required because in the future we want to support filtering by type OR by domain
   """
-  type: String!
+  type: String
 
   """
   A list of specific resource urns to apply the filter to
@@ -5737,7 +5742,12 @@ type ResourceFilter {
   """
   Whether of not to apply the filter to all resources of the type
   """
-  allResources: Boolean!
+  allResources: Boolean
+
+  """
+  Whether of not to apply the filter to all resources of the type
+  """
+  filter: PolicyMatchFilter
 }
 
 """
@@ -5782,6 +5792,62 @@ type ActorFilter {
 }
 
 """
+Filter object that encodes a complex filter logic with OR + AND
+"""
+type PolicyMatchFilter {
+  """
+  List of criteria to apply
+  """
+  criteria: [PolicyMatchCriterion!]
+}
+
+"""
+Criterion to define relationship between field and values
+"""
+type PolicyMatchCriterion {
+  """
+  The name of the field that the criterion refers to
+  e.g. entity_type, entity_urn, domain
+  """
+  field: String!
+
+  """
+  Values. Matches criterion if any one of the values matches condition (OR-relationship)
+  """
+  values: [PolicyMatchCriterionValue!]!
+
+  """
+  The name of the field that the criterion refers to
+  """
+  condition: PolicyMatchCondition!
+}
+
+"""
+Value in PolicyMatchCriterion with hydrated entity if value is urn
+"""
+type PolicyMatchCriterionValue {
+  """
+  The value of the field to match
+  """
+  value: String!
+
+  """
+  Hydrated entities of the above values. Only set if the value is an urn
+  """
+  entity: Entity
+}
+
+"""
+Match condition
+"""
+enum PolicyMatchCondition {
+  """
+  Whether the field matches the value
+  """
+  EQUALS
+}
+
+"""
 Input required when creating or updating an Access Policies Determines which resources the Policy applies to
 """
 input ResourceFilterInput {
@@ -5789,7 +5855,7 @@ input ResourceFilterInput {
   The type of the resource the policy should apply to
   Not required because in the future we want to support filtering by type OR by domain
   """
-  type: String!
+  type: String
 
   """
   A list of specific resource urns to apply the filter to
@@ -5799,7 +5865,12 @@ input ResourceFilterInput {
   """
   Whether of not to apply the filter to all resources of the type
   """
-  allResources: Boolean!
+  allResources: Boolean
+
+  """
+  Whether of not to apply the filter to all resources of the type
+  """
+  filter: PolicyMatchFilterInput
 }
 
 """
@@ -5831,6 +5902,37 @@ input ActorFilterInput {
   Whether the filter should apply to all groups
   """
   allGroups: Boolean!
+}
+
+"""
+Filter object that encodes a complex filter logic with OR + AND
+"""
+input PolicyMatchFilterInput {
+  """
+  List of criteria to apply
+  """
+  criteria: [PolicyMatchCriterionInput!]
+}
+
+"""
+Criterion to define relationship between field and values
+"""
+input PolicyMatchCriterionInput {
+  """
+  The name of the field that the criterion refers to
+  e.g. entity_type, entity_urn, domain
+  """
+  field: String!
+
+  """
+  Values. Matches criterion if any one of the values matches condition (OR-relationship)
+  """
+  values: [String!]!
+
+  """
+  The name of the field that the criterion refers to
+  """
+  condition: PolicyMatchCondition!
 }
 
 """
@@ -5871,6 +5973,51 @@ type ListPoliciesResult {
   The Policies themselves
   """
   policies: [Policy!]!
+}
+
+"""
+Input for getting granted privileges
+"""
+input GetGrantedPrivilegesInput {
+  """
+  Urn of the actor
+  """
+  actorUrn: String!
+
+  """
+  Spec to identify resource. If empty, gets privileges granted to the actor
+  """
+  resourceSpec: ResourceSpec
+}
+
+"""
+Spec to identify resource
+"""
+input ResourceSpec {
+  """
+  Resource type
+  """
+  resourceType: EntityType!
+
+  """
+  Resource urn
+  """
+  resourceUrn: String!
+}
+
+"""
+Object that encodes the privileges the actor has for a given resource
+"""
+type Privileges {
+  """
+  Granted Privileges
+  """
+  privileges: [String!]!
+
+  """
+  Whether or not actor is authorized to view the entity page of a given resource
+  """
+  canViewEntityPage: Boolean!
 }
 
 """

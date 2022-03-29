@@ -70,6 +70,11 @@ public class PoliciesConfig {
 
   // Resource Privileges //
 
+  public static final Privilege VIEW_ENTITY_PAGE_PRIVILEGE = Privilege.of(
+      "VIEW_ENTITY_PAGE",
+      "View Entity Page",
+      "The ability to view the entity page.");
+
   public static final Privilege EDIT_ENTITY_TAGS_PRIVILEGE = Privilege.of(
       "EDIT_ENTITY_TAGS",
       "Edit Tags",
@@ -121,6 +126,7 @@ public class PoliciesConfig {
       "The ability to edit any information about an entity. Super user privileges.");
 
   public static final List<Privilege> COMMON_ENTITY_PRIVILEGES = ImmutableList.of(
+      VIEW_ENTITY_PAGE_PRIVILEGE,
       EDIT_ENTITY_TAGS_PRIVILEGE,
       EDIT_ENTITY_GLOSSARY_TERMS_PRIVILEGE,
       EDIT_ENTITY_OWNERS_PRIVILEGE,
@@ -150,6 +156,16 @@ public class PoliciesConfig {
       "Edit Dataset Column Descriptions",
       "The ability to edit the column (field) descriptions associated with a dataset schema."
   );
+
+  public static final Privilege VIEW_DATASET_USAGE_PRIVILEGE = Privilege.of(
+      "VIEW_DATASET_USAGE",
+      "View Dataset Usage",
+      "The ability to access dataset usage information (includes usage statistics and queries).");
+
+  public static final Privilege VIEW_DATASET_PROFILE_PRIVILEGE = Privilege.of(
+      "VIEW_DATASET_PROFILE",
+      "View Dataset Profile",
+      "The ability to access dataset profile (snapshot statistics)");
 
   // Tag Privileges
   public static final Privilege EDIT_TAG_COLOR_PRIVILEGE = Privilege.of(
@@ -181,6 +197,8 @@ public class PoliciesConfig {
       "Datasets indexed by DataHub", Stream.of(
           COMMON_ENTITY_PRIVILEGES,
           ImmutableList.of(
+              VIEW_DATASET_USAGE_PRIVILEGE,
+              VIEW_DATASET_PROFILE_PRIVILEGE,
               EDIT_DATASET_COL_DESCRIPTION_PRIVILEGE,
               EDIT_DATASET_COL_TAGS_PRIVILEGE,
               EDIT_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE,

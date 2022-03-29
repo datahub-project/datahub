@@ -13,6 +13,18 @@ query listPolicies($input: ListPoliciesInput!) {
                 type
                 allResources
                 resources
+                filter {
+                    criteria {
+                        field
+                        values {
+                            value
+                            entity {
+                                ...searchResultFields
+                            }
+                        }
+                        condition
+                    }
+                }
             }
             privileges
             actors {
@@ -58,6 +70,13 @@ query listPolicies($input: ListPoliciesInput!) {
             }
             editable
         }
+    }
+}
+
+query getGrantedPrivileges($input: GetGrantedPrivilegesInput!) {
+    getGrantedPrivileges(input: $input) {
+        privileges
+        canViewEntityPage
     }
 }
 
