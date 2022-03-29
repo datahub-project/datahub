@@ -923,13 +923,13 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self, inspector: Inspector, schema: str, table: str
     ) -> Tuple[Optional[str], Optional[Dict[str, str]], Optional[str]]:
         try:
+            location: Optional[str] = None
             # SQLALchemy stubs are incomplete and missing this method.
             # PR: https://github.com/dropbox/sqlalchemy-stubs/pull/223.
             table_info: dict = inspector.get_table_comment(table, schema)  # type: ignore
         except NotImplementedError:
             description: Optional[str] = None
             properties: Dict[str, str] = {}
-            location: Optional[str] = None
         except ProgrammingError as pe:
             # Snowflake needs schema names quoted when fetching table comments.
             logger.debug(
