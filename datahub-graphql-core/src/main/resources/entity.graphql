@@ -35,6 +35,11 @@ type Query {
     dashboard(urn: String!): Dashboard
 
     """
+    Fetch a Notebook by primary key (urn)
+    """
+    notebook(urn: String!): Notebook
+
+    """
     Fetch a Chart by primary key (urn)
     """
     chart(urn: String!): Chart
@@ -144,6 +149,11 @@ type Mutation {
     Update the metadata about a particular Dashboard
     """
     updateDashboard(urn: String!, input: DashboardUpdateInput!): Dashboard
+
+    """
+    Update the metadata about a particular Notebook
+    """
+    updateNotebook(urn: String!, input: NotebookUpdateInput!): Notebook
 
     """
     Update the metadata about a particular Data Flow (Pipeline)
@@ -353,6 +363,11 @@ enum EntityType {
     DASHBOARD
 
     """
+    The Notebook Entity
+    """
+    NOTEBOOK
+
+    """
     The Chart Entity
     """
     CHART
@@ -518,7 +533,7 @@ type EntityRelationship {
     """
     Entity that is related via lineage
     """
-    entity: Entity!
+    entity: Entity
 
     """
     An AuditStamp corresponding to the last modification of this relationship
@@ -563,7 +578,7 @@ type LineageRelationship {
     """
     Entity that is related via lineage
     """
-    entity: Entity!
+    entity: Entity
 
     """
     Degree of relationship (number of hops to get to entity)
@@ -1947,6 +1962,17 @@ type DashboardEditableProperties {
 }
 
 """
+Notebook properties that are editable via the UI This represents logical metadata,
+as opposed to technical metadata
+"""
+type NotebookEditableProperties {
+    """
+    Description of the Notebook
+    """
+    description: String
+}
+
+"""
 Data Job properties that are editable via the UI This represents logical metadata,
 as opposed to technical metadata
 """
@@ -2147,34 +2173,60 @@ Note that this field will soon become deprecated due to low usage
 """
 enum OwnershipType {
     """
-    A person or group that is in charge of developing the code
+    A person or group who is responsible for technical aspects of the asset.
     """
-    DEVELOPER
+    TECHNICAL_OWNER
 
     """
-    A person or group that is owning the data
+    A person or group who is responsible for logical, or business related, aspects of the asset.
     """
-    DATAOWNER
+    BUSINESS_OWNER
+
+    """
+    A steward, expert, or delegate responsible for the asset.
+    """
+    DATA_STEWARD
+
+    """
+    No specific type associated with the owner.
+    """
+    NONE
+
+    """
+    A person or group that owns the data.
+    Deprecated! This ownership type is no longer supported. Use TECHNICAL_OWNER instead.
+    """
+    DATAOWNER @deprecated
+
+    """
+    A person or group that is in charge of developing the code
+    Deprecated! This ownership type is no longer supported. Use TECHNICAL_OWNER instead.
+    """
+    DEVELOPER @deprecated
 
     """
     A person or a group that overseas the operation, eg a DBA or SRE
+    Deprecated! This ownership type is no longer supported. Use TECHNICAL_OWNER instead.
     """
-    DELEGATE
+    DELEGATE @deprecated
 
     """
     A person, group, or service that produces or generates the data
+    Deprecated! This ownership type is no longer supported. Use TECHNICAL_OWNER instead.
     """
-    PRODUCER
-
-    """
-    A person, group, or service that consumes the data
-    """
-    CONSUMER
+    PRODUCER @deprecated
 
     """
     A person or a group that has direct business interest
+    Deprecated! Use BUSINESS_OWNER instead.
     """
-    STAKEHOLDER
+    STAKEHOLDER @deprecated
+
+    """
+    A person, group, or service that consumes the data
+    Deprecated! This ownership type is no longer supported.
+    """
+    CONSUMER @deprecated
 }
 
 """
@@ -2855,7 +2907,7 @@ input ChartUpdateInput {
 }
 
 """
-Arguments provided to update a Chart Entity
+Arguments provided to update a Dashboard Entity
 """
 input DashboardUpdateInput {
     """
@@ -2878,6 +2930,26 @@ input DashboardUpdateInput {
     Update to editable properties
     """
     editableProperties: DashboardEditablePropertiesUpdate
+}
+
+"""
+Arguments provided to update a Notebook Entity
+"""
+input NotebookUpdateInput {
+    """
+    Update to ownership
+    """
+    ownership: OwnershipUpdate
+
+    """
+    Update to tags
+    """
+    tags: GlobalTagsUpdate
+
+    """
+    Update to editable properties
+    """
+    editableProperties: NotebookEditablePropertiesUpdate
 }
 
 """
@@ -3019,6 +3091,16 @@ Update to writable Chart fields
 input ChartEditablePropertiesUpdate {
     """
     Writable description aka documentation for a Chart
+    """
+    description: String!
+}
+
+"""
+Update to writable Notebook fields
+"""
+input NotebookEditablePropertiesUpdate {
+    """
+    Writable description aka documentation for a Notebook
     """
     description: String!
 }
@@ -3181,6 +3263,242 @@ input InstitutionalMemoryMetadataUpdate {
     The time at which this metadata was created
     """
     createdAt: Long
+}
+
+"""
+A Notebook Metadata Entity
+"""
+type Notebook implements Entity {
+    """
+    The primary key of the Notebook
+    """
+    urn: String!
+
+    """
+    A standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    The Notebook tool name
+    """
+    tool: String!
+
+    """
+    An id unique within the Notebook tool
+    """
+    notebookId: String!
+
+    """
+    Additional read only information about the Notebook
+    """
+    info: NotebookInfo
+
+    """
+    Additional read write properties about the Notebook
+    """
+    editableProperties: NotebookEditableProperties
+
+    """
+    Ownership metadata of the Notebook
+    """
+    ownership: Ownership
+
+    """
+    Status metadata of the Notebook
+    """
+    status: Status
+
+    """
+    The content of this Notebook
+    """
+    content: NotebookContent!
+
+    """
+    The tags associated with the Notebook
+    """
+    tags: GlobalTags
+
+    """
+    References to internal resources related to the Notebook
+    """
+    institutionalMemory: InstitutionalMemory
+
+    """
+    The Domain associated with the Notebook
+    """
+    domain: Domain
+
+    """
+    Edges extending from this entity
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Sub Types that this entity implements
+    """
+    subTypes: SubTypes
+
+    """
+    The structured glossary terms associated with the notebook
+    """
+    glossaryTerms: GlossaryTerms
+
+    """
+    Standardized platform.
+    """
+    platform: DataPlatform!
+}
+
+"""
+The actual content in a Notebook
+"""
+type NotebookContent {
+    """
+    The content of a Notebook which is composed by a list of NotebookCell
+    """
+    cells: [NotebookCell!]!
+}
+
+"""
+The Union of every NotebookCell
+"""
+type NotebookCell {
+    """
+    The chart cell content. The will be non-null only when all other cell field is null.
+    """
+    chartCell: ChartCell
+
+    """
+    The text cell content. The will be non-null only when all other cell field is null.
+    """
+    textCell: TextCell
+
+    """
+    The query cell content. The will be non-null only when all other cell field is null.
+    """
+    queryChell: QueryCell
+
+    """
+    The type of this Notebook cell
+    """
+    type: NotebookCellType!
+}
+
+"""
+The type for a NotebookCell
+"""
+enum NotebookCellType {
+    """
+    TEXT Notebook cell type. The cell context is text only.
+    """
+    TEXT_CELL,
+
+    """
+    QUERY Notebook cell type. The cell context is query only.
+    """
+    QUERY_CELL,
+
+    """
+    CHART Notebook cell type. The cell content is chart only.
+    """
+    CHART_CELL
+}
+
+"""
+A Notebook cell which contains text as content
+"""
+type TextCell {
+
+    """
+    Title of the cell
+    """
+    cellTitle: String!
+
+    """
+    Unique id for the cell.
+    """
+    cellId: String!
+
+    """
+    Captures information about who created/last modified/deleted this TextCell and when
+    """
+    changeAuditStamps: ChangeAuditStamps
+
+    """
+    The actual text in a TextCell in a Notebook
+    """
+    text: String!
+}
+
+"""
+A Notebook cell which contains Query as content
+"""
+type QueryCell {
+    """
+    Title of the cell
+    """
+    cellTitle: String!
+
+    """
+    Unique id for the cell.
+    """
+    cellId: String!
+
+    """
+    Captures information about who created/last modified/deleted this TextCell and when
+    """
+    changeAuditStamps: ChangeAuditStamps
+
+    """
+    Raw query to explain some specific logic in a Notebook
+    """
+    rawQuery: String!
+
+    """
+    Captures information about who last executed this query cell and when
+    """
+    lastExecuted: AuditStamp
+}
+
+"""
+A Notebook cell which contains chart as content
+"""
+type ChartCell {
+    """
+    Title of the cell
+    """
+    cellTitle: String!
+
+    """
+    Unique id for the cell.
+    """
+    cellId: String!
+
+    """
+    Captures information about who created/last modified/deleted this TextCell and when
+    """
+    changeAuditStamps: ChangeAuditStamps
+}
+
+"""
+Captures information about who created/last modified/deleted the entity and when
+"""
+type ChangeAuditStamps {
+    """
+    An AuditStamp corresponding to the creation
+    """
+    created: AuditStamp!
+
+    """
+    An AuditStamp corresponding to the modification
+    """
+    lastModified: AuditStamp!
+
+    """
+    An optional AuditStamp corresponding to the deletion
+    """
+    deleted: AuditStamp
 }
 
 """
@@ -3348,6 +3666,36 @@ type DashboardInfo {
     An optional AuditStamp corresponding to the deletion of this dashboard
     """
     deleted: AuditStamp
+}
+
+"""
+Additional read only information about a Notebook
+"""
+type NotebookInfo {
+    """
+    Display of the Notebook
+    """
+    title: String
+
+    """
+    Description of the Notebook
+    """
+    description: String
+
+    """
+    Native platform URL of the Notebook
+    """
+    externalUrl: String
+
+    """
+    A list of platform specific metadata tuples
+    """
+    customProperties: [StringMapEntry!]
+
+    """
+    Captures information about who created/last modified/deleted this Notebook and when
+    """
+    changeAuditStamps: ChangeAuditStamps
 }
 
 """
@@ -5104,6 +5452,11 @@ input AddOwnerInput {
     The owner type, either a user or group
     """
     ownerEntityType: OwnerEntityType!
+
+    """
+    The ownership type for the new owner. If none is provided, then a new NONE will be added.
+    """
+    type: OwnershipType
 
     """
     The urn of the resource or entity to attach or remove the owner from, for example a dataset urn

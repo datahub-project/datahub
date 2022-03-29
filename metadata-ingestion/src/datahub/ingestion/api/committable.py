@@ -34,9 +34,9 @@ StateType = TypeVar("StateType")
 FilterType = TypeVar("FilterType")
 
 
-@dataclass
 class _StatefulCommittableConcrete(Generic[StateType]):
-    state_to_commit: StateType
+    def __init__(self, state_to_commit: StateType):
+        self.state_to_commit: StateType = state_to_commit
 
 
 class StatefulCommittable(

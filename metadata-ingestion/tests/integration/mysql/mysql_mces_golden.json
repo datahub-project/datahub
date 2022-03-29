@@ -182,6 +182,17 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "externalUrl": null,
+                        "name": "employees",
+                        "qualifiedName": null,
+                        "description": null,
+                        "uri": null,
+                        "tags": []
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "datacharmer.employees",
                         "platform": "urn:li:dataPlatform:mysql",
@@ -295,6 +306,25 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datacharmer.employees,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"table\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datacharmer.salaries,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
@@ -320,6 +350,17 @@
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
                         "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "externalUrl": null,
+                        "name": "salaries",
+                        "qualifiedName": null,
+                        "description": null,
+                        "uri": null,
+                        "tags": []
                     }
                 },
                 {
@@ -391,6 +432,25 @@
         }
     },
     "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datacharmer.salaries,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"table\"]}",
+        "contentType": "application/json"
+    },
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "mysql-test",
@@ -503,6 +563,17 @@
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
                         "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "externalUrl": null,
+                        "name": "metadata_aspect",
+                        "qualifiedName": null,
+                        "description": null,
+                        "uri": null,
+                        "tags": []
                     }
                 },
                 {
@@ -656,6 +727,25 @@
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_aspect,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"table\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_aspect,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
     "aspectName": "domains",
     "aspect": {
         "value": "{\"domains\": [\"urn:li:domain:sales\"]}",
@@ -703,7 +793,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "externalUrl": null,
-                        "name": null,
+                        "name": "metadata_index",
                         "qualifiedName": null,
                         "description": "This is a table comment",
                         "uri": null,
@@ -878,6 +968,25 @@
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"table\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
     "aspectName": "domains",
     "aspect": {
         "value": "{\"domains\": [\"urn:li:domain:sales\"]}",
@@ -928,7 +1037,7 @@
                             "is_view": "True"
                         },
                         "externalUrl": null,
-                        "name": null,
+                        "name": "metadata_index_view",
                         "qualifiedName": null,
                         "description": null,
                         "uri": null,
@@ -1038,6 +1147,44 @@
         }
     },
     "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index_view,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"view\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index_view,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "value": "{\"materialized\": false, \"viewLogic\": \"CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `metadata_index_view` AS select `metadata_index`.`id` AS `id`,`metadata_index`.`urn` AS `urn`,`metadata_index`.`path` AS `path`,`metadata_index`.`doubleVal` AS `doubleVal` from `metadata_index`\", \"viewLanguage\": \"SQL\"}",
+        "contentType": "application/json"
+    },
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "mysql-test",
@@ -1169,6 +1316,17 @@
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
                         "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "externalUrl": null,
+                        "name": "customers",
+                        "qualifiedName": null,
+                        "description": null,
+                        "uri": null,
+                        "tags": []
                     }
                 },
                 {
@@ -1319,6 +1477,25 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customers,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"table\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
@@ -1344,6 +1521,17 @@
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
                         "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "externalUrl": null,
+                        "name": "orders",
+                        "qualifiedName": null,
+                        "description": null,
+                        "uri": null,
+                        "tags": []
                     }
                 },
                 {
@@ -1443,6 +1631,25 @@
         }
     },
     "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"table\"]}",
+        "contentType": "application/json"
+    },
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "mysql-test",
@@ -1558,6 +1765,17 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "externalUrl": null,
+                        "name": "test_empty",
+                        "qualifiedName": null,
+                        "description": null,
+                        "uri": null,
+                        "tags": []
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "test_cases.test_empty",
                         "platform": "urn:li:dataPlatform:mysql",
@@ -1609,6 +1827,25 @@
         }
     },
     "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,test_cases.test_empty,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"table\"]}",
+        "contentType": "application/json"
+    },
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "mysql-test",

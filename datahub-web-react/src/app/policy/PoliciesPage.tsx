@@ -179,22 +179,27 @@ export const PoliciesPage = () => {
     };
 
     const getPrivilegeNames = (policy: Omit<Policy, 'urn'>) => {
-        let privilegeOptions: PrivilegeOptionType[] = [];
+        let privileges: PrivilegeOptionType[] = [];
         if (policy?.type === PolicyType.Platform) {
-            privilegeOptions = platformPrivileges.map((platformPrivilege) => {
-                return { type: platformPrivilege.type, name: platformPrivilege.displayName };
-            });
+            privileges = platformPrivileges
+                .filter((platformPrivilege) => policy.privileges.includes(platformPrivilege.type))
+                .map((platformPrivilege) => {
+                    return { type: platformPrivilege.type, name: platformPrivilege.displayName };
+                });
         } else {
             const privilegeData = resourcePrivileges.filter(
                 (resourcePrivilege) => resourcePrivilege.resourceType === policy?.resources?.type,
             );
-            privilegeOptions =
-                privilegeData &&
-                privilegeData[0]?.privileges.map((b) => {
-                    return { type: b.type, name: b.displayName };
-                });
+            privileges =
+                (privilegeData.length > 0 &&
+                    privilegeData[0]?.privileges
+                        .filter((resourcePrivilege) => policy.privileges.includes(resourcePrivilege.type))
+                        .map((b) => {
+                            return { type: b.type, name: b.displayName };
+                        })) ||
+                [];
         }
-        return privilegeOptions;
+        return privileges;
     };
 
     const onViewPolicy = (policy: Policy) => {

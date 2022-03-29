@@ -4,11 +4,17 @@ import styled from 'styled-components';
 import { Link } from 'react-router-dom';
 import { useAddOwnerMutation } from '../../../../../../../graphql/mutations.generated';
 import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
-import { CorpUser, EntityType, OwnerEntityType, SearchResult } from '../../../../../../../types.generated';
+import {
+    CorpUser,
+    EntityType,
+    OwnerEntityType,
+    OwnershipType,
+    SearchResult,
+} from '../../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { CustomAvatar } from '../../../../../../shared/avatar';
 import analytics, { EventType, EntityActionType } from '../../../../../../analytics';
-import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
+import { OWNERSHIP_DISPLAY_TYPES } from './ownershipUtils';
 
 const SearchResultContainer = styled.div`
     display: flex;
@@ -31,6 +37,8 @@ type Props = {
     urn: string;
     type: EntityType;
     visible: boolean;
+    defaultOwnerType?: OwnershipType;
+    hideOwnerType?: boolean | undefined;
     onClose: () => void;
     refetch?: () => Promise<any>;
 };
@@ -41,9 +49,10 @@ type SelectedActor = {
     urn: string;
 };
 
-export const AddOwnerModal = ({ urn, type, visible, onClose, refetch }: Props) => {
+export const AddOwnerModal = ({ urn, type, visible, hideOwnerType, defaultOwnerType, onClose, refetch }: Props) => {
     const entityRegistry = useEntityRegistry();
     const [selectedActor, setSelectedActor] = useState<SelectedActor | undefined>(undefined);
+    const [selectedOwnerType, setSelectedOwnerType] = useState<OwnershipType>(defaultOwnerType || OwnershipType.None);
     const [userSearch, { data: userSearchData }] = useGetSearchResultsLazyQuery();
     const [groupSearch, { data: groupSearchData }] = useGetSearchResultsLazyQuery();
     const [addOwnerMutation] = useAddOwnerMutation();
@@ -66,6 +75,7 @@ export const AddOwnerModal = ({ urn, type, visible, onClose, refetch }: Props) =
                 variables: {
                     input: {
                         ownerUrn: selectedActor.urn,
+                        type: selectedOwnerType,
                         resourceUrn: urn,
                         ownerEntityType,
                     },
@@ -110,6 +120,11 @@ export const AddOwnerModal = ({ urn, type, visible, onClose, refetch }: Props) =
     // When a user search result is selected, set the urn as the selected urn.
     const onDeselectActor = (_: string) => {
         setSelectedActor(undefined);
+    };
+
+    // When a user search result is selected, set the urn as the selected urn.
+    const onSelectOwnerType = (newType: OwnershipType) => {
+        setSelectedOwnerType(newType);
     };
 
     // Invokes the search API as the user types
@@ -172,16 +187,20 @@ export const AddOwnerModal = ({ urn, type, visible, onClose, refetch }: Props) =
     };
 
     const selectValue = (selectedActor && [selectedActor.displayName]) || [];
+    const ownershipTypes = OWNERSHIP_DISPLAY_TYPES;
 
     // Handle the Enter press
-    useEnterKeyListener({
-        querySelectorToExecuteClick: '#addOwnerButton',
-    });
+    // TODO: Allow user to be selected prior to executed the save.
+    // useEnterKeyListener({
+    //    querySelectorToExecuteClick: selectedActor && '#addOwnerButton',
+    // });
+
     return (
         <Modal
             title="Add Owner"
             visible={visible}
             onCancel={onClose}
+            keyboard
             footer={
                 <>
                     <Button onClick={onClose} type="text">
@@ -193,25 +212,49 @@ export const AddOwnerModal = ({ urn, type, visible, onClose, refetch }: Props) =
                 </>
             }
         >
-            <Form component={false}>
-                <Form.Item>
-                    <Select
-                        autoFocus
-                        filterOption={false}
-                        value={selectValue}
-                        mode="multiple"
-                        ref={inputEl}
-                        placeholder="Search for users or groups..."
-                        onSelect={(actorUrn: any) => onSelectActor(actorUrn)}
-                        onDeselect={(actorUrn: any) => onDeselectActor(actorUrn)}
-                        onSearch={handleActorSearch}
-                        tagRender={(tagProps) => <Tag>{tagProps.value}</Tag>}
-                    >
-                        {combinedSearchResults?.map((result) => (
-                            <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
-                        ))}
-                    </Select>
+            <Form layout="vertical" colon={false}>
+                <Form.Item label={<Typography.Text strong>Owner</Typography.Text>}>
+                    <Typography.Paragraph>Find a user or group</Typography.Paragraph>
+                    <Form.Item name="owner">
+                        <Select
+                            autoFocus
+                            filterOption={false}
+                            value={selectValue}
+                            mode="multiple"
+                            ref={inputEl}
+                            placeholder="Search for users or groups..."
+                            onSelect={(actorUrn: any) => onSelectActor(actorUrn)}
+                            onDeselect={(actorUrn: any) => onDeselectActor(actorUrn)}
+                            onSearch={handleActorSearch}
+                            tagRender={(tagProps) => <Tag>{tagProps.value}</Tag>}
+                        >
+                            {combinedSearchResults?.map((result) => (
+                                <Select.Option key={result?.entity?.urn} value={result.entity.urn}>
+                                    {renderSearchResult(result)}
+                                </Select.Option>
+                            ))}
+                        </Select>
+                    </Form.Item>
                 </Form.Item>
+                {!hideOwnerType && (
+                    <Form.Item label={<Typography.Text strong>Type</Typography.Text>}>
+                        <Typography.Paragraph>Choose an owner type</Typography.Paragraph>
+                        <Form.Item name="type">
+                            <Select value={selectedOwnerType} onChange={onSelectOwnerType}>
+                                {ownershipTypes.map((ownerType) => (
+                                    <Select.Option key={ownerType.type} value={ownerType.type}>
+                                        <Typography.Text>{ownerType.name}</Typography.Text>
+                                        <div>
+                                            <Typography.Paragraph style={{ wordBreak: 'break-all' }} type="secondary">
+                                                {ownerType.description}
+                                            </Typography.Paragraph>
+                                        </div>
+                                    </Select.Option>
+                                ))}
+                            </Select>
+                        </Form.Item>
+                    </Form.Item>
+                )}
             </Form>
         </Modal>
     );

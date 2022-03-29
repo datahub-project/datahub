@@ -1,13 +1,10 @@
 # Protobuf Integration
 
-This module is designed to be used with the Java Emitter, the input is a compiled protobuf binary `*.protoc` files
-and optionally the corresponding `*.proto` source code. In addition, you can supply the root message in cases
-where a single protobuf source file includes multiple non-nested messages.
+This module is designed to be used with the Java Emitter, the input is a compiled protobuf binary `*.protoc` files and optionally the corresponding `*.proto` source code. In addition, you can supply the root message in cases where a single protobuf source file includes multiple non-nested messages.
 
 ## Supported Features
 
-The following protobuf features are supported and are translated into descriptions, tags, properties and terms on a
-dataset.
+The following protobuf features are supported and are translated into descriptions, tags, properties and terms on a dataset.
 
     * C++/C style code comments on Messages and Fields
     * Nested Types
@@ -53,11 +50,10 @@ ProtobufDataset dataset = ProtobufDataset.builder()
     .setFabricType(FabricType.DEV)
     .build();
 
-dataset.getAllMetadataChangeProposals().forEach(mcpw -> emitter.emit(mcpw, null).get());
+dataset.getAllMetadataChangeProposals().flatMap(Collection::stream).forEach(mcpw -> emitter.emit(mcpw, null).get());
 ```
 
-Additionally, the raw protobuf source can be included as well as information to allow parsing of additional
-references to GitHub and Slack in the source code comments.
+Additionally, the raw protobuf source can be included as well as information to allow parsing of additional references to GitHub and Slack in the source code comments.
 
 ```java
 ProtobufDataset dataset = ProtobufDataset.builder()
@@ -73,15 +69,11 @@ ProtobufDataset dataset = ProtobufDataset.builder()
 
 ### Protobuf Extensions
 
-In order to extract even more metadata from the protobuf schema we can extend the FieldOptions and MessageOptions
-to be able to annotate Messages and Fields with arbitrary information. This information can then be emitted
-as DataHub primary key information, tags, glossary terms or properties on the dataset.
+In order to extract even more metadata from the protobuf schema we can extend the FieldOptions and MessageOptions to be able to annotate Messages and Fields with arbitrary information. This information can then be emitted as DataHub primary key information, tags, glossary terms or properties on the dataset.
 
-An annotated protobuf schema would look like the following, except for the `is_primary_key` all
-annotations are configurable for individual needs.
+An annotated protobuf schema would look like the following, except for the `is_primary_key` all annotations are configurable for individual needs.
 
-*Note*: Extending FieldOptions and MessageOptions does not change the messages themselves. The metadata is not included
-in messages being sent over the wire.
+*Note*: Extending FieldOptions and MessageOptions does not change the messages themselves. The metadata is not included in messages being sent over the wire.
 
 ```protobuf
 syntax = "proto3";
@@ -116,8 +108,7 @@ message Person {
 
 #### meta.proto 
 
-In order to use the annotations above, create a proto file called `meta.proto`. Feel free to customize the kinds of
-metadata and how it is emitted to DataHub for your use cases.
+In order to use the annotations above, create a proto file called `meta.proto`. Feel free to customize the kinds of metadata and how it is emitted to DataHub for your use cases.
 
 ```protobuf
 syntax = "proto3";
@@ -218,4 +209,24 @@ message msg {
     string alert_channel = 60007 [(meta.fld.type) = PROPERTY];
   }
 }
+```
+
+## Gradle Integration
+
+An example application is included which works with the `protobuf-gradle-plugin`, see the standalone [example project](../datahub-protobuf-example).
+
+### Usage
+
+Using the 
+
+```shell
+export DATAHUB_API=...
+export DATAHUB_TOKEN=...
+
+# Optional parameters
+# export DATAHUB_ENV=PROD
+# export DATAHUB_GITHUBORG=datahub-project
+# export DATAHUB_SLACKID=
+
+./gradlew publishSchema
 ```

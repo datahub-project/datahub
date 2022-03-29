@@ -150,7 +150,7 @@ publishing {
         scm {
           connection = 'scm:git:git://github.com/linkedin/datahub.git'
           developerConnection = 'scm:git:ssh://github.com:linkedin/datahub.git'
-          url = 'https://github.com/linkedin/datahub.git'
+          url = 'https://github.com/datahub-project/datahub.git'
         }
 
         licenses {
