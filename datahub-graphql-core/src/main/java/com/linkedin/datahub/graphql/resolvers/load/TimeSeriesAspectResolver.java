@@ -48,7 +48,9 @@ public class TimeSeriesAspectResolver implements DataFetcher<CompletableFuture<L
     _aspectMapper = aspectMapper;
   }
 
-  // Check whether the actor is authorized to fetch the timeseries aspect given the resource urn
+  /**
+   * Check whether the actor is authorized to fetch the timeseries aspect given the resource urn
+   */
   private boolean isAuthorized(QueryContext context, String urn) {
     if (_entityName.equals(Constants.DATASET_ENTITY_NAME) && _aspectName.equals(
         Constants.DATASET_PROFILE_ASPECT_NAME)) {

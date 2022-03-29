@@ -17,6 +17,10 @@ import java.util.concurrent.CompletableFuture;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
 
+/**
+ * Resolver to support the getGrantedPrivileges end point
+ * Fetches all privileges that are granted for the given actor for the given resource (optional)
+ */
 public class GetGrantedPrivilegesResolver implements DataFetcher<CompletableFuture<Privileges>> {
 
   @Override
@@ -37,7 +41,6 @@ public class GetGrantedPrivilegesResolver implements DataFetcher<CompletableFutu
       List<String> privileges = authorizationManager.getGrantedPrivileges(actor, resourceSpec);
       return CompletableFuture.supplyAsync(() -> Privileges.builder()
           .setPrivileges(privileges)
-          .setCanViewEntityPage(privileges.contains(PoliciesConfig.VIEW_ENTITY_PAGE_PRIVILEGE.getType()))
           .build());
     }
     throw new UnsupportedOperationException(

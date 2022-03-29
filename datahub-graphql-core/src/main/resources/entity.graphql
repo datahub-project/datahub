@@ -6013,11 +6013,6 @@ type Privileges {
   Granted Privileges
   """
   privileges: [String!]!
-
-  """
-  Whether or not actor is authorized to view the entity page of a given resource
-  """
-  canViewEntityPage: Boolean!
 }
 
 """
