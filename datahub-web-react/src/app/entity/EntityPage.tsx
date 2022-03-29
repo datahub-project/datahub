@@ -67,22 +67,21 @@ export const EntityPage = ({ entityType }: Props) => {
             {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
             {error && <Alert type="error" message={error?.message || `Failed to fetch privileges for user`} />}
             {data && !canViewEntityPage && <UnauthorizedPage />}
-            {(canViewEntityPage && showNewPage && (
-                <SearchablePage>{entityRegistry.renderProfile(entityType, urn)}</SearchablePage>
-            )) || (
-                <ContainerPage
-                    isBrowsable={isBrowsable}
-                    urn={urn}
-                    type={entityType}
-                    lineageSupported={isLineageSupported}
-                >
-                    {isLineageMode && isLineageSupported ? (
-                        <LineageExplorer type={entityType} urn={urn} />
-                    ) : (
-                        entityRegistry.renderProfile(entityType, urn)
-                    )}
-                </ContainerPage>
-            )}
+            {canViewEntityPage &&
+                ((showNewPage && <SearchablePage>{entityRegistry.renderProfile(entityType, urn)}</SearchablePage>) || (
+                    <ContainerPage
+                        isBrowsable={isBrowsable}
+                        urn={urn}
+                        type={entityType}
+                        lineageSupported={isLineageSupported}
+                    >
+                        {isLineageMode && isLineageSupported ? (
+                            <LineageExplorer type={entityType} urn={urn} />
+                        ) : (
+                            entityRegistry.renderProfile(entityType, urn)
+                        )}
+                    </ContainerPage>
+                ))}
         </>
     );
 };
