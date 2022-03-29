@@ -874,13 +874,13 @@ public class GmsGraphQLEngine {
                             return dataset.getContainer() != null ? dataset.getContainer().getUrn() : null;
                         })
                 )
-                .dataFetcher("proposals", new AuthenticatedResolver<>(
-                    new ProposalsResolver(
-                        (env) -> ((Entity) env.getSource()).getUrn(), entityClient))
-                )
                 .dataFetcher("constraints", new AuthenticatedResolver<>(
                     new ConstraintsResolver(
                         (env) -> ((Entity) env.getSource()).getUrn(), entityService, entityClient))
+                )
+                .dataFetcher("proposals", new AuthenticatedResolver<>(
+                    new ProposalsResolver(
+                        (env) -> ((Entity) env.getSource()).getUrn(), entityClient))
                 )
                 .dataFetcher("datasetProfiles", new AuthenticatedResolver<>(
                     new TimeSeriesAspectResolver(
