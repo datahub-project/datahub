@@ -349,14 +349,17 @@ public class EbeanAspectDao {
 
   @Nonnull
   public ListResult<String> listUrns(
+      @Nonnull final String entityName,
       @Nonnull final String aspectName,
       final int start,
       final int pageSize) {
     validateConnection();
 
+    final String urnPrefixMatcher = "urn:li:" + entityName + ":%";
     final PagedList<EbeanAspectV2> pagedList = _server.find(EbeanAspectV2.class)
         .select(EbeanAspectV2.KEY_ID)
         .where()
+        .like(EbeanAspectV2.URN_COLUMN, urnPrefixMatcher)
         .eq(EbeanAspectV2.ASPECT_COLUMN, aspectName)
         .eq(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION)
         .setFirstRow(start)

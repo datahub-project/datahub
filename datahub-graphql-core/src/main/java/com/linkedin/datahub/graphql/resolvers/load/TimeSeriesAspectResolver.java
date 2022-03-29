@@ -1,14 +1,20 @@
 package com.linkedin.datahub.graphql.resolvers.load;
 
+import com.datahub.authorization.ResourceSpec;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.TimeSeriesAspect;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -42,6 +48,18 @@ public class TimeSeriesAspectResolver implements DataFetcher<CompletableFuture<L
     _aspectMapper = aspectMapper;
   }
 
+  /**
+   * Check whether the actor is authorized to fetch the timeseries aspect given the resource urn
+   */
+  private boolean isAuthorized(QueryContext context, String urn) {
+    if (_entityName.equals(Constants.DATASET_ENTITY_NAME) && _aspectName.equals(
+        Constants.DATASET_PROFILE_ASPECT_NAME)) {
+      return AuthorizationUtils.isAuthorized(context, Optional.of(new ResourceSpec(_entityName, urn)),
+          PoliciesConfig.VIEW_DATASET_PROFILE_PRIVILEGE);
+    }
+    return true;
+  }
+
   @Override
   public CompletableFuture<List<TimeSeriesAspect>> get(DataFetchingEnvironment environment) {
     return CompletableFuture.supplyAsync(() -> {
@@ -50,6 +68,11 @@ public class TimeSeriesAspectResolver implements DataFetcher<CompletableFuture<L
       // Fetch the urn, assuming the parent has an urn field.
       // todo: what if the parent urn isn't projected?
       final String urn = ((Entity) environment.getSource()).getUrn();
+
+      if (!isAuthorized(context, urn)) {
+        return Collections.emptyList();
+      }
+
       final Long maybeStartTimeMillis = environment.getArgumentOrDefault("startTimeMillis", null);
       final Long maybeEndTimeMillis = environment.getArgumentOrDefault("endTimeMillis", null);
       // Max number of aspects to return.

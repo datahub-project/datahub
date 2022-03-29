@@ -3,10 +3,10 @@ package com.datahub.authorization;
 import com.datahub.authentication.Authentication;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.entity.client.OwnershipClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.policy.DataHubPolicyInfo;
@@ -23,7 +23,10 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.CORP_GROUP_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DATAHUB_POLICY_INFO_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.POLICY_ENTITY_NAME;
 
 /**
  * The Authorizer is a singleton class responsible for authorizing
@@ -46,13 +49,15 @@ public class AuthorizationManager implements Authorizer {
   private final ScheduledExecutorService _refreshExecutorService = Executors.newScheduledThreadPool(1);
   private final PolicyRefreshRunnable _policyRefreshRunnable;
 
+  private final ResourceSpecResolver _resourceSpecResolver;
   private final PolicyEngine _policyEngine;
   private AuthorizationMode _mode;
+
+  public static final String ALL = "ALL";
 
   public AuthorizationManager(
       final Authentication systemAuthentication,
       final EntityClient entityClient,
-      final OwnershipClient ownershipClient,
       final int delayIntervalSeconds,
       final int refreshIntervalSeconds,
       final AuthorizationMode mode) {
@@ -60,7 +65,8 @@ public class AuthorizationManager implements Authorizer {
     _policyRefreshRunnable = new PolicyRefreshRunnable(systemAuthentication, entityClient, _policyCache);
     _refreshExecutorService.scheduleAtFixedRate(_policyRefreshRunnable, delayIntervalSeconds, refreshIntervalSeconds, TimeUnit.SECONDS);
     _mode = mode;
-    _policyEngine = new PolicyEngine(systemAuthentication, entityClient, ownershipClient);
+    _resourceSpecResolver = new ResourceSpecResolver(systemAuthentication, entityClient);
+    _policyEngine = new PolicyEngine(systemAuthentication, entityClient);
   }
 
   public AuthorizationResult authorize(final AuthorizationRequest request) {
@@ -70,12 +76,14 @@ public class AuthorizationManager implements Authorizer {
       return new AuthorizationResult(request, Optional.empty(), AuthorizationResult.Type.ALLOW);
     }
 
+    Optional<ResolvedResourceSpec> resolvedResourceSpec = request.getResourceSpec().map(_resourceSpecResolver::resolve);
+
     // 1. Fetch the policies relevant to the requested privilege.
-    final List<DataHubPolicyInfo> policiesToEvaluate = _policyCache.getOrDefault(request.privilege(), new ArrayList<>());
+    final List<DataHubPolicyInfo> policiesToEvaluate = _policyCache.getOrDefault(request.getPrivilege(), new ArrayList<>());
 
     // 2. Evaluate each policy.
     for (DataHubPolicyInfo policy : policiesToEvaluate) {
-      if (isRequestGranted(policy, request)) {
+      if (isRequestGranted(policy, request, resolvedResourceSpec)) {
         // Short circuit if policy has granted privileges to this actor.
         return new AuthorizationResult(request, Optional.of(policy), AuthorizationResult.Type.ALLOW);
       }
@@ -83,13 +91,27 @@ public class AuthorizationManager implements Authorizer {
     return new AuthorizationResult(request, Optional.empty(), AuthorizationResult.Type.DENY);
   }
 
+  public List<String> getGrantedPrivileges(final String actorUrn, final Optional<ResourceSpec> resourceSpec) {
+
+    // 1. Fetch all policies
+    final List<DataHubPolicyInfo> policiesToEvaluate = _policyCache.getOrDefault(ALL, new ArrayList<>());
+
+    Optional<ResolvedResourceSpec> resolvedResourceSpec = resourceSpec.map(_resourceSpecResolver::resolve);
+
+    return _policyEngine.getGrantedPrivileges(policiesToEvaluate, UrnUtils.getUrn(actorUrn), resolvedResourceSpec);
+  }
+
   /**
    * Retrieves the current list of actors authorized to for a particular privilege against
    * an optional resource
    */
-  public AuthorizedActors authorizedActors(final String privilege, final Optional<ResourceSpec> resourceSpec) throws RuntimeException {
+  public AuthorizedActors authorizedActors(
+      final String privilege,
+      final Optional<ResourceSpec> resourceSpec) throws RuntimeException {
     // Step 1: Find policies granting the privilege.
     final List<DataHubPolicyInfo> policiesToEvaluate = _policyCache.getOrDefault(privilege, new ArrayList<>());
+
+    Optional<ResolvedResourceSpec> resolvedResourceSpec = resourceSpec.map(_resourceSpecResolver::resolve);
 
     final List<Urn> authorizedUsers = new ArrayList<>();
     final List<Urn> authorizedGroups = new ArrayList<>();
@@ -103,7 +125,7 @@ public class AuthorizationManager implements Authorizer {
         continue;
       }
 
-      final PolicyEngine.PolicyActors matchingActors = _policyEngine.getMatchingActors(policy, resourceSpec);
+      final PolicyEngine.PolicyActors matchingActors = _policyEngine.getMatchingActors(policy, resolvedResourceSpec);
 
       // Step 3: For each matching policy, add actors that are authorized.
       authorizedUsers.addAll(matchingActors.getUsers());
@@ -142,21 +164,21 @@ public class AuthorizationManager implements Authorizer {
    * the action is always authorized.
    */
   private boolean isSystemRequest(final AuthorizationRequest request, final Authentication systemAuthentication) {
-    return systemAuthentication.getActor().toUrnStr().equals(request.actorUrn());
+    return systemAuthentication.getActor().toUrnStr().equals(request.getActorUrn());
   }
 
   /**
    * Returns true if a policy grants the requested privilege for a given actor and resource.
    */
-  private boolean isRequestGranted(final DataHubPolicyInfo policy, final AuthorizationRequest request) {
+  private boolean isRequestGranted(final DataHubPolicyInfo policy, final AuthorizationRequest request, final Optional<ResolvedResourceSpec> resourceSpec) {
     if (AuthorizationMode.ALLOW_ALL.equals(mode())) {
       return true;
     }
     final PolicyEngine.PolicyEvaluationResult result = _policyEngine.evaluatePolicy(
         policy,
-        request.actorUrn(),
-        request.privilege(),
-        request.resourceSpec()
+        request.getActorUrn(),
+        request.getPrivilege(),
+        resourceSpec
     );
     return result.isGranted();
   }
@@ -243,6 +265,9 @@ public class AuthorizationManager implements Authorizer {
         existingPolicies.add(policy);
         cache.put(privilege, existingPolicies);
       }
+      List<DataHubPolicyInfo> existingPolicies = cache.getOrDefault(ALL, new ArrayList<>());
+      existingPolicies.add(policy);
+      cache.put(ALL, existingPolicies);
     }
   }
 
