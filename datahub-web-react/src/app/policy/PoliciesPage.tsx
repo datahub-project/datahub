@@ -213,17 +213,15 @@ export const PoliciesPage = () => {
                     return { type: platformPrivilege.type, name: platformPrivilege.displayName };
                 });
         } else {
-            const privilegeData = resourcePrivileges.filter(
-                (resourcePrivilege) => resourcePrivilege.resourceType === policy?.resources?.type,
+            const allResourcePriviliges = resourcePrivileges.find(
+                (resourcePrivilege) => resourcePrivilege.resourceType === 'all',
             );
             privileges =
-                (privilegeData.length > 0 &&
-                    privilegeData[0]?.privileges
-                        .filter((resourcePrivilege) => policy.privileges.includes(resourcePrivilege.type))
-                        .map((b) => {
-                            return { type: b.type, name: b.displayName };
-                        })) ||
-                [];
+                allResourcePriviliges?.privileges
+                    .filter((resourcePrivilege) => policy.privileges.includes(resourcePrivilege.type))
+                    .map((b) => {
+                        return { type: b.type, name: b.displayName };
+                    }) || [];
         }
         return privileges;
     };

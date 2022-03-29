@@ -4,7 +4,7 @@ import styled from 'styled-components';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { Maybe, Policy, PolicyState, PolicyType } from '../../types.generated';
 import { useAppConfig } from '../useAppConfig';
-import { mapResourceTypeToDisplayName } from './policyUtils';
+import { convertLegacyResourceFilter, getFieldValues, mapResourceTypeToDisplayName } from './policyUtils';
 import AvatarsGroup from './AvatarsGroup';
 
 type PrivilegeOptionType = {
@@ -65,9 +65,21 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
     const isActive = policy?.state === PolicyState.Active;
     const isMetadataPolicy = policy?.type === PolicyType.Metadata;
 
+    const resources = convertLegacyResourceFilter(policy?.resources);
+    const resourceTypes = getFieldValues(resources?.filter, 'RESOURCE_TYPE') || [];
+    const resourceEntities = getFieldValues(resources?.filter, 'RESOURCE_URN') || [];
+    const domains = getFieldValues(resources?.filter, 'DOMAIN') || [];
+
     const {
         config: { policiesConfig },
     } = useAppConfig();
+
+    const getDisplayName = (entity) => {
+        if (!entity) {
+            return null;
+        }
+        return entityRegistry.getDisplayName(entity.type, entity);
+    };
 
     const actionButtons = (
         <ButtonsContainer>
@@ -98,26 +110,50 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
                         <div>
                             <Typography.Title level={5}>Asset Type</Typography.Title>
                             <ThinDivider />
-                            <PoliciesTag>
-                                {mapResourceTypeToDisplayName(
-                                    policy?.resources?.type || '',
-                                    policiesConfig?.resourcePrivileges || [],
-                                )}
-                            </PoliciesTag>
+                            {(resourceTypes?.length &&
+                                resourceTypes.map((value, key) => {
+                                    return (
+                                        // eslint-disable-next-line react/no-array-index-key
+                                        <PoliciesTag key={`type-${value.value}-${key}`}>
+                                            <Typography.Text>
+                                                {mapResourceTypeToDisplayName(
+                                                    value.value,
+                                                    policiesConfig?.resourcePrivileges || [],
+                                                )}
+                                            </Typography.Text>
+                                        </PoliciesTag>
+                                    );
+                                })) || <PoliciesTag>All</PoliciesTag>}
                         </div>
                         <div>
                             <Typography.Title level={5}>Assets</Typography.Title>
                             <ThinDivider />
-                            {policy?.resources?.resources?.map((urn, key) => {
-                                // TODO: Wrap in a link for entities.
-                                return (
-                                    // eslint-disable-next-line react/no-array-index-key
-                                    <PoliciesTag key={`${urn}-${key}`}>
-                                        <Typography.Text>{urn}</Typography.Text>
-                                    </PoliciesTag>
-                                );
-                            })}
-                            {policy?.resources?.allResources && <PoliciesTag>All</PoliciesTag>}
+                            {(resourceEntities?.length &&
+                                resourceEntities.map((value, key) => {
+                                    return (
+                                        // eslint-disable-next-line react/no-array-index-key
+                                        <PoliciesTag key={`resource-${value.value}-${key}`}>
+                                            <Typography.Text>
+                                                {getDisplayName(value.entity) || value.value}
+                                            </Typography.Text>
+                                        </PoliciesTag>
+                                    );
+                                })) || <PoliciesTag>All</PoliciesTag>}
+                        </div>
+                        <div>
+                            <Typography.Title level={5}>Domains</Typography.Title>
+                            <ThinDivider />
+                            {(domains?.length &&
+                                domains.map((value, key) => {
+                                    return (
+                                        // eslint-disable-next-line react/no-array-index-key
+                                        <PoliciesTag key={`domain-${value.value}-${key}`}>
+                                            <Typography.Text>
+                                                {getDisplayName(value.entity) || value.value}
+                                            </Typography.Text>
+                                        </PoliciesTag>
+                                    );
+                                })) || <PoliciesTag>All</PoliciesTag>}
                         </div>
                     </>
                 )}

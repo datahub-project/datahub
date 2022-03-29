@@ -223,14 +223,6 @@ public class PoliciesConfig {
       COMMON_ENTITY_PRIVILEGES
   );
 
-  // Data Doc Privileges
-  public static final ResourcePrivileges NOTEBOOK_PRIVILEGES = ResourcePrivileges.of(
-      "notebook",
-      "Notebook",
-      "Notebook indexed by DataHub",
-      COMMON_ENTITY_PRIVILEGES
-  );
-
   // Data Flow Privileges
   public static final ResourcePrivileges DATA_FLOW_PRIVILEGES = ResourcePrivileges.of(
       "dataFlow",
@@ -308,7 +300,7 @@ public class PoliciesConfig {
           EDIT_ENTITY_PRIVILEGE)
   );
 
-  public static final List<ResourcePrivileges> RESOURCE_PRIVILEGES = ImmutableList.of(
+  public static final List<ResourcePrivileges> ENTITY_RESOURCE_PRIVILEGES = ImmutableList.of(
       DATASET_PRIVILEGES,
       DASHBOARD_PRIVILEGES,
       CHART_PRIVILEGES,
@@ -319,9 +311,22 @@ public class PoliciesConfig {
       DOMAIN_PRIVILEGES,
       GLOSSARY_TERM_PRIVILEGES,
       CORP_GROUP_PRIVILEGES,
-      CORP_USER_PRIVILEGES,
-      NOTEBOOK_PRIVILEGES
+      CORP_USER_PRIVILEGES
   );
+
+  // Merge all entity specific resource privileges to create a superset of all resource privileges
+  public static final ResourcePrivileges ALL_RESOURCE_PRIVILEGES = ResourcePrivileges.of(
+      "all",
+      "All Types",
+      "All Types",
+      ENTITY_RESOURCE_PRIVILEGES.stream().flatMap(resourcePrivileges -> resourcePrivileges.getPrivileges().stream()).distinct().collect(
+          Collectors.toList())
+  );
+
+  public static final List<ResourcePrivileges> RESOURCE_PRIVILEGES =
+      ImmutableList.<ResourcePrivileges>builder().addAll(ENTITY_RESOURCE_PRIVILEGES)
+          .add(ALL_RESOURCE_PRIVILEGES)
+          .build();
 
   @Data
   @Getter

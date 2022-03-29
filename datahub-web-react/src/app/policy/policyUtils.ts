@@ -58,11 +58,11 @@ export const mapResourceTypeToPrivileges = (
     resourceTypes: string[],
     resourcePrivilegesArr: Array<ResourcePrivileges>,
 ) => {
+    if (resourceTypes.length === 0) {
+        return resourcePrivilegesArr.find((privs) => privs.resourceType === 'all')?.privileges || [];
+    }
     // If input resource types are empty, consider all privileges
-    const resourcePrivileges =
-        resourceTypes.length > 0
-            ? resourcePrivilegesArr.filter((privs) => resourceTypes.includes(privs.resourceType))
-            : resourcePrivilegesArr;
+    const resourcePrivileges = resourcePrivilegesArr.filter((privs) => resourceTypes.includes(privs.resourceType));
     if (resourcePrivileges.length > 0) {
         const finalPrivileges: Privilege[] = [];
         const uniquePrivileges = new Set();
