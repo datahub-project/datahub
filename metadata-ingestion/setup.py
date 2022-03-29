@@ -113,14 +113,18 @@ data_lake_base = {
     "tableschema>=1.20.2",
     "ujson>=4.3.0",
     "types-ujson>=4.2.1",
-    "smart-open[s3]>=5.2.1",
-    "moto[s3]",
-    "wcmatch",
+    "smart-open[s3]>=5.2.1"
 }
 
 data_lake_profiling = {
     "pydeequ==1.0.1",
     "pyspark==3.0.3",
+}
+
+s3_base = {
+    *data_lake_base,
+    "moto[s3]",
+    "wcmatch",
 }
 
 # Note: for all of these, framework_common will be added.
@@ -144,6 +148,7 @@ plugins: Dict[str, Set[str]] = {
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
     "data-lake": {*data_lake_base, *data_lake_profiling},
+    "s3": {*s3_base, *data_lake_profiling},
     "dbt": {"requests"},
     "druid": sql_common | {"pydruid>=0.6.2"},
     # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
@@ -226,7 +231,7 @@ base_dev_requirements = {
     *base_requirements,
     *framework_common,
     *mypy_stubs,
-    *data_lake_base,
+    *s3_base,
     "black>=21.12b0",
     "coverage>=5.1",
     "flake8>=3.8.3",
@@ -269,6 +274,7 @@ base_dev_requirements = {
             "redshift",
             "redshift-usage",
             "data-lake",
+            "s3",
             "tableau",
             "trino",
             "hive",
@@ -337,6 +343,7 @@ entry_points = {
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
         "clickhouse-usage = datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource",
         "data-lake = datahub.ingestion.source.data_lake:DataLakeSource",
+        "s3 = datahub.ingestion.source.s3:S3Source",
         "dbt = datahub.ingestion.source.dbt:DBTSource",
         "druid = datahub.ingestion.source.sql.druid:DruidSource",
         "elasticsearch = datahub.ingestion.source.elastic_search:ElasticsearchSource",

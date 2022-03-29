@@ -1,7 +1,7 @@
 ---
-# see https://datahubproject.io/docs/metadata-ingestion/source_docs/data_lake for complete documentation
+# see https://datahubproject.io/docs/metadata-ingestion/source_docs/s3_data_lake for complete documentation
 source:
-  type: "data-lake"
+  type: "s3"
   config:
     platform: s3
     path_spec: 

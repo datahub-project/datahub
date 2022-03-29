@@ -1,13 +1,10 @@
 {
-  "type": "data-lake",
+  "type": "s3",
   "config": {
     "env": "UAT",
     "path_spec": {
-      "include": "s3://my-test-bucket/folder_a/folder_aa/{dept}/{table}/{partition[0]}/{partition[1]}/*.*",
-      "table_name": "{dept}.{table}",
-      "exclude":[
-        "**/folder_aaaa/**"
-      ]
+      "include": "s3://my-test-bucket/folder_a/folder_aa/{dept}/{table}/{partition_key[0]}={partition[0]}/{partition_key[1]}={partition[1]}/*.*",
+      "table_name": "{dept}.{table}"
     },
     "aws_config": {
       "aws_region": "us-east-1",

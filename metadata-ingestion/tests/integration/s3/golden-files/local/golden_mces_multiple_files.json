@@ -3,7 +3,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/data_lake/test_data/local_system/folder_a/folder_aa/folder_aaa/NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv,DEV)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv,DEV)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -722,12 +722,12 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:a28ddb77743cd7ae433b4b2e4e2da10e",
+    "entityUrn": "urn:li:container:9e02f1474054b9ad227be6b8ae5574a8",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"test-platform\", \"instance\": \"test-platform-instance\", \"folder_abs_path\": \"tests/integration/data_lake\"}, \"name\": \"data_lake\"}",
+        "value": "{\"customProperties\": {\"platform\": \"test-platform\", \"instance\": \"test-platform-instance\", \"folder_abs_path\": \"tests/integration/s3\"}, \"name\": \"s3\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -741,7 +741,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:a28ddb77743cd7ae433b4b2e4e2da10e",
+    "entityUrn": "urn:li:container:9e02f1474054b9ad227be6b8ae5574a8",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -760,7 +760,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:a28ddb77743cd7ae433b4b2e4e2da10e",
+    "entityUrn": "urn:li:container:9e02f1474054b9ad227be6b8ae5574a8",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -779,7 +779,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:a28ddb77743cd7ae433b4b2e4e2da10e",
+    "entityUrn": "urn:li:container:9e02f1474054b9ad227be6b8ae5574a8",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
@@ -798,12 +798,12 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:9b846ca0925ad0cf3a4ba7a763082ec4",
+    "entityUrn": "urn:li:container:c0f8692822906bb838cb93bedf5cc860",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"test-platform\", \"instance\": \"test-platform-instance\", \"folder_abs_path\": \"tests/integration/data_lake/test_data\"}, \"name\": \"test_data\"}",
+        "value": "{\"customProperties\": {\"platform\": \"test-platform\", \"instance\": \"test-platform-instance\", \"folder_abs_path\": \"tests/integration/s3/test_data\"}, \"name\": \"test_data\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -817,7 +817,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:9b846ca0925ad0cf3a4ba7a763082ec4",
+    "entityUrn": "urn:li:container:c0f8692822906bb838cb93bedf5cc860",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -836,7 +836,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:9b846ca0925ad0cf3a4ba7a763082ec4",
+    "entityUrn": "urn:li:container:c0f8692822906bb838cb93bedf5cc860",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -855,12 +855,12 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:9b846ca0925ad0cf3a4ba7a763082ec4",
+    "entityUrn": "urn:li:container:c0f8692822906bb838cb93bedf5cc860",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:a28ddb77743cd7ae433b4b2e4e2da10e\"}",
+        "value": "{\"container\": \"urn:li:container:9e02f1474054b9ad227be6b8ae5574a8\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -874,12 +874,12 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:51ae2b6d233bd845e6a4a9eb93543ff6",
+    "entityUrn": "urn:li:container:e05cdbb4122cad868f29eea7e9571346",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"test-platform\", \"instance\": \"test-platform-instance\", \"folder_abs_path\": \"tests/integration/data_lake/test_data/local_system\"}, \"name\": \"local_system\"}",
+        "value": "{\"customProperties\": {\"platform\": \"test-platform\", \"instance\": \"test-platform-instance\", \"folder_abs_path\": \"tests/integration/s3/test_data/local_system\"}, \"name\": \"local_system\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -893,7 +893,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:51ae2b6d233bd845e6a4a9eb93543ff6",
+    "entityUrn": "urn:li:container:e05cdbb4122cad868f29eea7e9571346",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -912,7 +912,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:51ae2b6d233bd845e6a4a9eb93543ff6",
+    "entityUrn": "urn:li:container:e05cdbb4122cad868f29eea7e9571346",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -931,12 +931,12 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:51ae2b6d233bd845e6a4a9eb93543ff6",
+    "entityUrn": "urn:li:container:e05cdbb4122cad868f29eea7e9571346",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:9b846ca0925ad0cf3a4ba7a763082ec4\"}",
+        "value": "{\"container\": \"urn:li:container:c0f8692822906bb838cb93bedf5cc860\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -950,12 +950,12 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:6e76c64182d17a880d41af63b2a5c047",
+    "entityUrn": "urn:li:container:161ffaf9bfa4603641b2fd53899edc52",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"test-platform\", \"instance\": \"test-platform-instance\", \"folder_abs_path\": \"tests/integration/data_lake/test_data/local_system/folder_a\"}, \"name\": \"folder_a\"}",
+        "value": "{\"customProperties\": {\"platform\": \"test-platform\", \"instance\": \"test-platform-instance\", \"folder_abs_path\": \"tests/integration/s3/test_data/local_system/folder_a\"}, \"name\": \"folder_a\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -969,7 +969,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:6e76c64182d17a880d41af63b2a5c047",
+    "entityUrn": "urn:li:container:161ffaf9bfa4603641b2fd53899edc52",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -988,7 +988,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:6e76c64182d17a880d41af63b2a5c047",
+    "entityUrn": "urn:li:container:161ffaf9bfa4603641b2fd53899edc52",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -1007,12 +1007,12 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:6e76c64182d17a880d41af63b2a5c047",
+    "entityUrn": "urn:li:container:161ffaf9bfa4603641b2fd53899edc52",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:51ae2b6d233bd845e6a4a9eb93543ff6\"}",
+        "value": "{\"container\": \"urn:li:container:e05cdbb4122cad868f29eea7e9571346\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1026,12 +1026,12 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:5abc6ab1503ef819b6ae89cf261341ce",
+    "entityUrn": "urn:li:container:47d5326aae0dbc82c93eb7c2ad186bb4",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"test-platform\", \"instance\": \"test-platform-instance\", \"folder_abs_path\": \"tests/integration/data_lake/test_data/local_system/folder_a/folder_aa\"}, \"name\": \"folder_aa\"}",
+        "value": "{\"customProperties\": {\"platform\": \"test-platform\", \"instance\": \"test-platform-instance\", \"folder_abs_path\": \"tests/integration/s3/test_data/local_system/folder_a/folder_aa\"}, \"name\": \"folder_aa\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1045,7 +1045,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:5abc6ab1503ef819b6ae89cf261341ce",
+    "entityUrn": "urn:li:container:47d5326aae0dbc82c93eb7c2ad186bb4",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -1064,7 +1064,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:5abc6ab1503ef819b6ae89cf261341ce",
+    "entityUrn": "urn:li:container:47d5326aae0dbc82c93eb7c2ad186bb4",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -1083,12 +1083,12 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:5abc6ab1503ef819b6ae89cf261341ce",
+    "entityUrn": "urn:li:container:47d5326aae0dbc82c93eb7c2ad186bb4",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:6e76c64182d17a880d41af63b2a5c047\"}",
+        "value": "{\"container\": \"urn:li:container:161ffaf9bfa4603641b2fd53899edc52\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1102,12 +1102,12 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:e962e1c481009d079a0cef2f6bc9fb4c",
+    "entityUrn": "urn:li:container:42f9e89a8684547e92b91ba826cb751a",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"test-platform\", \"instance\": \"test-platform-instance\", \"folder_abs_path\": \"tests/integration/data_lake/test_data/local_system/folder_a/folder_aa/folder_aaa\"}, \"name\": \"folder_aaa\"}",
+        "value": "{\"customProperties\": {\"platform\": \"test-platform\", \"instance\": \"test-platform-instance\", \"folder_abs_path\": \"tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa\"}, \"name\": \"folder_aaa\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1121,7 +1121,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:e962e1c481009d079a0cef2f6bc9fb4c",
+    "entityUrn": "urn:li:container:42f9e89a8684547e92b91ba826cb751a",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -1140,7 +1140,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:e962e1c481009d079a0cef2f6bc9fb4c",
+    "entityUrn": "urn:li:container:42f9e89a8684547e92b91ba826cb751a",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -1159,12 +1159,12 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:e962e1c481009d079a0cef2f6bc9fb4c",
+    "entityUrn": "urn:li:container:42f9e89a8684547e92b91ba826cb751a",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:5abc6ab1503ef819b6ae89cf261341ce\"}",
+        "value": "{\"container\": \"urn:li:container:47d5326aae0dbc82c93eb7c2ad186bb4\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1178,12 +1178,12 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/data_lake/test_data/local_system/folder_a/folder_aa/folder_aaa/NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv,DEV)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:e962e1c481009d079a0cef2f6bc9fb4c\"}",
+        "value": "{\"container\": \"urn:li:container:42f9e89a8684547e92b91ba826cb751a\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1197,7 +1197,7 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/data_lake/test_data/local_system/folder_a/folder_aa/folder_aaa/NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv,DEV)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
@@ -1217,7 +1217,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/data_lake/test_data/local_system/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro,DEV)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro,DEV)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -1361,12 +1361,12 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/data_lake/test_data/local_system/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro,DEV)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:e962e1c481009d079a0cef2f6bc9fb4c\"}",
+        "value": "{\"container\": \"urn:li:container:42f9e89a8684547e92b91ba826cb751a\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1380,7 +1380,7 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/data_lake/test_data/local_system/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro,DEV)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
@@ -1400,7 +1400,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/data_lake/test_data/local_system/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv,DEV)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv,DEV)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -1544,12 +1544,12 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/data_lake/test_data/local_system/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv,DEV)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:e962e1c481009d079a0cef2f6bc9fb4c\"}",
+        "value": "{\"container\": \"urn:li:container:42f9e89a8684547e92b91ba826cb751a\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1563,7 +1563,7 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/data_lake/test_data/local_system/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv,DEV)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
@@ -1583,7 +1583,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/data_lake/test_data/local_system/folder_a/folder_aa/folder_aaa/countries_json.json,DEV)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/countries_json.json,DEV)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -1695,12 +1695,12 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/data_lake/test_data/local_system/folder_a/folder_aa/folder_aaa/countries_json.json,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/countries_json.json,DEV)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:e962e1c481009d079a0cef2f6bc9fb4c\"}",
+        "value": "{\"container\": \"urn:li:container:42f9e89a8684547e92b91ba826cb751a\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1714,7 +1714,7 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/data_lake/test_data/local_system/folder_a/folder_aa/folder_aaa/countries_json.json,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/countries_json.json,DEV)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
@@ -1734,7 +1734,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/data_lake/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet.parquet,DEV)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet.parquet,DEV)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -1878,12 +1878,12 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/data_lake/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet.parquet,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet.parquet,DEV)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:e962e1c481009d079a0cef2f6bc9fb4c\"}",
+        "value": "{\"container\": \"urn:li:container:42f9e89a8684547e92b91ba826cb751a\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1897,7 +1897,7 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/data_lake/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet.parquet,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet.parquet,DEV)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
@@ -1917,7 +1917,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/data_lake/test_data/local_system/folder_a/folder_aa/folder_aaa/small.csv,DEV)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/small.csv,DEV)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -2061,12 +2061,12 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/data_lake/test_data/local_system/folder_a/folder_aa/folder_aaa/small.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/small.csv,DEV)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:e962e1c481009d079a0cef2f6bc9fb4c\"}",
+        "value": "{\"container\": \"urn:li:container:42f9e89a8684547e92b91ba826cb751a\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -2080,7 +2080,7 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/data_lake/test_data/local_system/folder_a/folder_aa/folder_aaa/small.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/small.csv,DEV)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
@@ -2100,7 +2100,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/data_lake/test_data/local_system/folder_a/folder_aa/folder_aaa/wa_fn_usec_hr_employee_attrition_csv.csv,DEV)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/wa_fn_usec_hr_employee_attrition_csv.csv,DEV)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -2686,12 +2686,12 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/data_lake/test_data/local_system/folder_a/folder_aa/folder_aaa/wa_fn_usec_hr_employee_attrition_csv.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/wa_fn_usec_hr_employee_attrition_csv.csv,DEV)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:e962e1c481009d079a0cef2f6bc9fb4c\"}",
+        "value": "{\"container\": \"urn:li:container:42f9e89a8684547e92b91ba826cb751a\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -2705,7 +2705,7 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/data_lake/test_data/local_system/folder_a/folder_aa/folder_aaa/wa_fn_usec_hr_employee_attrition_csv.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test-platform,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/wa_fn_usec_hr_employee_attrition_csv.csv,DEV)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
