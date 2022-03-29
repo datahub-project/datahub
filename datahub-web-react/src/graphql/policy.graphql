@@ -76,7 +76,6 @@ query listPolicies($input: ListPoliciesInput!) {
 query getGrantedPrivileges($input: GetGrantedPrivilegesInput!) {
     getGrantedPrivileges(input: $input) {
         privileges
-        canViewEntityPage
     }
 }
 
