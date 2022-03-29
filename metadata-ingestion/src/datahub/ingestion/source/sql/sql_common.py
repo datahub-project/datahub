@@ -255,10 +255,10 @@ class BasicSQLAlchemyConfig(SQLAlchemyConfig):
             raise ValueError("host_port and schema or connect_uri required.")
 
         return self.connect_uri or make_sqlalchemy_uri(
-            self.scheme,
+            self.scheme,  # type: ignore
             self.username,
             self.password.get_secret_value() if self.password else None,
-            self.host_port,
+            self.host_port,  # type: ignore
             self.database,
             uri_opts=uri_opts,
         )
