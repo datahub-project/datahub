@@ -41,6 +41,8 @@ from datahub.metadata.schema_classes import (
 logger = logging.getLogger(__name__)
 
 
+# TODO: Support generating docs for each event type in entity registry.
+
 def capitalize_first(something: str) -> str:
     return something[0:1].upper() + something[1:]
 
@@ -88,7 +90,7 @@ class AspectDefinition:
     type: Optional[str] = None
 
 
-entity_registry: Dict[str, EntityDefinition] = {}
+entity_registry: Dict[str, Any] = {}
 
 
 def get_aspects_from_snapshot(
