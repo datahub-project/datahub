@@ -20,6 +20,37 @@ CONFIG_FILE = DATAHUB_FOLDER / "telemetry-config.json"
 
 # also fall back to environment variable if config file is not found
 ENV_ENABLED = os.environ.get("DATAHUB_TELEMETRY_ENABLED", "true").lower() == "true"
+
+# see https://adamj.eu/tech/2020/03/09/detect-if-your-tests-are-running-on-ci/
+CI_ENV_VARS = [
+    "APPVEYOR",
+    "APPCIRCLE"
+    "AZURE_PIPELINES",
+    "BAMBOO",
+    "BITBUCKET",
+    "BUILDKITE",
+    "BUILD_ID",
+    "CIRCLE",
+    "CIRCLECI",
+    "CIRRUS",
+    "CIRRUS_CI",
+    "CODEBUILD_BUILD_ID",
+    "GITHUB_ACTIONS",
+    "GITLAB",
+    "GITLAB_CI",
+    "HEROKU_TEST_RUN_ID",
+    "JENKINS_URL",
+    "SEMAPHORE",
+    "TEAMCITY_VERSION",
+    "TF_BUILD",
+    "TRAVIS",
+    "bamboo.buildKey",
+]
+
+# disable when running in any CI
+if any(var in os.environ for var in CI_ENV_VARS):
+    ENV_ENABLED = False
+
 TIMEOUT = int(os.environ.get("DATAHUB_TELEMETRY_TIMEOUT", "10"))
 MIXPANEL_TOKEN = "5ee83d940754d63cacbf7d34daa6f44a"
 
