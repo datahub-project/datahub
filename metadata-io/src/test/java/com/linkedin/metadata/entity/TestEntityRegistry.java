@@ -6,6 +6,7 @@ import com.linkedin.metadata.models.EventSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.snapshot.Snapshot;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -49,6 +50,6 @@ public class TestEntityRegistry implements EntityRegistry {
   @Nonnull
   @Override
   public Map<String, EventSpec> getEventSpecs() {
-    return null;
+    return Collections.emptyMap();
   }
 }
