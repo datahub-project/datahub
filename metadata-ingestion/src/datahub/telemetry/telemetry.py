@@ -24,7 +24,7 @@ ENV_ENABLED = os.environ.get("DATAHUB_TELEMETRY_ENABLED", "true").lower() == "tr
 # see
 # https://adamj.eu/tech/2020/03/09/detect-if-your-tests-are-running-on-ci/
 # https://github.com/watson/ci-info
-CI_ENV_VARS = [
+CI_ENV_VARS = {
     "APPCENTER",
     "APPCIRCLE",
     "APPCIRCLEAZURE_PIPELINES",
@@ -77,7 +77,7 @@ CI_ENV_VARS = [
     "VERCEL",
     "WERCKER_ROOT",
     "bamboo.buildKey",
-]
+}
 
 # disable when running in any CI
 if any(var in os.environ for var in CI_ENV_VARS):
