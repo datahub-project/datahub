@@ -66,6 +66,18 @@ public class JavaEntityClient implements EntityClient {
     private final TimeseriesAspectService _timeseriesAspectService;
     private final LineageSearchService _lineageSearchService;
 
+    @Nullable
+    public EntityResponse getV2(
+        @Nonnull String entityName,
+        @Nonnull final Urn urn,
+        @Nullable final Set<String> aspectNames,
+        @Nonnull final Authentication authentication) throws RemoteInvocationException, URISyntaxException {
+        final Set<String> projectedAspects = aspectNames == null
+            ? _entityService.getEntityAspectNames(entityName)
+            : aspectNames;
+        return _entityService.getEntityV2(entityName, urn, projectedAspects);
+    }
+
     @Nonnull
     public Entity get(@Nonnull final Urn urn, @Nonnull final Authentication authentication) {
       return _entityService.getEntity(urn, ImmutableSet.of());
