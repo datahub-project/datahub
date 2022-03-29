@@ -280,6 +280,30 @@ class ConfluentJDBCSourceConnector:
 
         return []
 
+    def get_instance_name(self, source_platform: str):
+        instance_name = None
+        if self.config.connect_to_platform_map:
+            for connector_name in self.config.connect_to_platform_map:
+                if connector_name == self.connector_manifest.name:
+                    instance_name = self.config.connect_to_platform_map[connector_name][
+                        source_platform
+                    ]
+                    if (
+                            self.config.platform_instance_map
+                            and self.config.platform_instance_map.get(source_platform)
+                    ):
+                        logger.error(
+                            f"Same source platform {source_platform} configured in both platform_instance_map and connect_to_platform_map"
+                        )
+                        sys.exit(
+                            "Config Error: Same source platform configured in both platform_instance_map and connect_to_platform_map. Fix the config and re-run again."
+                        )
+                    logger.info(
+                        f"Instance name assigned is: {instance_name} for Connector Name {connector_name} and source platform {source_platform}"
+                    )
+                    break
+        return instance_name
+
     def _extract_lineages(self):
         lineages: List[KafkaConnectLineage] = list()
         parser = self.get_parser(self.connector_manifest)
@@ -289,6 +313,7 @@ class ConfluentJDBCSourceConnector:
         topic_prefix = parser.topic_prefix
         transforms = parser.transforms
         self.connector_manifest.flow_property_bag = self.connector_manifest.config
+        instance_name = self.get_instance_name(source_platform)
 
         # Mask/Remove properties that may reveal credentials
         self.connector_manifest.flow_property_bag[
@@ -312,12 +337,6 @@ class ConfluentJDBCSourceConnector:
             # For now, we use source table as topic (expected to be same as topic prefix)
             for topic in self.connector_manifest.topic_names:
                 # default method - as per earlier implementation
-                source_table = topic
-                dataset_name = (
-                    database_name + "." + source_table
-                    if database_name
-                    else source_table
-                )
                 lineage = KafkaConnectLineage(
                     source_platform=source_platform,
                     target_dataset=topic,
@@ -377,11 +396,16 @@ class ConfluentJDBCSourceConnector:
                 # in connector topics
 
                 if topic in self.connector_manifest.topic_names:
-                    dataset_name = (
-                        database_name + "." + source_table
-                        if database_name
-                        else source_table
+                    if database_name and instance_name:
+                        dataset_name = (
+                                instance_name + "." + database_name + "." + source_table
+                        )
+                    elif database_name:
+                        dataset_name = (
+                            database_name + "." + source_table
                     )
+                    else:
+                        dataset_name = source_table
 
                     lineage = KafkaConnectLineage(
                         source_dataset=dataset_name,
@@ -514,27 +538,18 @@ class DebeziumSourceConnector:
 
         return parser
 
-    def _extract_lineages(self):
-        lineages: List[KafkaConnectLineage] = list()
-        parser = self.get_parser(self.connector_manifest)
-        source_platform = parser.source_platform
-        server_name = parser.server_name
-        database_name = parser.database_name
-        topic_naming_pattern = r"({0})\.(\w+\.\w+)".format(server_name)
+    # When multiple instances are ingested for a platform to get the instance_name
+    def get_instance_name(self, source_platform: str):
         instance_name = None
-
-        if not self.connector_manifest.topic_names:
-            return lineages
-        # Get the platform/platform_instance mapping for every database_server from connect_to_platform_map
         if self.config.connect_to_platform_map:
-            for db_server in self.config.connect_to_platform_map:
-                if db_server == server_name:
-                    instance_name = self.config.connect_to_platform_map[db_server][
+            for connector_name in self.config.connect_to_platform_map:
+                if connector_name == self.connector_manifest.name:
+                    instance_name = self.config.connect_to_platform_map[connector_name][
                         source_platform
                     ]
                     if (
-                        self.config.platform_instance_map
-                        and self.config.platform_instance_map.get(source_platform)
+                            self.config.platform_instance_map
+                            and self.config.platform_instance_map.get(source_platform)
                     ):
                         logger.error(
                             f"Same source platform {source_platform} configured in both platform_instance_map and connect_to_platform_map"
@@ -543,9 +558,23 @@ class DebeziumSourceConnector:
                             "Config Error: Same source platform configured in both platform_instance_map and connect_to_platform_map. Fix the config and re-run again."
                         )
                     logger.info(
-                        f"Instance name assigned is: {instance_name} for Server Name {server_name} and source platform {source_platform}"
+                        f"Instance name assigned is: {instance_name} for Connector Name {connector_name} and source platform {source_platform}"
                     )
                     break
+        return instance_name
+
+    def _extract_lineages(self):
+        lineages: List[KafkaConnectLineage] = list()
+        parser = self.get_parser(self.connector_manifest)
+        source_platform = parser.source_platform
+        server_name = parser.server_name
+        database_name = parser.database_name
+        topic_naming_pattern = r"({0})\.(\w+\.\w+)".format(server_name)
+        instance_name = self.get_instance_name(source_platform)
+
+        if not self.connector_manifest.topic_names:
+            return lineages
+        # Get the platform/platform_instance mapping for every database_server from connect_to_platform_map
 
         for topic in self.connector_manifest.topic_names:
             found = re.search(re.compile(topic_naming_pattern), topic)
@@ -568,7 +597,6 @@ class DebeziumSourceConnector:
                 )
                 lineages.append(lineage)
         self.connector_manifest.lineages = lineages
-
 
 @dataclass
 class BigQuerySinkConnector:
