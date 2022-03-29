@@ -1,6 +1,5 @@
 import datetime
 import logging
-from sqlite3 import connect
 import traceback
 from abc import abstractmethod
 from dataclasses import dataclass, field
@@ -253,7 +252,7 @@ class BasicSQLAlchemyConfig(SQLAlchemyConfig):
 
     def get_sql_alchemy_url(self, uri_opts=None):
         if not ((self.host_port and self.scheme) or self.connect_uri):
-            raise ValueError ("host_port and schema or connect_uri required.")
+            raise ValueError("host_port and schema or connect_uri required.")
 
         return self.connect_uri or make_sqlalchemy_uri(
             self.scheme,
