@@ -98,13 +98,13 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
         if (!doHardDelete) {
           aspectsReverted -= keyAspects.size();
           rowSummaries.removeIf(AspectRowSummary::isKeyAspect);
-          // Count the number of aspects that exist referencing the key aspects we are deleting
-          affectedAspects = keyAspects.stream()
-                  .map((AspectRowSummary urn) -> _systemMetadataService.findByUrn(urn.getUrn(), false))
-                  .flatMap(List::stream)
-                  .filter(row -> !row.getRunId().equals(runId))
-                  .count();
         }
+        // Count the number of aspects that exist referencing the key aspects we are deleting
+        affectedAspects = keyAspects.stream()
+                .map((AspectRowSummary urn) -> _systemMetadataService.findByUrn(urn.getUrn(), false))
+                .flatMap(List::stream)
+                .filter(row -> !row.getRunId().equals(runId))
+                .count();
 
         return response.setAspectsAffected(affectedAspects)
                 .setAspectsReverted(aspectsReverted)
