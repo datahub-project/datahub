@@ -154,7 +154,6 @@ export default function PolicyPrivilegeForm({
         const filter = resources.filter || {
             criteria: [],
         };
-        // urnToDisplayName[resource] = option.children;
         setResources({
             ...resources,
             filter: setFieldValues(filter, 'RESOURCE_URN', [
@@ -187,8 +186,6 @@ export default function PolicyPrivilegeForm({
         const filter = resources.filter || {
             criteria: [],
         };
-        // urnToDisplayName[domain] = option.children;
-
         const updatedFilter = setFieldValues(filter, 'DOMAIN', [
             ...domains,
             createCriterionValueWithEntity(domain, getEntityFromSearchResults(domainSearchResults, domain) || null),
