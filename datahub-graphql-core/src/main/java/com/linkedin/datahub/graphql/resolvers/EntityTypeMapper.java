@@ -31,6 +31,7 @@ public class EntityTypeMapper {
           .put(EntityType.MLPRIMARY_KEY, "mlPrimaryKey")
           .put(EntityType.CONTAINER, "container")
           .put(EntityType.DOMAIN, "domain")
+          .put(EntityType.NOTEBOOK, "notebook")
           .build();
 
   private static final Map<String, EntityType> ENTITY_NAME_TO_TYPE =
