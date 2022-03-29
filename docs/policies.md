@@ -66,7 +66,9 @@ privileges [here](https://github.com/datahub-project/datahub/blob/master/metadat
 
 All edits on the UI are covered by a privilege, to make sure we have the ability to restrict write access.
 
-[//]: <> (TODO: Add table for edit privileges)
+<!---
+TODO: Add table for edit privileges
+--->
 
 We currently support the following read privileges
 
