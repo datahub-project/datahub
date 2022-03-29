@@ -81,7 +81,7 @@ We currently support the following read privileges
 #### Resources
 
 Resource filter defines the set of resources that the policy applies to is defined using a list of criteria. Each
-criterion defines a field type (like entity_type, entity_urn, domain), a list of field values to compare, and a
+criterion defines a field type (like resource_type, resource_urn, domain), a list of field values to compare, and a
 condition (like EQUALS). It essentially checks whether the field of a certain resource matches any of the input values.
 Note, that if there are no criteria or resource is not set, policy is applied to ALL resources.
 
@@ -92,7 +92,7 @@ For example, the following resource filter will apply the policy to datasets, ch
   "resource": {
     "criteria": [
       {
-        "field": "entity_type",
+        "field": "resource_type",
         "values": [
           "dataset",
           "chart",
