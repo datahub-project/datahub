@@ -46,8 +46,8 @@ source:
     platform_instance_map:   # optional
       mysql: test_mysql      # optional
     connect_to_platform_map: # optional
-      postgres-connector-finance-db:     # optional
-        postgres: core_finance_instance  # optional. 
+      postgres-connector-finance-db:     # optional - Connector name
+        postgres: core_finance_instance  # optional - Platform to instance map
     # Credentials
     username: admin
     password: password

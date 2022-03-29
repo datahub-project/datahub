@@ -93,6 +93,7 @@ def unquote(string: str, leading_quote: str = '"', trailing_quote: str = None) -
         string = string[1:-1]
     return string
 
+
 def get_instance_name(self, source_platform: str):
     instance_name = None
     if self.config.connect_to_platform_map:
@@ -102,8 +103,8 @@ def get_instance_name(self, source_platform: str):
                     source_platform
                 ]
                 if (
-                        self.config.platform_instance_map
-                        and self.config.platform_instance_map.get(source_platform)
+                    self.config.platform_instance_map
+                    and self.config.platform_instance_map.get(source_platform)
                 ):
                     logger.error(
                         f"Same source platform {source_platform} configured in both platform_instance_map and connect_to_platform_map"
@@ -117,15 +118,20 @@ def get_instance_name(self, source_platform: str):
                 break
     return instance_name
 
+
 @dataclass
 class ConfluentJDBCSourceConnector:
     connector_manifest: ConnectorManifest
     report: KafkaConnectSourceReport
 
     def __init__(
-        self, connector_manifest: ConnectorManifest, report: KafkaConnectSourceReport
+        self,
+        connector_manifest: ConnectorManifest,
+        config: KafkaConnectSourceConfig,
+        report: KafkaConnectSourceReport,
     ) -> None:
         self.connector_manifest = connector_manifest
+        self.config = config
         self.report = report
         self._extract_lineages()
 
@@ -397,12 +403,10 @@ class ConfluentJDBCSourceConnector:
                 if topic in self.connector_manifest.topic_names:
                     if database_name and instance_name:
                         dataset_name = (
-                                instance_name + "." + database_name + "." + source_table
+                            instance_name + "." + database_name + "." + source_table
                         )
                     elif database_name:
-                        dataset_name = (
-                            database_name + "." + source_table
-                    )
+                        dataset_name = database_name + "." + source_table
                     else:
                         dataset_name = source_table
 
@@ -571,6 +575,7 @@ class DebeziumSourceConnector:
                 )
                 lineages.append(lineage)
         self.connector_manifest.lineages = lineages
+
 
 @dataclass
 class BigQuerySinkConnector:
@@ -821,7 +826,9 @@ class KafkaConnectSource(Source):
                     "io.confluent.connect.jdbc.JdbcSourceConnector"
                 ):
                     connector_manifest = ConfluentJDBCSourceConnector(
-                        connector_manifest=connector_manifest, report=self.report
+                        connector_manifest=connector_manifest,
+                        config=self.config,
+                        report=self.report,
                     ).connector_manifest
                 else:
                     # Debezium Source Connector lineages
