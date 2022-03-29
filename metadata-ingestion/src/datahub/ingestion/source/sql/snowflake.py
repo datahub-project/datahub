@@ -246,7 +246,9 @@ WHERE
       query_start_time DESC
   ) = 1
         """.format(
-            start_time_millis=int(self.config.start_time.timestamp() * 1000),
+            start_time_millis=int(self.config.start_time.timestamp() * 1000)
+            if not self.config.ignore_start_time_lineage
+            else 0,
             end_time_millis=int(self.config.end_time.timestamp() * 1000),
         )
 
@@ -333,7 +335,9 @@ WHERE
     FROM external_table_lineage_history
     WHERE downstream_table_domain = 'Table'
     QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name ORDER BY query_start_time DESC) = 1""".format(
-            start_time_millis=int(self.config.start_time.timestamp() * 1000),
+            start_time_millis=int(self.config.start_time.timestamp() * 1000)
+            if not self.config.ignore_start_time_lineage
+            else 0,
             end_time_millis=int(self.config.end_time.timestamp() * 1000),
         )
 
@@ -401,7 +405,9 @@ SELECT upstream_table_name, downstream_table_name, upstream_table_columns, downs
 FROM table_lineage_history
 WHERE upstream_table_domain in ('Table', 'External table') and downstream_table_domain = 'Table'
 QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_name ORDER BY query_start_time DESC) = 1        """.format(
-            start_time_millis=int(self.config.start_time.timestamp() * 1000),
+            start_time_millis=int(self.config.start_time.timestamp() * 1000)
+            if not self.config.ignore_start_time_lineage
+            else 0,
             end_time_millis=int(self.config.end_time.timestamp() * 1000),
         )
         num_edges: int = 0
@@ -503,14 +509,20 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
             logger.debug(
                 f"Upstream lineage of '{dataset_name}': {[u.dataset for u in upstream_tables]}"
             )
-            self.report.upstream_lineage[dataset_name] = [
-                u.dataset for u in upstream_tables
-            ]
+            if self.config.report_upstream_lineage:
+                self.report.upstream_lineage[dataset_name] = [
+                    u.dataset for u in upstream_tables
+                ]
             return UpstreamLineage(upstreams=upstream_tables), column_lineage
         return None
 
     def add_config_to_report(self):
         self.report.cleaned_host_port = self.config.host_port
+        self.report.ignore_start_time_lineage = self.config.ignore_start_time_lineage
+        self.report.report_upstream_lineage = self.config.report_upstream_lineage
+        if not self.report.ignore_start_time_lineage:
+            self.report.lineage_start_time = self.config.start_time
+        self.report.lineage_end_time = self.config.end_time
 
         if self.config.provision_role is not None:
             self.report.run_ingestion = self.config.provision_role.run_ingestion

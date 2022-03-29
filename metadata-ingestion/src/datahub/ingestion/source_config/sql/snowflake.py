@@ -83,7 +83,6 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
         v = remove_protocol(v)
         v = remove_trailing_slashes(v)
         v = remove_suffix(v, ".snowflakecomputing.com")
-        logger.info(f"Cleaned Host port is {v}")
         return v
 
     @pydantic.validator("authentication_type", always=True)
@@ -186,6 +185,8 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
     database: Optional[str]  # deprecated
 
     provision_role: Optional[SnowflakeProvisionRoleConfig] = None
+    ignore_start_time_lineage: bool = False
+    report_upstream_lineage: bool = False
 
     @pydantic.validator("database")
     def note_database_opt_deprecation(cls, v, values, **kwargs):
