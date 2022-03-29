@@ -55,6 +55,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -77,9 +78,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DataPlatformInstanceClass,
+    DatasetLineageTypeClass,
     DatasetPropertiesClass,
     JobStatusClass,
     SubTypesClass,
+    UpstreamClass,
     ViewPropertiesClass,
 )
 from datahub.telemetry import telemetry
@@ -846,13 +849,35 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                     BaseSQLAlchemyCheckpointState, cur_checkpoint.state
                 )
                 checkpoint_state.add_table_urn(dataset_urn)
-        description, properties = self.get_table_properties(inspector, schema, table)
+
+        description, properties, location_urn = self.get_table_properties(
+            inspector, schema, table
+        )
         dataset_properties = DatasetPropertiesClass(
             name=table,
             description=description,
             customProperties=properties,
         )
         dataset_snapshot.aspects.append(dataset_properties)
+
+        if location_urn:
+            external_upstream_table = UpstreamClass(
+                dataset=location_urn,
+                type=DatasetLineageTypeClass.COPY,
+            )
+            lineage_mcpw = MetadataChangeProposalWrapper(
+                entityType="dataset",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=dataset_snapshot.urn,
+                aspectName="upstreamLineage",
+                aspect=UpstreamLineage(upstreams=[external_upstream_table]),
+            )
+            lineage_wu = MetadataWorkUnit(
+                id=f"{self.platform}-{lineage_mcpw.entityUrn}-{lineage_mcpw.aspectName}",
+                mcp=lineage_mcpw,
+            )
+            yield lineage_wu
+
         pk_constraints: dict = inspector.get_pk_constraint(table, schema)
         foreign_keys = self._get_foreign_keys(dataset_urn, inspector, schema, table)
         schema_fields = self.get_schema_fields(dataset_name, columns, pk_constraints)
@@ -896,8 +921,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
     def get_table_properties(
         self, inspector: Inspector, schema: str, table: str
-    ) -> Tuple[Optional[str], Optional[Dict[str, str]]]:
+    ) -> Tuple[Optional[str], Optional[Dict[str, str]], Optional[str]]:
         try:
+            location: Optional[str] = None
             # SQLALchemy stubs are incomplete and missing this method.
             # PR: https://github.com/dropbox/sqlalchemy-stubs/pull/223.
             table_info: dict = inspector.get_table_comment(table, schema)  # type: ignore
@@ -918,7 +944,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
             # The "properties" field is a non-standard addition to SQLAlchemy's interface.
             properties = table_info.get("properties", {})
-        return description, properties
+        return description, properties, location
 
     def get_dataplatform_instance_aspect(
         self, dataset_urn: str
