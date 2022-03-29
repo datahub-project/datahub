@@ -2,6 +2,8 @@ package com.datahub.authorization;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.annotations.VisibleForTesting;
+import com.linkedin.common.Owner;
+import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.EntityResponse;
@@ -21,12 +23,14 @@ import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.Constants.CORP_GROUP_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATAHUB_POLICY_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.POLICY_ENTITY_NAME;
+
 
 /**
  * The Authorizer is a singleton class responsible for authorizing
@@ -271,6 +275,22 @@ public class AuthorizationManager implements Authorizer {
     }
   }
 
+  private List<Urn> userOwners(final Ownership ownership) {
+    return ownership.getOwners()
+        .stream()
+        .filter(owner -> CORP_USER_ENTITY_NAME.equals(owner.getOwner().getEntityType()))
+        .map(Owner::getOwner)
+        .collect(Collectors.toList());
+  }
+
+  private List<Urn> groupOwners(final Ownership ownership) {
+    return ownership.getOwners()
+        .stream()
+        .filter(owner -> CORP_GROUP_ENTITY_NAME.equals(owner.getOwner().getEntityType()))
+        .map(Owner::getOwner)
+        .collect(Collectors.toList());
+  }
+
   /**
    * Class used to represent all users authorized to perform a particular privilege.
    */
@@ -309,4 +329,5 @@ public class AuthorizationManager implements Authorizer {
       return _allGroups;
     }
   }
+
 }

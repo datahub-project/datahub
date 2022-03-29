@@ -323,7 +323,6 @@ public class PolicyEngine {
 
   private Set<Urn> resolveGroups(Urn actor, PolicyEvaluationContext context) {
 
-    // Only resolve groups if they have not already been resolved.
     if (context.groups != null) {
       return context.groups;
     }
