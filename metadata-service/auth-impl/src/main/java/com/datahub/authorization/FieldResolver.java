@@ -23,12 +23,16 @@ public class FieldResolver {
 
   private static final FieldValue EMPTY = new FieldValue(Collections.emptySet());
 
-  // Helper function that returns FieldResolver for precomputed values
+  /**
+   * Helper function that returns FieldResolver for precomputed values
+   */
   public static FieldResolver getResolverFromValues(Set<String> values) {
     return new FieldResolver(() -> CompletableFuture.completedFuture(FieldValue.builder().values(values).build()));
   }
 
-  // Helper function that returns FieldResolver given a fetchFieldValue function
+  /**
+   * Helper function that returns FieldResolver given a fetchFieldValue function
+   */
   public static FieldResolver getResolverFromFunction(ResourceSpec resourceSpec,
       Function<ResourceSpec, FieldValue> fetchFieldValue) {
     return new FieldResolver(() -> CompletableFuture.supplyAsync(() -> fetchFieldValue.apply(resourceSpec)));
@@ -38,7 +42,9 @@ public class FieldResolver {
     return EMPTY;
   }
 
-  // Container for storing the field value, in case we need to extend this to have more types of field values
+  /**
+   * Container for storing the field value, in case we need to extend this to have more types of field values
+   */
   @Value
   @Builder
   public static class FieldValue {

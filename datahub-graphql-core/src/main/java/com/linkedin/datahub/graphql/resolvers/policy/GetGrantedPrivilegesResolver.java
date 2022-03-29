@@ -7,7 +7,6 @@ import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.GetGrantedPrivilegesInput;
 import com.linkedin.datahub.graphql.generated.Privileges;
 import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
-import com.linkedin.metadata.authorization.PoliciesConfig;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;

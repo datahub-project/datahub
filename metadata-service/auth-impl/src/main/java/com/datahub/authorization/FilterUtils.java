@@ -23,13 +23,17 @@ public class FilterUtils {
   private FilterUtils() {
   }
 
-  // Creates new PolicyMatchCriterion with field and value, using EQUAL PolicyMatchCondition.
+  /**
+   * Creates new PolicyMatchCriterion with field and value, using EQUAL PolicyMatchCondition.
+   */
   @Nonnull
   public static PolicyMatchCriterion newCriterion(@Nonnull ResourceFieldType field, @Nonnull List<String> values) {
     return newCriterion(field, values, PolicyMatchCondition.EQUALS);
   }
 
-  // Creates new PolicyMatchCriterion with field, value and PolicyMatchCondition.
+  /**
+   * Creates new PolicyMatchCriterion with field, value and PolicyMatchCondition.
+   */
   @Nonnull
   public static PolicyMatchCriterion newCriterion(@Nonnull ResourceFieldType field, @Nonnull List<String> values,
       @Nonnull PolicyMatchCondition policyMatchCondition) {
@@ -38,7 +42,9 @@ public class FilterUtils {
         .setCondition(policyMatchCondition);
   }
 
-  // Creates new PolicyMatchFilter from a map of Criteria by removing null-valued Criteria and using EQUAL PolicyMatchCondition (default).
+  /**
+   * Creates new PolicyMatchFilter from a map of Criteria by removing null-valued Criteria and using EQUAL PolicyMatchCondition (default).
+   */
   @Nonnull
   public static PolicyMatchFilter newFilter(@Nullable Map<ResourceFieldType, List<String>> params) {
     if (params == null) {
@@ -52,7 +58,9 @@ public class FilterUtils {
     return new PolicyMatchFilter().setCriteria(criteria);
   }
 
-  // Creates new PolicyMatchFilter from a single PolicyMatchCriterion with EQUAL PolicyMatchCondition (default).
+  /**
+   * Creates new PolicyMatchFilter from a single PolicyMatchCriterion with EQUAL PolicyMatchCondition (default).
+   */
   @Nonnull
   public static PolicyMatchFilter newFilter(@Nonnull ResourceFieldType field, @Nonnull List<String> values) {
     return newFilter(Collections.singletonMap(field, values));

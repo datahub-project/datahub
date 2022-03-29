@@ -9,9 +9,13 @@ import com.datahub.authorization.ResourceSpec;
  */
 public interface ResourceFieldResolverProvider {
 
-  // Field that this hydrator is hydrating
+  /**
+   * Field that this hydrator is hydrating
+   */
   ResourceFieldType getFieldType();
 
-  // Return resolver for fetching the field values given the resource
+  /**
+   * Return resolver for fetching the field values given the resource
+   */
   FieldResolver getFieldResolver(ResourceSpec resourceSpec);
 }
