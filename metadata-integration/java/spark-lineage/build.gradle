@@ -151,18 +151,18 @@ jacocoTestReport {
     dependsOn test // tests are required to run before generating the report
 }
 
-test {
-  useJUnit()
-  finalizedBy jacocoTestReport
-}
+//test {
+//  useJUnit()
+//  finalizedBy jacocoTestReport
+//}
 
 assemble {
     dependsOn shadowJar
 }
 
-task integrationTest(type: Exec ) {
-  commandLine "spark-smoke-test/smoke.sh"
-}
+//task integrationTest(type: Exec ) {
+//  commandLine "spark-smoke-test/smoke.sh"
+//}
 
 task sourcesJar(type: Jar) {
     classifier 'sources'
