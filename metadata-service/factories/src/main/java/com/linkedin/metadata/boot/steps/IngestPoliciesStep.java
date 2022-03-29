@@ -61,8 +61,15 @@ public class IngestPoliciesStep implements BootstrapStep {
     // 2. For each JSON object, cast into a DataHub Policy Info object.
     for (Iterator<JsonNode> it = policiesObj.iterator(); it.hasNext(); ) {
       final JsonNode policyObj = it.next();
-      final DataHubPolicyInfo info = RecordUtils.toRecordTemplate(DataHubPolicyInfo.class, policyObj.get("info").toString());
       final Urn urn = Urn.createFromString(policyObj.get("urn").asText());
+
+      // If the info is not there, it means that the policy was there before, but must now be removed
+      if (!policyObj.has("info")) {
+        _entityService.deleteUrn(urn);
+        continue;
+      }
+
+      final DataHubPolicyInfo info = RecordUtils.toRecordTemplate(DataHubPolicyInfo.class, policyObj.get("info").toString());
 
       if (!info.isEditable()) {
         // If the Policy is not editable, always re-ingest.
@@ -70,7 +77,7 @@ public class IngestPoliciesStep implements BootstrapStep {
         ingestPolicy(urn, info);
       } else {
         // If the Policy is editable (ie. an example policy), only ingest on a clean boot up.
-        if (!hasDefaultPolicies) {
+        if (!hasPolicy(urn)) {
           log.info(String.format("Ingesting default policy with urn %s", urn));
           ingestPolicy(urn, info);
         } else {
@@ -111,6 +118,12 @@ public class IngestPoliciesStep implements BootstrapStep {
     // This will retain any changes made to policies after initial bootstrap.
     final Urn defaultPolicyUrn = Urn.createFromString("urn:li:dataHubPolicy:0");
     RecordTemplate aspect = _entityService.getAspect(defaultPolicyUrn, POLICY_INFO_ASPECT_NAME, 0);
+    return aspect != null;
+  }
+
+  private boolean hasPolicy(Urn policyUrn) {
+    // Check if policy exists
+    RecordTemplate aspect = _entityService.getAspect(policyUrn, POLICY_INFO_ASPECT_NAME, 0);
     return aspect != null;
   }
 }

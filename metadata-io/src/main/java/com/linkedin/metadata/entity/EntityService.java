@@ -54,8 +54,9 @@ import lombok.Setter;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.utils.PegasusUtils.*;
+import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
+import static com.linkedin.metadata.utils.PegasusUtils.getDataTemplateClassFromSchema;
+import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 
 
 /**
@@ -141,6 +142,23 @@ public abstract class EntityService {
    */
   @Nullable
   public abstract RecordTemplate getAspect(@Nonnull final Urn urn, @Nonnull final String aspectName, long version);
+
+  /**
+   * Retrieves the latest aspects for the given urn as dynamic aspect objects
+   * (Without having to define union objects)
+   *
+   * @param entityName name of the entity to fetch
+   * @param urn urn of entity to fetch
+   * @param aspectNames set of aspects to fetch
+   * @return a map of {@link Urn} to {@link Entity} object
+   */
+  @Nullable
+  public EntityResponse getEntityV2(
+      @Nonnull final String entityName,
+      @Nonnull final Urn urn,
+      @Nonnull final Set<String> aspectNames) throws URISyntaxException {
+    return getEntitiesV2(entityName, Collections.singleton(urn), aspectNames).get(urn);
+  }
 
   /**
    * Retrieves the latest aspects for the given set of urns as dynamic aspect objects
@@ -360,7 +378,7 @@ public abstract class EntityService {
           result.getNewSystemMetadata(), MetadataAuditOperation.UPDATE);
       produceMAETimer.stop();
     } else {
-      log.debug("Skipped producing MetadataAuditEvent for ingested aspect {}, urn {}. Aspect has not changed.", 
+      log.debug("Skipped producing MetadataAuditEvent for ingested aspect {}, urn {}. Aspect has not changed.",
         aspectName, urn);
     }
     return updatedValue;

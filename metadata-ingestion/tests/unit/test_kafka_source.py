@@ -152,7 +152,7 @@ class KafkaSourceTest(unittest.TestCase):
         assert isinstance(first_mce, MetadataChangeEvent)
         mock_kafka.assert_called_once()
         mock_kafka_instance.list_topics.assert_called_once()
-        assert len(workunits) == 2
+        assert len(workunits) == 4
 
     @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
     def test_kafka_source_workunits_topic_pattern(self, mock_kafka):
@@ -173,7 +173,7 @@ class KafkaSourceTest(unittest.TestCase):
 
         mock_kafka.assert_called_once()
         mock_kafka_instance.list_topics.assert_called_once()
-        assert len(workunits) == 1
+        assert len(workunits) == 2
 
         mock_cluster_metadata.topics = ["test", "test2", "bazbaz"]
         ctx = PipelineContext(run_id="test2")
@@ -185,7 +185,7 @@ class KafkaSourceTest(unittest.TestCase):
             ctx,
         )
         workunits = [w for w in kafka_source.get_workunits()]
-        assert len(workunits) == 2
+        assert len(workunits) == 4
 
     @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
     def test_kafka_source_workunits_with_platform_instance(self, mock_kafka):
@@ -209,8 +209,8 @@ class KafkaSourceTest(unittest.TestCase):
         )
         workunits = [w for w in kafka_source.get_workunits()]
 
-        # We should only have 1 topic
-        assert len(workunits) == 1
+        # We should only have 1 topic + sub-type wu.
+        assert len(workunits) == 2
         proposed_snap = workunits[0].metadata.proposedSnapshot
         assert proposed_snap.urn == make_dataset_urn_with_platform_instance(
             platform=PLATFORM,
@@ -399,10 +399,13 @@ class KafkaSourceTest(unittest.TestCase):
 
         mock_kafka_consumer.assert_called_once()
         mock_kafka_instance.list_topics.assert_called_once()
-        assert len(workunits) == 4
-        for i, wu in enumerate(workunits):
-            assert isinstance(wu.metadata, MetadataChangeEvent)
+        assert len(workunits) == 8
+        i: int = -1
+        for wu in workunits:
+            if not isinstance(wu.metadata, MetadataChangeEvent):
+                continue
             mce: MetadataChangeEvent = wu.metadata
+            i += 1
 
             if i < len(topic_subject_schema_map.keys()):
                 # First 3 workunits (topics) must have schemaMetadata aspect
