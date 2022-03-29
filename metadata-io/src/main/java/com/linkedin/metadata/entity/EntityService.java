@@ -244,7 +244,7 @@ public abstract class EntityService {
   }
 
   private void validateAspect(Urn urn, RecordTemplate aspect) {
-    UrnValidator validator = new UrnValidator(_entityRegistry);
+    EntityRegistryUrnValidator validator = new EntityRegistryUrnValidator(_entityRegistry);
     validator.setCurrentEntitySpec(_entityRegistry.getEntitySpec(urn.getEntityType()));
     RecordTemplateValidator.validate(aspect, validationResult -> {
         throw new IllegalArgumentException("Invalid urn format for aspect: " + aspect + " for entity: " + urn + "\n Cause: "

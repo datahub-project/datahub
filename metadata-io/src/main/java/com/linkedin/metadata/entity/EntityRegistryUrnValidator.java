@@ -25,13 +25,13 @@ import java.util.stream.Collectors;
 import lombok.Setter;
 
 
-public class UrnValidator implements Validator {
+public class EntityRegistryUrnValidator implements Validator {
 
   private final EntityRegistry _entityRegistry;
   @Setter
   private EntitySpec currentEntitySpec = null;
 
-  public UrnValidator(EntityRegistry entityRegistry) {
+  public EntityRegistryUrnValidator(EntityRegistry entityRegistry) {
     _entityRegistry = entityRegistry;
   }
 
