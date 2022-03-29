@@ -94,17 +94,18 @@ def unquote(string: str, leading_quote: str = '"', trailing_quote: str = None) -
     return string
 
 
-def get_instance_name(self, source_platform: str):
+def get_instance_name(
+    config: KafkaConnectSourceConfig, kafka_connector_name: str, source_platform: str
+) -> Optional[str]:
     instance_name = None
-    if self.config.connect_to_platform_map:
-        for connector_name in self.config.connect_to_platform_map:
-            if connector_name == self.connector_manifest.name:
-                instance_name = self.config.connect_to_platform_map[connector_name][
+    if config.connect_to_platform_map:
+        for connector_name in config.connect_to_platform_map:
+            if connector_name == kafka_connector_name:
+                instance_name = config.connect_to_platform_map[connector_name][
                     source_platform
                 ]
-                if (
-                    self.config.platform_instance_map
-                    and self.config.platform_instance_map.get(source_platform)
+                if config.platform_instance_map and config.platform_instance_map.get(
+                    source_platform
                 ):
                     logger.error(
                         f"Same source platform {source_platform} configured in both platform_instance_map and connect_to_platform_map"
@@ -309,6 +310,24 @@ class ConfluentJDBCSourceConnector:
 
         return []
 
+    def update_connector_manifest_lineage(
+        self, source_platform: str, lineages: List[KafkaConnectLineage]
+    ) -> None:
+        for topic in self.connector_manifest.topic_names:
+            # default method - as per earlier implementation
+            lineage = KafkaConnectLineage(
+                source_platform=source_platform,
+                target_dataset=topic,
+                target_platform="kafka",
+            )
+            lineages.append(lineage)
+            self.report_warning(
+                self.connector_manifest.name,
+                "could not find input dataset, the connector has query configuration set",
+            )
+            self.connector_manifest.lineages = lineages
+            return
+
     def _extract_lineages(self):
         lineages: List[KafkaConnectLineage] = list()
         parser = self.get_parser(self.connector_manifest)
@@ -318,7 +337,9 @@ class ConfluentJDBCSourceConnector:
         topic_prefix = parser.topic_prefix
         transforms = parser.transforms
         self.connector_manifest.flow_property_bag = self.connector_manifest.config
-        instance_name = get_instance_name(self, source_platform)
+        instance_name = get_instance_name(
+            self.config, self.connector_manifest.name, source_platform
+        )
 
         # Mask/Remove properties that may reveal credentials
         self.connector_manifest.flow_property_bag[
@@ -340,20 +361,7 @@ class ConfluentJDBCSourceConnector:
         if query:
             # Lineage source_table can be extracted by parsing query
             # For now, we use source table as topic (expected to be same as topic prefix)
-            for topic in self.connector_manifest.topic_names:
-                # default method - as per earlier implementation
-                lineage = KafkaConnectLineage(
-                    source_platform=source_platform,
-                    target_dataset=topic,
-                    target_platform="kafka",
-                )
-                lineages.append(lineage)
-                self.report_warning(
-                    self.connector_manifest.name,
-                    "could not find input dataset, the connector has query configuration set",
-                )
-                self.connector_manifest.lineages = lineages
-                return
+            self.update_connector_manifest_lineage(source_platform, lineages)
 
         SINGLE_TRANSFORM = len(transforms) == 1
         NO_TRANSFORM = len(transforms) == 0
@@ -548,7 +556,9 @@ class DebeziumSourceConnector:
         server_name = parser.server_name
         database_name = parser.database_name
         topic_naming_pattern = r"({0})\.(\w+\.\w+)".format(server_name)
-        instance_name = get_instance_name(self, source_platform)
+        instance_name = get_instance_name(
+            self.config, self.connector_manifest.name, source_platform
+        )
 
         if not self.connector_manifest.topic_names:
             return lineages
