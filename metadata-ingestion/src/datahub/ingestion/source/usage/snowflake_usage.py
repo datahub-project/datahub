@@ -274,7 +274,8 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
         start_time = int(self.config.start_time.timestamp() * 1000)
         end_time = int(self.config.end_time.timestamp() * 1000)
         return SNOWFLAKE_USAGE_SQL_TEMPLATE.format(
-            start_time_millis=start_time, end_time_millis=end_time
+            start_time_millis=start_time,
+            end_time_millis=end_time,
         )
 
     def _make_sql_engine(self) -> Engine:
