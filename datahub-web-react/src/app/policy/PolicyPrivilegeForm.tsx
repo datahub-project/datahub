@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { Form, Select, Tag, Typography } from 'antd';
+import { Link } from 'react-router-dom';
+import { Form, Select, Tag, Tooltip, Typography } from 'antd';
 import styled from 'styled-components';
 
 import { useEntityRegistry } from '../useEntityRegistry';
@@ -25,6 +26,13 @@ type Props = {
     privileges: Array<string>;
     setPrivileges: (newPrivs: Array<string>) => void;
 };
+
+const SearchResultContainer = styled.div`
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+`;
 
 const PrivilegesForm = styled(Form)`
     margin: 12px;
@@ -100,7 +108,7 @@ export default function PolicyPrivilegeForm({
     const getEntityFromSearchResults = (searchResults, urn) =>
         searchResults?.map((result) => result.entity).find((entity) => entity.urn === urn);
 
-    // When a privilege is selected, add its type to the privileges list test
+    // When a privilege is selected, add its type to the privileges list
     const onSelectPrivilege = (privilege: string) => {
         if (privilege === 'All') {
             setPrivileges(privilegeOptions.map((priv) => priv.type) as never[]);
@@ -246,6 +254,21 @@ export default function PolicyPrivilegeForm({
         }
     };
 
+    const renderSearchResult = (result) => {
+        return (
+            <SearchResultContainer>
+                {entityRegistry.getDisplayName(result.entity.type, result.entity)}
+                <Link
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    to={() => `/${entityRegistry.getPathName(result.entity.type)}/${result.entity.urn}`}
+                >
+                    View
+                </Link>
+            </SearchResultContainer>
+        );
+    };
+
     return (
         <PrivilegesForm layout="vertical">
             {showResourceFilterInput && (
@@ -293,12 +316,14 @@ export default function PolicyPrivilegeForm({
                         onSearch={handleResourceSearch}
                         tagRender={(tagProps) => (
                             <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
-                                {resourceUrnToDisplayName[tagProps.value.toString()] || tagProps.value.toString()}
+                                <Tooltip title={tagProps.value.toString()}>
+                                    {resourceUrnToDisplayName[tagProps.value.toString()] || tagProps.value.toString()}
+                                </Tooltip>
                             </Tag>
                         )}
                     >
                         {resourceSearchResults?.map((result) => (
-                            <Select.Option value={result.entity.urn}>{getDisplayName(result.entity)}</Select.Option>
+                            <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
                         ))}
                     </Select>
                 </Form.Item>
@@ -324,7 +349,7 @@ export default function PolicyPrivilegeForm({
                         )}
                     >
                         {domainSearchResults?.map((result) => (
-                            <Select.Option value={result.entity.urn}>{getDisplayName(result.entity)}</Select.Option>
+                            <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
                         ))}
                     </Select>
                 </Form.Item>

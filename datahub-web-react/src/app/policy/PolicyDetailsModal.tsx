@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { Button, Divider, Modal, Tag, Typography } from 'antd';
 import styled from 'styled-components';
 import { useEntityRegistry } from '../useEntityRegistry';
@@ -74,6 +75,12 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
         config: { policiesConfig },
     } = useAppConfig();
 
+    const actionButtons = (
+        <ButtonsContainer>
+            <Button onClick={onClose}>Close</Button>
+        </ButtonsContainer>
+    );
+
     const getDisplayName = (entity) => {
         if (!entity) {
             return null;
@@ -81,11 +88,19 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
         return entityRegistry.getDisplayName(entity.type, entity);
     };
 
-    const actionButtons = (
-        <ButtonsContainer>
-            <Button onClick={onClose}>Close</Button>
-        </ButtonsContainer>
-    );
+    const getEntityTag = (criterionValue) => {
+        return (
+            (criterionValue.entity && (
+                <Link
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    to={() => `/${entityRegistry.getPathName(criterionValue.entity!.type)}/${criterionValue.value}`}
+                >
+                    {getDisplayName(criterionValue.entity)}
+                </Link>
+            )) || <Typography.Text>{criterionValue.value}</Typography.Text>
+        );
+    };
 
     return (
         <Modal title={policy?.name} visible={visible} onCancel={onClose} closable width={800} footer={actionButtons}>
@@ -133,9 +148,7 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
                                     return (
                                         // eslint-disable-next-line react/no-array-index-key
                                         <PoliciesTag key={`resource-${value.value}-${key}`}>
-                                            <Typography.Text>
-                                                {getDisplayName(value.entity) || value.value}
-                                            </Typography.Text>
+                                            {getEntityTag(value)}
                                         </PoliciesTag>
                                     );
                                 })) || <PoliciesTag>All</PoliciesTag>}
@@ -148,9 +161,7 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
                                     return (
                                         // eslint-disable-next-line react/no-array-index-key
                                         <PoliciesTag key={`domain-${value.value}-${key}`}>
-                                            <Typography.Text>
-                                                {getDisplayName(value.entity) || value.value}
-                                            </Typography.Text>
+                                            {getEntityTag(value)}
                                         </PoliciesTag>
                                     );
                                 })) || <PoliciesTag>All</PoliciesTag>}
