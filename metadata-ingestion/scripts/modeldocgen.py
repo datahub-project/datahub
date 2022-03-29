@@ -89,8 +89,11 @@ class AspectDefinition:
     schema: Optional[avro.schema.Schema] = None
     type: Optional[str] = None
 
+@dataclass
+class EventDefinition:
+    name: str
 
-entity_registry: Dict[str, Any] = {}
+entity_registry: Dict[str, EntityDefinition] = {}
 
 
 def get_aspects_from_snapshot(
@@ -516,6 +519,7 @@ def generate_stitched_record(relnships_graph: RelationshipGraph) -> List[Any]:
 
 class EntityRegistry(ConfigModel):
     entities: List[EntityDefinition]
+    events: Optional[List[EventDefinition]]
 
 
 def load_registry_file(registry_file: str) -> Dict[str, EntityDefinition]:
