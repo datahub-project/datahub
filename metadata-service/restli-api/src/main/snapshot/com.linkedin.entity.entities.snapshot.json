@@ -5120,6 +5120,16 @@
     } ]
   }, "com.linkedin.metadata.query.filter.SortOrder", {
     "type" : "record",
+    "name" : "AspectInfo",
+    "namespace" : "com.linkedin.metadata.run",
+    "doc" : " This struct serves to report Aspect information to users of the GMS HTTP resources",
+    "fields" : [ {
+      "name" : "urn",
+      "type" : "string",
+      "doc" : "Name of the entity this aspect information instance refers to."
+    } ]
+  }, {
+    "type" : "record",
     "name" : "AspectRowSummary",
     "namespace" : "com.linkedin.metadata.run",
     "fields" : [ {
@@ -5179,6 +5189,16 @@
       "name" : "aspectsReverted",
       "type" : "long",
       "optional" : true
+    }, {
+      "name" : "unsafeEntitiesCount",
+      "type" : "long",
+      "optional" : true
+    }, {
+      "name" : "unsafeEntities",
+      "type" : {
+        "type" : "array",
+        "items" : "AspectInfo"
+      }
     } ]
   }, {
     "type" : "record",

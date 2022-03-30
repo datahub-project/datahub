@@ -234,7 +234,7 @@ def parse_run_restli_response(response: requests.Response) -> dict:
 def post_rollback_endpoint(
     payload_obj: dict,
     path: str,
-) -> typing.Tuple[typing.List[typing.List[str]], int, int, int]:
+) -> typing.Tuple[typing.List[typing.List[str]], int, int, int, int, typing.List[dict]]:
     session, gms_host = get_session_and_host()
     url = gms_host + path
 
@@ -246,6 +246,8 @@ def post_rollback_endpoint(
     entities_affected = summary.get("entitiesAffected", 0)
     aspects_reverted = summary.get("aspectsReverted", 0)
     aspects_affected = summary.get("aspectsAffected", 0)
+    unsafe_entity_count = summary.get("unsafeEntitiesCount", 0)
+    unsafe_entities = summary.get("unsafeEntities", [])
     rolled_back_aspects = list(
         filter(lambda row: row["runId"] == payload_obj["runId"], rows)
     )
@@ -271,6 +273,8 @@ def post_rollback_endpoint(
         entities_affected,
         aspects_reverted,
         aspects_affected,
+        unsafe_entity_count,
+        unsafe_entities,
     )
 
 

@@ -5,6 +5,8 @@ import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.restli.RestliUtil;
+import com.linkedin.metadata.run.AspectInfo;
+import com.linkedin.metadata.run.AspectInfoArray;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.AspectRowSummaryArray;
 import com.linkedin.metadata.run.IngestionRunSummary;
@@ -18,15 +20,16 @@ import com.linkedin.restli.server.annotations.Optional;
 import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
 import io.opentelemetry.extension.annotations.WithSpan;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Named;
-import lombok.extern.slf4j.Slf4j;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 
 /**
@@ -80,7 +83,6 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
                 .collect(Collectors.partitioningBy(AspectRowSummary::isKeyAspect));
 
         final List<AspectRowSummary> keyAspects = aspectsSplitByIsKeyAspects.get(true);
-        final List<AspectRowSummary> nonKeyAspects = aspectsSplitByIsKeyAspects.get(false);
 
         long entitiesDeleted = keyAspects.size();
         long aspectsReverted = aspectRowsToDelete.size();
@@ -88,28 +90,42 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
         final long affectedEntities = aspectRowsToDelete.stream()
                 .collect(Collectors.groupingBy(AspectRowSummary::getUrn)).keySet().size();
 
-        final AspectRowSummaryArray rowSummaries = new AspectRowSummaryArray(keyAspects);
-        // Add non-key aspects up to a total of 100 aspect row summaries entries or all key aspects which ever is smaller.
-        rowSummaries.addAll(nonKeyAspects.subList(0, Math.min(100, Math.max(keyAspects.size(), nonKeyAspects.size()))));
-
-        long affectedAspects = 0;
+        final AspectRowSummaryArray rowSummaries = new AspectRowSummaryArray(
+                aspectRowsToDelete.subList(0, Math.min(100, aspectRowsToDelete.size())));
 
         // If we are soft deleting, remove key aspects from count of aspects being deleted
         if (!doHardDelete) {
           aspectsReverted -= keyAspects.size();
           rowSummaries.removeIf(AspectRowSummary::isKeyAspect);
         }
-        // Count the number of aspects that exist referencing the key aspects we are deleting
-        affectedAspects = keyAspects.stream()
+        // Compute the aspects that exist referencing the key aspects we are deleting
+        final List<AspectRowSummary> affectedAspectsList = keyAspects.stream()
                 .map((AspectRowSummary urn) -> _systemMetadataService.findByUrn(urn.getUrn(), false))
                 .flatMap(List::stream)
                 .filter(row -> !row.getRunId().equals(runId))
-                .count();
+                .collect(Collectors.toList());
+
+        long affectedAspects = affectedAspectsList.size();
+        long unsafeEntitiesCount = affectedAspectsList.stream()
+                .collect(Collectors.groupingBy(AspectRowSummary::getUrn)).keySet().size();
+
+        final List<AspectInfo> aspectInfos = affectedAspectsList.stream().map(AspectRowSummary::getUrn)
+                .distinct()
+                .map(urn -> {
+                  AspectInfo aspectInfo = new AspectInfo();
+                  aspectInfo.setUrn(urn);
+                  return aspectInfo;
+                })
+                // Return at most 1 million rows
+                .limit(1000000)
+                .collect(Collectors.toList());
 
         return response.setAspectsAffected(affectedAspects)
                 .setAspectsReverted(aspectsReverted)
                 .setEntitiesAffected(affectedEntities)
                 .setEntitiesDeleted(entitiesDeleted)
+                .setUnsafeEntitiesCount(unsafeEntitiesCount)
+                .setUnsafeEntities(new AspectInfoArray(aspectInfos))
                 .setAspectRowSummaries(rowSummaries);
       }
 
@@ -135,30 +151,46 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
               .collect(Collectors.partitioningBy(AspectRowSummary::isKeyAspect));
 
       final List<AspectRowSummary> keyAspects = aspectsSplitByIsKeyAspects.get(true);
-      final List<AspectRowSummary> nonKeyAspects = aspectsSplitByIsKeyAspects.get(false);
 
       final long entitiesDeleted = keyAspects.size();
       final long affectedEntities = deletedRows.stream()
               .collect(Collectors.groupingBy(AspectRowSummary::getUrn)).keySet().size();
 
-      final AspectRowSummaryArray rowSummaries = new AspectRowSummaryArray(keyAspects);
-      // Add non-key aspects up to a total of 100 aspect row summaries entries or all key aspects which ever is smaller.
-      rowSummaries.addAll(nonKeyAspects.subList(0, Math.min(100, Math.max(keyAspects.size(), nonKeyAspects.size()))));
+      final AspectRowSummaryArray rowSummaries = new AspectRowSummaryArray(
+              aspectRowsToDelete.subList(0, Math.min(100, aspectRowsToDelete.size())));
 
       log.info("computing aspects affected by this rollback...");
-      // Count the number of aspects that exist referencing the key aspects we are deleting
-      long affectedAspects = keyAspects.stream()
+      // Compute the aspects that exist referencing the key aspects we are deleting
+      final List<AspectRowSummary> affectedAspectsList = keyAspects.stream()
               .map((AspectRowSummary urn) -> _systemMetadataService.findByUrn(urn.getUrn(), false))
               .flatMap(List::stream)
               .filter(row -> !row.getRunId().equals(runId))
-              .count();
+              .collect(Collectors.toList());
+
+      long affectedAspects = affectedAspectsList.size();
+      long unsafeEntitiesCount = affectedAspectsList.stream()
+              .collect(Collectors.groupingBy(AspectRowSummary::getUrn)).keySet().size();
+
+      final List<AspectInfo> aspectInfos = affectedAspectsList.stream().map(AspectRowSummary::getUrn)
+              .distinct()
+              .map(urn -> {
+                AspectInfo aspectInfo = new AspectInfo();
+                aspectInfo.setUrn(urn);
+                return aspectInfo;
+              })
+              // Return at most 1 million rows
+              .limit(1000000)
+              .collect(Collectors.toList());
+
       log.info("calculation done.");
 
       return response.setAspectsAffected(affectedAspects)
-        .setAspectsReverted(aspectsReverted)
-        .setEntitiesAffected(affectedEntities)
-        .setEntitiesDeleted(entitiesDeleted)
-        .setAspectRowSummaries(rowSummaries);
+              .setAspectsReverted(aspectsReverted)
+              .setEntitiesAffected(affectedEntities)
+              .setEntitiesDeleted(entitiesDeleted)
+              .setUnsafeEntitiesCount(unsafeEntitiesCount)
+              .setUnsafeEntities(new AspectInfoArray(aspectInfos))
+              .setAspectRowSummaries(rowSummaries);
     }, MetricRegistry.name(this.getClass(), "rollback"));
   }
 
@@ -166,7 +198,7 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
     if (size < ELASTIC_MAX_PAGE_SIZE) {
       return String.valueOf(size);
     } else {
-      return "at least " + String.valueOf(size);
+      return "at least " + size;
     }
   }
 

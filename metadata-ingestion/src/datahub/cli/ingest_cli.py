@@ -1,6 +1,7 @@
 import csv
 import json
 import logging
+import os
 import pathlib
 import sys
 from datetime import datetime
@@ -188,6 +189,8 @@ def show(run_id: str) -> None:
         entities_affected,
         aspects_modified,
         aspects_affected,
+        unsafe_entity_count,
+        unsafe_entities,
     ) = post_rollback_endpoint(payload_obj, "/runs?action=rollback")
 
     if aspects_modified >= ELASTIC_MAX_PAGE_SIZE:
@@ -213,9 +216,17 @@ def show(run_id: str) -> None:
 @click.option("-f", "--force", required=False, is_flag=True)
 @click.option("--dry-run", "-n", required=False, is_flag=True, default=False)
 @click.option("--safe/--nuke", required=False, is_flag=True, default=True)
-@click.option("--save", "-s", required=False, type=str, default="")
+@click.option(
+    "--report-dir",
+    required=False,
+    type=str,
+    default="./rollback-reports",
+    help="Path to directory where rollback reports will be saved to",
+)
 @telemetry.with_telemetry
-def rollback(run_id: str, force: bool, dry_run: bool, safe: bool, save: str) -> None:
+def rollback(
+    run_id: str, force: bool, dry_run: bool, safe: bool, report_dir: str
+) -> None:
     """Rollback a provided ingestion run to datahub"""
 
     cli_utils.test_connectivity_complain_exit("ingest")
@@ -232,6 +243,8 @@ def rollback(run_id: str, force: bool, dry_run: bool, safe: bool, save: str) -> 
         entities_affected,
         aspects_reverted,
         aspects_affected,
+        unsafe_entity_count,
+        unsafe_entities,
     ) = post_rollback_endpoint(payload_obj, "/runs?action=rollback")
 
     click.echo(
@@ -249,21 +262,33 @@ def rollback(run_id: str, force: bool, dry_run: bool, safe: bool, save: str) -> 
     if aspects_affected > 0:
         if safe:
             click.echo(
-                f"WARNING: This rollback {'will hide' if dry_run else 'has hidden'} {aspects_affected} aspects related to entities being rolled back that are not part ingestion run id."
+                f"WARNING: This rollback {'will hide' if dry_run else 'has hidden'} {aspects_affected} aspects related to {unsafe_entity_count} entities being rolled back that are not part ingestion run id."
             )
         else:
             click.echo(
-                f"WARNING: This rollback {'will delete' if dry_run else 'has deleted'} {aspects_affected} aspects related to entities being rolled back that are not part ingestion run id."
+                f"WARNING: This rollback {'will delete' if dry_run else 'has deleted'} {aspects_affected} aspects related to {unsafe_entity_count} entities being rolled back that are not part ingestion run id."
             )
 
-    if save:
+    if unsafe_entity_count > 0:
+        now = datetime.now()
+        current_time = now.strftime("%Y-%m-%d %H:%M:%S")
+
         try:
-            with open(save, "w") as filehandle:
-                writer = csv.writer(filehandle)
-                writer.writerow(
-                    map(lambda str: str.replace(" ", "_"), RUN_TABLE_COLUMNS)
-                )
-                writer.writerows(structured_rows)
-                filehandle.close()
-        except IOError:
-            sys.exit("Unable to write to file " + save)
+            folder_name = report_dir + "/" + current_time
+
+            ingestion_config_file_name = folder_name + "/config.json"
+            os.makedirs(os.path.dirname(ingestion_config_file_name), exist_ok=True)
+            with open(ingestion_config_file_name, "w") as file_handle:
+                json.dump({"run_id": run_id}, file_handle)
+                file_handle.close()
+
+            csv_file_name = folder_name + "/unsafe_entities.csv"
+            with open(csv_file_name, "w") as file_handle:
+                writer = csv.writer(file_handle)
+                writer.writerow(["urn"])
+                for row in unsafe_entities:
+                    writer.writerow([row.get("urn")])
+                file_handle.close()
+        except IOError as e:
+            print(e)
+            sys.exit("Unable to write reports to " + report_dir)

@@ -6,4 +6,6 @@ record RollbackResponse {
     aspectsAffected: long
     entitiesDeleted: optional long
     aspectsReverted: optional long
+    unsafeEntitiesCount: optional long
+    unsafeEntities: array[AspectInfo]
 }
