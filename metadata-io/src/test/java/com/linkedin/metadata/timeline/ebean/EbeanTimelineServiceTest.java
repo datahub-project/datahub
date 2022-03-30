@@ -21,7 +21,9 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.schema.MySqlDDL;
 import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaFieldArray;
+import com.linkedin.schema.SchemaFieldDataType;
 import com.linkedin.schema.SchemaMetadata;
+import com.linkedin.schema.StringType;
 import com.linkedin.util.Pair;
 import io.ebean.EbeanServer;
 import io.ebean.EbeanServerFactory;
@@ -164,7 +166,11 @@ public class EbeanTimelineServiceTest {
   }
 
   private SchemaMetadata getSchemaMetadata(String s) {
-    SchemaField field1 = new SchemaField().setFieldPath("column1").setDescription(s).setNativeDataType("string");
+    SchemaField field1 = new SchemaField()
+        .setFieldPath("column1")
+        .setDescription(s)
+        .setType(new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())))
+        .setNativeDataType("string");
 
     SchemaFieldArray fieldArray = new SchemaFieldArray();
     fieldArray.add(field1);
@@ -172,6 +178,8 @@ public class EbeanTimelineServiceTest {
     return new SchemaMetadata().setSchemaName("testSchema")
         .setPlatformSchema(SchemaMetadata.PlatformSchema.create(new MySqlDDL().setTableSchema("foo")))
         .setPlatform(new DataPlatformUrn("hive"))
+        .setHash("")
+        .setVersion(0L)
         .setDataset(new DatasetUrn(new DataPlatformUrn("hive"), "testDataset", FabricType.TEST))
         .setFields(fieldArray);
   }

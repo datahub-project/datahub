@@ -35,6 +35,13 @@ import javax.annotation.Nullable;
 // Consider renaming this to datahub client.
 public interface EntityClient {
 
+  @Nullable
+  public EntityResponse getV2(
+      @Nonnull String entityName,
+      @Nonnull final Urn urn,
+      @Nullable final Set<String> aspectNames,
+      @Nonnull final Authentication authentication) throws RemoteInvocationException, URISyntaxException;
+
   @Nonnull
   @Deprecated
   public Entity get(@Nonnull final Urn urn, @Nonnull final Authentication authentication)
