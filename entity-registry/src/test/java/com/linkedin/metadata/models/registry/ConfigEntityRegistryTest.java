@@ -3,6 +3,7 @@ package com.linkedin.metadata.models.registry;
 import com.datahub.test.TestEntityProfile;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.EventSpec;
 import java.io.FileNotFoundException;
 import java.util.Map;
 import org.testng.annotations.BeforeTest;
@@ -25,7 +26,9 @@ public class ConfigEntityRegistryTest {
         TestEntityProfile.class.getClassLoader().getResourceAsStream("test-entity-registry.yml"));
 
     Map<String, EntitySpec> entitySpecs = configEntityRegistry.getEntitySpecs();
+    Map<String, EventSpec> eventSpecs = configEntityRegistry.getEventSpecs();
     assertEquals(entitySpecs.values().size(), 2);
+    assertEquals(eventSpecs.values().size(), 1);
 
     EntitySpec entitySpec = configEntityRegistry.getEntitySpec("dataset");
     assertEquals(entitySpec.getName(), "dataset");
@@ -43,6 +46,10 @@ public class ConfigEntityRegistryTest {
     assertNotNull(entitySpec.getAspectSpec("chartKey"));
     assertNotNull(entitySpec.getAspectSpec("chartInfo"));
     assertNotNull(entitySpec.getAspectSpec("status"));
+
+    EventSpec eventSpec = configEntityRegistry.getEventSpec("testEvent");
+    assertEquals(eventSpec.getName(), "testEvent");
+    assertNotNull(eventSpec.getPegasusSchema());
   }
 
   @Test

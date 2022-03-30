@@ -8,6 +8,9 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 
+/**
+ * A specification of a DataHub Entity
+ */
 public interface EntitySpec {
   String getName();
 

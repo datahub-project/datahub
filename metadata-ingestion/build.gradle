@@ -66,15 +66,15 @@ task lint(type: Exec, dependsOn: installDev) {
    */
   commandLine 'bash', '-x', '-c',
     "find ${venv_name}/lib -path *airflow/_vendor/connexion/spec.py -exec sed -i.bak -e '169,169s/  # type: List\\[str\\]//g' {} \\; && " +
-    "source ${venv_name}/bin/activate && black --check --diff src/ tests/ && isort --check --diff src/ tests/ && flake8 --count --statistics src/ tests/ && mypy src/ tests/"
+    "source ${venv_name}/bin/activate && black --check --diff src/ tests/ examples/ && isort --check --diff src/ tests/ examples/ && flake8 --count --statistics src/ tests/ examples/ && mypy src/ tests/ examples/"
 }
 task lintFix(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-x', '-c',
     "source ${venv_name}/bin/activate && " +
-    "black src/ tests/ && " +
-    "isort src/ tests/ && " +
-    "flake8 src/ tests/ && " +
-    "mypy src/ tests/"
+    "black src/ tests/ examples/ && " +
+    "isort src/ tests/ examples/ && " +
+    "flake8 src/ tests/ examples/ && " +
+    "mypy src/ tests/ examples/"
 }
 
 task testQuick(type: Exec, dependsOn: installDev) {
