@@ -12,7 +12,6 @@ import com.linkedin.common.DataJobUrn
  */
 @Aspect = {
   "name": "dataProcessInstanceProperties",
-  "type": "timeseries",
 }
 record DataProcessInstanceProperties includes CustomProperties, ExternalReference {
 
