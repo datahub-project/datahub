@@ -54,7 +54,16 @@ public class ProtobufGraph extends DefaultDirectedGraph<ProtobufElement, FieldTy
             DescriptorProtos.FileDescriptorProto lastFile = fileSetExtended.getFileList()
                     .stream().filter(f -> filename != null && filename.endsWith(f.getName()))
                     .findFirst().orElse(fileSetExtended.getFile(fileSetExtended.getFileCount() - 1));
-            this.rootProtobufMessage = autodetectRootMessage(lastFile);
+
+            if (filename != null) {
+                this.rootProtobufMessage = autodetectRootMessage(lastFile)
+                        .orElse(autodetectSingleMessage(lastFile)
+                                .orElse(autodetectLocalFileRootMessage(lastFile)
+                                        .orElseThrow(() -> new IllegalArgumentException("Cannot autodetect protobuf Message."))));
+            } else {
+                this.rootProtobufMessage = autodetectRootMessage(lastFile)
+                        .orElseThrow(() -> new IllegalArgumentException("Cannot autodetect root protobuf Message."));
+            }
         }
 
         this.directedPaths = new AllDirectedPaths<>(this);
@@ -97,18 +106,40 @@ public class ProtobufGraph extends DefaultDirectedGraph<ProtobufElement, FieldTy
         );
     }
 
-    protected ProtobufMessage autodetectRootMessage(DescriptorProtos.FileDescriptorProto lastFile) throws IllegalArgumentException {
-        return (ProtobufMessage) vertexSet().stream()
+    protected Optional<ProtobufMessage> autodetectRootMessage(DescriptorProtos.FileDescriptorProto targetFile) throws IllegalArgumentException {
+        return vertexSet().stream()
                 .filter(v -> // incoming edges of fields
-                        lastFile.equals(v.fileProto())
+                        targetFile.equals(v.fileProto())
                                 && v instanceof ProtobufMessage
                                 && incomingEdgesOf(v).isEmpty()
                                 && outgoingEdgesOf(v).stream()
                                 .flatMap(e -> incomingEdgesOf(e.getEdgeTarget()).stream())
                                 .allMatch(e -> e.getEdgeSource().equals(v))) // all the incoming edges on the child vertices should be self
-                .findFirst().orElseThrow(() ->
-                        new IllegalArgumentException("Cannot autodetect protobuf Message.")
-                );
+                .map(v -> (ProtobufMessage) v)
+                .findFirst();
+    }
+
+    protected Optional<ProtobufMessage> autodetectSingleMessage(DescriptorProtos.FileDescriptorProto targetFile) throws IllegalArgumentException {
+        return vertexSet().stream()
+                .filter(v -> // incoming edges of fields
+                        targetFile.equals(v.fileProto())
+                                && v instanceof ProtobufMessage
+                                && targetFile.getMessageTypeCount() == 1)
+                .map(v -> (ProtobufMessage) v)
+                .findFirst();
+    }
+
+    protected Optional<ProtobufMessage> autodetectLocalFileRootMessage(DescriptorProtos.FileDescriptorProto targetFile) throws IllegalArgumentException {
+        return vertexSet().stream()
+                .filter(v -> // incoming edges of fields
+                        targetFile.equals(v.fileProto())
+                                && v instanceof ProtobufMessage
+                                && incomingEdgesOf(v).stream().noneMatch(e -> e.getEdgeSource().fileProto().equals(targetFile))
+                                && outgoingEdgesOf(v).stream() // all the incoming edges on the child vertices should be self within target file
+                                .flatMap(e -> incomingEdgesOf(e.getEdgeTarget()).stream())
+                                .allMatch(e -> !e.getEdgeSource().fileProto().equals(targetFile) || e.getEdgeSource().equals(v)))
+                .map(v -> (ProtobufMessage) v)
+                .findFirst();
     }
 
     public ProtobufMessage findMessage(String messageName) throws IllegalArgumentException {
@@ -118,9 +149,9 @@ public class ProtobufGraph extends DefaultDirectedGraph<ProtobufElement, FieldTy
     }
 
     private void buildProtobufGraph(DescriptorProtos.FileDescriptorSet fileSet) {
-        // Attach fields to messages
-        Map<String, List<ProtobufField>> messageFieldMap = fileSet.getFileList().stream().flatMap(fileProto ->
-                fileProto.getMessageTypeList().stream().flatMap(messageProto -> {
+        // Attach non-nested fields to messages
+        fileSet.getFileList().forEach(fileProto ->
+                fileProto.getMessageTypeList().forEach(messageProto -> {
 
                     ProtobufMessage messageVertex = ProtobufMessage.builder()
                             .fileProto(fileProto)
@@ -129,13 +160,13 @@ public class ProtobufGraph extends DefaultDirectedGraph<ProtobufElement, FieldTy
                     addVertex(messageVertex);
 
                     // Handle nested fields
-                    Stream<ProtobufField> nestedFields = addNestedMessage(fileProto, messageProto);
+                    addNestedMessage(fileProto, messageProto);
 
                     // Add enum types
                     addEnum(fileProto, messageProto);
 
                     // handle normal fields and oneofs
-                    Stream<ProtobufField> fields = messageProto.getFieldList().stream().flatMap(fieldProto -> {
+                    messageProto.getFieldList().forEach(fieldProto -> {
                         ProtobufField fieldVertex = ProtobufField.builder()
                                 .protobufMessage(messageVertex)
                                 .fieldProto(fieldProto)
@@ -146,42 +177,26 @@ public class ProtobufGraph extends DefaultDirectedGraph<ProtobufElement, FieldTy
 
                         if (fieldVertex.oneOfProto() != null) {
                             // Handle oneOf
-                            return addOneOf(messageVertex, fieldVertex);
+                            addOneOf(messageVertex, fieldVertex);
                         } else {
                             // Add schema to field edge
-                            return linkMessageToField(messageVertex, fieldVertex);
+                            linkMessageToField(messageVertex, fieldVertex);
                         }
                     });
-
-                    return Stream.concat(nestedFields, fields);
                 })
-        ).collect(Collectors.groupingBy(ProtobufField::parentMessageName));
+        );
 
-        attachMessagesToFields(messageFieldMap);
+        // attach field paths to root message
+        Map<String, List<ProtobufField>> fieldMap = vertexSet().stream()
+                .filter(v -> v instanceof ProtobufField && incomingEdgesOf(v).stream().noneMatch(e -> e.getEdgeSource() instanceof ProtobufOneOfField))
+                .map(v -> (ProtobufField) v)
+                .collect(Collectors.groupingBy(ProtobufField::parentMessageName));
+
+        edgeSet().stream().filter(FieldTypeEdge::isMessageType).collect(Collectors.toSet())
+                .stream().map(e -> (ProtobufField) e.getEdgeTarget())
+                .forEach(f -> attachNestedMessageFields(fieldMap, f));
     }
 
-    private void attachMessagesToFields(Map<String, List<ProtobufField>> messageFieldMap) {
-        // Connect field to Message
-        List<FieldTypeEdge> messageFieldEdges = edgeSet().stream()
-                .filter(FieldTypeEdge::isMessageType)
-                .collect(Collectors.toList());
-
-        messageFieldEdges.forEach(e -> {
-            ProtobufField source = (ProtobufField) e.getEdgeTarget();
-
-            List<ProtobufField> targetFields = messageFieldMap.get(source.nativeType());
-            if (targetFields != null) {
-                targetFields.forEach(target ->
-                        FieldTypeEdge.builder()
-                                .edgeSource(source)
-                                .edgeTarget(target)
-                                .type(target.fieldPathType())
-                                .isMessageType(target.isMessage())
-                                .build().inGraph(this)
-                );
-            }
-        });
-    }
 
     private void addEnum(DescriptorProtos.FileDescriptorProto fileProto, DescriptorProtos.DescriptorProto messageProto) {
         messageProto.getEnumTypeList().forEach(enumProto -> {
@@ -194,8 +209,8 @@ public class ProtobufGraph extends DefaultDirectedGraph<ProtobufElement, FieldTy
         });
     }
 
-    private Stream<ProtobufField> addNestedMessage(DescriptorProtos.FileDescriptorProto fileProto, DescriptorProtos.DescriptorProto messageProto) {
-        return messageProto.getNestedTypeList().stream().flatMap(nestedMessageProto -> {
+    private void addNestedMessage(DescriptorProtos.FileDescriptorProto fileProto, DescriptorProtos.DescriptorProto messageProto) {
+        messageProto.getNestedTypeList().forEach(nestedMessageProto -> {
             ProtobufMessage nestedMessageVertex = ProtobufMessage.builder()
                     .fileProto(fileProto)
                     .parentMessageProto(messageProto)
@@ -203,7 +218,7 @@ public class ProtobufGraph extends DefaultDirectedGraph<ProtobufElement, FieldTy
                     .build();
             addVertex(nestedMessageVertex);
 
-            return nestedMessageProto.getFieldList().stream().map(nestedFieldProto -> {
+            nestedMessageProto.getFieldList().forEach(nestedFieldProto -> {
                 ProtobufField field = ProtobufField.builder()
                         .protobufMessage(nestedMessageVertex)
                         .fieldProto(nestedFieldProto)
@@ -220,8 +235,6 @@ public class ProtobufGraph extends DefaultDirectedGraph<ProtobufElement, FieldTy
                             .type(field.fieldPathType())
                             .build().inGraph(this);
                 }
-
-                return field;
             });
         });
     }
@@ -260,6 +273,17 @@ public class ProtobufGraph extends DefaultDirectedGraph<ProtobufElement, FieldTy
                 .build().inGraph(this);
 
         return Stream.of(fieldVertex);
+    }
+
+    private void attachNestedMessageFields(Map<String, List<ProtobufField>> fieldMap, ProtobufField messageField) {
+        fieldMap.getOrDefault(messageField.nativeType(), List.of()).forEach(target -> {
+            FieldTypeEdge.builder()
+                    .edgeSource(messageField)
+                    .edgeTarget(target)
+                    .type(target.fieldPathType())
+                    .isMessageType(target.isMessage())
+                    .build().inGraph(this);
+        });
     }
 
     private void flattenGoogleWrapped() {

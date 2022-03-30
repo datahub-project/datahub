@@ -1,5 +1,6 @@
 package datahub.protobuf.visitors;
 
+import com.google.protobuf.ByteString;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.ExtensionRegistry;
@@ -8,6 +9,7 @@ import com.linkedin.common.GlossaryTermAssociation;
 import com.linkedin.common.urn.GlossaryTermUrn;
 import com.linkedin.tag.TagProperties;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
@@ -28,7 +30,7 @@ public class ProtobufExtensionUtil {
     }
 
     public enum DataHubMetadataType {
-        PROPERTY, TAG, TERM;
+        PROPERTY, TAG, TAG_LIST, TERM, OWNER, DOMAIN;
 
         public static final String PROTOBUF_TYPE = "DataHubMetadataType";
     }
@@ -57,9 +59,24 @@ public class ProtobufExtensionUtil {
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
+    public static Stream<Map.Entry<String, String>> getProperties(Descriptors.FieldDescriptor field, DescriptorProtos.DescriptorProto value)  {
+        return value.getUnknownFields().asMap().entrySet().stream().map(unknown -> {
+            Descriptors.FieldDescriptor fieldDesc = field.getMessageType().findFieldByNumber(unknown.getKey());
+            String fieldValue = unknown.getValue().getLengthDelimitedList().stream().map(ByteString::toStringUtf8).collect(Collectors.joining(""));
+            return Map.entry(String.join(".", field.getFullName(), fieldDesc.getName()), fieldValue);
+        });
+    }
+
     public static Stream<TagProperties> extractTagPropertiesFromOptions(Map<Descriptors.FieldDescriptor, Object> options, ExtensionRegistry registry) {
-        return filterByDataHubType(options, registry, DataHubMetadataType.TAG).entrySet().stream()
+        Stream<TagProperties> tags = filterByDataHubType(options, registry, DataHubMetadataType.TAG).entrySet().stream()
                 .filter(e -> e.getKey().isExtension())
+                .flatMap(extEntry -> {
+                    if (extEntry.getKey().isRepeated()) {
+                        return ((Collection<?>) extEntry.getValue()).stream().map(v -> Map.entry(extEntry.getKey(), v));
+                    } else {
+                        return Stream.of(extEntry);
+                    }
+                })
                 .map(entry -> {
                     switch (entry.getKey().getJavaType()) {
                         case STRING:
@@ -85,12 +102,35 @@ public class ProtobufExtensionUtil {
                             return null;
                     }
                 }).filter(Objects::nonNull);
+
+        Stream<TagProperties> tagListTags = filterByDataHubType(options, registry, DataHubMetadataType.TAG_LIST).entrySet().stream()
+                .filter(e -> e.getKey().isExtension())
+                .flatMap(entry -> {
+                    switch (entry.getKey().getJavaType()) {
+                        case STRING:
+                            return Arrays.stream(entry.getValue().toString().split(","))
+                                    .map(t -> new TagProperties()
+                                            .setName(t.trim())
+                                            .setDescription(entry.getKey().getFullName()));
+                        default:
+                            return Stream.empty();
+                    }
+                }).filter(Objects::nonNull);
+
+        return Stream.concat(tags, tagListTags);
     }
 
     public static Stream<GlossaryTermAssociation> extractTermAssociationsFromOptions(Map<Descriptors.FieldDescriptor, Object> options,
                                                                                      ExtensionRegistry registry) {
         return filterByDataHubType(options, registry, DataHubMetadataType.TERM).entrySet().stream()
                 .filter(e -> e.getKey().isExtension())
+                .flatMap(extEntry -> {
+                    if (extEntry.getKey().isRepeated()) {
+                        return ((Collection<?>) extEntry.getValue()).stream().map(v -> Map.entry(extEntry.getKey(), v));
+                    } else {
+                        return Stream.of(extEntry);
+                    }
+                })
                 .map(entry -> {
                     switch (entry.getKey().getJavaType()) {
                         case STRING:
