@@ -111,6 +111,7 @@ class KafkaSourceTest(unittest.TestCase):
 
         # We should only have 1 topic + sub-type wu.
         assert len(workunits) == 2
+        assert isinstance(workunits[0].metadata, MetadataChangeEvent)
         proposed_snap = workunits[0].metadata.proposedSnapshot
         assert proposed_snap.urn == make_dataset_urn_with_platform_instance(
             platform=PLATFORM,

@@ -109,15 +109,14 @@ source:
 
 ## Custom Schema Registry
 
-The Kafka Source uses the schema registry to figure out the schema associated with both `key` and `value` for the topic then
-it uses the schema registry to get the schema for both key and value of the kafka topic. By default it assumes that your
-using the [Confluent's Kafka Schema registry](https://docs.confluent.io/platform/current/schema-registry/index.html) and 
-in that using `AVRO` schema type
+The Kafka Source uses the schema registry to figure out the schema associated with both `key` and `value` for the topic. 
+By default it uses the [Confluent's Kafka Schema registry](https://docs.confluent.io/platform/current/schema-registry/index.html) 
+and supports the `AVRO` schema type.
 
-But if you're using a custom schema registry or you're using schema type other than `AVRO` then you can create your own 
-implementation of `KafkaSchemaRegistryBase` class and implement `get_schema_metadata(topic, platform_urn)` method that
+If you're using a custom schema registry, or you are using schema type other than `AVRO`, then you can provide your own 
+custom implementation of the `KafkaSchemaRegistryBase` class, and implement the `get_schema_metadata(topic, platform_urn)` method that
 given a topic name would return object of `SchemaMetadata` containing schema for that topic. Please refer 
-`datahub.ingestion.source.confluent_schema_registry::ConfluentSchemaRegistry` for sample implementation of this class
+`datahub.ingestion.source.confluent_schema_registry::ConfluentSchemaRegistry` for sample implementation of this class.
 ```python
 class KafkaSchemaRegistryBase(ABC):
     @abstractmethod
@@ -127,17 +126,16 @@ class KafkaSchemaRegistryBase(ABC):
         pass
 ```
 
-You will have to pass name of your custom schema registry class as an argument to the `KafkaSchemaRegistryBase`
+The custom schema registry class can be configured using the `schema_registry_class` config param of the `kafka` source as shown below.
 ```YAML
 source:
   type: "kafka"
   config:
-    # Set name of your KafkaSchemaRegistryBase class
+    # Set the custom schema registry implementation class
     schema_registry_class: "datahub.ingestion.source.confluent_schema_registry.ConfluentSchemaRegistry"
     # Coordinates
     connection:
       bootstrap: "broker:9092"
-
       schema_registry_url: http://localhost:8081
 
 sink:
@@ -163,7 +161,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `domain.domain_urn.ignoreCase`               |          | `True`                   | Whether to ignore case sensitivity during pattern matching.There can be multiple domain key specified.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `platform_instance`                          |          | None                     | The Platform instance to use while constructing URNs.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `topic_subject_map`                          |          | `{}`           | Provides the mapping for the `key` and the `value` schemas of a topic to the corresponding schema registry subject name. Each entry of this map has the form `<topic_name>-key`:`<schema_registry_subject_name_for_key_schema>` and `<topic_name>-value`:`<schema_registry_subject_name_for_value_schema>` for the key and the value schemas associated with the topic, respectively. This parameter is mandatory when the [RecordNameStrategy](https://docs.confluent.io/platform/current/schema-registry/serdes-develop/index.html#how-the-naming-strategies-work) is used as the subject naming strategy in the kafka schema registry. NOTE: When provided, this overrides the default subject name resolution even when the `TopicNameStrategy` or the `TopicRecordNameStrategy` are used. |
- | `schema_registry_class`                     |           | `datahub.ingestion.source.confluent_schema_registry.ConfluentSchemaRegistry` | The Kafka schema registry class defines the implementation that would be used for getting schema for both key and value of the kafka topic. By default it assumes your using confluent schema registry and `AVRO` schema but if your using a custom schema registry or non avro schema type you should pass your own implementation of `KafkaSchemaRegistryBase`                                                                                                                                                                                                                                                                                                                                                                                                                                                        |  
+ | `schema_registry_class`                     |           | `datahub.ingestion.source.confluent_schema_registry.ConfluentSchemaRegistry` | The Kafka schema registry class implementation that would be used for obtaining both the key schema and the value schema of the kafka topic.                                                                                                                                                                                                                                                                                                                                                                                                                           |  
 
 The options in the consumer config and schema registry config are passed to the Kafka DeserializingConsumer and SchemaRegistryClient respectively.
 
