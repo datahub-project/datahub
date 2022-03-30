@@ -181,6 +181,13 @@ public class Constants {
    */
   public static final String CORP_USER_STATUS_ACTIVE = "ACTIVE";
 
+  /**
+   * Task Runs
+   */
+  public static final String DATA_PROCESS_INSTANCE_ENTITY_NAME = "dataProcessInstance";
+  public static final String DATA_PROCESS_INSTANCE_PROPERTIES_ASPECT_NAME = "dataProcessInstanceProperties";
+  public static final String DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME = "dataProcessInstanceRunEvent";
+
   private Constants() {
   }
 }

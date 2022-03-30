@@ -421,6 +421,11 @@ enum EntityType {
     A DataHub Assertion
     """
     ASSERTION
+
+    """
+    An instance of an individual run of a data job or data flow
+    """
+    DATA_PROCESS_INSTANCE
 }
 
 """
@@ -825,6 +830,18 @@ type Dataset implements EntityWithRelationships & Entity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    History of datajob runs that either produced or consumed this dataset
+    """
+    runs(start: Int, count: Int, direction: RelationshipDirection): DataProcessInstanceResult
+}
+
+type DataProcessInstanceResult {
+    count: Int
+    start: Int
+    total: Int
+    runs: [DataProcessInstance]
 }
 
 
@@ -4023,7 +4040,135 @@ type DataJob implements EntityWithRelationships & Entity {
     The structured tags associated with the DataJob
     """
     globalTags: GlobalTags @deprecated
+
+    """
+    History of runs of this task
+    """
+    runs(start: Int, count: Int): DataProcessInstanceResult
 }
+
+"""
+A DataProcessInstance Metadata Entity, representing an individual run of
+a task or datajob.
+"""
+type DataProcessInstance implements EntityWithRelationships & Entity {
+    """
+    The primary key of the DataProcessInstance
+    """
+    urn: String!
+
+    """
+    The standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    The history of state changes for the run
+    """
+    state(startTimeMillis: Long, endTimeMillis: Long, limit: Int): [DataProcessRunEvent]
+
+    """
+    When the run was kicked off
+    """
+    created: AuditStamp
+
+    """
+    The name of the data process
+    """
+    name: String
+
+    """
+    Edges extending from this entity.
+    In the UI, used for inputs, outputs and parentTemplate
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Edges extending from this entity grouped by direction in the lineage graph
+    """
+    lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    The link to view the task run in the source system
+    """
+    externalUrl: String
+}
+
+"""
+A state change event in the data process instance lifecycle
+"""
+type DataProcessRunEvent implements TimeSeriesAspect {
+    """
+    The status of the data process instance
+    """
+    status: DataProcessRunStatus
+
+    """
+    The try number that this instance run is in
+    """
+    attempt: Int
+
+    """
+    The result of a run
+    """
+    result: DataProcessInstanceRunResult
+
+    """
+    The timestamp associated with the run event in milliseconds
+    """
+    timestampMillis: Long!
+}
+
+"""
+The status of the data process instance
+"""
+enum DataProcessRunStatus {
+    """
+    The data process instance has started but not completed
+    """
+    STARTED
+
+    """
+    The data process instance has completed
+    """
+    COMPLETE
+}
+
+"""
+the result of a run, part of the run state
+"""
+type DataProcessInstanceRunResult {
+    """
+    The outcome of the run
+    """
+    resultType: DataProcessInstanceRunResultType
+
+    """
+    The outcome of the run in the data platforms native language
+    """
+    nativeResultType: String
+}
+
+"""
+The result of the data process run
+"""
+enum DataProcessInstanceRunResultType {
+    """
+    The run finished successfully
+    """
+    SUCCESS
+
+    """
+    The run finished in failure
+    """
+    FAILURE
+
+    """
+    The run was skipped
+    """
+    SKIPPED
+}
+
 
 """
 Deprecated, use DataJobProperties instead

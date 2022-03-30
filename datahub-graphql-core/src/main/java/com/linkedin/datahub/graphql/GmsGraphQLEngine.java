@@ -72,6 +72,7 @@ import com.linkedin.datahub.graphql.resolvers.group.EntityCountsResolver;
 import com.linkedin.datahub.graphql.resolvers.group.ListGroupsResolver;
 import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupMembersResolver;
 import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupResolver;
+import com.linkedin.datahub.graphql.resolvers.jobs.TaskRunsResolver;
 import com.linkedin.datahub.graphql.resolvers.user.UpdateUserStatusResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CancelIngestionExecutionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CreateIngestionExecutionRequestResolver;
@@ -124,6 +125,7 @@ import com.linkedin.datahub.graphql.resolvers.type.TimeSeriesAspectInterfaceType
 import com.linkedin.datahub.graphql.resolvers.user.ListUsersResolver;
 import com.linkedin.datahub.graphql.resolvers.user.RemoveUserResolver;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
+import com.linkedin.datahub.graphql.types.dataprocessinstance.mappers.DataProcessInstanceRunEventMapper;
 import com.linkedin.datahub.graphql.types.EntityType;
 import com.linkedin.datahub.graphql.types.LoadableType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
@@ -187,6 +189,7 @@ import static com.linkedin.datahub.graphql.Constants.INGESTION_SCHEMA_FILE;
 import static com.linkedin.datahub.graphql.Constants.RECOMMENDATIONS_SCHEMA_FILE;
 import static com.linkedin.datahub.graphql.Constants.SEARCH_SCHEMA_FILE;
 import static com.linkedin.datahub.graphql.Constants.URN_FIELD_NAME;
+import static com.linkedin.metadata.Constants.*;
 import static graphql.Scalars.GraphQLLong;
 
 /**
@@ -482,6 +485,7 @@ public class GmsGraphQLEngine {
         configureDomainResolvers(builder);
         configureAssertionResolvers(builder);
         configurePolicyResolvers(builder);
+        configureDataProcessInstanceResolvers(builder);
     }
 
     public GraphQLEngine.Builder builder() {
@@ -1053,6 +1057,7 @@ public class GmsGraphQLEngine {
                             return dataJob.getDomain() != null ? dataJob.getDomain().getUrn() : null;
                         })
                 )
+                .dataFetcher("runs", new TaskRunsResolver(entityClient))
             )
             .type("DataJobInputOutput", typeWiring -> typeWiring
                 .dataFetcher("inputDatasets", new AuthenticatedResolver<>(
@@ -1226,6 +1231,24 @@ public class GmsGraphQLEngine {
                         final ActorFilter filter = env.getSource();
                         return filter.getGroups();
                     }
+            ))
+        );
+    }
+
+    private void configureDataProcessInstanceResolvers(final RuntimeWiring.Builder builder) {
+        builder.type("DataProcessInstance", typeWiring -> typeWiring
+            .dataFetcher("relationships",
+                new AuthenticatedResolver<>(new EntityRelationshipsResultResolver(graphClient)))
+            .dataFetcher("lineage", new AuthenticatedResolver<>(
+                new EntityLineageResultResolver(graphClient)
+            ))
+            .dataFetcher("state", new AuthenticatedResolver<>(
+                new TimeSeriesAspectResolver(
+                    this.entityClient,
+                    "dataProcessInstance",
+                    DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME,
+                    DataProcessInstanceRunEventMapper::map
+                )
             ))
         );
     }

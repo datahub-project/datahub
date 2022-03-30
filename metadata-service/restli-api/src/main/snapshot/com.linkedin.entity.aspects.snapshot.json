@@ -1238,6 +1238,20 @@
         "fieldType" : "TEXT_PARTIAL",
         "queryByDefault" : false
       }
+    }, {
+      "name" : "jobs",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.Urn"
+      },
+      "doc" : "Optional list of jobs contained in this data flow",
+      "optional" : true,
+      "Relationship" : {
+        "/*" : {
+          "entityTypes" : [ "dataJob" ],
+          "name" : "Contains"
+        }
+      }
     } ],
     "Aspect" : {
       "name" : "dataFlowInfo"
