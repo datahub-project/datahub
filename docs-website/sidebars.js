@@ -104,6 +104,7 @@ module.exports = {
       {
         Guides: [
           "metadata-ingestion/adding-source",
+          //"metadata-ingestion/source-docs-template",
           "docs/how/add-custom-ingestion-source",
           "docs/how/add-custom-data-platform",
           "docs/platform-instances",
@@ -216,7 +217,6 @@ module.exports = {
         id: "metadata-ingestion/source_docs/s3",
       },
       //"metadata-ingestion/examples/transforms/README"
-      //"metadata-ingestion/source-docs-template"
       //"docs/what/graph",
       //"docs/what/search-index",
       //"docs/how/add-new-aspect",
