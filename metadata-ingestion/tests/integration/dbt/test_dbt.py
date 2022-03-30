@@ -320,7 +320,7 @@ def test_dbt_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         # Set dbt config where actor table is deleted.
         pipeline_config_dict["source"]["config"] = scd_after_deletion
         # Capture MCEs of second run to validate Status(removed=true)
-        deleted_mces_path = "{}/{}".format(tmp_path, "dbt_deleted_mcse.json")
+        deleted_mces_path = "{}/{}".format(tmp_path, "dbt_deleted_mces.json")
         pipeline_config_dict["sink"]["type"] = "file"
         pipeline_config_dict["sink"]["config"] = {"filename": deleted_mces_path}
 
