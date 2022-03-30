@@ -110,6 +110,14 @@ source:
     schema_pattern:
       deny:
       - "information_schema.*"
+    profiling:
+      enabled: true
+    profile_pattern:
+      allow:
+        - 'ACCOUNTING_DB.*.*'
+        - 'MARKETING_DB.*.*'
+      deny:
+        - '.*information_schema.*'
 
 sink:
   # sink configs
