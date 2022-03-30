@@ -216,6 +216,7 @@ module.exports = {
         id: "metadata-ingestion/source_docs/s3",
       },
       //"metadata-ingestion/examples/transforms/README"
+      //"metadata-ingestion/source-docs-template"
       //"docs/what/graph",
       //"docs/what/search-index",
       //"docs/how/add-new-aspect",
