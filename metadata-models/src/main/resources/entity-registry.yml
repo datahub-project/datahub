@@ -158,3 +158,4 @@ entities:
     keyAspect: dataHubRetentionKey
     aspects:
       - dataHubRetentionConfig
+events:

@@ -2,8 +2,10 @@ package com.linkedin.metadata.models.registry;
 
 import com.linkedin.metadata.models.DefaultEntitySpec;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.EventSpec;
 import java.util.Map;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 
 /**
@@ -22,8 +24,17 @@ public interface EntityRegistry {
    * @param entityName the name of the entity to be retrieved
    * @return an {@link DefaultEntitySpec} corresponding to the entity name provided, null if none exists.
    */
-  @Nonnull
+  @Nullable
   EntitySpec getEntitySpec(@Nonnull final String entityName);
+
+  /**
+   * Given an event name, returns an instance of {@link DefaultEventSpec}.
+   *
+   * @param eventName the name of the event to be retrieved
+   * @return an {@link DefaultEventSpec} corresponding to the entity name provided, null if none exists.
+   */
+  @Nullable
+  EventSpec getEventSpec(@Nonnull final String eventName);
 
   /**
    * Returns all {@link DefaultEntitySpec}s that the register is aware of.
@@ -31,4 +42,10 @@ public interface EntityRegistry {
    */
   @Nonnull
   Map<String, EntitySpec> getEntitySpecs();
+
+  /**
+   * Returns all {@link EventSpec}s that the registry is aware of.
+   */
+  @Nonnull
+  Map<String, EventSpec> getEventSpecs();
 }

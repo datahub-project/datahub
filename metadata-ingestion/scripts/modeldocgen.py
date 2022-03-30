@@ -41,6 +41,8 @@ from datahub.metadata.schema_classes import (
 logger = logging.getLogger(__name__)
 
 
+# TODO: Support generating docs for each event type in entity registry.
+
 def capitalize_first(something: str) -> str:
     return something[0:1].upper() + something[1:]
 
@@ -87,6 +89,9 @@ class AspectDefinition:
     schema: Optional[avro.schema.Schema] = None
     type: Optional[str] = None
 
+@dataclass
+class EventDefinition:
+    name: str
 
 entity_registry: Dict[str, EntityDefinition] = {}
 
@@ -514,6 +519,7 @@ def generate_stitched_record(relnships_graph: RelationshipGraph) -> List[Any]:
 
 class EntityRegistry(ConfigModel):
     entities: List[EntityDefinition]
+    events: Optional[List[EventDefinition]]
 
 
 def load_registry_file(registry_file: str) -> Dict[str, EntityDefinition]:
