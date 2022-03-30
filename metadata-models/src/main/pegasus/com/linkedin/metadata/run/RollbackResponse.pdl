@@ -7,5 +7,5 @@ record RollbackResponse {
     entitiesDeleted: optional long
     aspectsReverted: optional long
     unsafeEntitiesCount: optional long
-    unsafeEntities: array[AspectInfo]
+    unsafeEntities: array[UnsafeEntityInfo]
 }

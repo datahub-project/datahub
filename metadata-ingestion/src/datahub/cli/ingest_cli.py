@@ -280,7 +280,6 @@ def rollback(
             os.makedirs(os.path.dirname(ingestion_config_file_name), exist_ok=True)
             with open(ingestion_config_file_name, "w") as file_handle:
                 json.dump({"run_id": run_id}, file_handle)
-                file_handle.close()
 
             csv_file_name = folder_name + "/unsafe_entities.csv"
             with open(csv_file_name, "w") as file_handle:
@@ -288,7 +287,7 @@ def rollback(
                 writer.writerow(["urn"])
                 for row in unsafe_entities:
                     writer.writerow([row.get("urn")])
-                file_handle.close()
+
         except IOError as e:
             print(e)
             sys.exit("Unable to write reports to " + report_dir)

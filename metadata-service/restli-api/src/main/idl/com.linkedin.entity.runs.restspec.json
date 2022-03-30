@@ -38,6 +38,13 @@
         "type" : "boolean",
         "optional" : true
       }, {
+        "annotations" : {
+          "deprecated" : { }
+        },
+        "name" : "hardDelete",
+        "type" : "boolean",
+        "optional" : true
+      }, {
         "name" : "safe",
         "type" : "boolean",
         "optional" : true

@@ -5,8 +5,8 @@ import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.restli.RestliUtil;
-import com.linkedin.metadata.run.AspectInfo;
-import com.linkedin.metadata.run.AspectInfoArray;
+import com.linkedin.metadata.run.UnsafeEntityInfo;
+import com.linkedin.metadata.run.UnsafeEntityInfoArray;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.AspectRowSummaryArray;
 import com.linkedin.metadata.run.IngestionRunSummary;
@@ -41,6 +41,7 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
 
   private static final Integer DEFAULT_OFFSET = 0;
   private static final Integer DEFAULT_PAGE_SIZE = 100;
+  private static final Integer DEFAULT_UNSAFE_ENTITIES_PAGE_SIZE = 1000000;
   private static final boolean DEFAULT_INCLUDE_SOFT_DELETED = false;
   private static final boolean DEFAULT_HARD_DELETE = false;
   private static final Integer ELASTIC_MAX_PAGE_SIZE = 10000;
@@ -61,10 +62,16 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
   @Nonnull
   @WithSpan
   public Task<RollbackResponse> rollback(@ActionParam("runId") @Nonnull String runId,
-      @ActionParam("dryRun") @Optional Boolean dryRun, @ActionParam("safe") @Optional Boolean safe) {
+                                         @ActionParam("dryRun") @Optional Boolean dryRun,
+                                         @Deprecated @ActionParam("hardDelete") @Optional Boolean hardDelete,
+                                         @ActionParam("safe") @Optional Boolean safe) {
     log.info("ROLLBACK RUN runId: {} dry run: {}", runId, dryRun);
 
-    boolean doHardDelete = safe != null ? !safe : DEFAULT_HARD_DELETE;
+    boolean doHardDelete = safe != null ? !safe : hardDelete != null ? hardDelete : DEFAULT_HARD_DELETE;
+
+    if (safe != null && hardDelete != null) {
+      log.warn("Both Safe & hardDelete flags were defined, honouring safe flag as hardDelete is deprecated");
+    }
 
     return RestliUtil.toTask(() -> {
       if (runId.equals(EntityService.DEFAULT_RUN_ID)) {
@@ -109,15 +116,15 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
         long unsafeEntitiesCount = affectedAspectsList.stream()
                 .collect(Collectors.groupingBy(AspectRowSummary::getUrn)).keySet().size();
 
-        final List<AspectInfo> aspectInfos = affectedAspectsList.stream().map(AspectRowSummary::getUrn)
+        final List<UnsafeEntityInfo> unsafeEntityInfos = affectedAspectsList.stream().map(AspectRowSummary::getUrn)
                 .distinct()
                 .map(urn -> {
-                  AspectInfo aspectInfo = new AspectInfo();
-                  aspectInfo.setUrn(urn);
-                  return aspectInfo;
+                  UnsafeEntityInfo unsafeEntityInfo = new UnsafeEntityInfo();
+                  unsafeEntityInfo.setUrn(urn);
+                  return unsafeEntityInfo;
                 })
                 // Return at most 1 million rows
-                .limit(1000000)
+                .limit(DEFAULT_UNSAFE_ENTITIES_PAGE_SIZE)
                 .collect(Collectors.toList());
 
         return response.setAspectsAffected(affectedAspects)
@@ -125,7 +132,7 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
                 .setEntitiesAffected(affectedEntities)
                 .setEntitiesDeleted(entitiesDeleted)
                 .setUnsafeEntitiesCount(unsafeEntitiesCount)
-                .setUnsafeEntities(new AspectInfoArray(aspectInfos))
+                .setUnsafeEntities(new UnsafeEntityInfoArray(unsafeEntityInfos))
                 .setAspectRowSummaries(rowSummaries);
       }
 
@@ -171,15 +178,15 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
       long unsafeEntitiesCount = affectedAspectsList.stream()
               .collect(Collectors.groupingBy(AspectRowSummary::getUrn)).keySet().size();
 
-      final List<AspectInfo> aspectInfos = affectedAspectsList.stream().map(AspectRowSummary::getUrn)
+      final List<UnsafeEntityInfo> unsafeEntityInfos = affectedAspectsList.stream().map(AspectRowSummary::getUrn)
               .distinct()
               .map(urn -> {
-                AspectInfo aspectInfo = new AspectInfo();
-                aspectInfo.setUrn(urn);
-                return aspectInfo;
+                UnsafeEntityInfo unsafeEntityInfo = new UnsafeEntityInfo();
+                unsafeEntityInfo.setUrn(urn);
+                return unsafeEntityInfo;
               })
               // Return at most 1 million rows
-              .limit(1000000)
+              .limit(DEFAULT_UNSAFE_ENTITIES_PAGE_SIZE)
               .collect(Collectors.toList());
 
       log.info("calculation done.");
@@ -189,7 +196,7 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
               .setEntitiesAffected(affectedEntities)
               .setEntitiesDeleted(entitiesDeleted)
               .setUnsafeEntitiesCount(unsafeEntitiesCount)
-              .setUnsafeEntities(new AspectInfoArray(aspectInfos))
+              .setUnsafeEntities(new UnsafeEntityInfoArray(unsafeEntityInfos))
               .setAspectRowSummaries(rowSummaries);
     }, MetricRegistry.name(this.getClass(), "rollback"));
   }
