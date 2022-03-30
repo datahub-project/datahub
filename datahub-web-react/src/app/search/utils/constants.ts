@@ -8,6 +8,9 @@ export const GLOSSARY_FILTER_NAME = 'glossaryTerms';
 export const CONTAINER_FILTER_NAME = 'container';
 export const DOMAINS_FILTER_NAME = 'domains';
 export const OWNERS_FILTER_NAME = 'owners';
+export const PLATFORM_FILTER_NAME = 'platform';
+export const DATABASE_FILTER_NAME = 'Database';
+export const SCHEMA_FILTER_NAME = 'Schema';
 
 export const FILTERS_TO_TRUNCATE = [
     TAG_FILTER_NAME,

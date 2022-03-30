@@ -20,6 +20,7 @@ export enum EventType {
     SearchAcrossLineageEvent,
     SearchAcrossLineageResultsViewEvent,
     DownloadAsCsvEvent,
+    ContainerBrowseClickEvent,
 }
 
 /**
@@ -95,6 +96,18 @@ export interface SearchResultClickEvent extends BaseEvent {
 export interface BrowseResultClickEvent extends BaseEvent {
     type: EventType.BrowseResultClickEvent;
     browsePath: string;
+    entityType: EntityType;
+    resultType: 'Entity' | 'Group';
+    entityUrn?: string;
+    groupName?: string;
+}
+
+/**
+ * Logged on user browse result click.
+ */
+export interface ContainerBrowseClickEvent extends BaseEvent {
+    type: EventType.ContainerBrowseClickEvent;
+    path: string;
     entityType: EntityType;
     resultType: 'Entity' | 'Group';
     entityUrn?: string;
@@ -202,4 +215,5 @@ export type Event =
     | SearchAcrossLineageEvent
     | SearchAcrossLineageResultsViewEvent
     | DownloadAsCsvEvent
-    | RecommendationClickEvent;
+    | RecommendationClickEvent
+    | ContainerBrowseClickEvent;

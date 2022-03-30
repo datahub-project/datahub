@@ -10,6 +10,7 @@ import { useEntityRegistry } from '../useEntityRegistry';
 import { useGetEntityCountsQuery } from '../../graphql/app.generated';
 import { GettingStartedModal } from './GettingStartedModal';
 import { ANTD_GRAY } from '../entity/shared/constants';
+import { MetaDataEntityCard } from '../metaData/MetaDataEntityCard';
 
 const RecommendationsContainer = styled.div`
     margin-top: 32px;
@@ -118,7 +119,7 @@ export const HomePageRecommendations = ({ userUrn }: Props) => {
                                 (entityCount) =>
                                     entityCount &&
                                     entityCount.count !== 0 && (
-                                        <BrowseEntityCard
+                                        <MetaDataEntityCard
                                             key={entityCount.entityType}
                                             entityType={entityCount.entityType}
                                             count={entityCount.count}
@@ -149,6 +150,35 @@ export const HomePageRecommendations = ({ userUrn }: Props) => {
                         />
                     </RecommendationContainer>
                 ))}
+            {/* Duplicate the Metadata Section */}
+            {orderedEntityCounts && orderedEntityCounts.length > 0 && (
+                <RecommendationContainer>
+                    <RecommendationTitle level={4}>Explore your Metadata</RecommendationTitle>
+                    <ThinDivider />
+                    {hasIngestedMetadata ? (
+                        <BrowseCardContainer>
+                            {orderedEntityCounts.map(
+                                (entityCount) =>
+                                    entityCount &&
+                                    entityCount.count !== 0 && (
+                                        <BrowseEntityCard
+                                            key={entityCount.entityType}
+                                            entityType={entityCount.entityType}
+                                            count={entityCount.count}
+                                        />
+                                    ),
+                            )}
+                        </BrowseCardContainer>
+                    ) : (
+                        <NoMetadataContainer>
+                            <NoMetadataEmpty description="No Metadata Found 😢" />
+                            <ConnectSourcesButton onClick={() => setShowGettingStartedModal(true)}>
+                                <RocketOutlined /> Connect your data sources
+                            </ConnectSourcesButton>
+                        </NoMetadataContainer>
+                    )}
+                </RecommendationContainer>
+            )}
             <GettingStartedModal onClose={() => setShowGettingStartedModal(false)} visible={showGettingStartedModal} />
         </RecommendationsContainer>
     );
