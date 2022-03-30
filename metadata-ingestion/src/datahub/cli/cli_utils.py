@@ -448,7 +448,7 @@ def batch_get_ids(
     url = gms_host + endpoint
     ids_to_get = []
     for id in ids:
-        ids_to_get.append(urllib.parse.quote(id))
+        ids_to_get.append(urllib.parse.quote(id, safe=""))
 
     response = session.get(
         f"{url}?ids=List({','.join(ids_to_get)})",
@@ -515,7 +515,7 @@ def get_entity(
         # we assume the urn is already encoded
         encoded_urn: str = urn
     elif urn.startswith("urn:"):
-        encoded_urn = urllib.parse.quote(urn)
+        encoded_urn = urllib.parse.quote(urn, safe="")
     else:
         raise Exception(
             f"urn {urn} does not seem to be a valid raw (starts with urn:) or encoded urn (starts with urn%3A)"

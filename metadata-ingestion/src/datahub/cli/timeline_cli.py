@@ -74,7 +74,7 @@ def get_timeline(
         # we assume the urn is already encoded
         encoded_urn: str = urn
     elif urn.startswith("urn:"):
-        encoded_urn = urllib.parse.quote(urn)
+        encoded_urn = urllib.parse.quote(urn, safe="")
     else:
         raise Exception(
             f"urn {urn} does not seem to be a valid raw (starts with urn:) or encoded urn (starts with urn%3A)"

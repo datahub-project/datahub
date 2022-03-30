@@ -126,7 +126,7 @@ class DataHubGraph(DatahubRestEmitter):
         :rtype: Optional[Aspect]
         :raises HttpError: if the HTTP response is not a 200 or a 404
         """
-        url = f"{self._gms_server}/aspects/{urllib.parse.quote(entity_urn)}?aspect={aspect}&version=0"
+        url = f"""{self._gms_server}/aspects/{urllib.parse.quote(entity_urn, safe="")}?aspect={aspect}&version=0"""
         response = self._session.get(url)
         if response.status_code == 404:
             # not found
