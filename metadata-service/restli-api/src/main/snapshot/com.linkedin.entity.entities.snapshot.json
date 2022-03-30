@@ -2872,6 +2872,12 @@
                           "type" : "com.linkedin.common.GlobalTags",
                           "doc" : "Tags associated with the field",
                           "optional" : true,
+                          "Relationship" : {
+                            "/tags/*/tag" : {
+                              "entityTypes" : [ "tag" ],
+                              "name" : "TaggedWith"
+                            }
+                          },
                           "Searchable" : {
                             "/tags/*/tag" : {
                               "boostScore" : 0.5,

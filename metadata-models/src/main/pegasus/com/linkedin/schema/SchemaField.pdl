@@ -57,6 +57,12 @@ record SchemaField {
   /**
    * Tags associated with the field
    */
+  @Relationship = {
+    "/tags/*/tag":  {
+      "name": "TaggedWith",
+      "entityTypes": [ "tag" ]
+    }
+  }
   @Searchable = {
     "/tags/*/tag": {
       "fieldName": "fieldTags",

@@ -74,13 +74,14 @@ public class ElasticSearchGraphService implements GraphService {
     destinationObject.put("urn", edge.getDestination().toString());
     destinationObject.put("entityType", edge.getDestination().getEntityType());
 
+    final ObjectNode metadataObject = JsonNodeFactory.instance.objectNode();
+    metadataObject.put("pathSpec", edge.getPathSpec().toString());
+    metadataObject.put("aspectName", edge.getAspectName());
+
     searchDocument.set("source", sourceObject);
     searchDocument.set("destination", destinationObject);
+    searchDocument.put("metadata", metadataObject);
     searchDocument.put("relationshipType", edge.getRelationshipType());
-
-    // Should this be part of a specific sub object?
-    searchDocument.put("pathSpec", edge.getPathSpec().toString());
-    searchDocument.put("aspectName", edge.getAspectName());
 
     return searchDocument.toString();
   }
@@ -145,12 +146,15 @@ public class ElasticSearchGraphService implements GraphService {
         .map(hit -> {
           final String urnStr = ((HashMap<String, String>) hit.getSourceAsMap().getOrDefault(destinationNode, EMPTY_HASH)).getOrDefault("urn", null);
           final String relationshipType = (String) hit.getSourceAsMap().get("relationshipType");
-          final String aspectName = (String) hit.getSourceAsMap().getOrDefault("aspectName", null);
-          final String pathSpecStr = ((String) hit.getSourceAsMap().getOrDefault("pathSpec",null));
+          final HashMap<String, String> metadata = ((HashMap<String, String>) hit.getSourceAsMap().getOrDefault("metadata", EMPTY_HASH));
+          final String aspectName = metadata.getOrDefault("aspectName", null);
+          final String pathSpecStr = metadata.getOrDefault("pathSpec", null);
 
           if (urnStr == null || relationshipType == null || aspectName == null || pathSpecStr == null) {
             log.error(String.format(
-                "Found null urn string, relationship type, aspect name or path spec in Elastic index. urnStr: %s, relationshipType: %s, aspectName: %s, pathSpec: %s", urnStr, relationshipType, aspectName, pathSpecStr));
+                "Found null urn string, relationship type, aspect name or path spec in Elastic index. "
+                    + "urnStr: %s, relationshipType: %s, aspectName: %s, pathSpec: %s",
+                urnStr, relationshipType, aspectName, pathSpecStr));
             return null;
           }
 

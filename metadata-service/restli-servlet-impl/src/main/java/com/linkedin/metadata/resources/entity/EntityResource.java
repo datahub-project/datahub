@@ -2,12 +2,22 @@ package com.linkedin.metadata.resources.entity;
 
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.DataList;
+import com.linkedin.data.DataMap;
+import com.linkedin.data.schema.ArrayDataSchema;
+import com.linkedin.data.schema.DataSchema;
+import com.linkedin.data.schema.PathSpec;
+import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.entity.Aspect;
 import com.linkedin.entity.Entity;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.entity.EntityService;
@@ -17,6 +27,8 @@ import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
+import com.linkedin.metadata.graph.RelatedEntity;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
@@ -34,8 +46,10 @@ import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
-import com.linkedin.metadata.search.utils.QueryUtils;
+import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
+import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
@@ -56,6 +70,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -66,24 +81,10 @@ import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.maven.artifact.versioning.ComparableVersion;
 
-import static com.linkedin.metadata.entity.ValidationUtils.validateOrThrow;
-import static com.linkedin.metadata.resources.restli.RestliConstants.ACTION_AUTOCOMPLETE;
-import static com.linkedin.metadata.resources.restli.RestliConstants.ACTION_BROWSE;
-import static com.linkedin.metadata.resources.restli.RestliConstants.ACTION_GET_BROWSE_PATHS;
-import static com.linkedin.metadata.resources.restli.RestliConstants.ACTION_INGEST;
-import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_ASPECTS;
-import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_DIRECTION;
-import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_FIELD;
-import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_FILTER;
-import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_INPUT;
-import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_LIMIT;
-import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_PATH;
-import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_QUERY;
-import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_SORT;
-import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_START;
-import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_URN;
+import static com.linkedin.metadata.entity.ValidationUtils.*;
+import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
-import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
+import static com.linkedin.metadata.utils.PegasusUtils.*;
 
 
 /**
@@ -412,24 +413,169 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     return RestliUtil.toTask(() -> {
       DeleteEntityResponse response = new DeleteEntityResponse();
 
-      RollbackRunResult result = _entityService.deleteUrn(urn);
-
       // Process all related entities affected by the urn being deleted, in a paginated fashion.
       int offset = 0;
+      int relatedAspectsUpdated = 0;
       do {
         final RelatedEntitiesResult relatedEntities =
-            _graphService.findRelatedEntities(null, EMPTY_FILTER, null, newFilter("urn", urnStr),
+            _graphService.findRelatedEntities(null, newFilter("urn", urnStr), null, EMPTY_FILTER,
                 ImmutableList.of(),
-                newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.OUTGOING), offset, 100);
+                newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING), offset, 100);
+
+        for (RelatedEntity relatedEntity : relatedEntities.getEntities()) {
+          log.info(String.format("Processing related aspect %s with path spec %s", relatedEntity.getAspectName(), relatedEntity.getSpec().toString()));
+
+
+          final PathSpec path = relatedEntity.getSpec();
+          final String aspectName = relatedEntity.getAspectName();
+
+          // Skip related entity logic if path or aspect name don't exist
+          // -> safeguards against missing dgraph & neo4j implementation
+          if (path == null || aspectName == null) {
+            continue;
+          }
+
+          // Apply policy
+          final Urn relatedEntityUrn = UrnUtils.getUrn(relatedEntity.getUrn());
+          final Entity entity = _entityService.getEntity(relatedEntityUrn, ImmutableSet.of(aspectName));
+
+          final EntitySpec entitySpec = _entityService.getEntityRegistry()
+              .getEntitySpec(relatedEntityUrn.getEntityType());
+          final String fullyQualifiedEntitySnapshotName = entitySpec.getSnapshotSchema().getNamespace()
+              + '.' + entitySpec.getSnapshotSchema().getName();
+
+          final Snapshot entitySnapshot = entity.getValue();
+          // Can this top-level data property ever not be a map?
+          final DataMap entities = (DataMap) entitySnapshot.data();
+          final DataMap entityContent = (DataMap) entities.get(fullyQualifiedEntitySnapshotName);
+          final DataList aspects = (DataList) entityContent.get("aspects");
+          final RecordDataSchema schema = entitySpec.getAspectSpec(relatedEntity.getAspectName()).getPegasusSchema();
+
+          final java.util.Optional<Object> optionalAspect = aspects.stream()
+              .filter(DataMap.class::isInstance)
+              .map(DataMap.class::cast)
+              .map(DataMap::entrySet)
+              .flatMap(Set::stream)
+              .filter(entry -> entry.getKey().equals(schema.getNamespace() + '.' + schema.getName()))
+              .map(Map.Entry::getValue)
+              .findFirst();
+
+          if (optionalAspect.isPresent()) {
+            log.info(String.format("Working on %s", optionalAspect));
+            try {
+              Map<String, Object> copy = ((DataMap) optionalAspect.get()).copy();
+              Object newValue = traversePath(urn.toString(), schema, copy, path.getPathComponents(), 0);
+              //entity.checkPutNullValue(new RecordDataSchema.Field(schema), newValue, SetMode.REMOVE_OPTIONAL_IF_NULL);
+              final MetadataChangeProposal gmce = new MetadataChangeProposal();
+              gmce.setEntityUrn(relatedEntityUrn);
+              gmce.setChangeType(ChangeType.UPSERT);
+              gmce.setEntityType(relatedEntityUrn.getEntityType());
+              gmce.setAspectName(relatedEntity.getAspectName());
+              gmce.setAspect(GenericRecordUtils.serializeAspect(new Aspect((DataMap) newValue)));
+              final AuditStamp auditStamp =
+                  new AuditStamp().setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
+
+              final EntityService.IngestProposalResult ingestProposalResult = _entityService.ingestProposal(gmce, auditStamp);
+
+              if (!ingestProposalResult.isDidUpdate()) {
+                log.warn(String.format("Aspect update did not update metadata graph. Before %s, after: %s", optionalAspect.get(), newValue));
+              }
+              relatedAspectsUpdated++;
+
+              //_entityService.updateAspect(relatedEntity.getUrn(), entitySpec.getName(), aspectName, aspectSpec, entity);
+            } catch (Exception e) {
+              log.warn(String.format("Failed to clone aspect %s from urn %s with content: %s", aspectName, urnStr,
+                  optionalAspect.get()), e);
+            }
+          }
+        }
 
         offset = relatedEntities.getEntities().size();
-      } while(offset != 0);
+      } while (offset > 0);
+
+      RollbackRunResult result = _entityService.deleteUrn(urn);
 
       response.setUrn(urnStr);
-      response.setRows(result.getRowsDeletedFromEntityDeletion());
+      response.setRows(result.getRowsDeletedFromEntityDeletion() + relatedAspectsUpdated);
 
       return response;
     }, MetricRegistry.name(this.getClass(), "delete"));
+  }
+
+  private Object traversePath(String value, DataSchema schema, Object o, List<String> pathComponents, int index) {
+
+    final String subPath = pathComponents.get(index);
+
+    // Processing an array
+    if (subPath.equals("*")) {
+      // Process each entry
+      return processArray(value, (ArrayDataSchema) schema, (DataList) o, pathComponents, index);
+    } else { // Processing a map
+      return processMap(value, (RecordDataSchema) schema, (DataMap) o, pathComponents, index);
+    }
+  }
+
+  private Object processMap(String value, RecordDataSchema spec, DataMap aspectMap, List<String> pathComponents, int index) {
+    // If in the last component of the path spec
+    if (index == pathComponents.size() - 1) {
+      final Object found = aspectMap.remove(pathComponents.get(index));
+      if (found == null) {
+        log.error(String.format("Unable to find value %s in aspect list %s at path %s", value, aspectMap,
+            pathComponents.subList(0, index)));
+      }
+
+    } else { // else traverse further down the tree.
+      final String key = pathComponents.get(index);
+      final boolean optional = spec.getField(key).getOptional();
+      // Check if key exists, this may not exist because you are in wrong branch of the tree (i.e: iterating for an array)
+      if (aspectMap.containsKey(key)) {
+        final Object result = traversePath(value, spec.getField(key).getType(), aspectMap.get(key), pathComponents,
+            index + 1);
+        if (result != null) {
+          aspectMap.put(key, result);
+        } else {
+          if (optional) {
+            aspectMap.remove(key);
+          } else { // if we modified the value but can not set it because the field is not optional, simply log the message.
+            log.warn(String.format("[DANGLING POINTER GC] Can not remove a field that is non-optional "
+                    + "and not part of an array %s", spec.getField(key).getName()));
+            return null;
+          }
+        }
+      }
+    }
+
+    if (aspectMap.isEmpty()) {
+      return null;
+    }
+    return aspectMap;
+  }
+
+  private Object processArray(String value, ArrayDataSchema spec, DataList aspectList, List<String> pathComponents, int index) {
+    // If in the last component of the path spec
+    if (index == pathComponents.size() - 1) {
+      boolean found = aspectList.remove(value);
+      if (!found) {
+        log.error(String.format("Unable to find value %s in aspect list %s at path %s", value, aspectList,
+            pathComponents.subList(0, index)));
+      }
+    } else { // else traverse further down the tree.
+      ListIterator<Object> it = aspectList.listIterator();
+      while(it.hasNext()) {
+        Object o = it.next();
+        final Object result = traversePath(value, spec.getItems(), o, pathComponents, index + 1);
+        if (result != null) {
+          it.set(result);
+        } else {
+          it.remove();
+        }
+      }
+    }
+
+    if (aspectList.isEmpty()) {
+      return null;
+    }
+    return aspectList;
   }
 
   /*

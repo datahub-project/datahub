@@ -191,8 +191,8 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
   @Override
   public void testConcurrentAddEdge() {
     // https://github.com/datahub-project/datahub/issues/3124
-    throw new SkipException(
-        "This test is flaky for ElasticSearchGraphService, ~5% of the runs fail on a race condition");
+    //throw new SkipException(
+    //    "This test is flaky for ElasticSearchGraphService, ~5% of the runs fail on a race condition");
   }
 
   @Test
