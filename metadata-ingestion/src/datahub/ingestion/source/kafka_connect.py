@@ -310,23 +310,20 @@ class ConfluentJDBCSourceConnector:
 
         return []
 
-    def update_connector_manifest_lineage(
-        self, source_platform: str, lineages: List[KafkaConnectLineage]
-    ) -> None:
-        for topic in self.connector_manifest.topic_names:
-            # default method - as per earlier implementation
-            lineage = KafkaConnectLineage(
-                source_platform=source_platform,
-                target_dataset=topic,
-                target_platform="kafka",
-            )
-            lineages.append(lineage)
-            self.report_warning(
-                self.connector_manifest.name,
-                "could not find input dataset, the connector has query configuration set",
-            )
-            self.connector_manifest.lineages = lineages
-            return
+    def get_dataset_name(
+        self,
+        database_name: Optional[str],
+        instance_name: Optional[str],
+        source_table: str,
+    ) -> str:
+        if database_name and instance_name:
+            dataset_name = instance_name + "." + database_name + "." + source_table
+        elif database_name:
+            dataset_name = database_name + "." + source_table
+        else:
+            dataset_name = source_table
+
+        return dataset_name
 
     def _extract_lineages(self):
         lineages: List[KafkaConnectLineage] = list()
@@ -361,7 +358,24 @@ class ConfluentJDBCSourceConnector:
         if query:
             # Lineage source_table can be extracted by parsing query
             # For now, we use source table as topic (expected to be same as topic prefix)
-            self.update_connector_manifest_lineage(source_platform, lineages)
+            for topic in self.connector_manifest.topic_names:
+                # default method - as per earlier implementation
+                dataset_name = self.get_dataset_name(
+                    database_name, instance_name, topic
+                )
+
+                lineage = KafkaConnectLineage(
+                    source_platform=source_platform,
+                    target_dataset=topic,
+                    target_platform="kafka",
+                )
+                lineages.append(lineage)
+                self.report_warning(
+                    self.connector_manifest.name,
+                    "could not find input dataset, the connector has query configuration set",
+                )
+                self.connector_manifest.lineages = lineages
+                return
 
         SINGLE_TRANSFORM = len(transforms) == 1
         NO_TRANSFORM = len(transforms) == 0
@@ -409,14 +423,9 @@ class ConfluentJDBCSourceConnector:
                 # in connector topics
 
                 if topic in self.connector_manifest.topic_names:
-                    if database_name and instance_name:
-                        dataset_name = (
-                            instance_name + "." + database_name + "." + source_table
-                        )
-                    elif database_name:
-                        dataset_name = database_name + "." + source_table
-                    else:
-                        dataset_name = source_table
+                    dataset_name = self.get_dataset_name(
+                        database_name, instance_name, source_table
+                    )
 
                     lineage = KafkaConnectLineage(
                         source_dataset=dataset_name,
