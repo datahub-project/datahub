@@ -20,7 +20,6 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor import schema_util
 from datahub.ingestion.source.state.checkpoint import Checkpoint
@@ -29,6 +28,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     JobId,
     StatefulIngestionConfig,
     StatefulIngestionConfigBase,
+    StatefulIngestionReport,
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status
@@ -44,6 +44,7 @@ from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DataPlatformInstanceClass,
     JobStatusClass,
+    SubTypesClass,
 )
 
 logger = logging.getLogger(__name__)
@@ -71,7 +72,7 @@ class KafkaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigBase):
 
 
 @dataclass
-class KafkaSourceReport(SourceReport):
+class KafkaSourceReport(StatefulIngestionReport):
     topics_scanned: int = 0
     filtered: List[str] = field(default_factory=list)
     soft_deleted_stale_entities: List[str] = field(default_factory=list)
@@ -463,9 +464,22 @@ class KafkaSource(StatefulIngestionSourceBase):
         self.report.report_workunit(wu)
         yield wu
 
+        # 5. Add the subtype aspect marking this as a "topic"
+        subtype_wu = MetadataWorkUnit(
+            id=f"{topic}-subtype",
+            mcp=MetadataChangeProposalWrapper(
+                entityType="dataset",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=dataset_urn,
+                aspectName="subTypes",
+                aspect=SubTypesClass(typeNames=["topic"]),
+            ),
+        )
+        yield subtype_wu
+
         domain_urn: Optional[str] = None
 
-        # 5. Emit domains aspect MCPW
+        # 6. Emit domains aspect MCPW
         for domain, pattern in self.source_config.domain.items():
             if pattern.allowed(dataset_name):
                 domain_urn = make_domain_urn(domain)

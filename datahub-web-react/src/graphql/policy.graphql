@@ -13,6 +13,18 @@ query listPolicies($input: ListPoliciesInput!) {
                 type
                 allResources
                 resources
+                filter {
+                    criteria {
+                        field
+                        values {
+                            value
+                            entity {
+                                ...searchResultFields
+                            }
+                        }
+                        condition
+                    }
+                }
             }
             privileges
             actors {
@@ -23,6 +35,7 @@ query listPolicies($input: ListPoliciesInput!) {
                 resourceOwners
                 resolvedUsers {
                     username
+                    urn
                     properties {
                         active
                         displayName
@@ -41,6 +54,8 @@ query listPolicies($input: ListPoliciesInput!) {
                     }
                 }
                 resolvedGroups {
+                    name
+                    urn
                     properties {
                         displayName
                         description
@@ -55,6 +70,12 @@ query listPolicies($input: ListPoliciesInput!) {
             }
             editable
         }
+    }
+}
+
+query getGrantedPrivileges($input: GetGrantedPrivilegesInput!) {
+    getGrantedPrivileges(input: $input) {
+        privileges
     }
 }
 

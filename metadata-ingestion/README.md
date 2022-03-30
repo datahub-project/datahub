@@ -101,6 +101,14 @@ datahub ingest -c ./examples/recipes/example_to_datahub_rest.yml --preview
 # Preview with dry-run
 datahub ingest -c ./examples/recipes/example_to_datahub_rest.yml -n --preview
 ```
+
+By default `--preview` creates 10 workunits. But if you wish to try producing more workunits you can use another option `--preview-workunits`
+
+```shell
+# Preview 20 workunits without sending anything to sink
+datahub ingest -c ./examples/recipes/example_to_datahub_rest.yml -n --preview --preview-workunits=20
+```
+
 ## Transformations
 
 If you'd like to modify data before it reaches the ingestion sinks – for instance, adding additional owners or tags – you can use a transformer to write your own module and integrate it with DataHub.

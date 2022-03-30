@@ -10,13 +10,16 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
+import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.r2.RemoteInvocationException;
 import java.net.URISyntaxException;
@@ -29,8 +32,15 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-
+// Consider renaming this to datahub client.
 public interface EntityClient {
+
+  @Nullable
+  public EntityResponse getV2(
+      @Nonnull String entityName,
+      @Nonnull final Urn urn,
+      @Nullable final Set<String> aspectNames,
+      @Nonnull final Authentication authentication) throws RemoteInvocationException, URISyntaxException;
 
   @Nonnull
   @Deprecated
@@ -162,6 +172,25 @@ public interface EntityClient {
       throws RemoteInvocationException;
 
   /**
+   * Gets a list of documents that match given search request that is related to the input entity
+   *
+   * @param sourceUrn Urn of the source entity
+   * @param direction Direction of the relationship
+   * @param entities list of entities to search (If empty, searches across all entities)
+   * @param input the search input text
+   * @param filter the request map with fields and values as filters to be applied to search hits
+   * @param sortCriterion {@link SortCriterion} to be applied to search results
+   * @param start index to start the search from
+   * @param count the number of search hits to return
+   * @return a {@link SearchResult} that contains a list of matched documents and related search result metadata
+   */
+  @Nonnull
+  public LineageSearchResult searchAcrossLineage(@Nonnull Urn sourceUrn, @Nonnull LineageDirection direction,
+      @Nonnull List<String> entities, @Nonnull String input, @Nullable Filter filter,
+      @Nullable SortCriterion sortCriterion, int start, int count, @Nonnull final Authentication authentication)
+      throws RemoteInvocationException;
+
+  /**
    * Gets browse path(s) given dataset urn
    *
    * @param urn urn for the entity
@@ -252,4 +281,7 @@ public interface EntityClient {
   @Deprecated
   public DataMap getRawAspect(@Nonnull String urn, @Nonnull String aspect, @Nonnull Long version,
       @Nonnull Authentication authentication) throws RemoteInvocationException;
+
+  public void producePlatformEvent(@Nonnull String name, @Nullable String key, @Nonnull PlatformEvent event,
+      @Nonnull Authentication authentication) throws Exception;
 }

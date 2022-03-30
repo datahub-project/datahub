@@ -1,6 +1,7 @@
 import collections
 import dataclasses
 import logging
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Union
 
@@ -13,6 +14,7 @@ from sqlalchemy.engine import Engine
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.redshift import RedshiftConfig
@@ -56,6 +58,7 @@ FROM stl_scan ss
   JOIN svl_user_info sui ON sq.userid = sui.usesysid
 WHERE ss.starttime >= '{start_time}'
 AND ss.starttime < '{end_time}'
+AND sti.database = '{database}'
 AND sq.aborted = 0
 ORDER BY ss.endtime DESC;
 """.strip()
@@ -87,15 +90,21 @@ class RedshiftUsageConfig(RedshiftConfig, BaseUsageConfig):
         return super().get_sql_alchemy_url()
 
 
+@dataclass
+class RedshiftUsageReport(SourceReport):
+    pass
+
+
 @dataclasses.dataclass
 class RedshiftUsageSource(Source):
-    config: RedshiftUsageConfig
-    report: SourceReport = dataclasses.field(default_factory=SourceReport)
+    def __init__(self, config: RedshiftUsageConfig, ctx: PipelineContext):
+        self.config: RedshiftUsageConfig = config
+        self.report: RedshiftUsageReport = RedshiftUsageReport()
 
     @classmethod
     def create(cls, config_dict, ctx):
         config = RedshiftUsageConfig.parse_obj(config_dict)
-        return cls(ctx, config)
+        return cls(config, ctx)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         """Gets Redshift usage stats as work units"""
@@ -167,6 +176,7 @@ class RedshiftUsageSource(Source):
         return query.format(
             start_time=self.config.start_time.strftime(redshift_datetime_format),
             end_time=self.config.end_time.strftime(redshift_datetime_format),
+            database=self.config.database,
         )
 
     def _make_redshift_operation_aspect_query(self, table_name: str) -> str:
@@ -256,6 +266,9 @@ class RedshiftUsageSource(Source):
             ):
                 logging.info("An access event parameter(s) is missing. Skipping ....")
                 continue
+
+            if self.config.database_alias:
+                event_dict["database"] = self.config.database_alias
 
             if not event_dict.get("usename") or event_dict["usename"] == "":
                 logging.info("The username parameter is missing. Skipping ....")

@@ -1,7 +1,10 @@
+import platform
+import sys
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
 from typing import Dict, Generic, Iterable, List, TypeVar
 
+import datahub
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
 from datahub.ingestion.api.report import Report
@@ -14,6 +17,11 @@ class SourceReport(Report):
 
     warnings: Dict[str, List[str]] = field(default_factory=dict)
     failures: Dict[str, List[str]] = field(default_factory=dict)
+    cli_version: str = datahub.nice_version_name()
+    cli_entry_location: str = datahub.__file__
+    py_version: str = sys.version
+    py_exec_path: str = sys.executable
+    os_details: str = platform.platform()
 
     def report_workunit(self, wu: WorkUnit) -> None:
         self.workunits_produced += 1

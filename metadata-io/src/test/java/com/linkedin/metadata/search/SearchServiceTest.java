@@ -60,7 +60,8 @@ public class SearchServiceTest {
     _elasticSearchService = buildEntitySearchService();
     _elasticSearchService.configure();
     _cacheManager = new ConcurrentMapCacheManager();
-    _searchService = new SearchService(_entityRegistry, _elasticSearchService, new SimpleRanker(), _cacheManager, 100);
+    _searchService =
+        new SearchService(_entityRegistry, _elasticSearchService, new SimpleRanker(), _cacheManager, 100, true);
   }
 
   @BeforeMethod
@@ -93,9 +94,9 @@ public class SearchServiceTest {
   @Test
   public void testSearchService() throws Exception {
     SearchResult searchResult =
-        _searchService.searchAcrossEntities(ImmutableList.of(ENTITY_NAME), "test", null, null, 0, 10);
+        _searchService.searchAcrossEntities(ImmutableList.of(ENTITY_NAME), "test", null, null, 0, 10, null);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
-    searchResult = _searchService.searchAcrossEntities(ImmutableList.of(), "test", null, null, 0, 10);
+    searchResult = _searchService.searchAcrossEntities(ImmutableList.of(), "test", null, null, 0, 10, null);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     clearCache();
 
@@ -108,7 +109,7 @@ public class SearchServiceTest {
     _elasticSearchService.upsertDocument(ENTITY_NAME, document.toString(), urn.toString());
     syncAfterWrite(_searchClient);
 
-    searchResult = _searchService.searchAcrossEntities(ImmutableList.of(), "test", null, null, 0, 10);
+    searchResult = _searchService.searchAcrossEntities(ImmutableList.of(), "test", null, null, 0, 10, null);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
     clearCache();
@@ -122,7 +123,7 @@ public class SearchServiceTest {
     _elasticSearchService.upsertDocument(ENTITY_NAME, document2.toString(), urn2.toString());
     syncAfterWrite(_searchClient);
 
-    searchResult = _searchService.searchAcrossEntities(ImmutableList.of(), "test", null, null, 0, 10);
+    searchResult = _searchService.searchAcrossEntities(ImmutableList.of(), "test", null, null, 0, 10, null);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
     clearCache();
@@ -130,7 +131,7 @@ public class SearchServiceTest {
     _elasticSearchService.deleteDocument(ENTITY_NAME, urn.toString());
     _elasticSearchService.deleteDocument(ENTITY_NAME, urn2.toString());
     syncAfterWrite(_searchClient);
-    searchResult = _searchService.searchAcrossEntities(ImmutableList.of(), "test", null, null, 0, 10);
+    searchResult = _searchService.searchAcrossEntities(ImmutableList.of(), "test", null, null, 0, 10, null);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
   }
 }

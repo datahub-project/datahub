@@ -8,6 +8,9 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 
+/**
+ * A specification of a DataHub Entity
+ */
 public interface EntitySpec {
   String getName();
 
@@ -32,6 +35,13 @@ public interface EntitySpec {
   default List<SearchableFieldSpec> getSearchableFieldSpecs() {
     return getAspectSpecs().stream()
         .map(AspectSpec::getSearchableFieldSpecs)
+        .flatMap(List::stream)
+        .collect(Collectors.toList());
+  }
+
+  default List<RelationshipFieldSpec> getRelationshipFieldSpecs() {
+    return getAspectSpecs().stream()
+        .map(AspectSpec::getRelationshipFieldSpecs)
         .flatMap(List::stream)
         .collect(Collectors.toList());
   }

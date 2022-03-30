@@ -3,7 +3,6 @@ import json
 import logging
 import os
 import platform
-import sys
 import uuid
 from functools import wraps
 from pathlib import Path
@@ -21,16 +20,78 @@ CONFIG_FILE = DATAHUB_FOLDER / "telemetry-config.json"
 
 # also fall back to environment variable if config file is not found
 ENV_ENABLED = os.environ.get("DATAHUB_TELEMETRY_ENABLED", "true").lower() == "true"
+
+# see
+# https://adamj.eu/tech/2020/03/09/detect-if-your-tests-are-running-on-ci/
+# https://github.com/watson/ci-info
+CI_ENV_VARS = {
+    "APPCENTER",
+    "APPCIRCLE",
+    "APPCIRCLEAZURE_PIPELINES",
+    "APPVEYOR",
+    "AZURE_PIPELINES",
+    "BAMBOO",
+    "BITBUCKET",
+    "BITRISE",
+    "BUDDY",
+    "BUILDKITE",
+    "BUILD_ID",
+    "CI",
+    "CIRCLE",
+    "CIRCLECI",
+    "CIRRUS",
+    "CIRRUS_CI",
+    "CI_NAME",
+    "CODEBUILD",
+    "CODEBUILD_BUILD_ID",
+    "CODEFRESH",
+    "CODESHIP",
+    "CYPRESS_HOST",
+    "DRONE",
+    "DSARI",
+    "EAS_BUILD",
+    "GITHUB_ACTIONS",
+    "GITLAB",
+    "GITLAB_CI",
+    "GOCD",
+    "HEROKU_TEST_RUN_ID",
+    "HUDSON",
+    "JENKINS",
+    "JENKINS_URL",
+    "LAYERCI",
+    "MAGNUM",
+    "NETLIFY",
+    "NEVERCODE",
+    "RENDER",
+    "SAIL",
+    "SCREWDRIVER",
+    "SEMAPHORE",
+    "SHIPPABLE",
+    "SOLANO",
+    "STRIDER",
+    "TASKCLUSTER",
+    "TEAMCITY",
+    "TEAMCITY_VERSION",
+    "TF_BUILD",
+    "TRAVIS",
+    "VERCEL",
+    "WERCKER_ROOT",
+    "bamboo.buildKey",
+}
+
+# disable when running in any CI
+if any(var in os.environ for var in CI_ENV_VARS):
+    ENV_ENABLED = False
+
 TIMEOUT = int(os.environ.get("DATAHUB_TELEMETRY_TIMEOUT", "10"))
 MIXPANEL_TOKEN = "5ee83d940754d63cacbf7d34daa6f44a"
-
-mp = Mixpanel(MIXPANEL_TOKEN, consumer=Consumer(request_timeout=int(TIMEOUT)))
 
 
 class Telemetry:
 
     client_id: str
     enabled: bool = True
+    tracking_init: bool = False
 
     def __init__(self):
 
@@ -43,20 +104,20 @@ class Telemetry:
             self.load_config()
 
         # send updated user-level properties
+        self.mp = None
         if self.enabled:
-            mp.people_set(
-                self.client_id,
-                {
-                    "datahub_version": datahub_package.nice_version_name(),
-                    "os": platform.system(),
-                    "python_version": platform.python_version(),
-                },
-            )
+            try:
+                self.mp = Mixpanel(
+                    MIXPANEL_TOKEN, consumer=Consumer(request_timeout=int(TIMEOUT))
+                )
+            except Exception as e:
+                logger.debug(f"Error connecting to mixpanel: {e}")
 
     def update_config(self) -> None:
         """
         Update the config file with the current client ID and enabled status.
         """
+        logger.debug("Updating telemetry config")
 
         if not DATAHUB_FOLDER.exists():
             os.makedirs(DATAHUB_FOLDER)
@@ -119,27 +180,44 @@ class Telemetry:
                     f"{CONFIG_FILE} had an IOError, please inspect this file for issues."
                 )
 
+    def init_tracking(self) -> None:
+        if not self.enabled or self.mp is None or self.tracking_init is True:
+            return
+
+        logger.debug("Sending init Telemetry")
+        try:
+            self.mp.people_set(
+                self.client_id,
+                {
+                    "datahub_version": datahub_package.nice_version_name(),
+                    "os": platform.system(),
+                    "python_version": platform.python_version(),
+                },
+            )
+        except Exception as e:
+            logger.debug(f"Error reporting telemetry: {e}")
+        self.init_track = True
+
     def ping(
         self,
-        action: str,
+        event_name: str,
         properties: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
         Send a single telemetry event.
 
         Args:
-            category (str): category for the event
-            action (str): action taken
-            label (Optional[str], optional): label for the event
-            value (Optional[int], optional): value for the event
+            event_name (str): name of the event to send.
+            properties (Optional[Dict[str, Any]]): metadata for the event
         """
 
-        if not self.enabled:
+        if not self.enabled or self.mp is None:
             return
 
         # send event
         try:
-            mp.track(self.client_id, action, properties)
+            logger.debug("Sending Telemetry")
+            self.mp.track(self.client_id, event_name, properties)
 
         except Exception as e:
             logger.debug(f"Error reporting telemetry: {e}")
@@ -148,6 +226,13 @@ class Telemetry:
 telemetry_instance = Telemetry()
 
 T = TypeVar("T")
+
+
+def set_telemetry_enable(enable: bool) -> Any:
+    telemetry_instance.enabled = enable
+    if not enable:
+        logger.info("Disabling Telemetry locally due to server config")
+    telemetry_instance.update_config()
 
 
 def get_full_class_name(obj):
@@ -161,36 +246,61 @@ def with_telemetry(func: Callable[..., T]) -> Callable[..., T]:
     @wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
 
-        action = f"function:{func.__module__}.{func.__name__}"
+        function = f"{func.__module__}.{func.__name__}"
 
-        telemetry_instance.ping(action)
+        telemetry_instance.init_tracking()
+        telemetry_instance.ping(
+            "function-call", {"function": function, "status": "start"}
+        )
         try:
             res = func(*args, **kwargs)
-            telemetry_instance.ping(f"{action}:result", {"status": "completed"})
-            return res
-        # Catch general exceptions
-        except Exception as e:
             telemetry_instance.ping(
-                f"{action}:result", {"status": "error", "error": get_full_class_name(e)}
+                "function-call",
+                {"function": function, "status": "completed"},
             )
-            raise e
+            return res
         # System exits (used in ingestion and Docker commands) are not caught by the exception handler,
         # so we need to catch them here.
         except SystemExit as e:
             # Forward successful exits
-            if e.code == 0:
-                telemetry_instance.ping(f"{action}:result", {"status": "completed"})
-                sys.exit(0)
+            # 0 or None imply success
+            if not e.code:
+                telemetry_instance.ping(
+                    "function-call",
+                    {
+                        "function": function,
+                        "status": "completed",
+                    },
+                )
             # Report failed exits
             else:
                 telemetry_instance.ping(
-                    f"{action}:result",
-                    {"status": "error", "error": get_full_class_name(e)},
+                    "function-call",
+                    {
+                        "function": function,
+                        "status": "error",
+                        "error": get_full_class_name(e),
+                    },
                 )
-                sys.exit(e.code)
+            raise e
         # Catch SIGINTs
-        except KeyboardInterrupt:
-            telemetry_instance.ping(f"{action}:result", {"status": "cancelled"})
-            sys.exit(0)
+        except KeyboardInterrupt as e:
+            telemetry_instance.ping(
+                "function-call",
+                {"function": function, "status": "cancelled"},
+            )
+            raise e
+
+        # Catch general exceptions
+        except Exception as e:
+            telemetry_instance.ping(
+                "function-call",
+                {
+                    "function": function,
+                    "status": "error",
+                    "error": get_full_class_name(e),
+                },
+            )
+            raise e
 
     return wrapper

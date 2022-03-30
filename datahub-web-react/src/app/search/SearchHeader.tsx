@@ -88,6 +88,7 @@ export const SearchHeader = ({
                     onSearch={onSearch}
                     onQueryChange={onQueryChange}
                     entityRegistry={entityRegistry}
+                    fixAutoComplete
                 />
             </LogoSearchContainer>
             <NavGroup>

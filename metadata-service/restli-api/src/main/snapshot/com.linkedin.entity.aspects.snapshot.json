@@ -45,10 +45,12 @@
               "doc" : "Generic record structure for serializing an Aspect\n",
               "fields" : [ {
                 "name" : "value",
-                "type" : "bytes"
+                "type" : "bytes",
+                "doc" : "The value of the aspect, serialized as bytes."
               }, {
                 "name" : "contentType",
-                "type" : "string"
+                "type" : "string",
+                "doc" : "The content type, which represents the fashion in which the aspect was serialized.\nThe only type currently supported is application/json."
               } ]
             }
           }, {
@@ -131,6 +133,14 @@
                       "type" : "string",
                       "doc" : "The value of the intended field"
                     }, {
+                      "name" : "values",
+                      "type" : {
+                        "type" : "array",
+                        "items" : "string"
+                      },
+                      "doc" : "Values. one of which the intended field should match\nNote, if values is set, the above \"value\" field will be ignored",
+                      "default" : [ ]
+                    }, {
                       "name" : "condition",
                       "type" : {
                         "type" : "enum",
@@ -158,7 +168,7 @@
               } ]
             }
           },
-          "doc" : "A list of of disjunctive criterion for the filter.",
+          "doc" : "A list of disjunctive criterion for the filter. (or operation to combine filters)",
           "optional" : true
         }, {
           "name" : "criteria",
@@ -405,6 +415,7 @@
       "Relationship" : {
         "/*/string" : {
           "entityTypes" : [ "dataset" ],
+          "isLineage" : true,
           "name" : "Consumes"
         }
       }
@@ -501,7 +512,7 @@
         "type" : "array",
         "items" : "string"
       },
-      "doc" : "A list of valid browse paths for the entity.\n\nBrowse paths are expected to be backslash-separated strings. For example: 'prod/snowflake/datasetName'",
+      "doc" : "A list of valid browse paths for the entity.\n\nBrowse paths are expected to be forward slash-separated strings. For example: 'prod/snowflake/datasetName'",
       "Searchable" : {
         "/*" : {
           "fieldName" : "browsePaths",
@@ -675,7 +686,7 @@
     "type" : "record",
     "name" : "DataPlatformInstance",
     "namespace" : "com.linkedin.common",
-    "doc" : "Tag aspect used for applying tags to an entity",
+    "doc" : "The specific instance of the data platform that this entity belongs to",
     "fields" : [ {
       "name" : "platform",
       "type" : "Urn",
@@ -736,12 +747,13 @@
     "name" : "FabricType",
     "namespace" : "com.linkedin.common",
     "doc" : "Fabric group type",
-    "symbols" : [ "DEV", "TEST", "QA", "UAT", "EI", "STG", "NON_PROD", "PROD", "CORP" ],
+    "symbols" : [ "DEV", "TEST", "QA", "UAT", "EI", "PRE", "STG", "NON_PROD", "PROD", "CORP" ],
     "symbolDocs" : {
       "CORP" : "Designates corporation fabrics",
       "DEV" : "Designates development fabrics",
       "EI" : "Designates early-integration fabrics",
       "NON_PROD" : "Designates non-production fabrics",
+      "PRE" : "Designates pre-production fabrics",
       "PROD" : "Designates production fabrics",
       "QA" : "Designates quality assurance fabrics",
       "STG" : "Designates staging fabrics",
@@ -996,12 +1008,14 @@
       "type" : "Urn",
       "doc" : "Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name\n(Caveat: only corpuser is currently supported in the frontend.)",
       "Relationship" : {
-        "entityTypes" : [ "corpUser", "corpGroup" ],
+        "entityTypes" : [ "corpuser", "corpGroup" ],
         "name" : "OwnedBy"
       },
       "Searchable" : {
+        "addToFilters" : true,
         "fieldName" : "owners",
         "fieldType" : "URN",
+        "filterNameOverride" : "Owned By",
         "hasValuesFieldName" : "hasOwners",
         "queryByDefault" : false
       }
@@ -1010,15 +1024,27 @@
       "type" : {
         "type" : "enum",
         "name" : "OwnershipType",
-        "doc" : "Owner category or owner role",
-        "symbols" : [ "DEVELOPER", "DATAOWNER", "DELEGATE", "PRODUCER", "CONSUMER", "STAKEHOLDER" ],
+        "doc" : "Asset owner types",
+        "symbols" : [ "TECHNICAL_OWNER", "BUSINESS_OWNER", "DATA_STEWARD", "NONE", "DEVELOPER", "DATAOWNER", "DELEGATE", "PRODUCER", "CONSUMER", "STAKEHOLDER" ],
         "symbolDocs" : {
-          "CONSUMER" : "A person, group, or service that consumes the data",
-          "DATAOWNER" : "A person or group that is owning the data",
-          "DELEGATE" : "A person or a group that overseas the operation, e.g. a DBA or SRE.",
-          "DEVELOPER" : "A person or group that is in charge of developing the code",
-          "PRODUCER" : "A person, group, or service that produces/generates the data",
-          "STAKEHOLDER" : "A person or a group that has direct business interest"
+          "BUSINESS_OWNER" : "A person or group who is responsible for logical, or business related, aspects of the asset.",
+          "CONSUMER" : "A person, group, or service that consumes the data\nDeprecated! Use TECHNICAL_OWNER or BUSINESS_OWNER instead.",
+          "DATAOWNER" : "A person or group that is owning the data\nDeprecated! Use TECHNICAL_OWNER instead.",
+          "DATA_STEWARD" : "A steward, expert, or delegate responsible for the asset.",
+          "DELEGATE" : "A person or a group that overseas the operation, e.g. a DBA or SRE.\nDeprecated! Use TECHNICAL_OWNER instead.",
+          "DEVELOPER" : "A person or group that is in charge of developing the code\nDeprecated! Use TECHNICAL_OWNER instead.",
+          "NONE" : "No specific type associated to the owner.",
+          "PRODUCER" : "A person, group, or service that produces/generates the data\nDeprecated! Use TECHNICAL_OWNER instead.",
+          "STAKEHOLDER" : "A person or a group that has direct business interest\nDeprecated! Use TECHNICAL_OWNER, BUSINESS_OWNER, or STEWARD instead.",
+          "TECHNICAL_OWNER" : "person or group who is responsible for technical aspects of the asset."
+        },
+        "deprecatedSymbols" : {
+          "CONSUMER" : true,
+          "DATAOWNER" : true,
+          "DELEGATE" : true,
+          "DEVELOPER" : true,
+          "PRODUCER" : true,
+          "STAKEHOLDER" : true
         }
       },
       "doc" : "The type of the ownership"
@@ -1149,6 +1175,7 @@
       "Relationship" : {
         "/*" : {
           "entityTypes" : [ "chart" ],
+          "isLineage" : true,
           "name" : "Contains"
         }
       }
@@ -1304,6 +1331,7 @@
       "Relationship" : {
         "/*" : {
           "entityTypes" : [ "dataset" ],
+          "isLineage" : true,
           "name" : "Consumes"
         }
       },
@@ -1325,6 +1353,8 @@
       "Relationship" : {
         "/*" : {
           "entityTypes" : [ "dataset" ],
+          "isLineage" : true,
+          "isUpstream" : false,
           "name" : "Produces"
         }
       },
@@ -1347,6 +1377,7 @@
       "Relationship" : {
         "/*" : {
           "entityTypes" : [ "dataJob" ],
+          "isLineage" : true,
           "name" : "DownstreamOf"
         }
       }
@@ -1356,8 +1387,14 @@
         "type" : "array",
         "items" : "com.linkedin.common.Urn"
       },
-      "doc" : "Fields of the input datasets used by this job.",
+      "doc" : "Fields of the input datasets used by this job",
       "optional" : true,
+      "Relationship" : {
+        "/*" : {
+          "entityTypes" : [ "schemaField" ],
+          "name" : "Consumes"
+        }
+      },
       "Searchable" : {
         "/*" : {
           "fieldName" : "inputFields",
@@ -1372,8 +1409,14 @@
         "type" : "array",
         "items" : "com.linkedin.common.Urn"
       },
-      "doc" : "Fields of the output datasets this job writes to.",
+      "doc" : "Fields of the output datasets this job writes to",
       "optional" : true,
+      "Relationship" : {
+        "/*" : {
+          "entityTypes" : [ "schemaField" ],
+          "name" : "Produces"
+        }
+      },
       "Searchable" : {
         "/*" : {
           "fieldName" : "outputFields",
@@ -1390,18 +1433,18 @@
           "type" : "record",
           "name" : "FineGrainedLineage",
           "namespace" : "com.linkedin.dataset",
-          "doc" : "A fine-grained lineage from upstream fields/datasets to downstream field(s).",
+          "doc" : "A fine-grained lineage from upstream fields/datasets to downstream field(s)",
           "fields" : [ {
             "name" : "upstreamType",
             "type" : {
               "type" : "enum",
               "name" : "FineGrainedLineageUpstreamType",
-              "doc" : "The type of upstream entity in a fine-grained lineage.",
+              "doc" : "The type of upstream entity in a fine-grained lineage",
               "symbols" : [ "FIELD_SET", "DATASET", "NONE" ],
               "symbolDocs" : {
-                "DATASET" : " Indicates that this lineage is originating from upstream dataset(s).",
-                "FIELD_SET" : " Indicates that this lineage is originating from upstream field(s).",
-                "NONE" : " Indicates that there is no upstream lineage i.e. the downstream field is not a derived field."
+                "DATASET" : " Indicates that this lineage is originating from upstream dataset(s)",
+                "FIELD_SET" : " Indicates that this lineage is originating from upstream field(s)",
+                "NONE" : " Indicates that there is no upstream lineage i.e. the downstream field is not a derived field"
               }
             },
             "doc" : "The type of upstream entity"
@@ -1418,11 +1461,11 @@
             "type" : {
               "type" : "enum",
               "name" : "FineGrainedLineageDownstreamType",
-              "doc" : "The type of downstream field(s) in a fine-grained lineage.",
+              "doc" : "The type of downstream field(s) in a fine-grained lineage",
               "symbols" : [ "FIELD", "FIELD_SET" ],
               "symbolDocs" : {
-                "FIELD" : " Indicates that the lineage is for a single, specific, downstream field.",
-                "FIELD_SET" : " Indicates that the lineage is for a set of downstream fields."
+                "FIELD" : " Indicates that the lineage is for a single, specific, downstream field",
+                "FIELD_SET" : " Indicates that the lineage is for a set of downstream fields"
               }
             },
             "doc" : "The type of downstream field(s)"
@@ -1437,17 +1480,17 @@
           }, {
             "name" : "transformOperation",
             "type" : "string",
-            "doc" : "The transform operation applied to the upstream entities to produce the downstream field(s).",
+            "doc" : "The transform operation applied to the upstream entities to produce the downstream field(s)",
             "optional" : true
           }, {
             "name" : "confidenceScore",
             "type" : "float",
-            "doc" : "The confidence in this lineage between 0 (low confidence) and 1 (high confidence).",
+            "doc" : "The confidence in this lineage between 0 (low confidence) and 1 (high confidence)",
             "default" : 1.0
           } ]
         }
       },
-      "doc" : "Fine-grained column-level lineages.",
+      "doc" : "Fine-grained column-level lineages",
       "optional" : true
     } ],
     "Aspect" : {
@@ -1505,6 +1548,27 @@
     "doc" : "Properties associated with a Dataset",
     "include" : [ "com.linkedin.common.CustomProperties", "com.linkedin.common.ExternalReference" ],
     "fields" : [ {
+      "name" : "name",
+      "type" : "string",
+      "doc" : "Display name of the Dataset",
+      "optional" : true,
+      "Searchable" : {
+        "boostScore" : 10.0,
+        "enableAutocomplete" : true,
+        "fieldType" : "TEXT_PARTIAL"
+      }
+    }, {
+      "name" : "qualifiedName",
+      "type" : "string",
+      "doc" : "Fully-qualified name of the Dataset",
+      "optional" : true,
+      "Searchable" : {
+        "addToFilters" : false,
+        "boostScore" : 10.0,
+        "enableAutocomplete" : true,
+        "fieldType" : "TEXT"
+      }
+    }, {
       "name" : "description",
       "type" : "string",
       "doc" : "Documentation of the dataset",
@@ -1556,6 +1620,7 @@
       "doc" : "The upstream dataset the lineage points to",
       "Relationship" : {
         "entityTypes" : [ "dataset" ],
+        "isLineage" : true,
         "name" : "DownstreamOf"
       },
       "Searchable" : {
@@ -1587,7 +1652,13 @@
         "items" : "FineGrainedLineage"
       },
       "doc" : " List of fine-grained lineage information, including field-level lineage",
-      "optional" : true
+      "optional" : true,
+      "Relationship" : {
+        "/*/upstreams/*" : {
+          "entityTypes" : [ "dataset", "schemaField" ],
+          "name" : "DownstreamOf"
+        }
+      }
     } ],
     "Aspect" : {
       "name" : "upstreamLineage"
@@ -1684,11 +1755,11 @@
     "type" : "record",
     "name" : "CorpGroupInfo",
     "namespace" : "com.linkedin.identity",
-    "doc" : "group of corpUser, it may contains nested group",
+    "doc" : "Information about a Corp Group ingested from a third party source",
     "fields" : [ {
       "name" : "displayName",
       "type" : "string",
-      "doc" : "The name to use when displaying the group.",
+      "doc" : "The name of the group.",
       "optional" : true,
       "Searchable" : {
         "fieldType" : "TEXT_PARTIAL"
@@ -1704,39 +1775,42 @@
         "type" : "array",
         "items" : "com.linkedin.common.CorpuserUrn"
       },
-      "doc" : "owners of this group",
+      "doc" : "owners of this group\nDeprecated! Replaced by Ownership aspect.",
       "Relationship" : {
         "/*" : {
-          "entityTypes" : [ "corpUser" ],
+          "entityTypes" : [ "corpuser" ],
           "name" : "OwnedBy"
         }
-      }
+      },
+      "deprecated" : true
     }, {
       "name" : "members",
       "type" : {
         "type" : "array",
         "items" : "com.linkedin.common.CorpuserUrn"
       },
-      "doc" : "List of ldap urn in this group.",
+      "doc" : "List of ldap urn in this group.\nDeprecated! Replaced by GroupMembership aspect.",
       "Relationship" : {
         "/*" : {
-          "entityTypes" : [ "corpUser" ],
+          "entityTypes" : [ "corpuser" ],
           "name" : "IsPartOf"
         }
-      }
+      },
+      "deprecated" : true
     }, {
       "name" : "groups",
       "type" : {
         "type" : "array",
         "items" : "com.linkedin.common.CorpGroupUrn"
       },
-      "doc" : "List of groups in this group.",
+      "doc" : "List of groups in this group.\nDeprecated! This field is unused.",
       "Relationship" : {
         "/*" : {
           "entityTypes" : [ "corpGroup" ],
           "name" : "IsPartOf"
         }
-      }
+      },
+      "deprecated" : true
     }, {
       "name" : "description",
       "type" : "string",
@@ -1795,7 +1869,12 @@
       "name" : "displayName",
       "type" : "string",
       "doc" : "DataHub-native display name",
-      "optional" : true
+      "optional" : true,
+      "Searchable" : {
+        "boostScore" : 10.0,
+        "fieldType" : "TEXT_PARTIAL",
+        "queryByDefault" : true
+      }
     }, {
       "name" : "title",
       "type" : "string",
@@ -1865,7 +1944,7 @@
       "doc" : "direct manager of this user",
       "optional" : true,
       "Relationship" : {
-        "entityTypes" : [ "corpUser" ],
+        "entityTypes" : [ "corpuser" ],
         "name" : "ReportsTo"
       },
       "Searchable" : {
@@ -3144,6 +3223,7 @@
         "Relationship" : {
           "/*" : {
             "entityTypes" : [ "dataJob" ],
+            "isLineage" : true,
             "name" : "TrainedBy"
           }
         }
@@ -3172,6 +3252,8 @@
         "Relationship" : {
           "/*" : {
             "entityTypes" : [ "mlModelGroup" ],
+            "isLineage" : true,
+            "isUpstream" : false,
             "name" : "MemberOf"
           }
         }
@@ -3320,7 +3402,7 @@
     "fields" : [ {
       "name" : "auditHeader",
       "type" : "com.linkedin.avro2pegasus.events.KafkaAuditHeader",
-      "doc" : "Kafka audit header. See go/kafkaauditheader for more info.",
+      "doc" : "Kafka audit header. Currently remains unused in the open source.",
       "optional" : true
     }, {
       "name" : "entityType",

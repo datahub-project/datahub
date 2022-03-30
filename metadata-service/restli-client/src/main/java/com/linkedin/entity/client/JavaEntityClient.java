@@ -18,6 +18,8 @@ import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.event.EventProducer;
+import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
@@ -26,10 +28,13 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.resources.entity.AspectUtils;
 import com.linkedin.metadata.resources.entity.EntityResource;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.LineageSearchResult;
+import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.r2.RemoteInvocationException;
 import io.opentelemetry.extension.annotations.WithSpan;
@@ -44,28 +49,36 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.search.utils.QueryUtils.*;
+import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
 
 
 @Slf4j
+@RequiredArgsConstructor
 public class JavaEntityClient implements EntityClient {
 
     private final Clock _clock = Clock.systemUTC();
 
-    private EntityService _entityService;
-    private EntitySearchService _entitySearchService;
-    private SearchService _searchService;
-    private TimeseriesAspectService _timeseriesAspectService;
+    private final EntityService _entityService;
+    private final EventProducer _eventProducer;
+    private final EntitySearchService _entitySearchService;
+    private final SearchService _searchService;
+    private final TimeseriesAspectService _timeseriesAspectService;
+    private final LineageSearchService _lineageSearchService;
 
-    public JavaEntityClient(@Nonnull final EntityService entityService, @Nonnull final EntitySearchService entitySearchService, @Nonnull final
-        SearchService searchService, @Nonnull final TimeseriesAspectService timeseriesAspectService) {
-      _entityService = entityService;
-      _entitySearchService = entitySearchService;
-      _searchService = searchService;
-      _timeseriesAspectService = timeseriesAspectService;
+    @Nullable
+    public EntityResponse getV2(
+        @Nonnull String entityName,
+        @Nonnull final Urn urn,
+        @Nullable final Set<String> aspectNames,
+        @Nonnull final Authentication authentication) throws RemoteInvocationException, URISyntaxException {
+        final Set<String> projectedAspects = aspectNames == null
+            ? _entityService.getEntityAspectNames(entityName)
+            : aspectNames;
+        return _entityService.getEntityV2(entityName, urn, projectedAspects);
     }
 
     @Nonnull
@@ -272,7 +285,17 @@ public class JavaEntityClient implements EntityClient {
         int start,
         int count,
         @Nonnull final Authentication authentication) throws RemoteInvocationException {
-        return _searchService.searchAcrossEntities(entities, input, filter, null, start, count);
+        return _searchService.searchAcrossEntities(entities, input, filter, null, start, count, null);
+    }
+
+    @Nonnull
+    @Override
+    public LineageSearchResult searchAcrossLineage(@Nonnull Urn sourceUrn, @Nonnull LineageDirection direction,
+        @Nonnull List<String> entities, @Nullable String input, @Nullable Filter filter,
+        @Nullable SortCriterion sortCriterion, int start, int count, @Nonnull final Authentication authentication)
+        throws RemoteInvocationException {
+        return _lineageSearchService.searchAcrossLineage(sourceUrn, direction, entities, input, filter,
+            sortCriterion, start, count);
     }
 
     /**
@@ -413,5 +436,14 @@ public class JavaEntityClient implements EntityClient {
         }
 
         return null;
+    }
+
+    @Override
+    public void producePlatformEvent(
+        @Nonnull String name,
+        @Nullable String key,
+        @Nonnull PlatformEvent event,
+        @Nonnull Authentication authentication) throws Exception {
+        _eventProducer.producePlatformEvent(name, key, event);
     }
 }

@@ -56,6 +56,15 @@ query getChart($urn: String!) {
         container {
             ...entityContainer
         }
+        upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
+            ...fullLineageResults
+        }
+        downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
+            ...fullLineageResults
+        }
+        status {
+            removed
+        }
     }
 }
 

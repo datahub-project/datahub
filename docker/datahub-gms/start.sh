@@ -57,12 +57,13 @@ COMMON="
     -jar /jetty-runner.jar \
     --jar jetty-util.jar \
     --jar jetty-jmx.jar \
+    --config /datahub/datahub-gms/scripts/jetty.xml \
     /datahub/datahub-gms/bin/war.war"
 
 if [[ $SKIP_ELASTICSEARCH_CHECK != true ]]; then
-  dockerize \
+  exec dockerize \
     -wait $ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT -wait-http-header "$ELASTICSEARCH_AUTH_HEADER" \
     $COMMON
 else
-  dockerize $COMMON
+  exec dockerize $COMMON
 fi

@@ -41,7 +41,8 @@ record DashboardInfo includes CustomProperties, ExternalReference {
   @Relationship = {
     "/*": {
       "name": "Contains",
-      "entityTypes": [ "chart" ]
+      "entityTypes": [ "chart" ],
+      "isLineage": true
     }
   }
   charts: array[ChartUrn] = [ ]

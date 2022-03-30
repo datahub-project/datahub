@@ -3,13 +3,13 @@ import React from 'react';
 import styled from 'styled-components';
 import useUserParams from '../../shared/entitySearch/routingUtils/useUserParams';
 import { useGetUserQuery } from '../../../graphql/user.generated';
-import { EntityRelationshipsResult } from '../../../types.generated';
+import { EntityRelationshipsResult, EntityType } from '../../../types.generated';
 import UserGroups from './UserGroups';
 import { RoutedTabs } from '../../shared/RoutedTabs';
 import { UserAssets } from './UserAssets';
-import { ExtendedEntityRelationshipsResult } from './type';
 import { decodeUrn } from '../shared/utils';
 import UserInfoSideBar from './UserInfoSideBar';
+import { useEntityRegistry } from '../../useEntityRegistry';
 
 export interface Props {
     onTabChange: (selectedTab: string) => void;
@@ -56,11 +56,11 @@ export const EmptyValue = styled.div`
 export default function UserProfile() {
     const { urn: encodedUrn } = useUserParams();
     const urn = decodeUrn(encodedUrn);
+    const entityRegistry = useEntityRegistry();
 
     const { loading, error, data, refetch } = useGetUserQuery({ variables: { urn, groupsCount: GROUP_PAGE_SIZE } });
 
     const groupMemberRelationships = data?.corpUser?.relationships as EntityRelationshipsResult;
-    const groupsDetails = data?.corpUser?.relationships as ExtendedEntityRelationshipsResult;
 
     if (error || (!loading && !error && !data)) {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
@@ -84,7 +84,7 @@ export default function UserProfile() {
                     <UserGroups urn={urn} initialRelationships={groupMemberRelationships} pageSize={GROUP_PAGE_SIZE} />
                 ),
                 display: {
-                    enabled: () => groupsDetails?.relationships.length > 0,
+                    enabled: () => groupMemberRelationships?.relationships.length > 0,
                 },
             },
         ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
@@ -100,14 +100,17 @@ export default function UserProfile() {
             data?.corpUser?.info?.displayName ||
             data?.corpUser?.info?.fullName ||
             data?.corpUser?.urn,
-        name: data?.corpUser?.editableProperties?.displayName || data?.corpUser?.info?.fullName || undefined,
+        name:
+            data?.corpUser?.editableProperties?.displayName ||
+            (data?.corpUser && entityRegistry.getDisplayName(EntityType.CorpUser, data?.corpUser)) ||
+            undefined,
         role: data?.corpUser?.editableProperties?.title || data?.corpUser?.info?.title || undefined,
         team: data?.corpUser?.editableProperties?.teams?.join(',') || undefined,
         email: data?.corpUser?.editableProperties?.email || data?.corpUser?.info?.email || undefined,
         slack: data?.corpUser?.editableProperties?.slack || undefined,
         phone: data?.corpUser?.editableProperties?.phone || undefined,
         aboutText: data?.corpUser?.editableProperties?.aboutMe || undefined,
-        groupsDetails: data?.corpUser?.relationships as ExtendedEntityRelationshipsResult,
+        groupsDetails: data?.corpUser?.relationships as EntityRelationshipsResult,
         urn,
     };
     return (

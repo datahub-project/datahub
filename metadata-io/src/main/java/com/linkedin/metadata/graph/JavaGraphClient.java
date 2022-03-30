@@ -4,6 +4,7 @@ import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationshipArray;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import java.net.URISyntaxException;
@@ -13,7 +14,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.search.utils.QueryUtils.*;
+import static com.linkedin.metadata.search.utils.QueryUtils.EMPTY_FILTER;
 
 
 @Slf4j
@@ -27,12 +28,6 @@ public class JavaGraphClient implements GraphClient {
   /**
    * Returns a list of related entities for a given entity, set of edge types, and direction relative to the
    * source node
-   * @param rawUrn
-   * @param relationshipTypes
-   * @param direction
-   * @param start
-   * @param count
-   * @return
    */
   @Nonnull
   @Override
@@ -74,5 +69,17 @@ public class JavaGraphClient implements GraphClient {
         .setCount(relatedEntitiesResult.getCount())
         .setTotal(relatedEntitiesResult.getTotal())
         .setRelationships(entityArray);
+  }
+
+  /**
+   * Returns lineage relationships for given entity in the DataHub graph.
+   * Lineage relationship denotes whether an entity is directly upstream or downstream of another entity
+   */
+  @Nonnull
+  @Override
+  public EntityLineageResult getLineageEntities(String rawUrn, LineageDirection direction, @Nullable Integer start,
+      @Nullable Integer count, int maxHops, String actor) {
+    return _graphService.getLineage(UrnUtils.getUrn(rawUrn), direction, start != null ? start : 0,
+        count != null ? count : 100, maxHops);
   }
 }

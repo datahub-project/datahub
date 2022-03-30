@@ -18,9 +18,13 @@ public class RelationshipAnnotation {
   public static final String ANNOTATION_NAME = "Relationship";
   private static final String NAME_FIELD = "name";
   private static final String ENTITY_TYPES_FIELD = "entityTypes";
+  private static final String IS_UPSTREAM_FIELD = "isUpstream";
+  private static final String IS_LINEAGE_FIELD = "isLineage";
 
   String name;
   List<String> validDestinationTypes;
+  boolean isUpstream;
+  boolean isLineage;
 
   @Nonnull
   public static RelationshipAnnotation fromPegasusAnnotationObject(
@@ -64,6 +68,9 @@ public class RelationshipAnnotation {
       }
     }
 
-    return new RelationshipAnnotation(name.get(), entityTypes);
+    final Optional<Boolean> isUpstream = AnnotationUtils.getField(map, IS_UPSTREAM_FIELD, Boolean.class);
+    final Optional<Boolean> isLineage = AnnotationUtils.getField(map, IS_LINEAGE_FIELD, Boolean.class);
+
+    return new RelationshipAnnotation(name.get(), entityTypes, isUpstream.orElse(true), isLineage.orElse(false));
   }
 }

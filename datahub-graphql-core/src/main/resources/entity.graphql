@@ -35,6 +35,11 @@ type Query {
     dashboard(urn: String!): Dashboard
 
     """
+    Fetch a Notebook by primary key (urn)
+    """
+    notebook(urn: String!): Notebook
+
+    """
     Fetch a Chart by primary key (urn)
     """
     chart(urn: String!): Chart
@@ -70,9 +75,19 @@ type Query {
     domain(urn: String!): Domain
 
     """
+    Fetch an Assertion by primary key (urn)
+    """
+    assertion(urn: String!): Assertion
+
+    """
     List all DataHub Access Policies
     """
     listPolicies(input: ListPoliciesInput!): ListPoliciesResult
+
+    """
+    Get all granted privileges for the given actor and resource
+    """
+    getGrantedPrivileges(input: GetGrantedPrivilegesInput!): Privileges
 
     """
     Incubating: Fetch an ML Model by primary key (urn)
@@ -139,6 +154,11 @@ type Mutation {
     Update the metadata about a particular Dashboard
     """
     updateDashboard(urn: String!, input: DashboardUpdateInput!): Dashboard
+
+    """
+    Update the metadata about a particular Notebook
+    """
+    updateNotebook(urn: String!, input: NotebookUpdateInput!): Notebook
 
     """
     Update the metadata about a particular Data Flow (Pipeline)
@@ -282,6 +302,15 @@ type Mutation {
     Update a particular Corp Group's editable properties
     """
     updateCorpGroupProperties(urn: String!, input: CorpGroupUpdateInput!): CorpGroup
+
+    """
+    Remove an assertion associated with an entity. Requires the 'Edit Assertions' privilege on the entity.
+    """
+    deleteAssertion(
+      """
+      The assertion to remove
+      """
+      urn: String!): Boolean
 }
 
 """
@@ -337,6 +366,11 @@ enum EntityType {
     The Dashboard Entity
     """
     DASHBOARD
+
+    """
+    The Notebook Entity
+    """
+    NOTEBOOK
 
     """
     The Chart Entity
@@ -402,6 +436,11 @@ enum EntityType {
     A DataHub ExecutionRequest
     """
     EXECUTION_REQUEST
+
+    """
+    A DataHub Assertion
+    """
+    ASSERTION
 }
 
 """
@@ -409,6 +448,26 @@ Input for the get entity counts endpoint
 """
 input EntityCountInput {
     types: [EntityType!]
+}
+
+"""
+Input for the list lineage property of an Entity
+"""
+input LineageInput {
+    """
+    The direction of the relationship, either incoming or outgoing from the source entity
+    """
+    direction: LineageDirection!
+
+    """
+    The starting offset of the result set
+    """
+    start: Int
+
+    """
+    The number of results to be returned
+    """
+    count: Int
 }
 
 """
@@ -479,12 +538,72 @@ type EntityRelationship {
     """
     Entity that is related via lineage
     """
-    entity: Entity!
+    entity: Entity
 
     """
     An AuditStamp corresponding to the last modification of this relationship
     """
     created: AuditStamp
+}
+
+"""
+A list of lineage information associated with a source Entity
+"""
+type EntityLineageResult {
+    """
+    Start offset of the result set
+    """
+    start: Int
+
+    """
+    Number of results in the returned result set
+    """
+    count: Int
+
+    """
+    Total number of results in the result set
+    """
+    total: Int
+
+    """
+    Relationships in the result set
+    """
+    relationships: [LineageRelationship!]!
+}
+
+"""
+Metadata about a lineage relationship between two entities
+"""
+type LineageRelationship {
+    """
+    The type of the relationship
+    """
+    type: String!
+
+    """
+    Entity that is related via lineage
+    """
+    entity: Entity
+
+    """
+    Degree of relationship (number of hops to get to entity)
+    """
+    degree: Int!
+}
+
+"""
+Direction between two nodes in the lineage graph
+"""
+enum LineageDirection {
+    """
+    Upstream, or left-to-right in the lineage visualization
+    """
+    UPSTREAM,
+
+    """
+    Downstream, or right-to-left in the lineage visualization
+    """
+    DOWNSTREAM
 }
 
 """
@@ -537,9 +656,14 @@ interface EntityWithRelationships implements Entity {
     type: EntityType!
 
     """
-    Edges extending from this entity
+    Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Edges extending from this entity grouped by direction in the lineage graph
+    """
+    lineage(input: LineageInput!): EntityLineageResult
 }
 
 """
@@ -567,7 +691,8 @@ type Dataset implements EntityWithRelationships & Entity {
     container: Container
 
     """
-    The Dataset display name
+    Unique guid for dataset
+    No longer to be used as the Dataset display name. Use properties.name instead
     """
     name: String!
 
@@ -636,16 +761,31 @@ type Dataset implements EntityWithRelationships & Entity {
     If no start or end time are provided, the most recent events will be returned
     """
     datasetProfiles(startTimeMillis: Long, endTimeMillis: Long, limit: Int): [DatasetProfile!]
-    """
 
+    """
     Operational events for an entity.
     """
     operations(startTimeMillis: Long, endTimeMillis: Long, limit: Int): [Operation!]
 
     """
+    Assertions associated with the Dataset
+    """
+    assertions(start: Int, count: Int): EntityAssertionsResult
+
+    """
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Edges extending from this entity grouped by direction in the lineage graph
+    """
+    lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    Experimental! The resolved health status of the Dataset
+    """
+    health: Health
 
     """
     Schema metadata of the dataset
@@ -767,7 +907,12 @@ type DatasetProperties {
     """
     The name of the dataset used in display
     """
-    name: String
+    name: String!
+
+    """
+    Fully-qualified name of the Dataset
+    """
+    qualifiedName: String
 
     """
     Environment in which the dataset belongs to or where it was generated
@@ -1266,12 +1411,12 @@ type ContainerProperties {
   description: String
 
   """
-  Custom properties of the Dataset
+  Custom properties of the Container
   """
   customProperties: [StringMapEntry!]
 
   """
-  Native platform URL of the dashboard
+  Native platform URL of the Container
   """
   externalUrl: String
 }
@@ -1822,6 +1967,17 @@ type DashboardEditableProperties {
 }
 
 """
+Notebook properties that are editable via the UI This represents logical metadata,
+as opposed to technical metadata
+"""
+type NotebookEditableProperties {
+    """
+    Description of the Notebook
+    """
+    description: String
+}
+
+"""
 Data Job properties that are editable via the UI This represents logical metadata,
 as opposed to technical metadata
 """
@@ -2022,34 +2178,60 @@ Note that this field will soon become deprecated due to low usage
 """
 enum OwnershipType {
     """
-    A person or group that is in charge of developing the code
+    A person or group who is responsible for technical aspects of the asset.
     """
-    DEVELOPER
+    TECHNICAL_OWNER
 
     """
-    A person or group that is owning the data
+    A person or group who is responsible for logical, or business related, aspects of the asset.
     """
-    DATAOWNER
+    BUSINESS_OWNER
+
+    """
+    A steward, expert, or delegate responsible for the asset.
+    """
+    DATA_STEWARD
+
+    """
+    No specific type associated with the owner.
+    """
+    NONE
+
+    """
+    A person or group that owns the data.
+    Deprecated! This ownership type is no longer supported. Use TECHNICAL_OWNER instead.
+    """
+    DATAOWNER @deprecated
+
+    """
+    A person or group that is in charge of developing the code
+    Deprecated! This ownership type is no longer supported. Use TECHNICAL_OWNER instead.
+    """
+    DEVELOPER @deprecated
 
     """
     A person or a group that overseas the operation, eg a DBA or SRE
+    Deprecated! This ownership type is no longer supported. Use TECHNICAL_OWNER instead.
     """
-    DELEGATE
+    DELEGATE @deprecated
 
     """
     A person, group, or service that produces or generates the data
+    Deprecated! This ownership type is no longer supported. Use TECHNICAL_OWNER instead.
     """
-    PRODUCER
-
-    """
-    A person, group, or service that consumes the data
-    """
-    CONSUMER
+    PRODUCER @deprecated
 
     """
     A person or a group that has direct business interest
+    Deprecated! Use BUSINESS_OWNER instead.
     """
-    STAKEHOLDER
+    STAKEHOLDER @deprecated
+
+    """
+    A person, group, or service that consumes the data
+    Deprecated! This ownership type is no longer supported.
+    """
+    CONSUMER @deprecated
 }
 
 """
@@ -2103,7 +2285,7 @@ type CorpUser implements Entity {
     tags: GlobalTags
 
     """
-    Edges extending from this entity
+    Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
@@ -2418,7 +2600,7 @@ type CorpGroup implements Entity {
     editableProperties: CorpGroupEditableProperties
 
     """
-    Edges extending from this entity
+    Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
@@ -2605,7 +2787,7 @@ type Tag implements Entity {
     ownership: Ownership
 
     """
-    Edges extending from this entity
+    Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
@@ -2730,7 +2912,7 @@ input ChartUpdateInput {
 }
 
 """
-Arguments provided to update a Chart Entity
+Arguments provided to update a Dashboard Entity
 """
 input DashboardUpdateInput {
     """
@@ -2753,6 +2935,26 @@ input DashboardUpdateInput {
     Update to editable properties
     """
     editableProperties: DashboardEditablePropertiesUpdate
+}
+
+"""
+Arguments provided to update a Notebook Entity
+"""
+input NotebookUpdateInput {
+    """
+    Update to ownership
+    """
+    ownership: OwnershipUpdate
+
+    """
+    Update to tags
+    """
+    tags: GlobalTagsUpdate
+
+    """
+    Update to editable properties
+    """
+    editableProperties: NotebookEditablePropertiesUpdate
 }
 
 """
@@ -2894,6 +3096,16 @@ Update to writable Chart fields
 input ChartEditablePropertiesUpdate {
     """
     Writable description aka documentation for a Chart
+    """
+    description: String!
+}
+
+"""
+Update to writable Notebook fields
+"""
+input NotebookEditablePropertiesUpdate {
+    """
+    Writable description aka documentation for a Notebook
     """
     description: String!
 }
@@ -3059,6 +3271,242 @@ input InstitutionalMemoryMetadataUpdate {
 }
 
 """
+A Notebook Metadata Entity
+"""
+type Notebook implements Entity {
+    """
+    The primary key of the Notebook
+    """
+    urn: String!
+
+    """
+    A standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    The Notebook tool name
+    """
+    tool: String!
+
+    """
+    An id unique within the Notebook tool
+    """
+    notebookId: String!
+
+    """
+    Additional read only information about the Notebook
+    """
+    info: NotebookInfo
+
+    """
+    Additional read write properties about the Notebook
+    """
+    editableProperties: NotebookEditableProperties
+
+    """
+    Ownership metadata of the Notebook
+    """
+    ownership: Ownership
+
+    """
+    Status metadata of the Notebook
+    """
+    status: Status
+
+    """
+    The content of this Notebook
+    """
+    content: NotebookContent!
+
+    """
+    The tags associated with the Notebook
+    """
+    tags: GlobalTags
+
+    """
+    References to internal resources related to the Notebook
+    """
+    institutionalMemory: InstitutionalMemory
+
+    """
+    The Domain associated with the Notebook
+    """
+    domain: Domain
+
+    """
+    Edges extending from this entity
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Sub Types that this entity implements
+    """
+    subTypes: SubTypes
+
+    """
+    The structured glossary terms associated with the notebook
+    """
+    glossaryTerms: GlossaryTerms
+
+    """
+    Standardized platform.
+    """
+    platform: DataPlatform!
+}
+
+"""
+The actual content in a Notebook
+"""
+type NotebookContent {
+    """
+    The content of a Notebook which is composed by a list of NotebookCell
+    """
+    cells: [NotebookCell!]!
+}
+
+"""
+The Union of every NotebookCell
+"""
+type NotebookCell {
+    """
+    The chart cell content. The will be non-null only when all other cell field is null.
+    """
+    chartCell: ChartCell
+
+    """
+    The text cell content. The will be non-null only when all other cell field is null.
+    """
+    textCell: TextCell
+
+    """
+    The query cell content. The will be non-null only when all other cell field is null.
+    """
+    queryChell: QueryCell
+
+    """
+    The type of this Notebook cell
+    """
+    type: NotebookCellType!
+}
+
+"""
+The type for a NotebookCell
+"""
+enum NotebookCellType {
+    """
+    TEXT Notebook cell type. The cell context is text only.
+    """
+    TEXT_CELL,
+
+    """
+    QUERY Notebook cell type. The cell context is query only.
+    """
+    QUERY_CELL,
+
+    """
+    CHART Notebook cell type. The cell content is chart only.
+    """
+    CHART_CELL
+}
+
+"""
+A Notebook cell which contains text as content
+"""
+type TextCell {
+
+    """
+    Title of the cell
+    """
+    cellTitle: String!
+
+    """
+    Unique id for the cell.
+    """
+    cellId: String!
+
+    """
+    Captures information about who created/last modified/deleted this TextCell and when
+    """
+    changeAuditStamps: ChangeAuditStamps
+
+    """
+    The actual text in a TextCell in a Notebook
+    """
+    text: String!
+}
+
+"""
+A Notebook cell which contains Query as content
+"""
+type QueryCell {
+    """
+    Title of the cell
+    """
+    cellTitle: String!
+
+    """
+    Unique id for the cell.
+    """
+    cellId: String!
+
+    """
+    Captures information about who created/last modified/deleted this TextCell and when
+    """
+    changeAuditStamps: ChangeAuditStamps
+
+    """
+    Raw query to explain some specific logic in a Notebook
+    """
+    rawQuery: String!
+
+    """
+    Captures information about who last executed this query cell and when
+    """
+    lastExecuted: AuditStamp
+}
+
+"""
+A Notebook cell which contains chart as content
+"""
+type ChartCell {
+    """
+    Title of the cell
+    """
+    cellTitle: String!
+
+    """
+    Unique id for the cell.
+    """
+    cellId: String!
+
+    """
+    Captures information about who created/last modified/deleted this TextCell and when
+    """
+    changeAuditStamps: ChangeAuditStamps
+}
+
+"""
+Captures information about who created/last modified/deleted the entity and when
+"""
+type ChangeAuditStamps {
+    """
+    An AuditStamp corresponding to the creation
+    """
+    created: AuditStamp!
+
+    """
+    An AuditStamp corresponding to the modification
+    """
+    lastModified: AuditStamp!
+
+    """
+    An optional AuditStamp corresponding to the deletion
+    """
+    deleted: AuditStamp
+}
+
+"""
 A Dashboard Metadata Entity
 """
 type Dashboard implements EntityWithRelationships & Entity {
@@ -3134,9 +3582,14 @@ type Dashboard implements EntityWithRelationships & Entity {
     domain: Domain
 
     """
-    Edges extending from this entity
+    Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Edges extending from this entity grouped by direction in the lineage graph
+    """
+    lineage(input: LineageInput!): EntityLineageResult
 
     """
     Deprecated, use properties field instead
@@ -3218,6 +3671,36 @@ type DashboardInfo {
     An optional AuditStamp corresponding to the deletion of this dashboard
     """
     deleted: AuditStamp
+}
+
+"""
+Additional read only information about a Notebook
+"""
+type NotebookInfo {
+    """
+    Display of the Notebook
+    """
+    title: String
+
+    """
+    Description of the Notebook
+    """
+    description: String
+
+    """
+    Native platform URL of the Notebook
+    """
+    externalUrl: String
+
+    """
+    A list of platform specific metadata tuples
+    """
+    customProperties: [StringMapEntry!]
+
+    """
+    Captures information about who created/last modified/deleted this Notebook and when
+    """
+    changeAuditStamps: ChangeAuditStamps
 }
 
 """
@@ -3352,9 +3835,14 @@ type Chart implements EntityWithRelationships & Entity {
     domain: Domain
 
     """
-    Edges extending from this entity
+    Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Edges extending from this entity grouped by direction in the lineage graph
+    """
+    lineage(input: LineageInput!): EntityLineageResult
 
     """
     Deprecated, use properties field instead
@@ -3597,7 +4085,7 @@ enum ChartQueryType {
 A Data Flow Metadata Entity, representing an set of pipelined Data Job or Tasks required
 to produce an output Dataset Also known as a Data Pipeline
 """
-type DataFlow implements Entity {
+type DataFlow implements EntityWithRelationships & Entity {
     """
     The primary key of a Data Flow
     """
@@ -3669,9 +4157,14 @@ type DataFlow implements Entity {
     domain: Domain
 
     """
-    Edges extending from this entity
+    Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Edges extending from this entity grouped by direction in the lineage graph
+    """
+    lineage(input: LineageInput!): EntityLineageResult
 
     """
     Deprecated, use properties field instead
@@ -3830,9 +4323,14 @@ type DataJob implements EntityWithRelationships & Entity {
     domain: Domain
 
     """
-    Edges extending from this entity
+    Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Edges extending from this entity grouped by direction in the lineage graph
+    """
+    lineage(input: LineageInput!): EntityLineageResult
 
     """
     Deprecated, use properties field instead
@@ -4215,6 +4713,12 @@ type DatasetFieldProfile {
 Information about the partition being profiled
 """
 type PartitionSpec {
+
+  """
+  The partition type
+  """
+  type: PartitionType!
+
   """
   The partition identifier
   """
@@ -4224,6 +4728,12 @@ type PartitionSpec {
   The optional time window partition information
   """
   timePartition: TimeWindow
+}
+
+enum PartitionType {
+    FULL_TABLE,
+    QUERY,
+    PARTITION
 }
 
 """
@@ -4239,6 +4749,541 @@ type TimeWindow {
   The end time of the time window
   """
   durationMillis: Long!
+}
+
+
+"""
+An assertion represents a programmatic validation, check, or test performed periodically against another Entity.
+"""
+type Assertion implements EntityWithRelationships & Entity {
+    """
+    The primary key of the Assertion
+    """
+    urn: String!
+
+    """
+    The standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    Standardized platform urn where the assertion is evaluated
+    """
+    platform: DataPlatform!
+
+    """
+    Details about assertion
+    """
+    info: AssertionInfo
+
+    """
+    Lifecycle events detailing individual runs of this assertion. If startTimeMillis & endTimeMillis are not provided, the most
+    recent events will be returned.
+    """
+    runEvents(status: AssertionRunStatus, startTimeMillis: Long, endTimeMillis: Long, limit: Int): AssertionRunEventsResult
+
+    """
+    Edges extending from this entity
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Edges extending from this entity grouped by direction in the lineage graph
+    """
+    lineage(input: LineageInput!): EntityLineageResult
+}
+
+"""
+Type of assertion. Assertion types can evolve to span Datasets, Flows (Pipelines), Models, Features etc.
+"""
+type AssertionInfo {
+    """
+    Top-level type of the assertion.
+    """
+    type: AssertionType!
+
+    """
+    Dataset-specific assertion information
+    """
+    datasetAssertion: DatasetAssertionInfo
+}
+
+"""
+Detailed information about a Dataset Assertion
+"""
+type DatasetAssertionInfo {
+    """
+    The urn of the dataset that the assertion is related to
+    """
+    datasetUrn: String!
+
+    """
+    The scope of the Dataset assertion.
+    """
+    scope: DatasetAssertionScope!
+
+    """
+    The fields serving as input to the assertion. Empty if there are none.
+    """
+    fields: [SchemaFieldRef!]
+
+    """
+    Standardized assertion operator
+    """
+    aggregation: AssertionStdAggregation
+
+    """
+    Standardized assertion operator
+    """
+    operator: AssertionStdOperator!
+
+    """
+    Standard parameters required for the assertion. e.g. min_value, max_value, value, columns
+    """
+    parameters: AssertionStdParameters
+
+    """
+    The native operator for the assertion. For Great Expectations, this will contain the original expectation name.
+    """
+    nativeType: String
+
+    """
+    Native parameters required for the assertion.
+    """
+    nativeParameters: [StringMapEntry!]
+
+    """
+    Logic comprising a raw, unstructured assertion.
+    """
+    logic: String
+}
+
+"""
+A Dataset schema field (i.e. column)
+"""
+type SchemaFieldRef {
+  """
+  A schema field urn
+  """
+  urn: String!
+
+  """
+  A schema field path
+  """
+  path: String!
+}
+
+"""
+An event representing an event in the assertion evaluation lifecycle.
+"""
+type AssertionRunEvent implements TimeSeriesAspect {
+  """
+  The time at which the assertion was evaluated
+  """
+  timestampMillis: Long!
+
+  """
+  Urn of assertion which is evaluated
+  """
+  assertionUrn: String!
+
+  """
+  Urn of entity on which the assertion is applicable
+  """
+  asserteeUrn: String!
+
+  """
+  Native (platform-specific) identifier for this run
+  """
+  runId: String!
+
+  """
+  The status of the assertion run as per this timeseries event.
+  """
+  status: AssertionRunStatus!
+
+  """
+  Specification of the batch which this run is evaluating
+  """
+  batchSpec: BatchSpec
+
+  """
+  Information about the partition that was evaluated
+  """
+  partitionSpec: PartitionSpec
+
+  """
+  Runtime parameters of evaluation
+  """
+  runtimeContext: [StringMapEntry!]
+
+  """
+  Results of assertion, present if the status is COMPLETE
+  """
+  result: AssertionResult
+
+}
+
+"""
+The result of evaluating an assertion.
+"""
+type AssertionResult {
+    """
+    The final result, e.g. either SUCCESS or FAILURE.
+    """
+    type: AssertionResultType!
+
+    """
+    Number of rows for evaluated batch
+    """
+    rowCount: Long
+
+    """
+    Number of rows with missing value for evaluated batch
+    """
+    missingCount: Long
+
+    """
+    Number of rows with unexpected value for evaluated batch
+    """
+    unexpectedCount: Long
+
+    """
+    Observed aggregate value for evaluated batch
+    """
+    actualAggValue: Float
+
+    """
+    URL where full results are available
+    """
+    externalUrl: String
+
+    """
+    Native results / properties of evaluation
+    """
+    nativeResults: [StringMapEntry!]
+
+}
+
+type BatchSpec {
+    """
+    The native identifier as specified by the system operating on the batch.
+    """
+    nativeBatchId: String
+
+    """
+    A query that identifies a batch of data
+    """
+    query: String
+
+    """
+    Any limit to the number of rows in the batch, if applied
+    """
+    limit: Int
+
+    """
+    Custom properties of the Batch
+    """
+    customProperties: [StringMapEntry!]
+}
+
+"""
+The result type of an assertion, success or failure.
+"""
+enum AssertionResultType {
+    """
+    The assertion succeeded.
+    """
+    SUCCESS
+
+    """
+    The assertion failed.
+    """
+    FAILURE
+}
+
+"""
+The state of an assertion run, as defined within an Assertion Run Event.
+"""
+enum AssertionRunStatus {
+    """
+    An assertion run has completed.
+    """
+    COMPLETE
+}
+
+"""
+An "aggregation" function that can be applied to column values of a Dataset to create the input to an Assertion Operator.
+"""
+enum AssertionStdAggregation {
+    """
+    Assertion is applied on individual column value
+    """
+    IDENTITY
+
+    """
+    Assertion is applied on column mean
+    """
+    MEAN
+
+    """
+    Assertion is applied on column median
+    """
+    MEDIAN
+
+    """
+    Assertion is applied on number of distinct values in column
+    """
+    UNIQUE_COUNT
+
+    """
+    Assertion is applied on proportion of distinct values in column
+    """
+    UNIQUE_PROPOTION
+
+    """
+    Assertion is applied on number of null values in column
+    """
+    NULL_COUNT
+
+    """
+    Assertion is applied on proportion of null values in column
+    """
+    NULL_PROPORTION
+
+    """
+    Assertion is applied on column std deviation
+    """
+    STDDEV
+
+    """
+    Assertion is applied on column min
+    """
+    MIN
+
+    """
+    Assertion is applied on column std deviation
+    """
+    MAX
+
+    """
+    Assertion is applied on column sum
+    """
+    SUM
+
+    """
+    Assertion is applied on all columns
+    """
+    COLUMNS
+
+    """
+    Assertion is applied on number of columns
+    """
+    COLUMN_COUNT
+
+    """
+    Assertion is applied on number of rows
+    """
+    ROW_COUNT
+
+    """
+    Other
+    """
+    _NATIVE_
+}
+
+"""
+A standard operator or condition that constitutes an assertion definition
+"""
+enum AssertionStdOperator {
+    """
+    Value being asserted is between min_value and max_value
+    """
+    BETWEEN
+
+    """
+    Value being asserted is less than max_value
+    """
+    LESS_THAN
+
+    """
+    Value being asserted is less than or equal to max_value
+    """
+    LESS_THAN_OR_EQUAL_TO
+
+    """
+    Value being asserted is greater than min_value
+    """
+    GREATER_THAN
+
+    """
+    Value being asserted is greater than or equal to min_value
+    """
+    GREATER_THAN_OR_EQUAL_TO
+
+    """
+    Value being asserted is equal to value
+    """
+    EQUAL_TO
+
+    """
+    Value being asserted is not null
+    """
+    NOT_NULL
+
+    """
+    Value being asserted contains value
+    """
+    CONTAIN
+
+    """
+    Value being asserted ends with value
+    """
+    END_WITH
+
+    """
+    Value being asserted starts with value
+    """
+    START_WITH
+
+    """
+    Value being asserted is one of the array values
+    """
+    IN
+
+    """
+    Other
+    """
+    _NATIVE_
+}
+
+
+"""
+Parameters for AssertionStdOperators
+"""
+type AssertionStdParameters {
+  """
+  The value parameter of an assertion
+  """
+  value: AssertionStdParameter
+
+  """
+  The maxValue parameter of an assertion
+  """
+  maxValue: AssertionStdParameter
+
+  """
+  The minValue parameter of an assertion
+  """
+  minValue: AssertionStdParameter
+}
+
+"""
+Parameter for AssertionStdOperator.
+"""
+type AssertionStdParameter {
+  """
+  The parameter value
+  """
+  value: String!
+
+  """
+  The type of the parameter
+  """
+  type: AssertionStdParameterType!
+}
+
+"""
+The type of an AssertionStdParameter
+"""
+enum AssertionStdParameterType {
+  STRING
+  NUMBER
+  LIST
+  SET
+  UNKNOWN
+}
+
+"""
+The scope that a Dataset-level assertion applies to.
+"""
+enum DatasetAssertionScope {
+    """
+    Assertion applies to columns of a dataset.
+    """
+    DATASET_COLUMN,
+
+    """
+    Assertion applies to rows of a dataset.
+    """
+    DATASET_ROWS,
+
+    """
+    Assertion applies to schema of a dataset.
+    """
+    DATASET_SCHEMA
+
+    """
+    The scope of an assertion is unknown.
+    """
+    UNKNOWN
+}
+
+"""
+The top-level assertion type. Currently single Dataset assertions are the only type supported.
+"""
+enum AssertionType {
+    DATASET
+}
+
+"""
+Result returned when fetching run events for an assertion.
+"""
+type AssertionRunEventsResult {
+  """
+  The total number of run events returned
+  """
+  total: Int!
+
+  """
+  The number of failed run events
+  """
+  failed: Int!
+
+  """
+  The number of succeeded run events
+  """
+  succeeded: Int!
+
+  """
+  The run events themselves
+  """
+  runEvents: [AssertionRunEvent!]!
+}
+
+"""
+A list of Assertions Associated with an Entity
+"""
+type EntityAssertionsResult {
+  """
+  The starting offset of the result set returned
+  """
+  start: Int!
+
+  """
+  The number of assertions in the returned result set
+  """
+  count: Int!
+
+  """
+  The total number of assertions in the result set
+  """
+  total: Int!
+
+  """
+  The assertions themselves
+  """
+  assertions: [Assertion!]!
 }
 
 """
@@ -4412,6 +5457,11 @@ input AddOwnerInput {
     The owner type, either a user or group
     """
     ownerEntityType: OwnerEntityType!
+
+    """
+    The ownership type for the new owner. If none is provided, then a new NONE will be added.
+    """
+    type: OwnershipType
 
     """
     The urn of the resource or entity to attach or remove the owner from, for example a dataset urn
@@ -4682,7 +5732,7 @@ type ResourceFilter {
   """
   The type of the resource the policy should apply to Not required because in the future we want to support filtering by type OR by domain
   """
-  type: String!
+  type: String
 
   """
   A list of specific resource urns to apply the filter to
@@ -4692,7 +5742,12 @@ type ResourceFilter {
   """
   Whether of not to apply the filter to all resources of the type
   """
-  allResources: Boolean!
+  allResources: Boolean
+
+  """
+  Whether of not to apply the filter to all resources of the type
+  """
+  filter: PolicyMatchFilter
 }
 
 """
@@ -4737,6 +5792,62 @@ type ActorFilter {
 }
 
 """
+Filter object that encodes a complex filter logic with OR + AND
+"""
+type PolicyMatchFilter {
+  """
+  List of criteria to apply
+  """
+  criteria: [PolicyMatchCriterion!]
+}
+
+"""
+Criterion to define relationship between field and values
+"""
+type PolicyMatchCriterion {
+  """
+  The name of the field that the criterion refers to
+  e.g. entity_type, entity_urn, domain
+  """
+  field: String!
+
+  """
+  Values. Matches criterion if any one of the values matches condition (OR-relationship)
+  """
+  values: [PolicyMatchCriterionValue!]!
+
+  """
+  The name of the field that the criterion refers to
+  """
+  condition: PolicyMatchCondition!
+}
+
+"""
+Value in PolicyMatchCriterion with hydrated entity if value is urn
+"""
+type PolicyMatchCriterionValue {
+  """
+  The value of the field to match
+  """
+  value: String!
+
+  """
+  Hydrated entities of the above values. Only set if the value is an urn
+  """
+  entity: Entity
+}
+
+"""
+Match condition
+"""
+enum PolicyMatchCondition {
+  """
+  Whether the field matches the value
+  """
+  EQUALS
+}
+
+"""
 Input required when creating or updating an Access Policies Determines which resources the Policy applies to
 """
 input ResourceFilterInput {
@@ -4744,7 +5855,7 @@ input ResourceFilterInput {
   The type of the resource the policy should apply to
   Not required because in the future we want to support filtering by type OR by domain
   """
-  type: String!
+  type: String
 
   """
   A list of specific resource urns to apply the filter to
@@ -4754,7 +5865,12 @@ input ResourceFilterInput {
   """
   Whether of not to apply the filter to all resources of the type
   """
-  allResources: Boolean!
+  allResources: Boolean
+
+  """
+  Whether of not to apply the filter to all resources of the type
+  """
+  filter: PolicyMatchFilterInput
 }
 
 """
@@ -4786,6 +5902,37 @@ input ActorFilterInput {
   Whether the filter should apply to all groups
   """
   allGroups: Boolean!
+}
+
+"""
+Filter object that encodes a complex filter logic with OR + AND
+"""
+input PolicyMatchFilterInput {
+  """
+  List of criteria to apply
+  """
+  criteria: [PolicyMatchCriterionInput!]
+}
+
+"""
+Criterion to define relationship between field and values
+"""
+input PolicyMatchCriterionInput {
+  """
+  The name of the field that the criterion refers to
+  e.g. entity_type, entity_urn, domain
+  """
+  field: String!
+
+  """
+  Values. Matches criterion if any one of the values matches condition (OR-relationship)
+  """
+  values: [String!]!
+
+  """
+  The name of the field that the criterion refers to
+  """
+  condition: PolicyMatchCondition!
 }
 
 """
@@ -4826,6 +5973,46 @@ type ListPoliciesResult {
   The Policies themselves
   """
   policies: [Policy!]!
+}
+
+"""
+Input for getting granted privileges
+"""
+input GetGrantedPrivilegesInput {
+  """
+  Urn of the actor
+  """
+  actorUrn: String!
+
+  """
+  Spec to identify resource. If empty, gets privileges granted to the actor
+  """
+  resourceSpec: ResourceSpec
+}
+
+"""
+Spec to identify resource
+"""
+input ResourceSpec {
+  """
+  Resource type
+  """
+  resourceType: EntityType!
+
+  """
+  Resource urn
+  """
+  resourceUrn: String!
+}
+
+"""
+Object that encodes the privileges the actor has for a given resource
+"""
+type Privileges {
+  """
+  Granted Privileges
+  """
+  privileges: [String!]!
 }
 
 """
@@ -5073,9 +6260,14 @@ type MLModel implements EntityWithRelationships & Entity {
     deprecation: Deprecation
 
     """
-    Edges extending from this entity
+    Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Edges extending from this entity grouped by direction in the lineage graph
+    """
+    lineage(input: LineageInput!): EntityLineageResult
 }
 
 """
@@ -5134,9 +6326,14 @@ type MLModelGroup implements EntityWithRelationships & Entity {
     deprecation: Deprecation
 
     """
-    Edges extending from this entity
+    Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Edges extending from this entity grouped by direction in the lineage graph
+    """
+    lineage(input: LineageInput!): EntityLineageResult
 }
 
 type MLModelGroupProperties {
@@ -5208,9 +6405,14 @@ type MLFeature implements Entity {
     deprecation: Deprecation
 
     """
-    Edges extending from this entity
+    Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Edges extending from this entity grouped by direction in the lineage graph
+    """
+    lineage(input: LineageInput!): EntityLineageResult
 }
 
 type MLHyperParam {
@@ -5335,9 +6537,14 @@ type MLPrimaryKey implements Entity {
     deprecation: Deprecation
 
     """
-    Edges extending from this entity
+    Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Edges extending from this entity grouped by direction in the lineage graph
+    """
+    lineage(input: LineageInput!): EntityLineageResult
 }
 
 type MLPrimaryKeyProperties {
@@ -5412,9 +6619,14 @@ type MLFeatureTable implements Entity {
     deprecation: Deprecation
 
     """
-    Edges extending from this entity
+    Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Edges extending from this entity grouped by direction in the lineage graph
+    """
+    lineage(input: LineageInput!): EntityLineageResult
 }
 
 type MLFeatureTableProperties {
@@ -5836,4 +7048,41 @@ type ListDomainsResult {
   The Domains themselves
   """
   domains: [Domain!]!
+}
+
+enum HealthStatus {
+  """
+  The Asset is in a healthy state
+  """
+  PASS
+
+  """
+  The Asset is in a warning state
+  """
+  WARN
+
+  """
+  The Asset is in a failing (unhealthy) state
+  """
+  FAIL
+}
+
+"""
+The resolved Health of an Asset
+"""
+type Health {
+  """
+  An enum representing the resolved Health status of an Asset
+  """
+  status: HealthStatus!
+
+  """
+  An optional message describing the resolved health status
+  """
+  message: String
+
+  """
+  The causes responsible for the health status
+  """
+  causes: [String!]
 }

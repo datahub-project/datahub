@@ -14,8 +14,10 @@ dependencies {
 
   compile externalDependency.mavenArtifact
 
-  testCompile externalDependency.testng
   testCompile project(':test-models')
+  testCompile externalDependency.testng
+  testCompile externalDependency.mockito
+  testCompile externalDependency.mockitoInline
 
 }
 compileTestJava.dependsOn tasks.getByPath(':entity-registry:custom-test-model:modelDeploy')

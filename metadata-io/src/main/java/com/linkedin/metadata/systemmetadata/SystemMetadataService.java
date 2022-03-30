@@ -18,15 +18,15 @@ public interface SystemMetadataService {
 
   void deleteUrn(String finalOldUrn);
 
+  void setDocStatus(String urn, boolean removed);
+
   void insert(@Nullable SystemMetadata systemMetadata, String urn, String aspect);
 
-  List<AspectRowSummary> findByRunId(String runId);
+  List<AspectRowSummary> findByRunId(String runId, boolean includeSoftDeleted);
 
-  List<AspectRowSummary> findByRegistry(String registryName, String registryVersion);
+  List<AspectRowSummary> findByRegistry(String registryName, String registryVersion, boolean includeSoftDeleted);
 
-  List<IngestionRunSummary> listRuns(
-      final Integer pageOffset,
-      final Integer pageSize);
+  List<IngestionRunSummary> listRuns(Integer pageOffset, Integer pageSize, boolean includeSoftDeleted);
 
   void configure();
 

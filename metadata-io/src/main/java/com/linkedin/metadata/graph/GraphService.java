@@ -1,13 +1,30 @@
 package com.linkedin.metadata.graph;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
+import com.linkedin.metadata.search.utils.QueryUtils;
+import java.net.URISyntaxException;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import org.apache.commons.collections.CollectionUtils;
+
+import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
+import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
+
 
 public interface GraphService {
+  /**
+   * Return lineage registry to construct graph index
+   */
+  LineageRegistry getLineageRegistry();
 
   /**
    * Adds an edge to the graph. This creates the source and destination nodes, if they do not exist.
@@ -62,15 +79,85 @@ public interface GraphService {
    *   - RelatedEntity("DownstreamOf", "dataset three")
    */
   @Nonnull
-  RelatedEntitiesResult findRelatedEntities(
-      @Nullable final String sourceType,
-      @Nonnull final Filter sourceEntityFilter,
-      @Nullable final String destinationType,
-      @Nonnull final Filter destinationEntityFilter,
-      @Nonnull final List<String> relationshipTypes,
-      @Nonnull final RelationshipFilter relationshipFilter,
-      final int offset,
-      final int count);
+  RelatedEntitiesResult findRelatedEntities(@Nullable final String sourceType, @Nonnull final Filter sourceEntityFilter,
+      @Nullable final String destinationType, @Nonnull final Filter destinationEntityFilter,
+      @Nonnull final List<String> relationshipTypes, @Nonnull final RelationshipFilter relationshipFilter,
+      final int offset, final int count);
+
+  /**
+   * Traverse from the entityUrn towards the input direction up to maxHops number of hops
+   * Abstracts away the concept of relationship types
+   *
+   * Unless overridden, it uses the lineage registry to fetch valid edge types and queries for them
+   */
+  @Nonnull
+  default EntityLineageResult getLineage(@Nonnull Urn entityUrn, @Nonnull LineageDirection direction, int offset,
+      int count, int maxHops) {
+    if (maxHops > 1) {
+      throw new UnsupportedOperationException(
+          String.format("More than 1 hop is not supported for %s", this.getClass().getSimpleName()));
+    }
+    List<LineageRegistry.EdgeInfo> edgesToFetch =
+        getLineageRegistry().getLineageRelationships(entityUrn.getEntityType(), direction);
+    Map<Boolean, List<LineageRegistry.EdgeInfo>> edgesByDirection = edgesToFetch.stream()
+        .collect(Collectors.partitioningBy(edgeInfo -> edgeInfo.getDirection() == RelationshipDirection.OUTGOING));
+    EntityLineageResult result = new EntityLineageResult().setStart(offset)
+        .setCount(count)
+        .setRelationships(new LineageRelationshipArray())
+        .setTotal(0);
+    Set<String> visitedUrns = new HashSet<>();
+
+    // Outgoing edges
+    if (!CollectionUtils.isEmpty(edgesByDirection.get(true))) {
+      List<String> relationshipTypes =
+          edgesByDirection.get(true).stream().map(LineageRegistry.EdgeInfo::getType).collect(Collectors.toList());
+      // Fetch outgoing edges
+      RelatedEntitiesResult outgoingEdges =
+          findRelatedEntities(null, newFilter("urn", entityUrn.toString()), null, QueryUtils.EMPTY_FILTER,
+              relationshipTypes, newRelationshipFilter(QueryUtils.EMPTY_FILTER, RelationshipDirection.OUTGOING), offset,
+              count);
+
+      // Update offset and count to fetch the correct number of incoming edges below
+      offset = Math.max(0, offset - outgoingEdges.getTotal());
+      count = Math.max(0, count - outgoingEdges.getEntities().size());
+
+      result.setTotal(result.getTotal() + outgoingEdges.getTotal());
+      outgoingEdges.getEntities().forEach(entity -> {
+        visitedUrns.add(entity.getUrn());
+        try {
+          result.getRelationships()
+              .add(new LineageRelationship().setEntity(Urn.createFromString(entity.getUrn()))
+                  .setType(entity.getRelationshipType()));
+        } catch (URISyntaxException ignored) {
+        }
+      });
+    }
+
+    // Incoming edges
+    if (!CollectionUtils.isEmpty(edgesByDirection.get(false))) {
+      List<String> relationshipTypes =
+          edgesByDirection.get(false).stream().map(LineageRegistry.EdgeInfo::getType).collect(Collectors.toList());
+      RelatedEntitiesResult incomingEdges =
+          findRelatedEntities(null, newFilter("urn", entityUrn.toString()), null, QueryUtils.EMPTY_FILTER,
+              relationshipTypes, newRelationshipFilter(QueryUtils.EMPTY_FILTER, RelationshipDirection.INCOMING), offset,
+              count);
+      result.setTotal(result.getTotal() + incomingEdges.getTotal());
+      incomingEdges.getEntities().forEach(entity -> {
+        if (visitedUrns.contains(entity.getUrn())) {
+          return;
+        }
+        visitedUrns.add(entity.getUrn());
+        try {
+          result.getRelationships()
+              .add(new LineageRelationship().setEntity(Urn.createFromString(entity.getUrn()))
+                  .setType(entity.getRelationshipType()));
+        } catch (URISyntaxException ignored) {
+        }
+      });
+    }
+
+    return result;
+  }
 
   /**
    * Removes the given node (if it exists) as well as all edges (incoming and outgoing) of the node.
@@ -85,9 +172,7 @@ public interface GraphService {
    * Calling this method with a {@link com.linkedin.metadata.query.RelationshipDirection} `UNDIRECTED` in `relationshipFilter`
    * is equivalent to the union of `OUTGOING` and `INCOMING` (without duplicates).
    */
-  void removeEdgesFromNode(
-      @Nonnull final Urn urn,
-      @Nonnull final List<String> relationshipTypes,
+  void removeEdgesFromNode(@Nonnull final Urn urn, @Nonnull final List<String> relationshipTypes,
       @Nonnull final RelationshipFilter relationshipFilter);
 
   void configure();
@@ -96,4 +181,11 @@ public interface GraphService {
    * Removes all edges and nodes from the graph.
    */
   void clear();
+
+  /**
+   * Whether or not this graph service supports multi-hop
+   */
+  default boolean supportsMultiHop() {
+    return false;
+  }
 }

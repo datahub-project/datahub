@@ -14,6 +14,18 @@ class RecordEnvelope(Generic[T]):
     metadata: dict
 
 
+class ControlRecord:
+    """A marker class to indicate records that are control signals from the framework"""
+
+    pass
+
+
+class EndOfStream(ControlRecord):
+    """A marker class to indicate an end of stream"""
+
+    pass
+
+
 @dataclass
 class _WorkUnitId(metaclass=ABCMeta):
     id: str
