@@ -24,9 +24,11 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
     It knows how to get SchemaMetadata of a topic from ConfluentSchemaRegistry
     """
 
-    def __init__(self, source_config: KafkaSourceConfig, report: KafkaSourceReport):
-        self.source_config = source_config
-        self.report = report
+    def __init__(
+        self, source_config: KafkaSourceConfig, report: KafkaSourceReport
+    ) -> None:
+        self.source_config: KafkaSourceConfig = source_config
+        self.report: KafkaSourceReport = report
         # Use the fully qualified name for SchemaRegistryClient to make it mock patchable for testing.
         self.schema_registry_client = (
             confluent_kafka.schema_registry.schema_registry_client.SchemaRegistryClient(
@@ -58,7 +60,7 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
         # User-provided subject for the topic overrides the rest, regardless of the subject name strategy.
         # However, it is a must when the RecordNameStrategy is used as the schema registry subject name strategy.
         # The subject name format for RecordNameStrategy is: <fully-qualified record name>-<key/value> (cannot be inferred from topic name).
-        subject_key = topic + subject_key_suffix
+        subject_key: str = topic + subject_key_suffix
         if subject_key in self.source_config.topic_subject_map:
             return self.source_config.topic_subject_map[subject_key]
 
@@ -177,7 +179,7 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
         # Parse the schema and convert it to SchemaFields.
         fields: List[SchemaField] = []
         if schema.schema_type == "AVRO":
-            cleaned_str = self.get_schema_str_replace_confluent_ref_avro(schema)
+            cleaned_str: str = self.get_schema_str_replace_confluent_ref_avro(schema)
             # "value.id" or "value.[type=string]id"
             fields = schema_util.avro_schema_to_mce_fields(
                 cleaned_str, is_key_schema=is_key_schema
@@ -208,7 +210,7 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             schema_as_string = (schema.schema_str if schema is not None else "") + (
                 key_schema.schema_str if key_schema is not None else ""
             )
-            md5_hash = md5(schema_as_string.encode()).hexdigest()
+            md5_hash: str = md5(schema_as_string.encode()).hexdigest()
 
             return SchemaMetadata(
                 schemaName=topic,

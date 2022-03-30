@@ -1,7 +1,8 @@
 import logging
+import types
 from dataclasses import dataclass, field
 from importlib import import_module
-from typing import Dict, Iterable, List, Optional, cast
+from typing import Dict, Iterable, List, Optional, Tuple, Type, cast
 
 import confluent_kafka
 
@@ -95,16 +96,18 @@ class KafkaSource(StatefulIngestionSourceBase):
         cls, config: KafkaSourceConfig, report: KafkaSourceReport
     ) -> KafkaSchemaRegistryBase:
         try:
-            module_path, class_name = config.schema_registry_class.rsplit(".", 1)
-            module = import_module(module_path)
-            schema_attribute = getattr(module, class_name)
-            return schema_attribute.create(config, report)
+            module_path, class_name = config.schema_registry_class.rsplit(
+                ".", 1
+            )  # type: Tuple[str, str]
+            module: types.ModuleType = import_module(module_path)
+            schema_registry_class: Type = getattr(module, class_name)
+            return schema_registry_class.create(config, report)
         except (ImportError, AttributeError):
             raise ImportError(config.schema_registry_class)
 
     def __init__(self, config: KafkaSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
-        self.source_config = config
+        self.source_config: KafkaSourceConfig = config
         if (
             self.is_stateful_ingestion_configured()
             and not self.source_config.platform_instance
@@ -163,8 +166,8 @@ class KafkaSource(StatefulIngestionSourceBase):
         return self.source_config.platform_instance
 
     @classmethod
-    def create(cls, config_dict, ctx):
-        config = KafkaSourceConfig.parse_obj(config_dict)
+    def create(cls, config_dict: Dict, ctx: PipelineContext) -> "KafkaSource":
+        config: KafkaSourceConfig = KafkaSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
     def gen_removed_entity_workunits(self) -> Iterable[MetadataWorkUnit]:
@@ -282,7 +285,7 @@ class KafkaSource(StatefulIngestionSourceBase):
                 )
             )
 
-        # 4. Emit the datasetSnapshot MCE
+        # 5. Emit the datasetSnapshot MCE
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         wu = MetadataWorkUnit(id=f"kafka-{topic}", mce=mce)
         self.report.report_workunit(wu)
@@ -318,7 +321,7 @@ class KafkaSource(StatefulIngestionSourceBase):
                 self.report.report_workunit(wu)
                 yield wu
 
-    def get_report(self):
+    def get_report(self) -> KafkaSourceReport:
         return self.report
 
     def update_default_job_run_summary(self) -> None:
@@ -333,7 +336,7 @@ class KafkaSource(StatefulIngestionSourceBase):
                 else JobStatusClass.COMPLETED
             )
 
-    def close(self):
+    def close(self) -> None:
         self.update_default_job_run_summary()
         self.prepare_for_commit()
         if self.consumer:

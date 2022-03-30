@@ -1,22 +1,13 @@
 import unittest
-from itertools import chain
-from typing import Dict, Optional, Tuple
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-import pytest
 from confluent_kafka.schema_registry.schema_registry_client import (
     RegisteredSchema,
     Schema,
 )
 
-
-from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.kafka import (
-    KafkaSourceReport,
-    KafkaSource,
-    KafkaSourceConfig,
-)
 from datahub.ingestion.source.confluent_schema_registry import ConfluentSchemaRegistry
+from datahub.ingestion.source.kafka import KafkaSourceConfig, KafkaSourceReport
 
 
 class ConfluentSchemaRegistryTest(unittest.TestCase):
@@ -68,17 +59,17 @@ class ConfluentSchemaRegistryTest(unittest.TestCase):
         """
         )
 
-        ctx = PipelineContext(run_id="test")
         kafka_source_config = KafkaSourceConfig.parse_obj(
             {
                 "connection": {
                     "bootstrap": "localhost:9092",
-                    "schema_registry_url":"http://localhost:8081"
+                    "schema_registry_url": "http://localhost:8081",
                 },
             }
         )
         confluent_schema_registry = ConfluentSchemaRegistry.create(
-            kafka_source_config, KafkaSourceReport())
+            kafka_source_config, KafkaSourceReport()
+        )
 
         def new_get_latest_version(subject_name: str) -> RegisteredSchema:
             return RegisteredSchema(
