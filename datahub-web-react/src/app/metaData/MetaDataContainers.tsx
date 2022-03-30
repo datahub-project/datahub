@@ -16,6 +16,8 @@ import EmbeddedListSearchHeader from '../entity/shared/components/styled/search/
 import { GetSearchResultsParams, SearchResultsInterface } from '../entity/shared/components/styled/search/types';
 import { MetaDataSearchResults } from './MetaDataSearchResults';
 
+type Filter = { field: string; value: string };
+
 // this extracts the response from useGetSearchResultsForMultipleQuery into a common interface other search endpoints can also produce
 function useWrappedSearchResults(params: GetSearchResultsParams) {
     const { data, loading, error, refetch } = useGetSearchResultsForMultipleQuery(params);
@@ -65,15 +67,16 @@ export const MetaDataContainers = ({
     rootPath,
     fixedFilter,
     entityRegistry,
+    fixedQuery,
     emptySearchQuery,
     placeholderText,
     useGetSearchResults = useWrappedSearchResults,
-    fixedQuery,
     entityType,
 }: Props) => {
     const history = useHistory();
     const location = useLocation();
 
+    console.log('fixedQuery:: ', fixedQuery);
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const query: string = params.query ? (params.query as string) : '';
     const page: number = params.page && Number(params.page as string) > 0 ? Number(params.page as string) : 1;
@@ -82,19 +85,18 @@ export const MetaDataContainers = ({
         (filter) => filter.field !== ENTITY_FILTER_NAME,
     );
 
+    const [showFilters, setShowFilters] = useState(true);
     const entityFilters: Array<EntityType> = filters
         .filter((filter) => filter.field === ENTITY_FILTER_NAME)
         .map((filter) => filter.value.toUpperCase() as EntityType);
-    const [showFilters, setShowFilters] = useState(true);
     const path = rootPath.split('/');
-    let finalFilters: Array<{ field: string; value: string }> = [];
+    let finalFilters: Array<Filter> = [];
     if (path.length > 4) {
         finalFilters = [...finalFilters, { field: CONTAINER_FILTER_NAME, value: path.slice(path.length - 1)[0] }];
     } else {
         finalFilters = (fixedFilter && [...filtersWithoutEntities, fixedFilter]) || filtersWithoutEntities;
     }
 
-    console.log('fixedQuery:: ', fixedQuery);
     const { refetch } = useGetSearchResults({
         variables: {
             input: {
