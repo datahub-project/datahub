@@ -84,6 +84,7 @@ public class RecentlySearchedSource implements RecommendationSource {
           .map(bucket -> buildContent(bucket.getKeyAsString()))
           .filter(Optional::isPresent)
           .map(Optional::get)
+          .limit(MAX_CONTENT)
           .collect(Collectors.toList());
     } catch (Exception e) {
       log.error("Search query to get most recently viewed entities failed", e);
@@ -107,7 +108,7 @@ public class RecentlySearchedSource implements RecommendationSource {
     String lastSearched = "last_searched";
     AggregationBuilder aggregation = AggregationBuilders.terms(ENTITY_AGG_NAME)
         .field(DataHubUsageEventConstants.QUERY + ".keyword")
-        .size(MAX_CONTENT)
+        .size(MAX_CONTENT * 2) // Fetch more than max to account for post-filtering
         .order(BucketOrder.aggregation(lastSearched, false))
         .subAggregation(AggregationBuilders.max(lastSearched).field(DataHubUsageEventConstants.TIMESTAMP));
     source.aggregation(aggregation);
@@ -118,7 +119,14 @@ public class RecentlySearchedSource implements RecommendationSource {
     return request;
   }
 
+  private boolean isQueryInvalid(@Nonnull String query) {
+    return query.trim().isEmpty() || query.equals("*");
+  }
+
   private Optional<RecommendationContent> buildContent(@Nonnull String query) {
+    if (isQueryInvalid(query)) {
+      return Optional.empty();
+    }
     return Optional.of(new RecommendationContent().setValue(query)
         .setParams(new RecommendationParams().setSearchParams(new SearchParams().setQuery(query))));
   }

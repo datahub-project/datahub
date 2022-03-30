@@ -29,13 +29,8 @@ services:
     - GMS_PORT=8080
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
     - SCHEMA_REGISTRY_URL=http://schema-registry:8081
-    - METADATA_AUDIT_EVENT_NAME=MetadataAuditEvent_v4
-    - METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME=MetadataChangeLog_Versioned_v1
-    - DATAHUB_SYSTEM_CLIENT_ID=__datahub_system
-    - DATAHUB_SYSTEM_CLIENT_SECRET=JohnSnowKnowsNothing
-    - KAFKA_PROPERTIES_SECURITY_PROTOCOL=PLAINTEXT
     hostname: actions
-    image: public.ecr.aws/datahub/acryl-datahub-actions:${ACTIONS_VERSION:-head}
+    image: acryldata/acryl-datahub-actions:${ACTIONS_VERSION:-head}
     restart: on-failure:5
   datahub-frontend-react:
     container_name: datahub-frontend-react
@@ -50,10 +45,12 @@ services:
     - JAVA_OPTS=-Xms512m -Xmx512m -Dhttp.port=9002 -Dconfig.file=datahub-frontend/conf/application.conf
       -Djava.security.auth.login.config=datahub-frontend/conf/jaas.conf -Dlogback.configurationFile=datahub-frontend/conf/logback.xml
       -Dlogback.debug=false -Dpidfile.path=/dev/null
+    - DATAHUB_ANALYTICS_ENABLED=false
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
     - DATAHUB_TRACKING_TOPIC=DataHubUsageEvent_v1
     - ELASTIC_CLIENT_HOST=elasticsearch
     - ELASTIC_CLIENT_PORT=9200
+    - ADMIN_PASSWORD=mypass
     hostname: datahub-frontend-react
     image: linkedin/datahub-frontend-react:${DATAHUB_VERSION:-head}
     ports:

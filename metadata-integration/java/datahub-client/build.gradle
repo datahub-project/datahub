@@ -26,9 +26,9 @@ dependencies {
     testCompile externalDependency.mockServerClient
 }
 
-jacocoTestReport {
-    dependsOn test // tests are required to run before generating the report
-}
+//jacocoTestReport {
+//    dependsOn test // tests are required to run before generating the report
+//}
 
 
 def detailedVersionString = "0.0.0-unknown-SNAPSHOT"
@@ -79,10 +79,10 @@ if (project.hasProperty("releaseVersion")) {
       filter(ReplaceTokens, tokens:[fullVersion: detailedVersionString])
     }
 
-test {
-  useJUnit()
-  finalizedBy jacocoTestReport
-}
+//test {
+//  useJUnit()
+//  finalizedBy jacocoTestReport
+//}
 
 task checkShadowJar(type: Exec) { 
    commandLine 'sh', '-c', 'scripts/check_jar.sh'

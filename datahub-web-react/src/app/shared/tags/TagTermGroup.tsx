@@ -238,7 +238,7 @@ export default function TagTermGroup({
                 renderedTags += 1;
                 if (maxShow && renderedTags > maxShow) return null;
                 return (
-                    <TagLink>
+                    <TagLink key={tag?.tag?.urn}>
                         <StyledTag
                             onClick={() => showTagProfileDrawer(tag?.tag?.urn)}
                             $colorHash={tag?.tag?.urn}

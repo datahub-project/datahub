@@ -675,6 +675,7 @@ class LookerExplore:
         if self.source_file is not None:
             custom_properties["looker.explore.file"] = str(self.source_file)
         dataset_props = DatasetPropertiesClass(
+            name=self.name,
             description=self.description,
             customProperties=custom_properties,
         )
