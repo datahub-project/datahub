@@ -28,7 +28,23 @@ query getDataJob($urn: String!) {
         status {
             removed
         }
-        runs(start: 0, count: 100) {
+        runs(start: 0, count: 20) {
+            count
+            start
+            total
+        }
+    }
+}
+
+mutation updateDataJob($urn: String!, $input: DataJobUpdateInput!) {
+    updateDataJob(urn: $urn, input: $input) {
+        urn
+    }
+}
+
+query getDataJobRuns($urn: String!, $start: Int!, $count: Int!) {
+    dataJob(urn: $urn) {
+        runs(start: $start, count: $count) {
             count
             start
             total
@@ -58,11 +74,5 @@ query getDataJob($urn: String!) {
                 externalUrl
             }
         }
-    }
-}
-
-mutation updateDataJob($urn: String!, $input: DataJobUpdateInput!) {
-    updateDataJob(urn: $urn, input: $input) {
-        urn
     }
 }
