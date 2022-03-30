@@ -44,6 +44,7 @@ public class Constants {
   public static final String INGESTION_SOURCE_ENTITY_NAME = "dataHubIngestionSource";
   public static final String SECRETS_ENTITY_NAME = "dataHubSecret";
   public static final String EXECUTION_REQUEST_ENTITY_NAME = "dataHubExecutionRequest";
+  public static final String NOTEBOOK_ENTITY_NAME = "notebook";
 
 
   /**
@@ -83,6 +84,7 @@ public class Constants {
   public static final String SCHEMA_METADATA_ASPECT_NAME = "schemaMetadata";
   public static final String EDITABLE_SCHEMA_METADATA_ASPECT_NAME = "editableSchemaMetadata";
   public static final String VIEW_PROPERTIES_ASPECT_NAME = "viewProperties";
+  public static final String DATASET_PROFILE_ASPECT_NAME = "datasetProfile";
 
   // Chart
   public static final String CHART_KEY_ASPECT_NAME = "chartKey";
@@ -94,6 +96,12 @@ public class Constants {
   public static final String DASHBOARD_KEY_ASPECT_NAME = "dashboardKey";
   public static final String DASHBOARD_INFO_ASPECT_NAME = "dashboardInfo";
   public static final String EDITABLE_DASHBOARD_PROPERTIES_ASPECT_NAME = "editableDashboardProperties";
+
+  // Notebook
+  public static final String NOTEBOOK_KEY_ASPECT_NAME = "notebookKey";
+  public static final String NOTEBOOK_INFO_ASPECT_NAME = "notebookInfo";
+  public static final String NOTEBOOK_CONTENT_ASPECT_NAME = "notebookContent";
+  public static final String EDITABLE_NOTEBOOK_PROPERTIES_ASPECT_NAME = "editableNotebookProperties";
 
   // DataFlow
   public static final String DATA_FLOW_KEY_ASPECT_NAME = "dataFlowKey";
@@ -118,7 +126,7 @@ public class Constants {
   public static final String ML_FEATURE_TABLE_KEY_ASPECT_NAME = "mlFeatureTableKey";
   public static final String ML_FEATURE_TABLE_PROPERTIES_ASPECT_NAME = "mlFeatureTableProperties";
 
-  // ML Model
+  //ML Model
   public static final String ML_MODEL_KEY_ASPECT_NAME = "mlModelKey";
   public static final String ML_MODEL_PROPERTIES_ASPECT_NAME = "mlModelProperties";
   public static final String INTENDED_USE_ASPECT_NAME = "intendedUse";
@@ -189,9 +197,6 @@ public class Constants {
 
   // Constraints
   public static final String CONSTRAINT_INFO_ASPECT_NAME = "constraintInfo";
-
-  // Relationships
-  public static final String GROUP_MEMBERSHIP_RELATIONSHIP_NAME = "IsMemberOfGroup";
 
   /**
    * User Status
