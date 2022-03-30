@@ -91,3 +91,21 @@ steps indicates the development lifecycle:
 
 Introducing the proposed design above won't be a breaking change because if no custom jars are found on start up then this
 feature is ignored.
+
+
+# UPDATE
+As it stands the current proposal applies the change processor at a point in the {Specific}EntityService, and the recent changes mean there would need to be a number of locations the processors are applied in both Ebean and Cassandra.
+
+In essence the proposal is to add a concept to the processing within the EntityService, which avoids changing things too much, so there is a common place where the interactions with the DAO and execution of processing steps. Ideally this would remove the {Specific}EntityService and flatten things making it easier to add new stores.
+
+The specific Change Processors could be dynamically loaded from customer jars, but the specification of which processors are to be executed are stored in an aspect in the database. This ensures the ordering of the processors is not a runtime decision, but a configuration decision.
+Also for our use case, the lack of a state machine step should terminate processing.
+
+This context could be created and ensure the correct level of transaction is applied, it could also confirm the entire execution is completed and which proposed changes were accepted or rejected/ignored. 
+If in the future a change processor takes a single input and generate multiple changes, these could be added to the accepted change set, with some traceability for the source if required.
+The entire context success, partial or complete could be tracked allowing better visibility of failure of say Audit event publication.
+
+This separation allows the entity service to reduce responsibility, and delegate the work to a pipeline of stages. The diagram tries to show how Proposed Changes could flow through the processing pipe, with fixed pre-processor check change and Audit event publication.
+
+
+![image](https://user-images.githubusercontent.com/97735469/160853047-b2f15257-2bdf-4d29-990c-e68182415d48.png)
