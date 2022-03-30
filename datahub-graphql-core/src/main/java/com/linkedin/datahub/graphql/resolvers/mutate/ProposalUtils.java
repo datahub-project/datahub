@@ -43,7 +43,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.snapshot.ActionRequestSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.schema.EditableSchemaFieldInfo;
@@ -352,7 +352,7 @@ public class ProposalUtils {
   private static void ingestEntityProposalsUpdate(Urn creator, Urn targetUrn, EntityService entityService,
       Proposals proposals) {
     final MetadataChangeProposal metadataChangeProposal = new MetadataChangeProposal();
-    metadataChangeProposal.setAspect(GenericAspectUtils.serializeAspect(proposals));
+    metadataChangeProposal.setAspect(GenericRecordUtils.serializeAspect(proposals));
     metadataChangeProposal.setEntityUrn(targetUrn);
     metadataChangeProposal.setEntityType(DATASET_ENTITY_NAME);
     metadataChangeProposal.setAspectName(PROPOSALS_ASPECT_NAME);
@@ -364,7 +364,7 @@ public class ProposalUtils {
   private static void ingestSchemaProposalsUpdate(Urn creator, Urn targetUrn, EntityService entityService,
       SchemaProposals schemaProposals) {
     final MetadataChangeProposal metadataChangeProposal = new MetadataChangeProposal();
-    metadataChangeProposal.setAspect(GenericAspectUtils.serializeAspect(schemaProposals));
+    metadataChangeProposal.setAspect(GenericRecordUtils.serializeAspect(schemaProposals));
     metadataChangeProposal.setEntityUrn(targetUrn);
     metadataChangeProposal.setEntityType(DATASET_ENTITY_NAME);
     metadataChangeProposal.setAspectName(SCHEMA_PROPOSALS_ASPECT_NAME);
