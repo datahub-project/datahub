@@ -169,3 +169,4 @@ entities:
     keyAspect: recommendationModuleKey
     aspects:
       - recommendationModule
+events:

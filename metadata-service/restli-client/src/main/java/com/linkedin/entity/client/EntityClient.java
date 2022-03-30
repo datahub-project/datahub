@@ -19,6 +19,7 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.r2.RemoteInvocationException;
 import java.net.URISyntaxException;
@@ -31,7 +32,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-
+// Consider renaming this to datahub client.
 public interface EntityClient {
 
   @Nullable
@@ -185,7 +186,7 @@ public interface EntityClient {
    */
   @Nonnull
   public LineageSearchResult searchAcrossLineage(@Nonnull Urn sourceUrn, @Nonnull LineageDirection direction,
-      @Nonnull List<String> entities, @Nullable String input, @Nullable Filter filter,
+      @Nonnull List<String> entities, @Nonnull String input, @Nullable Filter filter,
       @Nullable SortCriterion sortCriterion, int start, int count, @Nonnull final Authentication authentication)
       throws RemoteInvocationException;
 
@@ -280,4 +281,7 @@ public interface EntityClient {
   @Deprecated
   public DataMap getRawAspect(@Nonnull String urn, @Nonnull String aspect, @Nonnull Long version,
       @Nonnull Authentication authentication) throws RemoteInvocationException;
+
+  public void producePlatformEvent(@Nonnull String name, @Nullable String key, @Nonnull PlatformEvent event,
+      @Nonnull Authentication authentication) throws Exception;
 }

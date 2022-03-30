@@ -17,21 +17,23 @@ dependencies {
 
     implementation externalDependency.protobuf
     implementation externalDependency.jgrapht
+    implementation externalDependency.gson
+
     compileOnly externalDependency.lombok
     annotationProcessor externalDependency.lombok
     testImplementation externalDependency.junitJupiterApi
     testRuntimeOnly externalDependency.junitJupiterEngine
 }
 
-import java.nio.file.Path
+import java.nio.file.Paths
 task compileProtobuf {
     doLast {
-        def basePath = Path.of("${projectDir}/src/test/resources")
+        def basePath = Paths.get("${projectDir}/src/test/resources")
         [
                 fileTree("${projectDir}/src/test/resources/protobuf") { include "*.proto" },
                 fileTree("${projectDir}/src/test/resources/extended_protobuf") { include "*.proto" }
         ].collectMany { it.collect() }.each { f ->
-            def input = basePath.relativize(Path.of(f.getAbsolutePath()))
+            def input = basePath.relativize(Paths.get(f.getAbsolutePath()))
             println(input.toString() + " => " + input.toString().replace(".proto", ".protoc"))
             exec {
                 workingDir "${projectDir}/src/test/resources"
