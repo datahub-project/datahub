@@ -28,7 +28,12 @@ public class ProtobufExtensionPropertyVisitorTest {
                 new DatasetProperties().setCustomProperties(new StringMap(Map.of("classification_enum", "HighlyConfidential",
                         "bool_feature", "true",
                         "alert_channel", "#alerts",
-                        "team", "TeamB",
+                        "repeat_enum", "[\"ENTITY\",\"EVENT\"]",
+                        "team", "[\"corpGroup:TeamB\",\"corpUser:datahub\"]",
+                        "technical_owner", "[\"corpGroup:TechnicalOwner\"]",
+                        "tag_list", "a, b, c",
+                        "domain", "Engineering",
+                        "repeat_string", "[\"a\",\"b\"]",
                         "type", "ENTITY")))),
                 actual);
     }
@@ -41,6 +46,6 @@ public class ProtobufExtensionPropertyVisitorTest {
                         List.of(test)).collect(Collectors.toList());
 
         assertEquals(List.of(new DatasetProperties()
-                        .setCustomProperties(new StringMap(Map.of()))), actual);
+                        .setCustomProperties(new StringMap(Map.of("data_steward", "corpUser:datahub")))), actual);
     }
 }

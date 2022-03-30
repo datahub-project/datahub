@@ -9,7 +9,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.DataHubRetentionKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.retention.DataHubRetentionConfig;
@@ -90,7 +90,7 @@ public abstract class RetentionService {
     retentionKey.setAspectName(aspectName != null ? aspectName : ALL);
     Urn retentionUrn = EntityKeyUtils.convertEntityKeyToUrn(retentionKey, DATAHUB_RETENTION_ENTITY);
     MetadataChangeProposal keyProposal = new MetadataChangeProposal();
-    GenericAspect keyAspect = GenericAspectUtils.serializeAspect(retentionKey);
+    GenericAspect keyAspect = GenericRecordUtils.serializeAspect(retentionKey);
     keyProposal.setAspect(keyAspect);
     keyProposal.setAspectName(DATAHUB_RETENTION_KEY_ASPECT);
     keyProposal.setEntityType(DATAHUB_RETENTION_ENTITY);
@@ -100,7 +100,7 @@ public abstract class RetentionService {
         new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
     getEntityService().ingestProposal(keyProposal, auditStamp);
     MetadataChangeProposal aspectProposal = keyProposal.clone();
-    GenericAspect retentionAspect = GenericAspectUtils.serializeAspect(retentionConfig);
+    GenericAspect retentionAspect = GenericRecordUtils.serializeAspect(retentionConfig);
     aspectProposal.setAspect(retentionAspect);
     aspectProposal.setAspectName(DATAHUB_RETENTION_ASPECT);
     return getEntityService().ingestProposal(aspectProposal, auditStamp).isDidUpdate();

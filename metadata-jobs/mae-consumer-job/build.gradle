@@ -5,6 +5,9 @@ plugins {
 
 dependencies {
     compile project(':metadata-jobs:mae-consumer')
+    // TODO: Extract PE consumer into separate pod.
+    compile project(':metadata-jobs:pe-consumer')
+
     compile(externalDependency.springBootStarterWeb) {
         exclude module: "spring-boot-starter-tomcat"
     }

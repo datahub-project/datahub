@@ -37,6 +37,7 @@ FROM base as prod-install
 COPY --from=prod-build /war.war /datahub/datahub-gms/bin/war.war
 COPY --from=prod-build /datahub-src/metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-gms/resources/entity-registry.yml
 COPY --from=prod-build /datahub-src/docker/datahub-gms/start.sh /datahub/datahub-gms/scripts/start.sh
+COPY --from=prod-build /datahub-src/docker/datahub-gms/jetty.xml /datahub/datahub-gms/scripts/jetty.xml
 COPY --from=prod-build /datahub-src/docker/monitoring/client-prometheus-config.yaml /datahub/datahub-gms/scripts/prometheus-config.yaml
 RUN chmod +x /datahub/datahub-gms/scripts/start.sh
 

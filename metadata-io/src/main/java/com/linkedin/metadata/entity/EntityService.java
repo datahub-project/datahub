@@ -19,7 +19,7 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.VersionedAspect;
-import com.linkedin.metadata.event.EntityEventProducer;
+import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -29,7 +29,7 @@ import com.linkedin.metadata.search.utils.BrowsePathUtils;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.DataPlatformInstanceUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataAuditOperation;
@@ -95,8 +95,7 @@ public abstract class EntityService {
    * As described above, the latest version of an aspect should <b>always</b> take the value 0, with
    * monotonically increasing version incrementing as usual once the latest version is replaced.
    */
-
-  private final EntityEventProducer _producer;
+  private final EventProducer _producer;
   private final EntityRegistry _entityRegistry;
   private final Map<String, Set<String>> _entityToValidAspects;
   @Getter
@@ -108,7 +107,7 @@ public abstract class EntityService {
   public static final String DATA_PLATFORM_INSTANCE = "dataPlatformInstance";
   public static final String STATUS = "status";
 
-  protected EntityService(@Nonnull final EntityEventProducer producer, @Nonnull final EntityRegistry entityRegistry) {
+  protected EntityService(@Nonnull final EventProducer producer, @Nonnull final EntityRegistry entityRegistry) {
     _producer = producer;
     _entityRegistry = entityRegistry;
     _entityToValidAspects = buildEntityToValidAspects(entityRegistry);
@@ -248,6 +247,7 @@ public abstract class EntityService {
       @Nonnull final Function<Optional<RecordTemplate>, RecordTemplate> updateLambda,
       @Nonnull final AuditStamp auditStamp, @Nonnull final SystemMetadata systemMetadata) {
     validateUrn(urn);
+    validateAspect(urn, updateLambda.apply(null));
     return ingestAspectToLocalDB(urn, aspectName, updateLambda, auditStamp, systemMetadata);
   }
 
@@ -256,7 +256,17 @@ public abstract class EntityService {
       @Nonnull List<Pair<String, RecordTemplate>> aspectRecordsToIngest,
       @Nonnull final AuditStamp auditStamp, @Nonnull final SystemMetadata providedSystemMetadata) {
     validateUrn(urn);
+    aspectRecordsToIngest.forEach(pair -> validateAspect(urn, pair.getSecond()));
     return ingestAspectsToLocalDB(urn, aspectRecordsToIngest, auditStamp, providedSystemMetadata);
+  }
+
+  private void validateAspect(Urn urn, RecordTemplate aspect) {
+    EntityRegistryUrnValidator validator = new EntityRegistryUrnValidator(_entityRegistry);
+    validator.setCurrentEntitySpec(_entityRegistry.getEntitySpec(urn.getEntityType()));
+    RecordTemplateValidator.validate(aspect, validationResult -> {
+        throw new IllegalArgumentException("Invalid urn format for aspect: " + aspect + " for entity: " + urn + "\n Cause: "
+        + validationResult.getMessages());
+      }, validator);
   }
   /**
    * Checks whether there is an actual update to the aspect by applying the updateLambda
@@ -413,7 +423,7 @@ public abstract class EntityService {
 
     RecordTemplate aspect;
     try {
-      aspect = GenericAspectUtils.deserializeAspect(metadataChangeProposal.getAspect().getValue(),
+      aspect = GenericRecordUtils.deserializeAspect(metadataChangeProposal.getAspect().getValue(),
           metadataChangeProposal.getAspect().getContentType(), aspectSpec);
       ValidationUtils.validateOrThrow(aspect);
     } catch (ModelConversionException e) {
@@ -453,14 +463,16 @@ public abstract class EntityService {
       log.debug("Producing MetadataChangeLog for ingested aspect {}, urn {}", metadataChangeProposal.getAspectName(), entityUrn);
 
       final MetadataChangeLog metadataChangeLog = new MetadataChangeLog(metadataChangeProposal.data());
+      metadataChangeLog.setEntityUrn(entityUrn);
+
       if (oldAspect != null) {
-        metadataChangeLog.setPreviousAspectValue(GenericAspectUtils.serializeAspect(oldAspect));
+        metadataChangeLog.setPreviousAspectValue(GenericRecordUtils.serializeAspect(oldAspect));
       }
       if (oldSystemMetadata != null) {
         metadataChangeLog.setPreviousSystemMetadata(oldSystemMetadata);
       }
       if (newAspect != null) {
-        metadataChangeLog.setAspect(GenericAspectUtils.serializeAspect(newAspect));
+        metadataChangeLog.setAspect(GenericRecordUtils.serializeAspect(newAspect));
       }
       if (newSystemMetadata != null) {
         metadataChangeLog.setSystemMetadata(newSystemMetadata);
@@ -586,13 +598,13 @@ public abstract class EntityService {
     metadataChangeLog.setChangeType(changeType);
     metadataChangeLog.setAspectName(aspectName);
     if (newAspectValue != null) {
-      metadataChangeLog.setAspect(GenericAspectUtils.serializeAspect(newAspectValue));
+      metadataChangeLog.setAspect(GenericRecordUtils.serializeAspect(newAspectValue));
     }
     if (newSystemMetadata != null) {
       metadataChangeLog.setSystemMetadata(newSystemMetadata);
     }
     if (oldAspectValue != null) {
-      metadataChangeLog.setPreviousAspectValue(GenericAspectUtils.serializeAspect(oldAspectValue));
+      metadataChangeLog.setPreviousAspectValue(GenericRecordUtils.serializeAspect(oldAspectValue));
     }
     if (oldSystemMetadata != null) {
       metadataChangeLog.setPreviousSystemMetadata(oldSystemMetadata);

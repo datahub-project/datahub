@@ -13,6 +13,7 @@ import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.entity.ValidationException;
+import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
@@ -122,6 +123,10 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Inject
   @Named("relationshipSearchService")
   private LineageSearchService _lineageSearchService;
+
+  @Inject
+  @Named("kafkaEventProducer")
+  private EventProducer _eventProducer;
 
   /**
    * Retrieves the value for an entity that is made up of latest versions of specified aspects.

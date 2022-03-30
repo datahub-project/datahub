@@ -41,6 +41,7 @@ services:
       - SKIP_ELASTICSEARCH_CHECK=false
     volumes:
       - ./datahub-gms/start.sh:/datahub/datahub-gms/scripts/start.sh
+      - ./datahub-gms/jetty.xml:/datahub/datahub-gms/scripts/jetty.xml
       - ./monitoring/client-prometheus-config.yaml:/datahub/datahub-gms/scripts/prometheus-config.yaml
       - ../metadata-models/src/main/resources/:/datahub/datahub-gms/resources
       - ../metadata-service/war/build/libs/:/datahub/datahub-gms/bin

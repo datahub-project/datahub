@@ -50,7 +50,6 @@
     }
   },
   {
-
     "urn": "urn:li:dataHubPolicy:2"
   },
   {
@@ -126,9 +125,6 @@
       "type": "METADATA",
       "editable": false
     }
-  },
-  {
-    "urn": "urn:li:dataHubPolicy:8"
   },
   {
     "urn": "urn:li:dataHubPolicy:9"

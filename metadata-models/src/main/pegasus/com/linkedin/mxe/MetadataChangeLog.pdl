@@ -7,8 +7,14 @@ import com.linkedin.avro2pegasus.events.KafkaAuditHeader
  */
 record MetadataChangeLog includes MetadataChangeProposal {
 
+  /**
+   * The previous value of the aspect that has changed.
+   */
   previousAspectValue: optional GenericAspect
 
+  /**
+   * The previous value of the system metadata field that has changed.
+   */
   previousSystemMetadata: optional SystemMetadata
 
 }

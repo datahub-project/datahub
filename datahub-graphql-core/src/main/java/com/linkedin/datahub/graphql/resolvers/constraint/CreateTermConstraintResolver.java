@@ -14,7 +14,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.ConstraintKey;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -69,10 +69,10 @@ public class CreateTermConstraintResolver implements DataFetcher<CompletableFutu
 
           // Finally, create the MetadataChangeProposal.
           final MetadataChangeProposal proposal = new MetadataChangeProposal();
-          proposal.setEntityKeyAspect(GenericAspectUtils.serializeAspect(key));
+          proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(key));
           proposal.setEntityType(Constants.CONSTRAINT_ENTITY_NAME);
           proposal.setAspectName(Constants.CONSTRAINT_INFO_ASPECT_NAME);
-          proposal.setAspect(GenericAspectUtils.serializeAspect(info));
+          proposal.setAspect(GenericRecordUtils.serializeAspect(info));
           proposal.setChangeType(ChangeType.UPSERT);
           return _aspectClient.ingestProposal(proposal, context.getAuthentication());
         } catch (Exception e) {
