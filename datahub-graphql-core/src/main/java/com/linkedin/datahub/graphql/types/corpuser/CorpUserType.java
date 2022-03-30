@@ -30,7 +30,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.execution.DataFetcherResult;
 import java.util.ArrayList;
@@ -127,7 +127,8 @@ public class CorpUserType implements SearchableEntityType<CorpUser>, MutableType
             proposal.setEntityUrn(Urn.createFromString(urn));
             proposal.setEntityType(Constants.CORP_USER_ENTITY_NAME);
             proposal.setAspectName(Constants.CORP_USER_EDITABLE_INFO_NAME);
-            proposal.setAspect(GenericAspectUtils.serializeAspect(mapCorpUserEditableInfo(input, existingCorpUserEditableInfo)));
+            proposal.setAspect(
+                GenericRecordUtils.serializeAspect(mapCorpUserEditableInfo(input, existingCorpUserEditableInfo)));
             proposal.setChangeType(ChangeType.UPSERT);
             _entityClient.ingestProposal(proposal, context.getAuthentication());
 

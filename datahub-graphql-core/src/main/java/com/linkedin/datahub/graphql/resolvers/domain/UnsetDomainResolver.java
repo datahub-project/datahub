@@ -10,7 +10,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -60,7 +60,7 @@ public class UnsetDomainResolver implements DataFetcher<CompletableFuture<Boolea
         proposal.setEntityUrn(entityUrn);
         proposal.setEntityType(entityUrn.getEntityType());
         proposal.setAspectName(Constants.DOMAINS_ASPECT_NAME);
-        proposal.setAspect(GenericAspectUtils.serializeAspect(domains));
+        proposal.setAspect(GenericRecordUtils.serializeAspect(domains));
         proposal.setChangeType(ChangeType.UPSERT);
         _entityClient.ingestProposal(proposal, context.getAuthentication());
         return true;

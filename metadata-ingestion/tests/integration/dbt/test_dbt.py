@@ -12,6 +12,7 @@ from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
 )
+from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import (
     run_and_get_pipeline,
     validate_all_providers_have_committed_successfully,
@@ -101,7 +102,6 @@ class DbtTestConfig:
 @pytest.mark.integration
 @requests_mock.Mocker(kw="req_mock")
 def test_dbt_ingest(pytestconfig, tmp_path, mock_time, **kwargs):
-    tmp_path = "/tmp"
     test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
 
     with open(test_resources_dir / "dbt_manifest.json", "r") as f:
@@ -220,12 +220,11 @@ def test_dbt_ingest(pytestconfig, tmp_path, mock_time, **kwargs):
         )
         pipeline.run()
         pipeline.raise_from_status()
-
-        # mce_helpers.check_golden_file(
-        #     pytestconfig,
-        #     output_path=config.output_path,
-        #     golden_path=config.golden_path,
-        # )
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=config.output_path,
+            golden_path=config.golden_path,
+        )
 
 
 def get_current_checkpoint_from_pipeline(
@@ -251,6 +250,10 @@ def test_dbt_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         test_resources_dir
     )
     sources_path_deleted_actor = "{}/dbt_sources_deleted_actor.json".format(
+        test_resources_dir
+    )
+
+    deleted_actor_golden_mcs = "{}/dbt_deleted_actor_mces_golden.json".format(
         test_resources_dir
     )
 
@@ -316,6 +319,11 @@ def test_dbt_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
 
         # Set dbt config where actor table is deleted.
         pipeline_config_dict["source"]["config"] = scd_after_deletion
+        # Capture MCEs of second run to validate Status(removed=true)
+        deleted_mces_path = "{}/{}".format(tmp_path, "dbt_deleted_mces.json")
+        pipeline_config_dict["sink"]["type"] = "file"
+        pipeline_config_dict["sink"]["config"] = {"filename": deleted_mces_path}
+
         # Do the second run of the pipeline.
         pipeline_run2 = run_and_get_pipeline(pipeline_config_dict)
         checkpoint2 = get_current_checkpoint_from_pipeline(pipeline_run2)
@@ -343,4 +351,11 @@ def test_dbt_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         )
         validate_all_providers_have_committed_successfully(
             pipeline=pipeline_run2, expected_providers=1
+        )
+
+        # Validate against golden MCEs where Status(removed=true)
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=deleted_mces_path,
+            golden_path=deleted_actor_golden_mcs,
         )

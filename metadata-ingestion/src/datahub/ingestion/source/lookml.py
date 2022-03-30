@@ -932,7 +932,9 @@ class LookMLSource(Source):
             ],  # grab a limited slice of characters from the file
             "looker.file.path": file_path,
         }
-        dataset_props = DatasetPropertiesClass(customProperties=custom_properties)
+        dataset_props = DatasetPropertiesClass(
+            name=looker_view.id.view_name, customProperties=custom_properties
+        )
 
         if self.source_config.github_info is not None:
             github_file_url = self.source_config.github_info.get_url_for_file_path(

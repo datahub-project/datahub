@@ -185,7 +185,12 @@ class TableauSource(Source):
                 reason=f"Connection: {connection_type} Error: {query_data['errors']}",
             )
 
-        connection_object = query_data.get("data", {}).get(connection_type, {})
+        connection_object = (
+            query_data.get("data").get(connection_type, {})
+            if query_data.get("data")
+            else {}
+        )
+
         total_count = connection_object.get("totalCount", 0)
         has_next_page = connection_object.get("pageInfo", {}).get("hasNextPage", False)
         return connection_object, total_count, has_next_page
@@ -249,8 +254,11 @@ class TableauSource(Source):
 
         for table in datasource.get("upstreamTables", []):
             # skip upstream tables when there is no column info when retrieving embedded datasource
+            # and when table name is None
             # Schema details for these will be taken care in self.emit_custom_sql_ds()
             if not is_custom_sql and not table.get("columns"):
+                continue
+            elif table["name"] is None:
                 continue
 
             upstream_db = table.get("database", {}).get("name", "")

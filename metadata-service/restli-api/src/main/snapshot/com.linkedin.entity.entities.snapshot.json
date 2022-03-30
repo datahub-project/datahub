@@ -1025,7 +1025,7 @@
       "type" : "Urn",
       "doc" : "Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name\n(Caveat: only corpuser is currently supported in the frontend.)",
       "Relationship" : {
-        "entityTypes" : [ "corpUser", "corpGroup" ],
+        "entityTypes" : [ "corpuser", "corpGroup" ],
         "name" : "OwnedBy"
       },
       "Searchable" : {
@@ -2051,7 +2051,7 @@
                     "doc" : "owners of this group\nDeprecated! Replaced by Ownership aspect.",
                     "Relationship" : {
                       "/*" : {
-                        "entityTypes" : [ "corpUser" ],
+                        "entityTypes" : [ "corpuser" ],
                         "name" : "OwnedBy"
                       }
                     },
@@ -2065,7 +2065,7 @@
                     "doc" : "List of ldap urn in this group.\nDeprecated! Replaced by GroupMembership aspect.",
                     "Relationship" : {
                       "/*" : {
-                        "entityTypes" : [ "corpUser" ],
+                        "entityTypes" : [ "corpuser" ],
                         "name" : "IsPartOf"
                       }
                     },
@@ -2186,7 +2186,7 @@
                     "doc" : "direct manager of this user",
                     "optional" : true,
                     "Relationship" : {
-                      "entityTypes" : [ "corpUser" ],
+                      "entityTypes" : [ "corpuser" ],
                       "name" : "ReportsTo"
                     },
                     "Searchable" : {
@@ -4585,7 +4585,8 @@
                         "name" : "type",
                         "type" : "string",
                         "doc" : "The type of resource that the policy applies to. This will most often be a data asset entity name, for\nexample 'dataset'. It is not strictly required because in the future we will want to support filtering a resource\nby domain, as well.",
-                        "optional" : true
+                        "optional" : true,
+                        "deprecated" : true
                       }, {
                         "name" : "resources",
                         "type" : {
@@ -4593,12 +4594,60 @@
                           "items" : "string"
                         },
                         "doc" : "A specific set of resources to apply the policy to, e.g. asset urns",
-                        "optional" : true
+                        "optional" : true,
+                        "deprecated" : true
                       }, {
                         "name" : "allResources",
                         "type" : "boolean",
                         "doc" : "Whether the policy should be applied to all assets matching the filter.",
-                        "default" : false
+                        "default" : false,
+                        "deprecated" : true
+                      }, {
+                        "name" : "filter",
+                        "type" : {
+                          "type" : "record",
+                          "name" : "PolicyMatchFilter",
+                          "doc" : "The filter for specifying the resource or actor to apply privileges to",
+                          "fields" : [ {
+                            "name" : "criteria",
+                            "type" : {
+                              "type" : "array",
+                              "items" : {
+                                "type" : "record",
+                                "name" : "PolicyMatchCriterion",
+                                "doc" : "A criterion for matching a field with given value",
+                                "fields" : [ {
+                                  "name" : "field",
+                                  "type" : "string",
+                                  "doc" : "The name of the field that the criterion refers to"
+                                }, {
+                                  "name" : "values",
+                                  "type" : {
+                                    "type" : "array",
+                                    "items" : "string"
+                                  },
+                                  "doc" : "Values. Matches criterion if any one of the values matches condition (OR-relationship)"
+                                }, {
+                                  "name" : "condition",
+                                  "type" : {
+                                    "type" : "enum",
+                                    "name" : "PolicyMatchCondition",
+                                    "doc" : "The matching condition in a filter criterion",
+                                    "symbols" : [ "EQUALS" ],
+                                    "symbolDocs" : {
+                                      "EQUALS" : "Whether the field matches the value"
+                                    }
+                                  },
+                                  "doc" : "The condition for the criterion",
+                                  "default" : "EQUALS"
+                                } ]
+                              }
+                            },
+                            "doc" : "A list of criteria to apply conjunctively (so all criteria must pass)"
+                          } ]
+                        },
+                        "doc" : "Filter to apply privileges to",
+                        "optional" : true
                       } ]
                     },
                     "doc" : "The resource that the policy applies to. Not required for some 'Platform' privileges.",
@@ -5334,7 +5383,7 @@
       "doc" : "Additional properties",
       "optional" : true
     } ]
-  }, "com.linkedin.policy.DataHubActorFilter", "com.linkedin.policy.DataHubPolicyInfo", "com.linkedin.policy.DataHubResourceFilter", "com.linkedin.retention.DataHubRetentionConfig", "com.linkedin.retention.Retention", "com.linkedin.retention.TimeBasedRetention", "com.linkedin.retention.VersionBasedRetention", "com.linkedin.schema.ArrayType", "com.linkedin.schema.BinaryJsonSchema", "com.linkedin.schema.BooleanType", "com.linkedin.schema.BytesType", "com.linkedin.schema.DatasetFieldForeignKey", "com.linkedin.schema.DateType", "com.linkedin.schema.EditableSchemaFieldInfo", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.schema.EnumType", "com.linkedin.schema.EspressoSchema", "com.linkedin.schema.FixedType", "com.linkedin.schema.ForeignKeyConstraint", "com.linkedin.schema.ForeignKeySpec", "com.linkedin.schema.KafkaSchema", "com.linkedin.schema.KeyValueSchema", "com.linkedin.schema.MapType", "com.linkedin.schema.MySqlDDL", "com.linkedin.schema.NullType", "com.linkedin.schema.NumberType", "com.linkedin.schema.OracleDDL", "com.linkedin.schema.OrcSchema", "com.linkedin.schema.OtherSchema", "com.linkedin.schema.PrestoDDL", "com.linkedin.schema.RecordType", "com.linkedin.schema.SchemaField", "com.linkedin.schema.SchemaFieldDataType", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.SchemaMetadataKey", "com.linkedin.schema.Schemaless", "com.linkedin.schema.StringType", "com.linkedin.schema.TimeType", "com.linkedin.schema.UnionType", "com.linkedin.schema.UrnForeignKey", "com.linkedin.tag.TagProperties" ],
+  }, "com.linkedin.policy.DataHubActorFilter", "com.linkedin.policy.DataHubPolicyInfo", "com.linkedin.policy.DataHubResourceFilter", "com.linkedin.policy.PolicyMatchCondition", "com.linkedin.policy.PolicyMatchCriterion", "com.linkedin.policy.PolicyMatchFilter", "com.linkedin.retention.DataHubRetentionConfig", "com.linkedin.retention.Retention", "com.linkedin.retention.TimeBasedRetention", "com.linkedin.retention.VersionBasedRetention", "com.linkedin.schema.ArrayType", "com.linkedin.schema.BinaryJsonSchema", "com.linkedin.schema.BooleanType", "com.linkedin.schema.BytesType", "com.linkedin.schema.DatasetFieldForeignKey", "com.linkedin.schema.DateType", "com.linkedin.schema.EditableSchemaFieldInfo", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.schema.EnumType", "com.linkedin.schema.EspressoSchema", "com.linkedin.schema.FixedType", "com.linkedin.schema.ForeignKeyConstraint", "com.linkedin.schema.ForeignKeySpec", "com.linkedin.schema.KafkaSchema", "com.linkedin.schema.KeyValueSchema", "com.linkedin.schema.MapType", "com.linkedin.schema.MySqlDDL", "com.linkedin.schema.NullType", "com.linkedin.schema.NumberType", "com.linkedin.schema.OracleDDL", "com.linkedin.schema.OrcSchema", "com.linkedin.schema.OtherSchema", "com.linkedin.schema.PrestoDDL", "com.linkedin.schema.RecordType", "com.linkedin.schema.SchemaField", "com.linkedin.schema.SchemaFieldDataType", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.SchemaMetadataKey", "com.linkedin.schema.Schemaless", "com.linkedin.schema.StringType", "com.linkedin.schema.TimeType", "com.linkedin.schema.UnionType", "com.linkedin.schema.UrnForeignKey", "com.linkedin.tag.TagProperties" ],
   "schema" : {
     "name" : "entities",
     "namespace" : "com.linkedin.entity",

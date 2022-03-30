@@ -52,7 +52,16 @@ To cleanse DataHub of all of it's state (e.g. before ingesting your own), you ca
 datahub docker nuke
 ```
 
-If you want to delete the containers but keep the data you can add `--keep-data` flag to the command. This allows you to run the `quickstart` command to get DataHub running with your data that was ingested earlier. 
+## Updating DataHub locally
+
+If you have been testing DataHub locally, a new version of DataHub got released and you want to try the new version then you can use below commands. 
+
+```
+datahub docker nuke --keep-data
+datahub docker quickstart
+```
+
+This will keep the data that you have ingested so far in DataHub and start a new quickstart with the latest version of DataHub.
 
 ## Troubleshooting
 

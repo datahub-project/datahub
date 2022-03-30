@@ -22,7 +22,7 @@
                                 "catalog_version": "0.19.1"
                             },
                             "externalUrl": null,
-                            "name": null,
+                            "name": "customer_details",
                             "qualifiedName": null,
                             "description": null,
                             "uri": null,
@@ -161,7 +161,7 @@
                                 "catalog_version": "0.19.1"
                             },
                             "externalUrl": null,
-                            "name": null,
+                            "name": "an-aliased-view-for-monthly-billing",
                             "qualifiedName": null,
                             "description": null,
                             "uri": null,
@@ -328,7 +328,7 @@
                                 "catalog_version": "0.19.1"
                             },
                             "externalUrl": null,
-                            "name": null,
+                            "name": "an-aliased-view-for-payments",
                             "qualifiedName": null,
                             "description": null,
                             "uri": null,
@@ -574,7 +574,7 @@
                                 "catalog_version": "0.19.1"
                             },
                             "externalUrl": null,
-                            "name": null,
+                            "name": "payments_by_customer_by_month",
                             "qualifiedName": null,
                             "description": null,
                             "uri": null,
@@ -717,7 +717,7 @@
                                 "catalog_version": "0.19.1"
                             },
                             "externalUrl": null,
-                            "name": null,
+                            "name": "actor",
                             "qualifiedName": null,
                             "description": "postgres comment: Actors table \u2013 from postgres\n\ndbt model description: description for actor table from dbt",
                             "uri": null,
@@ -880,7 +880,7 @@
                                 "catalog_version": "0.19.1"
                             },
                             "externalUrl": null,
-                            "name": null,
+                            "name": "address",
                             "qualifiedName": null,
                             "description": "a user's address",
                             "uri": null,
@@ -1089,7 +1089,7 @@
                                 "catalog_version": "0.19.1"
                             },
                             "externalUrl": null,
-                            "name": null,
+                            "name": "category",
                             "qualifiedName": null,
                             "description": "a user's category",
                             "uri": null,
@@ -1213,7 +1213,7 @@
                                 "catalog_version": "0.19.1"
                             },
                             "externalUrl": null,
-                            "name": null,
+                            "name": "city",
                             "qualifiedName": null,
                             "description": null,
                             "uri": null,
@@ -1357,7 +1357,7 @@
                                 "catalog_version": "0.19.1"
                             },
                             "externalUrl": null,
-                            "name": null,
+                            "name": "country",
                             "qualifiedName": null,
                             "description": null,
                             "uri": null,
@@ -1497,7 +1497,7 @@
                                 "catalog_version": "0.19.1"
                             },
                             "externalUrl": null,
-                            "name": null,
+                            "name": "customer",
                             "qualifiedName": null,
                             "description": "description for customer table from dbt",
                             "uri": null,
@@ -1740,7 +1740,7 @@
                                 "catalog_version": "0.19.1"
                             },
                             "externalUrl": null,
-                            "name": null,
+                            "name": "payment_p2020_01",
                             "qualifiedName": null,
                             "description": null,
                             "uri": null,
@@ -1919,7 +1919,7 @@
                                 "catalog_version": "0.19.1"
                             },
                             "externalUrl": null,
-                            "name": null,
+                            "name": "payment_p2020_02",
                             "qualifiedName": null,
                             "description": null,
                             "uri": null,
@@ -2110,7 +2110,7 @@
                                 "catalog_version": "0.19.1"
                             },
                             "externalUrl": null,
-                            "name": null,
+                            "name": "payment_p2020_03",
                             "qualifiedName": null,
                             "description": null,
                             "uri": null,
@@ -2285,7 +2285,7 @@
                                 "catalog_version": "0.19.1"
                             },
                             "externalUrl": null,
-                            "name": null,
+                            "name": "payment_p2020_04",
                             "qualifiedName": null,
                             "description": null,
                             "uri": null,
@@ -2460,7 +2460,7 @@
                                 "catalog_version": "0.19.1"
                             },
                             "externalUrl": null,
-                            "name": null,
+                            "name": "payment_p2020_05",
                             "qualifiedName": null,
                             "description": "a payment",
                             "uri": null,
@@ -2635,7 +2635,7 @@
                                 "catalog_version": "0.19.1"
                             },
                             "externalUrl": null,
-                            "name": null,
+                            "name": "payment_p2020_06",
                             "qualifiedName": null,
                             "description": null,
                             "uri": null,

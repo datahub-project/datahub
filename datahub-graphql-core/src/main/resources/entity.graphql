@@ -35,6 +35,11 @@ type Query {
     dashboard(urn: String!): Dashboard
 
     """
+    Fetch a Notebook by primary key (urn)
+    """
+    notebook(urn: String!): Notebook
+
+    """
     Fetch a Chart by primary key (urn)
     """
     chart(urn: String!): Chart
@@ -78,6 +83,11 @@ type Query {
     List all DataHub Access Policies
     """
     listPolicies(input: ListPoliciesInput!): ListPoliciesResult
+
+    """
+    Get all granted privileges for the given actor and resource
+    """
+    getGrantedPrivileges(input: GetGrantedPrivilegesInput!): Privileges
 
     """
     Incubating: Fetch an ML Model by primary key (urn)
@@ -144,6 +154,11 @@ type Mutation {
     Update the metadata about a particular Dashboard
     """
     updateDashboard(urn: String!, input: DashboardUpdateInput!): Dashboard
+
+    """
+    Update the metadata about a particular Notebook
+    """
+    updateNotebook(urn: String!, input: NotebookUpdateInput!): Notebook
 
     """
     Update the metadata about a particular Data Flow (Pipeline)
@@ -351,6 +366,11 @@ enum EntityType {
     The Dashboard Entity
     """
     DASHBOARD
+
+    """
+    The Notebook Entity
+    """
+    NOTEBOOK
 
     """
     The Chart Entity
@@ -1947,6 +1967,17 @@ type DashboardEditableProperties {
 }
 
 """
+Notebook properties that are editable via the UI This represents logical metadata,
+as opposed to technical metadata
+"""
+type NotebookEditableProperties {
+    """
+    Description of the Notebook
+    """
+    description: String
+}
+
+"""
 Data Job properties that are editable via the UI This represents logical metadata,
 as opposed to technical metadata
 """
@@ -2881,7 +2912,7 @@ input ChartUpdateInput {
 }
 
 """
-Arguments provided to update a Chart Entity
+Arguments provided to update a Dashboard Entity
 """
 input DashboardUpdateInput {
     """
@@ -2904,6 +2935,26 @@ input DashboardUpdateInput {
     Update to editable properties
     """
     editableProperties: DashboardEditablePropertiesUpdate
+}
+
+"""
+Arguments provided to update a Notebook Entity
+"""
+input NotebookUpdateInput {
+    """
+    Update to ownership
+    """
+    ownership: OwnershipUpdate
+
+    """
+    Update to tags
+    """
+    tags: GlobalTagsUpdate
+
+    """
+    Update to editable properties
+    """
+    editableProperties: NotebookEditablePropertiesUpdate
 }
 
 """
@@ -3045,6 +3096,16 @@ Update to writable Chart fields
 input ChartEditablePropertiesUpdate {
     """
     Writable description aka documentation for a Chart
+    """
+    description: String!
+}
+
+"""
+Update to writable Notebook fields
+"""
+input NotebookEditablePropertiesUpdate {
+    """
+    Writable description aka documentation for a Notebook
     """
     description: String!
 }
@@ -3207,6 +3268,242 @@ input InstitutionalMemoryMetadataUpdate {
     The time at which this metadata was created
     """
     createdAt: Long
+}
+
+"""
+A Notebook Metadata Entity
+"""
+type Notebook implements Entity {
+    """
+    The primary key of the Notebook
+    """
+    urn: String!
+
+    """
+    A standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    The Notebook tool name
+    """
+    tool: String!
+
+    """
+    An id unique within the Notebook tool
+    """
+    notebookId: String!
+
+    """
+    Additional read only information about the Notebook
+    """
+    info: NotebookInfo
+
+    """
+    Additional read write properties about the Notebook
+    """
+    editableProperties: NotebookEditableProperties
+
+    """
+    Ownership metadata of the Notebook
+    """
+    ownership: Ownership
+
+    """
+    Status metadata of the Notebook
+    """
+    status: Status
+
+    """
+    The content of this Notebook
+    """
+    content: NotebookContent!
+
+    """
+    The tags associated with the Notebook
+    """
+    tags: GlobalTags
+
+    """
+    References to internal resources related to the Notebook
+    """
+    institutionalMemory: InstitutionalMemory
+
+    """
+    The Domain associated with the Notebook
+    """
+    domain: Domain
+
+    """
+    Edges extending from this entity
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Sub Types that this entity implements
+    """
+    subTypes: SubTypes
+
+    """
+    The structured glossary terms associated with the notebook
+    """
+    glossaryTerms: GlossaryTerms
+
+    """
+    Standardized platform.
+    """
+    platform: DataPlatform!
+}
+
+"""
+The actual content in a Notebook
+"""
+type NotebookContent {
+    """
+    The content of a Notebook which is composed by a list of NotebookCell
+    """
+    cells: [NotebookCell!]!
+}
+
+"""
+The Union of every NotebookCell
+"""
+type NotebookCell {
+    """
+    The chart cell content. The will be non-null only when all other cell field is null.
+    """
+    chartCell: ChartCell
+
+    """
+    The text cell content. The will be non-null only when all other cell field is null.
+    """
+    textCell: TextCell
+
+    """
+    The query cell content. The will be non-null only when all other cell field is null.
+    """
+    queryChell: QueryCell
+
+    """
+    The type of this Notebook cell
+    """
+    type: NotebookCellType!
+}
+
+"""
+The type for a NotebookCell
+"""
+enum NotebookCellType {
+    """
+    TEXT Notebook cell type. The cell context is text only.
+    """
+    TEXT_CELL,
+
+    """
+    QUERY Notebook cell type. The cell context is query only.
+    """
+    QUERY_CELL,
+
+    """
+    CHART Notebook cell type. The cell content is chart only.
+    """
+    CHART_CELL
+}
+
+"""
+A Notebook cell which contains text as content
+"""
+type TextCell {
+
+    """
+    Title of the cell
+    """
+    cellTitle: String!
+
+    """
+    Unique id for the cell.
+    """
+    cellId: String!
+
+    """
+    Captures information about who created/last modified/deleted this TextCell and when
+    """
+    changeAuditStamps: ChangeAuditStamps
+
+    """
+    The actual text in a TextCell in a Notebook
+    """
+    text: String!
+}
+
+"""
+A Notebook cell which contains Query as content
+"""
+type QueryCell {
+    """
+    Title of the cell
+    """
+    cellTitle: String!
+
+    """
+    Unique id for the cell.
+    """
+    cellId: String!
+
+    """
+    Captures information about who created/last modified/deleted this TextCell and when
+    """
+    changeAuditStamps: ChangeAuditStamps
+
+    """
+    Raw query to explain some specific logic in a Notebook
+    """
+    rawQuery: String!
+
+    """
+    Captures information about who last executed this query cell and when
+    """
+    lastExecuted: AuditStamp
+}
+
+"""
+A Notebook cell which contains chart as content
+"""
+type ChartCell {
+    """
+    Title of the cell
+    """
+    cellTitle: String!
+
+    """
+    Unique id for the cell.
+    """
+    cellId: String!
+
+    """
+    Captures information about who created/last modified/deleted this TextCell and when
+    """
+    changeAuditStamps: ChangeAuditStamps
+}
+
+"""
+Captures information about who created/last modified/deleted the entity and when
+"""
+type ChangeAuditStamps {
+    """
+    An AuditStamp corresponding to the creation
+    """
+    created: AuditStamp!
+
+    """
+    An AuditStamp corresponding to the modification
+    """
+    lastModified: AuditStamp!
+
+    """
+    An optional AuditStamp corresponding to the deletion
+    """
+    deleted: AuditStamp
 }
 
 """
@@ -3374,6 +3671,36 @@ type DashboardInfo {
     An optional AuditStamp corresponding to the deletion of this dashboard
     """
     deleted: AuditStamp
+}
+
+"""
+Additional read only information about a Notebook
+"""
+type NotebookInfo {
+    """
+    Display of the Notebook
+    """
+    title: String
+
+    """
+    Description of the Notebook
+    """
+    description: String
+
+    """
+    Native platform URL of the Notebook
+    """
+    externalUrl: String
+
+    """
+    A list of platform specific metadata tuples
+    """
+    customProperties: [StringMapEntry!]
+
+    """
+    Captures information about who created/last modified/deleted this Notebook and when
+    """
+    changeAuditStamps: ChangeAuditStamps
 }
 
 """
@@ -4433,18 +4760,18 @@ type Assertion implements EntityWithRelationships & Entity {
     The primary key of the Assertion
     """
     urn: String!
-    
+
     """
     The standard Entity Type
     """
     type: EntityType!
-    
+
     """
     Standardized platform urn where the assertion is evaluated
     """
     platform: DataPlatform!
 
-    """    
+    """
     Details about assertion
     """
     info: AssertionInfo
@@ -4452,7 +4779,7 @@ type Assertion implements EntityWithRelationships & Entity {
     """
     Lifecycle events detailing individual runs of this assertion. If startTimeMillis & endTimeMillis are not provided, the most
     recent events will be returned.
-    """    
+    """
     runEvents(status: AssertionRunStatus, startTimeMillis: Long, endTimeMillis: Long, limit: Int): AssertionRunEventsResult
 
     """
@@ -4630,7 +4957,7 @@ type AssertionResult {
     URL where full results are available
     """
     externalUrl: String
-    
+
     """
     Native results / properties of evaluation
     """
@@ -4653,7 +4980,7 @@ type BatchSpec {
     Any limit to the number of rows in the batch, if applied
     """
     limit: Int
-    
+
     """
     Custom properties of the Batch
     """
@@ -4695,7 +5022,7 @@ enum AssertionStdAggregation {
     IDENTITY
 
     """
-    Assertion is applied on column mean 
+    Assertion is applied on column mean
     """
     MEAN
 
@@ -4802,7 +5129,7 @@ enum AssertionStdOperator {
     """
     Value being asserted is not null
     """
-    NOT_NULL 
+    NOT_NULL
 
     """
     Value being asserted contains value
@@ -4826,7 +5153,7 @@ enum AssertionStdOperator {
 
     """
     Other
-    """  
+    """
     _NATIVE_
 }
 
@@ -5405,7 +5732,7 @@ type ResourceFilter {
   """
   The type of the resource the policy should apply to Not required because in the future we want to support filtering by type OR by domain
   """
-  type: String!
+  type: String
 
   """
   A list of specific resource urns to apply the filter to
@@ -5415,7 +5742,12 @@ type ResourceFilter {
   """
   Whether of not to apply the filter to all resources of the type
   """
-  allResources: Boolean!
+  allResources: Boolean
+
+  """
+  Whether of not to apply the filter to all resources of the type
+  """
+  filter: PolicyMatchFilter
 }
 
 """
@@ -5460,6 +5792,62 @@ type ActorFilter {
 }
 
 """
+Filter object that encodes a complex filter logic with OR + AND
+"""
+type PolicyMatchFilter {
+  """
+  List of criteria to apply
+  """
+  criteria: [PolicyMatchCriterion!]
+}
+
+"""
+Criterion to define relationship between field and values
+"""
+type PolicyMatchCriterion {
+  """
+  The name of the field that the criterion refers to
+  e.g. entity_type, entity_urn, domain
+  """
+  field: String!
+
+  """
+  Values. Matches criterion if any one of the values matches condition (OR-relationship)
+  """
+  values: [PolicyMatchCriterionValue!]!
+
+  """
+  The name of the field that the criterion refers to
+  """
+  condition: PolicyMatchCondition!
+}
+
+"""
+Value in PolicyMatchCriterion with hydrated entity if value is urn
+"""
+type PolicyMatchCriterionValue {
+  """
+  The value of the field to match
+  """
+  value: String!
+
+  """
+  Hydrated entities of the above values. Only set if the value is an urn
+  """
+  entity: Entity
+}
+
+"""
+Match condition
+"""
+enum PolicyMatchCondition {
+  """
+  Whether the field matches the value
+  """
+  EQUALS
+}
+
+"""
 Input required when creating or updating an Access Policies Determines which resources the Policy applies to
 """
 input ResourceFilterInput {
@@ -5467,7 +5855,7 @@ input ResourceFilterInput {
   The type of the resource the policy should apply to
   Not required because in the future we want to support filtering by type OR by domain
   """
-  type: String!
+  type: String
 
   """
   A list of specific resource urns to apply the filter to
@@ -5477,7 +5865,12 @@ input ResourceFilterInput {
   """
   Whether of not to apply the filter to all resources of the type
   """
-  allResources: Boolean!
+  allResources: Boolean
+
+  """
+  Whether of not to apply the filter to all resources of the type
+  """
+  filter: PolicyMatchFilterInput
 }
 
 """
@@ -5509,6 +5902,37 @@ input ActorFilterInput {
   Whether the filter should apply to all groups
   """
   allGroups: Boolean!
+}
+
+"""
+Filter object that encodes a complex filter logic with OR + AND
+"""
+input PolicyMatchFilterInput {
+  """
+  List of criteria to apply
+  """
+  criteria: [PolicyMatchCriterionInput!]
+}
+
+"""
+Criterion to define relationship between field and values
+"""
+input PolicyMatchCriterionInput {
+  """
+  The name of the field that the criterion refers to
+  e.g. entity_type, entity_urn, domain
+  """
+  field: String!
+
+  """
+  Values. Matches criterion if any one of the values matches condition (OR-relationship)
+  """
+  values: [String!]!
+
+  """
+  The name of the field that the criterion refers to
+  """
+  condition: PolicyMatchCondition!
 }
 
 """
@@ -5549,6 +5973,46 @@ type ListPoliciesResult {
   The Policies themselves
   """
   policies: [Policy!]!
+}
+
+"""
+Input for getting granted privileges
+"""
+input GetGrantedPrivilegesInput {
+  """
+  Urn of the actor
+  """
+  actorUrn: String!
+
+  """
+  Spec to identify resource. If empty, gets privileges granted to the actor
+  """
+  resourceSpec: ResourceSpec
+}
+
+"""
+Spec to identify resource
+"""
+input ResourceSpec {
+  """
+  Resource type
+  """
+  resourceType: EntityType!
+
+  """
+  Resource urn
+  """
+  resourceUrn: String!
+}
+
+"""
+Object that encodes the privileges the actor has for a given resource
+"""
+type Privileges {
+  """
+  Granted Privileges
+  """
+  privileges: [String!]!
 }
 
 """

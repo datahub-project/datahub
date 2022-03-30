@@ -3,7 +3,6 @@ package com.linkedin.gms.factory.auth;
 import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizationManager;
 import com.linkedin.entity.client.JavaEntityClient;
-import com.linkedin.entity.client.OwnershipClient;
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import javax.annotation.Nonnull;
@@ -44,9 +43,7 @@ public class AuthorizationManagerFactory {
     final AuthorizationManager.AuthorizationMode mode = policiesEnabled ? AuthorizationManager.AuthorizationMode.DEFAULT
         : AuthorizationManager.AuthorizationMode.ALLOW_ALL;
 
-    final OwnershipClient ownershipClient = new OwnershipClient(entityClient);
-
-    return new AuthorizationManager(systemAuthentication, entityClient, ownershipClient, 10,
+    return new AuthorizationManager(systemAuthentication, entityClient, 10,
         policyCacheRefreshIntervalSeconds, mode);
   }
 }

@@ -935,6 +935,7 @@ class DBTSource(StatefulIngestionSourceBase):
             description=description,
             customProperties=custom_props,
             tags=node.tags,
+            name=node.name,
         )
         return dbt_properties
 
