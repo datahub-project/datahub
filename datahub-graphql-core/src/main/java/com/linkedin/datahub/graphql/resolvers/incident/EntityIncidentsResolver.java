@@ -1,0 +1,135 @@
+package com.linkedin.datahub.graphql.resolvers.incident;
+
+import com.google.common.collect.ImmutableList;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.Entity;
+import com.linkedin.datahub.graphql.generated.EntityIncidentsResult;
+import com.linkedin.datahub.graphql.generated.Incident;
+import com.linkedin.datahub.graphql.types.incident.IncidentMapper;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.SortOrder;
+import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.r2.RemoteInvocationException;
+import graphql.schema.DataFetcher;
+import graphql.schema.DataFetchingEnvironment;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
+
+/**
+ * GraphQL Resolver used for fetching the list of Assertions associated with an Entity.
+ */
+public class EntityIncidentsResolver implements DataFetcher<CompletableFuture<EntityIncidentsResult>> {
+
+  private static final String INCIDENT_ENTITIES_SEARCH_INDEX_FIELD_NAME = "entities";
+  private static final String INCIDENT_STATE_SEARCH_INDEX_FIELD_NAME = "state";
+  private static final String CREATED_TIME_SEARCH_INDEX_FIELD_NAME = "created";
+
+  private final EntityClient _entityClient;
+
+  public EntityIncidentsResolver(final EntityClient entityClient) {
+    _entityClient = entityClient;
+  }
+
+  @Override
+  public CompletableFuture<EntityIncidentsResult> get(DataFetchingEnvironment environment) {
+    return CompletableFuture.supplyAsync(() -> {
+
+      final QueryContext context = environment.getContext();
+
+      final String entityUrn = ((Entity) environment.getSource()).getUrn();
+      final Integer start = environment.getArgumentOrDefault("start", 0);
+      final Integer count = environment.getArgumentOrDefault("count", 20);
+      final Optional<String> maybeState = Optional.ofNullable(environment.getArgument("state"));
+
+      try {
+        // Step 1: Fetch set of incidents associated with the target entity from the Search Index!
+        // We use the search index so that we can easily sort by the last updated time.
+        final Filter filter = buildIncidentsEntityFilter(entityUrn, maybeState);
+        final SortCriterion sortCriterion = buildIncidentsSortCriterion();
+        final SearchResult gmsResult = _entityClient.filter(
+            Constants.INCIDENT_ENTITY_NAME,
+            filter,
+            sortCriterion,
+            start,
+            count,
+            context.getAuthentication());
+        final List<Urn> incidentUrns = gmsResult.getEntities()
+            .stream()
+            .map(SearchEntity::getEntity)
+            .collect(Collectors.toList());
+
+        // Step 2: Hydrate the incident entities
+        final Map<Urn, EntityResponse> entities = _entityClient.batchGetV2(
+            Constants.INCIDENT_ENTITY_NAME,
+            new HashSet<>(incidentUrns),
+            null,
+            context.getAuthentication());
+
+        // Step 3: Map GMS incident model to GraphQL model
+        final List<EntityResponse> gmsResults = new ArrayList<>();
+        for (Urn urn : incidentUrns) {
+          gmsResults.add(entities.getOrDefault(urn, null));
+        }
+        final List<Incident> incidents = gmsResults.stream()
+            .filter(Objects::nonNull)
+            .map(IncidentMapper::map)
+            .collect(Collectors.toList());
+
+        // Step 4: Package and return result
+        final EntityIncidentsResult result = new EntityIncidentsResult();
+        result.setCount(gmsResult.getPageSize());
+        result.setStart(gmsResult.getFrom());
+        result.setTotal(gmsResult.getNumEntities());
+        result.setIncidents(incidents);
+        return result;
+      } catch (URISyntaxException | RemoteInvocationException e) {
+        throw new RuntimeException("Failed to retrieve incidents from GMS", e);
+      }
+    });
+  }
+
+  private Filter buildIncidentsEntityFilter(final String entityUrn, final Optional<String> maybeState) {
+    CriterionArray array = new CriterionArray(
+        ImmutableList.of(
+            new Criterion()
+                .setField(INCIDENT_ENTITIES_SEARCH_INDEX_FIELD_NAME)
+                .setCondition(Condition.EQUAL)
+                .setValue(entityUrn)
+        ));
+    maybeState.ifPresent(incidentState -> array.add(new Criterion()
+        .setField(INCIDENT_STATE_SEARCH_INDEX_FIELD_NAME)
+        .setValue(incidentState)
+        .setCondition(Condition.EQUAL)));
+    final Filter filter = new Filter();
+    filter.setOr(new ConjunctiveCriterionArray(ImmutableList.of(
+        new ConjunctiveCriterion()
+          .setAnd(array)
+    )));
+    return filter;
+  }
+
+  private SortCriterion buildIncidentsSortCriterion() {
+    final SortCriterion sortCriterion = new SortCriterion();
+    sortCriterion.setField(CREATED_TIME_SEARCH_INDEX_FIELD_NAME);
+    sortCriterion.setOrder(SortOrder.DESCENDING);
+    return sortCriterion;
+  }
+}

@@ -1,0 +1,21 @@
+namespace com.linkedin.incident
+
+import com.linkedin.common.AuditStamp
+
+/**
+ * Information about the source of an incident raised on an asset.
+ */
+@Aspect = {
+  "name": "incidentSource"
+}
+record IncidentSource {
+  /**
+  * Message associated with the incident
+  */
+  type: enum IncidentSourceType {
+    /**
+     * Manually created incident, via UI or API.
+     */
+     MANUAL
+  }
+}
