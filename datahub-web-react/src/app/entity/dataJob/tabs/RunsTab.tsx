@@ -40,7 +40,9 @@ const columns = [
         title: 'Time',
         dataIndex: 'time',
         key: 'time',
-        render: (value) => new Date(Number(value)).toLocaleDateString(),
+        render: (value) => (
+            <Tooltip title={new Date(Number(value)).toUTCString()}>{new Date(Number(value)).toLocaleString()}</Tooltip>
+        ),
     },
     {
         title: 'Run ID',
