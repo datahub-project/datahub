@@ -11,10 +11,10 @@ import useFilters from '../search/utils/useFilters';
 import { CONTAINER_FILTER_NAME, ENTITY_FILTER_NAME } from '../search/utils/constants';
 import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.generated';
 import { BrowseCfg, SearchCfg } from '../../conf';
-import { navigateToEntitySearchUrl } from '../entity/shared/components/styled/search/navigateToEntitySearchUrl';
 import EmbeddedListSearchHeader from '../entity/shared/components/styled/search/EmbeddedListSearchHeader';
 import { GetSearchResultsParams, SearchResultsInterface } from '../entity/shared/components/styled/search/types';
 import { MetaDataSearchResults } from './MetaDataSearchResults';
+import { navigateToMetaDataUrl } from './navigateToMetaDataUrl';
 
 type Filter = { field: string; value: string };
 
@@ -90,13 +90,11 @@ export const MetaDataContainers = ({
         .filter((filter) => filter.field === ENTITY_FILTER_NAME)
         .map((filter) => filter.value.toUpperCase() as EntityType);
     const path = rootPath.split('/');
-    let finalFilters: Array<Filter> = [];
+    let finalFilters: Array<Filter> =
+        (fixedFilter && [...filtersWithoutEntities, fixedFilter]) || filtersWithoutEntities;
     if (path.length > 4) {
         finalFilters = [...finalFilters, { field: CONTAINER_FILTER_NAME, value: path.slice(path.length - 1)[0] }];
-    } else {
-        finalFilters = (fixedFilter && [...filtersWithoutEntities, fixedFilter]) || filtersWithoutEntities;
     }
-
     const { refetch } = useGetSearchResults({
         variables: {
             input: {
@@ -136,9 +134,8 @@ export const MetaDataContainers = ({
                 return;
             }
         }
-        navigateToEntitySearchUrl({
+        navigateToMetaDataUrl({
             baseUrl: location.pathname,
-            type: entityType,
             query: finalQuery,
             page: 1,
             history,
@@ -146,9 +143,8 @@ export const MetaDataContainers = ({
     };
 
     const onChangeFilters = (newFilters: Array<FacetFilterInput>) => {
-        navigateToEntitySearchUrl({
+        navigateToMetaDataUrl({
             baseUrl: location.pathname,
-            type: entityType,
             query,
             page: 1,
             filters: newFilters,
@@ -157,9 +153,8 @@ export const MetaDataContainers = ({
     };
 
     const onChangePage = (newPage: number) => {
-        navigateToEntitySearchUrl({
+        navigateToMetaDataUrl({
             baseUrl: location.pathname,
-            type: entityType,
             query,
             page: newPage,
             filters,
@@ -173,10 +168,11 @@ export const MetaDataContainers = ({
 
     // Filter out the persistent filter values
     const filteredFilters =
-        data?.searchAcrossEntities?.facets?.filter((facet) => facet.field !== fixedFilter?.field) || [];
-    const removeEntityFromFilters = filteredFilters.filter((filter) => {
-        return filter.field !== ENTITY_FILTER_NAME;
-    });
+        data?.searchAcrossEntities?.facets
+            ?.filter((facet) => facet.field !== fixedFilter?.field)
+            .filter((filter) => {
+                return filter.field !== ENTITY_FILTER_NAME;
+            }) || [];
 
     return (
         <Container>
@@ -194,8 +190,8 @@ export const MetaDataContainers = ({
             <MetaDataSearchResults
                 loading={loading}
                 searchResponse={data?.searchAcrossEntities}
-                filters={removeEntityFromFilters}
-                selectedFilters={filters}
+                filters={filteredFilters}
+                selectedFilters={finalFilters}
                 onChangeFilters={onChangeFilters}
                 onChangePage={onChangePage}
                 page={page}
