@@ -381,7 +381,7 @@ For custom sql data sources, the query is viewable in UI under View Definition t
 ```
 
 ### Lineage
-Lineages are emitted as received from Tableau's metadata API
+Lineage is emitted as received from Tableau's metadata API for
 - Sheets contained in Dashboard
 - Embedded or Published datasources upstream to Sheet
 - Published datasources upstream to Embedded datasource
@@ -448,8 +448,7 @@ and personal token. For more information on Tableau authentication, refer to [Ho
 
 ## Compatibility
 
-Works with Tableau Server Version 2021.1.10 and above
-It may also work for older versions
+Works with Tableau Server Version 2021.1.10 and above. It may also work for older versions.
 
 
 ## Questions
