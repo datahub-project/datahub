@@ -5,6 +5,8 @@ from unittest import mock
 import pytest
 from freezegun import freeze_time
 
+from src.datahub.ingestion.source.aws.s3_util import make_s3_urn
+
 FROZEN_TIME = "2020-04-14 07:00:00"
 
 
@@ -56,7 +58,7 @@ def test_athena_get_table_properties():
             ],
             "Parameters": {
                 "comment": "testComment",
-                "location": "testLocation",
+                "location": "s3://testLocation",
                 "inputformat": "testInputFormat",
                 "outputformat": "testOutputFormat",
                 "serde.serialization.lib": "testSerde",
@@ -74,7 +76,7 @@ def test_athena_get_table_properties():
 
     ctx = PipelineContext(run_id="test")
     source = AthenaSource(config=config, ctx=ctx)
-    description, custom_properties = source.get_table_properties(
+    description, custom_properties, location = source.get_table_properties(
         inspector=mock_inspector, table=table, schema=schema
     )
     assert custom_properties == {
@@ -82,9 +84,11 @@ def test_athena_get_table_properties():
         "create_time": "2020-04-14 07:00:00",
         "inputformat": "testInputFormat",
         "last_access_time": "2020-04-14 07:00:00",
-        "location": "testLocation",
+        "location": "s3://testLocation",
         "outputformat": "testOutputFormat",
         "partition_keys": '[{"name": "testKey", "type": "string", "comment": "testComment"}]',
         "serde.serialization.lib": "testSerde",
         "table_type": "testType",
     }
+
+    assert location == make_s3_urn("s3://testLocation", "PROD")

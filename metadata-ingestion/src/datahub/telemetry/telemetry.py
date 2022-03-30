@@ -20,6 +20,69 @@ CONFIG_FILE = DATAHUB_FOLDER / "telemetry-config.json"
 
 # also fall back to environment variable if config file is not found
 ENV_ENABLED = os.environ.get("DATAHUB_TELEMETRY_ENABLED", "true").lower() == "true"
+
+# see
+# https://adamj.eu/tech/2020/03/09/detect-if-your-tests-are-running-on-ci/
+# https://github.com/watson/ci-info
+CI_ENV_VARS = {
+    "APPCENTER",
+    "APPCIRCLE",
+    "APPCIRCLEAZURE_PIPELINES",
+    "APPVEYOR",
+    "AZURE_PIPELINES",
+    "BAMBOO",
+    "BITBUCKET",
+    "BITRISE",
+    "BUDDY",
+    "BUILDKITE",
+    "BUILD_ID",
+    "CI",
+    "CIRCLE",
+    "CIRCLECI",
+    "CIRRUS",
+    "CIRRUS_CI",
+    "CI_NAME",
+    "CODEBUILD",
+    "CODEBUILD_BUILD_ID",
+    "CODEFRESH",
+    "CODESHIP",
+    "CYPRESS_HOST",
+    "DRONE",
+    "DSARI",
+    "EAS_BUILD",
+    "GITHUB_ACTIONS",
+    "GITLAB",
+    "GITLAB_CI",
+    "GOCD",
+    "HEROKU_TEST_RUN_ID",
+    "HUDSON",
+    "JENKINS",
+    "JENKINS_URL",
+    "LAYERCI",
+    "MAGNUM",
+    "NETLIFY",
+    "NEVERCODE",
+    "RENDER",
+    "SAIL",
+    "SCREWDRIVER",
+    "SEMAPHORE",
+    "SHIPPABLE",
+    "SOLANO",
+    "STRIDER",
+    "TASKCLUSTER",
+    "TEAMCITY",
+    "TEAMCITY_VERSION",
+    "TF_BUILD",
+    "TRAVIS",
+    "VERCEL",
+    "WERCKER_ROOT",
+    "bamboo.buildKey",
+}
+
+# disable when running in any CI
+if any(var in os.environ for var in CI_ENV_VARS):
+    ENV_ENABLED = False
+
 TIMEOUT = int(os.environ.get("DATAHUB_TELEMETRY_TIMEOUT", "10"))
 MIXPANEL_TOKEN = "5ee83d940754d63cacbf7d34daa6f44a"
 
@@ -153,7 +216,7 @@ class Telemetry:
 
         # send event
         try:
-            logger.info("Sending Telemetry")
+            logger.debug("Sending Telemetry")
             self.mp.track(self.client_id, event_name, properties)
 
         except Exception as e:
