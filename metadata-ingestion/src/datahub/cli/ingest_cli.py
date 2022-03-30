@@ -60,6 +60,12 @@ def ingest() -> None:
     help="Perform limited ingestion from the source to the sink to get a quick preview.",
 )
 @click.option(
+    "--preview-workunits",
+    type=int,
+    default=10,
+    help="The number of workunits to produce for preview.",
+)
+@click.option(
     "--strict-warnings/--no-strict-warnings",
     default=False,
     help="If enabled, ingestion runs with warnings will yield a non-zero error code",
@@ -68,7 +74,12 @@ def ingest() -> None:
 @telemetry.with_telemetry
 @memory_leak_detector.with_leak_detection
 def run(
-    ctx: click.Context, config: str, dry_run: bool, preview: bool, strict_warnings: bool
+    ctx: click.Context,
+    config: str,
+    dry_run: bool,
+    preview: bool,
+    strict_warnings: bool,
+    preview_workunits: int,
 ) -> None:
     """Ingest metadata into DataHub."""
 
@@ -79,7 +90,7 @@ def run(
 
     try:
         logger.debug(f"Using config: {pipeline_config}")
-        pipeline = Pipeline.create(pipeline_config, dry_run, preview)
+        pipeline = Pipeline.create(pipeline_config, dry_run, preview, preview_workunits)
     except ValidationError as e:
         click.echo(e, err=True)
         sys.exit(1)

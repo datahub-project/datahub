@@ -684,7 +684,7 @@ public class EbeanEntityService extends EntityService {
 
     // If a keyAspect exists, the entity exists.
     final String keyAspectName = getEntityRegistry().getEntitySpec(entityName).getKeyAspectSpec().getName();
-    final ListResult<String> keyAspectList = _entityDao.listUrns(keyAspectName, start, count);
+    final ListResult<String> keyAspectList = _entityDao.listUrns(entityName, keyAspectName, start, count);
 
     final ListUrnsResult result = new ListUrnsResult();
     result.setStart(start);

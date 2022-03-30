@@ -15,6 +15,7 @@ import com.linkedin.identity.CorpGroupEditableInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.notebook.EditableNotebookProperties;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.tag.TagProperties;
@@ -117,15 +118,25 @@ public class DescriptionUtils {
       Urn actor,
       EntityService entityService
   ) {
-    GlossaryTermInfo glossaryTermInfo =
-        (GlossaryTermInfo) getAspectFromEntity(
-            resourceUrn.toString(), Constants.GLOSSARY_TERM_INFO_ASPECT_NAME, entityService, null);
+    GlossaryTermInfo glossaryTermInfo = (GlossaryTermInfo) getAspectFromEntity(
+        resourceUrn.toString(), Constants.GLOSSARY_TERM_INFO_ASPECT_NAME, entityService, null);
     if (glossaryTermInfo == null) {
       // If there are no properties for the term already, then we should throw since the properties model also requires a name.
       throw new IllegalArgumentException("Properties for this Glossary Term do not yet exist!");
     }
     glossaryTermInfo.setDefinition(newDescription); // We call description 'definition' for glossary terms. Not great, we know. :(
     persistAspect(resourceUrn, Constants.GLOSSARY_TERM_INFO_ASPECT_NAME, glossaryTermInfo, actor, entityService);
+  }
+  
+  public static void updateNotebookDescription(
+      String newDescription,
+      Urn resourceUrn,
+      Urn actor,
+      EntityService entityService) {
+    EditableNotebookProperties notebookProperties = (EditableNotebookProperties) getAspectFromEntity(
+        resourceUrn.toString(), Constants.EDITABLE_NOTEBOOK_PROPERTIES_ASPECT_NAME, entityService, null);
+    notebookProperties.setDescription(newDescription);
+    persistAspect(resourceUrn, Constants.EDITABLE_NOTEBOOK_PROPERTIES_ASPECT_NAME, notebookProperties, actor, entityService);
   }
 
   public static Boolean validateFieldDescriptionInput(
@@ -181,6 +192,16 @@ public class DescriptionUtils {
   ) {
     if (!entityService.exists(corpUserUrn)) {
       throw new IllegalArgumentException(String.format("Failed to update %s. %s does not exist.", corpUserUrn, corpUserUrn));
+    }
+    return true;
+  }
+
+  public static Boolean validateNotebookInput(
+      Urn notebookUrn,
+      EntityService entityService) {
+    if (!entityService.exists(notebookUrn)) {
+      throw new IllegalArgumentException(
+          String.format("Failed to update %s. %s does not exist.", notebookUrn, notebookUrn));
     }
     return true;
   }
