@@ -37,6 +37,7 @@ from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DataPlatformInstanceClass,
     JobStatusClass,
+    SubTypesClass,
 )
 
 logger = logging.getLogger(__name__)
@@ -287,9 +288,22 @@ class KafkaSource(StatefulIngestionSourceBase):
         self.report.report_workunit(wu)
         yield wu
 
+        # 5. Add the subtype aspect marking this as a "topic"
+        subtype_wu = MetadataWorkUnit(
+            id=f"{topic}-subtype",
+            mcp=MetadataChangeProposalWrapper(
+                entityType="dataset",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=dataset_urn,
+                aspectName="subTypes",
+                aspect=SubTypesClass(typeNames=["topic"]),
+            ),
+        )
+        yield subtype_wu
+
         domain_urn: Optional[str] = None
 
-        # 5. Emit domains aspect MCPW
+        # 6. Emit domains aspect MCPW
         for domain, pattern in self.source_config.domain.items():
             if pattern.allowed(dataset_name):
                 domain_urn = make_domain_urn(domain)

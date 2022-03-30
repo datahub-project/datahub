@@ -43,7 +43,7 @@ public class ProtobufExtensionFieldVisitor extends SchemaFieldVisitor {
                 .sorted(Comparator.comparing(a -> a.getUrn().getNameEntity()))
                 .collect(Collectors.toList());
 
-        return context.getFirstFieldPath(field).map(path -> Pair.of(
+        return context.streamAllPaths(field).map(path -> Pair.of(
                 new SchemaField()
                         .setFieldPath(context.getFieldPath(path))
                         .setNullable(!isPrimaryKey)
@@ -55,7 +55,7 @@ public class ProtobufExtensionFieldVisitor extends SchemaFieldVisitor {
                         .setGlossaryTerms(new GlossaryTerms()
                                 .setTerms(new GlossaryTermAssociationArray(terms))
                                 .setAuditStamp(context.getAuditStamp())),
-                context.calculateSortOrder(path, field))).stream();
+                context.calculateSortOrder(path, field)));
     }
 
     /**

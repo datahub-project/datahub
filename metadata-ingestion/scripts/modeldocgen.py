@@ -41,6 +41,8 @@ from datahub.metadata.schema_classes import (
 logger = logging.getLogger(__name__)
 
 
+# TODO: Support generating docs for each event type in entity registry.
+
 def capitalize_first(something: str) -> str:
     return something[0:1].upper() + something[1:]
 
@@ -87,6 +89,9 @@ class AspectDefinition:
     schema: Optional[avro.schema.Schema] = None
     type: Optional[str] = None
 
+@dataclass
+class EventDefinition:
+    name: str
 
 entity_registry: Dict[str, EntityDefinition] = {}
 
@@ -307,7 +312,7 @@ def make_entity_docs(entity_display_name: str, graph: RelationshipGraph) -> str:
             )
 
         # create global metadata graph
-        global_graph_url = "https://github.com/linkedin/datahub/raw/master/docs/imgs/datahub-metadata-model.png"
+        global_graph_url = "https://github.com/datahub-project/datahub/raw/master/docs/imgs/datahub-metadata-model.png"
         global_graph_section = (
             f"\n## [Global Metadata Model]({global_graph_url})"
             + f"\n![Global Graph]({global_graph_url})"
@@ -514,6 +519,7 @@ def generate_stitched_record(relnships_graph: RelationshipGraph) -> List[Any]:
 
 class EntityRegistry(ConfigModel):
     entities: List[EntityDefinition]
+    events: Optional[List[EventDefinition]]
 
 
 def load_registry_file(registry_file: str) -> Dict[str, EntityDefinition]:

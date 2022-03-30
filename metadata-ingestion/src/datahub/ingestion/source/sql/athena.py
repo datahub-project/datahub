@@ -1,4 +1,5 @@
 import json
+import logging
 import typing
 from typing import Dict, List, Optional, Tuple
 
@@ -8,6 +9,7 @@ from sqlalchemy.engine.reflection import Inspector
 
 from datahub.emitter.mcp_builder import DatabaseKey, gen_containers
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemyConfig,
     SQLAlchemySource,
@@ -52,7 +54,7 @@ class AthenaSource(SQLAlchemySource):
 
     def get_table_properties(
         self, inspector: Inspector, schema: str, table: str
-    ) -> Tuple[Optional[str], Optional[Dict[str, str]]]:
+    ) -> Tuple[Optional[str], Optional[Dict[str, str]], Optional[str]]:
         if not self.cursor:
             self.cursor = inspector.dialect._raw_connection(inspector.engine).cursor()
 
@@ -87,7 +89,17 @@ class AthenaSource(SQLAlchemySource):
             metadata.table_type if metadata.table_type else ""
         )
 
-        return description, custom_properties
+        location: Optional[str] = custom_properties.get("location", None)
+        if location is not None:
+            if location.startswith("s3://"):
+                location = make_s3_urn(location, self.config.env)
+            else:
+                logging.debug(
+                    f"Only s3 url supported for location. Skipping {location}"
+                )
+                location = None
+
+        return description, custom_properties, location
 
     # It seems like database/schema filter in the connection string does not work and this to work around that
     def get_schema_names(self, inspector: Inspector) -> List[str]:
@@ -105,7 +117,11 @@ class AthenaSource(SQLAlchemySource):
 
     def gen_schema_key(self, db_name: str, schema: str) -> DatabaseKey:
         return DatabaseKey(
-            platform=self.platform, instance=self.config.env, database=schema
+            database=schema,
+            platform=self.platform,
+            instance=self.config.platform_instance
+            if self.config.platform_instance is not None
+            else self.config.env,
         )
 
     def gen_schema_containers(
