@@ -2,9 +2,13 @@
 
 DataHub comes with a friendly cli called `datahub` that allows you to perform a lot of common operations using just the command line.
 
-## Release Notes
+## Release Notes and CLI versions
 
-You can find the release notes in [github releases](https://github.com/datahub-project/datahub/releases). If you wish release notes for each bug-fix release you can find them in [acryldata releases](https://github.com/acryldata/datahub/releases).
+The server release notes can be found in [github releases](https://github.com/datahub-project/datahub/releases). These releases are done approximately every week on a regular cadence unless a blocking issue or regression is discovered.
+
+CLI release is made through a different repository and release notes can be found in [acryldata releases](https://github.com/acryldata/datahub/releases). At least one release which is tied to the server release is always made alongwith the server release. Multiple other bigfix releases are made in between based on amount of fixes that are merged between the server release mentioned above.
+
+If server with version `0.8.28` is being used then CLI used to connect to it should be `0.8.28.x`. Tests of new CLI are not ran with older server versions so it is not recommended to update the CLI if the server is not updated.
 
 ## Installation
 ### Using pip
