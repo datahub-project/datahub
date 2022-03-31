@@ -321,13 +321,13 @@ def get_urns_by_filter(
     filter_criteria = []
     if env:
         filter_criteria.append({"field": "origin", "value": env, "condition": "EQUAL"})
-
+    entity_type_lower = entity_type.lower()
     if (
         platform is not None
-        and entity_type == "dataset"
-        or entity_type == "dataflow"
-        or entity_type == "datajob"
-        or entity_type == "container"
+        and entity_type_lower == "dataset"
+        or entity_type_lower == "dataflow"
+        or entity_type_lower == "datajob"
+        or entity_type_lower == "container"
     ):
         filter_criteria.append(
             {
@@ -337,7 +337,7 @@ def get_urns_by_filter(
             }
         )
     if platform is not None and (
-        entity_type.lower() == "chart" or entity_type.lower() == "dashboard"
+        entity_type_lower == "chart" or entity_type_lower == "dashboard"
     ):
         filter_criteria.append(
             {
