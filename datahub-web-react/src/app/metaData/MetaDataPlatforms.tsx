@@ -12,6 +12,7 @@ import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.genera
 import { DataPlatform, EntityType } from '../../types.generated';
 import { PLATFORM_FILTER_NAME } from '../search/utils/constants';
 import { Message } from '../shared/Message';
+import { formatNumber } from '../shared/formatNumber';
 
 const styles = {
     row: { padding: '8px 8px 8px 76px' },
@@ -20,12 +21,23 @@ const styles = {
     count: { margin: 0, color: '#00000073' },
 };
 
+const ResultContainer = styled(Content)`
+    min-height: calc(100vh - 110px);
+`;
+
 const PreviewImage = styled.img`
     max-height: 18px;
     width: auto;
     object-fit: contain;
     background-color: transparent;
     margin-right: 4px;
+`;
+
+const PaginationInfoContainer = styled(Row)`
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    height: 60px;
 `;
 
 const ResultCard = styled(Card)`
@@ -79,7 +91,7 @@ export const MetaDataPlatforms = ({ rootPath, entityType }: Props) => {
     return (
         <div>
             {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
-            <Content>
+            <ResultContainer>
                 <Row>
                     {platforms &&
                         platforms[0]?.aggregations.map((aggregation) => {
@@ -103,11 +115,9 @@ export const MetaDataPlatforms = ({ rootPath, entityType }: Props) => {
                                                             {displayName}
                                                         </Typography.Title>
 
-                                                        {platforms[0]?.aggregations.length && (
-                                                            <Typography.Title style={styles.count} level={5}>
-                                                                {platforms[0]?.aggregations.length}
-                                                            </Typography.Title>
-                                                        )}
+                                                        <Typography.Title style={styles.count} level={5}>
+                                                            {formatNumber(aggregation.count)}
+                                                        </Typography.Title>
                                                     </Space>
                                                     <Space size="middle" align="center">
                                                         <RightOutlined />
@@ -119,6 +129,8 @@ export const MetaDataPlatforms = ({ rootPath, entityType }: Props) => {
                                 </>
                             );
                         })}
+                </Row>
+                <PaginationInfoContainer>
                     <Col span={24}>
                         <Pagination
                             style={{ width: '100%', display: 'flex', justifyContent: 'center', paddingTop: 16 }}
@@ -131,8 +143,8 @@ export const MetaDataPlatforms = ({ rootPath, entityType }: Props) => {
                             showSizeChanger={false}
                         />
                     </Col>
-                </Row>
-            </Content>
+                </PaginationInfoContainer>
+            </ResultContainer>
         </div>
     );
 };

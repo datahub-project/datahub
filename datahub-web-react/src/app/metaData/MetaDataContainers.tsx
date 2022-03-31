@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
 import * as QueryString from 'query-string';
 import { message } from 'antd';
-import styled from 'styled-components';
 import { ApolloError } from '@apollo/client';
 
 import { EntityType, FacetFilterInput } from '../../types.generated';
@@ -30,7 +29,7 @@ function useWrappedSearchResults(params: GetSearchResultsParams) {
     };
 }
 
-// the addFixedQuery checks and generate the query as per params pass to embeddedListSearch
+// the addFixedQuery checks and generate the query as per params pass
 export const addFixedQuery = (baseQuery: string, fixedQuery: string, emptyQuery: string) => {
     let finalQuery = ``;
     if (baseQuery && fixedQuery) {
@@ -61,8 +60,6 @@ interface Props {
     entityType: EntityType;
 }
 
-const Container = styled.div``;
-
 export const MetaDataContainers = ({
     rootPath,
     fixedFilter,
@@ -76,16 +73,15 @@ export const MetaDataContainers = ({
     const history = useHistory();
     const location = useLocation();
 
-    console.log('fixedQuery:: ', fixedQuery);
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
-    const query: string = params.query ? (params.query as string) : '';
+    const query: string = addFixedQuery(params?.query as string, fixedQuery as string, emptySearchQuery as string);
     const page: number = params.page && Number(params.page as string) > 0 ? Number(params.page as string) : 1;
     const filters: Array<FacetFilterInput> = useFilters(params);
     const filtersWithoutEntities: Array<FacetFilterInput> = filters.filter(
         (filter) => filter.field !== ENTITY_FILTER_NAME,
     );
 
-    const [showFilters, setShowFilters] = useState(true);
+    const [showFilters, setShowFilters] = useState(false);
     const entityFilters: Array<EntityType> = filters
         .filter((filter) => filter.field === ENTITY_FILTER_NAME)
         .map((filter) => filter.value.toUpperCase() as EntityType);
@@ -175,7 +171,7 @@ export const MetaDataContainers = ({
             }) || [];
 
     return (
-        <Container>
+        <>
             {error && message.error(`Failed to complete search: ${error && error.message}`)}
             <EmbeddedListSearchHeader
                 onSearch={onSearch}
@@ -200,6 +196,6 @@ export const MetaDataContainers = ({
                 entityType={entityType}
                 rootPath={rootPath}
             />
-        </Container>
+        </>
     );
 };

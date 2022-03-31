@@ -5,6 +5,7 @@ import { Content } from 'antd/lib/layout/layout';
 import { Link } from 'react-router-dom';
 import { InfoCircleOutlined, RightOutlined } from '@ant-design/icons';
 
+import analytics, { EventType } from '../analytics';
 import {
     FacetMetadata,
     FacetFilterInput,
@@ -18,7 +19,7 @@ import { SearchCfg } from '../../conf';
 import { ReactComponent as LoadingSvg } from '../../images/datahub-logo-color-loading_pendulum.svg';
 import EntityRegistry from '../entity/EntityRegistry';
 import { CONTAINER_FILTER_NAME, DATABASE_FILTER_NAME, SCHEMA_FILTER_NAME } from '../search/utils/constants';
-import analytics, { EventType } from '../analytics';
+import { formatNumber } from '../shared/formatNumber';
 
 const SearchBody = styled.div`
     display: flex;
@@ -50,6 +51,10 @@ const PaginationInfoContainer = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    height: 60px;
 `;
 
 const FiltersHeader = styled.div`
@@ -231,14 +236,9 @@ export const MetaDataSearchResults = ({
                                                                             {displayName}
                                                                         </Typography.Title>
                                                                     </span>
-                                                                    {searchResponse?.searchResults.length && (
-                                                                        <Typography.Title
-                                                                            style={styles.count}
-                                                                            level={5}
-                                                                        >
-                                                                            {searchResponse?.searchResults.length}
-                                                                        </Typography.Title>
-                                                                    )}
+                                                                    <Typography.Title style={styles.count} level={5}>
+                                                                        {formatNumber(containerEntity.entities?.total)}
+                                                                    </Typography.Title>
                                                                 </Space>
                                                                 <Space size="middle" align="center">
                                                                     {(type === DATABASE_FILTER_NAME ||

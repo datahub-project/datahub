@@ -1,12 +1,12 @@
-import { Affix } from 'antd';
 import React from 'react';
+import { Affix } from 'antd';
 import { useLocation, useParams } from 'react-router';
+
 import { SearchablePage } from '../search/SearchablePage';
 import { PLATFORM_FILTER_NAME } from '../search/utils/constants';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { MetaDataContainers } from './MetaDataContainers';
 import { LegacyMetaDataPath } from './LegacyMetaDataPath';
-
 import { MetaDataPlatforms } from './MetaDataPlatforms';
 
 type MetaDataParentPageParams = {
@@ -37,7 +37,7 @@ export const MetaDataResultsPage = () => {
                     emptySearchQuery="*"
                     placeholderText="Filter entities..."
                     entityType={entityType}
-                    fixedQuery="hasContainer: false"
+                    fixedQuery="!hasContainer:true"
                 />
             )}
         </SearchablePage>
