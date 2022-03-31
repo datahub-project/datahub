@@ -16,22 +16,33 @@ from your warehouse.
 
 You can use the `provision_role` block in the recipe to grant the requires roles. 
 
-If your system admins prefer running the commands themselves then they can follow this guide to create a DataHub-specific role, assign it the required privileges, and assign it to a new DataHub user by executing the following Snowflake commands from a user with the `ACCOUNTADMIN` role: 
+If your system admins prefer running the commands themselves then they can follow this guide to create a DataHub-specific role, assign it the required privileges, and assign it to a new DataHub user by executing the following Snowflake commands from a user with the `ACCOUNTADMIN` role or `MANAGE GRANTS` privilege.
 
 ```sql
 create or replace role datahub_role;
 
-// Grant privileges to use and select from your target warehouses / dbs / schemas / tables
+//access to a warehouse to run queries to view metadata
 grant operate, usage on warehouse <your-warehouse> to role datahub_role;
-grant usage on DATABASE <your-database> to role datahub_role;
-grant usage on all schemas in database <your-database> to role datahub_role; 
-grant select on all tables in database <your-database> to role datahub_role; 
-grant select on all external tables in database <your-database> to role datahub_role;
-grant select on all views in database <your-database> to role datahub_role;
 
-// Grant privileges for all future schemas and tables created in a warehouse 
+//access to view database and schema in which your tables/views exist for which you wish to ingest metadata
+grant usage on DATABASE "<your-database>" to role datahub_role;
+grant usage on all schemas in database "<your-database>" to role datahub_role;
 grant usage on future schemas in database "<your-database>" to role datahub_role;
+
+//select required for [profiling](./sql_profiles.md) feature
+grant select on all tables in database "<your-database>" to role datahub_role;
 grant select on future tables in database "<your-database>" to role datahub_role;
+grant select on all external tables in database "<your-database>" to role datahub_role;
+grant select on future external tables in database "<your-database>" to role datahub_role;
+grant select on all views in database "<your-database>" to role datahub_role;
+grant select on future views in database "<your-database>" to role datahub_role;
+//alternative permission if not using profiling feature
+grant REFERENCES on all tables in database "<your-database>" to role datahub_role;
+grant REFERENCES on future tables in database "<your-database>" to role datahub_role;
+grant REFERENCES on all external tables in database "<your-database>" to role datahub_role;
+grant REFERENCES on future external tables in database "<your-database>" to role datahub_role;
+grant REFERENCES on all views in database "<your-database>" to role datahub_role;
+grant REFERENCES on future views in database "<your-database>" to role datahub_role;
 
 // Create a new DataHub user and assign the DataHub role to it 
 create user datahub_user display_name = 'DataHub' password='' default_role = datahub_role default_warehouse = '<your-warehouse>';
@@ -39,6 +50,16 @@ create user datahub_user display_name = 'DataHub' password='' default_role = dat
 // Grant the datahub_role to the new DataHub user. 
 grant role datahub_role to user datahub_user;
 ```
+
+The details of what each privileges does can be viewed in [snowflake docs](https://docs.snowflake.com/en/user-guide/security-access-control-privileges.html). To summarise why does the role need these privileges and some alternatives based on how the plugin is being used are below
+- `OPERATE` is required on warehouse to suspend or resume the warehouse
+- `USAGE` is required for us to run queries using the warehouse
+- `Usage` on `DATABASE` and `schema` are required because without it tables and views inside them are not accessible. If an admin does the required grants on `TABLE` but misses the grants on `SCHEMA` or the `DATABASE` in which the table/view exists then we will not be able to get metadata for the table/view.
+- If metadata is required only on some schemas then you can grant the usage privilieges only on the particular schema like
+```sql
+grant usage on schema "<your-database>".<your-schema> to role datahub_role;
+```
+- To get the lineage we need access to the default `snowflake` database
 
 This represents the bare minimum privileges required to extract databases, schemas, views, tables from Snowflake. 
 
@@ -188,7 +209,7 @@ To install this plugin, run `pip install 'acryl-datahub[snowflake-usage]'`.
 
 ### Prerequisites 
 
-In order to execute the snowflake-usage source, your Snowflake user will need to have specific privileges granted to it. Specifically, you'll need to grant access to the [Account Usage](https://docs.snowflake.com/en/sql-reference/account-usage.html) system tables, using which the DataHub source extracts information. Assuming you've followed the steps outlined in `snowflake` plugin to create a DataHub-specific User & Role, you'll simply need to execute the following commands in Snowflake. This will require a user with the `ACCOUNTADMIN` role (or a role granted the IMPORT SHARES global privilege). Please see [Snowflake docs for more details](https://docs.snowflake.com/en/user-guide/data-share-consumers.html).
+In order to execute the `snowflake-usage` source, your Snowflake user will need to have specific privileges granted to it. Specifically, you'll need to grant access to the [Account Usage](https://docs.snowflake.com/en/sql-reference/account-usage.html) system tables, using which the DataHub source extracts information. Assuming you've followed the steps outlined in `snowflake` plugin to create a DataHub-specific User & Role, you'll simply need to execute the following commands in Snowflake. This will require a user with the `ACCOUNTADMIN` role (or a role granted the IMPORT SHARES global privilege). Please see [Snowflake docs for more details](https://docs.snowflake.com/en/user-guide/data-share-consumers.html).
 
 ```sql
 grant imported privileges on database snowflake to role datahub_role;
