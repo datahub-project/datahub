@@ -129,6 +129,8 @@ def get_platform_from_sqlalchemy_uri(sqlalchemy_uri: str) -> str:
         return "hive"
     if sqlalchemy_uri.startswith("awsathena"):
         return "athena"
+    if sqlalchemy_uri.startswith("vertica"):
+        return "vertica"
     return "external"
 
 

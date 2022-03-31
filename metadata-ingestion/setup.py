@@ -199,6 +199,7 @@ plugins: Dict[str, Set[str]] = {
     "starburst-trino-usage": sql_common | {"trino"},
     "nifi": {"requests", "packaging"},
     "powerbi": {"orderedset"} | microsoft_common,
+    "vertica": sql_common | {"sqlalchemy-vertica-python==0.5.10"},
 }
 
 all_exclude_plugins: Set[str] = {
@@ -279,7 +280,8 @@ base_dev_requirements = {
             "trino",
             "hive",
             "starburst-trino-usage",
-            "powerbi"
+            "powerbi",
+            "vertica",
             # airflow is added below
         ]
         for dependency in plugins[plugin]
@@ -326,6 +328,7 @@ full_test_dev_requirements = {
             "snowflake",
             "redash",
             "kafka-connect",
+            "vertica",
         ]
         for dependency in plugins[plugin]
     ),
@@ -379,6 +382,7 @@ entry_points = {
         "starburst-trino-usage = datahub.ingestion.source.usage.starburst_trino_usage:TrinoUsageSource",
         "nifi = datahub.ingestion.source.nifi:NifiSource",
         "powerbi = datahub.ingestion.source.powerbi:PowerBiDashboardSource",
+        "vertica = datahub.ingestion.source.sql.vertica:VerticaSource",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",
