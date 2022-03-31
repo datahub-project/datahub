@@ -98,10 +98,7 @@ export default function PolicyPrivilegeForm({
 
     // Construct privilege options for dropdown
     const platformPrivileges = policiesConfig?.platformPrivileges || [];
-    const resourcePrivileges = useMemo(
-        () => policiesConfig?.resourcePrivileges.filter((privs) => privs.resourceType !== 'all') || [],
-        [policiesConfig],
-    );
+    const resourcePrivileges = useMemo(() => policiesConfig?.resourcePrivileges || [], [policiesConfig]);
     const resourcePrivilegesForType = useMemo(
         () => mapResourceTypeToPrivileges(resourceTypeSelectValue, resourcePrivileges),
         [resourceTypeSelectValue, resourcePrivileges],
@@ -293,13 +290,15 @@ export default function PolicyPrivilegeForm({
                             </Tag>
                         )}
                     >
-                        {resourcePrivileges.map((resPrivs) => {
-                            return (
-                                <Select.Option value={resPrivs.resourceType}>
-                                    {resPrivs.resourceTypeDisplayName}
-                                </Select.Option>
-                            );
-                        })}
+                        {resourcePrivileges
+                            .filter((privs) => privs.resourceType !== 'all')
+                            .map((resPrivs) => {
+                                return (
+                                    <Select.Option value={resPrivs.resourceType}>
+                                        {resPrivs.resourceTypeDisplayName}
+                                    </Select.Option>
+                                );
+                            })}
                     </Select>
                 </Form.Item>
             )}
