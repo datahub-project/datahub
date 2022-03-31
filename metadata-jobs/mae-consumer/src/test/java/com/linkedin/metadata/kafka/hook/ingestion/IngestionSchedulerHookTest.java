@@ -8,7 +8,7 @@ import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
@@ -44,7 +44,7 @@ public class IngestionSchedulerHookTest {
         .setRecipe("{ type }")
         .setVersion("0.8.18")
     );
-    event.setAspect(GenericAspectUtils.serializeAspect(newInfo));
+    event.setAspect(GenericRecordUtils.serializeAspect(newInfo));
     event.setEntityUrn(Urn.createFromString("urn:li:dataHubIngestionSourceUrn:0"));
     _ingestionSchedulerHook.invoke(event);
     Mockito.verify(_ingestionSchedulerHook.scheduler(), Mockito.times(1)).scheduleNextIngestionSourceExecution(Mockito.any(), Mockito.any());

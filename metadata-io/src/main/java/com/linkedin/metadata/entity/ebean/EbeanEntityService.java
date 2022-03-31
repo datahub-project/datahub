@@ -23,7 +23,7 @@ import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.RollbackResult;
 import com.linkedin.metadata.entity.RollbackRunResult;
-import com.linkedin.metadata.event.EntityEventProducer;
+import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -71,7 +71,7 @@ public class EbeanEntityService extends EntityService {
   private final EbeanAspectDao _aspectDao;
   private final JacksonDataTemplateCodec _dataTemplateCodec = new JacksonDataTemplateCodec();
 
-  public EbeanEntityService(@Nonnull final EbeanAspectDao aspectDao, @Nonnull final EntityEventProducer eventProducer,
+  public EbeanEntityService(@Nonnull final EbeanAspectDao aspectDao, @Nonnull final EventProducer eventProducer,
       @Nonnull final EntityRegistry entityRegistry) {
     super(eventProducer, entityRegistry);
     _aspectDao = aspectDao;
@@ -642,7 +642,7 @@ public class EbeanEntityService extends EntityService {
 
     // If a keyAspect exists, the entity exists.
     final String keyAspectName = getEntityRegistry().getEntitySpec(entityName).getKeyAspectSpec().getName();
-    final ListResult<String> keyAspectList = _aspectDao.listUrns(keyAspectName, start, count);
+    final ListResult<String> keyAspectList = _aspectDao.listUrns(entityName, keyAspectName, start, count);
 
     final ListUrnsResult result = new ListUrnsResult();
     result.setStart(start);

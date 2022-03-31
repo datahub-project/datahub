@@ -10,7 +10,7 @@ import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.EbeanEntityService;
 import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
-import com.linkedin.metadata.event.EntityEventProducer;
+import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.query.ListUrnsResult;
@@ -69,7 +69,7 @@ public class EbeanEntityServiceTest extends EntityServiceTestBase<EbeanAspectDao
   @BeforeMethod
   public void setupTest() {
     EbeanServer server = EbeanServerFactory.create(createTestingH2ServerConfig());
-    _mockProducer = mock(EntityEventProducer.class);
+    _mockProducer = mock(EventProducer.class);
     _aspectDao = new EbeanAspectDao(server);
     _aspectDao.setConnectionValidated(true);
     _entityService = new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry);

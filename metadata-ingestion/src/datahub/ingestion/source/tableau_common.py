@@ -50,10 +50,6 @@ workbook_graphql_query = """
           name
           path
         }
-        upstreamDatasources {
-          id
-          name
-        }
         datasourceFields {
           __typename
           id
@@ -124,6 +120,10 @@ workbook_graphql_query = """
         extractLastRefreshTime
         extractLastIncrementalUpdateTime
         extractLastUpdateTime
+        downstreamSheets {
+          name
+          id
+        }
         upstreamDatabases {
           id
           name
@@ -133,6 +133,9 @@ workbook_graphql_query = """
         upstreamTables {
           id
           name
+          database {
+            name
+          }
           schema
           fullName
           connectionType
@@ -177,11 +180,20 @@ workbook_graphql_query = """
           }
         }
         upstreamDatasources {
+          id
           name
         }
         workbook {
           name
           projectName
+        }
+      }
+      upstreamDatasources {
+        name
+        id
+        downstreamSheets {
+          name
+          id
         }
       }
     }
@@ -209,6 +221,9 @@ custom_sql_graphql_query = """
             upstreamTables {
               id
               name
+              database {
+                name
+              }
               schema
               connectionType
             }
@@ -241,21 +256,26 @@ published_datasource_graphql_query = """
     extractLastRefreshTime
     extractLastIncrementalUpdateTime
     extractLastUpdateTime
-    downstreamSheets {
-        name
-        id
-        workbook {
-            name
-            projectName
-            }
-        }
+    upstreamDatabases {
+      id
+      name
+      connectionType
+      isEmbedded
+    }
     upstreamTables {
+      id
+      name
+      database {
         name
-        schema
-        fullName
-        connectionType
-        description
-        contact {name}
+      }
+      schema
+      fullName
+      connectionType
+      description
+      columns {
+        name
+        remoteType
+      }
     }
     fields {
         __typename
@@ -291,7 +311,6 @@ published_datasource_graphql_query = """
             dataType
             }
     }
-    upstreamDatasources {name}
     owner {username}
     description
     uri
@@ -374,7 +393,7 @@ def make_table_urn(
     # connection_type taken from
     # https://help.tableau.com/current/api/rest_api/en-us/REST/rest_api_concepts_connectiontype.htm
     #  datahub platform mapping is found here
-    # https://github.com/linkedin/datahub/blob/master/metadata-service/war/src/main/resources/boot/data_platforms.json
+    # https://github.com/datahub-project/datahub/blob/master/metadata-service/war/src/main/resources/boot/data_platforms.json
 
     final_name = full_name.replace("[", "").replace("]", "")
     if connection_type in ("textscan", "textclean", "excel-direct", "excel", "csv"):

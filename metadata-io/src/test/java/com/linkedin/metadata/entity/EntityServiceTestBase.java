@@ -23,7 +23,7 @@ import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.CorpUserAspect;
 import com.linkedin.metadata.aspect.CorpUserAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
-import com.linkedin.metadata.event.EntityEventProducer;
+import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
@@ -78,7 +78,7 @@ abstract public class EntityServiceTestBase<T_AD extends AspectDao, T_ES extends
         new ConfigEntityRegistry(Snapshot.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
     protected final EntityRegistry _testEntityRegistry =
         new MergedEntityRegistry(_snapshotEntityRegistry).apply(_configEntityRegistry);
-    protected EntityEventProducer _mockProducer;
+    protected EventProducer _mockProducer;
 
     protected EntityServiceTestBase() throws EntityRegistryException {
     }

@@ -72,6 +72,9 @@ def delete_for_registry(
         structured_rows,
         entities_affected,
         aspects_affected,
+        unsafe_aspects,
+        unsafe_entity_count,
+        unsafe_entities,
     ) = cli_utils.post_rollback_endpoint(registry_delete, "/entities?action=deleteAll")
     deletion_result.num_entities = entities_affected
     deletion_result.num_records = aspects_affected
@@ -228,6 +231,7 @@ def delete_with_filters(
         one_result = _delete_one_urn(
             urn,
             soft=soft,
+            entity_type=entity_type,
             dry_run=dry_run,
             cached_session_host=(session, gms_host),
             cached_emitter=emitter,

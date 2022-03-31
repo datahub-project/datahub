@@ -15,7 +15,7 @@ import com.linkedin.metadata.entity.cassandra.CassandraAspect;
 import com.linkedin.metadata.entity.cassandra.CassandraAspectDao;
 import com.linkedin.metadata.entity.cassandra.CassandraEntityService;
 import com.linkedin.metadata.entity.cassandra.CassandraRetentionService;
-import com.linkedin.metadata.event.EntityEventProducer;
+import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.query.ListUrnsResult;
@@ -156,7 +156,7 @@ public class CassandraEntityServiceTest extends EntityServiceTestBase<CassandraA
 
     CqlSession session = createTestSession();
     _aspectDao = new CassandraAspectDao(session);
-    _mockProducer = mock(EntityEventProducer.class);
+    _mockProducer = mock(EventProducer.class);
     _entityService = new CassandraEntityService(_aspectDao, _mockProducer, _testEntityRegistry);
     _retentionService = new CassandraRetentionService(_entityService, session, 1000);
     _entityService.setRetentionService(_retentionService);
