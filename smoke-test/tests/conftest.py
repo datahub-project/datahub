@@ -24,7 +24,7 @@ def frontend_session(wait_for_healthchecks):
     headers = {
         "Content-Type": "application/json",
     }
-    data = '{"username":"datahub", "password":"datahub"}'
+    data = '{"username":"admin", "password":"mypass"}'
     response = session.post(
         f"{FRONTEND_ENDPOINT}/logIn", headers=headers, data=data
     )

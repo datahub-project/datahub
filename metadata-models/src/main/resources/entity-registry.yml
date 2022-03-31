@@ -165,7 +165,7 @@ entities:
     keyAspect: dataPlatformInstanceKey
     aspects:
       - status
-## Not in OSS
+  ## Not in OSS
   - name: constraint
     keyAspect: constraintKey
     aspects:
@@ -174,4 +174,10 @@ entities:
     keyAspect: recommendationModuleKey
     aspects:
       - recommendationModule
+  - name: incident
+    doc: An incident for an asset.
+    category: core
+    keyAspect: incidentKey
+    aspects:
+      - incidentInfo
 events:
