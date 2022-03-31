@@ -248,13 +248,13 @@ class BasicSQLAlchemyConfig(SQLAlchemyConfig):
     database: Optional[str] = None
     database_alias: Optional[str] = None
     scheme: Optional[str] = None
-    connect_uri: Optional[str] = None
+    sqlalchemy_uri: Optional[str] = None
 
     def get_sql_alchemy_url(self, uri_opts=None):
-        if not ((self.host_port and self.scheme) or self.connect_uri):
+        if not ((self.host_port and self.scheme) or self.sqlalchemy_uri):
             raise ValueError("host_port and schema or connect_uri required.")
 
-        return self.connect_uri or make_sqlalchemy_uri(
+        return self.sqlalchemy_uri or make_sqlalchemy_uri(
             self.scheme,  # type: ignore
             self.username,
             self.password.get_secret_value() if self.password else None,
