@@ -25,7 +25,6 @@ public class KafkaConsumerConfig {
   @Bean(name = "kafkaEventConsumer")
   public Consumer<String, GenericRecord> kafkaConsumerFactory(KafkaProperties properties) {
     KafkaProperties.Consumer consumerProps = properties.getConsumer();
-    properties.getListener().setConcurrency();
     consumerProps.setKeyDeserializer(StringDeserializer.class);
     consumerProps.setValueDeserializer(KafkaAvroDeserializer.class);
     consumerProps.setGroupId("mce-cli");
