@@ -13,7 +13,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.tag.TagProperties;
@@ -63,7 +63,7 @@ public class SetTagColorResolverTest {
     proposal.setEntityUrn(Urn.createFromString(TEST_ENTITY_URN));
     proposal.setEntityType(Constants.TAG_ENTITY_NAME);
     proposal.setAspectName(Constants.TAG_PROPERTIES_ASPECT_NAME);
-    proposal.setAspect(GenericAspectUtils.serializeAspect(newTagProperties));
+    proposal.setAspect(GenericRecordUtils.serializeAspect(newTagProperties));
     proposal.setChangeType(ChangeType.UPSERT);
 
     Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(

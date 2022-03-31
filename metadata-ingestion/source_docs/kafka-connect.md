@@ -43,9 +43,11 @@ source:
         path_key: MYSQL_CONNECTION_URL
         value: jdbc:mysql://test_mysql:3306/librarydb
     # Optional mapping of platform types to instance ids
-    platform_instance_map: # optional
-      mysql: test_mysql    # optional
-
+    platform_instance_map:   # optional
+      mysql: test_mysql      # optional
+    connect_to_platform_map: # optional
+      postgres-connector-finance-db:     # optional - Connector name
+        postgres: core_finance_instance  # optional - Platform to instance map
     # Credentials
     username: admin
     password: password
@@ -54,23 +56,25 @@ sink:
   # sink configs
 ```
 
+
 ## Config details
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field                      | Required | Default                    | Description                                             |
-| -------------------------- | -------- | -------------------------- | ------------------------------------------------------- |
-| `connect_uri`              |    ✅    | `"http://localhost:8083/"` | URI to connect to.                                      |
-| `username`                 |          |                            | Kafka Connect username.                                 |
-| `password`                 |          |                            | Kafka Connect password.                                 |
-| `cluster_name`             |          | `"connect-cluster"`        | Cluster to ingest from.                                 |
-| `provided_configs`         |          |                            | Provided Configurations                                 |
-| `construct_lineage_workunits`    |    | `True`                     | Whether to create the input and output Dataset entities |
-| `connector_patterns.deny`  |          |                            | List of regex patterns for connectors to include in ingestion.   |
-| `connector_patterns.allow` |          |                            | List of regex patterns for connectors to exclude from ingestion. |
-| `connector_pattern.ignoreCase`  |     | `True`      | Whether to ignore case sensitivity during pattern matching.            |
-| `env`                      |          | `"PROD"`                   | Environment to use in namespace when constructing URNs. |
-| `platform_instance_map` |     |     | Platform instance mapping to use when constructing URNs. e.g.`platform_instance_map: { "hive": "warehouse" }` |
+| Field                       | Required | Default                    | Description                                                                                                                                                                                                                                                                                  |
+|-----------------------------| -------- | -------------------------- |----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `connect_uri`               |    ✅    | `"http://localhost:8083/"` | URI to connect to.                                                                                                                                                                                                                                                                           |
+| `username`                  |          |                            | Kafka Connect username.                                                                                                                                                                                                                                                                      |
+| `password`                  |          |                            | Kafka Connect password.                                                                                                                                                                                                                                                                      |
+| `cluster_name`              |          | `"connect-cluster"`        | Cluster to ingest from.                                                                                                                                                                                                                                                                      |
+| `provided_configs`          |          |                            | Provided Configurations                                                                                                                                                                                                                                                                      |
+| `construct_lineage_workunits` |    | `True`                     | Whether to create the input and output Dataset entities                                                                                                                                                                                                                                      |
+| `connector_patterns.deny`   |          |                            | List of regex patterns for connectors to include in ingestion.                                                                                                                                                                                                                               |
+| `connector_patterns.allow`  |          |                            | List of regex patterns for connectors to exclude from ingestion.                                                                                                                                                                                                                             |
+| `connector_pattern.ignoreCase` |     | `True`      | Whether to ignore case sensitivity during pattern matching.                                                                                                                                                                                                                                  |
+| `env`                       |          | `"PROD"`                   | Environment to use in namespace when constructing URNs.                                                                                                                                                                                                                                      |
+| `platform_instance_map`     |     |     | Platform instance mapping to use when constructing URNs. e.g.`platform_instance_map: { "hive": "warehouse" }`                                                                                                                                                                                |
+| `connect_to_platform_map`   |     |     | Platform instance mapping when multiple instances for a platform is available. Entry for a platform should be in either `platform_instance_map` or `connect_to_platform_map`. e.g.`connect_to_platform_map: { "postgres-connector-finance-db": "postgres": "core_finance_instance" }` |
 
 ## Compatibility
 

@@ -5369,7 +5369,7 @@
         "changeType": "UPSERT",
         "aspectName": "upstreamLineage",
         "aspect": {
-            "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:external,Sample - Superstore.xls.People,PROD)\", \"type\": \"TRANSFORMED\"}, {\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:external,Sample - Superstore.xls.Returns,PROD)\", \"type\": \"TRANSFORMED\"}, {\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:external,Sample - Superstore.xls.Orders,PROD)\", \"type\": \"TRANSFORMED\"}]}",
+            "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:external,Sample - Superstore.xls.People,PROD)\", \"type\": \"TRANSFORMED\"}, {\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:external,Sample - Superstore.xls.Returns,PROD)\", \"type\": \"TRANSFORMED\"}, {\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:external,Sample - Superstore.xls.Orders,PROD)\", \"type\": \"TRANSFORMED\"}, {\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:tableau,6cbbeeb2-9f3a-00f6-2342-17139d6e97ae,PROD)\", \"type\": \"TRANSFORMED\"}]}",
             "contentType": "application/json"
         },
         "systemMetadata": {
@@ -39656,6 +39656,25 @@
         "aspectName": "container",
         "aspect": {
             "value": "{\"container\": \"urn:li:container:94e6e84b66f9ee8c70c22f06cfbad6a9\"}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": {
+            "lastObserved": 1638860400000,
+            "runId": "tableau-test",
+            "registryName": null,
+            "registryVersion": null,
+            "properties": null
+        }
+    },
+    {
+        "auditHeader": null,
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tableau,d8d4c0ea-3162-fa11-31e6-26675da44a38,PROD)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "upstreamLineage",
+        "aspect": {
+            "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:tableau,00cce29f-b561-bb41-3557-8e19660bb5dd,PROD)\", \"type\": \"TRANSFORMED\"}]}",
             "contentType": "application/json"
         },
         "systemMetadata": {

@@ -49,7 +49,7 @@ record CorpUserInfo {
    */
   @Relationship = {
     "name": "ReportsTo",
-    "entityTypes": [ "corpUser" ]
+    "entityTypes": [ "corpuser" ]
   }
   @Searchable = {
     "fieldName": "managerLdap",

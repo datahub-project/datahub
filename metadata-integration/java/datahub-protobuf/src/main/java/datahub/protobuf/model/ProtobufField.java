@@ -69,6 +69,10 @@ public class ProtobufField implements ProtobufElement {
         return String.join(".", parentMessageName(), name());
     }
 
+    public String getNativeType() {
+        return nativeType();
+    }
+
     @Override
     public String nativeType() {
         return Optional.ofNullable(nativeType).orElseGet(() -> {
