@@ -2,7 +2,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional, Tuple, cast
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, cast
 
 import dateutil.parser
 import requests
@@ -604,10 +604,12 @@ class DBTSource(StatefulIngestionSourceBase):
 
     def __init__(self, config: DBTConfig, ctx: PipelineContext, platform: str):
         super().__init__(config, ctx)
-        self.config = config
-        self.platform = platform
+        self.config: DBTConfig = config
+        self.platform: str = platform
         self.report: DBTSourceReport = DBTSourceReport()
 
+    # TODO: Consider refactoring this logic out for use across sources as it is leading to a significant amount of
+    #  code duplication.
     def gen_removed_entity_workunits(self) -> Iterable[MetadataWorkUnit]:
         last_checkpoint = self.get_last_checkpoint(
             self.get_default_ingestion_job_id(), BaseSQLAlchemyCheckpointState
@@ -679,7 +681,6 @@ class DBTSource(StatefulIngestionSourceBase):
             self.config.node_name_pattern,
         )
 
-        logger.info("run_id={}".format(self.ctx.run_id))
         additional_custom_props = {
             "manifest_schema": manifest_schema,
             "manifest_version": manifest_version,
@@ -712,7 +713,7 @@ class DBTSource(StatefulIngestionSourceBase):
             # Clean up stale entities.
             yield from self.gen_removed_entity_workunits()
 
-    def remove_duplicate_urn(self):
+    def remove_duplicate_urns_from_checkpoint_state(self) -> None:
         """
         During MCEs creation process some nodes getting processed more than once and hence
         duplicates URN are getting added in checkpoint_state.
@@ -1221,7 +1222,7 @@ class DBTSource(StatefulIngestionSourceBase):
         if project_id is None:
             raise ValueError("DBT project identifier is not found in manifest")
 
-        return "{}_{}".format(self.platform, project_id)
+        return f"{self.platform}_{project_id}"
 
     def is_checkpointing_enabled(self, job_id: JobId) -> bool:
         if (
@@ -1238,12 +1239,12 @@ class DBTSource(StatefulIngestionSourceBase):
         """
         DBT ingestion job name.
         """
-        return JobId("{}_stateful_ingestion".format(self.platform))
+        return JobId(f"{self.platform}_stateful_ingestion")
 
     def close(self):
-        self.remove_duplicate_urn()
+        self.remove_duplicate_urns_from_checkpoint_state()
         self.prepare_for_commit()
 
     @property
-    def __bases__(self):
+    def __bases__(self) -> Tuple[Type]:
         return (DBTSource,)
