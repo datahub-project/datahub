@@ -1,6 +1,7 @@
 apply plugin: 'java'
 
 dependencies {
+  compile project(':notifications')
   compile project(':metadata-io')
   compile project(':metadata-service:auth-impl')
   compile project(':datahub-graphql-core')

@@ -7,6 +7,7 @@ import com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.kafka.config.MetadataChangeLogProcessorCondition;
 import com.linkedin.metadata.kafka.hook.ingestion.IngestionSchedulerHook;
+import com.linkedin.metadata.kafka.hook.notification.NotificationGeneratorHook;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.kafka.hook.UpdateIndicesHook;
 import com.codahale.metrics.Timer;
@@ -29,7 +30,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @Conditional(MetadataChangeLogProcessorCondition.class)
-@Import({UpdateIndicesHook.class, IngestionSchedulerHook.class, KafkaEventConsumerFactory.class})
+@Import({UpdateIndicesHook.class, IngestionSchedulerHook.class, NotificationGeneratorHook.class, KafkaEventConsumerFactory.class})
 @EnableKafka
 public class MetadataChangeLogProcessor {
 
@@ -37,9 +38,13 @@ public class MetadataChangeLogProcessor {
   private final Histogram kafkaLagStats = MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
 
   @Autowired
-  public MetadataChangeLogProcessor(@Nonnull final UpdateIndicesHook updateIndicesHook,
-      @Nonnull final IngestionSchedulerHook ingestionSchedulerHook) {
-    this.hooks = ImmutableList.of(updateIndicesHook, ingestionSchedulerHook);
+  public MetadataChangeLogProcessor(
+      @Nonnull final UpdateIndicesHook updateIndicesHook,
+      @Nonnull final IngestionSchedulerHook ingestionSchedulerHook,
+      @Nonnull final NotificationGeneratorHook notificationGeneratorHook) {
+    this.hooks = ImmutableList.of(
+        updateIndicesHook,
+        ingestionSchedulerHook, notificationGeneratorHook);
     this.hooks.forEach(MetadataChangeLogHook::init);
   }
 

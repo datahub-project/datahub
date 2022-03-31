@@ -3,14 +3,16 @@ package com.datahub.event;
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
+import com.datahub.event.hook.NotificationSinkHook;
 import com.datahub.event.hook.PlatformEventHook;
+import com.google.common.collect.ImmutableList;
 import com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.Topics;
-import java.util.Collections;
 import java.util.List;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -25,7 +27,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @Conditional(PlatformEventProcessorCondition.class)
-@Import({KafkaEventConsumerFactory.class})
+@Import({NotificationSinkHook.class, KafkaEventConsumerFactory.class})
 @EnableKafka
 public class PlatformEventProcessor {
 
@@ -33,9 +35,9 @@ public class PlatformEventProcessor {
   private final Histogram kafkaLagStats = MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
 
   @Autowired
-  public PlatformEventProcessor() {
+  public PlatformEventProcessor(@Nonnull final NotificationSinkHook notificationSinkHook) {
     log.info("Creating Platform Event Processor");
-    this.hooks = Collections.emptyList(); // No event hooks (yet)
+    this.hooks = ImmutableList.of(notificationSinkHook);
     this.hooks.forEach(PlatformEventHook::init);
   }
 

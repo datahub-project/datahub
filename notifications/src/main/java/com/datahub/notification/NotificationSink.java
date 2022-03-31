@@ -1,0 +1,42 @@
+package com.datahub.notification;
+
+import com.linkedin.event.notification.NotificationRequest;
+import com.linkedin.event.notification.NotificationSinkType;
+import com.linkedin.settings.global.GlobalSettingsInfo;
+import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
+import javax.annotation.Nonnull;
+
+
+/**
+ * A notification sink represents a destination to which notifications can be sent.
+ *
+ * Notification sinks are dumb components with a single job: send a notification to a single recipient (DataHub Actor or custom recipient)
+ *
+ * By the time a sink receives it, a message is presumed safe to send. A notification sink does not perform
+ * any additional validation against a user's preferences.
+ */
+public interface NotificationSink {
+  /**
+   * Returns the {@link NotificationSinkType} corresponding to the sink.
+   */
+  NotificationSinkType type();
+
+  /**
+   * Returns the set of notification template types supported by the sink.
+   */
+  Collection<NotificationTemplateType> templates();
+
+  /**
+   * Initializes a notification sink by providing an instance of the platform {@link GlobalSettingsInfo}.
+   */
+  void init(@Nonnull final NotificationSinkConfig cfg);
+
+  /**
+   * Sends a notification to one or more recipients based on a {@link NotificationRequest}.
+   * @return a {@link NotificationSinkResult} reflecting the status of the sent notification.
+   */
+  CompletableFuture<NotificationSinkResult> send(
+      @Nonnull final NotificationRequest request,
+      @Nonnull final NotificationContext context);
+}

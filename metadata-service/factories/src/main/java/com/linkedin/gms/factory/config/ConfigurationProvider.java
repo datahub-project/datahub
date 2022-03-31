@@ -3,6 +3,7 @@ package com.linkedin.gms.factory.config;
 import com.datahub.authentication.AuthenticationConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.config.NotificationConfiguration;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
@@ -22,7 +23,10 @@ public class ConfigurationProvider {
    * Ingestion related configs
    */
   private IngestionConfiguration ingestion;
-
+  /**
+   * Notification related configs
+   */
+  private NotificationConfiguration notifications;
   /**
    * Telemetry related configs
    */

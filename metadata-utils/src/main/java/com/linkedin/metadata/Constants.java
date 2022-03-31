@@ -198,6 +198,15 @@ public class Constants {
   // Constraints
   public static final String CONSTRAINT_INFO_ASPECT_NAME = "constraintInfo";
 
+  /* SaaS-Only */
+
+  // Settings
+  public static final String GLOBAL_SETTINGS_ENTITY_NAME = "globalSettings";
+  public static final String GLOBAL_SETTINGS_INFO_ASPECT_NAME = "globalSettingsInfo";
+
+  // Events
+  public static final String NOTIFICATION_REQUEST_EVENT_NAME = "notificationRequest";
+
   /**
    * User Status
    */

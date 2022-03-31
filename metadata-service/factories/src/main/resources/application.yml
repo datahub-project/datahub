@@ -153,3 +153,16 @@ spring:
   mvc:
     servlet:
       path: /openapi
+
+# Notifications config
+notifications:
+  # Enable if you want to enable creation of the Notification Manager.
+  enabled: ${METADATA_SERVICE_NOTIFICATIONS_ENABLED:false} # Enable to turn on notifications.
+
+  # Required if enabled is true! The set of notification sinks to use.
+  sinks:
+    - type: com.datahub.notification.slack.SlackNotificationSink
+      configs:
+        baseUrl: ${DATAHUB_BASE_URL:http://localhost:9002}
+        botToken: ${SLACK_BOT_TOKEN}
+        defaultChannel: ${SLACK_DEFAULT_CHANNEL}

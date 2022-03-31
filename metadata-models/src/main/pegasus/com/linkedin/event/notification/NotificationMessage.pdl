@@ -1,0 +1,17 @@
+namespace com.linkedin.event.notification
+
+/**
+ * A message to send via notification.
+ */
+record NotificationMessage {
+  /**
+   * The name of a notification template to use, e.g. INCIDENT_CREATED, INCIDENT_STATUS_UPDATED, CUSTOM.
+   * Each sink may support a different set of template types.
+   */
+  template: string
+
+  /**
+   * Parameters serving as input to the template, validated & substituted based on the selected template.
+   */
+   parameters: optional map[string, string]
+}
