@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.resolvers.incident;
 
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -10,9 +9,6 @@ import com.linkedin.datahub.graphql.types.incident.IncidentMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
@@ -24,6 +20,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -106,16 +103,10 @@ public class EntityIncidentsResolver implements DataFetcher<CompletableFuture<En
   }
 
   private Filter buildIncidentsEntityFilter(final String entityUrn, final Optional<String> maybeState) {
-    CriterionArray array = new CriterionArray(
-        ImmutableList.of(QueryUtils.newCriterion(INCIDENT_ENTITIES_SEARCH_INDEX_FIELD_NAME, entityUrn)));
-    maybeState.ifPresent(incidentState -> array.add(
-        QueryUtils.newCriterion(INCIDENT_STATE_SEARCH_INDEX_FIELD_NAME, incidentState)));
-    final Filter filter = new Filter();
-    filter.setOr(new ConjunctiveCriterionArray(ImmutableList.of(
-        new ConjunctiveCriterion()
-          .setAnd(array)
-    )));
-    return filter;
+    final Map<String, String> criterionMap = new HashMap<>();
+    criterionMap.put(INCIDENT_ENTITIES_SEARCH_INDEX_FIELD_NAME, entityUrn);
+    maybeState.ifPresent(incidentState -> criterionMap.put(INCIDENT_STATE_SEARCH_INDEX_FIELD_NAME, incidentState));
+    return QueryUtils.newFilter(criterionMap);
   }
 
   private SortCriterion buildIncidentsSortCriterion() {
