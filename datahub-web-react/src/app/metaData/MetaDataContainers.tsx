@@ -74,7 +74,7 @@ export const MetaDataContainers = ({
     const location = useLocation();
 
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
-    const query: string = addFixedQuery(params?.query as string, fixedQuery as string, emptySearchQuery as string);
+    let query: string = addFixedQuery(params?.query as string, fixedQuery as string, emptySearchQuery as string);
     const page: number = params.page && Number(params.page as string) > 0 ? Number(params.page as string) : 1;
     const filters: Array<FacetFilterInput> = useFilters(params);
     const filtersWithoutEntities: Array<FacetFilterInput> = filters.filter(
@@ -90,6 +90,7 @@ export const MetaDataContainers = ({
         (fixedFilter && [...filtersWithoutEntities, fixedFilter]) || filtersWithoutEntities;
     if (path.length > 4) {
         finalFilters = [...finalFilters, { field: CONTAINER_FILTER_NAME, value: path.slice(path.length - 1)[0] }];
+        query = addFixedQuery(params?.query as string, '', emptySearchQuery as string);
     }
     const { refetch } = useGetSearchResults({
         variables: {
@@ -107,6 +108,8 @@ export const MetaDataContainers = ({
     const callSearchOnVariables = (variables: GetSearchResultsParams['variables']) => {
         return refetch(variables);
     };
+
+    console.log('query:: ', query);
 
     // Fetching the Meta Data Results
     const { data, loading, error } = useGetSearchResultsForMultipleQuery({
