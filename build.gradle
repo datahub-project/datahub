@@ -103,7 +103,6 @@ project.ext.externalDependency = [
     'opentelemetryApi': 'io.opentelemetry:opentelemetry-api:1.0.0',
     'opentelemetryAnnotations': 'io.opentelemetry:opentelemetry-extension-annotations:1.0.0',
     'opentracingJdbc':'io.opentracing.contrib:opentracing-jdbc:0.2.15',
-    'parseqTest': 'com.linkedin.parseq:parseq:3.0.7:test',
     'parquet': 'org.apache.parquet:parquet-avro:1.12.0',
     'picocli': 'info.picocli:picocli:4.5.0',
     'playCache': 'com.typesafe.play:play-cache_2.11:2.6.18',

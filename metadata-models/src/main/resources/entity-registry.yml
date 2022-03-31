@@ -160,6 +160,11 @@ entities:
     keyAspect: dataHubRetentionKey
     aspects:
       - dataHubRetentionConfig
+  - name: dataPlatformInstance
+    category: internal
+    keyAspect: dataPlatformInstanceKey
+    aspects:
+      - status
   ## Not in OSS
   - name: constraint
     keyAspect: constraintKey
