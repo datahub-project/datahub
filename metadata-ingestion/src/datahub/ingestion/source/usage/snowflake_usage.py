@@ -342,7 +342,7 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
             return True
         dataset_params = dataset_name.split(".")
         if len(dataset_params) != 3:
-            self.error(logger, "invalid-dataset-pattern", f"Found {dataset_params}")
+            self.warn(logger, "invalid-dataset-pattern", f"Found {dataset_params}")
             return False
         if not self.config.database_pattern.allowed(
             dataset_params[0]
