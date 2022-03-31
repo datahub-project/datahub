@@ -5375,8 +5375,31 @@
       "name" : "entitiesDeleted",
       "type" : "long",
       "optional" : true
+    }, {
+      "name" : "aspectsReverted",
+      "type" : "long",
+      "optional" : true
+    }, {
+      "name" : "unsafeEntitiesCount",
+      "type" : "long",
+      "optional" : true
+    }, {
+      "name" : "unsafeEntities",
+      "type" : {
+        "type" : "array",
+        "items" : {
+          "type" : "record",
+          "name" : "UnsafeEntityInfo",
+          "doc" : " This record serves as a holder of information for entities that were unsafe to fully delete as part of a rollback operation.",
+          "fields" : [ {
+            "name" : "urn",
+            "type" : "string",
+            "doc" : "Name of the entity this aspect information instance refers to."
+          } ]
+        }
+      }
     } ]
-  }, {
+  }, "com.linkedin.metadata.run.UnsafeEntityInfo", {
     "type" : "record",
     "name" : "AggregationMetadata",
     "namespace" : "com.linkedin.metadata.search",

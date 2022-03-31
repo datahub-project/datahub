@@ -290,13 +290,15 @@ export default function PolicyPrivilegeForm({
                             </Tag>
                         )}
                     >
-                        {resourcePrivileges.map((resPrivs) => {
-                            return (
-                                <Select.Option value={resPrivs.resourceType}>
-                                    {resPrivs.resourceTypeDisplayName}
-                                </Select.Option>
-                            );
-                        })}
+                        {resourcePrivileges
+                            .filter((privs) => privs.resourceType !== 'all')
+                            .map((resPrivs) => {
+                                return (
+                                    <Select.Option value={resPrivs.resourceType}>
+                                        {resPrivs.resourceTypeDisplayName}
+                                    </Select.Option>
+                                );
+                            })}
                     </Select>
                 </Form.Item>
             )}

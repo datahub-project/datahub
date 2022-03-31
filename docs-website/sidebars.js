@@ -104,6 +104,7 @@ module.exports = {
       {
         Guides: [
           "metadata-ingestion/adding-source",
+          //"metadata-ingestion/source-docs-template",
           "docs/how/add-custom-ingestion-source",
           "docs/how/add-custom-data-platform",
           "docs/platform-instances",
