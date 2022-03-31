@@ -22,27 +22,28 @@ If your system admins prefer running the commands themselves then they can follo
 create or replace role datahub_role;
 
 //access to a warehouse to run queries to view metadata
-grant operate, usage on warehouse <your-warehouse> to role datahub_role;
+grant operate, usage on warehouse "<your-warehouse>" to role datahub_role;
 
 //access to view database and schema in which your tables/views exist for which you wish to ingest metadata
 grant usage on DATABASE "<your-database>" to role datahub_role;
 grant usage on all schemas in database "<your-database>" to role datahub_role;
 grant usage on future schemas in database "<your-database>" to role datahub_role;
 
-//select required for [profiling](./sql_profiles.md) feature
-grant select on all tables in database "<your-database>" to role datahub_role;
-grant select on future tables in database "<your-database>" to role datahub_role;
-grant select on all external tables in database "<your-database>" to role datahub_role;
-grant select on future external tables in database "<your-database>" to role datahub_role;
-grant select on all views in database "<your-database>" to role datahub_role;
-grant select on future views in database "<your-database>" to role datahub_role;
-//alternative permission if not using profiling feature
+//less permissive REFERENCES permissions if not using profiling feature
 grant REFERENCES on all tables in database "<your-database>" to role datahub_role;
 grant REFERENCES on future tables in database "<your-database>" to role datahub_role;
 grant REFERENCES on all external tables in database "<your-database>" to role datahub_role;
 grant REFERENCES on future external tables in database "<your-database>" to role datahub_role;
 grant REFERENCES on all views in database "<your-database>" to role datahub_role;
 grant REFERENCES on future views in database "<your-database>" to role datahub_role;
+
+//select permission required only if using profiling feature
+grant select on all tables in database "<your-database>" to role datahub_role;
+grant select on future tables in database "<your-database>" to role datahub_role;
+grant select on all external tables in database "<your-database>" to role datahub_role;
+grant select on future external tables in database "<your-database>" to role datahub_role;
+grant select on all views in database "<your-database>" to role datahub_role;
+grant select on future views in database "<your-database>" to role datahub_role;
 
 // Create a new DataHub user and assign the DataHub role to it 
 create user datahub_user display_name = 'DataHub' password='' default_role = datahub_role default_warehouse = '<your-warehouse>';
@@ -57,9 +58,9 @@ The details of what each privileges does can be viewed in [snowflake docs](https
 - `Usage` on `DATABASE` and `schema` are required because without it tables and views inside them are not accessible. If an admin does the required grants on `TABLE` but misses the grants on `SCHEMA` or the `DATABASE` in which the table/view exists then we will not be able to get metadata for the table/view.
 - If metadata is required only on some schemas then you can grant the usage privilieges only on the particular schema like
 ```sql
-grant usage on schema "<your-database>".<your-schema> to role datahub_role;
+grant usage on schema "<your-database>"."<your-schema>" to role datahub_role;
 ```
-- To get the lineage we need access to the default `snowflake` database
+- To get the lineage and usage data we need access to the default `snowflake` database
 
 This represents the bare minimum privileges required to extract databases, schemas, views, tables from Snowflake. 
 
