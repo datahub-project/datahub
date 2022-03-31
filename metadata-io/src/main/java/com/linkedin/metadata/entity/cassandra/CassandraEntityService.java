@@ -23,7 +23,7 @@ import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.RollbackResult;
 import com.linkedin.metadata.entity.RollbackRunResult;
-import com.linkedin.metadata.event.EntityEventProducer;
+import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -67,7 +67,7 @@ public class CassandraEntityService extends EntityService {
 
   public CassandraEntityService(
       @Nonnull final CassandraAspectDao aspectDao,
-      @Nonnull final EntityEventProducer eventProducer,
+      @Nonnull final EventProducer eventProducer,
       @Nonnull final EntityRegistry entityRegistry) {
     super(eventProducer, entityRegistry);
     _aspectDao = aspectDao;

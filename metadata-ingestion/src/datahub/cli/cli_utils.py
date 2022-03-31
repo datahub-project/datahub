@@ -234,24 +234,29 @@ def parse_run_restli_response(response: requests.Response) -> dict:
 def post_rollback_endpoint(
     payload_obj: dict,
     path: str,
-) -> typing.Tuple[typing.List[typing.List[str]], int, int]:
+) -> typing.Tuple[typing.List[typing.List[str]], int, int, int, int, typing.List[dict]]:
     session, gms_host = get_session_and_host()
     url = gms_host + path
 
     payload = json.dumps(payload_obj)
-
     response = session.post(url, payload)
 
     summary = parse_run_restli_response(response)
     rows = summary.get("aspectRowSummaries", [])
     entities_affected = summary.get("entitiesAffected", 0)
+    aspects_reverted = summary.get("aspectsReverted", 0)
     aspects_affected = summary.get("aspectsAffected", 0)
+    unsafe_entity_count = summary.get("unsafeEntitiesCount", 0)
+    unsafe_entities = summary.get("unsafeEntities", [])
+    rolled_back_aspects = list(
+        filter(lambda row: row["runId"] == payload_obj["runId"], rows)
+    )
 
     if len(rows) == 0:
         click.secho(f"No entities found. Payload used: {payload}", fg="yellow")
 
     local_timezone = datetime.now().astimezone().tzinfo
-    structured_rows = [
+    structured_rolled_back_results = [
         [
             row.get("urn"),
             row.get("aspectName"),
@@ -260,10 +265,17 @@ def post_rollback_endpoint(
             )
             + f" ({local_timezone})",
         ]
-        for row in rows
+        for row in rolled_back_aspects
     ]
 
-    return structured_rows, entities_affected, aspects_affected
+    return (
+        structured_rolled_back_results,
+        entities_affected,
+        aspects_reverted,
+        aspects_affected,
+        unsafe_entity_count,
+        unsafe_entities,
+    )
 
 
 def post_delete_endpoint(
@@ -309,12 +321,13 @@ def get_urns_by_filter(
     filter_criteria = []
     if env:
         filter_criteria.append({"field": "origin", "value": env, "condition": "EQUAL"})
-
+    entity_type_lower = entity_type.lower()
     if (
         platform is not None
-        and entity_type == "dataset"
-        or entity_type == "dataflow"
-        or entity_type == "datajob"
+        and entity_type_lower == "dataset"
+        or entity_type_lower == "dataflow"
+        or entity_type_lower == "datajob"
+        or entity_type_lower == "container"
     ):
         filter_criteria.append(
             {
@@ -324,7 +337,7 @@ def get_urns_by_filter(
             }
         )
     if platform is not None and (
-        entity_type.lower() == "chart" or entity_type.lower() == "dashboard"
+        entity_type_lower == "chart" or entity_type_lower == "dashboard"
     ):
         filter_criteria.append(
             {
@@ -338,7 +351,7 @@ def get_urns_by_filter(
         filter_criteria.append(
             {
                 "field": "removed",
-                "value": "true",
+                "value": "",  # accept anything regarding removed property (true, false, non-existent)
                 "condition": "EQUAL",
             }
         )
@@ -706,4 +719,7 @@ def get_aspects_for_entity(
             except Exception as e:
                 log.error(f"Error on {json.dumps(aspect_dict)}", e)
 
-    return {k: v for (k, v) in aspect_map.items() if k in aspects}
+    if aspects:
+        return {k: v for (k, v) in aspect_map.items() if k in aspects}
+    else:
+        return {k: v for (k, v) in aspect_map.items()}

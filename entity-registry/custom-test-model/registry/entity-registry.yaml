@@ -4,3 +4,5 @@ entities:
   - name: dataset
     aspects:
       - testDataQualityRules
+events:
+  - name: dataQualityEvent

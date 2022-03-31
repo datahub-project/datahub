@@ -1,7 +1,7 @@
 package com.linkedin.gms.factory.entity;
 
 import com.linkedin.gms.factory.common.TopicConventionFactory;
-import com.linkedin.metadata.dao.producer.EntityKafkaMetadataEventProducer;
+import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.cassandra.CassandraAspectDao;
 import com.linkedin.metadata.entity.cassandra.CassandraEntityService;
@@ -32,8 +32,8 @@ public class EntityServiceFactory {
       CassandraAspectDao aspectDao,
       EntityRegistry entityRegistry) {
 
-    final EntityKafkaMetadataEventProducer metadataProducer = new EntityKafkaMetadataEventProducer(producer, convention);
-    return new CassandraEntityService(aspectDao, metadataProducer, entityRegistry);
+    final KafkaEventProducer eventProducer = new KafkaEventProducer(producer, convention);
+    return new CassandraEntityService(aspectDao, eventProducer, entityRegistry);
   }
 
   @Bean(name = "entityService")
@@ -46,7 +46,7 @@ public class EntityServiceFactory {
       EbeanAspectDao aspectDao,
       EntityRegistry entityRegistry) {
 
-    final EntityKafkaMetadataEventProducer metadataProducer = new EntityKafkaMetadataEventProducer(producer, convention);
-    return new EbeanEntityService(aspectDao, metadataProducer, entityRegistry);
+    final KafkaEventProducer eventProducer = new KafkaEventProducer(producer, convention);
+    return new EbeanEntityService(aspectDao, eventProducer, entityRegistry);
   }
 }
