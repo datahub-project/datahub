@@ -99,18 +99,16 @@ Finally, once you are sure you want to delete this data forever, run
 datahub ingest rollback --run-id <run-id>
 ```
 
-to rollback all aspects added with this run and all entities created by this run. 
-If there are key aspects that are being rolled back, the ingestion process will analyse the metadata graph for aspects related to key aspects being deleted that will be left "hanging" and save that information as a CSV for operators to later review.
+to rollback all aspects added with this run and all entities created by this run.
 
-To give a concrete example: Imagine rolling back a key aspect of a dataset for which there exist aspects that are not part of the ingestion run (i.e: Changes made through the UI like documentation & tag assignment) then these aspects will disappear from the UI and be considered hanging.
-The rollback command will report how many entities have such aspects and save as a CSV the urns of these entities. 
-An operator can then use `datahub get --urn <>` to retrieve those aspects and take action if needed.
+### Unsafe Entities and Rollback
 
-:::note
+> **_NOTE:_** Preservation of unsafe entities has been added in datahub `0.8.32`. Read on to understand what it means and how it works.
 
-As of datahub v0.8.32, the `rollback` endpoint will now perform a *soft delete* of the entities ingested by a given run `<run-id>`.
-This was done to preserve potential changes that were made directly via DataHub's UI and not part of the ingestion run itself. Such that this information can be retrieved later on if a re-ingestion for the same deleted entity is done.
+In some cases, entities that were initially ingested by a run might have had further modifications to their metadata (e.g. adding terms, tags, or documentation) through the UI or other means. During a roll back of the ingestion that initially created these entities (technically, if the key aspect for these entities are being rolled back), the ingestion process will analyse the metadata graph for aspects that will be left "dangling" and will:
+1. Leave these aspects untouched in the database, and soft-delete the entity. A re-ingestion of these entities will result in this additional metadata becoming visible again in the UI, so you don't lose any of your work. 
+2. The datahub cli will save information about these unsafe entities as a CSV for operators to later review and decide on next steps (keep or remove).
 
-If you wish to keep old behaviour (hard delete), please use the `--nuke` flag.
+The rollback command will report how many entities have such aspects and save as a CSV the urns of these entities under a rollback reports directory, which defaults to `rollback_reports` under the current directory where the cli is run, and can be configured further using the `--reports-dir` command line arg.
 
-:::
+The operator can use `datahub get --urn <>` to inspect the aspects that were left behind and either keep them (do nothing) or delete the entity (and its aspects) completely using `datahub delete --urn <urn> --hard`. If the operator wishes to remove all the metadata associated with these unsafe entities, they can re-issue the rollback command with the `--nuke` flag.
