@@ -17,6 +17,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.sql.sql_common import get_platform_from_sqlalchemy_uri
 
 logger = logging.getLogger(__name__)
 
@@ -220,7 +221,7 @@ class ConfluentJDBCSourceConnector:
             str(connector_manifest.config.get("connection.url")), "jdbc:"
         )
         url_instance = make_url(url)
-        source_platform = url_instance.drivername
+        source_platform = get_platform_from_sqlalchemy_uri(str(url_instance))
         database_name = url_instance.database
         db_connection_url = f"{url_instance.drivername}://{url_instance.host}:{url_instance.port}/{url_instance.database}"
 
@@ -255,24 +256,37 @@ class ConfluentJDBCSourceConnector:
 
     def default_get_lineages(
         self,
-        topic_prefix,
-        database_name,
-        source_platform,
-        topic_names=None,
-        include_source_dataset=True,
-    ):
-        lineages: List[KafkaConnectLineage] = list()
+        topic_prefix: str,
+        database_name: str,
+        source_platform: str,
+        topic_names: Optional[Iterable[str]] = None,
+        include_source_dataset: bool = True,
+    ) -> List[KafkaConnectLineage]:
+        lineages: List[KafkaConnectLineage] = []
         if not topic_names:
             topic_names = self.connector_manifest.topic_names
+        table_name_tuples: List[Tuple] = self.get_table_names()
         for topic in topic_names:
             # All good for NO_TRANSFORM or (SINGLE_TRANSFORM and KNOWN_NONTOPICROUTING_TRANSFORM) or (not SINGLE_TRANSFORM and all(KNOWN_NONTOPICROUTING_TRANSFORM))
-            # default method - as per earlier implementation
-            if topic_prefix:
-                source_table = remove_prefix(topic, topic_prefix)
-            else:
-                source_table = topic
-            dataset_name = (
-                database_name + "." + source_table if database_name else source_table
+            source_table: str = (
+                remove_prefix(topic, topic_prefix) if topic_prefix else topic
+            )
+            # include schema name for three-level hierarchies
+            if has_three_level_hierarchy(source_platform):
+                table_name_tuple: Tuple = next(
+                    iter([t for t in table_name_tuples if t and t[-1] == source_table]),
+                    (),
+                )
+                if len(table_name_tuple) > 1:
+                    source_table = f"{table_name_tuple[-2]}.{source_table}"
+                else:
+                    include_source_dataset = False
+                    self.report_warning(
+                        self.connector_manifest.name,
+                        f"could not find schema for table {source_table}",
+                    )
+            dataset_name: str = (
+                f"{database_name}.{source_table}" if database_name else source_table
             )
             lineage = KafkaConnectLineage(
                 source_dataset=dataset_name if include_source_dataset else None,
@@ -283,32 +297,51 @@ class ConfluentJDBCSourceConnector:
             lineages.append(lineage)
         return lineages
 
-    def get_table_names(self):
-        if self.connector_manifest.config.get("table.whitelist"):
-            return self.connector_manifest.config.get("table.whitelist").split(",")  # type: ignore
+    def get_table_names(self) -> List[Tuple]:
+        sep: str = "."
+        leading_quote_char: str = '"'
+        trailing_quote_char: str = leading_quote_char
 
+        table_ids: List[str] = []
         if self.connector_manifest.tasks:
-            sep = "."
-            leading_quote_char = trailing_quote_char = '"'
+            table_ids = (
+                ",".join(
+                    [
+                        task["config"].get("tables")
+                        for task in self.connector_manifest.tasks
+                    ]
+                )
+            ).split(",")
             quote_method = self.connector_manifest.config.get(
                 "quote.sql.identifiers", "always"
             )
-
-            tableIds = ",".join(
-                [task["config"].get("tables") for task in self.connector_manifest.tasks]
-            )
-            if quote_method == "always":
-                leading_quote_char = tableIds[0]
-                trailing_quote_char = tableIds[-1]
+            if (
+                quote_method == "always"
+                and table_ids
+                and table_ids[0]
+                and table_ids[-1]
+            ):
+                leading_quote_char = table_ids[0][0]
+                trailing_quote_char = table_ids[-1][-1]
                 # This will only work for single character quotes
+        elif self.connector_manifest.config.get("table.whitelist"):
+            table_ids = self.connector_manifest.config.get("table.whitelist").split(",")  # type: ignore
 
-            tables = [
-                unquote(tableId.split(sep)[-1], leading_quote_char, trailing_quote_char)
-                for tableId in tableIds.split(",")
-            ]
-            return tables
-
-        return []
+        # List of Tuple containing (schema, table)
+        tables: List[Tuple] = [
+            (
+                unquote(
+                    table_id.split(sep)[-2], leading_quote_char, trailing_quote_char
+                )
+                if len(table_id.split(sep)) > 1
+                else "",
+                unquote(
+                    table_id.split(sep)[-1], leading_quote_char, trailing_quote_char
+                ),
+            )
+            for table_id in table_ids
+        ]
+        return tables
 
     def get_dataset_name(
         self,
@@ -357,14 +390,14 @@ class ConfluentJDBCSourceConnector:
 
         if query:
             # Lineage source_table can be extracted by parsing query
-            # For now, we use source table as topic (expected to be same as topic prefix)
             for topic in self.connector_manifest.topic_names:
                 # default method - as per earlier implementation
-                dataset_name = self.get_dataset_name(
+                dataset_name: str = self.get_dataset_name(
                     database_name, instance_name, topic
                 )
 
                 lineage = KafkaConnectLineage(
+                    source_dataset=None,
                     source_platform=source_platform,
                     target_dataset=topic,
                     target_platform="kafka",
@@ -409,7 +442,8 @@ class ConfluentJDBCSourceConnector:
 
             from java.util.regex import Pattern
 
-            for source_table in tables:
+            for table in tables:
+                source_table: str = table[-1]
                 topic = topic_prefix + source_table if topic_prefix else source_table
 
                 transform_regex = Pattern.compile(transforms[0]["regex"])
@@ -423,6 +457,10 @@ class ConfluentJDBCSourceConnector:
                 # in connector topics
 
                 if topic in self.connector_manifest.topic_names:
+                    # include schema name for three-level hierarchies
+                    if has_three_level_hierarchy(source_platform) and len(table) > 1:
+                        source_table = f"{table[-2]}.{table[-1]}"
+
                     dataset_name = self.get_dataset_name(
                         database_name, instance_name, source_table
                     )
@@ -1095,3 +1133,8 @@ class KafkaConnectSource(Source):
 
     def get_report(self) -> KafkaConnectSourceReport:
         return self.report
+
+
+# TODO: Find a more automated way to discover new platforms with 3 level naming hierarchy.
+def has_three_level_hierarchy(platform: str) -> bool:
+    return platform in ["postgres", "trino", "redshift", "snowflake"]
