@@ -1,0 +1,4 @@
+acryl-datahub[datahub-rest]==0.8.31.3
+acryl-datahub[hive]==0.8.31.3
+acryl-datahub[postgres]==0.8.31.3
+acryl-datahub[s3]==0.8.31.3
