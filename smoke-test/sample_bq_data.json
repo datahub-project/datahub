@@ -14,6 +14,12 @@
                         }
                     },
                     {
+                        "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                            "platform": "urn:li:dataPlatform:bigquery",
+                            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:bigquery,instance1)"
+                        }
+                    },
+                    {
                         "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                             "schemaName": "bigquery-public-data.covid19_geotab_mobility_impact.us_border_wait_times",
                             "platform": "urn:li:dataPlatform:bigquery",
