@@ -27,7 +27,7 @@ import com.linkedin.metadata.aspect.CorpUserAspectArray;
 import com.linkedin.metadata.snapshot.CorpGroupSnapshot;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import java.io.UnsupportedEncodingException;
@@ -389,7 +389,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     proposal.setEntityUrn(urn);
     proposal.setEntityType(CORP_USER_ENTITY_NAME);
     proposal.setAspectName(GROUP_MEMBERSHIP_ASPECT_NAME);
-    proposal.setAspect(GenericAspectUtils.serializeAspect(groupMembership));
+    proposal.setAspect(GenericRecordUtils.serializeAspect(groupMembership));
     proposal.setChangeType(ChangeType.UPSERT);
     try {
       _entityClient.ingestProposal(proposal, _systemAuthentication);
@@ -424,7 +424,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     proposal.setEntityUrn(urn);
     proposal.setEntityType(Constants.CORP_USER_ENTITY_NAME);
     proposal.setAspectName(Constants.CORP_USER_STATUS_ASPECT_NAME);
-    proposal.setAspect(GenericAspectUtils.serializeAspect(newStatus));
+    proposal.setAspect(GenericRecordUtils.serializeAspect(newStatus));
     proposal.setChangeType(ChangeType.UPSERT);
     _entityClient.ingestProposal(proposal, _systemAuthentication);
   }

@@ -127,7 +127,13 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
     return findByParams(Collections.singletonMap(FIELD_RUNID, runId), includeSoftDeleted);
   }
 
-  private List<AspectRowSummary> findByParams(Map<String, String> systemMetaParams, boolean includeSoftDeleted) {
+  @Override
+  public List<AspectRowSummary> findByUrn(String urn, boolean includeSoftDeleted) {
+    return findByParams(Collections.singletonMap(FIELD_URN, urn), includeSoftDeleted);
+  }
+
+  @Override
+  public List<AspectRowSummary> findByParams(Map<String, String> systemMetaParams, boolean includeSoftDeleted) {
     SearchResponse searchResponse = _esDAO.findByParams(systemMetaParams, includeSoftDeleted);
     if (searchResponse != null) {
       SearchHits hits = searchResponse.getHits();

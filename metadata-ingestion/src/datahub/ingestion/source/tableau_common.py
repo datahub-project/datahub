@@ -179,6 +179,10 @@ workbook_graphql_query = """
             dataType
           }
         }
+        upstreamDatasources {
+          id
+          name
+        }
         workbook {
           name
           projectName
