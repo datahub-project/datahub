@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.incident;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
@@ -25,8 +26,8 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
-import java.net.URISyntaxException;
 import java.util.concurrent.CompletableFuture;
+import lombok.RequiredArgsConstructor;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.metadata.Constants.*;
@@ -35,15 +36,11 @@ import static com.linkedin.metadata.Constants.*;
 /**
  * GraphQL Resolver that updates an incident's status
  */
+@RequiredArgsConstructor
 public class UpdateIncidentStatusResolver implements DataFetcher<CompletableFuture<Boolean>>  {
 
   private final EntityClient _entityClient;
   private final EntityService _entityService;
-
-  public UpdateIncidentStatusResolver(final EntityClient entityClient, final EntityService entityService) {
-    _entityClient = entityClient;
-    _entityService = entityService;
-  }
 
   @Override
   public CompletableFuture<Boolean> get(final DataFetchingEnvironment environment) throws Exception {
@@ -67,7 +64,7 @@ public class UpdateIncidentStatusResolver implements DataFetcher<CompletableFutu
           info.setStatus(new IncidentStatus()
             .setState(IncidentState.valueOf(input.getState().name()))
             .setLastUpdated(new AuditStamp()
-                .setActor(stringToUrn(context.getActorUrn()))
+                .setActor(UrnUtils.getUrn(context.getActorUrn()))
                 .setTime(System.currentTimeMillis())
             ));
           if (input.getMessage() != null) {
@@ -104,13 +101,5 @@ public class UpdateIncidentStatusResolver implements DataFetcher<CompletableFutu
         resourceUrn.getEntityType(),
         resourceUrn.toString(),
         orPrivilegeGroups);
-  }
-
-  private Urn stringToUrn(final String urnStr) {
-    try {
-      return Urn.createFromString(urnStr);
-    } catch (URISyntaxException e) {
-      throw new IllegalArgumentException(String.format("Failed to convert urnStr to urn: %s", urnStr, e));
-    }
   }
 }

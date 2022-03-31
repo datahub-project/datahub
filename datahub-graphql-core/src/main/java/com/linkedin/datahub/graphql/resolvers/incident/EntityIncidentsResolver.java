@@ -64,14 +64,14 @@ public class EntityIncidentsResolver implements DataFetcher<CompletableFuture<En
         // We use the search index so that we can easily sort by the last updated time.
         final Filter filter = buildIncidentsEntityFilter(entityUrn, maybeState);
         final SortCriterion sortCriterion = buildIncidentsSortCriterion();
-        final SearchResult gmsResult = _entityClient.filter(
+        final SearchResult searchResult = _entityClient.filter(
             Constants.INCIDENT_ENTITY_NAME,
             filter,
             sortCriterion,
             start,
             count,
             context.getAuthentication());
-        final List<Urn> incidentUrns = gmsResult.getEntities()
+        final List<Urn> incidentUrns = searchResult.getEntities()
             .stream()
             .map(SearchEntity::getEntity)
             .collect(Collectors.toList());
@@ -84,20 +84,20 @@ public class EntityIncidentsResolver implements DataFetcher<CompletableFuture<En
             context.getAuthentication());
 
         // Step 3: Map GMS incident model to GraphQL model
-        final List<EntityResponse> gmsResults = new ArrayList<>();
+        final List<EntityResponse> entityResult = new ArrayList<>();
         for (Urn urn : incidentUrns) {
-          gmsResults.add(entities.getOrDefault(urn, null));
+          entityResult.add(entities.getOrDefault(urn, null));
         }
-        final List<Incident> incidents = gmsResults.stream()
+        final List<Incident> incidents = entityResult.stream()
             .filter(Objects::nonNull)
             .map(IncidentMapper::map)
             .collect(Collectors.toList());
 
         // Step 4: Package and return result
         final EntityIncidentsResult result = new EntityIncidentsResult();
-        result.setCount(gmsResult.getPageSize());
-        result.setStart(gmsResult.getFrom());
-        result.setTotal(gmsResult.getNumEntities());
+        result.setCount(searchResult.getPageSize());
+        result.setStart(searchResult.getFrom());
+        result.setTotal(searchResult.getNumEntities());
         result.setIncidents(incidents);
         return result;
       } catch (URISyntaxException | RemoteInvocationException e) {
