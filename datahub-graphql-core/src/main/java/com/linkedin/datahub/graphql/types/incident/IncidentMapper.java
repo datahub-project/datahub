@@ -33,9 +33,9 @@ public class IncidentMapper {
     if (envelopedIncidentInfo != null) {
       final IncidentInfo info = new IncidentInfo(envelopedIncidentInfo.getValue().data());
       result.setType(IncidentType.valueOf(info.getType().name())); // Assumption alert! This assumes the incident type in GMS exactly equals that in GraphQL.
-      result.setCustomType(info.getCustomType());
-      result.setTitle(info.getTitle());
-      result.setDescription(info.getDescription());
+      result.setCustomType(info.getCustomType(GetMode.NULL));
+      result.setTitle(info.getTitle(GetMode.NULL));
+      result.setDescription(info.getDescription(GetMode.NULL));
       // TODO: Support multiple entities per incident.
       result.setEntity(UrnToEntityMapper.map(info.getEntities().get(0)));
       if (info.hasSource()) {

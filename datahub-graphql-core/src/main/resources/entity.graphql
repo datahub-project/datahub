@@ -353,7 +353,7 @@ type Mutation {
       """
       Input required to update the state of an existing incident
       """
-      input: UpdateIncidentStatusInput!): String
+      input: UpdateIncidentStatusInput!): Boolean
 }
 
 """
@@ -7282,6 +7282,7 @@ type Incident {
   The source of the incident, i.e. how it was generated
   """
   source: IncidentSource
+
   """
   The time at which the incident was initially created
   """
