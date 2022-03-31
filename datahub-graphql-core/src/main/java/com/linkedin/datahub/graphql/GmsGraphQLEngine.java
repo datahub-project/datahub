@@ -83,6 +83,9 @@ import com.linkedin.datahub.graphql.resolvers.group.EntityCountsResolver;
 import com.linkedin.datahub.graphql.resolvers.group.ListGroupsResolver;
 import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupMembersResolver;
 import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupResolver;
+import com.linkedin.datahub.graphql.resolvers.incident.EntityIncidentsResolver;
+import com.linkedin.datahub.graphql.resolvers.incident.RaiseIncidentResolver;
+import com.linkedin.datahub.graphql.resolvers.incident.UpdateIncidentStatusResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.GetGrantedPrivilegesResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CancelIngestionExecutionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CreateIngestionExecutionRequestResolver;
@@ -752,6 +755,8 @@ public class GmsGraphQLEngine {
             .dataFetcher("createIngestionExecutionRequest", new CreateIngestionExecutionRequestResolver(this.entityClient, this.ingestionConfiguration))
             .dataFetcher("cancelIngestionExecutionRequest", new CancelIngestionExecutionRequestResolver(this.entityClient))
             .dataFetcher("deleteAssertion", new DeleteAssertionResolver(this.entityClient, this.entityService))
+            .dataFetcher("raiseIncident", new RaiseIncidentResolver(this.entityClient))
+            .dataFetcher("updateIncidentStatus", new UpdateIncidentStatusResolver(this.entityClient, this.entityService))
         );
     }
 
@@ -882,6 +887,10 @@ public class GmsGraphQLEngine {
                     new ProposalsResolver(
                         (env) -> ((Entity) env.getSource()).getUrn(), entityClient))
                 )
+                .dataFetcher("constraints", new AuthenticatedResolver<>(
+                    new ConstraintsResolver(
+                        (env) -> ((Entity) env.getSource()).getUrn(), entityService, entityClient))
+                )
                 .dataFetcher("datasetProfiles", new AuthenticatedResolver<>(
                     new TimeSeriesAspectResolver(
                         this.entityClient,
@@ -904,6 +913,7 @@ public class GmsGraphQLEngine {
                     new AspectResolver())
                 )
                 .dataFetcher("assertions", new EntityAssertionsResolver(entityClient, graphClient))
+                .dataFetcher("incidents", new EntityIncidentsResolver(entityClient))
                .dataFetcher("aspects", new AuthenticatedResolver<>(
                    new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
                )
@@ -1172,6 +1182,7 @@ public class GmsGraphQLEngine {
                             return dataJob.getDomain() != null ? dataJob.getDomain().getUrn() : null;
                         })
                 )
+                .dataFetcher("incidents", new EntityIncidentsResolver(entityClient))
             )
             .type("DataJobInputOutput", typeWiring -> typeWiring
                 .dataFetcher("inputDatasets", new AuthenticatedResolver<>(
@@ -1219,6 +1230,7 @@ public class GmsGraphQLEngine {
                             return dataFlow.getDomain() != null ? dataFlow.getDomain().getUrn() : null;
                         })
                 )
+                .dataFetcher("incidents", new EntityIncidentsResolver(entityClient))
             );
     }
 
