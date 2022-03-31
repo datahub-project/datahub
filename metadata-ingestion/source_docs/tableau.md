@@ -496,4 +496,4 @@ schema name to use when constructing a table URN.
 
 ### Why are only some workbooks ingested from the specified project?
 
-This happens when the Tableau API returns NODE_LIMIT_EXCEEDED error and returns partial results with message "Showing partial results. , The request exceeded the ‘n’ node limit. Use pagination, additional filtering, or both in the query to adjust results." To resolve this,setSet `workbooks_page_size` config param to a lower value, say 3.
+This happens when the Tableau API returns NODE_LIMIT_EXCEEDED error and returns partial results with message "Showing partial results. , The request exceeded the ‘n’ node limit. Use pagination, additional filtering, or both in the query to adjust results." To resolve this, reduce the page size using the `workbooks_page_size` config param (Defaults to 10).
