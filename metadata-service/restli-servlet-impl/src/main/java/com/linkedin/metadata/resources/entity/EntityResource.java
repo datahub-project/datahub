@@ -12,6 +12,7 @@ import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.entity.ValidationException;
+import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
@@ -121,6 +122,10 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Inject
   @Named("relationshipSearchService")
   private LineageSearchService _lineageSearchService;
+
+  @Inject
+  @Named("kafkaEventProducer")
+  private EventProducer _eventProducer;
 
   /**
    * Retrieves the value for an entity that is made up of latest versions of specified aspects.
@@ -368,7 +373,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     return RestliUtil.toTask(() -> {
       RollbackResponse response = new RollbackResponse();
       List<AspectRowSummary> aspectRowsToDelete =
-          _systemMetadataService.findByRegistry(finalRegistryName, finalRegistryVersion.toString());
+          _systemMetadataService.findByRegistry(finalRegistryName, finalRegistryVersion.toString(), false);
       log.info("found {} rows to delete...", stringifyRowCount(aspectRowsToDelete.size()));
       response.setAspectsAffected(aspectRowsToDelete.size());
       response.setEntitiesAffected(
@@ -380,7 +385,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         Map<String, String> conditions = new HashMap();
         conditions.put("registryName", finalRegistryName1);
         conditions.put("registryVersion", finalRegistryVersion1.toString());
-        _entityService.rollbackWithConditions(aspectRowsToDelete, conditions);
+        _entityService.rollbackWithConditions(aspectRowsToDelete, conditions, false);
       }
       return response;
     }, MetricRegistry.name(this.getClass(), "deleteAll"));

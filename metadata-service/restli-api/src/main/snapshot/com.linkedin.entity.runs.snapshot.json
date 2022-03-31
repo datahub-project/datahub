@@ -768,7 +768,7 @@
       "type" : "Urn",
       "doc" : "Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name\n(Caveat: only corpuser is currently supported in the frontend.)",
       "Relationship" : {
-        "entityTypes" : [ "corpUser", "corpGroup" ],
+        "entityTypes" : [ "corpuser", "corpGroup" ],
         "name" : "OwnedBy"
       },
       "Searchable" : {
@@ -1525,7 +1525,7 @@
       "doc" : "owners of this group\nDeprecated! Replaced by Ownership aspect.",
       "Relationship" : {
         "/*" : {
-          "entityTypes" : [ "corpUser" ],
+          "entityTypes" : [ "corpuser" ],
           "name" : "OwnedBy"
         }
       },
@@ -1539,7 +1539,7 @@
       "doc" : "List of ldap urn in this group.\nDeprecated! Replaced by GroupMembership aspect.",
       "Relationship" : {
         "/*" : {
-          "entityTypes" : [ "corpUser" ],
+          "entityTypes" : [ "corpuser" ],
           "name" : "IsPartOf"
         }
       },
@@ -1691,7 +1691,7 @@
       "doc" : "direct manager of this user",
       "optional" : true,
       "Relationship" : {
-        "entityTypes" : [ "corpUser" ],
+        "entityTypes" : [ "corpuser" ],
         "name" : "ReportsTo"
       },
       "Searchable" : {
@@ -3226,6 +3226,10 @@
           "name" : "pageSize",
           "type" : "int",
           "optional" : true
+        }, {
+          "name" : "includeSoft",
+          "type" : "boolean",
+          "optional" : true
         } ],
         "returns" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.metadata.run.IngestionRunSummary\" }"
       }, {
@@ -3236,6 +3240,10 @@
           "type" : "string"
         }, {
           "name" : "dryRun",
+          "type" : "boolean",
+          "optional" : true
+        }, {
+          "name" : "hardDelete",
           "type" : "boolean",
           "optional" : true
         } ],

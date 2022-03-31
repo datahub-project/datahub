@@ -6,7 +6,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.EntityKeyUtils;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import java.util.Collections;
@@ -44,7 +44,7 @@ public class AspectUtils {
       MetadataChangeProposal original) {
     try {
       MetadataChangeProposal proposal = original.copy();
-      GenericAspect genericAspect = GenericAspectUtils.serializeAspect(aspect);
+      GenericAspect genericAspect = GenericRecordUtils.serializeAspect(aspect);
       proposal.setAspect(genericAspect);
       proposal.setAspectName(aspectName);
       return proposal;

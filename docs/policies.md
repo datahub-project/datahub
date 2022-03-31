@@ -53,7 +53,72 @@ A Metadata Policy can be broken down into 3 parts:
 2. **Privileges**: The 'what'. What actions are being permitted by a policy, e.g. "Add Tags".
 3. **Resources**: The 'which'. Resources that the policy applies to, e.g. "All Datasets".
 
-> Today, the set of privileges supported includes only *write* privileges. That is, there are no read restrictions implemented yet.
+#### Actors
+
+We currently support 3 ways to define the set of actors the policy applies to: a) list of users b) list of groups, and
+c) owners of the entity. You also have the option to apply the policy to all users.
+
+#### Privileges
+
+Check out the list of
+privileges [here](https://github.com/datahub-project/datahub/blob/master/metadata-utils/src/main/java/com/linkedin/metadata/authorization/PoliciesConfig.java)
+. Note, the privileges are semantic by nature, and does not tie in 1-to-1 with the aspect model.
+
+All edits on the UI are covered by a privilege, to make sure we have the ability to restrict write access.
+
+<!---
+TODO: Add table for edit privileges
+--->
+
+We currently support the following read privileges
+
+| Privilege            | Description                                                                                                                                                                |
+|----------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| VIEW_ENTITY_PAGE     | Allow actor to access the entity page for the resource in the UI. If not granted, it will redirect   them to an unauthorized page.                                         |
+| VIEW_DATASET_USAGE   | Allow actor to access usage metadata about a dataset both in the UI and in the GraphQL API. This   includes example queries, number of queries, etc.                       |
+| VIEW_DATASET_PROFILE | Allow actor to access a dataset's profile both in the UI and in the GraphQL API. This   includes snapshot statistics like #rows, #columns, null percentage per field, etc. |
+
+#### Resources
+
+Resource filter defines the set of resources that the policy applies to is defined using a list of criteria. Each
+criterion defines a field type (like resource_type, resource_urn, domain), a list of field values to compare, and a
+condition (like EQUALS). It essentially checks whether the field of a certain resource matches any of the input values.
+Note, that if there are no criteria or resource is not set, policy is applied to ALL resources.
+
+For example, the following resource filter will apply the policy to datasets, charts, and dashboards under domain 1.
+
+```json
+{
+  "resource": {
+    "criteria": [
+      {
+        "field": "resource_type",
+        "values": [
+          "dataset",
+          "chart",
+          "dashboard"
+        ],
+        "condition": "EQUALS"
+      },
+      {
+        "field": "domain",
+        "values": [
+          "urn:li:domain:domain1"
+        ],
+        "condition": "EQUALS"
+      }
+    ]
+  }
+}
+```
+
+Supported fields are as follows
+
+| Field Type    | Description            | Example                 |
+|---------------|------------------------|-------------------------|
+| resource_type | Type of the resource   | dataset, chart, dataJob |
+| resource_urn  | Urn of the resource    | urn:li:dataset:...      |
+| domain        | Domain of the resource | urn:li:domain:domainX   |
 
 ## Managing Policies
 
@@ -102,7 +167,6 @@ The DataHub team is hard at work trying to improve the Policies feature. We are 
 
 Under consideration
 
-- Ability to define Metadata Policies against multiple resources scoped to a particular "Domains"
 - Ability to define Metadata Policies against multiple reosurces scoped to particular "Containers" (e.g. A "schema", "database", or "collection")
 
 ## Feedback / Questions / Concerns

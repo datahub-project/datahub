@@ -1,5 +1,6 @@
 package com.linkedin.metadata.entity;
 
+import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
@@ -22,13 +23,12 @@ import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.CorpUserAspect;
 import com.linkedin.metadata.aspect.CorpUserAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
-import com.datahub.util.RecordUtils;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.EbeanEntityService;
 import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
 import com.linkedin.metadata.entity.ebean.EbeanUtils;
-import com.linkedin.metadata.event.EntityEventProducer;
+import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
@@ -52,33 +52,27 @@ import com.linkedin.retention.VersionBasedRetention;
 import com.linkedin.util.Pair;
 import io.ebean.EbeanServer;
 import io.ebean.EbeanServerFactory;
+import io.ebean.Transaction;
+import io.ebean.TxScope;
+import io.ebean.annotation.TxIsolation;
 import io.ebean.config.ServerConfig;
 import io.ebean.datasource.DataSourceConfig;
-
-
-import javax.annotation.Nonnull;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
 
 
 public class EbeanEntityServiceTest {
@@ -92,7 +86,7 @@ public class EbeanEntityServiceTest {
   private EbeanEntityService _entityService;
   private EbeanAspectDao _aspectDao;
   private EbeanServer _server;
-  private EntityEventProducer _mockProducer;
+  private EventProducer _mockProducer;
   private EbeanRetentionService _retentionService;
 
   public EbeanEntityServiceTest() throws EntityRegistryException {
@@ -126,7 +120,7 @@ public class EbeanEntityServiceTest {
   @BeforeMethod
   public void setupTest() {
     _server = EbeanServerFactory.create(createTestingH2ServerConfig());
-    _mockProducer = mock(EntityEventProducer.class);
+    _mockProducer = mock(EventProducer.class);
     _aspectDao = new EbeanAspectDao(_server);
     _aspectDao.setConnectionValidated(true);
     _entityService = new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry);
@@ -151,7 +145,7 @@ public class EbeanEntityServiceTest {
     com.linkedin.entity.Entity readEntity = _entityService.getEntity(entityUrn, Collections.emptySet());
 
     // 3. Compare Entity Objects
-    assertEquals(2, readEntity.getValue().getCorpUserSnapshot().getAspects().size()); // Key + Info aspect.
+    assertEquals(readEntity.getValue().getCorpUserSnapshot().getAspects().size(), 2); // Key + Info aspect.
     assertTrue(DataTemplateUtil.areEqual(writeEntity.getValue().getCorpUserSnapshot().getAspects().get(0),
         readEntity.getValue().getCorpUserSnapshot().getAspects().get(1)));
     CorpUserKey expectedKey = new CorpUserKey();
@@ -190,7 +184,7 @@ public class EbeanEntityServiceTest {
     com.linkedin.entity.Entity readEntity = _entityService.getEntity(entityUrn, Collections.emptySet());
 
     // 3. Compare Entity Objects
-    assertEquals(2, readEntity.getValue().getCorpUserSnapshot().getAspects().size()); // Key + Info aspect.
+    assertEquals(readEntity.getValue().getCorpUserSnapshot().getAspects().size(), 2); // Key + Info aspects.
     assertTrue(DataTemplateUtil.areEqual(writeEntity.getValue().getCorpUserSnapshot().getAspects().get(0),
         readEntity.getValue().getCorpUserSnapshot().getAspects().get(1)));
     CorpUserKey expectedKey = new CorpUserKey();
@@ -241,7 +235,7 @@ public class EbeanEntityServiceTest {
 
     // Entity 1
     com.linkedin.entity.Entity readEntity1 = readEntities.get(entityUrn1);
-    assertEquals(2, readEntity1.getValue().getCorpUserSnapshot().getAspects().size()); // Key + Info aspect.
+    assertEquals(readEntity1.getValue().getCorpUserSnapshot().getAspects().size(), 2); // Key + Info aspect.
     assertTrue(DataTemplateUtil.areEqual(writeEntity1.getValue().getCorpUserSnapshot().getAspects().get(0),
         readEntity1.getValue().getCorpUserSnapshot().getAspects().get(1)));
     CorpUserKey expectedKey1 = new CorpUserKey();
@@ -251,9 +245,15 @@ public class EbeanEntityServiceTest {
 
     // Entity 2
     com.linkedin.entity.Entity readEntity2 = readEntities.get(entityUrn2);
-    assertEquals(2, readEntity2.getValue().getCorpUserSnapshot().getAspects().size()); // Key + Info aspect.
-    assertTrue(DataTemplateUtil.areEqual(writeEntity2.getValue().getCorpUserSnapshot().getAspects().get(0),
-        readEntity2.getValue().getCorpUserSnapshot().getAspects().get(1)));
+    assertEquals(readEntity2.getValue().getCorpUserSnapshot().getAspects().size(), 2); // Key + Info aspect.
+    Optional<CorpUserAspect> writer2UserInfo = writeEntity2.getValue().getCorpUserSnapshot().getAspects()
+            .stream().filter(CorpUserAspect::isCorpUserInfo).findAny();
+    Optional<CorpUserAspect> reader2UserInfo = writeEntity2.getValue().getCorpUserSnapshot().getAspects()
+            .stream().filter(CorpUserAspect::isCorpUserInfo).findAny();
+
+    assertTrue(writer2UserInfo.isPresent(), "Writer2 user info exists");
+    assertTrue(reader2UserInfo.isPresent(), "Reader2 user info exists");
+    assertTrue(DataTemplateUtil.areEqual(writer2UserInfo.get(),  reader2UserInfo.get()), "UserInfo's are the same");
     CorpUserKey expectedKey2 = new CorpUserKey();
     expectedKey2.setUsername("tester2");
     assertTrue(DataTemplateUtil.areEqual(expectedKey2,
@@ -317,7 +317,7 @@ public class EbeanEntityServiceTest {
 
     // Entity 1
     EntityResponse readEntityResponse1 = readEntities.get(entityUrn1);
-    assertEquals(2, readEntityResponse1.getAspects().size()); // Key + Info aspect.
+    assertEquals(readEntityResponse1.getAspects().size(), 2); // Key + Info aspect.
     EnvelopedAspect envelopedAspect1 = readEntityResponse1.getAspects().get(aspectName);
     assertEquals(envelopedAspect1.getName(), aspectName);
     assertTrue(
@@ -330,7 +330,7 @@ public class EbeanEntityServiceTest {
 
     // Entity 2
     EntityResponse readEntityResponse2 = readEntities.get(entityUrn2);
-    assertEquals(2, readEntityResponse2.getAspects().size()); // Key + Info aspect.
+    assertEquals(readEntityResponse2.getAspects().size(), 2); // Key + Info aspect.
     EnvelopedAspect envelopedAspect2 = readEntityResponse2.getAspects().get(aspectName);
     assertEquals(envelopedAspect2.getName(), aspectName);
     assertTrue(
@@ -725,7 +725,7 @@ public class EbeanEntityServiceTest {
     rollbackOverwrittenAspect.setAspectName(aspectName);
     rollbackOverwrittenAspect.setUrn(entityUrn1.toString());
 
-    _entityService.rollbackRun(ImmutableList.of(rollbackOverwrittenAspect), "run-123");
+    _entityService.rollbackRun(ImmutableList.of(rollbackOverwrittenAspect), "run-123", true);
 
     // assert nothing was deleted
     RecordTemplate readAspectOriginal = _entityService.getAspect(entityUrn1, aspectName, 1);
@@ -740,7 +740,7 @@ public class EbeanEntityServiceTest {
     rollbackRecentAspect.setAspectName(aspectName);
     rollbackRecentAspect.setUrn(entityUrn1.toString());
 
-    _entityService.rollbackRun(ImmutableList.of(rollbackOverwrittenAspect), "run-456");
+    _entityService.rollbackRun(ImmutableList.of(rollbackOverwrittenAspect), "run-456", true);
 
     // assert the new most recent aspect is the original one
     RecordTemplate readNewRecentAspect = _entityService.getAspect(entityUrn1, aspectName, 0);
@@ -779,7 +779,7 @@ public class EbeanEntityServiceTest {
     rollbackKeyWithWrongRunId.setAspectName("corpUserKey");
     rollbackKeyWithWrongRunId.setUrn(entityUrn1.toString());
 
-    _entityService.rollbackRun(ImmutableList.of(rollbackKeyWithWrongRunId), "run-456");
+    _entityService.rollbackRun(ImmutableList.of(rollbackKeyWithWrongRunId), "run-456", true);
 
     // assert nothing was deleted
     RecordTemplate readAspectOriginal = _entityService.getAspect(entityUrn1, aspectName, 1);
@@ -794,11 +794,34 @@ public class EbeanEntityServiceTest {
     rollbackKeyWithCorrectRunId.setAspectName("corpUserKey");
     rollbackKeyWithCorrectRunId.setUrn(entityUrn1.toString());
 
-    _entityService.rollbackRun(ImmutableList.of(rollbackKeyWithCorrectRunId), "run-123");
+    _entityService.rollbackRun(ImmutableList.of(rollbackKeyWithCorrectRunId), "run-123", true);
 
     // assert the new most recent aspect is null
     RecordTemplate readNewRecentAspect = _entityService.getAspect(entityUrn1, aspectName, 0);
     assertTrue(DataTemplateUtil.areEqual(null, readNewRecentAspect));
+  }
+
+  @Test
+  public void testNestedTransactions() throws Exception {
+    EbeanServer server = _aspectDao.getServer();
+
+    try (Transaction transaction = server.beginTransaction(TxScope.requiresNew()
+            .setIsolation(TxIsolation.REPEATABLE_READ))) {
+      transaction.setBatchMode(true);
+      // Work 1
+      try (Transaction transaction2 = server.beginTransaction(TxScope.requiresNew()
+              .setIsolation(TxIsolation.REPEATABLE_READ))) {
+        transaction2.setBatchMode(true);
+        // Work 2
+        transaction2.commit();
+      }
+      transaction.commit();
+      } catch (Exception e) {
+      System.out.printf("Top level catch %s%n", e);
+      e.printStackTrace();
+      throw e;
+    }
+    System.out.println("done");
   }
 
   @Test

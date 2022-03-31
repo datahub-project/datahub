@@ -26,14 +26,19 @@ public class ProtobufGraph extends DefaultDirectedGraph<ProtobufElement, FieldTy
     private final transient ExtensionRegistry registry;
 
     public ProtobufGraph(DescriptorProtos.FileDescriptorSet fileSet) throws InvalidProtocolBufferException {
-        this(fileSet, null, true);
+        this(fileSet, null, null, true);
     }
 
     public ProtobufGraph(DescriptorProtos.FileDescriptorSet fileSet, String messageName) throws InvalidProtocolBufferException {
-        this(fileSet, messageName, true);
+        this(fileSet, messageName, null, true);
     }
 
-    public ProtobufGraph(DescriptorProtos.FileDescriptorSet fileSet, String messageName, boolean flattenGoogleWrapped) throws InvalidProtocolBufferException {
+    public ProtobufGraph(DescriptorProtos.FileDescriptorSet fileSet, String messageName, String relativeFilename) throws InvalidProtocolBufferException {
+        this(fileSet, messageName, relativeFilename, true);
+    }
+
+    public ProtobufGraph(DescriptorProtos.FileDescriptorSet fileSet, String messageName, String filename,
+                         boolean flattenGoogleWrapped) throws InvalidProtocolBufferException {
         super(FieldTypeEdge.class);
         this.registry = ProtobufUtils.buildRegistry(fileSet);
         DescriptorProtos.FileDescriptorSet fileSetExtended = DescriptorProtos.FileDescriptorSet
@@ -46,7 +51,9 @@ public class ProtobufGraph extends DefaultDirectedGraph<ProtobufElement, FieldTy
         if (messageName != null) {
             this.rootProtobufMessage = findMessage(messageName);
         } else {
-            DescriptorProtos.FileDescriptorProto lastFile = fileSetExtended.getFile(fileSetExtended.getFileCount() - 1);
+            DescriptorProtos.FileDescriptorProto lastFile = fileSetExtended.getFileList()
+                    .stream().filter(f -> filename != null && filename.endsWith(f.getName()))
+                    .findFirst().orElse(fileSetExtended.getFile(fileSetExtended.getFileCount() - 1));
             this.rootProtobufMessage = autodetectRootMessage(lastFile);
         }
 

@@ -231,6 +231,12 @@ export const EntityProfile = <T, U>({
         >
             <>
                 {showBrowseBar && <EntityProfileNavBar urn={urn} entityType={entityType} />}
+                {entityData?.status?.removed === true && (
+                    <Alert
+                        message="This entity has been soft deleted and is not discoverable via search or lineage graph"
+                        banner
+                    />
+                )}
                 {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
                 {!loading && error && (
                     <Alert type="error" message={error?.message || `Entity failed to load for urn ${urn}`} />

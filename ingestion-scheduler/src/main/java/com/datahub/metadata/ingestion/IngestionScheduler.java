@@ -20,7 +20,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.key.ExecutionRequestKey;
 import com.linkedin.metadata.query.ListResult;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import java.util.ArrayList;
@@ -312,7 +312,7 @@ public class IngestionScheduler {
         final UUID uuid = UUID.randomUUID();
         final String uuidStr = uuid.toString();
         key.setId(uuidStr);
-        proposal.setEntityKeyAspect(GenericAspectUtils.serializeAspect(key));
+        proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(key));
 
         // Construct arguments (arguments) of the Execution Request
         final ExecutionRequestInput input = new ExecutionRequestInput();
@@ -332,11 +332,10 @@ public class IngestionScheduler {
 
         proposal.setEntityType(Constants.EXECUTION_REQUEST_ENTITY_NAME);
         proposal.setAspectName(Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME);
-        proposal.setAspect(GenericAspectUtils.serializeAspect(input));
+        proposal.setAspect(GenericRecordUtils.serializeAspect(input));
         proposal.setChangeType(ChangeType.UPSERT);
 
         _entityClient.ingestProposal(proposal, _systemAuthentication);
-
       } catch (Exception e) {
         // TODO: This type of thing should likely be proactively reported.
         log.error(String.format(

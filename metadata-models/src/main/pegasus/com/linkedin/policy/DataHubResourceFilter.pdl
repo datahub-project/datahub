@@ -12,15 +12,23 @@ record DataHubResourceFilter {
    * example 'dataset'. It is not strictly required because in the future we will want to support filtering a resource
    * by domain, as well.
    */
+  @deprecated
   type: optional string
 
   /**
    * A specific set of resources to apply the policy to, e.g. asset urns
    */
+  @deprecated
   resources: optional array[string]
 
   /**
    * Whether the policy should be applied to all assets matching the filter.
    */
-   allResources: boolean = false
+  @deprecated
+  allResources: boolean = false
+
+  /**
+   * Filter to apply privileges to
+   */
+  filter: optional PolicyMatchFilter
 }

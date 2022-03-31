@@ -41,16 +41,28 @@ export const MLModelProfile = ({ urn }: { urn: string }): JSX.Element => {
                 name: TabType.Summary,
                 path: TabType.Summary.toLowerCase(),
                 content: <MLModelSummary model={model} />,
+                display: {
+                    visible: (_, _1) => true,
+                    enabled: (_, _1) => true,
+                },
             },
             {
                 name: TabType.Groups,
                 path: TabType.Groups.toLowerCase(),
                 content: <MLModelGroupsTab model={model} />,
+                display: {
+                    visible: (_, _1) => true,
+                    enabled: (_, _1) => true,
+                },
             },
             {
                 name: TabType.CustomProperties,
                 path: TabType.CustomProperties.toLowerCase(),
                 content: <Properties properties={model?.properties?.customProperties || EMPTY_ARR} />,
+                display: {
+                    visible: (_, _1) => true,
+                    enabled: (_, _1) => true,
+                },
             },
             // {
             //     name: TabType.Deployments,
@@ -66,6 +78,10 @@ export const MLModelProfile = ({ urn }: { urn: string }): JSX.Element => {
                         lastModifiedAt={model?.ownership?.lastModified?.time || 0}
                     />
                 ),
+                display: {
+                    visible: (_, _1) => true,
+                    enabled: (_, _1) => true,
+                },
             },
         ];
     };

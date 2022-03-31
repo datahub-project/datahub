@@ -76,6 +76,7 @@ describe('constructTree', () => {
                     children: [],
                     icon: undefined,
                     platform: 'Kafka',
+                    status: null,
                 },
             ],
         });
@@ -121,6 +122,7 @@ describe('constructTree', () => {
                     children: [],
                     icon: undefined,
                     platform: 'Kafka',
+                    status: null,
                 },
             ],
         });
@@ -166,6 +168,7 @@ describe('constructTree', () => {
                     countercurrentChildrenUrns: ['urn:li:dataset:3'],
                     icon: undefined,
                     platform: 'Kafka',
+                    status: null,
                     children: [
                         {
                             name: 'Sixth Test Dataset',
@@ -175,6 +178,7 @@ describe('constructTree', () => {
                             countercurrentChildrenUrns: ['urn:li:dataset:4'],
                             icon: undefined,
                             platform: 'Kafka',
+                            status: null,
                             children: [
                                 {
                                     name: 'Fifth Test Dataset',
@@ -189,6 +193,7 @@ describe('constructTree', () => {
                                     ],
                                     icon: undefined,
                                     platform: 'Kafka',
+                                    status: null,
                                 },
                             ],
                         },
@@ -201,6 +206,7 @@ describe('constructTree', () => {
                             countercurrentChildrenUrns: ['urn:li:dataset:7', 'urn:li:dataset:6', 'urn:li:dataset:4'],
                             icon: undefined,
                             platform: 'Kafka',
+                            status: null,
                         },
                     ],
                 },
@@ -276,6 +282,7 @@ describe('constructTree', () => {
                     countercurrentChildrenUrns: ['urn:li:dataset:3'],
                     icon: undefined,
                     platform: 'Kafka',
+                    status: null,
                 },
             ],
         });
