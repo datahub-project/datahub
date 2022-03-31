@@ -10,16 +10,15 @@ import com.linkedin.datahub.graphql.types.incident.IncidentMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -108,16 +107,9 @@ public class EntityIncidentsResolver implements DataFetcher<CompletableFuture<En
 
   private Filter buildIncidentsEntityFilter(final String entityUrn, final Optional<String> maybeState) {
     CriterionArray array = new CriterionArray(
-        ImmutableList.of(
-            new Criterion()
-                .setField(INCIDENT_ENTITIES_SEARCH_INDEX_FIELD_NAME)
-                .setCondition(Condition.EQUAL)
-                .setValue(entityUrn)
-        ));
-    maybeState.ifPresent(incidentState -> array.add(new Criterion()
-        .setField(INCIDENT_STATE_SEARCH_INDEX_FIELD_NAME)
-        .setValue(incidentState)
-        .setCondition(Condition.EQUAL)));
+        ImmutableList.of(QueryUtils.newCriterion(INCIDENT_ENTITIES_SEARCH_INDEX_FIELD_NAME, entityUrn)));
+    maybeState.ifPresent(incidentState -> array.add(
+        QueryUtils.newCriterion(INCIDENT_STATE_SEARCH_INDEX_FIELD_NAME, incidentState)));
     final Filter filter = new Filter();
     filter.setOr(new ConjunctiveCriterionArray(ImmutableList.of(
         new ConjunctiveCriterion()
