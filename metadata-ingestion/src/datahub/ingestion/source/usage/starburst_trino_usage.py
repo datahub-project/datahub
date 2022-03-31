@@ -240,6 +240,7 @@ if sys.version_info >= (3, 7):  # noqa: C901
                     "trino", resource.lower(), self.config.env
                 ),
                 self.config.top_n_queries,
+                self.config.format_sql_queries,
             )
 
         def get_report(self) -> SourceReport:

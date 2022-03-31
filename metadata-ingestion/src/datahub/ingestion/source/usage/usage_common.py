@@ -1,8 +1,9 @@
 import collections
 import dataclasses
+import logging
 from datetime import datetime
 from typing import Callable, Counter, Generic, List, Optional, TypeVar
-import sqlparse
+
 import pydantic
 
 import datahub.emitter.mce_builder as builder
@@ -19,6 +20,9 @@ from datahub.metadata.schema_classes import (
     DatasetUserUsageCountsClass,
     TimeWindowSizeClass,
 )
+from datahub.utilities.sql_formatter import format_sql_query
+
+logger = logging.getLogger(__name__)
 
 ResourceType = TypeVar("ResourceType")
 
@@ -62,13 +66,6 @@ class GenericAggregatedDataset(Generic[ResourceType]):
                 )
         return trimmed_query
 
-    @staticmethod
-    def format_sql_query(query: str, format_sql_queries) -> str:
-        if format_sql_queries:
-            return sqlparse.format(query, keyword_case="upper", reindent_aligned=True)
-        else:
-            return query
-
     def make_usage_workunit(
         self,
         bucket_duration: BucketDuration,
@@ -76,7 +73,6 @@ class GenericAggregatedDataset(Generic[ResourceType]):
         top_n_queries: int,
         format_sql_queries: bool,
     ) -> MetadataWorkUnit:
-
         budget_per_query: int = int(self.total_budget_for_query_list / top_n_queries)
 
         usageStats = DatasetUsageStatisticsClass(
@@ -86,7 +82,10 @@ class GenericAggregatedDataset(Generic[ResourceType]):
             totalSqlQueries=self.queryCount,
             topSqlQueries=[
                 self.trim_query(
-                    self.format_sql_query(query, format_sql_queries), budget_per_query
+                    format_sql_query(query, keyword_case="upper", reindent_aligned=True)
+                    if format_sql_queries
+                    else query,
+                    budget_per_query,
                 )
                 for query, _ in self.queryFreq.most_common(top_n_queries)
             ],

@@ -209,6 +209,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `schema_pattern`  |          |                                                                     | Allow/deny patterns for schema in snowflake dataset names.      |
 | `view_pattern`     |          |                                                                    | Allow/deny patterns for views in snowflake dataset names.       |
 | `table_pattern`     |          |                                                                   | Allow/deny patterns for tables in snowflake dataset names.       |
+| `format_sql_queries`        |          | `False`            | Whether to format sql queries                                                                                                                                                           |
 
 # Compatibility
 
