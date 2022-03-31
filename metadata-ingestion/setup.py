@@ -104,6 +104,11 @@ snowflake_common = {
     "cryptography",
 }
 
+trino = {
+    "trino>=0.308",
+    "trino[sqlalchemy]>=0.308",
+}
+
 microsoft_common = {"msal==1.16.0"}
 
 data_lake_base = {
@@ -195,8 +200,8 @@ plugins: Dict[str, Set[str]] = {
     "sqlalchemy": sql_common,
     "superset": {"requests", "sqlalchemy", "great_expectations", "greenlet", "Jinja2<3.1.0"},
     "tableau": {"tableauserverclient>=0.17.0"},
-    "trino": sql_common | {"trino"},
-    "starburst-trino-usage": sql_common | {"trino"},
+    "trino": sql_common | trino,
+    "starburst-trino-usage": sql_common | trino,
     "nifi": {"requests", "packaging"},
     "powerbi": {"orderedset"} | microsoft_common,
 }

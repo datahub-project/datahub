@@ -2,12 +2,12 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:0b9f1f731ecf6743be6207fec3dc9cba",
+    "entityUrn": "urn:li:container:7d53111f2c71396ea6f6d26c84770665",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-      "value": "{\"customProperties\": {\"platform\": \"glue\", \"instance\": \"PROD\", \"database\": \"flights-database\"}, \"name\": \"flights-database\"}",
+      "value": "{\"customProperties\": {\"platform\": \"glue\", \"instance\": \"some_instance_name\", \"database\": \"flights-database\"}, \"name\": \"flights-database\"}",
       "contentType": "application/json"
     },
     "systemMetadata": null
@@ -15,7 +15,7 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:0b9f1f731ecf6743be6207fec3dc9cba",
+    "entityUrn": "urn:li:container:7d53111f2c71396ea6f6d26c84770665",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -28,7 +28,7 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:0b9f1f731ecf6743be6207fec3dc9cba",
+    "entityUrn": "urn:li:container:7d53111f2c71396ea6f6d26c84770665",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -42,7 +42,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database.avro,PROD)",
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:glue,some_instance_name.flights-database.avro,PROD)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.common.Status": {
@@ -267,7 +267,7 @@
           {
             "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
               "platform": "urn:li:dataPlatform:glue",
-              "instance": null
+              "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)"
             }
           }
         ]
@@ -279,12 +279,12 @@
   {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database.avro,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,some_instance_name.flights-database.avro,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:0b9f1f731ecf6743be6207fec3dc9cba\"}",
+      "value": "{\"container\": \"urn:li:container:7d53111f2c71396ea6f6d26c84770665\"}",
       "contentType": "application/json"
     },
     "systemMetadata": null
@@ -292,12 +292,12 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7",
+    "entityUrn": "urn:li:container:9fb26491b2c92dde9e80791dbecca9ca",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-      "value": "{\"customProperties\": {\"platform\": \"glue\", \"instance\": \"PROD\", \"database\": \"test-database\"}, \"name\": \"test-database\"}",
+      "value": "{\"customProperties\": {\"platform\": \"glue\", \"instance\": \"some_instance_name\", \"database\": \"test-database\"}, \"name\": \"test-database\"}",
       "contentType": "application/json"
     },
     "systemMetadata": null
@@ -305,7 +305,7 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7",
+    "entityUrn": "urn:li:container:9fb26491b2c92dde9e80791dbecca9ca",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -318,7 +318,7 @@
   {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7",
+    "entityUrn": "urn:li:container:9fb26491b2c92dde9e80791dbecca9ca",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -332,7 +332,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:glue,test-database.test_jsons_markers,PROD)",
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:glue,some_instance_name.test-database.test_jsons_markers,PROD)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.common.Status": {
@@ -494,7 +494,7 @@
           {
             "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
               "platform": "urn:li:dataPlatform:glue",
-              "instance": null
+              "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)"
             }
           }
         ]
@@ -506,12 +506,12 @@
   {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,test-database.test_jsons_markers,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,some_instance_name.test-database.test_jsons_markers,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:bdf4342ea6899d162eae685bfe9074a7\"}",
+      "value": "{\"container\": \"urn:li:container:9fb26491b2c92dde9e80791dbecca9ca\"}",
       "contentType": "application/json"
     },
     "systemMetadata": null
@@ -520,7 +520,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:glue,test-database.test_parquet,PROD)",
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:glue,some_instance_name.test-database.test_parquet,PROD)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.common.Status": {
@@ -693,7 +693,7 @@
           {
             "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
               "platform": "urn:li:dataPlatform:glue",
-              "instance": null
+              "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)"
             }
           }
         ]
@@ -705,12 +705,12 @@
   {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,test-database.test_parquet,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,some_instance_name.test-database.test_parquet,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-      "value": "{\"container\": \"urn:li:container:bdf4342ea6899d162eae685bfe9074a7\"}",
+      "value": "{\"container\": \"urn:li:container:9fb26491b2c92dde9e80791dbecca9ca\"}",
       "contentType": "application/json"
     },
     "systemMetadata": null
@@ -878,7 +878,7 @@
           {
             "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
               "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database.avro,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:glue,some_instance_name.flights-database.avro,PROD)"
               ],
               "outputDatasets": [],
               "inputDatajobs": [],
@@ -1120,7 +1120,7 @@
           {
             "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
               "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:glue,test-database.test_parquet,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:glue,some_instance_name.test-database.test_parquet,PROD)"
               ],
               "outputDatasets": [],
               "inputDatajobs": [],
