@@ -1,11 +1,10 @@
 import * as React from 'react';
 import { CodeSandboxOutlined } from '@ant-design/icons';
-import { MlModel, EntityType, SearchResult, RelationshipDirection } from '../../../types.generated';
+import { MlModel, EntityType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { MLModelProfile } from './profile/MLModelProfile';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { getChildrenFromRelationships } from '../../lineage/utils/getChildren';
 
 /**
  * Definition of the DataHub MlModel entity.
@@ -62,21 +61,7 @@ export class MLModelEntity implements Entity<MlModel> {
             urn: entity.urn,
             name: entity.name,
             type: EntityType.Mlmodel,
-            downstreamChildren: getChildrenFromRelationships({
-                // eslint-disable-next-line @typescript-eslint/dot-notation
-                incomingRelationships: entity?.['incoming'],
-                // eslint-disable-next-line @typescript-eslint/dot-notation
-                outgoingRelationships: entity?.['outgoing'],
-                direction: RelationshipDirection.Incoming,
-            }),
-            upstreamChildren: getChildrenFromRelationships({
-                // eslint-disable-next-line @typescript-eslint/dot-notation
-                incomingRelationships: entity?.['incoming'],
-                // eslint-disable-next-line @typescript-eslint/dot-notation
-                outgoingRelationships: entity?.['outgoing'],
-                direction: RelationshipDirection.Outgoing,
-            }),
-            icon: entity.platform?.info?.logoUrl || undefined,
+            icon: entity.platform?.properties?.logoUrl || undefined,
             platform: entity.platform?.name,
         };
     };

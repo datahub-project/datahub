@@ -30,6 +30,7 @@ def test_nifi_s3_provenance_event():
         nifi_source = NifiSource(nifi_config, ctx)
 
         nifi_source.nifi_flow = NifiFlow(
+            version="1.15.0",
             clustered=False,
             root_process_group=NifiProcessGroup(
                 id="803ebb92-017d-1000-2961-4bdaa27a3ba0",
@@ -99,6 +100,7 @@ def test_nifi_s3_provenance_event():
         nifi_source = NifiSource(nifi_config, ctx)
 
         nifi_source.nifi_flow = NifiFlow(
+            version="1.15.0",
             clustered=False,
             root_process_group=NifiProcessGroup(
                 id="803ebb92-017d-1000-2961-4bdaa27a3ba0",

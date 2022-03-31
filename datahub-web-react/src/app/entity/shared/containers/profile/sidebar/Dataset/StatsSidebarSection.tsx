@@ -2,12 +2,13 @@ import { Button, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { GetDatasetQuery } from '../../../../../../../graphql/dataset.generated';
-import { DatasetProfile, UsageQueryResult } from '../../../../../../../types.generated';
+import { DatasetProfile, Operation, UsageQueryResult } from '../../../../../../../types.generated';
 import UsageFacepile from '../../../../../dataset/profile/UsageFacepile';
 import { ANTD_GRAY } from '../../../../constants';
 import { useBaseEntity, useRouteToTab } from '../../../../EntityContext';
 import { SidebarHeader } from '../SidebarHeader';
 import { InfoItem } from '../../../../components/styled/InfoItem';
+import { countSeparator } from '../../../../../../../utils/formatter/index';
 
 const HeaderInfoBody = styled(Typography.Text)`
     font-size: 16px;
@@ -29,17 +30,35 @@ const StatsRow = styled.div`
 `;
 
 const INFO_ITEM_WIDTH_PX = '150px';
+const LAST_UPDATED_WIDTH_PX = '220px';
 
 export const SidebarStatsSection = () => {
     const baseEntity = useBaseEntity<GetDatasetQuery>();
 
+    const toLocalDateTimeString = (time: number) => {
+        const date = new Date(time);
+        return date.toLocaleString([], {
+            year: 'numeric',
+            month: 'numeric',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            timeZoneName: 'short',
+        });
+    };
+
     const hasUsageStats = baseEntity?.dataset?.usageStats !== undefined;
     const hasDatasetProfiles = baseEntity?.dataset?.datasetProfiles !== undefined;
+    const hasOperations = (baseEntity?.dataset?.operations?.length || 0) > 0;
 
     const usageStats = (hasUsageStats && (baseEntity?.dataset?.usageStats as UsageQueryResult)) || undefined;
     const datasetProfiles =
         (hasDatasetProfiles && (baseEntity?.dataset?.datasetProfiles as Array<DatasetProfile>)) || undefined;
     const latestProfile = datasetProfiles && datasetProfiles[0];
+    const operations = (hasOperations && (baseEntity?.dataset?.operations as Array<Operation>)) || undefined;
+    const latestOperation = operations && operations[0];
+
+    const lastUpdated = latestOperation && toLocalDateTimeString(latestOperation?.timestampMillis);
 
     const routeToTab = useRouteToTab();
 
@@ -59,7 +78,7 @@ export const SidebarStatsSection = () => {
                         onClick={() => routeToTab({ tabName: 'Queries' })}
                         width={INFO_ITEM_WIDTH_PX}
                     >
-                        <HeaderInfoBody>{latestProfile?.rowCount}</HeaderInfoBody>
+                        <HeaderInfoBody>{countSeparator(latestProfile?.rowCount)}</HeaderInfoBody>
                     </InfoItem>
                 ) : null}
                 {latestProfile?.columnCount ? (
@@ -82,6 +101,18 @@ export const SidebarStatsSection = () => {
                 {(usageStats?.aggregations?.users?.length || 0) > 0 ? (
                     <InfoItem title="Top Users" width={INFO_ITEM_WIDTH_PX}>
                         <UsageFacepile users={usageStats?.aggregations?.users} />
+                    </InfoItem>
+                ) : null}
+            </StatsRow>
+            {/* Operation Entry */}
+            <StatsRow>
+                {latestOperation?.timestampMillis ? (
+                    <InfoItem
+                        title="Last Updated"
+                        onClick={() => routeToTab({ tabName: 'Queries' })}
+                        width={LAST_UPDATED_WIDTH_PX}
+                    >
+                        <HeaderInfoBody>{lastUpdated}</HeaderInfoBody>
                     </InfoItem>
                 ) : null}
             </StatsRow>

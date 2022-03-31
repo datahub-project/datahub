@@ -3,9 +3,11 @@ package com.datahub.gms.servlet;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.PluginEntityRegistryLoader;
 import com.linkedin.metadata.models.registry.config.EntityRegistryLoadResult;
+import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.util.Pair;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -18,10 +20,12 @@ import javax.servlet.http.HttpServletResponse;
 import org.apache.maven.artifact.versioning.ComparableVersion;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 
 // Return a 200 for health checks
 
 public class Config extends HttpServlet {
+
   Map<String, Object> config = new HashMap<String, Object>() {{
     put("noCode", "true");
     put("retention", "true");
@@ -47,8 +51,45 @@ public class Config extends HttpServlet {
     return patchDiagnostics;
   }
 
+  private ConfigurationProvider getConfigProvider(WebApplicationContext ctx) {
+    return (ConfigurationProvider) ctx.getBean("configurationProvider");
+  }
+
+  private GitVersion getGitVersion(WebApplicationContext ctx) {
+    return (GitVersion) ctx.getBean("gitVersion");
+  }
+
+  private boolean checkImpactAnalysisSupport(WebApplicationContext ctx) {
+    return ((GraphService) ctx.getBean("graphService")).supportsMultiHop();
+  }
+
   @Override
   protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+    config.put("noCode", "true");
+
+    WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(req.getServletContext());
+
+    config.put("supportsImpactAnalysis", checkImpactAnalysisSupport(ctx));
+
+    GitVersion version = getGitVersion(ctx);
+    Map<String, Object> versionConfig = new HashMap<>();
+    versionConfig.put("linkedin/datahub", version.toConfig());
+    config.put("versions", versionConfig);
+
+    ConfigurationProvider configProvider = getConfigProvider(ctx);
+
+    Map<String, Object> telemetryConfig = new HashMap<String, Object>() {{
+      put("enabledCli", configProvider.getTelemetry().enabledCli);
+      put("enabledIngestion", configProvider.getTelemetry().enabledIngestion);
+    }};
+    config.put("telemetry", telemetryConfig);
+
+    Map<String, Object> ingestionConfig = new HashMap<String, Object>() {{
+      put("enabled", configProvider.getIngestion().enabled);
+      put("defaultCliVersion", configProvider.getIngestion().defaultCliVersion);
+    }};
+    config.put("managedIngestion", ingestionConfig);
+
     resp.setContentType("application/json");
     PrintWriter out = resp.getWriter();
 

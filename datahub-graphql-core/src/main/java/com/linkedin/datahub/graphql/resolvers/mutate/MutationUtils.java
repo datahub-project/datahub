@@ -1,15 +1,13 @@
 package com.linkedin.datahub.graphql.resolvers.mutate;
 
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.generated.SubResourceType;
-import com.linkedin.entity.Entity;
-import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaFieldInfoArray;
 import com.linkedin.schema.EditableSchemaMetadata;
@@ -22,17 +20,17 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class MutationUtils {
   public static final String SCHEMA_ASPECT_NAME = "schemaMetadata";
-  private static final ConjunctivePrivilegeGroup ALL_PRIVILEGES_GROUP = new ConjunctivePrivilegeGroup(ImmutableList.of(
-      PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()
-  ));
 
   private MutationUtils() { }
 
-  public static void persistAspect(Urn urn, RecordTemplate aspect, Urn actor, EntityService entityService) {
-    Snapshot updatedSnapshot = entityService.buildSnapshot(urn, aspect);
-    Entity entityToPersist = new Entity();
-    entityToPersist.setValue(updatedSnapshot);
-    entityService.ingestEntity(entityToPersist, getAuditStamp(actor));
+  public static void persistAspect(Urn urn, String aspectName, RecordTemplate aspect, Urn actor, EntityService entityService) {
+    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+    proposal.setEntityUrn(urn);
+    proposal.setEntityType(urn.getEntityType());
+    proposal.setAspectName(aspectName);
+    proposal.setAspect(GenericRecordUtils.serializeAspect(aspect));
+    proposal.setChangeType(ChangeType.UPSERT);
+    entityService.ingestProposal(proposal, getAuditStamp(actor));
   }
 
   public static RecordTemplate getAspectFromEntity(String entityUrn, String aspectName, EntityService entityService, RecordTemplate defaultValue) {

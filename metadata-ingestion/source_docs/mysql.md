@@ -14,6 +14,13 @@ This plugin extracts the following:
 - Column types and schema associated with each table
 - Table, row, and column statistics via optional [SQL profiling](./sql_profiles.md)
 
+| Capability        | Status | Details                                  | 
+|-------------------|--------|------------------------------------------|
+| Platform Instance | ✔️     | [link](../../docs/platform-instances.md) |
+| Data Containers   | ✔️     |                                          |
+| Data Domains      | ✔️     | [link](../../docs/domains.md)            |
+
+
 ## Quickstart recipe
 
 Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
@@ -44,26 +51,30 @@ Like all SQL-based sources, the MySQL integration supports:
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field                       | Required | Default            | Description                                                                                                                                                                             |
-| --------------------------- | -------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `username`                  |          |                    | MySQL username.                                                                                                                                                                         |
-| `password`                  |          |                    | MySQL password.                                                                                                                                                                         |
-| `host_port`                 |          | `"localhost:3306"` | MySQL host URL.                                                                                                                                                                         |
-| `database`                  |          |                    | MySQL database.                                                                                                                                                                         |
-| `database_alias`            |          |                    | Alias to apply to database when ingesting.                                                                                                                                              |
-| `env`                       |          | `"PROD"`           | Environment to use in namespace when constructing URNs.                                                                                                                                 |
-| `options.<option>`          |          |                    | Any options specified here will be passed to SQLAlchemy's `create_engine` as kwargs.<br />See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details. |
-| `table_pattern.allow`       |          |                    | List of regex patterns for tables to include in ingestion.                                                                                                                              |
-| `table_pattern.deny`        |          |                    | List of regex patterns for tables to exclude from ingestion.                                                                                                                            |
-| `table_pattern.ignoreCase`  |          | `True`             | Whether to ignore case sensitivity during pattern matching.                                                                                                                             |
-| `schema_pattern.allow`      |          |                    | List of regex patterns for schemas to include in ingestion.                                                                                                                             |
-| `schema_pattern.deny`       |          |                    | List of regex patterns for schemas to exclude from ingestion.                                                                                                                           |
-| `schema_pattern.ignoreCase` |          | `True`             | Whether to ignore case sensitivity during pattern matching.                                                                                                                             |
-| `view_pattern.allow`        |          |                    | List of regex patterns for views to include in ingestion.                                                                                                                               |
-| `view_pattern.deny`         |          |                    | List of regex patterns for views to exclude from ingestion.                                                                                                                             |
-| `view_pattern.ignoreCase`   |          | `True`             | Whether to ignore case sensitivity during pattern matching.                                                                                                                             |
-| `include_tables`            |          | `True`             | Whether tables should be ingested.                                                                                                                                                      |
-| `include_views`             |          | `True`             | Whether views should be ingested.                                                                                                                                                       |
+| Field                          | Required | Default            | Description                                                                                                                                                                             |
+|--------------------------------|----------|--------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `username`                     |          |                    | MySQL username.                                                                                                                                                                         |
+| `password`                     |          |                    | MySQL password.                                                                                                                                                                         |
+| `host_port`                    |          | `"localhost:3306"` | MySQL host URL.                                                                                                                                                                         |
+| `database`                     |          |                    | MySQL database.                                                                                                                                                                         |
+| `database_alias`               |          |                    | Alias to apply to database when ingesting. A table with urn `urn:li:dataset:(urn:li:dataPlatform:mysql,<database>.<table>,PROD)` will turn into `urn:li:dataset:(urn:li:dataPlatform:mysql,<database_alias>.<table>,PROD)`.                                                                                                                                             |
+| `env`                          |          | `"PROD"`           | Environment to use in namespace when constructing URNs.                                                                                                                                 |
+| `platform_instance`            |          | None               | The Platform instance to use while constructing URNs.                                                                                                                                   |
+| `options.<option>`             |          |                    | Any options specified here will be passed to SQLAlchemy's `create_engine` as kwargs.<br />See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details. |
+| `table_pattern.allow`          |          |                    | List of regex patterns for tables to include in ingestion.                                                                                                                              |
+| `table_pattern.deny`           |          |                    | List of regex patterns for tables to exclude from ingestion.                                                                                                                            |
+| `table_pattern.ignoreCase`     |          | `True`             | Whether to ignore case sensitivity during pattern matching.                                                                                                                             |
+| `schema_pattern.allow`         |          |                    | List of regex patterns for schemas to include in ingestion.                                                                                                                             |
+| `schema_pattern.deny`          |          |                    | List of regex patterns for schemas to exclude from ingestion.                                                                                                                           |
+| `schema_pattern.ignoreCase`    |          | `True`             | Whether to ignore case sensitivity during pattern matching.                                                                                                                             |
+| `view_pattern.allow`           |          |                    | List of regex patterns for views to include in ingestion.                                                                                                                               |
+| `view_pattern.deny`            |          |                    | List of regex patterns for views to exclude from ingestion.                                                                                                                             |
+| `view_pattern.ignoreCase`      |          | `True`             | Whether to ignore case sensitivity during pattern matching.                                                                                                                             |
+| `include_tables`               |          | `True`             | Whether tables should be ingested.                                                                                                                                                      |
+| `include_views`                |          | `True`             | Whether views should be ingested.                                                                                                                                                       |
+| `domain.domain_key.allow`      |          |                    | List of regex patterns for tables/schemas to set domain_key domain key (domain_key can be any string like `sales`. There can be multiple domain key specified.                          |
+| `domain.domain_key.deny`       |          |                    | List of regex patterns for tables/schemas to not assign domain_key. There can be multiple domain key specified.                                                                         |
+| `domain.domain_key.ignoreCase` |          | `True`             | Whether to ignore case sensitivity during pattern matching.There can be multiple domain key specified.                                                                                  |
 
 ## Compatibility
 

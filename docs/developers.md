@@ -39,7 +39,7 @@ You're probably using a Java version that's too new for gradle. Run the followin
 ```
 java --version
 ```
-While it may be possible to build and run DataHub using newer versions of Java, we currently only support [Java 1.8](https://www.oracle.com/java/technologies/javase/javase-jdk8-downloads.html) (aka Java 8). Plan for Java 11 migration is being discussed in [this issue](https://github.com/linkedin/datahub/issues/1699).
+While it may be possible to build and run DataHub using newer versions of Java, we currently only support [Java 1.8](https://www.oracle.com/java/technologies/javase/javase-jdk8-downloads.html) (aka Java 8). Plan for Java 11 migration is being discussed in [this issue](https://github.com/datahub-project/datahub/issues/1699).
 
 ### Getting `cannot find symbol` error for `javax.annotation.Generated`
 
@@ -54,11 +54,11 @@ This is a [known issue](https://github.com/linkedin/rest.li/issues/287) when bui
 
 As we generate quite a few files from the models, it is possible that old generated files may conflict with new model changes. When this happens, a simple `./gradlew clean` should reosolve the issue. 
 
-### `Execution failed for task ':gms:impl:checkRestModel'`
+### `Execution failed for task ':metadata-service:restli-servlet-impl:checkRestModel'`
 
 This generally means that an [incompatible change](https://linkedin.github.io/rest.li/modeling/compatibility_check) was introduced to the rest.li API in GMS. You'll need to rebuild the snapshots/IDL by running the following command once
 ```
-./gradlew :gms:impl:build -Prest.model.compatibility=ignore
+./gradlew :metadata-service:restli-servlet-impl:build -Prest.model.compatibility=ignore
 ```
 
 ### `java.io.IOException: No space left on device`

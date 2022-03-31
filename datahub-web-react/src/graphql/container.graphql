@@ -1,0 +1,43 @@
+query getContainer($urn: String!) {
+    container(urn: $urn) {
+        urn
+        platform {
+            ...platformFields
+        }
+        properties {
+            name
+            description
+            customProperties {
+                key
+                value
+            }
+        }
+        editableProperties {
+            description
+        }
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        institutionalMemory {
+            ...institutionalMemoryFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        subTypes {
+            typeNames
+        }
+        entities(input: {}) {
+            ...searchResults
+        }
+        container {
+            ...entityContainer
+        }
+        domain {
+            ...entityDomain
+        }
+    }
+}

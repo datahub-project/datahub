@@ -1,0 +1,33 @@
+{
+  "name" : "entitiesV2",
+  "namespace" : "com.linkedin.entity",
+  "path" : "/entitiesV2",
+  "schema" : "com.linkedin.entity.EntityResponse",
+  "doc" : "Single unified resource for fetching, updating, searching, & browsing DataHub entities\n\ngenerated from: com.linkedin.metadata.resources.entity.EntityV2Resource",
+  "collection" : {
+    "identifier" : {
+      "name" : "entitiesV2Id",
+      "type" : "string"
+    },
+    "supports" : [ "batch_get", "get" ],
+    "methods" : [ {
+      "method" : "get",
+      "doc" : "Retrieves the value for an entity that is made up of latest versions of specified aspects.",
+      "parameters" : [ {
+        "name" : "aspects",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "optional" : true
+      } ]
+    }, {
+      "method" : "batch_get",
+      "parameters" : [ {
+        "name" : "aspects",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "optional" : true
+      } ]
+    } ],
+    "entity" : {
+      "path" : "/entitiesV2/{entitiesV2Id}"
+    }
+  }
+}

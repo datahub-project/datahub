@@ -2,6 +2,7 @@ import json
 import logging
 import re
 import urllib
+from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any, Dict, Generator, Iterable, List
 
@@ -10,6 +11,7 @@ import requests
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
+from datahub.emitter.mce_builder import make_group_urn, make_user_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -41,8 +43,8 @@ class AzureADConfig(ConfigModel):
 
     # Optional: Customize the mapping to DataHub Username from an attribute in the REST API response
     # Reference: https://docs.microsoft.com/en-us/graph/api/user-list?view=graph-rest-1.0&tabs=http#response-1
-    azure_ad_response_to_username_attr: str = "mail"
-    azure_ad_response_to_username_regex: str = "([^@]+)"
+    azure_ad_response_to_username_attr: str = "userPrincipalName"
+    azure_ad_response_to_username_regex: str = "(.*)"
 
     # Optional: Customize the mapping to DataHub Groupname from an attribute in the REST API response
     # Reference: https://docs.microsoft.com/en-us/graph/api/group-list?view=graph-rest-1.0&tabs=http#response-1
@@ -58,13 +60,20 @@ class AzureADConfig(ConfigModel):
     users_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     groups_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
 
+    # If enabled, report will contain names of filtered users and groups.
+    filtered_tracking: bool = True
+
 
 @dataclass
 class AzureADSourceReport(SourceReport):
     filtered: List[str] = field(default_factory=list)
+    filtered_tracking: bool = field(default=True, repr=False)
+    filtered_count: int = field(default=0)
 
     def report_filtered(self, name: str) -> None:
-        self.filtered.append(name)
+        self.filtered_count += 1
+        if self.filtered_tracking:
+            self.filtered.append(name)
 
 
 # Source that extracts Azure AD users, groups and group memberships using Microsoft Graph REST API
@@ -81,7 +90,9 @@ class AzureADSource(Source):
     def __init__(self, config: AzureADConfig, ctx: PipelineContext):
         super().__init__(ctx)
         self.config = config
-        self.report = AzureADSourceReport()
+        self.report = AzureADSourceReport(
+            filtered_tracking=self.config.filtered_tracking
+        )
         self.token_data = {
             "grant_type": "client_credentials",
             "client_id": self.config.client_id,
@@ -91,6 +102,8 @@ class AzureADSource(Source):
             "scope": "https://graph.microsoft.com/.default",
         }
         self.token = self.get_token()
+        self.selected_azure_ad_groups: list = []
+        self.azure_ad_groups_users: list = []
 
     def get_token(self):
         token_response = requests.post(self.config.token_url, data=self.token_data)
@@ -106,9 +119,6 @@ class AzureADSource(Source):
             self.report.report_failure("get_token", error_str)
             click.echo("Error: Token response invalid")
             exit()
-
-    selected_azure_ad_groups: list = []
-    azure_ad_groups_users: list = []
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         # for future developers: The actual logic of this ingestion wants to be executed, in order:
@@ -133,52 +143,26 @@ class AzureADSource(Source):
                     yield wu
 
         # Populate GroupMembership Aspects for CorpUsers
-        datahub_corp_user_urn_to_group_membership: Dict[str, GroupMembershipClass] = {}
+        datahub_corp_user_urn_to_group_membership: Dict[
+            str, GroupMembershipClass
+        ] = defaultdict(lambda: GroupMembershipClass(groups=[]))
         if (
             self.config.ingest_group_membership
             and len(self.selected_azure_ad_groups) > 0
         ):
             # 2) the groups' membership
             for azure_ad_group in self.selected_azure_ad_groups:
+                # Azure supports nested groups, but not DataHub.  We need to explode the nested groups into a flat list.
                 datahub_corp_group_urn = self._map_azure_ad_group_to_urn(azure_ad_group)
                 if not datahub_corp_group_urn:
-                    error_str = "Failed to extract DataHub Group Name from Azure AD Group named {}. Skipping...".format(
-                        azure_ad_group.get("displayName")
-                    )
+                    error_str = f"Failed to extract DataHub Group Name from Azure AD Group named {azure_ad_group.get('displayName')}. Skipping..."
                     self.report.report_failure("azure_ad_group_mapping", error_str)
                     continue
-                # Extract and map users for each group
-                for azure_ad_group_users in self._get_azure_ad_group_users(
-                    azure_ad_group
-                ):
-                    # if group doesn't have any members, continue
-                    if not azure_ad_group_users:
-                        continue
-                    for azure_ad_user in azure_ad_group_users:
-                        datahub_corp_user_urn = self._map_azure_ad_user_to_urn(
-                            azure_ad_user
-                        )
-                        if not datahub_corp_user_urn:
-                            error_str = "Failed to extract DataHub Username from Azure ADUser {}. Skipping...".format(
-                                azure_ad_user.get("displayName")
-                            )
-                            self.report.report_failure(
-                                "azure_ad_user_mapping", error_str
-                            )
-                            continue
-                        self.azure_ad_groups_users.append(azure_ad_user)
-                        # update/create the GroupMembership aspect for this group member.
-                        if (
-                            datahub_corp_user_urn
-                            in datahub_corp_user_urn_to_group_membership
-                        ):
-                            datahub_corp_user_urn_to_group_membership[
-                                datahub_corp_user_urn
-                            ].groups.append(datahub_corp_group_urn)
-                        else:
-                            datahub_corp_user_urn_to_group_membership[
-                                datahub_corp_user_urn
-                            ] = GroupMembershipClass(groups=[datahub_corp_group_urn])
+                self._add_group_members_to_group_membership(
+                    datahub_corp_group_urn,
+                    azure_ad_group,
+                    datahub_corp_user_urn_to_group_membership,
+                )
 
         if (
             self.config.ingest_groups_users
@@ -194,7 +178,7 @@ class AzureADSource(Source):
                 datahub_corp_user_snapshots, datahub_corp_user_urn_to_group_membership
             )
 
-        # Create MetadatWorkUnits for CorpUsers
+        # Create MetadataWorkUnits for CorpUsers
         if self.config.ingest_users:
             # 3) the users
             for azure_ad_users in self._get_azure_ad_users():
@@ -204,6 +188,53 @@ class AzureADSource(Source):
                     datahub_corp_user_snapshots,
                     datahub_corp_user_urn_to_group_membership,
                 )
+
+    def _add_group_members_to_group_membership(
+        self,
+        parent_corp_group_urn: str,
+        azure_ad_group: dict,
+        user_urn_to_group_membership: Dict[str, GroupMembershipClass],
+    ) -> None:
+        # Extract and map members for each group
+        for azure_ad_group_members in self._get_azure_ad_group_members(azure_ad_group):
+            # if group doesn't have any members, continue
+            if not azure_ad_group_members:
+                continue
+            for azure_ad_member in azure_ad_group_members:
+                odata_type = azure_ad_member.get("@odata.type")
+                if odata_type == "#microsoft.graph.user":
+                    self._add_user_to_group_membership(
+                        parent_corp_group_urn,
+                        azure_ad_member,
+                        user_urn_to_group_membership,
+                    )
+                elif odata_type == "#microsoft.graph.group":
+                    # Since DataHub does not support nested group, we add the members to the parent group and not the nested one.
+                    self._add_group_members_to_group_membership(
+                        parent_corp_group_urn,
+                        azure_ad_member,
+                        user_urn_to_group_membership,
+                    )
+                else:
+                    raise ValueError(
+                        f"Unsupported @odata.type '{odata_type}' found in Azure group member"
+                    )
+
+    def _add_user_to_group_membership(
+        self,
+        group_urn: str,
+        azure_ad_user: dict,
+        user_urn_to_group_membership: Dict[str, GroupMembershipClass],
+    ) -> None:
+        user_urn = self._map_azure_ad_user_to_urn(azure_ad_user)
+        if not user_urn:
+            error_str = f"Failed to extract DataHub Username from Azure ADUser {azure_ad_user.get('displayName')}. Skipping..."
+            self.report.report_failure("azure_ad_user_mapping", error_str)
+        else:
+            self.azure_ad_groups_users.append(azure_ad_user)
+            # update/create the GroupMembership aspect for this group member.
+            if group_urn not in user_urn_to_group_membership[user_urn].groups:
+                user_urn_to_group_membership[user_urn].groups.append(group_urn)
 
     def ingest_ad_users(
         self,
@@ -240,7 +271,7 @@ class AzureADSource(Source):
     def _get_azure_ad_users(self) -> Iterable[List]:
         yield from self._get_azure_ad_data(kind="/users")
 
-    def _get_azure_ad_group_users(self, azure_ad_group: dict) -> Iterable[List]:
+    def _get_azure_ad_group_members(self, azure_ad_group: dict) -> Iterable[List]:
         group_id = azure_ad_group.get("id")
         kind = f"/groups/{group_id}/members"
         yield from self._get_azure_ad_data(kind=kind)
@@ -270,16 +301,32 @@ class AzureADSource(Source):
                 self.report.report_failure("_get_azure_ad_data_", error_str)
                 continue
 
+    def _map_identity_to_urn(self, func, id_to_extract, mapping_identifier, id_type):
+        result, error_str = None, None
+        try:
+            result = func(id_to_extract)
+        except Exception as e:
+            error_str = "Failed to extract DataHub {} from Azure AD {} with name {} due to '{}'".format(
+                id_type, id_type, id_to_extract.get("displayName"), repr(e)
+            )
+        if not result:
+            error_str = "Failed to extract DataHub {} from Azure AD {} with name {} due to unknown reason".format(
+                id_type, id_type, id_to_extract.get("displayName")
+            )
+        if error_str is not None:
+            logger.error(error_str)
+            self.report.report_failure(mapping_identifier, error_str)
+        return result, error_str
+
     def _map_azure_ad_groups(self, azure_ad_groups):
         for azure_ad_group in azure_ad_groups:
-            corp_group_urn = self._map_azure_ad_group_to_urn(azure_ad_group)
-            if not corp_group_urn:
-                error_str = (
-                    "Failed to extract DataHub Group Name from Azure Group for group named {}. "
-                    "Skipping...".format(azure_ad_group.get("displayName"))
-                )
-                logger.error(error_str)
-                self.report.report_failure("azure_ad_group_mapping", error_str)
+            corp_group_urn, error_str = self._map_identity_to_urn(
+                self._map_azure_ad_group_to_urn,
+                azure_ad_group,
+                "azure_ad_group_mapping",
+                "group",
+            )
+            if error_str is not None:
                 continue
             group_name = self._extract_regex_match_from_dict_value(
                 azure_ad_group,
@@ -316,7 +363,7 @@ class AzureADSource(Source):
             return None
         # decode the group name to deal with URL encoding, and replace spaces with '_'
         url_encoded_group_name = urllib.parse.quote(group_name)
-        return self._make_corp_group_urn(url_encoded_group_name)
+        return make_group_urn(url_encoded_group_name)
 
     def _map_azure_ad_group_to_group_name(self, azure_ad_group):
         return self._extract_regex_match_from_dict_value(
@@ -327,13 +374,10 @@ class AzureADSource(Source):
 
     def _map_azure_ad_users(self, azure_ad_users):
         for user in azure_ad_users:
-            corp_user_urn = self._map_azure_ad_user_to_urn(user)
-            if not corp_user_urn:
-                error_str = "Failed to extract DataHub Username from Azure AD User {}. Skipping...".format(
-                    user.get("displayName")
-                )
-                logger.error(error_str)
-                self.report.report_failure("azure_ad_user_mapping", error_str)
+            corp_user_urn, error_str = self._map_identity_to_urn(
+                self._map_azure_ad_user_to_urn, user, "azure_ad_user_mapping", "user"
+            )
+            if error_str is not None:
                 continue
             if not self.config.users_pattern.allowed(corp_user_urn):
                 self.report.report_filtered(f"{corp_user_urn}.*")
@@ -358,7 +402,7 @@ class AzureADSource(Source):
         user_name = self._map_azure_ad_user_to_user_name(azure_ad_user)
         if not user_name:
             return None
-        return self._make_corp_user_urn(user_name)
+        return make_user_urn(user_name)
 
     def _map_azure_ad_user_to_corp_user(self, azure_ad_user):
         full_name = (
@@ -376,12 +420,6 @@ class AzureADSource(Source):
             title=azure_ad_user.get("jobTitle", None),
             countryCode=azure_ad_user.get("mobilePhone", None),
         )
-
-    def _make_corp_group_urn(self, groupname: str) -> str:
-        return f"urn:li:corpGroup:{groupname}"
-
-    def _make_corp_user_urn(self, username: str) -> str:
-        return f"urn:li:corpuser:{username}"
 
     def _extract_regex_match_from_dict_value(
         self, str_dict: Dict[str, str], key: str, pattern: str

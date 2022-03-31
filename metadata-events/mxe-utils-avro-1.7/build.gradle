@@ -5,8 +5,7 @@ dependencies {
   compile project(':metadata-models')
   compile spec.product.pegasus.dataAvro1_6
 
-  testCompile externalDependency.gmaDaoApi
-  testCompile project(':metadata-testing:metadata-test-utils')
+  testCompile project(':test-models')
 
   constraints {
     implementation("org.apache.logging.log4j:log4j-core:2.17.0") {

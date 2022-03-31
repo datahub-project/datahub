@@ -1,0 +1,21 @@
+namespace com.datahub.test.testing
+
+import com.linkedin.common.Urn
+
+/**
+ * For unit tests
+ */
+record EntityDeltaAlias {
+
+  /**
+   * For unit tests
+   */
+  urn: Urn
+
+  /**
+   * For unit tests
+   */
+  delta: union[
+    foo: AspectFoo
+  ]
+}

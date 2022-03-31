@@ -17,7 +17,7 @@ is that any errors can immediately be reported.
 
 Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
 
-For general pointers on writing and running a recipe, see our [main recipe guide](../README.md#recipes).
+For general pointers on writing and running a recipe, see our [main recipe guide](../README.md#recipes). This should point to the GMS server.
 
 ```yml
 source:
@@ -28,6 +28,30 @@ sink:
     server: "http://localhost:8080"
 ```
 
+If you are running the ingestion in a container in docker and your [GMS is also running in docker](../../docker/README.md) then you should use the internal docker hostname of the GMS pod. Usually it would look something like
+
+```yml
+source:
+  # source configs
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://datahub-gms:8080"
+```
+
+If GMS is running in a kubernetes pod [deployed through the helm charts](../../docs/deploy/kubernetes.md) and you are trying to connect to it from within the kubernetes cluster then you should use the Kubernetes service name of GMS. Usually it would look something like
+
+```yml
+source:
+  # source configs
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://datahub-datahub-gms.datahub.svc.cluster.local:8080"
+```
+
+If you are using [UI based ingestion](../../docs/ui-ingestion.md) then where GMS is deployed decides what hostname you should use.
+
 ### Config details
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
@@ -36,6 +60,8 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | -------- | -------- | ------- | ---------------------------- |
 | `server` | ✅       |         | URL of DataHub GMS endpoint. |
 | `timeout_sec` |     | 30      | Per-HTTP request timeout.    |
+| `retry_max_times` | | 1 | Maximum times to retry if HTTP request fails. The delay between retries is increased exponentially |
+| `retry_status_codes`|    | [429, 502, 503, 504] | Retry HTTP request also on these status codes |
 | `token` |     |       | Bearer token used for authentication.    |
 | `extra_headers` |     |       | Extra headers which will be added to the request.    |
 | `max_threads`   |          | `1` |  Experimental: Max parallelism for REST API calls     |

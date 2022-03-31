@@ -10,8 +10,10 @@ import { retry } from "@octokit/plugin-retry";
 
 // Constants.
 const HOSTED_SITE_URL = "https://datahubproject.io";
-const GITHUB_EDIT_URL = "https://github.com/linkedin/datahub/blob/master";
-const GITHUB_BROWSE_URL = "https://github.com/linkedin/datahub/blob/master";
+const GITHUB_EDIT_URL =
+  "https://github.com/datahub-project/datahub/blob/master";
+const GITHUB_BROWSE_URL =
+  "https://github.com/datahub-project/datahub/blob/master";
 
 const OUTPUT_DIRECTORY = "genDocs";
 
@@ -58,10 +60,34 @@ function accounted_for_in_sidebar(filepath: string): boolean {
 }
 
 function list_markdown_files(): string[] {
-  const all_markdown_files = execSync("cd .. && git ls-files . | grep '.md$'")
+  let all_markdown_files = execSync("git ls-files --full-name .. | grep '.md$'")
     .toString()
     .trim()
     .split("\n");
+  let all_generated_markdown_files = execSync(
+    "cd .. && ls docs/generated/metamodel/**/*.md"
+  )
+    .toString()
+    .trim()
+    .split("\n");
+
+  all_markdown_files = [...all_markdown_files, ...all_generated_markdown_files];
+
+  if (!process.env.CI) {
+    // If not in CI, we also include "untracked" files.
+    const untracked_files = execSync(
+      "(git ls-files --full-name --others --exclude-standard .. | grep '.md$') || true"
+    )
+      .toString()
+      .trim()
+      .split("\n")
+      .filter((filepath) => !all_generated_markdown_files.includes(filepath));
+
+    if (untracked_files.length > 0) {
+      console.log(`Including untracked files in docs list: ${untracked_files}`);
+      all_markdown_files = [...all_markdown_files, ...untracked_files];
+    }
+  }
 
   const filter_patterns = [
     // We don't need our issue and pull request templates.
@@ -70,14 +96,16 @@ function list_markdown_files(): string[] {
     /^docs-website\//,
     // Don't want hosted docs for these.
     /^contrib\//,
-    // Keep main docs for kubernetes, but skip the inner docs
+    // Keep main docs for kubernetes, but skip the inner docs.
     /^datahub-kubernetes\//,
-    /^datahub-web\//,
+    // Various other docs/directories to ignore.
+    /^metadata-models\/docs\//, // these are used to generate docs, so we don't want to consider them here
     /^metadata-ingestion-examples\//,
     /^docker\/(?!README|datahub-upgrade|airflow\/local_airflow)/, // Drop all but a few docker docs.
     /^docs\/rfc\/templates\/000-template\.md$/,
     /^docs\/docker\/README\.md/, // This one is just a pointer to another file.
     /^docs\/README\.md/, // This one is just a pointer to the hosted docs site.
+    /^\s*$/, //Empty string
   ];
 
   const markdown_files = all_markdown_files.filter((filepath) => {
@@ -87,7 +115,9 @@ function list_markdown_files(): string[] {
 }
 
 const markdown_files = list_markdown_files();
-// console.log(markdown_files);
+// for (let markdown_file of markdown_files) {
+//   console.log("markdown_file", markdown_file);
+// }
 
 function get_id(filepath: string): string {
   // Removes the file extension (e.g. md).
@@ -101,6 +131,10 @@ const hardcoded_slugs = {
 };
 
 function get_slug(filepath: string): string {
+  // The slug is the URL path to the page.
+  // In the actual site, all slugs are prefixed with /docs.
+  // There's no need to do this cleanup, but it does make the URLs a bit more aesthetic.
+
   if (filepath in hardcoded_slugs) {
     return hardcoded_slugs[filepath];
   }
@@ -224,10 +258,10 @@ function new_url(original: string, filepath: string): string {
     if (
       (original
         .toLowerCase()
-        .startsWith("https://github.com/linkedin/datahub/blob") ||
+        .startsWith("https://github.com/datahub-project/datahub/blob") ||
         original
           .toLowerCase()
-          .startsWith("https://github.com/linkedin/datahub/tree")) &&
+          .startsWith("https://github.com/datahub-project/datahub/tree")) &&
       (original.endsWith(".md") || original.endsWith(".pdf"))
     ) {
       throw new Error(`absolute link (${original}) found in ${filepath}`);
@@ -256,6 +290,7 @@ function new_url(original: string, filepath: string): string {
       ".sh",
       ".env",
       ".sql",
+      // Using startsWith since some URLs will be .ext#LINENO
     ].some((ext) => suffix.startsWith(ext))
   ) {
     // A reference to a file or directory in the Github repo.
@@ -339,7 +374,13 @@ function markdown_sanitize_and_linkify(content: string): string {
   // Link to issues/pull requests.
   content = content.replace(
     /#(\d+)\b/g,
-    "[#$1](https://github.com/linkedin/datahub/pull/$1)"
+    "[#$1](https://github.com/datahub-project/datahub/pull/$1)"
+  );
+
+  // Prettify bare links to PRs.
+  content = content.replace(
+    /(\s+)(https:\/\/github\.com\/linkedin\/datahub\/pull\/(\d+))(\s+|$)/g,
+    "$1[#$3]($2)$4"
   );
 
   return content;
@@ -361,10 +402,12 @@ async function generate_releases_markdown(): Promise<
 title: DataHub Releases
 sidebar_label: Releases
 slug: /releases
-custom_edit_url: https://github.com/linkedin/datahub/blob/master/docs-website/generateDocsDir.ts
+custom_edit_url: https://github.com/datahub-project/datahub/blob/master/docs-website/generateDocsDir.ts
 ---
 
-# DataHub Releases\n\n`);
+# DataHub Releases
+
+## Summary\n\n`);
 
   const releases_list = await octokit.rest.repos.listReleases({
     owner: "linkedin",
@@ -464,7 +507,7 @@ function write_markdown_file(
   }
 
   // Error if a doc is not accounted for in a sidebar.
-  const autogenerated_sidebar_directories = ["docs/rfc/active/"];
+  const autogenerated_sidebar_directories = ["docs/generated/metamodel"];
   for (const filepath of markdown_files) {
     if (
       autogenerated_sidebar_directories.some((dir) => filepath.startsWith(dir))

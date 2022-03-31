@@ -34,18 +34,23 @@
         "menu": {
             "items": [
                 {
-                    "label": "DataHub Project",
+                    "label": "Project",
                     "path": "https://datahubproject.io",
                     "shouldOpenInNewTab": true
                 },
                 {
-                    "label": "DataHub Docs",
+                    "label": "Docs",
                     "path": "https://datahubproject.io/docs",
                     "shouldOpenInNewTab": true
                 },
                 {
-                    "label": "DataHub GitHub",
-                    "path": "https://github.com/linkedin/datahub",
+                    "label": "Releases",
+                    "path": "https://datahubproject.io/docs/releases/",
+                    "shouldOpenInNewTab": true
+                },
+                {
+                    "label": "GitHub",
+                    "path": "https://github.com/datahub-project/datahub",
                     "shouldOpenInNewTab": true
                 }
             ]

@@ -5,6 +5,7 @@ from enum import Enum
 from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 from looker_sdk.error import SDKError
+from looker_sdk.rtl.transport import TransportOptions
 from looker_sdk.sdk.api31.methods import Looker31SDK
 from pydantic.class_validators import validator
 
@@ -12,6 +13,7 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import ConfigurationError
 from datahub.configuration.github import GitHubInfo
+from datahub.configuration.source_common import DatasetSourceConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.sql.sql_types import (
@@ -81,7 +83,13 @@ class NamingPattern:
         return True
 
 
-naming_pattern_variables: List[str] = ["platform", "env", "project", "model", "name"]
+naming_pattern_variables: List[str] = [
+    "platform",
+    "env",
+    "project",
+    "model",
+    "name",
+]
 
 
 class LookerExploreNamingConfig(ConfigModel):
@@ -138,10 +146,11 @@ class LookerViewNamingConfig(ConfigModel):
         return v
 
 
-class LookerCommonConfig(LookerViewNamingConfig, LookerExploreNamingConfig):
+class LookerCommonConfig(
+    LookerViewNamingConfig, LookerExploreNamingConfig, DatasetSourceConfigBase
+):
     tag_measures_and_dimensions: bool = True
     platform_name: str = "looker"
-    env: str = builder.DEFAULT_ENV
     github_info: Optional[GitHubInfo] = None
 
 
@@ -179,7 +188,12 @@ class LookerViewId:
                 "{" + v + "}", self.get_mapping(v, config)
             )
 
-        return builder.make_dataset_urn(config.platform_name, dataset_name, config.env)
+        return builder.make_dataset_urn_with_platform_instance(
+            platform=config.platform_name,
+            name=dataset_name,
+            platform_instance=config.platform_instance,
+            env=config.env,
+        )
 
     def get_browse_path(self, config: LookerCommonConfig) -> str:
         browse_path = config.view_browse_pattern.pattern
@@ -296,10 +310,9 @@ class LookerUtil:
             # attempt Postgres modified type
             type_class = resolve_postgres_modified_type(native_type)
 
-        # if still not found, report a warning
+        # if still not found, log and continue
         if type_class is None:
-            reporter.report_warning(
-                native_type,
+            logger.info(
                 f"The type '{native_type}' is not recognized for field type, setting as NullTypeClass.",
             )
             type_class = NullTypeClass
@@ -487,9 +500,12 @@ class LookerExplore:
         explore_name: str,
         client: Looker31SDK,
         reporter: SourceReport,
+        transport_options: Optional[TransportOptions],
     ) -> Optional["LookerExplore"]:  # noqa: C901
         try:
-            explore = client.lookml_model_explore(model, explore_name)
+            explore = client.lookml_model_explore(
+                model, explore_name, transport_options=transport_options
+            )
             views = set()
             if explore.joins is not None and explore.joins != []:
                 if explore.view_name is not None and explore.view_name != explore.name:
@@ -616,7 +632,12 @@ class LookerExplore:
                 "{" + v + "}", self.get_mapping(v, config)
             )
 
-        return builder.make_dataset_urn(config.platform_name, dataset_name, config.env)
+        return builder.make_dataset_urn_with_platform_instance(
+            platform=config.platform_name,
+            name=dataset_name,
+            platform_instance=config.platform_instance,
+            env=config.env,
+        )
 
     def get_explore_browse_path(self, config: LookerCommonConfig) -> str:
         browse_path = config.explore_browse_pattern.pattern
@@ -654,6 +675,7 @@ class LookerExplore:
         if self.source_file is not None:
             custom_properties["looker.explore.file"] = str(self.source_file)
         dataset_props = DatasetPropertiesClass(
+            name=self.name,
             description=self.description,
             customProperties=custom_properties,
         )

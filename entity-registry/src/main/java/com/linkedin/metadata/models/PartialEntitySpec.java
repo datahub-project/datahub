@@ -85,12 +85,4 @@ public class PartialEntitySpec implements EntitySpec {
       throw new UnsupportedOperationException("Partial entity specs do not contain aspect typeref schemas");
   }
 
-  @Override
-  public List<SearchableFieldSpec> getSearchableFieldSpecs() {
-    return _aspectSpecs.values()
-        .stream()
-        .map(AspectSpec::getSearchableFieldSpecs)
-        .flatMap(List::stream)
-        .collect(Collectors.toList());
-  }
 }

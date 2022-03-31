@@ -1,22 +1,25 @@
 package com.linkedin.metadata.entity.ebean;
 
+import com.datahub.util.exception.ModelConversionException;
+import com.datahub.util.exception.RetryLimitReached;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.dao.exception.ModelConversionException;
-import com.linkedin.metadata.dao.exception.RetryLimitReached;
-import com.linkedin.metadata.dao.utils.QueryUtils;
 import com.linkedin.metadata.entity.AspectStorageValidationUtil;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
+import com.linkedin.metadata.search.utils.QueryUtils;
 import io.ebean.DuplicateKeyException;
 import io.ebean.EbeanServer;
+import io.ebean.ExpressionList;
+import io.ebean.Junction;
 import io.ebean.PagedList;
 import io.ebean.Query;
 import io.ebean.RawSql;
 import io.ebean.RawSqlBuilder;
 import io.ebean.Transaction;
+import io.ebean.TxScope;
 import io.ebean.annotation.TxIsolation;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
@@ -36,7 +39,7 @@ import javax.persistence.RollbackException;
 import javax.persistence.Table;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
+import static com.linkedin.metadata.Constants.*;
 
 @Slf4j
 public class EbeanAspectDao {
@@ -101,7 +104,8 @@ public class EbeanAspectDao {
       @Nonnull final String newActor,
       @Nullable final String newImpersonator,
       @Nonnull final Timestamp newTime,
-      @Nullable final String newSystemMetadata
+      @Nullable final String newSystemMetadata,
+      final Long nextVersion
   ) {
     validateConnection();
     if (!_canWrite) {
@@ -110,7 +114,7 @@ public class EbeanAspectDao {
     // Save oldValue as the largest version + 1
     long largestVersion = 0;
     if (oldAspectMetadata != null && oldTime != null) {
-      largestVersion = getNextVersion(urn, aspectName);
+      largestVersion = nextVersion;
       saveAspect(urn, aspectName, oldAspectMetadata, oldActor, oldImpersonator, oldTime, oldSystemMetadata, largestVersion, true);
     }
 
@@ -345,14 +349,17 @@ public class EbeanAspectDao {
 
   @Nonnull
   public ListResult<String> listUrns(
+      @Nonnull final String entityName,
       @Nonnull final String aspectName,
       final int start,
       final int pageSize) {
     validateConnection();
 
+    final String urnPrefixMatcher = "urn:li:" + entityName + ":%";
     final PagedList<EbeanAspectV2> pagedList = _server.find(EbeanAspectV2.class)
         .select(EbeanAspectV2.KEY_ID)
         .where()
+        .like(EbeanAspectV2.URN_COLUMN, urnPrefixMatcher)
         .eq(EbeanAspectV2.ASPECT_COLUMN, aspectName)
         .eq(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION)
         .setFirstRow(start)
@@ -440,7 +447,8 @@ public class EbeanAspectDao {
 
     T result = null;
     do {
-      try (Transaction transaction = _server.beginTransaction(TxIsolation.REPEATABLE_READ)) {
+      try (Transaction transaction = _server.beginTransaction(TxScope.requiresNew().setIsolation(TxIsolation.REPEATABLE_READ))) {
+        transaction.setBatchMode(true);
         result = block.get();
         transaction.commit();
         lastException = null;
@@ -457,7 +465,7 @@ public class EbeanAspectDao {
     return result;
   }
 
-  private long getNextVersion(@Nonnull final String urn, @Nonnull final String aspectName) {
+  public long getNextVersion(@Nonnull final String urn, @Nonnull final String aspectName) {
     validateConnection();
     final List<EbeanAspectV2.PrimaryKey> result = _server.find(EbeanAspectV2.class)
         .where()
@@ -469,6 +477,40 @@ public class EbeanAspectDao {
         .findIds();
 
     return result.isEmpty() ? 0 : result.get(0).getVersion() + 1L;
+  }
+
+  public Map<String, Long> getNextVersions(@Nonnull final String urn, @Nonnull final Set<String> aspectNames) {
+    Map<String, Long> result = new HashMap<>();
+    Junction<EbeanAspectV2> queryJunction = _server.find(EbeanAspectV2.class)
+        .select("aspect, max(version)")
+        .where()
+        .eq("urn", urn)
+        .or();
+
+    ExpressionList<EbeanAspectV2> exp = null;
+    for (String aspectName: aspectNames) {
+      if (exp == null) {
+        exp = queryJunction.eq("aspect", aspectName);
+      } else {
+        exp = exp.eq("aspect", aspectName);
+      }
+    }
+    if (exp == null) {
+      return result;
+    }
+    List<EbeanAspectV2.PrimaryKey> dbResults = exp.endOr().findIds();
+
+    for (EbeanAspectV2.PrimaryKey key: dbResults) {
+      result.put(key.getAspect(), key.getVersion());
+    }
+    for (String aspectName: aspectNames) {
+      long nextVal = 0L;
+      if (result.containsKey(aspectName)) {
+        nextVal = result.get(aspectName) + 1L;
+      }
+      result.put(aspectName, nextVal);
+    }
+    return result;
   }
 
   @Nonnull
@@ -526,5 +568,16 @@ public class EbeanAspectDao {
     final ListResultMetadata listResultMetadata = new ListResultMetadata();
     listResultMetadata.setExtraInfos(new ExtraInfoArray(extraInfos));
     return listResultMetadata;
+  }
+
+  public List<EbeanAspectV2> getAspectsInRange(Urn urn, Set<String> aspectNames, long startTimeMillis, long endTimeMillis) {
+    List<EbeanAspectV2> aspectV2s = _server.find(EbeanAspectV2.class)
+        .select("*")
+        .where()
+        .eq(EbeanAspectV2.URN_COLUMN, urn.toString())
+        .in(EbeanAspectV2.ASPECT_COLUMN, aspectNames)
+        .inRange("createdOn", new Timestamp(startTimeMillis), new Timestamp(endTimeMillis))
+        .findList();
+    return aspectV2s;
   }
 }

@@ -2,7 +2,8 @@ namespace com.linkedin.datajob
 
 import com.linkedin.common.DatasetUrn
 import com.linkedin.common.DataJobUrn
-
+import com.linkedin.dataset.FineGrainedLineage
+import com.linkedin.common.Urn
 
 /**
  * Information about the inputs and outputs of a Data processing job
@@ -18,7 +19,8 @@ record DataJobInputOutput {
   @Relationship = {
     "/*": {
       "name": "Consumes",
-      "entityTypes": [ "dataset" ]
+      "entityTypes": [ "dataset" ],
+      "isLineage": true
     }
   }
   @Searchable = {
@@ -37,7 +39,9 @@ record DataJobInputOutput {
   @Relationship = {
     "/*": {
       "name": "Produces",
-      "entityTypes": [ "dataset" ]
+      "entityTypes": [ "dataset" ],
+      "isUpstream": false,
+      "isLineage": true
     }
   }
   @Searchable = {
@@ -56,8 +60,54 @@ record DataJobInputOutput {
   @Relationship = {
     "/*": {
       "name": "DownstreamOf",
-      "entityTypes": [ "dataJob" ]
+      "entityTypes": [ "dataJob" ],
+      "isLineage": true
     }
   }
   inputDatajobs: optional array[DataJobUrn] 
+
+  /**
+  * Fields of the input datasets used by this job
+  */
+  @Relationship = {
+    "/*": {
+      "name": "Consumes",
+      "entityTypes": [ "schemaField" ]
+    }
+  }  
+  @Searchable = {
+    "/*": {
+      "fieldName": "inputFields",
+      "fieldType": "URN",
+      "numValuesFieldName": "numInputFields",
+      "queryByDefault": false
+    }
+  }
+  inputDatasetFields: optional array[Urn]
+
+  /**
+  * Fields of the output datasets this job writes to
+  */
+  @Relationship = {
+    "/*": {
+      "name": "Produces",
+      "entityTypes": [ "schemaField" ]
+    }
+  }
+  @Searchable = {
+    "/*": {
+      "fieldName": "outputFields",
+      "fieldType": "URN",
+      "numValuesFieldName": "numOutputFields",
+      "queryByDefault": false
+    }
+  }
+  outputDatasetFields: optional array[Urn]
+
+  /**
+   * Fine-grained column-level lineages
+   */
+   // No @Relationship specified here; 
+   // all Produces/Consumes relations are effectively determined by the input/output datasets/datasetFields
+  fineGrainedLineages: optional array[FineGrainedLineage]
 }

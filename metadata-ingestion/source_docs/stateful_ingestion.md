@@ -1,10 +1,10 @@
 # Stateful Ingestion
 The stateful ingestion feature enables sources to be configured to save custom checkpoint states from their
-runs, and query these states back from subsequent runs to make decisions about the current run based on the state saved 
+runs, and query these states back from subsequent runs to make decisions about the current run based on the state saved
 from the previous run(s) using a supported ingestion state provider. This is an explicit opt-in feature and is not enabled
 by default.
 
-**_NOTE_**: This feature requires the server to be `statefulIngestion` capable. This is a feature of metadata service with version >= `0.8.20`. 
+**_NOTE_**: This feature requires the server to be `statefulIngestion` capable. This is a feature of metadata service with version >= `0.8.20`.
 
 To check if you are running a stateful ingestion capable server:
 ```console
@@ -25,18 +25,21 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | Field                                                        | Required | Default                                                                                                          | Description                                                                                                                                                 |
 |--------------------------------------------------------------| -------- |------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `source.config.stateful_ingestion.enabled`                   |          | False                                                                                                            | The type of the ingestion state provider registered with datahub.                                                                                           |
-| `source.conifg.stateful_ingestion.ignore_old_state`          |          | False                                                                                                            | If set to True, ignores the previous checkpoint state.                                                                                                      | 
-| `source.conifg.stateful_ingestion.ignore_new_state`          |          | False                                                                                                            | If set to True, ignores the current checkpoint state.                                                                                                       | 
-| `source.conifg.stateful_ingestion.max_checkpoint_state_size` |          | 2^24 (16MB)                                                                                                      | The maximum size of the checkpoint state in bytes.                                                                                                          | 
-| `source.conifg.stateful_ingestion.state_provider`            |          | The default [datahub ingestion state provider](#datahub-ingestion-state-provider) configuration. | The ingestion state provider configuration.                                                                                                                 | 
-| `pipeline_name`                                              |    ✅    |                                                                                                                  | The name of the ingestion pipeline the checkpoint states of various source connector job runs are saved/retrieved against via the ingestion state provider. | 
+| `source.config.stateful_ingestion.ignore_old_state`          |          | False                                                                                                            | If set to True, ignores the previous checkpoint state.                                                                                                      |
+| `source.config.stateful_ingestion.ignore_new_state`          |          | False                                                                                                            | If set to True, ignores the current checkpoint state.                                                                                                       |
+| `source.config.stateful_ingestion.max_checkpoint_state_size` |          | 2^24 (16MB)                                                                                                      | The maximum size of the checkpoint state in bytes.                                                                                                          |
+| `source.config.stateful_ingestion.state_provider`            |          | The default [datahub ingestion state provider](#datahub-ingestion-state-provider) configuration. | The ingestion state provider configuration.                                                                                                                 |
+| `pipeline_name`                                              |    ✅    |                                                                                                                  | The name of the ingestion pipeline the checkpoint states of various source connector job runs are saved/retrieved against via the ingestion state provider. |
 
 NOTE: If either `dry-run` or `preview` mode are set, stateful ingestion will be turned off regardless of the rest of the configuration.
 ## Use-cases powered by stateful ingestion.
 Following is the list of current use-cases powered by stateful ingestion in datahub.
 ### Removal of stale tables and views.
-Stateful ingestion can be used to automatically soft delete the tables and views that are seen in a previous run
+Stateful ingestion can be used to automatically soft-delete the tables and views that are seen in a previous run
 but absent in the current run (they are either deleted or no longer desired).
+
+![Stale Metadata Deletion](./images/stale_metadata_deletion.png)
+
 #### Supported sources
 * All sql based sources.
 #### Additional config details
@@ -68,7 +71,7 @@ source:
             # type: "datahub" # default value
             # This section is needed if the pipeline-level `datahub_api` is not configured.
             # config:  # default value
-            #    datahub_api: 
+            #    datahub_api:
             #        server: "http://localhost:8080"
 
 # The pipeline_name is mandatory for stateful ingestion and the state is tied to this.
@@ -78,7 +81,7 @@ pipeline_name: "my_snowflake_pipeline_1"
 # Pipeline-level datahub_api configuration.
 datahub_api: # Optional. But if provided, this config will be used by the "datahub" ingestion state provider.
     server: "http://localhost:8080"
-    
+
 sink:
   type: "datahub-rest"
   config:
@@ -124,22 +127,22 @@ sink:
     server: 'http://localhost:8080'
 ```
 
-## The Ingestion State Provider
-The ingestion state provider is responsible for saving and retrieving the ingestion state associated with the ingestion runs
-of various jobs inside the source connector of the ingestion pipeline. An ingestion state provider needs to implement the
-[IngestionStateProvider](https://github.com/linkedin/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/api/ingestion_state_provider.py) interface and
-register itself with datahub by adding an entry under `datahub.ingestion.state_provider.plugins` key of the entry_points section in [setup.py](https://github.com/linkedin/datahub/blob/master/metadata-ingestion/setup.py) with its type and implementation class as shown below.
+## The Checkpointing Ingestion State Provider (Developer Guide)
+The ingestion checkpointing state provider is responsible for saving and retrieving the ingestion checkpoint state associated with the ingestion runs
+of various jobs inside the source connector of the ingestion pipeline. The checkpointing data model is [DatahubIngestionCheckpoint](https://github.com/datahub-project/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/datajob/datahub/DatahubIngestionCheckpoint.pdl) and it supports any custom state to be stored using the [IngestionCheckpointState](https://github.com/datahub-project/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/datajob/datahub/IngestionCheckpointState.pdl#L9). A checkpointing ingestion state provider needs to implement the
+[IngestionCheckpointingProviderBase](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/api/ingestion_job_checkpointing_provider_base.py) interface and
+register itself with datahub by adding an entry under `datahub.ingestion.checkpointing_provider.plugins` key of the entry_points section in [setup.py](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/setup.py) with its type and implementation class as shown below.
 ```python
 entry_points = {
     # <snip other keys>"
-    "datahub.ingestion.state_provider.plugins": [
-        "datahub = datahub.ingestion.source.state_provider.datahub_ingestion_state_provider:DatahubIngestionStateProvider",
-    ]
+    "datahub.ingestion.checkpointing_provider.plugins": [
+        "datahub = datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider:DatahubIngestionCheckpointingProvider",
+    ],
 }
 ```
 
-### Datahub Ingestion State Provider
-This is the state provider implementation that is avialble out of the box. It's type is `datahub` and it is implemented on top
+### Datahub Checkpointing Ingestion State Provider
+This is the state provider implementation that is available out of the box. Its type is `datahub` and it is implemented on top
 of the `datahub_api` client and the timeseries aspect capabilities of the datahub-backend.
 #### Config details
 
@@ -148,4 +151,4 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | Field                                                    | Required | Default                                                                                                                                                                                                                                 | Description                                                      |
 |----------------------------------------------------------| -------- |-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------|
 | `state_provider.type`   |          | `datahub`                                                                                                                                                                                                                               | The type of the ingestion state provider registered with datahub |
-| `state_provider.config` |          | The `datahub_api` config if set at pipeline level. Otherwise, the default `DatahubClientConfig`. See the [defaults](https://github.com/linkedin/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/graph/client.py#L19) here. | The configuration required for initializing the state provider.  |
+| `state_provider.config` |          | The `datahub_api` config if set at pipeline level. Otherwise, the default `DatahubClientConfig`. See the [defaults](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/graph/client.py#L19) here. | The configuration required for initializing the state provider.  |

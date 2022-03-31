@@ -8,9 +8,7 @@ module.exports = {
   favicon: "img/favicon.ico",
   organizationName: "linkedin", // Usually your GitHub org/user name.
   projectName: "datahub", // Usually your repo name.
-  stylesheets: [
-    "https://fonts.googleapis.com/css2?family=Manrope:wght@400;600&display=swap",
-  ],
+  stylesheets: ["https://fonts.googleapis.com/css2?family=Manrope:wght@400;600&display=swap"],
   themeConfig: {
     colorMode: {
       switchConfig: {
@@ -68,7 +66,7 @@ module.exports = {
           position: "right",
         },
         {
-          to: "docs/roadmap",
+          href: "https://feature-requests.datahubproject.io/roadmap",
           label: "Roadmap",
           position: "right",
         },
@@ -79,7 +77,7 @@ module.exports = {
           className: "item__icon item__slack",
         },
         {
-          href: "https://github.com/linkedin/datahub",
+          href: "https://github.com/datahub-project/datahub",
           "aria-label": "GitHub",
           position: "right",
           className: "item__icon item__github",
@@ -110,10 +108,6 @@ module.exports = {
             {
               label: "Features",
               to: "docs/features",
-            },
-            {
-              label: "FAQs",
-              to: "docs/faq",
             },
           ],
         },
@@ -151,7 +145,7 @@ module.exports = {
             },
             {
               label: "Roadmap",
-              to: "docs/roadmap",
+              href: "https://feature-requests.datahubproject.io/roadmap",
             },
             {
               label: "Contributing",
@@ -159,7 +153,7 @@ module.exports = {
             },
             {
               label: "GitHub",
-              href: "https://github.com/linkedin/datahub",
+              href: "https://github.com/datahub-project/datahub",
             },
             {
               label: "Feature Requests",
@@ -190,7 +184,8 @@ module.exports = {
         docs: {
           path: "genDocs",
           sidebarPath: require.resolve("./sidebars.js"),
-          editUrl: "https://github.com/linkedin/datahub/blob/master/",
+          editUrl: "https://github.com/datahub-project/datahub/blob/master/",
+          numberPrefixParser: false,
           // TODO: make these work correctly with the doc generation
           showLastUpdateAuthor: true,
           showLastUpdateTime: true,
@@ -203,10 +198,7 @@ module.exports = {
     ],
   ],
   plugins: [
-    [
-      "@docusaurus/plugin-ideal-image",
-      { quality: 100, sizes: [320, 640, 1280, 1440, 1600] },
-    ],
+    ["@docusaurus/plugin-ideal-image", { quality: 100, sizes: [320, 640, 1280, 1440, 1600] }],
     "docusaurus-plugin-sass",
     [
       "docusaurus-graphql-plugin",

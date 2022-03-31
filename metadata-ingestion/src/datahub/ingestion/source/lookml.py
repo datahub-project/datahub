@@ -12,10 +12,13 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type
 
 import pydantic
 from looker_sdk.error import SDKError
+from looker_sdk.rtl.transport import TransportOptions
 from looker_sdk.sdk.api31.methods import Looker31SDK
 from looker_sdk.sdk.api31.models import DBConnection
 from pydantic import root_validator, validator
+from pydantic.fields import Field
 
+from datahub.configuration.source_common import EnvBasedSourceConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.looker_common import (
     LookerCommonConfig,
@@ -92,8 +95,17 @@ class LookerConnectionDefinition(ConfigModel):
     platform: str
     default_db: str
     default_schema: Optional[str]  # Optional since some sources are two-level only
+    platform_instance: Optional[str] = None
+    platform_env: Optional[str] = Field(
+        default=None,
+        description="The environment that the platform is located in. Leaving this empty will inherit defaults from the top level Looker configuration",
+    )
 
-    @validator("*")
+    @validator("platform_env")
+    def platform_env_must_be_one_of(cls, v: str) -> str:
+        return EnvBasedSourceConfigBase.env_must_be_one_of(v)
+
+    @validator("platform", "default_db", "default_schema")
     def lower_everything(cls, v):
         """We lower case all strings passed in to avoid casing issues later"""
         if v is not None:
@@ -132,6 +144,13 @@ class LookMLSourceConfig(LookerCommonConfig):
     sql_parser: str = "datahub.utilities.sql_parser.DefaultSQLParser"
     api: Optional[LookerAPIConfig]
     project_name: Optional[str]
+    transport_options: Optional[TransportOptions]
+
+    @validator("platform_instance")
+    def platform_instance_not_supported(cls, v: str) -> str:
+        raise ConfigurationError(
+            "LookML Source doesn't support platform instance at the top level. However connection-specific platform instances are supported for generating lineage edges. Read the documentation to find out more."
+        )
 
     @validator("connection_to_platform_map", pre=True)
     def convert_string_to_connection_def(cls, conn_map):
@@ -560,6 +579,7 @@ class LookerView:
                 fields,
             )
             # also store the view logic and materialization
+            view_logic = looker_viewfile.raw_file_content
             if "sql" in derived_table:
                 view_logic = derived_table["sql"]
                 view_lang = "sql"
@@ -839,8 +859,11 @@ class LookMLSource(Source):
             sql_table_name, connection_def
         )
 
-        return builder.make_dataset_urn(
-            connection_def.platform, sql_table_name.lower(), self.source_config.env
+        return builder.make_dataset_urn_with_platform_instance(
+            platform=connection_def.platform,
+            name=sql_table_name.lower(),
+            platform_instance=connection_def.platform_instance,
+            env=connection_def.platform_env or self.source_config.env,
         )
 
     def _get_connection_def_based_on_connection_string(
@@ -909,7 +932,9 @@ class LookMLSource(Source):
             ],  # grab a limited slice of characters from the file
             "looker.file.path": file_path,
         }
-        dataset_props = DatasetPropertiesClass(customProperties=custom_properties)
+        dataset_props = DatasetPropertiesClass(
+            name=looker_view.id.view_name, customProperties=custom_properties
+        )
 
         if self.source_config.github_info is not None:
             github_file_url = self.source_config.github_info.get_url_for_file_path(
@@ -983,7 +1008,11 @@ class LookMLSource(Source):
             self.looker_client is not None
         ), "Failed to find a configured Looker API client"
         try:
-            model = self.looker_client.lookml_model(model_name, "project_name")
+            model = self.looker_client.lookml_model(
+                model_name,
+                "project_name",
+                transport_options=self.source_config.transport_options,
+            )
             assert (
                 model.project_name is not None
             ), f"Failed to find a project name for model {model_name}"

@@ -1,7 +1,9 @@
 package com.linkedin.datahub.graphql.types.common.mappers;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.Chart;
+import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.CorpGroup;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.Dashboard;
@@ -9,15 +11,17 @@ import com.linkedin.datahub.graphql.generated.DataFlow;
 import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.Dataset;
+import com.linkedin.datahub.graphql.generated.Domain;
+import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.GlossaryTerm;
-import com.linkedin.datahub.graphql.generated.Entity;
-import com.linkedin.datahub.graphql.generated.Tag;
 import com.linkedin.datahub.graphql.generated.MLFeature;
 import com.linkedin.datahub.graphql.generated.MLFeatureTable;
-import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
 import com.linkedin.datahub.graphql.generated.MLModel;
 import com.linkedin.datahub.graphql.generated.MLModelGroup;
+import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
+import com.linkedin.datahub.graphql.generated.Notebook;
+import com.linkedin.datahub.graphql.generated.Tag;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import javax.annotation.Nonnull;
 
@@ -51,6 +55,11 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       partialEntity = new Dashboard();
       ((Dashboard) partialEntity).setUrn(input.toString());
       ((Dashboard) partialEntity).setType(EntityType.DASHBOARD);
+    }
+    if (input.getEntityType().equals("notebook")) {
+      partialEntity = new Notebook();
+      ((Notebook) partialEntity).setUrn(input.toString());
+      ((Notebook) partialEntity).setType(EntityType.NOTEBOOK);
     }
     if (input.getEntityType().equals("dataJob")) {
       partialEntity = new DataJob();
@@ -106,6 +115,21 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       partialEntity = new DataPlatform();
       ((DataPlatform) partialEntity).setUrn(input.toString());
       ((DataPlatform) partialEntity).setType(EntityType.DATA_PLATFORM);
+    }
+    if (input.getEntityType().equals("container")) {
+      partialEntity = new Container();
+      ((Container) partialEntity).setUrn(input.toString());
+      ((Container) partialEntity).setType(EntityType.CONTAINER);
+    }
+    if (input.getEntityType().equals("domain")) {
+      partialEntity = new Domain();
+      ((Domain) partialEntity).setUrn(input.toString());
+      ((Domain) partialEntity).setType(EntityType.DOMAIN);
+    }
+    if (input.getEntityType().equals("assertion")) {
+      partialEntity = new Assertion();
+      ((Assertion) partialEntity).setUrn(input.toString());
+      ((Assertion) partialEntity).setType(EntityType.ASSERTION);
     }
     return partialEntity;
   }

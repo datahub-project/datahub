@@ -10,12 +10,16 @@ export enum EventType {
     SearchEvent,
     SearchResultsViewEvent,
     SearchResultClickEvent,
+    EntitySearchResultClickEvent,
     BrowseResultClickEvent,
     EntityViewEvent,
     EntitySectionViewEvent,
     EntityActionEvent,
     RecommendationImpressionEvent,
     RecommendationClickEvent,
+    SearchAcrossLineageEvent,
+    SearchAcrossLineageResultsViewEvent,
+    DownloadAsCsvEvent,
 }
 
 /**
@@ -121,15 +125,17 @@ export interface EntitySectionViewEvent extends BaseEvent {
  */
 export const EntityActionType = {
     UpdateTags: 'UpdateTags',
+    UpdateTerms: 'UpdateTerms',
+    UpdateLinks: 'UpdateLinks',
     UpdateOwnership: 'UpdateOwnership',
     UpdateDocumentation: 'UpdateDocumentation',
     UpdateDescription: 'UpdateDescription',
     UpdateProperties: 'UpdateProperties',
     UpdateSchemaDescription: 'UpdateSchemaDescription',
     UpdateSchemaTags: 'UpdateSchemaTags',
+    UpdateSchemaTerms: 'UpdateSchemaTerms',
     ClickExternalUrl: 'ClickExternalUrl',
 };
-
 export interface EntityActionEvent extends BaseEvent {
     type: EventType.EntityActionEvent;
     actionType: string;
@@ -155,6 +161,29 @@ export interface RecommendationClickEvent extends BaseEvent {
     index?: number;
 }
 
+export interface SearchAcrossLineageEvent extends BaseEvent {
+    type: EventType.SearchAcrossLineageEvent;
+    query: string;
+    entityTypeFilter?: EntityType;
+    pageNumber: number;
+    originPath: string;
+}
+export interface SearchAcrossLineageResultsViewEvent extends BaseEvent {
+    type: EventType.SearchAcrossLineageResultsViewEvent;
+    query: string;
+    entityTypeFilter?: EntityType;
+    page?: number;
+    total: number;
+}
+
+export interface DownloadAsCsvEvent extends BaseEvent {
+    type: EventType.DownloadAsCsvEvent;
+    query: string;
+    // optional parameter if its coming from inside an entity page
+    entityUrn?: string;
+    path: string;
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -170,4 +199,7 @@ export type Event =
     | EntitySectionViewEvent
     | EntityActionEvent
     | RecommendationImpressionEvent
+    | SearchAcrossLineageEvent
+    | SearchAcrossLineageResultsViewEvent
+    | DownloadAsCsvEvent
     | RecommendationClickEvent;

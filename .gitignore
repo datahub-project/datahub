@@ -46,6 +46,10 @@ MANIFEST
 **/spark-lineage/**/out.csv/
 .vscode
 
+#spark smoke test
+smoke-test/spark-smoke-test/docker/workspace/
+smoke-test/spark-smoke-test/__pycache__/
+
 # cypress integration test generated files
 **/cypress/videos
 **/cypress/screenshots
@@ -53,3 +57,8 @@ MANIFEST
 
 # Metadata Ingestion Generated
 metadata-ingestion/generated/**
+
+# docs
+docs/generated/
+tmp*
+temp*

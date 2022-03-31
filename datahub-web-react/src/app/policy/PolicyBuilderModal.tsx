@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
+import styled from 'styled-components';
 import { Button, Modal, Steps } from 'antd';
 import PolicyPrivilegeForm from './PolicyPrivilegeForm';
 import PolicyTypeForm from './PolicyTypeForm';
 import PolicyActorForm from './PolicyActorForm';
 import { ActorFilter, Policy, PolicyType, ResourceFilter } from '../../types.generated';
 import { EMPTY_POLICY } from './policyUtils';
+import { useEnterKeyListener } from '../shared/useEnterKeyListener';
 
 type Props = {
     policy: Omit<Policy, 'urn'>;
@@ -13,6 +15,24 @@ type Props = {
     onClose: () => void;
     onSave: (savePolicy: Omit<Policy, 'urn'>) => void;
 };
+
+const StepsContainer = styled.div`
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+`;
+
+const PrevButtonContainer = styled.div`
+    display: flex;
+    justify-content: start;
+    margin-left: 12px;
+`;
+
+const NextButtonContainer = styled.div`
+    display: flex;
+    justify-content: end;
+    margin-right: 12px;
+`;
 
 /**
  * Component used for constructing new policies. The purpose of this flow is to populate or edit a Policy
@@ -71,7 +91,9 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
             <PolicyPrivilegeForm
                 policyType={policy.type}
                 resources={policy.resources!}
-                setResources={(resources: ResourceFilter) => setPolicy({ ...policy, resources })}
+                setResources={(resources: ResourceFilter) => {
+                    setPolicy({ ...policy, resources });
+                }}
                 privileges={policy.privileges}
                 setPrivileges={(privileges: string[]) => setPolicy({ ...policy, privileges })}
             />
@@ -108,6 +130,14 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
     // Whether we're editing or creating a policy.
     const isEditing = policy !== undefined && policy !== null;
 
+    useEnterKeyListener({
+        querySelectorToExecuteClick: '#nextButton',
+    });
+
+    useEnterKeyListener({
+        querySelectorToExecuteClick: '#saveButton',
+    });
+
     return (
         <Modal
             title={isEditing ? 'Edit a Policy' : 'Create a new Policy'}
@@ -123,23 +153,23 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
                 ))}
             </Steps>
             <div className="steps-content">{activeStep.content}</div>
-            <div className="steps-action">
-                {activeStepIndex < policySteps.length - 1 && activeStep.complete && (
-                    <Button type="primary" onClick={() => next()}>
-                        Next
-                    </Button>
-                )}
-                {activeStepIndex === policySteps.length - 1 && activeStep.complete && (
-                    <Button type="primary" onClick={onSavePolicy}>
-                        Save
-                    </Button>
-                )}
-                {activeStepIndex > 0 && (
-                    <Button style={{ margin: '0 8px' }} onClick={() => prev()}>
-                        Previous
-                    </Button>
-                )}
-            </div>
+            <StepsContainer>
+                <PrevButtonContainer>
+                    {activeStepIndex > 0 && <Button onClick={() => prev()}>Previous</Button>}
+                </PrevButtonContainer>
+                <NextButtonContainer>
+                    {activeStepIndex < policySteps.length - 1 && activeStep.complete && (
+                        <Button id="nextButton" type="primary" onClick={() => next()}>
+                            Next
+                        </Button>
+                    )}
+                    {activeStepIndex === policySteps.length - 1 && activeStep.complete && (
+                        <Button id="saveButton" type="primary" onClick={onSavePolicy}>
+                            Save
+                        </Button>
+                    )}
+                </NextButtonContainer>
+            </StepsContainer>
         </Modal>
     );
 }

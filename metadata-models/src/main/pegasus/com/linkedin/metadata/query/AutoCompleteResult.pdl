@@ -1,0 +1,22 @@
+namespace com.linkedin.metadata.query
+
+/**
+ * The model for the auto complete result
+ */
+record AutoCompleteResult {
+
+  /**
+   * The original chars typed by user
+   */
+  query: string
+
+  /**
+   * A list of typeahead suggestions -- Just the text
+   */
+  suggestions: array[string]
+
+  /**
+   * Specific entities to recommend
+   */
+  entities: array[AutoCompleteEntity]
+}

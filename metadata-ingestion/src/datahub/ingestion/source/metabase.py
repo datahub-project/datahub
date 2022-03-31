@@ -1,3 +1,4 @@
+from datetime import datetime
 from functools import lru_cache
 from typing import Dict, Iterable, Optional
 
@@ -8,7 +9,7 @@ from requests.models import HTTPError
 from sqllineage.runner import LineageRunner
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -34,15 +35,15 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities import config_clean
 
 
-class MetabaseConfig(ConfigModel):
+class MetabaseConfig(DatasetLineageProviderConfigBase):
     # See the Metabase /api/session endpoint for details
     # https://www.metabase.com/docs/latest/api-documentation.html#post-apisession
     connect_uri: str = "localhost:3000"
     username: Optional[str] = None
     password: Optional[str] = None
     database_alias_map: Optional[dict] = None
+    engine_platform_map: Optional[Dict[str, str]] = None
     default_schema: str = "public"
-    env: str = builder.DEFAULT_ENV
 
     @validator("connect_uri")
     def remove_trailing_slash(cls, v):
@@ -131,6 +132,17 @@ class MetabaseSource(Source):
                 reason=f"Unable to retrieve dashboards. " f"Reason: {str(http_error)}",
             )
 
+    @staticmethod
+    def get_timestamp_millis_from_ts_string(ts_str: str) -> int:
+        """
+        Converts the given timestamp string to milliseconds. If parsing fails,
+        returns the utc-now in milliseconds.
+        """
+        try:
+            return int(dp.parse(ts_str).timestamp() * 1000)
+        except (dp.ParserError, OverflowError):
+            return int(datetime.utcnow().timestamp() * 1000)
+
     def construct_dashboard_from_api_data(
         self, dashboard_info: dict
     ) -> Optional[DashboardSnapshot]:
@@ -157,8 +169,8 @@ class MetabaseSource(Source):
         )
         last_edit_by = dashboard_details.get("last-edit-info") or {}
         modified_actor = builder.make_user_urn(last_edit_by.get("email", "unknown"))
-        modified_ts = int(
-            dp.parse(f"{last_edit_by.get('timestamp', 'now')}").timestamp() * 1000
+        modified_ts = self.get_timestamp_millis_from_ts_string(
+            f"{last_edit_by.get('timestamp')}"
         )
         title = dashboard_details.get("name", "") or ""
         description = dashboard_details.get("description", "") or ""
@@ -261,8 +273,8 @@ class MetabaseSource(Source):
 
         last_edit_by = card_details.get("last-edit-info") or {}
         modified_actor = builder.make_user_urn(last_edit_by.get("email", "unknown"))
-        modified_ts = int(
-            dp.parse(f"{last_edit_by.get('timestamp', 'now')}").timestamp() * 1000
+        modified_ts = self.get_timestamp_millis_from_ts_string(
+            f"{last_edit_by.get('timestamp')}"
         )
         last_modified = ChangeAuditStamps(
             created=AuditStamp(time=modified_ts, actor=modified_actor),
@@ -342,7 +354,7 @@ class MetabaseSource(Source):
         return chart_type
 
     def construct_card_custom_properties(self, card_details: dict) -> Dict:
-        result_metadata = card_details.get("result_metadata", [])
+        result_metadata = card_details.get("result_metadata") or []
         metrics, dimensions = [], []
         for meta_data in result_metadata:
             display_name = meta_data.get("display_name", "") or ""
@@ -363,7 +375,7 @@ class MetabaseSource(Source):
         return custom_properties
 
     def get_datasource_urn(self, card_details):
-        platform, database_name = self.get_datasource_from_id(
+        platform, database_name, platform_instance = self.get_datasource_from_id(
             card_details.get("database_id", "")
         )
         query_type = card_details.get("dataset_query", {}).get("type", {})
@@ -373,13 +385,14 @@ class MetabaseSource(Source):
             source_table_id = (
                 card_details.get("dataset_query", {})
                 .get("query", {})
-                .get("source-table", {})
+                .get("source-table")
             )
-            schema_name, table_name = self.get_source_table_from_id(source_table_id)
-            if table_name:
-                source_paths.add(
-                    f"{schema_name + '.' if schema_name else ''}{table_name}"
-                )
+            if source_table_id is not None:
+                schema_name, table_name = self.get_source_table_from_id(source_table_id)
+                if table_name:
+                    source_paths.add(
+                        f"{schema_name + '.' if schema_name else ''}{table_name}"
+                    )
         else:
             try:
                 raw_query = (
@@ -410,7 +423,12 @@ class MetabaseSource(Source):
         dbname = f"{database_name + '.' if database_name else ''}"
         source_tables = list(map(lambda tbl: f"{dbname}{tbl}", source_paths))
         dataset_urn = [
-            builder.make_dataset_urn(platform, name, self.config.env)
+            builder.make_dataset_urn_with_platform_instance(
+                platform=platform,
+                name=name,
+                platform_instance=platform_instance,
+                env=self.config.env,
+            )
             for name in source_tables
         ]
 
@@ -453,7 +471,7 @@ class MetabaseSource(Source):
             return None, None
 
         # Map engine names to what datahub expects in
-        # https://github.com/linkedin/datahub/blob/master/metadata-service/war/src/main/resources/boot/data_platforms.json
+        # https://github.com/datahub-project/datahub/blob/master/metadata-service/war/src/main/resources/boot/data_platforms.json
         engine = dataset_json.get("engine", "")
         platform = engine
 
@@ -464,6 +482,10 @@ class MetabaseSource(Source):
             "sqlserver": "mssql",
             "bigquery-cloud-sdk": "bigquery",
         }
+
+        if self.config.engine_platform_map is not None:
+            engine_mapping.update(self.config.engine_platform_map)
+
         if engine in engine_mapping:
             platform = engine_mapping[engine]
         else:
@@ -471,6 +493,12 @@ class MetabaseSource(Source):
                 key=f"metabase-platform-{datasource_id}",
                 reason=f"Platform was not found in DataHub. Using {platform} name as is",
             )
+        # Set platform_instance if configuration provides a mapping from platform name to instance
+        platform_instance = (
+            self.config.platform_instance_map.get(platform)
+            if self.config.platform_instance_map
+            else None
+        )
 
         field_for_dbname_mapping = {
             "postgres": "dbname",
@@ -501,7 +529,7 @@ class MetabaseSource(Source):
                 reason=f"Cannot determine database name for platform: {platform}",
             )
 
-        return platform, dbname
+        return platform, dbname, platform_instance
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:

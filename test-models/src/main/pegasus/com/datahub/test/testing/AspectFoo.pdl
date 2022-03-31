@@ -1,0 +1,12 @@
+namespace com.datahub.test.testing
+
+/**
+ * For unit tests
+ */
+record AspectFoo {
+
+  /**
+   * For unit tests
+   */
+  value: string
+}

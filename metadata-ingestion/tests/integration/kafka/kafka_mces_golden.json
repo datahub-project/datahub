@@ -50,7 +50,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": true
+                                "isPartOfKey": true,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=CreateUserRequest].[type=string].email",
@@ -66,7 +67,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=CreateUserRequest].[type=string].firstName",
@@ -82,7 +84,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=CreateUserRequest].[type=string].lastName",
@@ -98,7 +101,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             }
                         ],
                         "primaryKeys": null,
@@ -120,6 +124,27 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "kafka-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,value_topic,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"topic\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "kafka-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -174,7 +199,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": true
+                                "isPartOfKey": true,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "[version=2.0].[key=True].[type=UserKey].[type=string].namespace",
@@ -190,7 +216,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": true
+                                "isPartOfKey": true,
+                                "jsonProps": null
                             }
                         ],
                         "primaryKeys": null,
@@ -212,6 +239,27 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "kafka-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,key_topic,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"topic\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "kafka-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -266,7 +314,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": true
+                                "isPartOfKey": true,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "[version=2.0].[key=True].[type=UserKey].[type=string].namespace",
@@ -282,7 +331,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": true
+                                "isPartOfKey": true,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=CreateUserRequest].[type=string].email",
@@ -298,7 +348,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=CreateUserRequest].[type=string].firstName",
@@ -314,7 +365,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=CreateUserRequest].[type=string].lastName",
@@ -330,7 +382,8 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             }
                         ],
                         "primaryKeys": null,
@@ -352,6 +405,46 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "kafka-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,key_value_topic,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"topic\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "kafka-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,key_value_topic,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+        "value": "{\"domains\": [\"urn:li:domain:sales\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "kafka-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 }

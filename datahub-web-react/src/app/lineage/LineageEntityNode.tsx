@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useContext, useMemo, useState } from 'react';
 import { Group } from '@vx/group';
 import { LinkHorizontal } from '@vx/shape';
 import styled from 'styled-components';
@@ -7,7 +7,9 @@ import { useEntityRegistry } from '../useEntityRegistry';
 import { IconStyleType } from '../entity/Entity';
 import { NodeData, Direction, VizNode, EntitySelectParams } from './types';
 import { ANTD_GRAY } from '../entity/shared/constants';
-import { capitalizeFirstLetter } from '../shared/capitalizeFirstLetter';
+import { capitalizeFirstLetter } from '../shared/textUtil';
+import { nodeHeightFromTitleLength } from './utils/nodeHeightFromTitleLength';
+import { LineageExplorerContext } from './utils/LineageExplorerContext';
 
 const CLICK_DELAY_THRESHOLD = 1000;
 const DRAG_DISTANCE_THRESHOLD = 20;
@@ -51,6 +53,13 @@ const UnselectableText = styled.text`
     user-select: none;
 `;
 
+const MultilineTitleText = styled.p`
+    margin-top: -2px;
+    font-size: 14px;
+    width: 125px;
+    word-break: break-all;
+`;
+
 export default function LineageEntityNode({
     node,
     isSelected,
@@ -76,6 +85,7 @@ export default function LineageEntityNode({
     direction: Direction;
     nodesToRenderByUrn: Record<string, VizNode>;
 }) {
+    const { expandTitles } = useContext(LineageExplorerContext);
     const [isExpanding, setIsExpanding] = useState(false);
     const [expandHover, setExpandHover] = useState(false);
 
@@ -93,6 +103,8 @@ export default function LineageEntityNode({
         }),
         [],
     );
+
+    const nodeHeight = nodeHeightFromTitleLength(expandTitles ? node.data.name : undefined);
 
     return (
         <PointerGroup data-testid={`node-${node.data.urn}-${direction}`} top={node.x} left={node.y}>
@@ -139,13 +151,13 @@ export default function LineageEntityNode({
                     >
                         <circle
                             fill="none"
-                            cy={centerY + height / 2}
+                            cy={centerY + nodeHeight / 2}
                             cx={direction === Direction.Upstream ? centerX - 10 : centerX + width + 10}
                             r="20"
                         />
                         <circle
                             fill="none"
-                            cy={centerY + height / 2}
+                            cy={centerY + nodeHeight / 2}
                             cx={direction === Direction.Upstream ? centerX - 30 : centerX + width + 30}
                             r="30"
                         />
@@ -200,7 +212,7 @@ export default function LineageEntityNode({
                 }}
             >
                 <rect
-                    height={height}
+                    height={nodeHeight}
                     width={width}
                     y={centerY}
                     x={centerX}
@@ -249,19 +261,27 @@ export default function LineageEntityNode({
                             |{' '}
                         </tspan>
                         <tspan dx=".25em" dy="-2px">
-                            {capitalizeFirstLetter(node.data.subtype || node.data.type)}
+                            {capitalizeFirstLetter(
+                                node.data.subtype || (node.data.type && entityRegistry.getEntityName(node.data.type)),
+                            )}
                         </tspan>
                     </UnselectableText>
-                    <UnselectableText
-                        dy="1em"
-                        x={textX}
-                        fontSize={14}
-                        fontFamily="Manrope"
-                        textAnchor="start"
-                        fill={isCenterNode ? '#1890FF' : 'black'}
-                    >
-                        {truncate(getLastTokenOfTitle(node.data.name), 16)}
-                    </UnselectableText>
+                    {expandTitles ? (
+                        <foreignObject x={textX} width="125" height="200">
+                            <MultilineTitleText>{node.data.name}</MultilineTitleText>
+                        </foreignObject>
+                    ) : (
+                        <UnselectableText
+                            dy="1em"
+                            x={textX}
+                            fontSize={14}
+                            fontFamily="Manrope"
+                            textAnchor="start"
+                            fill={isCenterNode ? '#1890FF' : 'black'}
+                        >
+                            {truncate(getLastTokenOfTitle(node.data.name), 16)}
+                        </UnselectableText>
+                    )}
                 </Group>
                 {unexploredHiddenChildren && isHovered ? (
                     <UnselectableText

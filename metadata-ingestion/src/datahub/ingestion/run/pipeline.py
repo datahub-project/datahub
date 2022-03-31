@@ -2,6 +2,7 @@ import datetime
 import itertools
 import logging
 import uuid
+from math import log10
 from typing import Any, Dict, Iterable, List, Optional
 
 import click
@@ -12,15 +13,20 @@ from datahub.configuration.common import (
     DynamicTypedConfig,
     PipelineExecutionError,
 )
-from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
+from datahub.ingestion.api.committable import CommitPolicy
+from datahub.ingestion.api.common import EndOfStream, PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import Sink, WriteCallback
 from datahub.ingestion.api.source import Extractor, Source
 from datahub.ingestion.api.transform import Transformer
 from datahub.ingestion.extractor.extractor_registry import extractor_registry
 from datahub.ingestion.graph.client import DatahubClientConfig
+from datahub.ingestion.reporting.reporting_provider_registry import (
+    reporting_provider_registry,
+)
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
 from datahub.ingestion.transformer.transform_registry import transform_registry
+from datahub.telemetry import telemetry
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +43,7 @@ class PipelineConfig(ConfigModel):
     source: SourceConfig
     sink: DynamicTypedConfig
     transformers: Optional[List[DynamicTypedConfig]]
+    reporting: Optional[List[DynamicTypedConfig]] = None
     run_id: str = "__DEFAULT_RUN_ID"
     datahub_api: Optional[DatahubClientConfig] = None
     pipeline_name: Optional[str] = None
@@ -96,11 +103,16 @@ class Pipeline:
     transformers: List[Transformer]
 
     def __init__(
-        self, config: PipelineConfig, dry_run: bool = False, preview_mode: bool = False
+        self,
+        config: PipelineConfig,
+        dry_run: bool = False,
+        preview_mode: bool = False,
+        preview_workunits: int = 10,
     ):
         self.config = config
         self.dry_run = dry_run
         self.preview_mode = preview_mode
+        self.preview_workunits = preview_workunits
         self.ctx = PipelineContext(
             run_id=self.config.run_id,
             datahub_api=self.config.datahub_api,
@@ -109,6 +121,12 @@ class Pipeline:
             preview_mode=preview_mode,
         )
 
+        sink_type = self.config.sink.type
+        sink_class = sink_registry.get(sink_type)
+        sink_config = self.config.sink.dict().get("config", {})
+        self.sink: Sink = sink_class.create(sink_config, self.ctx)
+        logger.debug(f"Sink type:{self.config.sink.type},{sink_class} configured")
+
         source_type = self.config.source.type
         source_class = source_registry.get(source_type)
         self.source: Source = source_class.create(
@@ -116,15 +134,10 @@ class Pipeline:
         )
         logger.debug(f"Source type:{source_type},{source_class} configured")
 
-        sink_type = self.config.sink.type
-        sink_class = sink_registry.get(sink_type)
-        sink_config = self.config.sink.dict().get("config", {})
-        self.sink: Sink = sink_class.create(sink_config, self.ctx)
-        logger.debug(f"Sink type:{self.config.sink.type},{sink_class} configured")
-
         self.extractor_class = extractor_registry.get(self.config.source.extractor)
 
         self._configure_transforms()
+        self._configure_reporting()
 
     def _configure_transforms(self) -> None:
         self.transformers = []
@@ -140,43 +153,79 @@ class Pipeline:
                     f"Transformer type:{transformer_type},{transformer_class} configured"
                 )
 
+    def _configure_reporting(self) -> None:
+        if self.config.reporting is None:
+            return
+
+        for reporter in self.config.reporting:
+            reporter_type = reporter.type
+            reporter_class = reporting_provider_registry.get(reporter_type)
+            reporter_config_dict = reporter.dict().get("config", {})
+            self.ctx.register_reporter(
+                reporter_class.create(
+                    config_dict=reporter_config_dict,
+                    ctx=self.ctx,
+                    name=reporter_class.__name__,
+                )
+            )
+            logger.debug(
+                f"Transformer type:{reporter_type},{reporter_class} configured"
+            )
+
     @classmethod
     def create(
-        cls, config_dict: dict, dry_run: bool = False, preview_mode: bool = False
+        cls,
+        config_dict: dict,
+        dry_run: bool = False,
+        preview_mode: bool = False,
+        preview_workunits: int = 10,
     ) -> "Pipeline":
         config = PipelineConfig.parse_obj(config_dict)
-        return cls(config, dry_run=dry_run, preview_mode=preview_mode)
+        return cls(
+            config,
+            dry_run=dry_run,
+            preview_mode=preview_mode,
+            preview_workunits=preview_workunits,
+        )
 
     def run(self) -> None:
+
         callback = LoggingCallback()
         extractor: Extractor = self.extractor_class()
         for wu in itertools.islice(
-            self.source.get_workunits(), 10 if self.preview_mode else None
+            self.source.get_workunits(),
+            self.preview_workunits if self.preview_mode else None,
         ):
             # TODO: change extractor interface
             extractor.configure({}, self.ctx)
 
             if not self.dry_run:
                 self.sink.handle_work_unit_start(wu)
-            record_envelopes = extractor.get_records(wu)
-            for record_envelope in self.transform(record_envelopes):
-                if not self.dry_run:
-                    self.sink.write_record_async(record_envelope, callback)
-
+            try:
+                record_envelopes = extractor.get_records(wu)
+                for record_envelope in self.transform(record_envelopes):
+                    if not self.dry_run:
+                        self.sink.write_record_async(record_envelope, callback)
+            except Exception as e:
+                logger.error(f"Failed to extract some records due to: {e}")
             extractor.close()
             if not self.dry_run:
                 self.sink.handle_work_unit_end(wu)
-        self.sink.close()
+        self.source.close()
+        # no more data is coming, we need to let the transformers produce any additional records if they are holding on to state
+        for record_envelope in self.transform(
+            [
+                RecordEnvelope(
+                    record=EndOfStream(), metadata={"workunit_id": "end-of-stream"}
+                )
+            ]
+        ):
+            if not self.dry_run and not isinstance(record_envelope.record, EndOfStream):
+                # TODO: propagate EndOfStream and other control events to sinks, to allow them to flush etc.
+                self.sink.write_record_async(record_envelope, callback)
 
-        # Temporary hack to prevent committing state if there are failures during the pipeline run.
-        try:
-            self.raise_from_status()
-        except Exception:
-            logger.warning(
-                "Pipeline failed. Not closing the source to prevent bad commits."
-            )
-        else:
-            self.source.close()
+        self.sink.close()
+        self.process_commits()
 
     def transform(self, records: Iterable[RecordEnvelope]) -> Iterable[RecordEnvelope]:
         """
@@ -188,6 +237,46 @@ class Pipeline:
             records = transformer.transform(records)
 
         return records
+
+    def process_commits(self) -> None:
+        """
+        Evaluates the commit_policy for each committable in the context and triggers the commit operation
+        on the committable if its required commit policies are satisfied.
+        """
+        has_errors: bool = (
+            True
+            if self.source.get_report().failures or self.sink.get_report().failures
+            else False
+        )
+        has_warnings: bool = (
+            True
+            if self.source.get_report().warnings or self.sink.get_report().warnings
+            else False
+        )
+        for name, committable in self.ctx.get_committables():
+            commit_policy: CommitPolicy = committable.commit_policy
+
+            logger.info(
+                f"Processing commit request for {name}. Commit policy = {commit_policy},"
+                f" has_errors={has_errors}, has_warnings={has_warnings}"
+            )
+
+            if (
+                commit_policy == CommitPolicy.ON_NO_ERRORS_AND_NO_WARNINGS
+                and (has_errors or has_warnings)
+            ) or (commit_policy == CommitPolicy.ON_NO_ERRORS and has_errors):
+                logger.warning(
+                    f"Skipping commit request for {name} since policy requirements are not met."
+                )
+                continue
+
+            try:
+                committable.commit()
+            except Exception as e:
+                logger.error(f"Failed to commit changes for {name}.", e)
+                raise e
+            else:
+                logger.info(f"Successfully committed changes for {name}.")
 
     def raise_from_status(self, raise_warnings: bool = False) -> None:
         if self.source.get_report().failures:
@@ -202,6 +291,18 @@ class Pipeline:
             raise PipelineExecutionError(
                 "Source reported warnings", self.source.get_report()
             )
+
+    def log_ingestion_stats(self) -> None:
+
+        telemetry.telemetry_instance.ping(
+            "ingest_stats",
+            {
+                "source_type": self.config.source.type,
+                "sink_type": self.config.sink.type,
+                "records_written": 10
+                ** int(log10(self.sink.get_report().records_written + 1)),
+            },
+        )
 
     def pretty_print_summary(self, warnings_as_failure: bool = False) -> int:
         click.echo()

@@ -34,6 +34,7 @@ import play.shaded.ahc.org.asynchttpclient.AsyncHttpClientConfig;
 import play.shaded.ahc.org.asynchttpclient.DefaultAsyncHttpClient;
 import play.shaded.ahc.org.asynchttpclient.DefaultAsyncHttpClientConfig;
 import utils.ConfigUtil;
+import java.time.Duration;
 
 import static auth.AuthUtils.*;
 
@@ -122,6 +123,7 @@ public class Application extends Controller {
         .addHeader(Http.HeaderNames.AUTHORIZATION, authorizationHeaderValue)
         .addHeader(AuthenticationConstants.LEGACY_X_DATAHUB_ACTOR_HEADER, getDataHubActorHeader())
         .setBody(new InMemoryBodyWritable(ByteString.fromByteBuffer(request().body().asBytes().asByteBuffer()), "application/json"))
+        .setRequestTimeout(Duration.ofSeconds(120))
         .execute()
         .thenApply(apiResponse -> {
           final ResponseHeader header = new ResponseHeader(apiResponse.getStatus(), apiResponse.getHeaders()
@@ -144,6 +146,7 @@ public class Application extends Controller {
   @Nonnull
   public Result appConfig() {
     final ObjectNode config = Json.newObject();
+    config.put("application", "datahub-frontend");
     config.put("appVersion", _config.getString("app.version"));
     config.put("isInternal", _config.getBoolean("linkedin.internal"));
     config.put("shouldShowDatasetLineage", _config.getBoolean("linkedin.show.dataset.lineage"));

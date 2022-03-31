@@ -13,6 +13,7 @@ import analytics, { EventType } from '../analytics';
 import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.generated';
 import { SearchCfg } from '../../conf';
 import { ENTITY_FILTER_NAME } from './utils/constants';
+import { GetSearchResultsParams } from '../entity/shared/components/styled/search/types';
 
 type SearchPageParams = {
     type?: string;
@@ -26,7 +27,6 @@ export const SearchPage = () => {
     const location = useLocation();
 
     const entityRegistry = useEntityRegistry();
-
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const query: string = params.query ? (params.query as string) : '';
     const activeType = entityRegistry.getTypeOrDefaultFromPathName(useParams<SearchPageParams>().type || '', undefined);
@@ -50,6 +50,24 @@ export const SearchPage = () => {
             },
         },
     });
+
+    // we need to extract refetch on its own so paging thru results for csv download
+    // doesnt also update search results
+    const { refetch } = useGetSearchResultsForMultipleQuery({
+        variables: {
+            input: {
+                types: entityFilters,
+                query,
+                start: (page - 1) * SearchCfg.RESULTS_PER_PAGE,
+                count: SearchCfg.RESULTS_PER_PAGE,
+                filters: filtersWithoutEntities,
+            },
+        },
+    });
+
+    const callSearchOnVariables = (variables: GetSearchResultsParams['variables']) => {
+        return refetch(variables).then((res) => res.data.searchAcrossEntities);
+    };
 
     useEffect(() => {
         if (!loading) {
@@ -89,6 +107,9 @@ export const SearchPage = () => {
                 <Alert type="error" message={error?.message || `Search failed to load for query ${query}`} />
             )}
             <SearchResults
+                entityFilters={entityFilters}
+                filtersWithoutEntities={filtersWithoutEntities}
+                callSearchOnVariables={callSearchOnVariables}
                 page={page}
                 query={query}
                 searchResponse={data?.searchAcrossEntities}

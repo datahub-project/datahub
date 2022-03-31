@@ -5,19 +5,24 @@ import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.generated.PlatformPrivileges;
-import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.datahub.graphql.generated.AuthenticatedUser;
 import com.linkedin.datahub.graphql.generated.CorpUser;
-import com.linkedin.datahub.graphql.types.corpuser.mappers.CorpUserSnapshotMapper;
-import com.linkedin.metadata.snapshot.CorpUserSnapshot;
+import com.linkedin.datahub.graphql.generated.PlatformPrivileges;
+import com.linkedin.datahub.graphql.types.corpuser.mappers.CorpUserMapper;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
+import java.util.Collections;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+
+import static com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils.*;
+import static com.linkedin.metadata.Constants.*;
+
 
 /**
  * GraphQL resolver responsible for resolving information about the currently
@@ -42,10 +47,9 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
       try {
         // 1. Get currently logged in user profile.
         final Urn userUrn = Urn.createFromString(context.getActorUrn());
-        final CorpUserSnapshot gmsUser = _entityClient.get(userUrn, context.getAuthentication())
-            .getValue()
-            .getCorpUserSnapshot();
-        final CorpUser corpUser = CorpUserSnapshotMapper.map(gmsUser);
+        final EntityResponse gmsUser = _entityClient.batchGetV2(CORP_USER_ENTITY_NAME,
+                Collections.singleton(userUrn), null, context.getAuthentication()).get(userUrn);
+        final CorpUser corpUser = CorpUserMapper.map(gmsUser);
 
         // 2. Get platform privileges
         final PlatformPrivileges platformPrivileges = new PlatformPrivileges();
@@ -53,6 +57,9 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
         platformPrivileges.setManagePolicies(canManagePolicies(context));
         platformPrivileges.setManageIdentities(canManageUsersGroups(context));
         platformPrivileges.setGeneratePersonalAccessTokens(canGeneratePersonalAccessToken(context));
+        platformPrivileges.setManageDomains(canManageDomains(context));
+        platformPrivileges.setManageIngestion(canManageIngestion(context));
+        platformPrivileges.setManageSecrets(canManageSecrets(context));
 
         // Construct and return authenticated user object.
         final AuthenticatedUser authUser = new AuthenticatedUser();
@@ -87,10 +94,18 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
   }
 
   /**
-   * Returns true if the authenticated user has privileges to manage users & groups.
+   * Returns true if the authenticated user has privileges to generate personal access tokens
    */
   private boolean canGeneratePersonalAccessToken(final QueryContext context) {
     return isAuthorized(context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE);
+  }
+
+
+  /**
+   * Returns true if the authenticated user has privileges to manage domains
+   */
+  private boolean canManageDomains(final QueryContext context) {
+    return isAuthorized(context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.MANAGE_DOMAINS_PRIVILEGE);
   }
 
   /**

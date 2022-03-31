@@ -1,7 +1,17 @@
 apply plugin: 'pegasus'
+apply plugin: 'java'
 
 dependencies {
   compile spec.product.pegasus.data
+  compile externalDependency.commonsIo
   dataModel project(':metadata-models')
   dataModel project(':li-utils')
 }
+
+idea {
+  module {
+    sourceDirs += file('src/main/javaPegasus')
+  }
+}
+
+sourceSets.mainGeneratedDataTemplate.java.srcDirs('src/main/javaPegasus/')

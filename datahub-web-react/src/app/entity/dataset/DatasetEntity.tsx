@@ -1,11 +1,10 @@
 import * as React from 'react';
 import { DatabaseFilled, DatabaseOutlined } from '@ant-design/icons';
 import { Typography } from 'antd';
-import { Dataset, EntityType, RelationshipDirection, SearchResult } from '../../../types.generated';
+import { Dataset, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
 import { FIELDS_TO_HIGHLIGHT } from './search/highlights';
-import { getChildrenFromRelationships } from '../../lineage/utils/getChildren';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { GetDatasetQuery, useGetDatasetQuery, useUpdateDatasetMutation } from '../../../graphql/dataset.generated';
 import { GenericEntityProperties } from '../shared/types';
@@ -19,11 +18,13 @@ import { SidebarTagsSection } from '../shared/containers/profile/sidebar/Sidebar
 import { SidebarStatsSection } from '../shared/containers/profile/sidebar/Dataset/StatsSidebarSection';
 import StatsTab from '../shared/tabs/Dataset/Stats/StatsTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
-import { capitalizeFirstLetter } from '../../shared/capitalizeFirstLetter';
+import { capitalizeFirstLetter } from '../../shared/textUtil';
 import ViewDefinitionTab from '../shared/tabs/Dataset/View/ViewDefinitionTab';
 import { SidebarViewDefinitionSection } from '../shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection';
 import { SidebarRecommendationsSection } from '../shared/containers/profile/sidebar/Recommendations/SidebarRecommendationsSection';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
+import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { ValidationsTab } from '../shared/tabs/Dataset/Validations/ValidationsTab';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -51,7 +52,7 @@ export class DatasetEntity implements Entity<Dataset> {
         }
 
         return (
-            <DatabaseFilled
+            <DatabaseOutlined
                 style={{
                     fontSize,
                     color: '#BFBFBF',
@@ -109,9 +110,13 @@ export class DatasetEntity implements Entity<Dataset> {
                     component: LineageTab,
                     display: {
                         visible: (_, _1) => true,
-                        enabled: (_, dataset: GetDatasetQuery) =>
-                            (dataset?.dataset?.incoming?.count || 0) > 0 ||
-                            (dataset?.dataset?.outgoing?.count || 0) > 0,
+                        enabled: (_, dataset: GetDatasetQuery) => {
+                            console.log(dataset?.dataset?.upstream, dataset?.dataset?.downstream);
+                            return (
+                                (dataset?.dataset?.upstream?.total || 0) > 0 ||
+                                (dataset?.dataset?.downstream?.total || 0) > 0
+                            );
+                        },
                     },
                 },
                 {
@@ -130,7 +135,18 @@ export class DatasetEntity implements Entity<Dataset> {
                         visible: (_, _1) => true,
                         enabled: (_, dataset: GetDatasetQuery) =>
                             (dataset?.dataset?.datasetProfiles?.length || 0) > 0 ||
-                            (dataset?.dataset?.usageStats?.buckets?.length || 0) > 0,
+                            (dataset?.dataset?.usageStats?.buckets?.length || 0) > 0 ||
+                            (dataset?.dataset?.operations?.length || 0) > 0,
+                    },
+                },
+                {
+                    name: 'Validation',
+                    component: ValidationsTab,
+                    display: {
+                        visible: (_, _1) => true,
+                        enabled: (_, dataset: GetDatasetQuery) => {
+                            return (dataset?.dataset?.assertions?.total || 0) > 0;
+                        },
                     },
                 },
             ]}
@@ -162,6 +178,12 @@ export class DatasetEntity implements Entity<Dataset> {
                 },
                 {
                     component: SidebarOwnerSection,
+                    properties: {
+                        defaultOwnerType: OwnershipType.TechnicalOwner,
+                    },
+                },
+                {
+                    component: SidebarDomainSection,
                 },
                 {
                     component: SidebarRecommendationsSection,
@@ -174,6 +196,7 @@ export class DatasetEntity implements Entity<Dataset> {
         // if dataset has subTypes filled out, pick the most specific subtype and return it
         const subTypes = dataset?.subTypes;
         return {
+            name: dataset?.properties?.name || dataset?.name,
             externalUrl: dataset?.properties?.externalUrl,
             entityTypeOverride: subTypes ? capitalizeFirstLetter(subTypes.typeNames?.[0]) : '',
         };
@@ -183,15 +206,17 @@ export class DatasetEntity implements Entity<Dataset> {
         return (
             <Preview
                 urn={data.urn}
-                name={data.name}
+                name={data.properties?.name || data.name}
                 origin={data.origin}
                 subtype={data.subTypes?.typeNames?.[0]}
                 description={data.editableProperties?.description || data.properties?.description}
-                platformName={data.platform.displayName || data.platform.name}
-                platformLogo={data.platform.info?.logoUrl}
+                platformName={data.platform.properties?.displayName || data.platform.name}
+                platformLogo={data.platform.properties?.logoUrl}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
                 glossaryTerms={data.glossaryTerms}
+                domain={data.domain}
+                container={data.container}
             />
         );
     };
@@ -201,15 +226,17 @@ export class DatasetEntity implements Entity<Dataset> {
         return (
             <Preview
                 urn={data.urn}
-                name={data.name}
+                name={data.properties?.name || data.name}
                 origin={data.origin}
                 description={data.editableProperties?.description || data.properties?.description}
-                platformName={data.platform.name}
-                platformLogo={data.platform.info?.logoUrl}
+                platformName={data.platform.properties?.displayName || data.platform.name}
+                platformLogo={data.platform.properties?.logoUrl}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
+                domain={data.domain}
                 glossaryTerms={data.glossaryTerms}
                 subtype={data.subTypes?.typeNames?.[0]}
+                container={data.container}
                 snippet={
                     // Add match highlights only if all the matched fields are in the FIELDS_TO_HIGHLIGHT
                     result.matchedFields.length > 0 &&
@@ -228,34 +255,20 @@ export class DatasetEntity implements Entity<Dataset> {
     getLineageVizConfig = (entity: Dataset) => {
         return {
             urn: entity?.urn,
-            name: entity?.name,
+            name: entity.properties?.name || entity.name,
             type: EntityType.Dataset,
             subtype: entity.subTypes?.typeNames?.[0] || undefined,
-            downstreamChildren: getChildrenFromRelationships({
-                // eslint-disable-next-line @typescript-eslint/dot-notation
-                incomingRelationships: entity?.['incoming'],
-                // eslint-disable-next-line @typescript-eslint/dot-notation
-                outgoingRelationships: entity?.['outgoing'],
-                direction: RelationshipDirection.Incoming,
-            }),
-            upstreamChildren: getChildrenFromRelationships({
-                // eslint-disable-next-line @typescript-eslint/dot-notation
-                incomingRelationships: entity?.['incoming'],
-                // eslint-disable-next-line @typescript-eslint/dot-notation
-                outgoingRelationships: entity?.['outgoing'],
-                direction: RelationshipDirection.Outgoing,
-            }),
-            icon: entity?.platform?.info?.logoUrl || undefined,
+            icon: entity?.platform?.properties?.logoUrl || undefined,
             platform: entity?.platform?.name,
         };
     };
 
     displayName = (data: Dataset) => {
-        return data?.name;
+        return data?.properties?.name || data.name;
     };
 
     platformLogoUrl = (data: Dataset) => {
-        return data.platform.info?.logoUrl || undefined;
+        return data.platform.properties?.logoUrl || undefined;
     };
 
     getGenericEntityProperties = (data: Dataset) => {

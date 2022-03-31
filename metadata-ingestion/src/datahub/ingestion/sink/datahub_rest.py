@@ -16,6 +16,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeProposal,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.usage import UsageAggregation
+from datahub.utilities.server_config_util import set_gms_config
 
 logger = logging.getLogger(__name__)
 
@@ -25,25 +26,39 @@ class DatahubRestSinkConfig(DatahubClientConfig):
 
 
 @dataclass
+class DataHubRestSinkReport(SinkReport):
+    gms_version: str = ""
+
+
+@dataclass
 class DatahubRestSink(Sink):
     config: DatahubRestSinkConfig
     emitter: DatahubRestEmitter
-    report: SinkReport
+    report: DataHubRestSinkReport
     treat_errors_as_warnings: bool = False
 
     def __init__(self, ctx: PipelineContext, config: DatahubRestSinkConfig):
         super().__init__(ctx)
         self.config = config
-        self.report = SinkReport()
+        self.report = DataHubRestSinkReport()
         self.emitter = DatahubRestEmitter(
             self.config.server,
             self.config.token,
             connect_timeout_sec=self.config.timeout_sec,  # reuse timeout_sec for connect timeout
             read_timeout_sec=self.config.timeout_sec,
+            retry_status_codes=self.config.retry_status_codes,
+            retry_max_times=self.config.retry_max_times,
             extra_headers=self.config.extra_headers,
             ca_certificate_path=self.config.ca_certificate_path,
         )
-        self.emitter.test_connection()
+        gms_config = self.emitter.test_connection()
+        self.report.gms_version = (
+            gms_config.get("versions", {})
+            .get("linkedin/datahub", {})
+            .get("version", "")
+        )
+        logger.info("Setting gms config")
+        set_gms_config(gms_config)
         self.executor = concurrent.futures.ThreadPoolExecutor(
             max_workers=self.config.max_threads
         )

@@ -43,10 +43,15 @@ task installDev(type: Exec, dependsOn: [install]) {
     "${venv_name}/bin/pip install -e .[dev] && touch ${venv_name}/.build_install_dev_sentinel"
 }
 
-task modelDocGen(type: Exec, dependsOn: [codegen, installDev]) {
-    inputs.files(project.fileTree(dir: "../metadata-events/mxe-schemas/src/", include: "**/*.avsc"))
-    outputs.dir('generated/docs')
-    commandLine 'bash', '-c', "source ${venv_name}/bin/activate && ./scripts/modeldocgen.sh"
+task modelDocGen(type: Exec, dependsOn: [codegen]) {
+  inputs.files(
+    file('scripts/modeldocgen.py'),
+    project.fileTree(dir: "../metadata-models/docs/entities/", include: "**/*.md"),
+    project.fileTree(dir: "examples/", include: "**/*.py"),
+    project.fileTree(dir: "../metadata-events/mxe-schemas/src/", include: "**/*.avsc")
+  )
+  outputs.dir('../docs/generated')
+  commandLine 'bash', '-c', "source ${venv_name}/bin/activate && ./scripts/modeldocgen.sh"
 }
 
 task modelDocUpload(type: Exec, dependsOn: [modelDocGen]) {
@@ -61,15 +66,15 @@ task lint(type: Exec, dependsOn: installDev) {
    */
   commandLine 'bash', '-x', '-c',
     "find ${venv_name}/lib -path *airflow/_vendor/connexion/spec.py -exec sed -i.bak -e '169,169s/  # type: List\\[str\\]//g' {} \\; && " +
-    "source ${venv_name}/bin/activate && black --check --diff src/ tests/ && isort --check --diff src/ tests/ && flake8 --count --statistics src/ tests/ && mypy src/ tests/"
+    "source ${venv_name}/bin/activate && black --check --diff src/ tests/ examples/ && isort --check --diff src/ tests/ examples/ && flake8 --count --statistics src/ tests/ examples/ && mypy src/ tests/ examples/"
 }
 task lintFix(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-x', '-c',
     "source ${venv_name}/bin/activate && " +
-    "black src/ tests/ && " +
-    "isort src/ tests/ && " +
-    "flake8 src/ tests/ && " +
-    "mypy src/ tests/"
+    "black src/ tests/ examples/ && " +
+    "isort src/ tests/ examples/ && " +
+    "flake8 src/ tests/ examples/ && " +
+    "mypy src/ tests/ examples/"
 }
 
 task testQuick(type: Exec, dependsOn: installDev) {
@@ -127,5 +132,6 @@ clean {
   delete 'build'
   delete 'dist'
   delete 'src/datahub/metadata'
+  delete '../docs/generated'
 }
 clean.dependsOn cleanPythonCache

@@ -42,6 +42,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -70,6 +72,8 @@
                             "looker.explore.file": "test_source_file.lkml"
                         },
                         "externalUrl": "https://looker.company.com/explore/data/my_view",
+                        "name": "my_view",
+                        "qualifiedName": null,
                         "description": "lorem ipsum",
                         "uri": null,
                         "tags": []
@@ -87,7 +91,8 @@
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.underlying_view,PROD)",
                                 "type": "VIEW"
                             }
-                        ]
+                        ],
+                        "fineGrainedLineages": null
                     }
                 },
                 {
@@ -135,7 +140,8 @@
                                     ]
                                 },
                                 "glossaryTerms": null,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": null
                             }
                         ],
                         "primaryKeys": [],
@@ -150,6 +156,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -164,7 +172,13 @@
         "value": "{\"typeNames\": [\"explore\"]}",
         "contentType": "application/json"
     },
-    "systemMetadata": null
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -191,7 +205,8 @@
                 {
                     "com.linkedin.pegasus2avro.tag.TagProperties": {
                         "name": "Dimension",
-                        "description": "A tag that is applied to all dimension fields."
+                        "description": "A tag that is applied to all dimension fields.",
+                        "colorHex": null
                     }
                 }
             ]
@@ -201,6 +216,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -229,7 +246,8 @@
                 {
                     "com.linkedin.pegasus2avro.tag.TagProperties": {
                         "name": "Temporal",
-                        "description": "A tag that is applied to all time-based (temporal) fields such as timestamps or durations."
+                        "description": "A tag that is applied to all time-based (temporal) fields such as timestamps or durations.",
+                        "colorHex": null
                     }
                 }
             ]
@@ -239,6 +257,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -267,7 +287,8 @@
                 {
                     "com.linkedin.pegasus2avro.tag.TagProperties": {
                         "name": "Measure",
-                        "description": "A tag that is applied to all measures (metrics). Measures are typically the columns that you aggregate on"
+                        "description": "A tag that is applied to all measures (metrics). Measures are typically the columns that you aggregate on",
+                        "colorHex": null
                     }
                 }
             ]
@@ -277,6 +298,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 }

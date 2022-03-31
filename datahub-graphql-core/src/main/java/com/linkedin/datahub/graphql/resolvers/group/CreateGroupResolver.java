@@ -11,10 +11,11 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpGroupInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.CorpGroupKey;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
@@ -42,7 +43,8 @@ public class CreateGroupResolver implements DataFetcher<CompletableFuture<String
           // First, check if the group already exists.
           // Create the Group key.
           final CorpGroupKey key = new CorpGroupKey();
-          key.setName(input.getName());
+          final String id = input.getId() != null ? input.getId() : UUID.randomUUID().toString();
+          key.setName(id); // 'name' in the key really reflects nothing more than a stable "id".
 
           // Create the Group info.
           final CorpGroupInfo info = new CorpGroupInfo();
@@ -54,10 +56,10 @@ public class CreateGroupResolver implements DataFetcher<CompletableFuture<String
 
           // Finally, create the MetadataChangeProposal.
           final MetadataChangeProposal proposal = new MetadataChangeProposal();
-          proposal.setEntityKeyAspect(GenericAspectUtils.serializeAspect(key));
+          proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(key));
           proposal.setEntityType(Constants.CORP_GROUP_ENTITY_NAME);
           proposal.setAspectName(Constants.CORP_GROUP_INFO_ASPECT_NAME);
-          proposal.setAspect(GenericAspectUtils.serializeAspect(info));
+          proposal.setAspect(GenericRecordUtils.serializeAspect(info));
           proposal.setChangeType(ChangeType.UPSERT);
           return _entityClient.ingestProposal(proposal, context.getAuthentication());
         } catch (Exception e) {

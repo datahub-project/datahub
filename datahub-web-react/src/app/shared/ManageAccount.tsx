@@ -11,6 +11,7 @@ import { isLoggedInVar } from '../auth/checkAuthStatus';
 import CustomAvatar from './avatar/CustomAvatar';
 import analytics, { EventType } from '../analytics';
 import { ANTD_GRAY } from '../entity/shared/constants';
+import { useAppConfig } from '../useAppConfig';
 
 const MenuItem = styled(Menu.Item)`
     && {
@@ -26,8 +27,8 @@ const MenuItem = styled(Menu.Item)`
 `;
 
 const DownArrow = styled(CaretDownOutlined)`
-    vertical-align: -5px;
-    font-size: 16px;
+    vertical-align: -3px;
+    font-size: 12px;
     color: ${ANTD_GRAY[7]};
 `;
 
@@ -44,14 +45,16 @@ const defaultProps = {
 export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Props) => {
     const entityRegistry = useEntityRegistry();
     const themeConfig = useTheme();
+    const { config } = useAppConfig();
     const handleLogout = () => {
         analytics.event({ type: EventType.LogOutEvent });
         isLoggedInVar(false);
         Cookies.remove(GlobalCfg.CLIENT_AUTH_COOKIE);
     };
-
+    const version = config?.appVersion;
     const menu = (
         <Menu>
+            {version && <MenuItem key="version">{version}</MenuItem>}
             {themeConfig.content.menu.items.map((value) => {
                 return (
                     <MenuItem key={value.label}>
@@ -66,6 +69,12 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
                     </MenuItem>
                 );
             })}
+            <MenuItem key="graphiQLLink">
+                <a href="/api/graphiql">GraphiQL</a>
+            </MenuItem>
+            <MenuItem key="openapiLink">
+                <a href="/openapi/swagger-ui/index.html">OpenAPI</a>
+            </MenuItem>
             <MenuItem danger key="logout" tabIndex={0}>
                 <a href="/logOut" onClick={handleLogout}>
                     Logout

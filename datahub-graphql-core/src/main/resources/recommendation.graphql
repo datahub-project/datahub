@@ -42,7 +42,12 @@ enum ScenarioType {
   """
   Recommendations to show on an Entity Profile page
   """
-  ENTITY_PROFILE
+  ENTITY_PROFILE,
+
+  """
+  Recommendations to show on the search bar when clicked
+  """
+  SEARCH_BAR
 }
 
 """
@@ -158,6 +163,11 @@ enum RecommendationRenderType {
   Glossary Term search list
   """
   GLOSSARY_TERM_SEARCH_LIST
+
+  """
+  Domain Search List
+  """
+  DOMAIN_SEARCH_LIST
 }
 
 """
@@ -243,6 +253,12 @@ type EntityProfileParams {
   Urn of the entity being shown
   """
   urn: String!
+
+  """
+  Type of the enity being displayed
+  """
+  type: EntityType!
+
 }
 
 """

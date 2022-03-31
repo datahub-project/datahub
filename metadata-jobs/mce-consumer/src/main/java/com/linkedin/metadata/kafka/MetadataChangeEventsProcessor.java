@@ -8,7 +8,7 @@ import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory;
-import com.linkedin.gms.factory.kafka.KafkaEventProducerFactory;
+import com.linkedin.gms.factory.kafka.KafkaProducerFactory;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.kafka.config.MetadataChangeProposalProcessorCondition;
 import com.linkedin.metadata.snapshot.Snapshot;
@@ -39,7 +39,7 @@ import org.springframework.stereotype.Component;
 @Component
 @Conditional(MetadataChangeProposalProcessorCondition.class)
 @Import({RestliEntityClientFactory.class, SystemAuthenticationFactory.class, KafkaEventConsumerFactory.class,
-    KafkaEventProducerFactory.class})
+    KafkaProducerFactory.class})
 @EnableKafka
 @RequiredArgsConstructor
 public class MetadataChangeEventsProcessor {
@@ -58,7 +58,7 @@ public class MetadataChangeEventsProcessor {
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
     final GenericRecord record = consumerRecord.value();
-    log.debug("Record ", record);
+    log.debug("Record {}", record);
 
     MetadataChangeEvent event = new MetadataChangeEvent();
 

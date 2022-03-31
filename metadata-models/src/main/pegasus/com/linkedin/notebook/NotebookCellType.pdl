@@ -1,0 +1,22 @@
+namespace com.linkedin.notebook
+
+/**
+ * Type of Notebook Cell
+ */
+enum NotebookCellType {
+
+  /**
+   * TEXT Notebook cell type. The cell context is text only.
+   */
+   TEXT_CELL,
+
+  /**
+   * QUERY Notebook cell type. The cell context is query only.
+   */
+   QUERY_CELL,
+
+  /**
+   * CHART Notebook cell type. The cell content is chart only.
+   */
+   CHART_CELL
+}

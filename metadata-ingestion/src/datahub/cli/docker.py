@@ -133,8 +133,8 @@ def should_use_neo4j_for_graph_service(graph_service_override: Optional[str]) ->
 @click.option(
     "--version",
     type=str,
-    default="head",
-    help="Datahub version to be deployed. If not set, deploy latest",
+    default=None,
+    help="Datahub version to be deployed. If not set, deploy using the defaults from the quickstart compose",
 )
 @click.option(
     "--build-locally",
@@ -218,7 +218,8 @@ def quickstart(
             logger.debug(f"Copied to {path}")
 
     # set version
-    os.environ["DATAHUB_VERSION"] = version
+    if version is not None:
+        os.environ["DATAHUB_VERSION"] = version
 
     base_command: List[str] = [
         "docker-compose",
@@ -293,7 +294,7 @@ def quickstart(
         _print_issue_list_and_exit(
             issues,
             header="Unable to run quickstart - the following issues were detected:",
-            footer="If you think something went wrong, please file an issue at https://github.com/linkedin/datahub/issues\n"
+            footer="If you think something went wrong, please file an issue at https://github.com/datahub-project/datahub/issues\n"
             "or send a message in our Slack https://slack.datahubproject.io/\n"
             f"Be sure to attach the logs from {log_file.name}",
         )

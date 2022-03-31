@@ -13,6 +13,7 @@ from tenacity import retry_if_exception_type, stop_after_attempt, wait_exponenti
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
+from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -45,7 +46,7 @@ class ModeAPIConfig(ConfigModel):
     max_attempts: int = 5
 
 
-class ModeConfig(ConfigModel):
+class ModeConfig(DatasetLineageProviderConfigBase):
     # See https://mode.com/developer/api-reference/authentication/
     # for authentication
     connect_uri: str = "https://app.mode.com"
@@ -55,7 +56,6 @@ class ModeConfig(ConfigModel):
     default_schema: str = "public"
     owner_username_instead_of_email: Optional[bool] = True
     api_options: ModeAPIConfig = ModeAPIConfig()
-    env: str = builder.DEFAULT_ENV
 
     @validator("connect_uri")
     def remove_trailing_slash(cls, v):
@@ -69,7 +69,7 @@ class HTTPError429(HTTPError):
 class ModeSource(Source):
     config: ModeConfig
     report: SourceReport
-    platform = "mode"
+    tool = "mode"
 
     def __hash__(self):
         return id(self)
@@ -106,9 +106,7 @@ class ModeSource(Source):
         self, space_name: str, report_info: dict
     ) -> DashboardSnapshot:
         report_token = report_info.get("token", "")
-        dashboard_urn = builder.make_dashboard_urn(
-            self.platform, report_info.get("id", "")
-        )
+        dashboard_urn = builder.make_dashboard_urn(self.tool, report_info.get("id", ""))
         dashboard_snapshot = DashboardSnapshot(
             urn=dashboard_urn,
             aspects=[],
@@ -208,9 +206,7 @@ class ModeSource(Source):
             charts = self._get_charts(report_token, query.get("token", ""))
             # build chart urns
             for chart in charts:
-                chart_urn = builder.make_chart_urn(
-                    self.platform, chart.get("token", "")
-                )
+                chart_urn = builder.make_chart_urn(self.tool, chart.get("token", ""))
                 chart_urns.append(chart_urn)
 
         return chart_urns
@@ -325,7 +321,7 @@ class ModeSource(Source):
 
     def _get_datahub_friendly_platform(self, adapter, platform):
         # Map adaptor names to what datahub expects in
-        # https://github.com/linkedin/datahub/blob/master/metadata-service/war/src/main/resources/boot/data_platforms.json
+        # https://github.com/datahub-project/datahub/blob/master/metadata-service/war/src/main/resources/boot/data_platforms.json
 
         platform_mapping = {
             "jdbc:athena": "athena",
@@ -470,12 +466,15 @@ class ModeSource(Source):
 
         return source_paths
 
-    def _get_datasource_urn(self, platform, database, source_tables):
+    def _get_datasource_urn(self, platform, platform_instance, database, source_tables):
         dataset_urn = None
         if platform or database is not None:
             dataset_urn = [
-                builder.make_dataset_urn(
-                    platform, f"{database}.{s_table}", self.config.env
+                builder.make_dataset_urn_with_platform_instance(
+                    platform,
+                    f"{database}.{s_table}",
+                    platform_instance=platform_instance,
+                    env=self.config.env,
                 )
                 for s_table in source_tables
             ]
@@ -485,7 +484,7 @@ class ModeSource(Source):
     def construct_chart_from_api_data(
         self, chart_data: dict, query: dict, path: str
     ) -> ChartSnapshot:
-        chart_urn = builder.make_chart_urn(self.platform, chart_data.get("token", ""))
+        chart_urn = builder.make_chart_urn(self.tool, chart_data.get("token", ""))
         chart_snapshot = ChartSnapshot(
             urn=chart_urn,
             aspects=[],
@@ -528,7 +527,14 @@ class ModeSource(Source):
         # create datasource urn
         platform, db_name = self._get_platform_and_dbname(query.get("data_source_id"))
         source_tables = self._get_source_from_query(query.get("raw_query"))
-        datasource_urn = self._get_datasource_urn(platform, db_name, source_tables)
+        datasource_urn = self._get_datasource_urn(
+            platform=platform,
+            platform_instance=self.config.platform_instance_map.get(platform)
+            if platform and self.config.platform_instance_map
+            else None,
+            database=db_name,
+            source_tables=source_tables,
+        )
         custom_properties = self.construct_chart_custom_properties(
             chart_detail, mode_chart_type
         )

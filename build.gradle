@@ -1,7 +1,6 @@
 buildscript {
   ext.junitJupiterVersion = '5.6.1'
-  ext.gmaVersion = '0.2.81'
-  ext.pegasusVersion = '28.3.7'
+  ext.pegasusVersion = '29.22.16'
   ext.mavenVersion = '3.6.3'
   apply from: './repositories.gradle'
   buildscript.repositories.addAll(project.repositories)
@@ -10,8 +9,16 @@ buildscript {
     classpath 'com.github.node-gradle:gradle-node-plugin:2.2.4'
     classpath 'com.commercehub.gradle.plugin:gradle-avro-plugin:0.8.1'
     classpath 'org.springframework.boot:spring-boot-gradle-plugin:2.1.4.RELEASE'
-    classpath 'com.github.jengelman.gradle.plugins:shadow:5.2.0'
+    classpath('com.github.jengelman.gradle.plugins:shadow:5.2.0') {
+      exclude group: 'org.apache.logging.log4j', module: 'log4j-core'
+    }
+    classpath "io.codearte.gradle.nexus:gradle-nexus-staging-plugin:0.30.0"
+    classpath "com.palantir.gradle.gitversion:gradle-git-version:0.12.3"
   }
+}
+
+plugins {
+  id 'com.gorylenko.gradle-git-properties' version '2.4.0-rc2'
 }
 
 project.ext.spec = [
@@ -37,6 +44,7 @@ project.ext.externalDependency = [
     'avro_1_7': 'org.apache.avro:avro:1.7.7',
     'avroCompiler_1_7': 'org.apache.avro:avro-compiler:1.7.7',
     'awsGlueSchemaRegistrySerde': 'software.amazon.glue:schema-registry-serde:1.1.1',
+    'awsMskIamAuth': 'software.amazon.msk:aws-msk-iam-auth:1.1.1',
     'cacheApi' : 'javax.cache:cache-api:1.1.0',
     'commonsIo': 'commons-io:commons-io:2.4',
     'commonsLang': 'commons-lang:commons-lang:2.6',
@@ -50,28 +58,17 @@ project.ext.externalDependency = [
     'elasticSearchRest': 'org.elasticsearch.client:elasticsearch-rest-high-level-client:7.9.3',
     'elasticSearchTransport': 'org.elasticsearch.client:transport:7.9.3',
     'findbugsAnnotations': 'com.google.code.findbugs:annotations:3.0.1',
-    'gmaCoreModels': "com.linkedin.datahub-gma:core-models-data-template:$gmaVersion",
-    'gmaDaoApi': "com.linkedin.datahub-gma:dao-api:$gmaVersion",
-    'gmaDaoApiDataTemplate': "com.linkedin.datahub-gma:dao-api-data-template:$gmaVersion",
-    'gmaEbeanDao': "com.linkedin.datahub-gma:ebean-dao:$gmaVersion",
-    'gmaElasticsearchDao': "com.linkedin.datahub-gma:elasticsearch-dao-7:$gmaVersion",
-    'gmaElasticsearchIntegTest': "com.linkedin.datahub-gma:elasticsearch-dao-integ-testing-docker-7:$gmaVersion",
-    'gmaNeo4jDao': "com.linkedin.datahub-gma:neo4j-dao:$gmaVersion",
-    'gmaRestliResources': "com.linkedin.datahub-gma:restli-resources:$gmaVersion",
-    'gmaRestliResourcesDataTemplate': "com.linkedin.datahub-gma:restli-resources-data-template:$gmaVersion",
-    'gmaTestModels': "com.linkedin.datahub-gma:test-models:$gmaVersion",
-    'gmaTestModelsDataTemplate': "com.linkedin.datahub-gma:test-models-data-template:$gmaVersion",
-    'gmaValidators': "com.linkedin.datahub-gma:validators:$gmaVersion",
     'graphqlJava': 'com.graphql-java:graphql-java:16.1',
     'gson': 'com.google.code.gson:gson:2.8.6',
     'guice': 'com.google.inject:guice:4.2.2',
     'guava': 'com.google.guava:guava:27.0.1-jre',
-    'h2': 'com.h2database:h2:1.4.196',
+    'h2': 'com.h2database:h2:2.1.210',
     'hadoopClient': 'org.apache.hadoop:hadoop-client:3.1.1',
     'hadoopCommon':'org.apache.hadoop:hadoop-common:2.7.2',
     'hadoopMapreduceClient':'org.apache.hadoop:hadoop-mapreduce-client-core:2.7.2',
     'hibernateCore': 'org.hibernate:hibernate-core:5.2.16.Final',
     'httpClient': 'org.apache.httpcomponents:httpclient:4.5.9',
+    'httpAsyncClient': 'org.apache.httpcomponents:httpasyncclient:4.1.5',
     'iStackCommons': 'com.sun.istack:istack-commons-runtime:4.0.1',
     'jacksonCore': 'com.fasterxml.jackson.core:jackson-core:2.9.10',
     'jacksonDataBind': 'com.fasterxml.jackson.core:jackson-databind:2.9.10.7',
@@ -80,7 +77,8 @@ project.ext.externalDependency = [
     'javaxInject' : 'javax.inject:javax.inject:1',
     'jerseyCore': 'org.glassfish.jersey.core:jersey-client:2.25.1',
     'jerseyGuava': 'org.glassfish.jersey.bundles.repackaged:jersey-guava:2.25.1',
-    'jettyJaas': 'org.eclipse.jetty:jetty-jaas:9.4.28.v20200408',
+    'jettyJaas': 'org.eclipse.jetty:jetty-jaas:9.4.32.v20200930',
+    'jgrapht': 'org.jgrapht:jgrapht-core:1.5.1',
     'jsonSimple': 'com.googlecode.json-simple:json-simple:1.1.1',
     'junitJupiterApi': "org.junit.jupiter:junit-jupiter-api:$junitJupiterVersion",
     'junitJupiterParams': "org.junit.jupiter:junit-jupiter-params:$junitJupiterVersion",
@@ -94,12 +92,14 @@ project.ext.externalDependency = [
     'mavenArtifact': "org.apache.maven:maven-artifact:$mavenVersion",
     'mockito': 'org.mockito:mockito-core:3.0.0',
     'mockitoInline': 'org.mockito:mockito-inline:3.0.0',
+    'mockServer': 'org.mock-server:mockserver-netty:5.11.2',
+    'mockServerClient': 'org.mock-server:mockserver-client-java:5.11.2',
     'mysqlConnector': 'mysql:mysql-connector-java:8.0.20',
     'neo4jHarness': 'org.neo4j.test:neo4j-harness:3.4.11',
     'neo4jJavaDriver': 'org.neo4j.driver:neo4j-java-driver:4.0.1',
     'opentelemetryApi': 'io.opentelemetry:opentelemetry-api:1.0.0',
     'opentelemetryAnnotations': 'io.opentelemetry:opentelemetry-extension-annotations:1.0.0',
-    'parseqTest': 'com.linkedin.parseq:parseq:3.0.7:test',
+    'opentracingJdbc':'io.opentracing.contrib:opentracing-jdbc:0.2.15',
     'parquet': 'org.apache.parquet:parquet-avro:1.12.0',
     'picocli': 'info.picocli:picocli:4.5.0',
     'playCache': 'com.typesafe.play:play-cache_2.11:2.6.18',
@@ -110,33 +110,39 @@ project.ext.externalDependency = [
     'playTest': 'com.typesafe.play:play-test_2.11:2.6.18',
     'pac4j': 'org.pac4j:pac4j-oidc:3.6.0',
     'playPac4j': 'org.pac4j:play-pac4j_2.11:7.0.1',
-    'postgresql': 'org.postgresql:postgresql:42.2.14',
+    'postgresql': 'org.postgresql:postgresql:42.3.3',
+    'protobuf': 'com.google.protobuf:protobuf-java:3.19.3',
     'reflections': 'org.reflections:reflections:0.9.9',
     'resilience4j': 'io.github.resilience4j:resilience4j-retry:1.7.1',
     'rythmEngine': 'org.rythmengine:rythm-engine:1.3.0',
     'servletApi': 'javax.servlet:javax.servlet-api:3.1.0',
-    'shiroCore': 'org.apache.shiro:shiro-core:1.7.1',
+    'shiroCore': 'org.apache.shiro:shiro-core:1.8.0',
     'sparkSql' : 'org.apache.spark:spark-sql_2.11:2.4.8',
     'sparkHive' : 'org.apache.spark:spark-hive_2.11:2.4.8',
     'springBeans': 'org.springframework:spring-beans:5.2.3.RELEASE',
     'springContext': 'org.springframework:spring-context:5.2.3.RELEASE',
     'springCore': 'org.springframework:spring-core:5.2.3.RELEASE',
+    'springDocUI': 'org.springdoc:springdoc-openapi-ui:1.6.6',
     'springJdbc': 'org.springframework:spring-jdbc:5.2.3.RELEASE',
     'springWeb': 'org.springframework:spring-web:5.2.3.RELEASE',
     'springWebMVC': 'org.springframework:spring-webmvc:5.2.3.RELEASE',
+    'springBoot': 'org.springframework.boot:spring-boot:2.1.14.RELEASE',
     'springBootAutoconfigure': 'org.springframework.boot:spring-boot-autoconfigure:2.1.4.RELEASE',
     'springBootStarterWeb': 'org.springframework.boot:spring-boot-starter-web:2.1.4.RELEASE',
     'springBootStarterJetty': 'org.springframework.boot:spring-boot-starter-jetty:2.1.4.RELEASE',
     'springBootStarterCache': 'org.springframework.boot:spring-boot-starter-cache:2.1.4.RELEASE',
     'springKafka': 'org.springframework.kafka:spring-kafka:2.2.14.RELEASE',
     'springActuator': 'org.springframework.boot:spring-boot-starter-actuator:2.1.4.RELEASE',
+    'swaggerAnnotations': 'io.swagger.core.v3:swagger-annotations:2.1.12',
     'testng': 'org.testng:testng:7.3.0',
-    'testContainers': 'org.testcontainers:testcontainers:1.15.1',
-    'testContainersJunit': 'org.testcontainers:junit-jupiter:1.15.1',
-    'testContainersPostgresql':'org.testcontainers:postgresql:1.2.0',
+    'testContainers': 'org.testcontainers:testcontainers:1.15.3',
+    'testContainersJunit': 'org.testcontainers:junit-jupiter:1.15.3',
+    'testContainersPostgresql':'org.testcontainers:postgresql:1.15.3',
     'testContainersElasticsearch': 'org.testcontainers:elasticsearch:1.15.3',
+    'typesafeConfig':'com.typesafe:config:1.4.1',
     'wiremock':'com.github.tomakehurst:wiremock:2.10.0',
     'zookeeper': 'org.apache.zookeeper:zookeeper:3.4.14'
+    
 ]
 
 allprojects {
@@ -145,12 +151,27 @@ allprojects {
   apply plugin: 'checkstyle'
 }
 
-subprojects {
-  apply plugin: 'maven'
+configure(subprojects.findAll {it.name != 'spark-lineage'}) {
 
   configurations.all {
     exclude group: "io.netty", module: "netty"
     exclude group: "log4j", module: "log4j"
+  }
+
+}
+
+subprojects {
+
+  apply plugin: 'maven'
+  apply plugin: 'com.gorylenko.gradle-git-properties'
+
+  gitProperties {
+    keys = ['git.commit.id','git.commit.id.describe','git.commit.time']
+    // using any tags (not limited to annotated tags) for "git.commit.id.describe" property
+    // see http://ajoberstar.org/grgit/grgit-describe.html for more info about the describe method and available parameters
+    // 'it' is an instance of org.ajoberstar.grgit.Grgit
+    customProperty 'git.commit.id.describe', { it.describe(tags: true) }
+    failOnNoGitDirectory = false
   }
 
   plugins.withType(JavaPlugin) {
@@ -158,6 +179,9 @@ subprojects {
       testCompile externalDependency.testng
       constraints {
         implementation('io.netty:netty-all:4.1.44.Final')
+        implementation('org.apache.commons:commons-compress:1.21')
+        implementation('org.apache.velocity:velocity-engine-core:2.3')
+        implementation('org.hibernate:hibernate-validator:6.0.20.Final')
       }
     }
 
@@ -176,10 +200,27 @@ subprojects {
     }
   }
 
-  afterEvaluate {
-    if (project.plugins.hasPlugin('java')) {
-      sourceCompatibility = 1.8
-      targetCompatibility = 1.8
+  if (project.name != 'datahub-protobuf') {
+    tasks.withType(JavaCompile).configureEach {
+      javaCompiler = javaToolchains.compilerFor {
+        languageVersion = JavaLanguageVersion.of(8)
+      }
+    }
+    tasks.withType(Test).configureEach {
+      javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(8)
+      }
+    }
+  } else {
+    tasks.withType(JavaCompile).configureEach {
+      javaCompiler = javaToolchains.compilerFor {
+        languageVersion = JavaLanguageVersion.of(11)
+      }
+    }
+    tasks.withType(Test).configureEach {
+      javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(11)
+      }
     }
   }
 

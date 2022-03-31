@@ -263,7 +263,7 @@ SNOWFLAKE_TYPES_MAP: Dict[str, Any] = {
     "GEOGRAPHY": None,
 }
 
-# see https://github.com/googleapis/python-bigquery-sqlalchemy/blob/master/pybigquery/sqlalchemy_bigquery.py#L111
+# see https://github.com/googleapis/python-bigquery-sqlalchemy/blob/main/sqlalchemy_bigquery/_types.py#L32
 BIGQUERY_TYPES_MAP: Dict[str, Any] = {
     "STRING": StringType,
     "BOOL": BooleanType,
@@ -281,4 +281,30 @@ BIGQUERY_TYPES_MAP: Dict[str, Any] = {
     "NUMERIC": NumberType,
     "BIGNUMERIC": NumberType,
     "GEOGRAPHY": None,
+}
+
+# see https://spark.apache.org/docs/latest/sql-ref-datatypes.html
+SPARK_SQL_TYPES_MAP: Dict[str, Any] = {
+    "boolean": BooleanType,
+    "byte": NumberType,
+    "tinyint": NumberType,
+    "short": NumberType,
+    "smallint": NumberType,
+    "int": NumberType,
+    "integer": NumberType,
+    "long": NumberType,
+    "bigint": NumberType,
+    "float": NumberType,
+    "real": NumberType,
+    "double": NumberType,
+    "date": DateType,
+    "timestamp": TimeType,
+    "string": StringType,
+    "binary": BytesType,
+    "decimal": NumberType,
+    "dec": NumberType,
+    "numeric": NumberType,
+    "array": ArrayType,
+    "struct": RecordType,
+    "map": RecordType,
 }

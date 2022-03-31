@@ -42,7 +42,7 @@ public class LinkUtils {
         entityService,
         new InstitutionalMemory());
     addLink(institutionalMemoryAspect, linkUrl, linkLabel, actor);
-    persistAspect(resourceUrn, institutionalMemoryAspect, actor, entityService);
+    persistAspect(resourceUrn, Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME, institutionalMemoryAspect, actor, entityService);
   }
 
   public static void removeLink(
@@ -57,7 +57,7 @@ public class LinkUtils {
         entityService,
         new InstitutionalMemory());
     removeLink(institutionalMemoryAspect, linkUrl);
-    persistAspect(resourceUrn, institutionalMemoryAspect, actor, entityService);
+    persistAspect(resourceUrn, Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME, institutionalMemoryAspect, actor, entityService);
   }
 
   private static void addLink(InstitutionalMemory institutionalMemoryAspect, String linkUrl, String linkLabel, Urn actor) {

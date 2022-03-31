@@ -13,7 +13,11 @@ from datahub.cli import cli_utils
 from datahub.cli.cli_utils import guess_entity_type
 from datahub.emitter import rest_emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.metadata.schema_classes import ChangeTypeClass, StatusClass
+from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
+    StatusClass,
+    SystemMetadataClass,
+)
 from datahub.telemetry import telemetry
 
 logger = logging.getLogger(__name__)
@@ -63,14 +67,14 @@ def delete_for_registry(
     deletion_result = DeletionResult()
     deletion_result.num_entities = 1
     deletion_result.num_records = UNKNOWN_NUM_RECORDS  # Default is unknown
-    registry_delete = {
-        "registryId": registry_id,
-        "dryRun": dry_run,
-    }
+    registry_delete = {"registryId": registry_id, "dryRun": dry_run, "soft": soft}
     (
         structured_rows,
         entities_affected,
         aspects_affected,
+        unsafe_aspects,
+        unsafe_entity_count,
+        unsafe_entities,
     ) = cli_utils.post_rollback_endpoint(registry_delete, "/entities?action=deleteAll")
     deletion_result.num_entities = entities_affected
     deletion_result.num_records = aspects_affected
@@ -89,6 +93,7 @@ def delete_for_registry(
 @click.option("--query", required=False, type=str)
 @click.option("--registry-id", required=False, type=str)
 @click.option("-n", "--dry-run", required=False, is_flag=True)
+@click.option("--include-removed", required=False, is_flag=True)
 @telemetry.with_telemetry
 def delete(
     urn: str,
@@ -100,6 +105,7 @@ def delete(
     query: str,
     registry_id: str,
     dry_run: bool,
+    include_removed: bool,
 ) -> None:
     """Delete metadata from datahub using a single urn or a combination of filters"""
 
@@ -149,6 +155,11 @@ def delete(
             registry_id=registry_id, soft=soft, dry_run=dry_run
         )
     else:
+        # log warn include_removed + hard is the only way to work
+        if include_removed and soft:
+            logger.warn(
+                "A filtered delete including soft deleted entities is redundant, because it is a soft delete by default. Please use --include-removed in conjunction with --hard"
+            )
         # Filter based delete
         deletion_result = delete_with_filters(
             env=env,
@@ -158,6 +169,7 @@ def delete(
             entity_type=entity_type,
             search_query=query,
             force=force,
+            include_removed=include_removed,
         )
 
     if not dry_run:
@@ -175,11 +187,16 @@ def delete(
         )
 
 
+def _get_current_time() -> int:
+    return int(time.time() * 1000.0)
+
+
 @telemetry.with_telemetry
 def delete_with_filters(
     dry_run: bool,
     soft: bool,
     force: bool,
+    include_removed: bool,
     search_query: str = "*",
     entity_type: str = "dataset",
     env: Optional[str] = None,
@@ -199,6 +216,7 @@ def delete_with_filters(
             platform=platform,
             search_query=search_query,
             entity_type=entity_type,
+            include_removed=include_removed,
         )
     ]
     logger.info(
@@ -213,6 +231,7 @@ def delete_with_filters(
         one_result = _delete_one_urn(
             urn,
             soft=soft,
+            entity_type=entity_type,
             dry_run=dry_run,
             cached_session_host=(session, gms_host),
             cached_emitter=emitter,
@@ -230,6 +249,8 @@ def _delete_one_urn(
     entity_type: str = "dataset",
     cached_session_host: Optional[Tuple[sessions.Session, str]] = None,
     cached_emitter: Optional[rest_emitter.DatahubRestEmitter] = None,
+    run_id: str = "delete-run-id",
+    deletion_timestamp: int = _get_current_time(),
 ) -> DeletionResult:
 
     deletion_result = DeletionResult()
@@ -252,6 +273,9 @@ def _delete_one_urn(
                     entityUrn=urn,
                     aspectName="status",
                     aspect=StatusClass(removed=True),
+                    systemMetadata=SystemMetadataClass(
+                        runId=run_id, lastObserved=deletion_timestamp
+                    ),
                 )
             )
         else:

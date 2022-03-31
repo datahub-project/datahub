@@ -1,9 +1,15 @@
 import styled from 'styled-components';
 import * as React from 'react';
-import { BankOutlined, BarChartOutlined, SettingOutlined, UsergroupAddOutlined } from '@ant-design/icons';
+import {
+    ApiOutlined,
+    BankOutlined,
+    BarChartOutlined,
+    SettingOutlined,
+    UsergroupAddOutlined,
+    FolderOutlined,
+} from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { Button } from 'antd';
-
 import { useAppConfig } from '../../useAppConfig';
 import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
 
@@ -18,12 +24,16 @@ export function AdminHeaderLinks() {
     const isAnalyticsEnabled = config?.analyticsConfig.enabled;
     const isPoliciesEnabled = config?.policiesConfig.enabled;
     const isIdentityManagementEnabled = config?.identityManagementConfig.enabled;
+    const isIngestionEnabled = config?.managedIngestionConfig.enabled;
 
     const showAnalytics = (isAnalyticsEnabled && me && me.platformPrivileges.viewAnalytics) || false;
     const showPolicyBuilder = (isPoliciesEnabled && me && me.platformPrivileges.managePolicies) || false;
     const showIdentityManagement =
         (isIdentityManagementEnabled && me && me.platformPrivileges.manageIdentities) || false;
     const showSettings = true;
+    const showIngestion =
+        isIngestionEnabled && me && me.platformPrivileges.manageIngestion && me.platformPrivileges.manageSecrets;
+    const showDomains = me?.platformPrivileges?.manageDomains || false;
 
     return (
         <>
@@ -36,11 +46,11 @@ export function AdminHeaderLinks() {
                     </Link>
                 </AdminLink>
             )}
-            {showPolicyBuilder && (
+            {showDomains && (
                 <AdminLink>
-                    <Link to="/policies">
+                    <Link to="/domains">
                         <Button type="text">
-                            <BankOutlined /> Policies
+                            <FolderOutlined /> Domains
                         </Button>
                     </Link>
                 </AdminLink>
@@ -54,11 +64,29 @@ export function AdminHeaderLinks() {
                     </Link>
                 </AdminLink>
             )}
-            {showSettings && (
+            {showIngestion && (
                 <AdminLink>
+                    <Link to="/ingestion">
+                        <Button type="text">
+                            <ApiOutlined /> Ingestion
+                        </Button>
+                    </Link>
+                </AdminLink>
+            )}
+            {showPolicyBuilder && (
+                <AdminLink>
+                    <Link to="/policies">
+                        <Button type="text">
+                            <BankOutlined /> Policies
+                        </Button>
+                    </Link>
+                </AdminLink>
+            )}
+            {showSettings && (
+                <AdminLink style={{ marginRight: 16 }}>
                     <Link to="/settings">
                         <Button type="text">
-                            <SettingOutlined /> Settings
+                            <SettingOutlined />
                         </Button>
                     </Link>
                 </AdminLink>
