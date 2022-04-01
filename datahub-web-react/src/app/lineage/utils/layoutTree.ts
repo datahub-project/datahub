@@ -51,7 +51,7 @@ export default function layoutTree(
         const layerSize = filteredNodesInCurrentLayer.length;
 
         const layerHeight = filteredNodesInCurrentLayer
-            .map(({ node }) => nodeHeightFromTitleLength(expandTitles ? node.name : undefined))
+            .map(({ node }) => nodeHeightFromTitleLength(expandTitles ? node.expandedName || node.name : undefined))
             .reduce((acc, height) => acc + height, 0);
 
         maxHeight = Math.max(maxHeight, layerHeight);
@@ -87,7 +87,8 @@ export default function layoutTree(
                               y: HORIZONTAL_SPACE_PER_LAYER * currentLayer * xModifier,
                           };
                 currentXPosition +=
-                    nodeHeightFromTitleLength(expandTitles ? node.name : undefined) + VERTICAL_SPACE_BETWEEN_NODES;
+                    nodeHeightFromTitleLength(expandTitles ? node.expandedName || node.name : undefined) +
+                    VERTICAL_SPACE_BETWEEN_NODES;
 
                 nodesByUrn[node.urn] = vizNodeForNode;
                 nodesToRender.push(vizNodeForNode);

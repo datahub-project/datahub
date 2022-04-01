@@ -27,6 +27,7 @@ describe('constructTree', () => {
             ),
         ).toEqual({
             name: 'Yet Another Dataset',
+            expandedName: 'Yet Another Dataset',
             urn: 'urn:li:dataset:3',
             type: EntityType.Dataset,
             unexploredChildren: 0,
@@ -60,7 +61,8 @@ describe('constructTree', () => {
                 testEntityRegistry,
             ),
         ).toEqual({
-            name: 'Sixth Test Dataset',
+            name: 'Display Name of Sixth',
+            expandedName: 'Sixth Test Dataset',
             urn: 'urn:li:dataset:6',
             type: EntityType.Dataset,
             unexploredChildren: 0,
@@ -69,6 +71,7 @@ describe('constructTree', () => {
             children: [
                 {
                     name: 'Fourth Test Dataset',
+                    expandedName: 'Fourth Test Dataset',
                     type: EntityType.Dataset,
                     unexploredChildren: 0,
                     urn: 'urn:li:dataset:4',
@@ -106,7 +109,8 @@ describe('constructTree', () => {
                 testEntityRegistry,
             ),
         ).toEqual({
-            name: 'Sixth Test Dataset',
+            name: 'Display Name of Sixth',
+            expandedName: 'Sixth Test Dataset',
             urn: 'urn:li:dataset:6',
             type: EntityType.Dataset,
             unexploredChildren: 0,
@@ -116,6 +120,7 @@ describe('constructTree', () => {
                 {
                     countercurrentChildrenUrns: [],
                     name: 'Fifth Test Dataset',
+                    expandedName: 'Fifth Test Dataset',
                     type: EntityType.Dataset,
                     unexploredChildren: 0,
                     urn: 'urn:li:dataset:5',
@@ -154,6 +159,7 @@ describe('constructTree', () => {
             ),
         ).toEqual({
             name: 'Yet Another Dataset',
+            expandedName: 'Yet Another Dataset',
             urn: 'urn:li:dataset:3',
             type: EntityType.Dataset,
             unexploredChildren: 0,
@@ -162,6 +168,7 @@ describe('constructTree', () => {
             children: [
                 {
                     name: 'Fourth Test Dataset',
+                    expandedName: 'Fourth Test Dataset',
                     type: EntityType.Dataset,
                     unexploredChildren: 0,
                     urn: 'urn:li:dataset:4',
@@ -171,7 +178,8 @@ describe('constructTree', () => {
                     status: null,
                     children: [
                         {
-                            name: 'Sixth Test Dataset',
+                            name: 'Display Name of Sixth',
+                            expandedName: 'Sixth Test Dataset',
                             type: 'DATASET',
                             unexploredChildren: 0,
                             urn: 'urn:li:dataset:6',
@@ -182,6 +190,7 @@ describe('constructTree', () => {
                             children: [
                                 {
                                     name: 'Fifth Test Dataset',
+                                    expandedName: 'Fifth Test Dataset',
                                     type: EntityType.Dataset,
                                     unexploredChildren: 0,
                                     urn: 'urn:li:dataset:5',
@@ -199,6 +208,7 @@ describe('constructTree', () => {
                         },
                         {
                             name: 'Fifth Test Dataset',
+                            expandedName: 'Fifth Test Dataset',
                             type: EntityType.Dataset,
                             unexploredChildren: 0,
                             urn: 'urn:li:dataset:5',
@@ -267,6 +277,7 @@ describe('constructTree', () => {
             ),
         ).toEqual({
             name: 'Yet Another Dataset',
+            expandedName: 'Yet Another Dataset',
             urn: 'urn:li:dataset:3',
             type: EntityType.Dataset,
             unexploredChildren: 0,
@@ -275,6 +286,7 @@ describe('constructTree', () => {
             children: [
                 {
                     name: 'Fourth Test Dataset',
+                    expandedName: 'Fourth Test Dataset',
                     type: EntityType.Dataset,
                     unexploredChildren: 2,
                     urn: 'urn:li:dataset:4',
