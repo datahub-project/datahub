@@ -32,11 +32,9 @@ jobs:
         # there is some race condition in gradle build, which makes gradle never terminate in ~30% of the runs
         # running build first without datahub-web-react:yarnBuild and then with it is 100% stable
         # datahub-frontend:unzipAssets depends on datahub-web-react:yarnBuild but gradle does not know about it
-        # NOTE: --no-parallel is here because of an issue where a github worker kept disappearing towards the end of the build
-        #       If you think it's a solved issue - please remove this flag
         run: |
-          ./gradlew build -x :metadata-ingestion:build -x :metadata-ingestion:check -x docs-website:build -x datahub-web-react:yarnBuild -x datahub-frontend:unzipAssets --no-parallel
-          ./gradlew build -x :metadata-ingestion:build -x :metadata-ingestion:check -x docs-website:build -x :metadata-integration:java:spark-lineage:test --no-parallel
+          ./gradlew build -x :metadata-ingestion:build -x :metadata-ingestion:check -x docs-website:build -x datahub-web-react:yarnBuild -x datahub-frontend:unzipAssets
+          ./gradlew build -x :metadata-ingestion:build -x :metadata-ingestion:check -x docs-website:build -x :metadata-integration:java:spark-lineage:test
       - uses: actions/upload-artifact@v2
         if: always()
         with:
