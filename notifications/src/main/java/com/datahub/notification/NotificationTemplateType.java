@@ -19,7 +19,7 @@ public enum NotificationTemplateType {
   CUSTOM(
       ImmutableSet.of(
           "title",
-          "message"
+          "body"
       ),
       Collections.emptySet()
   );

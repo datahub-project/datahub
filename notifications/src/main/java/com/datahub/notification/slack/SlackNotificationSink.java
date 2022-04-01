@@ -39,7 +39,6 @@ public class SlackNotificationSink implements NotificationSink {
   private static final List<NotificationTemplateType> SUPPORTED_TEMPLATES = ImmutableList.of(
       // TODO
   );
-  private static final String SLACK_CHANNEL_RECIPIENT_TYPE = "SLACK_CHANNEL";
   private static final String BOT_TOKEN_CONFIG_NAME = "botToken";
   private static final String DEFAULT_CHANNEL_CONFIG_NAME = "defaultChannel";
 
