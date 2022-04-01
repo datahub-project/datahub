@@ -36,28 +36,20 @@ public class SettingsProvider {
   }
 
   /**
-   * Whether the settings provider is ready to handle requests.
-   *
-   * If false, the settings provider is not yet initialized.
-   */
-  public boolean isInitialized() {
-    return _globalSettingsSupplier.get() != null;
-  }
-
-  /**
    * Returns an instance of {@link GlobalSettingsInfo} if it can be resolved, null otherwise.
    *
    * These settings are refreshed each minute, so the recommendation is not to cache the setting you retrieve
    * using this method.
+   *
+   * @throws {@link RuntimeException} if Global Settings are unable to be fetched.
    */
   public GlobalSettingsInfo getGlobalSettings() {
-    return _globalSettingsSupplier.get();
+      return _globalSettingsSupplier.get();
   }
 
   private GlobalSettingsInfo refreshSettings() {
     try {
       log.debug("Refreshing global settings...");
-
       final Urn globalSettingsUrn = Urn.createFromTuple(GLOBAL_SETTINGS_ENTITY_NAME, 0);
       final Map<Urn, EntityResponse> response =
           _entityClient.batchGetV2(
@@ -76,7 +68,8 @@ public class SettingsProvider {
       return new GlobalSettingsInfo(
           response.get(globalSettingsUrn)
               .getAspects()
-              .get(GLOBAL_SETTINGS_INFO_ASPECT_NAME).data());
+              .get(GLOBAL_SETTINGS_INFO_ASPECT_NAME).getValue()
+              .data());
 
     } catch (Exception e) {
       throw new RuntimeException("Caught exception while attempting to refresh global settings!", e);
