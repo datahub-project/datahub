@@ -54,7 +54,7 @@ public class UserProvider {
     try {
       final Map<Urn, EntityResponse> response =
           _entityClient.batchGetV2(
-              GLOBAL_SETTINGS_ENTITY_NAME,
+              CORP_USER_ENTITY_NAME,
               userUrns,
               ImmutableSet.of(CORP_USER_INFO_ASPECT_NAME, CORP_USER_EDITABLE_INFO_NAME, CORP_USER_STATUS_ASPECT_NAME),
               _systemAuthentication);

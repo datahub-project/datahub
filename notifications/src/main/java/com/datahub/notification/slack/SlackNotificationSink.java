@@ -98,17 +98,26 @@ public class SlackNotificationSink implements NotificationSink {
   }
 
   private boolean isEnabled() {
-    // First, check to ensure global settings have not been disabled for slack.
     final GlobalSettingsInfo globalSettings = this.settingsProvider.getGlobalSettings();
-    if (globalSettings.getIntegrations().hasSlackSettings() && !globalSettings.getIntegrations().getSlackSettings().isEnabled()) {
+
+    if (globalSettings == null) {
+      // Unable to resolve global settings. Return disabled.
+      log.debug("Unable to resolve global settings. Slack is currently disabled.");
       return false;
     }
 
-    // Next, verify that we're able to create a slack client.
+    // First, try to init a slack client using the settings we have (both static + dynamic)
     tryInitSlackClient(globalSettings);
 
-    // Only enable if the slack client could be successfully created.
-    return this.slackClient != null;
+    if (this.slackClient != null) {
+      // Next, check to ensure global settings have not been disabled for slack.
+      // The FINAL SAY about whether slack should be enabled comes from global settings.
+      return globalSettings.getIntegrations().getSlackSettings().isEnabled();
+    } else {
+      // Could not create slack client. Must be disabled.
+      log.debug("Unable to create slack client from config. Slack is currently disabled.");
+      return false;
+    }
   }
 
   private void sendNotifications(final NotificationRequest notificationRequest) {
