@@ -1,0 +1,16 @@
+namespace com.linkedin.mxe
+
+/**
+ * Generic payload record structure for serializing a Platform Event.
+ **/
+record GenericPayload {
+  /**
+  * The value of the event, serialized as bytes.
+  */
+  value: bytes
+  /**
+   * The content type, which represents the fashion in which the event was serialized.
+   * The only type currently supported is application/json.
+   */
+  contentType: string
+}

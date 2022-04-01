@@ -104,7 +104,7 @@ export default function LineageEntityNode({
         [],
     );
 
-    const nodeHeight = nodeHeightFromTitleLength(expandTitles ? node.data.name : undefined);
+    const nodeHeight = nodeHeightFromTitleLength(expandTitles ? node.data.expandedName || node.data.name : undefined);
 
     return (
         <PointerGroup data-testid={`node-${node.data.urn}-${direction}`} top={node.x} left={node.y}>
@@ -268,7 +268,7 @@ export default function LineageEntityNode({
                     </UnselectableText>
                     {expandTitles ? (
                         <foreignObject x={textX} width="125" height="200">
-                            <MultilineTitleText>{node.data.name}</MultilineTitleText>
+                            <MultilineTitleText>{node.data.expandedName || node.data.name}</MultilineTitleText>
                         </foreignObject>
                     ) : (
                         <UnselectableText

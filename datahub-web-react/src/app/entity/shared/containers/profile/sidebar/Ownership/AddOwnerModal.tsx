@@ -213,40 +213,46 @@ export const AddOwnerModal = ({ urn, type, visible, hideOwnerType, defaultOwnerT
             }
         >
             <Form layout="vertical" colon={false}>
-                <Form.Item name="owner" label={<Typography.Text strong>Owner</Typography.Text>}>
+                <Form.Item label={<Typography.Text strong>Owner</Typography.Text>}>
                     <Typography.Paragraph>Find a user or group</Typography.Paragraph>
-                    <Select
-                        autoFocus
-                        filterOption={false}
-                        value={selectValue}
-                        mode="multiple"
-                        ref={inputEl}
-                        placeholder="Search for users or groups..."
-                        onSelect={(actorUrn: any) => onSelectActor(actorUrn)}
-                        onDeselect={(actorUrn: any) => onDeselectActor(actorUrn)}
-                        onSearch={handleActorSearch}
-                        tagRender={(tagProps) => <Tag>{tagProps.value}</Tag>}
-                    >
-                        {combinedSearchResults?.map((result) => (
-                            <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
-                        ))}
-                    </Select>
-                </Form.Item>
-                {!hideOwnerType && (
-                    <Form.Item name="type" label={<Typography.Text strong>Type</Typography.Text>}>
-                        <Typography.Paragraph>Choose an owner type</Typography.Paragraph>
-                        <Select value={selectedOwnerType} onChange={onSelectOwnerType}>
-                            {ownershipTypes.map((ownerType) => (
-                                <Select.Option value={ownerType.type}>
-                                    <Typography.Text>{ownerType.name}</Typography.Text>
-                                    <div>
-                                        <Typography.Paragraph style={{ wordBreak: 'break-all' }} type="secondary">
-                                            {ownerType.description}
-                                        </Typography.Paragraph>
-                                    </div>
+                    <Form.Item name="owner">
+                        <Select
+                            autoFocus
+                            filterOption={false}
+                            value={selectValue}
+                            mode="multiple"
+                            ref={inputEl}
+                            placeholder="Search for users or groups..."
+                            onSelect={(actorUrn: any) => onSelectActor(actorUrn)}
+                            onDeselect={(actorUrn: any) => onDeselectActor(actorUrn)}
+                            onSearch={handleActorSearch}
+                            tagRender={(tagProps) => <Tag>{tagProps.value}</Tag>}
+                        >
+                            {combinedSearchResults?.map((result) => (
+                                <Select.Option key={result?.entity?.urn} value={result.entity.urn}>
+                                    {renderSearchResult(result)}
                                 </Select.Option>
                             ))}
                         </Select>
+                    </Form.Item>
+                </Form.Item>
+                {!hideOwnerType && (
+                    <Form.Item label={<Typography.Text strong>Type</Typography.Text>}>
+                        <Typography.Paragraph>Choose an owner type</Typography.Paragraph>
+                        <Form.Item name="type">
+                            <Select value={selectedOwnerType} onChange={onSelectOwnerType}>
+                                {ownershipTypes.map((ownerType) => (
+                                    <Select.Option key={ownerType.type} value={ownerType.type}>
+                                        <Typography.Text>{ownerType.name}</Typography.Text>
+                                        <div>
+                                            <Typography.Paragraph style={{ wordBreak: 'break-all' }} type="secondary">
+                                                {ownerType.description}
+                                            </Typography.Paragraph>
+                                        </div>
+                                    </Select.Option>
+                                ))}
+                            </Select>
+                        </Form.Item>
                     </Form.Item>
                 )}
             </Form>

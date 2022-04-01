@@ -58,6 +58,7 @@ FROM stl_scan ss
   JOIN svl_user_info sui ON sq.userid = sui.usesysid
 WHERE ss.starttime >= '{start_time}'
 AND ss.starttime < '{end_time}'
+AND sti.database = '{database}'
 AND sq.aborted = 0
 ORDER BY ss.endtime DESC;
 """.strip()
@@ -175,6 +176,7 @@ class RedshiftUsageSource(Source):
         return query.format(
             start_time=self.config.start_time.strftime(redshift_datetime_format),
             end_time=self.config.end_time.strftime(redshift_datetime_format),
+            database=self.config.database,
         )
 
     def _make_redshift_operation_aspect_query(self, table_name: str) -> str:
@@ -264,6 +266,9 @@ class RedshiftUsageSource(Source):
             ):
                 logging.info("An access event parameter(s) is missing. Skipping ....")
                 continue
+
+            if self.config.database_alias:
+                event_dict["database"] = self.config.database_alias
 
             if not event_dict.get("usename") or event_dict["usename"] == "":
                 logging.info("The username parameter is missing. Skipping ....")
@@ -356,6 +361,7 @@ class RedshiftUsageSource(Source):
                 self.config.env,
             ),
             self.config.top_n_queries,
+            self.config.format_sql_queries,
         )
 
     def get_report(self) -> SourceReport:

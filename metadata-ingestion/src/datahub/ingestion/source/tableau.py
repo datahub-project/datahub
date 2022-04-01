@@ -185,7 +185,12 @@ class TableauSource(Source):
                 reason=f"Connection: {connection_type} Error: {query_data['errors']}",
             )
 
-        connection_object = query_data.get("data", {}).get(connection_type, {})
+        connection_object = (
+            query_data.get("data").get(connection_type, {})
+            if query_data.get("data")
+            else {}
+        )
+
         total_count = connection_object.get("totalCount", 0)
         has_next_page = connection_object.get("pageInfo", {}).get("hasNextPage", False)
         return connection_object, total_count, has_next_page
@@ -276,6 +281,17 @@ class TableauSource(Source):
                 table.get("columns", []),
                 table_path,
             )
+
+        for datasource in datasource.get("upstreamDatasources", []):
+            datasource_urn = builder.make_dataset_urn(
+                self.platform, datasource["id"], self.config.env
+            )
+            upstream_table = UpstreamClass(
+                dataset=datasource_urn,
+                type=DatasetLineageTypeClass.TRANSFORMED,
+            )
+            upstream_tables.append(upstream_table)
+
         return upstream_tables
 
     def emit_custom_sql_datasources(self) -> Iterable[MetadataWorkUnit]:

@@ -43,7 +43,9 @@ import com.linkedin.datahub.graphql.generated.MLModelGroup;
 import com.linkedin.datahub.graphql.generated.MLModelProperties;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKeyProperties;
+import com.linkedin.datahub.graphql.generated.Notebook;
 import com.linkedin.datahub.graphql.generated.Owner;
+import com.linkedin.datahub.graphql.generated.PolicyMatchCriterionValue;
 import com.linkedin.datahub.graphql.generated.RecommendationContent;
 import com.linkedin.datahub.graphql.generated.SearchAcrossLineageResult;
 import com.linkedin.datahub.graphql.generated.SearchResult;
@@ -72,7 +74,7 @@ import com.linkedin.datahub.graphql.resolvers.group.EntityCountsResolver;
 import com.linkedin.datahub.graphql.resolvers.group.ListGroupsResolver;
 import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupMembersResolver;
 import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupResolver;
-import com.linkedin.datahub.graphql.resolvers.user.UpdateUserStatusResolver;
+import com.linkedin.datahub.graphql.resolvers.policy.GetGrantedPrivilegesResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CancelIngestionExecutionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CreateIngestionExecutionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.GetIngestionExecutionRequestResolver;
@@ -123,6 +125,7 @@ import com.linkedin.datahub.graphql.resolvers.type.ResultsTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.TimeSeriesAspectInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.user.ListUsersResolver;
 import com.linkedin.datahub.graphql.resolvers.user.RemoveUserResolver;
+import com.linkedin.datahub.graphql.resolvers.user.UpdateUserStatusResolver;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.EntityType;
 import com.linkedin.datahub.graphql.types.LoadableType;
@@ -135,6 +138,7 @@ import com.linkedin.datahub.graphql.types.container.ContainerType;
 import com.linkedin.datahub.graphql.types.corpgroup.CorpGroupType;
 import com.linkedin.datahub.graphql.types.corpuser.CorpUserType;
 import com.linkedin.datahub.graphql.types.dashboard.DashboardType;
+import com.linkedin.datahub.graphql.types.notebook.NotebookType;
 import com.linkedin.datahub.graphql.types.dataflow.DataFlowType;
 import com.linkedin.datahub.graphql.types.datajob.DataJobType;
 import com.linkedin.datahub.graphql.types.dataplatform.DataPlatformType;
@@ -179,15 +183,8 @@ import org.dataloader.BatchLoaderContextProvider;
 import org.dataloader.DataLoader;
 import org.dataloader.DataLoaderOptions;
 
-import static com.linkedin.datahub.graphql.Constants.ANALYTICS_SCHEMA_FILE;
-import static com.linkedin.datahub.graphql.Constants.APP_SCHEMA_FILE;
-import static com.linkedin.datahub.graphql.Constants.AUTH_SCHEMA_FILE;
-import static com.linkedin.datahub.graphql.Constants.GMS_SCHEMA_FILE;
-import static com.linkedin.datahub.graphql.Constants.INGESTION_SCHEMA_FILE;
-import static com.linkedin.datahub.graphql.Constants.RECOMMENDATIONS_SCHEMA_FILE;
-import static com.linkedin.datahub.graphql.Constants.SEARCH_SCHEMA_FILE;
-import static com.linkedin.datahub.graphql.Constants.URN_FIELD_NAME;
-import static graphql.Scalars.GraphQLLong;
+import static com.linkedin.datahub.graphql.Constants.*;
+import static graphql.Scalars.*;
 
 /**
  * A {@link GraphQLEngine} configured to provide access to the entities and aspects on the the GMS graph.
@@ -230,6 +227,7 @@ public class GmsGraphQLEngine {
     private final UsageType usageType;
     private final ContainerType containerType;
     private final DomainType domainType;
+    private final NotebookType notebookType;
     private final AssertionType assertionType;
 
 
@@ -327,6 +325,7 @@ public class GmsGraphQLEngine {
         this.usageType = new UsageType(this.usageClient);
         this.containerType = new ContainerType(entityClient);
         this.domainType = new DomainType(entityClient);
+        this.notebookType = new NotebookType(entityClient);
         this.assertionType = new AssertionType(entityClient);
 
         // Init Lists
@@ -347,6 +346,7 @@ public class GmsGraphQLEngine {
             dataJobType,
             glossaryTermType,
             containerType,
+            notebookType,
             domainType,
             assertionType
         );
@@ -467,6 +467,7 @@ public class GmsGraphQLEngine {
         configureCorpUserResolvers(builder);
         configureCorpGroupResolvers(builder);
         configureDashboardResolvers(builder);
+        configureNotebookResolvers(builder);
         configureChartResolvers(builder);
         configureTypeResolvers(builder);
         configureTypeExtensions(builder);
@@ -557,6 +558,9 @@ public class GmsGraphQLEngine {
             .dataFetcher("dataset", new AuthenticatedResolver<>(
                     new LoadableTypeResolver<>(datasetType,
                             (env) -> env.getArgument(URN_FIELD_NAME))))
+            .dataFetcher("notebook", new AuthenticatedResolver<>(
+                    new LoadableTypeResolver<>(notebookType,
+                            (env) -> env.getArgument(URN_FIELD_NAME))))
             .dataFetcher("corpUser", new AuthenticatedResolver<>(
                     new LoadableTypeResolver<>(corpUserType,
                             (env) -> env.getArgument(URN_FIELD_NAME))))
@@ -604,6 +608,7 @@ public class GmsGraphQLEngine {
                     (env) -> env.getArgument(URN_FIELD_NAME))))
             .dataFetcher("listPolicies",
                 new ListPoliciesResolver(this.entityClient))
+            .dataFetcher("getGrantedPrivileges", new GetGrantedPrivilegesResolver())
             .dataFetcher("listUsers",
                 new ListUsersResolver(this.entityClient))
             .dataFetcher("listGroups",
@@ -639,6 +644,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("setTagColor", new SetTagColorResolver(entityClient, entityService))
             .dataFetcher("updateChart", new AuthenticatedResolver<>(new MutableTypeResolver<>(chartType)))
             .dataFetcher("updateDashboard", new AuthenticatedResolver<>(new MutableTypeResolver<>(dashboardType)))
+            .dataFetcher("updateNotebook", new AuthenticatedResolver<>(new MutableTypeResolver<>(notebookType)))
             .dataFetcher("updateDataJob", new AuthenticatedResolver<>(new MutableTypeResolver<>(dataJobType)))
             .dataFetcher("updateDataFlow", new AuthenticatedResolver<>(new MutableTypeResolver<>(dataFlowType)))
             .dataFetcher("updateCorpUserProperties", new MutableTypeResolver<>(corpUserType))
@@ -748,8 +754,14 @@ public class GmsGraphQLEngine {
                     new EntityTypeBatchResolver(
                         new ArrayList<>(entityTypes),
                         (env) -> ((AutoCompleteResultForEntity) env.getSource()).getEntities()))
+            )
+            .type("PolicyMatchCriterionValue", typeWiring -> typeWiring
+                .dataFetcher("entity", new AuthenticatedResolver<>(
+                    new EntityTypeResolver(
+                        new ArrayList<>(entityTypes),
+                        (env) -> ((PolicyMatchCriterionValue) env.getSource()).getEntity()))
+                )
             );
-        ;
     }
 
     /**
@@ -902,6 +914,25 @@ public class GmsGraphQLEngine {
             )
         );
     }
+
+  /**
+   * Configures resolvers responsible for resolving the {@link com.linkedin.datahub.graphql.generated.Notebook} type.
+   */
+  private void configureNotebookResolvers(final RuntimeWiring.Builder builder) {
+    builder.type("Notebook", typeWiring -> typeWiring
+        .dataFetcher("relationships", new AuthenticatedResolver<>(
+            new EntityRelationshipsResultResolver(graphClient)
+        ))
+        .dataFetcher("platform", new AuthenticatedResolver<>(
+                new LoadableTypeResolver<>(dataPlatformType,
+                        (env) -> ((Notebook) env.getSource()).getPlatform().getUrn()))
+        )
+        .dataFetcher("domain",
+            new LoadableTypeResolver<>(domainType,
+                (env) -> ((Notebook) env.getSource()).getDomain().getUrn())
+        )
+    );
+  }
 
     /**
      * Configures resolvers responsible for resolving the {@link com.linkedin.datahub.graphql.generated.Dashboard} type.

@@ -15,6 +15,7 @@ export default function constructTree(
 
     const root: NodeData = {
         name: fetchedEntity?.name || '',
+        expandedName: fetchedEntity?.expandedName || '',
         urn: fetchedEntity?.urn,
         type: fetchedEntity?.type,
         subtype: fetchedEntity?.subtype,

@@ -72,6 +72,8 @@ sql_common = {
     "sqlalchemy==1.3.24",
     # Required for SQL profiling.
     "great-expectations>=0.14.11",
+    # datahub does not depend on Jinja2 directly but great expectations does. With Jinja2 3.1.0 GE 0.14.11 is breaking
+    "Jinja2<3.1.0",
     "greenlet",
 }
 
@@ -102,6 +104,11 @@ snowflake_common = {
     "cryptography",
 }
 
+trino = {
+    "trino>=0.308",
+    "trino[sqlalchemy]>=0.308",
+}
+
 microsoft_common = {"msal==1.16.0"}
 
 data_lake_base = {
@@ -119,6 +126,16 @@ data_lake_profiling = {
     "pyspark==3.0.3",
 }
 
+s3_base = {
+    *data_lake_base,
+    "moto[s3]",
+    "wcmatch",
+}
+
+usage_common = {
+    "sqlparse",
+}
+
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
@@ -134,12 +151,13 @@ plugins: Dict[str, Set[str]] = {
     "athena": sql_common | {"PyAthena[SQLAlchemy]==2.4.1"},
     "azure-ad": set(),
     "bigquery": sql_common | bigquery_common | {"sqlalchemy-bigquery>=1.4.1"},
-    "bigquery-usage": bigquery_common | {"cachetools"},
+    "bigquery-usage": bigquery_common | usage_common | {"cachetools"},
     "clickhouse": sql_common | {"clickhouse-sqlalchemy==0.1.8"},
-    "clickhouse-usage": sql_common | {"clickhouse-sqlalchemy==0.1.8"},
+    "clickhouse-usage": sql_common | usage_common | {"clickhouse-sqlalchemy==0.1.8", },
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
     "data-lake": {*data_lake_base, *data_lake_profiling},
+    "s3": {*s3_base, *data_lake_profiling},
     "dbt": {"requests"},
     "druid": sql_common | {"pydruid>=0.6.2"},
     # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
@@ -151,9 +169,11 @@ plugins: Dict[str, Set[str]] = {
     "glue": aws_common,
     "hive": sql_common
     | {
-        # Acryl Data maintains a fork of PyHive, which adds support for table comments
-        # and column comments, and also releases HTTP and HTTPS transport schemes.
-        "acryl-pyhive[hive]>=0.6.11"
+        # Acryl Data maintains a fork of PyHive
+        # - 0.6.11 adds support for table comments and column comments,
+        #   and also releases HTTP and HTTPS transport schemes
+        # - 0.6.12 adds support for Spark Thrift Server
+        "acryl-pyhive[hive]>=0.6.12"
     },
     "kafka": kafka_common,
     "kafka-connect": sql_common | {"requests", "JPype1"},
@@ -177,15 +197,27 @@ plugins: Dict[str, Set[str]] = {
     "redshift": sql_common
     | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2", "sqllineage==1.3.3"},
     "redshift-usage": sql_common
-    | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2", "sqllineage==1.3.3"},
+    | usage_common
+    | {
+        "sqlalchemy-redshift",
+        "psycopg2-binary",
+        "GeoAlchemy2",
+        "sqllineage==1.3.3",
+    },
     "sagemaker": aws_common,
     "snowflake": snowflake_common,
-    "snowflake-usage": snowflake_common | {"more-itertools>=8.12.0"},
+    "snowflake-usage": snowflake_common | usage_common | {"more-itertools>=8.12.0", },
     "sqlalchemy": sql_common,
-    "superset": {"requests", "sqlalchemy", "great_expectations", "greenlet"},
+    "superset": {
+        "requests",
+        "sqlalchemy",
+        "great_expectations",
+        "greenlet",
+        "Jinja2<3.1.0",
+    },
     "tableau": {"tableauserverclient>=0.17.0"},
-    "trino": sql_common | {"trino"},
-    "starburst-trino-usage": sql_common | {"trino"},
+    "trino": sql_common | trino,
+    "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging"},
     "powerbi": {"orderedset"} | microsoft_common,
 }
@@ -220,7 +252,7 @@ base_dev_requirements = {
     *base_requirements,
     *framework_common,
     *mypy_stubs,
-    *data_lake_base,
+    *s3_base,
     "black>=21.12b0",
     "coverage>=5.1",
     "flake8>=3.8.3",
@@ -263,6 +295,7 @@ base_dev_requirements = {
             "redshift",
             "redshift-usage",
             "data-lake",
+            "s3",
             "tableau",
             "trino",
             "hive",
@@ -331,6 +364,7 @@ entry_points = {
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
         "clickhouse-usage = datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource",
         "data-lake = datahub.ingestion.source.data_lake:DataLakeSource",
+        "s3 = datahub.ingestion.source.s3:S3Source",
         "dbt = datahub.ingestion.source.dbt:DBTSource",
         "druid = datahub.ingestion.source.sql.druid:DruidSource",
         "elasticsearch = datahub.ingestion.source.elastic_search:ElasticsearchSource",
