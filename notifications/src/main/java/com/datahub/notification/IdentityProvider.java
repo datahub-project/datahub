@@ -25,15 +25,15 @@ import static com.linkedin.metadata.Constants.*;
 
 
 /**
- * Provider of basic user related information such as names, emails, etc. useful for sending notifications.
+ * Provider of basic identity (user + group) information.
  */
 @Slf4j
-public class UserProvider {
+public class IdentityProvider {
 
   protected final EntityClient _entityClient;
   protected final Authentication _systemAuthentication;
 
-  public UserProvider(
+  public IdentityProvider(
       @Nonnull final EntityClient entityClient,
       @Nonnull final Authentication systemAuthentication) {
     _entityClient = entityClient;

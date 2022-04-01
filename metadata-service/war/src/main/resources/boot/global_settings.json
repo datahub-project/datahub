@@ -1,10 +1,4 @@
 {
-  "integrations": {
-    "slackSettings": {
-      "enabled": false
-    }
-  },
-  "notifications": {
-    "incidents": {}
-  }
+  "integrations": {},
+  "notifications": {}
 }

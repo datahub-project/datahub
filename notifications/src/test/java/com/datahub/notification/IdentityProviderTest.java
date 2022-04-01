@@ -23,7 +23,7 @@ import org.testng.annotations.Test;
 import static com.linkedin.metadata.Constants.*;
 
 
-public class UserProviderTest {
+public class IdentityProviderTest {
 
   private static final Urn TEST_USER_1 = Urn.createFromTuple(CORP_USER_ENTITY_NAME, "test");
   private static final Urn TEST_USER_2 = Urn.createFromTuple(CORP_USER_ENTITY_NAME, "test2");
@@ -49,8 +49,8 @@ public class UserProviderTest {
     );
 
     final Authentication mockAuthentication = Mockito.mock(Authentication.class);
-    final UserProvider userProvider = new UserProvider(mockClient, mockAuthentication);
-    final UserProvider.User result = userProvider.getUser(TEST_USER_1);
+    final IdentityProvider identityProvider = new IdentityProvider(mockClient, mockAuthentication);
+    final IdentityProvider.User result = identityProvider.getUser(TEST_USER_1);
 
     // Verify the response
     verifyUser(result, expectedUser1());
@@ -74,15 +74,15 @@ public class UserProviderTest {
 
 
     final Authentication mockAuthentication = Mockito.mock(Authentication.class);
-    final UserProvider userProvider = new UserProvider(mockClient, mockAuthentication);
-    final Map<Urn, UserProvider.User> result = userProvider.batchGetUsers(TEST_USER_URNS);
+    final IdentityProvider identityProvider = new IdentityProvider(mockClient, mockAuthentication);
+    final Map<Urn, IdentityProvider.User> result = identityProvider.batchGetUsers(TEST_USER_URNS);
 
     // Verify the response
     verifyUser(result.get(TEST_USER_1), expectedUser1());
     verifyUser(result.get(TEST_USER_2), expectedUser2());
   }
 
-  private void verifyUser(UserProvider.User actual, UserProvider.User expected) {
+  private void verifyUser(IdentityProvider.User actual, IdentityProvider.User expected) {
     Assert.assertEquals(actual.getDisplayName(), expected.getDisplayName());
     Assert.assertEquals(actual.getFirstName(), expected.getFirstName());
     Assert.assertEquals(actual.getLastName(), expected.getLastName());
@@ -144,8 +144,8 @@ public class UserProviderTest {
     return new AuditStamp().setActor(TEST_USER_1).setTime(0L);
   }
 
-  private UserProvider.User expectedUser1() {
-    UserProvider.User expectedUser1 = new UserProvider.User();
+  private IdentityProvider.User expectedUser1() {
+    IdentityProvider.User expectedUser1 = new IdentityProvider.User();
     expectedUser1.setActive(true);
     expectedUser1.setEmail("testuser@gmail.com");
     expectedUser1.setTitle("Engineer");
@@ -155,8 +155,8 @@ public class UserProviderTest {
     return expectedUser1;
   }
 
-  private UserProvider.User expectedUser2() {
-    UserProvider.User expectedUser2 = new UserProvider.User();
+  private IdentityProvider.User expectedUser2() {
+    IdentityProvider.User expectedUser2 = new IdentityProvider.User();
     expectedUser2.setActive(true);
     expectedUser2.setEmail("testuser2@gmail.com");
     expectedUser2.setTitle("Sales");

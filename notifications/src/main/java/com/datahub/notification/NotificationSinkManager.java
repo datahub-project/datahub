@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -71,17 +72,21 @@ public class NotificationSinkManager {
     // 3. Send the messages via each sink.
     for (final NotificationSink sink : eligibleSinks) {
       log.info(String.format("About to send request %s", request.toString()));
-      try {
-        // TODO: Spawn completable futures to send notifications.
-        sink.send(request, new NotificationContext());
-      } catch (Exception e) {
-        log.error(
-            String.format("Caught exception while attempting to sink notification request to sink %s. template: %s, params: %s, recipients: %s",
-            sink.getClass(),
-            request.getMessage().getTemplate(),
-            request.getMessage().getParameters(),
-            request.getRecipients()), e);
-      }
+
+      // Run each sink asynchronously.
+      CompletableFuture.runAsync(() -> {
+        try {
+          // TODO: Spawn completable futures to send notifications.
+          sink.send(request, new NotificationContext());
+        } catch (Exception e) {
+          log.error(
+              String.format("Caught exception while attempting to sink notification request to sink %s. template: %s, params: %s, recipients: %s",
+                  sink.getClass(),
+                  request.getMessage().getTemplate(),
+                  request.getMessage().getParameters(),
+                  request.getRecipients()), e);
+        }
+      });
     }
   }
 

@@ -7,5 +7,5 @@ record GlobalIntegrationSettings {
   /**
    * Slack integration settings.
    */
-  slackSettings: SlackIntegrationSettings
+  slackSettings: optional SlackIntegrationSettings
 }

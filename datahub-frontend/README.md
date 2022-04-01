@@ -51,7 +51,7 @@ DataHub frontend leverages [Java Authentication and Authorization Service (JAAS)
 ```
 WHZ-Authentication {
   com.sun.security.auth.module.LdapLoginModule sufficient
-  userProvider="ldaps://<host>:636/dc=<domain>"
+  identityProvider="ldaps://<host>:636/dc=<domain>"
   authIdentity="{USERNAME}"
   userFilter="(&(objectClass=person)(uid={USERNAME}))"
   java.naming.security.authentication="simple"

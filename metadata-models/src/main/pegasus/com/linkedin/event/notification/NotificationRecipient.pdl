@@ -5,14 +5,14 @@ namespace com.linkedin.event.notification
  */
 record NotificationRecipient {
   /**
-   * The type of a notification template to send. Required if type is TEMPLATE.
+   * The type of a notification recipient.
    */
   type: NotificationRecipientType
 
   /**
-   * A custom notification target type. Required if recipient type is CUSTOM.
+   * A custom notification recipient type. Required if recipient type is CUSTOM.
    */
-   customRecipientType: optional string
+   customType: optional string
 
   /**
    * If type is USER or GROUP, the urn to send the notification to. Otherwise, a unique target id that the sink can pick up.

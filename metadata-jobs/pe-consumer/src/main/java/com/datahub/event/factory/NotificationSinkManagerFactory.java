@@ -2,14 +2,14 @@ package com.datahub.event.factory;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.notification.SettingsProvider;
-import com.datahub.notification.UserProvider;
+import com.datahub.notification.IdentityProvider;
 import com.datahub.notification.NotificationSink;
 import com.datahub.notification.NotificationSinkConfig;
 import com.datahub.notification.NotificationSinkManager;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
-import com.linkedin.metadata.config.NotificationSinkConfiguration;
+import com.linkedin.metadata.config.notification.NotificationSinkConfiguration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -41,8 +41,8 @@ public class NotificationSinkManagerFactory {
   private SettingsProvider settingsProvider;
 
   @Autowired
-  @Qualifier("userProvider")
-  private UserProvider userProvider;
+  @Qualifier("identityProvider")
+  private IdentityProvider identityProvider;
 
   @Autowired
   private ConfigurationProvider configurationProvider;
@@ -75,21 +75,13 @@ public class NotificationSinkManagerFactory {
                 String.format("Failed to find NotificationSink class with name %s on the classpath.", type));
           }
 
-          // Ensure class conforms to the correct type.
-          if (!NotificationSink.class.isAssignableFrom(clazz)) {
-            throw new IllegalArgumentException(
-                String.format(
-                    "Failed to instantiate invalid NotificationSink with class name %s. Class does not implement the 'NotificationSink' interface",
-                    clazz.getCanonicalName()));
-          }
-
           // Else construct an instance of the class, each class should have an empty constructor.
           try {
             final NotificationSink notificationSink = clazz.newInstance();
             notificationSink.init(new NotificationSinkConfig(
                 configs,
                 this.settingsProvider,
-                this.userProvider
+                this.identityProvider
             ));
             configuredSinks.add(notificationSink);
           } catch (Exception e) {

@@ -9,7 +9,7 @@ record GlobalNotificationSettings {
   /**
    * Settings related to asset incidents.
    */
-  incidents: record GlobalIncidentsSettings {
+  incidents: optional record GlobalIncidentsSettings {
     // todo
   }
 }

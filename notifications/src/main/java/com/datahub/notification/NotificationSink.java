@@ -2,7 +2,6 @@ package com.datahub.notification;
 
 import com.linkedin.event.notification.NotificationRequest;
 import com.linkedin.event.notification.NotificationSinkType;
-import com.linkedin.settings.global.GlobalSettingsInfo;
 import java.util.Collection;
 import javax.annotation.Nonnull;
 
@@ -27,7 +26,7 @@ public interface NotificationSink {
   Collection<NotificationTemplateType> templates();
 
   /**
-   * Initializes a notification sink by providing an instance of the platform {@link GlobalSettingsInfo}.
+   * Initializes a notification sink.
    */
   void init(@Nonnull final NotificationSinkConfig cfg);
 

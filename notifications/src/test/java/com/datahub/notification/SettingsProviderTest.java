@@ -1,7 +1,6 @@
 package com.datahub.notification;
 
 import com.datahub.authentication.Authentication;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -28,13 +27,13 @@ public class SettingsProviderTest {
   @Test
   public void testGetGlobalSettings() throws Exception {
     final EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.when(mockClient.batchGetV2(
+    Mockito.when(mockClient.getV2(
         Mockito.eq(GLOBAL_SETTINGS_ENTITY_NAME),
-        Mockito.eq(ImmutableSet.of(GLOBAL_SETTINGS_URN)),
+        Mockito.eq(GLOBAL_SETTINGS_URN),
         Mockito.eq(ImmutableSet.of(GLOBAL_SETTINGS_INFO_ASPECT_NAME)),
         Mockito.any(Authentication.class)
     )).thenReturn(
-        ImmutableMap.of(GLOBAL_SETTINGS_URN, mockSettingsResponse())
+        mockSettingsResponse()
     );
 
     final Authentication mockAuthentication = Mockito.mock(Authentication.class);
@@ -49,9 +48,9 @@ public class SettingsProviderTest {
   @Test
   public void testGetGlobalSettingsFailure() throws Exception {
     final EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.when(mockClient.batchGetV2(
+    Mockito.when(mockClient.getV2(
         Mockito.eq(GLOBAL_SETTINGS_ENTITY_NAME),
-        Mockito.eq(ImmutableSet.of(GLOBAL_SETTINGS_URN)),
+        Mockito.eq(GLOBAL_SETTINGS_URN),
         Mockito.eq(ImmutableSet.of(GLOBAL_SETTINGS_INFO_ASPECT_NAME)),
         Mockito.any(Authentication.class)
     )).thenThrow(

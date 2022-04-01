@@ -24,5 +24,5 @@ public class NotificationSinkConfig {
   /**
    * User provider, which is responsible for resolving user to their contact info attributes.
    */
-  private final UserProvider userProvider;
+  private final IdentityProvider identityProvider;
 }

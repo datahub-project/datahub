@@ -5,7 +5,7 @@ import com.datahub.notification.NotificationSink;
 import com.datahub.notification.NotificationSinkConfig;
 import com.datahub.notification.NotificationTemplateType;
 import com.datahub.notification.SettingsProvider;
-import com.datahub.notification.UserProvider;
+import com.datahub.notification.IdentityProvider;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -28,7 +28,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -57,7 +56,7 @@ public class SlackNotificationSink implements NotificationSink {
   private final Slack slack = Slack.getInstance();
   private MethodsClient slackClient;
   private SettingsProvider settingsProvider;
-  private UserProvider userProvider;
+  private IdentityProvider identityProvider;
   private String defaultChannel;
   private String botToken;
   private final Map<String, User> emailToSlackUser = new HashMap<>();
@@ -75,7 +74,7 @@ public class SlackNotificationSink implements NotificationSink {
   @Override
   public void init(@Nonnull final NotificationSinkConfig cfg) {
     this.settingsProvider = cfg.getSettingsProvider();
-    this.userProvider = cfg.getUserProvider();
+    this.identityProvider = cfg.getIdentityProvider();
     if (cfg.getStaticConfig().containsKey(BOT_TOKEN_CONFIG_NAME)) {
       botToken = (String) cfg.getStaticConfig().get(BOT_TOKEN_CONFIG_NAME);
     }
@@ -88,13 +87,10 @@ public class SlackNotificationSink implements NotificationSink {
   public void send(
       @Nonnull final NotificationRequest request,
       @Nonnull final NotificationContext context) {
-    CompletableFuture.supplyAsync(() -> {
       if (isEnabled()) {
         // TODO: Determine the best way to handle errors here.
         sendNotifications(request);
       }
-      return null;
-    });
   }
 
   private boolean isEnabled() {
@@ -112,7 +108,7 @@ public class SlackNotificationSink implements NotificationSink {
     if (this.slackClient != null) {
       // Next, check to ensure global settings have not been disabled for slack.
       // The FINAL SAY about whether slack should be enabled comes from global settings.
-      return globalSettings.getIntegrations().getSlackSettings().isEnabled();
+      return globalSettings.getIntegrations().hasSlackSettings() && globalSettings.getIntegrations().getSlackSettings().isEnabled();
     } else {
       // Could not create slack client. Must be disabled.
       log.debug("Unable to create slack client from config. Slack is currently disabled.");
@@ -145,7 +141,7 @@ public class SlackNotificationSink implements NotificationSink {
       try {
         if (NotificationRecipientType.USER.equals(recipient.getType())) {
           sendNotificationToUser(UrnUtils.getUrn(recipient.getId()), text);
-        } else if (NotificationRecipientType.CUSTOM.equals(recipient.getType()) && SLACK_CHANNEL_RECIPIENT_TYPE.equals(recipient.getCustomRecipientType())) {
+        } else if (NotificationRecipientType.CUSTOM.equals(recipient.getType()) && SLACK_CHANNEL_RECIPIENT_TYPE.equals(recipient.getCustomType())) {
           // We only support "SLACK_CHANNEL" as a custom type.
           String channel = getRecipientChannelOrDefault(recipient.getId());
           sendMessage(channel, text);
@@ -161,7 +157,7 @@ public class SlackNotificationSink implements NotificationSink {
   }
 
   private void sendNotificationToUser(final Urn userUrn, final String text) throws Exception {
-    final UserProvider.User user = this.userProvider.getUser(userUrn); // Retrieve DataHub User
+    final IdentityProvider.User user = this.identityProvider.getUser(userUrn); // Retrieve DataHub User
     if (user != null && user.getEmail() != null) {
       User slackUser = getSlackUserFromEmail(user.getEmail());
       if (slackUser != null) {

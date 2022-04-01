@@ -7,7 +7,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.settings.global.GlobalSettingsInfo;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import javax.annotation.Nonnull;
@@ -29,7 +28,7 @@ public class SettingsProvider {
     _systemAuthentication = systemAuthentication;
     // Only refetch settings every 1 minutes.
     _globalSettingsSupplier = Suppliers.memoizeWithExpiration(
-        this::refreshSettings,
+        this::getLatestSettings,
         1,
         TimeUnit.MINUTES
     );
@@ -47,26 +46,26 @@ public class SettingsProvider {
       return _globalSettingsSupplier.get();
   }
 
-  private GlobalSettingsInfo refreshSettings() {
+  private GlobalSettingsInfo getLatestSettings() {
     try {
       log.debug("Refreshing global settings...");
       final Urn globalSettingsUrn = Urn.createFromTuple(GLOBAL_SETTINGS_ENTITY_NAME, 0);
-      final Map<Urn, EntityResponse> response =
-          _entityClient.batchGetV2(
+      final EntityResponse response =
+          _entityClient.getV2(
               GLOBAL_SETTINGS_ENTITY_NAME,
-              ImmutableSet.of(globalSettingsUrn),
+              GLOBAL_SETTINGS_URN,
               ImmutableSet.of(GLOBAL_SETTINGS_INFO_ASPECT_NAME),
               _systemAuthentication);
 
       // If there's no global settings, log and return null for now. Could be that bootstrap steps have not yet completed.
-      if (response.get(globalSettingsUrn) == null || response.get(globalSettingsUrn).getAspects().get(GLOBAL_SETTINGS_INFO_ASPECT_NAME) == null) {
+      if (response == null || response.getAspects().get(GLOBAL_SETTINGS_INFO_ASPECT_NAME) == null) {
         log.error("Failed to find global settings in GMS!");
         return null;
       }
 
       log.debug("Successfully refreshed global settings.");
       return new GlobalSettingsInfo(
-          response.get(globalSettingsUrn)
+          response
               .getAspects()
               .get(GLOBAL_SETTINGS_INFO_ASPECT_NAME).getValue()
               .data());

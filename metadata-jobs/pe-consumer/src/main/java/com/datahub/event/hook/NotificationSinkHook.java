@@ -36,7 +36,6 @@ public class NotificationSinkHook implements PlatformEventHook {
   public void invoke(@Nonnull PlatformEvent event) {
     log.info(String.format("Received platform event %s", event.toString()));
     if (Constants.NOTIFICATION_REQUEST_EVENT_NAME.equals(event.getName())) {
-      log.info("Received notification request,,,");
       final NotificationRequest notificationRequest = GenericRecordUtils.deserializePayload(
           event.getPayload().getValue(),
           event.getPayload().getContentType(),

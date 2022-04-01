@@ -1,4 +1,4 @@
-package com.linkedin.metadata.config;
+package com.linkedin.metadata.config.notification;
 
 import java.util.List;
 import lombok.Data;
