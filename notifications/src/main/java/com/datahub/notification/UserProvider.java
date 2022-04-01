@@ -41,6 +41,13 @@ public class UserProvider {
   }
 
   /**
+   * Returns a single user
+   */
+  public User getUser(final Urn userUrn) {
+    return batchGetUsers(ImmutableSet.of(userUrn)).get(userUrn);
+  }
+
+  /**
    * Returns a list of User objects by URN.
    */
   public Map<Urn, User> batchGetUsers(final Set<Urn> userUrns) {

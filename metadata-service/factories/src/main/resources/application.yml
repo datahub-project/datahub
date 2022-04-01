@@ -162,6 +162,7 @@ notifications:
   # Required if enabled is true! The set of notification sinks to use.
   sinks:
     - type: com.datahub.notification.slack.SlackNotificationSink
+      enabled: ${SLACK_NOTIFICATIONS_ENABLED:false}
       configs:
         baseUrl: ${DATAHUB_BASE_URL:http://localhost:9002}
         botToken: ${SLACK_BOT_TOKEN}

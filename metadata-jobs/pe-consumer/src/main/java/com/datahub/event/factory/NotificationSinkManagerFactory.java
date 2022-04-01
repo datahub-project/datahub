@@ -58,45 +58,50 @@ public class NotificationSinkManagerFactory {
       final List<NotificationSinkConfiguration> sinkConfigurations = this.configurationProvider.getNotifications().getSinks();
       for (NotificationSinkConfiguration sink : sinkConfigurations) {
 
-        final String type = sink.getType();
-        final Map<String, Object> configs = sink.getConfigs() != null ? sink.getConfigs() : Collections.emptyMap();
+        boolean isSinkEnabled = sink.isEnabled();
 
-        log.debug(String.format("Found configs for notification sink of type %s: %s ", type, configs));
+        if (isSinkEnabled) {
+          final String type = sink.getType();
+          final Map<String, Object> configs = sink.getConfigs() != null ? sink.getConfigs() : Collections.emptyMap();
 
-        // Instantiate the Notification Sink.
-        Class<? extends NotificationSink> clazz = null;
-        try {
-          clazz = (Class<? extends NotificationSink>) Class.forName(type);
-        } catch (ClassNotFoundException e) {
-          throw new RuntimeException(
-              String.format("Failed to find NotificationSink class with name %s on the classpath.", type));
-        }
+          log.debug(String.format("Found configs for notification sink of type %s: %s ", type, configs));
 
-        // Ensure class conforms to the correct type.
-        if (!NotificationSink.class.isAssignableFrom(clazz)) {
-          throw new IllegalArgumentException(
-              String.format(
-                  "Failed to instantiate invalid NotificationSink with class name %s. Class does not implement the 'NotificationSink' interface",
-                  clazz.getCanonicalName()));
-        }
+          // Instantiate the Notification Sink.
+          Class<? extends NotificationSink> clazz = null;
+          try {
+            clazz = (Class<? extends NotificationSink>) Class.forName(type);
+          } catch (ClassNotFoundException e) {
+            throw new RuntimeException(
+                String.format("Failed to find NotificationSink class with name %s on the classpath.", type));
+          }
 
-        // Else construct an instance of the class, each class should have an empty constructor.
-        try {
-          final NotificationSink notificationSink = clazz.newInstance();
-          notificationSink.init(new NotificationSinkConfig(
-              configs,
-              this.settingsProvider,
-              this.userProvider
-          ));
-          configuredSinks.add(notificationSink);
-        } catch (Exception e) {
-          throw new RuntimeException(String.format("Failed to instantiate NotificationSink with class name %s", clazz.getCanonicalName()), e);
+          // Ensure class conforms to the correct type.
+          if (!NotificationSink.class.isAssignableFrom(clazz)) {
+            throw new IllegalArgumentException(
+                String.format(
+                    "Failed to instantiate invalid NotificationSink with class name %s. Class does not implement the 'NotificationSink' interface",
+                    clazz.getCanonicalName()));
+          }
+
+          // Else construct an instance of the class, each class should have an empty constructor.
+          try {
+            final NotificationSink notificationSink = clazz.newInstance();
+            notificationSink.init(new NotificationSinkConfig(
+                configs,
+                this.settingsProvider,
+                this.userProvider
+            ));
+            configuredSinks.add(notificationSink);
+          } catch (Exception e) {
+            throw new RuntimeException(String.format("Failed to instantiate NotificationSink with class name %s", clazz.getCanonicalName()), e);
+          }
+        } else {
+          log.info(String.format("Skipping disabled notification sink with type %s", sink.getType()));
         }
       }
       log.info(String.format("Creating NotificationSinkManager in ENABLED mode. sinks: %s", configuredSinks));
       return new NotificationSinkManager(NotificationSinkManager.NotificationManagerMode.ENABLED, configuredSinks);
     }
-
     // Notifications are disabled.
     log.info("Creating NotificationSinkManager in DISABLED mode.");
     return new NotificationSinkManager(

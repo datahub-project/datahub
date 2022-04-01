@@ -4,7 +4,6 @@ import com.linkedin.event.notification.NotificationRequest;
 import com.linkedin.event.notification.NotificationSinkType;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import java.util.Collection;
-import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
 
 
@@ -34,9 +33,6 @@ public interface NotificationSink {
 
   /**
    * Sends a notification to one or more recipients based on a {@link NotificationRequest}.
-   * @return a {@link NotificationSinkResult} reflecting the status of the sent notification.
    */
-  CompletableFuture<NotificationSinkResult> send(
-      @Nonnull final NotificationRequest request,
-      @Nonnull final NotificationContext context);
+  void send(@Nonnull final NotificationRequest request, @Nonnull final NotificationContext context) throws Exception;
 }

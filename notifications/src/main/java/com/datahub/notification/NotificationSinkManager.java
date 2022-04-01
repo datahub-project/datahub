@@ -71,7 +71,17 @@ public class NotificationSinkManager {
     // 3. Send the messages via each sink.
     for (final NotificationSink sink : eligibleSinks) {
       log.info(String.format("About to send request %s", request.toString()));
-      sink.send(request, new NotificationContext());
+      try {
+        // TODO: Spawn completable futures to send notifications.
+        sink.send(request, new NotificationContext());
+      } catch (Exception e) {
+        log.error(
+            String.format("Caught exception while attempting to sink notification request to sink %s. template: %s, params: %s, recipients: %s",
+            sink.getClass(),
+            request.getMessage().getTemplate(),
+            request.getMessage().getParameters(),
+            request.getRecipients()), e);
+      }
     }
   }
 
