@@ -1,10 +1,15 @@
 import { DeliveredProcedureOutlined } from '@ant-design/icons';
-import { Pagination, Table, Tooltip, Typography } from 'antd';
+import { Button, Pagination, Table, Tooltip, Typography } from 'antd';
+import ButtonGroup from 'antd/lib/button/button-group';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { useGetDataJobRunsQuery } from '../../../../graphql/dataJob.generated';
-import { DataProcessInstanceRunResultType, DataProcessRunStatus } from '../../../../types.generated';
+import { useGetDatasetRunsQuery } from '../../../../graphql/dataset.generated';
+import {
+    DataProcessInstanceRunResultType,
+    DataProcessRunStatus,
+    RelationshipDirection,
+} from '../../../../types.generated';
 import {
     getExecutionRequestStatusDisplayColor,
     getExecutionRequestStatusDisplayText,
@@ -24,6 +29,10 @@ const PaginationControlContainer = styled.div`
     padding-top: 16px;
     padding-bottom: 16px;
     text-align: center;
+`;
+
+const ReadWriteButtonGroup = styled(ButtonGroup)`
+    padding: 12px;
 `;
 
 const LoadingText = styled.div`
@@ -63,10 +72,17 @@ const columns = [
         key: 'name',
     },
     {
+        title: 'Task',
+        dataIndex: 'parentTemplate',
+        key: 'parentTemplate',
+        render: (parentTemplate) => <CompactEntityNameList entities={[parentTemplate]} />,
+    },
+    {
         title: 'Status',
         dataIndex: 'status',
         key: 'status',
         render: (status: any, row) => {
+            console.log();
             const statusForStyling = getStatusForStyling(status, row?.resultType);
             const Icon = getExecutionRequestStatusIcon(statusForStyling);
             const text = getExecutionRequestStatusDisplayText(statusForStyling);
@@ -112,14 +128,15 @@ const columns = [
 
 const PAGE_SIZE = 20;
 
-export const RunsTab = () => {
+export const OperationsTab = () => {
     const { urn } = useEntityData();
     const [page, setPage] = useState(1);
+    const [direction, setDirection] = useState(RelationshipDirection.Incoming);
 
-    const { loading, data } = useGetDataJobRunsQuery({
-        variables: { urn, start: (page - 1) * PAGE_SIZE, count: PAGE_SIZE },
+    const { loading, data } = useGetDatasetRunsQuery({
+        variables: { urn, start: (page - 1) * PAGE_SIZE, count: PAGE_SIZE, direction },
     });
-    const runs = data && data?.dataJob?.runs?.runs;
+    const runs = data && data?.dataset?.runs?.runs;
 
     const tableData = runs
         ?.filter((run) => run)
@@ -131,29 +148,46 @@ export const RunsTab = () => {
             inputs: run?.inputs?.relationships.map((relationship) => relationship.entity),
             outputs: run?.outputs?.relationships.map((relationship) => relationship.entity),
             externalUrl: run?.externalUrl,
+            parentTemplate: run?.parentTemplate?.relationships?.[0].entity,
         }));
-    if (loading) {
-        return (
-            <LoadingContainer>
-                <LoadingSvg height={80} width={80} />
-                <LoadingText>Fetching runs...</LoadingText>
-            </LoadingContainer>
-        );
-    }
 
     return (
         <>
-            <Table dataSource={tableData} columns={columns} pagination={false} />
-            <PaginationControlContainer>
-                <Pagination
-                    current={page}
-                    pageSize={PAGE_SIZE}
-                    total={data?.dataJob?.runs?.total || 0}
-                    showLessItems
-                    onChange={(newPage) => setPage(newPage)}
-                    showSizeChanger={false}
-                />
-            </PaginationControlContainer>
+            <ReadWriteButtonGroup>
+                <Button
+                    type={direction === RelationshipDirection.Incoming ? 'primary' : 'default'}
+                    onClick={() => setDirection(RelationshipDirection.Incoming)}
+                >
+                    Reads
+                </Button>
+                <Button
+                    type={direction === RelationshipDirection.Outgoing ? 'primary' : 'default'}
+                    onClick={() => setDirection(RelationshipDirection.Outgoing)}
+                >
+                    Writes
+                </Button>
+            </ReadWriteButtonGroup>
+            {loading && (
+                <LoadingContainer>
+                    <LoadingSvg height={80} width={80} />
+                    <LoadingText>Fetching runs...</LoadingText>
+                </LoadingContainer>
+            )}
+            {!loading && (
+                <>
+                    <Table dataSource={tableData} columns={columns} pagination={false} />
+                    <PaginationControlContainer>
+                        <Pagination
+                            current={page}
+                            pageSize={PAGE_SIZE}
+                            total={data?.dataset?.runs?.total || 0}
+                            showLessItems
+                            onChange={(newPage) => setPage(newPage)}
+                            showSizeChanger={false}
+                        />
+                    </PaginationControlContainer>
+                </>
+            )}
         </>
     );
 };

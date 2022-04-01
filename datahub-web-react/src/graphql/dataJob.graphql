@@ -45,34 +45,7 @@ mutation updateDataJob($urn: String!, $input: DataJobUpdateInput!) {
 query getDataJobRuns($urn: String!, $start: Int!, $count: Int!) {
     dataJob(urn: $urn) {
         runs(start: $start, count: $count) {
-            count
-            start
-            total
-            runs {
-                urn
-                type
-                created {
-                    time
-                    actor
-                }
-                name
-                state(startTimeMillis: null, endTimeMillis: null, limit: 1) {
-                    status
-                    attempt
-                    result {
-                        resultType
-                        nativeResultType
-                    }
-                    timestampMillis
-                }
-                inputs: relationships(input: { types: ["Consumes"], direction: OUTGOING, start: 0, count: 100 }) {
-                    ...fullRelationshipResults
-                }
-                outputs: relationships(input: { types: ["Produces"], direction: OUTGOING, start: 0, count: 100 }) {
-                    ...fullRelationshipResults
-                }
-                externalUrl
-            }
+            ...runResults
         }
     }
 }

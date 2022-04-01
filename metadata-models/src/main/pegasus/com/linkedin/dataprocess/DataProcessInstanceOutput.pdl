@@ -23,7 +23,8 @@ record DataProcessInstanceOutput {
       "fieldName": "outputs",
       "fieldType": "URN",
       "numValuesFieldName": "numOutputs",
-      "queryByDefault": false
+      "queryByDefault": false,
+      "addToFilters": true
     }
   }
   outputs: array[Urn]

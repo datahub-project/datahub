@@ -72,6 +72,7 @@ import com.linkedin.datahub.graphql.resolvers.group.EntityCountsResolver;
 import com.linkedin.datahub.graphql.resolvers.group.ListGroupsResolver;
 import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupMembersResolver;
 import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupResolver;
+import com.linkedin.datahub.graphql.resolvers.jobs.DatasetRunsResolver;
 import com.linkedin.datahub.graphql.resolvers.jobs.TaskRunsResolver;
 import com.linkedin.datahub.graphql.resolvers.user.UpdateUserStatusResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CancelIngestionExecutionRequestResolver;
@@ -815,6 +816,7 @@ public class GmsGraphQLEngine {
                    this.entityClient,
                    "dataset",
                    "subTypes")))
+                .dataFetcher("runs", new DatasetRunsResolver(entityClient))
             )
             .type("Owner", typeWiring -> typeWiring
                     .dataFetcher("owner", new AuthenticatedResolver<>(
