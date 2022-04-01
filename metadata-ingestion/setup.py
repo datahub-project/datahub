@@ -118,7 +118,7 @@ data_lake_base = {
     "tableschema>=1.20.2",
     "ujson>=4.3.0",
     "types-ujson>=4.2.1",
-    "smart-open[s3]>=5.2.1"
+    "smart-open[s3]>=5.2.1",
 }
 
 data_lake_profiling = {
@@ -193,12 +193,24 @@ plugins: Dict[str, Set[str]] = {
     "redshift": sql_common
     | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2", "sqllineage==1.3.3"},
     "redshift-usage": sql_common
-    | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2", "sqllineage==1.3.3"},
+    | {
+        "sqlalchemy-redshift",
+        "psycopg2-binary",
+        "GeoAlchemy2",
+        "sqllineage==1.3.3",
+        "sqlparse",
+    },
     "sagemaker": aws_common,
     "snowflake": snowflake_common,
     "snowflake-usage": snowflake_common | {"more-itertools>=8.12.0"},
     "sqlalchemy": sql_common,
-    "superset": {"requests", "sqlalchemy", "great_expectations", "greenlet", "Jinja2<3.1.0"},
+    "superset": {
+        "requests",
+        "sqlalchemy",
+        "great_expectations",
+        "greenlet",
+        "Jinja2<3.1.0",
+    },
     "tableau": {"tableauserverclient>=0.17.0"},
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | trino,
