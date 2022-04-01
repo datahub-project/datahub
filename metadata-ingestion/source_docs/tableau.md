@@ -34,7 +34,6 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 - [Published Data source](#Published-Data-Source)
 - [Custom SQL Data source](#Custom-SQL-Data-Source)
 
-
 #### Workbook
 Workbooks from Tableau are ingested as Container in datahub. <br/>
 - GraphQL query <br/>
@@ -398,6 +397,11 @@ Lineage is emitted as received from Tableau's metadata API for
 - Custom SQL datasources upstream to Embedded or Published datasource
 - Tables upstream to Custom SQL datasource
 
+
+#### Caveats
+- Tableau metadata API might return incorrect schema name for tables for some databases, leading to incorrect metadata in DataHub.  Read [Using the databaseTable object in query](https://help.tableau.com/current/api/metadata_api/en-us/docs/meta_api_model.html#schema_attribute) for more details.
+
+
 ### Supported Capabilities
 
 <!-- This should be an auto-generated table of supported DataHub features/functionality -->
@@ -453,8 +457,8 @@ source:
     projects: ["default", "Project 2"]
     
     # Credentials
-    username: username@acrylio.com
-    password: $TABLEAU_PASSWORD
+    username: "${TABLEAU_USER}"
+    password: "${TABLEAU_PASSWORD}"
 
     # Options
     ingest_tags: True
