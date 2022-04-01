@@ -7,9 +7,12 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -54,7 +57,6 @@ public class IngestDefaultGlobalSettingsStep implements BootstrapStep {
 
     // 2. Bind the global settings json into a GlobalSettingsInfo aspect.
     final GlobalSettingsInfo defaultSettings = RecordUtils.toRecordTemplate(GlobalSettingsInfo.class, defaultSettingsObj.toString());
-    final AuditStamp aspectAuditStamp = new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
 
     // 3. Get existing settings or empty settings object
     final GlobalSettingsInfo existingSettings = getExistingGlobalSettingsOrEmpty();
@@ -63,7 +65,15 @@ public class IngestDefaultGlobalSettingsStep implements BootstrapStep {
     final GlobalSettingsInfo newSettings = new GlobalSettingsInfo(mergeDataMaps(defaultSettings.data(), existingSettings.data()));
 
     // 5. Ingest into DataHub.
-    _entityService.ingestAspect(GLOBAL_SETTINGS_URN, GLOBAL_SETTINGS_INFO_ASPECT_NAME, newSettings, aspectAuditStamp, null);
+    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+    proposal.setEntityUrn(GLOBAL_SETTINGS_URN);
+    proposal.setEntityType(GLOBAL_SETTINGS_ENTITY_NAME);
+    proposal.setAspectName(GLOBAL_SETTINGS_INFO_ASPECT_NAME);
+    proposal.setAspect(GenericRecordUtils.serializeAspect(newSettings));
+    proposal.setChangeType(ChangeType.UPSERT);
+
+    _entityService.ingestProposal(proposal,
+        new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis()));
   }
 
   private GlobalSettingsInfo getExistingGlobalSettingsOrEmpty()  {
@@ -74,7 +84,7 @@ public class IngestDefaultGlobalSettingsStep implements BootstrapStep {
   private DataMap mergeDataMaps(final DataMap map1, final DataMap map2) {
     final DataMap result = new DataMap();
     result.putAll(map1);
-    result.putAll(map2);
+    result.putAll(map2); // TODO: Replace with a proper merge.
     return result;
   }
 }
