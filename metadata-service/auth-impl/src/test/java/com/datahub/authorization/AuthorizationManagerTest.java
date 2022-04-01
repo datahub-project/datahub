@@ -5,6 +5,7 @@ import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
@@ -18,7 +19,6 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.entity.client.OwnershipClient;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
@@ -26,16 +26,23 @@ import com.linkedin.policy.DataHubResourceFilter;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.authorization.PoliciesConfig.*;
-import static org.mockito.Mockito.*;
-import static org.testng.Assert.*;
+import static com.linkedin.metadata.Constants.DATAHUB_POLICY_INFO_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.POLICY_ENTITY_NAME;
+import static com.linkedin.metadata.authorization.PoliciesConfig.ACTIVE_POLICY_STATE;
+import static com.linkedin.metadata.authorization.PoliciesConfig.INACTIVE_POLICY_STATE;
+import static com.linkedin.metadata.authorization.PoliciesConfig.METADATA_POLICY_TYPE;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyInt;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 
 public class AuthorizationManagerTest {
@@ -47,7 +54,7 @@ public class AuthorizationManagerTest {
 
   @BeforeMethod
   public void setupTest() throws Exception {
-    _entityClient = Mockito.mock(EntityClient.class);
+    _entityClient = mock(EntityClient.class);
 
     // Init mocks.
     final Urn activePolicyUrn = Urn.createFromString("urn:li:dataHubPolicy:0");
@@ -85,10 +92,8 @@ public class AuthorizationManagerTest {
     envelopedAspectMap.put(OWNERSHIP_ASPECT_NAME, new EnvelopedAspect()
         .setValue(new com.linkedin.entity.Aspect(createOwnershipAspect(userUrns, groupUrns).data())));
     entityResponse.setAspects(envelopedAspectMap);
-    Map<Urn, EntityResponse> mockMap = mock(Map.class);
-    when(_entityClient.batchGetV2(any(), any(), eq(Collections.singleton(OWNERSHIP_ASPECT_NAME)), any()))
-        .thenReturn(mockMap);
-    when(mockMap.get(any(Urn.class))).thenReturn(entityResponse);
+    when(_entityClient.getV2(any(), any(), eq(Collections.singleton(OWNERSHIP_ASPECT_NAME)), any()))
+        .thenReturn(entityResponse);
 
     final Authentication systemAuthentication = new Authentication(
         new Actor(ActorType.USER, DATAHUB_SYSTEM_CLIENT_ID),
@@ -98,7 +103,6 @@ public class AuthorizationManagerTest {
     _authorizationManager = new AuthorizationManager(
         systemAuthentication,
         _entityClient,
-        new OwnershipClient(_entityClient),
         10,
         10,
         Authorizer.AuthorizationMode.DEFAULT
@@ -205,23 +209,21 @@ public class AuthorizationManagerTest {
 
   @Test
   public void testAuthorizedActorsActivePolicy() throws Exception {
-
-    final AuthorizationManager.AuthorizedActors actors = _authorizationManager.authorizedActors(
-        "EDIT_ENTITY_TAGS", // Should be inside the active policy.
-        Optional.of(new ResourceSpec("dataset", "urn:li:dataset:1"))
-    );
+    final AuthorizationManager.AuthorizedActors actors =
+        _authorizationManager.authorizedActors("EDIT_ENTITY_TAGS", // Should be inside the active policy.
+            Optional.of(new ResourceSpec("dataset", "urn:li:dataset:1")));
 
     assertTrue(actors.allUsers());
     assertTrue(actors.allGroups());
 
-    assertEquals(actors.getUsers(), ImmutableList.of(
+    assertEquals(new HashSet<>(actors.getUsers()), ImmutableSet.of(
         Urn.createFromString("urn:li:corpuser:user1"),
         Urn.createFromString("urn:li:corpuser:user2"),
         Urn.createFromString("urn:li:corpuser:user3"),
         Urn.createFromString("urn:li:corpuser:user4")
     ));
 
-    assertEquals(actors.getGroups(), ImmutableList.of(
+    assertEquals(new HashSet<>(actors.getGroups()), ImmutableSet.of(
         Urn.createFromString("urn:li:corpGroup:group1"),
         Urn.createFromString("urn:li:corpGroup:group2"),
         Urn.createFromString("urn:li:corpGroup:group3"),

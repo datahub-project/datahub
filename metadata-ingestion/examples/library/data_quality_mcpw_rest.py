@@ -1,3 +1,4 @@
+import json
 import time
 
 import datahub.emitter.mce_builder as builder
@@ -11,12 +12,17 @@ from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
     AssertionRunStatus,
     AssertionStdAggregation,
     AssertionStdOperator,
+    AssertionStdParameter,
+    AssertionStdParameters,
+    AssertionStdParameterType,
     AssertionType,
     DatasetAssertionInfo,
     DatasetAssertionScope,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.common import DataPlatformInstance
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProperties
 from datahub.metadata.com.linkedin.pegasus2avro.events.metadata import ChangeType
-from datahub.metadata.schema_classes import AssertionRunEventClass, PartitionSpecClass
+from datahub.metadata.com.linkedin.pegasus2avro.timeseries import PartitionSpec
 
 
 def datasetUrn(tbl: str) -> str:
@@ -31,7 +37,7 @@ def assertionUrn(info: AssertionInfo) -> str:
     return "urn:li:assertion:432475190cc846f2894b5b3aa4d55af2"
 
 
-def emitAssertionResult(assertionResult: AssertionResult) -> None:
+def emitAssertionResult(assertionResult: AssertionRunEvent) -> None:
 
     dataset_assertionRunEvent_mcp = MetadataChangeProposalWrapper(
         entityType="assertion",
@@ -45,17 +51,43 @@ def emitAssertionResult(assertionResult: AssertionResult) -> None:
     emitter.emit_mcp(dataset_assertionRunEvent_mcp)
 
 
+# Create an emitter to the GMS REST API.
+emitter = DatahubRestEmitter("http://localhost:8080")
+
+datasetProperties = DatasetProperties(
+    name="bazTable",
+)
+# Construct a MetadataChangeProposalWrapper object for dataset
+dataset_mcp = MetadataChangeProposalWrapper(
+    entityType="dataset",
+    changeType=ChangeType.UPSERT,
+    entityUrn=datasetUrn("bazTable"),
+    aspectName="datasetProperties",
+    aspect=datasetProperties,
+)
+
+# Emit Dataset entity properties aspect! (Skip if dataset is already present)
+emitter.emit_mcp(dataset_mcp)
+
 # Construct an assertion object.
 assertion_maxVal = AssertionInfo(
     type=AssertionType.DATASET,
     datasetAssertion=DatasetAssertionInfo(
         scope=DatasetAssertionScope.DATASET_COLUMN,
-        operator=AssertionStdOperator.LESS_THAN,
-        nativeType="column_value_is_less_than",
-        aggregation=AssertionStdAggregation.IDENTITY,
+        operator=AssertionStdOperator.BETWEEN,
+        nativeType="expect_column_max_to_be_between",
+        aggregation=AssertionStdAggregation.MAX,
         fields=[fldUrn("bazTable", "col1")],
         dataset=datasetUrn("bazTable"),
-        nativeParameters={"max_value": "99"},
+        nativeParameters={"max_value": "99", "min_value": "89"},
+        parameters=AssertionStdParameters(
+            minValue=AssertionStdParameter(
+                type=AssertionStdParameterType.NUMBER, value="89"
+            ),
+            maxValue=AssertionStdParameter(
+                type=AssertionStdParameterType.NUMBER, value="99"
+            ),
+        ),
     ),
     customProperties={"suite_name": "demo_suite"},
 )
@@ -69,18 +101,32 @@ assertion_maxVal_mcp = MetadataChangeProposalWrapper(
     aspect=assertion_maxVal,
 )
 
-# Create an emitter to the GMS REST API.
-emitter = DatahubRestEmitter("http://localhost:8080")
-
-# Emit Assertion entity info object!
+# Emit Assertion entity info aspect!
 emitter.emit_mcp(assertion_maxVal_mcp)
+
+# Construct an assertion platform object.
+assertion_dataPlatformInstance = DataPlatformInstance(
+    platform=builder.make_data_platform_urn("great-expectations")
+)
+
+# Construct a MetadataChangeProposalWrapper object for assertion platform
+assertion_dataPlatformInstance_mcp = MetadataChangeProposalWrapper(
+    entityType="assertion",
+    changeType=ChangeType.UPSERT,
+    entityUrn=assertionUrn(assertion_maxVal),
+    aspectName="dataPlatformInstance",
+    aspect=assertion_dataPlatformInstance,
+)
+# Emit Assertion entity platform aspect!
+emitter.emit(assertion_dataPlatformInstance_mcp)
+
 
 # Construct batch assertion result object for partition 1 batch
 assertionResult_maxVal_batch_partition1 = AssertionRunEvent(
     timestampMillis=int(time.time() * 1000),
     assertionUrn=assertionUrn(assertion_maxVal),
     asserteeUrn=datasetUrn("bazTable"),
-    partitionSpec=PartitionSpecClass(partition=str([{"country": "IN"}])),
+    partitionSpec=PartitionSpec(partition=json.dumps([{"country": "IN"}])),
     runId="uuid1",
     status=AssertionRunStatus.COMPLETE,
     result=AssertionResult(
@@ -95,11 +141,11 @@ emitAssertionResult(
 )
 
 # Construct batch assertion result object for partition 2 batch
-assertionResult_maxVal_batch_partition2 = AssertionRunEventClass(
+assertionResult_maxVal_batch_partition2 = AssertionRunEvent(
     timestampMillis=int(time.time() * 1000),
     assertionUrn=assertionUrn(assertion_maxVal),
     asserteeUrn=datasetUrn("bazTable"),
-    partitionSpec=PartitionSpecClass(partition=str([{"country": "US"}])),
+    partitionSpec=PartitionSpec(partition=json.dumps([{"country": "US"}])),
     runId="uuid1",
     status=AssertionRunStatus.COMPLETE,
     result=AssertionResult(
@@ -114,7 +160,7 @@ emitAssertionResult(
 )
 
 # Construct batch assertion result object for full table batch.
-assertionResult_maxVal_batch_fulltable = AssertionRunEventClass(
+assertionResult_maxVal_batch_fulltable = AssertionRunEvent(
     timestampMillis=int(time.time() * 1000),
     assertionUrn=assertionUrn(assertion_maxVal),
     asserteeUrn=datasetUrn("bazTable"),

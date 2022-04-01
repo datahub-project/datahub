@@ -1,5 +1,7 @@
+import csv
 import json
 import logging
+import os
 import pathlib
 import sys
 from datetime import datetime
@@ -60,6 +62,12 @@ def ingest() -> None:
     help="Perform limited ingestion from the source to the sink to get a quick preview.",
 )
 @click.option(
+    "--preview-workunits",
+    type=int,
+    default=10,
+    help="The number of workunits to produce for preview.",
+)
+@click.option(
     "--strict-warnings/--no-strict-warnings",
     default=False,
     help="If enabled, ingestion runs with warnings will yield a non-zero error code",
@@ -68,7 +76,12 @@ def ingest() -> None:
 @telemetry.with_telemetry
 @memory_leak_detector.with_leak_detection
 def run(
-    ctx: click.Context, config: str, dry_run: bool, preview: bool, strict_warnings: bool
+    ctx: click.Context,
+    config: str,
+    dry_run: bool,
+    preview: bool,
+    strict_warnings: bool,
+    preview_workunits: int,
 ) -> None:
     """Ingest metadata into DataHub."""
 
@@ -79,7 +92,7 @@ def run(
 
     try:
         logger.debug(f"Using config: {pipeline_config}")
-        pipeline = Pipeline.create(pipeline_config, dry_run, preview)
+        pipeline = Pipeline.create(pipeline_config, dry_run, preview, preview_workunits)
     except ValidationError as e:
         click.echo(e, err=True)
         sys.exit(1)
@@ -171,24 +184,29 @@ def show(run_id: str) -> None:
     """Describe a provided ingestion run to datahub"""
 
     payload_obj = {"runId": run_id, "dryRun": True, "hardDelete": True}
-    structured_rows, entities_affected, aspects_affected = post_rollback_endpoint(
-        payload_obj, "/runs?action=rollback"
-    )
+    (
+        structured_rows,
+        entities_affected,
+        aspects_modified,
+        aspects_affected,
+        unsafe_entity_count,
+        unsafe_entities,
+    ) = post_rollback_endpoint(payload_obj, "/runs?action=rollback")
 
-    if aspects_affected >= ELASTIC_MAX_PAGE_SIZE:
+    if aspects_modified >= ELASTIC_MAX_PAGE_SIZE:
         click.echo(
-            f"this run created at least {entities_affected} new entities and updated at least {aspects_affected} aspects"
+            f"this run created at least {entities_affected} new entities and updated at least {aspects_modified} aspects"
         )
     else:
         click.echo(
-            f"this run created {entities_affected} new entities and updated {aspects_affected} aspects"
+            f"this run created {entities_affected} new entities and updated {aspects_modified} aspects"
         )
     click.echo(
         "rolling back will delete the entities created and revert the updated aspects"
     )
     click.echo()
     click.echo(
-        f"showing first {len(structured_rows)} of {aspects_affected} aspects touched by this run"
+        f"showing first {len(structured_rows)} of {aspects_modified} aspects touched by this run"
     )
     click.echo(tabulate(structured_rows, RUN_TABLE_COLUMNS, tablefmt="grid"))
 
@@ -197,9 +215,18 @@ def show(run_id: str) -> None:
 @click.option("--run-id", required=True, type=str)
 @click.option("-f", "--force", required=False, is_flag=True)
 @click.option("--dry-run", "-n", required=False, is_flag=True, default=False)
-@click.option("--hard-delete", "-d", required=False, is_flag=True, default=False)
+@click.option("--safe/--nuke", required=False, is_flag=True, default=True)
+@click.option(
+    "--report-dir",
+    required=False,
+    type=str,
+    default="./rollback-reports",
+    help="Path to directory where rollback reports will be saved to",
+)
 @telemetry.with_telemetry
-def rollback(run_id: str, force: bool, dry_run: bool, hard_delete: bool) -> None:
+def rollback(
+    run_id: str, force: bool, dry_run: bool, safe: bool, report_dir: str
+) -> None:
     """Rollback a provided ingestion run to datahub"""
 
     cli_utils.test_connectivity_complain_exit("ingest")
@@ -210,18 +237,57 @@ def rollback(run_id: str, force: bool, dry_run: bool, hard_delete: bool) -> None
             abort=True,
         )
 
-    payload_obj = {"runId": run_id, "dryRun": dry_run, "hardDelete": hard_delete}
-    structured_rows, entities_affected, aspects_affected = post_rollback_endpoint(
-        payload_obj, "/runs?action=rollback"
-    )
+    payload_obj = {"runId": run_id, "dryRun": dry_run, "safe": safe}
+    (
+        structured_rows,
+        entities_affected,
+        aspects_reverted,
+        aspects_affected,
+        unsafe_entity_count,
+        unsafe_entities,
+    ) = post_rollback_endpoint(payload_obj, "/runs?action=rollback")
 
     click.echo(
         "Rolling back deletes the entities created by a run and reverts the updated aspects"
     )
     click.echo(
-        f"This rollback {'will' if dry_run else ''} {'delete' if dry_run else 'deleted'} {entities_affected} entities and {'will roll' if dry_run else 'rolled'} back {aspects_affected} aspects"
+        f"This rollback {'will' if dry_run else ''} {'delete' if dry_run else 'deleted'} {entities_affected} entities and {'will roll' if dry_run else 'rolled'} back {aspects_reverted} aspects"
     )
+
     click.echo(
-        f"showing first {len(structured_rows)} of {aspects_affected} aspects {'that will be' if dry_run else ''} reverted by this run"
+        f"showing first {len(structured_rows)} of {aspects_reverted} aspects {'that will be ' if dry_run else ''}reverted by this run"
     )
     click.echo(tabulate(structured_rows, RUN_TABLE_COLUMNS, tablefmt="grid"))
+
+    if aspects_affected > 0:
+        if safe:
+            click.echo(
+                f"WARNING: This rollback {'will hide' if dry_run else 'has hidden'} {aspects_affected} aspects related to {unsafe_entity_count} entities being rolled back that are not part ingestion run id."
+            )
+        else:
+            click.echo(
+                f"WARNING: This rollback {'will delete' if dry_run else 'has deleted'} {aspects_affected} aspects related to {unsafe_entity_count} entities being rolled back that are not part ingestion run id."
+            )
+
+    if unsafe_entity_count > 0:
+        now = datetime.now()
+        current_time = now.strftime("%Y-%m-%d %H:%M:%S")
+
+        try:
+            folder_name = report_dir + "/" + current_time
+
+            ingestion_config_file_name = folder_name + "/config.json"
+            os.makedirs(os.path.dirname(ingestion_config_file_name), exist_ok=True)
+            with open(ingestion_config_file_name, "w") as file_handle:
+                json.dump({"run_id": run_id}, file_handle)
+
+            csv_file_name = folder_name + "/unsafe_entities.csv"
+            with open(csv_file_name, "w") as file_handle:
+                writer = csv.writer(file_handle)
+                writer.writerow(["urn"])
+                for row in unsafe_entities:
+                    writer.writerow([row.get("urn")])
+
+        except IOError as e:
+            print(e)
+            sys.exit("Unable to write reports to " + report_dir)

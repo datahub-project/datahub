@@ -14,4 +14,5 @@ message MessageB {
   string value = 2; // message value
   protobuf.MessageA nested = 3; // nested message a
   google.protobuf.BoolValue hot = 6; // Indicator
+  protobuf.MessageA secondary_nested = 7; // nested message a second time
 }

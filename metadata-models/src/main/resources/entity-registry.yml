@@ -158,3 +158,9 @@ entities:
     keyAspect: dataHubRetentionKey
     aspects:
       - dataHubRetentionConfig
+  - name: dataPlatformInstance
+    category: internal
+    keyAspect: dataPlatformInstanceKey
+    aspects:
+      - status
+events:

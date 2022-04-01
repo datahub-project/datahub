@@ -12,7 +12,7 @@ public class SchemaFieldVisitor implements ProtobufModelVisitor<Pair<SchemaField
 
     @Override
     public Stream<Pair<SchemaField, Double>> visitField(ProtobufField field, VisitContext context) {
-        return context.getFirstFieldPath(field).map(path ->
+        return context.streamAllPaths(field).map(path ->
                 Pair.of(
                         new SchemaField()
                                 .setFieldPath(context.getFieldPath(path))
@@ -20,6 +20,6 @@ public class SchemaFieldVisitor implements ProtobufModelVisitor<Pair<SchemaField
                                 .setDescription(field.comment())
                                 .setNativeDataType(field.nativeType())
                                 .setType(field.schemaFieldDataType()),
-                        context.calculateSortOrder(path, field))).stream();
+                        context.calculateSortOrder(path, field)));
     }
 }
