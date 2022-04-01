@@ -34,6 +34,8 @@ VerticaDialect.get_view_definition = get_view_definition
 class VerticaConfig(BasicSQLAlchemyConfig):
     # defaults
     scheme = "vertica+vertica_python"
+    # The ingestion of views is set to false by default due to the beta version.
+    include_views = False
 
     @validator("host_port")
     def clean_host_port(cls, v):
