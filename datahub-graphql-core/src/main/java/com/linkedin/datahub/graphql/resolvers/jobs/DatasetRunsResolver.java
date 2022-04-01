@@ -7,7 +7,7 @@ import com.linkedin.datahub.graphql.generated.DataProcessInstance;
 import com.linkedin.datahub.graphql.generated.DataProcessInstanceResult;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.RelationshipDirection;
-import com.linkedin.datahub.graphql.types.dataprocessinstance.mappers.DataProcessInstanceMapper;
+import com.linkedin.datahub.graphql.types.dataprocessinst.mappers.DataProcessInstanceMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;

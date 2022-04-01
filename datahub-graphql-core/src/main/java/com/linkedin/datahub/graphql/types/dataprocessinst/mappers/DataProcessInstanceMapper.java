@@ -1,4 +1,4 @@
-package com.linkedin.datahub.graphql.types.dataprocessinstance.mappers;
+package com.linkedin.datahub.graphql.types.dataprocessinst.mappers;
 
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;

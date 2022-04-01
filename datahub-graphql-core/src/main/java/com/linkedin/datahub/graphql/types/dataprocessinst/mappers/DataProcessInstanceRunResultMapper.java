@@ -1,4 +1,4 @@
-package com.linkedin.datahub.graphql.types.dataprocessinstance.mappers;
+package com.linkedin.datahub.graphql.types.dataprocessinst.mappers;
 
 import com.linkedin.datahub.graphql.generated.DataProcessInstanceRunResultType;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
