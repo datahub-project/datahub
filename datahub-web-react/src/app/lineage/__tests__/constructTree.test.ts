@@ -62,7 +62,7 @@ describe('constructTree', () => {
             ),
         ).toEqual({
             name: 'Display Name of Sixth',
-            expandedName: 'Sixth Test Dataset',
+            expandedName: 'Fully Qualified Name of Sixth Test Dataset',
             urn: 'urn:li:dataset:6',
             type: EntityType.Dataset,
             unexploredChildren: 0,
@@ -110,7 +110,7 @@ describe('constructTree', () => {
             ),
         ).toEqual({
             name: 'Display Name of Sixth',
-            expandedName: 'Sixth Test Dataset',
+            expandedName: 'Fully Qualified Name of Sixth Test Dataset',
             urn: 'urn:li:dataset:6',
             type: EntityType.Dataset,
             unexploredChildren: 0,
@@ -179,7 +179,7 @@ describe('constructTree', () => {
                     children: [
                         {
                             name: 'Display Name of Sixth',
-                            expandedName: 'Sixth Test Dataset',
+                            expandedName: 'Fully Qualified Name of Sixth Test Dataset',
                             type: 'DATASET',
                             unexploredChildren: 0,
                             urn: 'urn:li:dataset:6',

@@ -520,6 +520,7 @@ export const dataset6 = {
     urn: 'urn:li:dataset:6',
     properties: {
         name: 'Display Name of Sixth',
+        qualifiedName: 'Fully Qualified Name of Sixth Test Dataset',
         description: 'This and here we have yet another Dataset (YAN). Are there more?',
         origin: 'PROD',
         customProperties: [{ key: 'propertyAKey', value: 'propertyAValue' }],
