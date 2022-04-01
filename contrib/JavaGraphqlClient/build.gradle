@@ -1,0 +1,31 @@
+plugins {
+	id 'org.springframework.boot' version '2.6.6'
+	id 'io.spring.dependency-management' version '1.0.11.RELEASE'
+	id 'java'
+	id 'com.apollographql.apollo' version '2.5.11'
+}
+
+group = 'com.example.graphql.client'
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = '1.8'
+
+repositories {
+	mavenCentral()
+}
+
+apollo {
+
+	packageName.set("com.example.graphql.client.JavaGraphqlClient")
+	graphqlSourceDirectorySet.srcDir("src/main/graphql")
+
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter'
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	implementation 'com.apollographql.apollo:apollo-runtime:2.5.11'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}

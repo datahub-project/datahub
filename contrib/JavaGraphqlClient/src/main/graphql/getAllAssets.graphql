@@ -1,0 +1,748 @@
+query getSearchResultsForMultiple($input: SearchAcrossEntitiesInput!) {
+  searchAcrossEntities(input: $input) {
+    ...searchResults
+    __typename
+  }
+}
+fragment searchResults on SearchResults {
+  start
+  count
+  total
+  searchResults {
+    entity {
+      ...searchResultFields
+      __typename
+    }
+    matchedFields {
+      name
+      value
+      __typename
+    }
+    insights {
+      text
+      icon
+      __typename
+    }
+    __typename
+  }
+  facets {
+    ...facetFields
+    __typename
+  }
+  __typename
+}
+fragment searchResultFields on Entity {
+  urn
+  type
+  ... on Dataset {
+    name
+    origin
+    uri
+    platform {
+      ...platformFields
+      __typename
+    }
+    editableProperties {
+      description
+      __typename
+    }
+    platformNativeType
+    properties {
+      name
+      description
+      customProperties {
+        key
+        value
+        __typename
+      }
+      __typename
+    }
+    ownership {
+      ...ownershipFields
+      __typename
+    }
+    globalTags {
+      ...globalTagsFields
+      __typename
+    }
+    glossaryTerms {
+      ...glossaryTerms
+      __typename
+    }
+    subTypes {
+      typeNames
+      __typename
+    }
+    domain {
+      ...entityDomain
+      __typename
+    }
+    container {
+      ...entityContainer
+      __typename
+    }
+    __typename
+  }
+  ... on CorpUser {
+    username
+    properties {
+      active
+      displayName
+      title
+      firstName
+      lastName
+      fullName
+      email
+      __typename
+    }
+    info {
+      active
+      displayName
+      title
+      firstName
+      lastName
+      fullName
+      email
+      __typename
+    }
+    editableProperties {
+      displayName
+      title
+      pictureLink
+      __typename
+    }
+    __typename
+  }
+  ... on CorpGroup {
+    name
+    info {
+      displayName
+      description
+      __typename
+    }
+    memberCount: relationships(input: {types: ["IsMemberOfGroup"], direction: INCOMING, start: 0, count: 1}) {
+      total
+      __typename
+    }
+    __typename
+  }
+  ... on Dashboard {
+    urn
+    type
+    tool
+    dashboardId
+    properties {
+      name
+      description
+      externalUrl
+      access
+      lastModified {
+        time
+        __typename
+      }
+      __typename
+    }
+    ownership {
+      ...ownershipFields
+      __typename
+    }
+    globalTags {
+      ...globalTagsFields
+      __typename
+    }
+    glossaryTerms {
+      ...glossaryTerms
+      __typename
+    }
+    editableProperties {
+      description
+      __typename
+    }
+    platform {
+      ...platformFields
+      __typename
+    }
+    domain {
+      ...entityDomain
+      __typename
+    }
+    container {
+      ...entityContainer
+      __typename
+    }
+    __typename
+  }
+  ... on Chart {
+    urn
+    type
+    tool
+    chartId
+    properties {
+      name
+      description
+      externalUrl
+      type
+      access
+      lastModified {
+        time
+        __typename
+      }
+      __typename
+    }
+    ownership {
+      ...ownershipFields
+      __typename
+    }
+    globalTags {
+      ...globalTagsFields
+      __typename
+    }
+    glossaryTerms {
+      ...glossaryTerms
+      __typename
+    }
+    editableProperties {
+      description
+      __typename
+    }
+    platform {
+      ...platformFields
+      __typename
+    }
+    domain {
+      ...entityDomain
+      __typename
+    }
+    container {
+      ...entityContainer
+      __typename
+    }
+    __typename
+  }
+  ... on DataFlow {
+    urn
+    type
+    orchestrator
+    flowId
+    cluster
+    properties {
+      name
+      description
+      project
+      __typename
+    }
+    ownership {
+      ...ownershipFields
+      __typename
+    }
+    globalTags {
+      ...globalTagsFields
+      __typename
+    }
+    glossaryTerms {
+      ...glossaryTerms
+      __typename
+    }
+    editableProperties {
+      description
+      __typename
+    }
+    platform {
+      ...platformFields
+      __typename
+    }
+    domain {
+      ...entityDomain
+      __typename
+    }
+    __typename
+  }
+  ... on DataJob {
+    urn
+    type
+    dataFlow {
+      ...nonRecursiveDataFlowFields
+      __typename
+    }
+    jobId
+    ownership {
+      ...ownershipFields
+      __typename
+    }
+    properties {
+      name
+      description
+      __typename
+    }
+    globalTags {
+      ...globalTagsFields
+      __typename
+    }
+    glossaryTerms {
+      ...glossaryTerms
+      __typename
+    }
+    editableProperties {
+      description
+      __typename
+    }
+    domain {
+      ...entityDomain
+      __typename
+    }
+    __typename
+  }
+  ... on GlossaryTerm {
+    name
+    hierarchicalName
+    properties {
+      name
+      description
+      termSource
+      sourceRef
+      sourceUrl
+      rawSchema
+      customProperties {
+        key
+        value
+        __typename
+      }
+      __typename
+    }
+    __typename
+  }
+  ... on Domain {
+    urn
+    properties {
+      name
+      description
+      __typename
+    }
+    ownership {
+      ...ownershipFields
+      __typename
+    }
+    __typename
+  }
+  ... on Container {
+    urn
+    properties {
+      name
+      description
+      __typename
+    }
+    platform {
+      ...platformFields
+      __typename
+    }
+    editableProperties {
+      description
+      __typename
+    }
+    ownership {
+      ...ownershipFields
+      __typename
+    }
+    tags {
+      ...globalTagsFields
+      __typename
+    }
+    institutionalMemory {
+      ...institutionalMemoryFields
+      __typename
+    }
+    glossaryTerms {
+      ...glossaryTerms
+      __typename
+    }
+    subTypes {
+      typeNames
+      __typename
+    }
+    entities(input: {}) {
+      total
+      __typename
+    }
+    container {
+      ...entityContainer
+      __typename
+    }
+    __typename
+  }
+  ... on MLFeatureTable {
+    urn
+    type
+    name
+    description
+    featureTableProperties {
+      description
+      mlFeatures {
+        urn
+        __typename
+      }
+      mlPrimaryKeys {
+        urn
+        __typename
+      }
+      __typename
+    }
+    ownership {
+      ...ownershipFields
+      __typename
+    }
+    platform {
+      ...platformFields
+      __typename
+    }
+    __typename
+  }
+  ... on MLModel {
+    name
+    description
+    origin
+    ownership {
+      ...ownershipFields
+      __typename
+    }
+    platform {
+      ...platformFields
+      __typename
+    }
+    __typename
+  }
+  ... on MLModelGroup {
+    name
+    origin
+    description
+    ownership {
+      ...ownershipFields
+      __typename
+    }
+    platform {
+      ...platformFields
+      __typename
+    }
+    __typename
+  }
+  ... on Tag {
+    name
+    description
+    __typename
+  }
+  __typename
+}
+fragment platformFields on DataPlatform {
+  urn
+  type
+  name
+  properties {
+    type
+    displayName
+    datasetNameDelimiter
+    logoUrl
+    __typename
+  }
+  displayName
+  info {
+    type
+    displayName
+    datasetNameDelimiter
+    logoUrl
+    __typename
+  }
+  __typename
+}
+fragment ownershipFields on Ownership {
+  owners {
+    owner {
+      ... on CorpUser {
+        urn
+        type
+        username
+        info {
+          active
+          displayName
+          title
+          email
+          firstName
+          lastName
+          fullName
+          __typename
+        }
+        properties {
+          active
+          displayName
+          title
+          email
+          firstName
+          lastName
+          fullName
+          __typename
+        }
+        editableProperties {
+          displayName
+          title
+          pictureLink
+          email
+          __typename
+        }
+        __typename
+      }
+      ... on CorpGroup {
+        urn
+        type
+        name
+        properties {
+          displayName
+          email
+          __typename
+        }
+        info {
+          displayName
+          email
+          admins {
+            urn
+            username
+            info {
+              active
+              displayName
+              title
+              email
+              firstName
+              lastName
+              fullName
+              __typename
+            }
+            editableInfo {
+              pictureLink
+              teams
+              skills
+              __typename
+            }
+            __typename
+          }
+          members {
+            urn
+            username
+            info {
+              active
+              displayName
+              title
+              email
+              firstName
+              lastName
+              fullName
+              __typename
+            }
+            editableInfo {
+              pictureLink
+              teams
+              skills
+              __typename
+            }
+            __typename
+          }
+          groups
+          __typename
+        }
+        __typename
+      }
+      __typename
+    }
+    type
+    __typename
+  }
+  lastModified {
+    time
+    __typename
+  }
+  __typename
+}
+fragment globalTagsFields on GlobalTags {
+  tags {
+    tag {
+      urn
+      name
+      description
+      properties {
+        colorHex
+        __typename
+      }
+      __typename
+    }
+    __typename
+  }
+  __typename
+}
+fragment glossaryTerms on GlossaryTerms {
+  terms {
+    term {
+      urn
+      name
+      properties {
+        name
+        __typename
+      }
+      __typename
+    }
+    __typename
+  }
+  __typename
+}
+fragment entityDomain on Domain {
+  urn
+  properties {
+    name
+    __typename
+  }
+  __typename
+}
+fragment entityContainer on Container {
+  urn
+  platform {
+    ...platformFields
+    __typename
+  }
+  properties {
+    name
+    __typename
+  }
+  subTypes {
+    typeNames
+    __typename
+  }
+  __typename
+}
+fragment nonRecursiveDataFlowFields on DataFlow {
+  urn
+  type
+  orchestrator
+  flowId
+  cluster
+  properties {
+    name
+    description
+    project
+    externalUrl
+    customProperties {
+      key
+      value
+      __typename
+    }
+    __typename
+  }
+  editableProperties {
+    description
+    __typename
+  }
+  ownership {
+    ...ownershipFields
+    __typename
+  }
+  platform {
+    ...platformFields
+    __typename
+  }
+  domain {
+    ...entityDomain
+    __typename
+  }
+  __typename
+}
+fragment institutionalMemoryFields on InstitutionalMemory {
+  elements {
+    url
+    author {
+      urn
+      username
+      __typename
+    }
+    description
+    created {
+      actor
+      time
+      __typename
+    }
+    __typename
+  }
+  __typename
+}
+fragment facetFields on FacetMetadata {
+  field
+  displayName
+  aggregations {
+    value
+    count
+    entity {
+      urn
+      type
+      ... on Tag {
+        name
+        description
+        properties {
+          colorHex
+          __typename
+        }
+        __typename
+      }
+      ... on GlossaryTerm {
+        properties {
+          name
+          __typename
+        }
+        __typename
+      }
+      ... on DataPlatform {
+        ...platformFields
+        __typename
+      }
+      ... on Domain {
+        urn
+        properties {
+          name
+          __typename
+        }
+        __typename
+      }
+      ... on Container {
+        urn
+        platform {
+          ...platformFields
+          __typename
+        }
+        properties {
+          name
+          __typename
+        }
+        __typename
+      }
+      ... on CorpUser {
+        urn
+        username
+        properties {
+          displayName
+          fullName
+          __typename
+        }
+        editableProperties {
+          displayName
+          pictureLink
+          __typename
+        }
+        __typename
+      }
+      ... on CorpGroup {
+        urn
+        name
+        properties {
+          displayName
+          __typename
+        }
+        __typename
+      }
+      __typename
+    }
+    __typename
+  }
+  __typename
+}
