@@ -22,14 +22,29 @@ public class ProtobufExtensionTagVisitorTest {
         ProtobufExtensionTagVisitor test = new ProtobufExtensionTagVisitor();
         assertEquals(Set.of(
                 new TagProperties()
-                        .setName("team.TeamB")
-                        .setDescription("meta.msg.team"),
-                new TagProperties()
                         .setName("bool_feature")
                         .setDescription("meta.msg.bool_feature is true."),
                 new TagProperties()
                         .setName("MetaEnumExample.ENTITY")
-                        .setDescription("Enum MetaEnumExample.ENTITY of {UNKNOWN, ENTITY, EVENT}")
+                        .setDescription("Enum MetaEnumExample.ENTITY of {UNKNOWN, ENTITY, EVENT}"),
+                new TagProperties()
+                        .setName("MetaEnumExample.EVENT")
+                        .setDescription("Enum MetaEnumExample.EVENT of {UNKNOWN, ENTITY, EVENT}"),
+                new TagProperties()
+                        .setName("a")
+                        .setDescription("meta.msg.tag_list"),
+                new TagProperties()
+                        .setName("b")
+                        .setDescription("meta.msg.tag_list"),
+                new TagProperties()
+                        .setName("c")
+                        .setDescription("meta.msg.tag_list"),
+                new TagProperties()
+                        .setName("repeat_string.a")
+                        .setDescription("meta.msg.repeat_string"),
+                new TagProperties()
+                        .setName("repeat_string.b")
+                        .setDescription("meta.msg.repeat_string")
         ), getTestProtobufGraph("extended_protobuf", "messageA")
                 .accept(getVisitContextBuilder("extended_protobuf.Person"), List.of(test))
                 .map(MetadataChangeProposalWrapper::getAspect)
@@ -47,7 +62,16 @@ public class ProtobufExtensionTagVisitorTest {
                         .setDescription("meta.fld.product_type"),
                 new TagProperties()
                         .setName("MetaEnumExample.EVENT")
-                        .setDescription("Enum MetaEnumExample.EVENT of {UNKNOWN, ENTITY, EVENT}")
+                        .setDescription("Enum MetaEnumExample.EVENT of {UNKNOWN, ENTITY, EVENT}"),
+                new TagProperties()
+                        .setName("d")
+                        .setDescription("meta.fld.tag_list"),
+                new TagProperties()
+                        .setName("e")
+                        .setDescription("meta.fld.tag_list"),
+                new TagProperties()
+                        .setName("f")
+                        .setDescription("meta.fld.tag_list")
         );
 
         assertEquals(expectedTagProperties,
