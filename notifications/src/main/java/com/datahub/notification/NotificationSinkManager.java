@@ -1,10 +1,12 @@
 package com.datahub.notification;
 
 import com.linkedin.event.notification.NotificationRequest;
+import com.linkedin.event.notification.NotificationSinkType;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -67,7 +69,7 @@ public class NotificationSinkManager {
         request.getMessage().getParameters());
 
     // 2. Identify the sinks capable of handling the template.
-    final List<NotificationSink> eligibleSinks = getEligibleSinksFromTemplate(template);
+    final List<NotificationSink> eligibleSinks = getEligibleSinks(template, request);
 
     // 3. Send the messages via each sink.
     for (final NotificationSink sink : eligibleSinks) {
@@ -76,7 +78,6 @@ public class NotificationSinkManager {
       // Run each sink asynchronously.
       CompletableFuture.runAsync(() -> {
         try {
-          // TODO: Spawn completable futures to send notifications.
           sink.send(request, new NotificationContext());
         } catch (Exception e) {
           log.error(
@@ -125,6 +126,24 @@ public class NotificationSinkManager {
                 parameter));
       }
     }
+  }
+
+  private List<NotificationSink> getEligibleSinks(final NotificationTemplateType type, final NotificationRequest request) {
+    final List<NotificationSink> eligibleTemplateSinks = getEligibleSinksFromTemplate(type);
+
+    // If the request has requested specific sinks, direct only to those.
+    if (request.getSinks() != null) {
+      final Set<NotificationSinkType> requestedSinkTypes = request.getSinks()
+          .stream()
+          .map(com.linkedin.event.notification.NotificationSink::getType)
+          .collect(Collectors.toSet());
+      return eligibleTemplateSinks
+          .stream()
+          .filter(sink -> requestedSinkTypes.contains(sink.type()))
+          .collect(Collectors.toList());
+    }
+    // Otherwise, return all eligible sinks
+    return eligibleTemplateSinks;
   }
 
   private List<NotificationSink> getEligibleSinksFromTemplate(final NotificationTemplateType template) {

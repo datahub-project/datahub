@@ -1,6 +1,7 @@
-package com.datahub.event.factory;
+package com.linkedin.gms.factory.notifications;
 
 import com.datahub.authentication.Authentication;
+import com.datahub.notification.SecretProvider;
 import com.datahub.notification.SettingsProvider;
 import com.datahub.notification.IdentityProvider;
 import com.datahub.notification.NotificationSink;
@@ -45,6 +46,10 @@ public class NotificationSinkManagerFactory {
   private IdentityProvider identityProvider;
 
   @Autowired
+  @Qualifier("secretProvider")
+  private SecretProvider secretProvider;
+
+  @Autowired
   private ConfigurationProvider configurationProvider;
 
   @Bean(name = "notificationSinkManager")
@@ -81,7 +86,8 @@ public class NotificationSinkManagerFactory {
             notificationSink.init(new NotificationSinkConfig(
                 configs,
                 this.settingsProvider,
-                this.identityProvider
+                this.identityProvider,
+                this.secretProvider
             ));
             configuredSinks.add(notificationSink);
           } catch (Exception e) {

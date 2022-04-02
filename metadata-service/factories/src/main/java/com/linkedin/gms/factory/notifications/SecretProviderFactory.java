@@ -5,7 +5,8 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
-import com.datahub.notification.SettingsProvider;
+import com.datahub.notification.SecretProvider;
+import com.linkedin.metadata.secret.SecretService;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -19,7 +20,7 @@ import org.springframework.context.annotation.Scope;
 @Configuration
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 @Import({RestliEntityClientFactory.class, SystemAuthenticationFactory.class})
-public class SettingsProviderFactory {
+public class SecretProviderFactory {
 
   @Autowired
   @Qualifier("systemAuthentication")
@@ -29,10 +30,14 @@ public class SettingsProviderFactory {
   @Qualifier("restliEntityClient")
   private EntityClient entityClient;
 
-  @Bean(name = "secretProvider")
+  @Autowired
+  @Qualifier("secretService")
+  private SecretService secretService;
+
+  @Bean(name = "settingsProvider")
   @Scope("singleton")
   @Nonnull
-  protected SettingsProvider getInstance() {
-    return new SettingsProvider(this.entityClient, this.systemAuthentication);
+  protected SecretProvider getInstance() {
+    return new SecretProvider(this.entityClient, this.systemAuthentication, this.secretService);
   }
 }

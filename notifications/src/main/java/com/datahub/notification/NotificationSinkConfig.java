@@ -25,4 +25,9 @@ public class NotificationSinkConfig {
    * User provider, which is responsible for resolving user to their contact info attributes.
    */
   private final IdentityProvider identityProvider;
+
+  /**
+   * Secret provider, which is responsible for resolving secret values from their urn.
+   */
+  private final SecretProvider secretProvider;
 }

@@ -3,7 +3,6 @@ package com.datahub.notification;
 import com.datahub.authentication.Authentication;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableSet;
-import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.settings.global.GlobalSettingsInfo;
@@ -49,7 +48,6 @@ public class SettingsProvider {
   private GlobalSettingsInfo getLatestSettings() {
     try {
       log.debug("Refreshing global settings...");
-      final Urn globalSettingsUrn = Urn.createFromTuple(GLOBAL_SETTINGS_ENTITY_NAME, 0);
       final EntityResponse response =
           _entityClient.getV2(
               GLOBAL_SETTINGS_ENTITY_NAME,

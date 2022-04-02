@@ -1,6 +1,6 @@
 package com.datahub.event.hook;
 
-import com.datahub.event.factory.NotificationSinkManagerFactory;
+import com.linkedin.gms.factory.notifications.NotificationSinkManagerFactory;
 import com.datahub.notification.NotificationSinkManager;
 import com.linkedin.event.notification.NotificationRequest;
 import com.linkedin.metadata.Constants;
