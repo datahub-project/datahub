@@ -72,6 +72,13 @@ def ingest() -> None:
     default=False,
     help="If enabled, ingestion runs with warnings will yield a non-zero error code",
 )
+@click.option(
+    "--safe",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Supress display of credentials in logs by supressing elaborae stacktrace (stackprinter) during ingestion failures"
+)
 @click.pass_context
 @telemetry.with_telemetry
 @memory_leak_detector.with_leak_detection
@@ -102,7 +109,18 @@ def run(
         raise SensitiveError() from e
 
     logger.info("Starting metadata ingestion")
-    pipeline.run()
+    
+    try:
+        pipeline.run()
+    except Exception as e:
+        # We dont want to log sensitive information in variables if the pipeline fails due to
+        # an unexpected error. Disable printing sensitive info to logs if ingestion is running
+        # with `safe` flag.
+        if safe:
+            raise SensitiveError() from e
+        else:
+            raise e
+            
     logger.info("Finished metadata ingestion")
     ret = pipeline.pretty_print_summary(warnings_as_failure=strict_warnings)
     pipeline.log_ingestion_stats()
