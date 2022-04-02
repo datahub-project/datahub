@@ -166,7 +166,7 @@ public interface GraphBuilder<SNAPSHOT extends RecordTemplate> {
 [entity]: ../what/entity.md
 [aspect]: ../what/aspect.md
 [GMS]: ../what/gms.md
-[Local DAO]: ../../metadata-dao/src/main/java/com/linkedin/metadata/dao/BaseLocalDAO.java
+[Local DAO]: ../../metadata-dao/src/main/java/com/linkedin/metadata/ebean/EbeanAspectDAO.java
 [Remote DAO]: ../../metadata-dao/src/main/java/com/linkedin/metadata/dao/BaseRemoteDAO.java
 [MAE]: ../what/mxe.md#metadata-audit-event-mae
 [rest.li]: https://rest.li

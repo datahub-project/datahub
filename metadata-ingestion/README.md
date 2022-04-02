@@ -1,16 +1,42 @@
-# Intro to Metadata Ingestion
+# Introduction to Metadata Ingestion
 
 ![Python version 3.6+](https://img.shields.io/badge/python-3.6%2B-blue)
 
-This module hosts an extensible Python-based metadata ingestion system for DataHub.
-This supports sending data to DataHub using Kafka or through the REST API.
-It can be used through our CLI tool, with an orchestrator like Airflow, or as a library.
+## Metadata Ingestion Sources
+
+We apply a Support Status to each Metadata Source to help you understand the integration reliability at a glance.
+
+![Certified](https://img.shields.io/badge/support%20status-certified-brightgreen): Certified Sources are well-tested & widely-adopted by the DataHub Community. We expect the integration to be stable with few user-facing issues.
+
+![Incubating](https://img.shields.io/badge/support%20status-incubating-blue): Incubating Sources are ready for DataHub Community adoption but have not been tested for a wide variety of edge-cases. We eagerly solicit feedback from the Community to streghten the connector; minor version changes may arise in future releases.
+
+![Testing](https://img.shields.io/badge/support%20status-testing-lightgrey): Testing Sources are available for experiementation by DataHub Community members, but may change without notice. 
+
+### Supported Metadata Ingestion Sources
+
+#### Dataset Sources/SQL Sources
+
+| Support Status | Dataset Sources/SQL Sources |
+| --- | --- |
+| ![Certified](https://img.shields.io/badge/support%20status-certified-brightgreen) | <img src="/docs-website/static/img/logos/platforms/athena.svg" alt="Athena" width="30"/> |
+| ![Incubating](https://img.shields.io/badge/support%20status-incubating-blue) | <img src="/docs-website/static/img/logos/platforms/elasticsearch.svg" alt="Elastic Search" width="30"/> |
+| ![Testing](https://img.shields.io/badge/support%20status-testing-lightgrey) | |
+
+#### BI Tools
+
+| Support Status | BI Tools |
+| --- | --- |
+| ![Certified](https://img.shields.io/badge/support%20status-certified-brightgreen) | <img src="/docs-website/static/img/logos/platforms/looker.svg" alt="Looker" width="30"/> <img src="/docs-website/static/img/logos/platforms/superset.svg" alt="Superset" width="30"/> |
+| ![Incubating](https://img.shields.io/badge/support%20status-incubating-blue) | <img src="/docs-website/static/img/logos/platforms/metabase.svg" alt="Metabase" width="30"/> |
+| ![Testing](https://img.shields.io/badge/support%20status-testing-lightgrey) | <img src="/docs-website/static/img/logos/platforms/tableau.png" alt="Tableau" width="30"/> |
 
 ## Getting Started
 
 ### Prerequisites
 
 Before running any metadata ingestion job, you should make sure that DataHub backend services are all running. If you are trying this out locally check out the [CLI](../docs/cli.md) to install the CLI and understand the options available in the CLI. You can reference the CLI usage guide given there as you go through this page.
+
+### Core Concepts
 
 ## Recipes
 
@@ -75,6 +101,14 @@ datahub ingest -c ./examples/recipes/example_to_datahub_rest.yml --preview
 # Preview with dry-run
 datahub ingest -c ./examples/recipes/example_to_datahub_rest.yml -n --preview
 ```
+
+By default `--preview` creates 10 workunits. But if you wish to try producing more workunits you can use another option `--preview-workunits`
+
+```shell
+# Preview 20 workunits without sending anything to sink
+datahub ingest -c ./examples/recipes/example_to_datahub_rest.yml -n --preview --preview-workunits=20
+```
+
 ## Transformations
 
 If you'd like to modify data before it reaches the ingestion sinks – for instance, adding additional owners or tags – you can use a transformer to write your own module and integrate it with DataHub.
