@@ -1,9 +1,8 @@
 import collections
 import dataclasses
 import logging
-from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Optional, Union, Set
+from typing import Any, Dict, Iterable, List, Optional, Set, Union
 
 from dateutil import parser
 from pydantic import Field
@@ -98,14 +97,13 @@ class RedshiftUsageSourceReport(SourceReport):
         self.filtered.add(key)
 
 
-@dataclasses.dataclass
 class RedshiftUsageSource(Source):
     def __init__(self, config: RedshiftUsageConfig, ctx: PipelineContext):
         self.config: RedshiftUsageConfig = config
         self.report: RedshiftUsageSourceReport = RedshiftUsageSourceReport()
 
     @classmethod
-    def create(cls, config_dict, ctx):
+    def create(cls, config_dict: Dict, ctx: PipelineContext) -> "RedshiftUsageSource":
         config = RedshiftUsageConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
@@ -245,12 +243,11 @@ class RedshiftUsageSource(Source):
             ):
                 events.append(event_dict)
             else:
-                logger.debug(
-                    f"Filtering out {event_dict['schema']}.{event_dict['table']}"
+                full_table_name: str = (
+                    f"{row['database']}.{row['schema']}.{row['table']}"
                 )
-                self.report.report_dropped(
-                    f"{event_dict['database']}.{event_dict['schema']}.{event_dict['table']}"
-                )
+                logger.debug(f"Filtering out {full_table_name}")
+                self.report.report_dropped(full_table_name)
 
         if events:
             return events
