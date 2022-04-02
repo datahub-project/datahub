@@ -109,6 +109,13 @@ By default `--preview` creates 10 workunits. But if you wish to try producing mo
 datahub ingest -c ./examples/recipes/example_to_datahub_rest.yml -n --preview --preview-workunits=20
 ```
 
+Sometimes, while running the ingestion pipeline, unexpected exceptions may occur. This can cause `stackprinter` to print all variables the logs. This may lead to credentials being written to logfiles. To prevent this behavior, in case of unexpected errors, a `--safe` option can be added to ingest cli command. By default, this option is set to false. However, if enabled, prevents printing all variables to logs, mitigating the risk of writing credentials to logs. The `--safe` option is applied when the ingestion pipeline is actually running.
+
+```shell
+# Running ingestion with safe option
+datahub ingest -c ./examples/recipes/example_to_datahub_rest.yml --safe
+```
+
 ## Transformations
 
 If you'd like to modify data before it reaches the ingestion sinks – for instance, adding additional owners or tags – you can use a transformer to write your own module and integrate it with DataHub.
