@@ -575,9 +575,9 @@ async def create_item(item: create_dataset_params) -> None:
             token=token,
         )
         results = response.json()
-        prospective_url = urljoin(os.environ["DATAHUB_FRONTEND"], f"/dataset/{datasetName}")
+        
         return JSONResponse(
-            content={"message": f"{prospective_url}"}, status_code=response.status_code
+            content={"message": f"{datasetName}"}, status_code=response.status_code
         ) 
     else:
         rootLogger.info("make_dataset request failed from {}".format(requestor))
