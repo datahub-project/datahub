@@ -1,12 +1,13 @@
 # flake8: noqa
 # command to run in CLI mode is 
-# gunicorn -c config.py app:app --workers 4 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:8001
+# gunicorn -c config.py main:app --workers 4 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:8001
+# also need export PROMETHEUS_MULTIPROC_DIR=/home/admini/development/datahub/fastapi/tmp
 import logging
 import os
 import time
 from logging.handlers import TimedRotatingFileHandler
 from os import environ
-
+from urllib.parse import urljoin
 import requests
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
@@ -19,6 +20,7 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
+from starlette_exporter import PrometheusMiddleware, handle_metrics
 
 from ingest_api.helper.mce_convenience import (create_new_schema_mce,
                                                derive_platform_name,
@@ -51,16 +53,13 @@ class MyFilter(object):
 
 CLI_MODE = False if environ.get("RUNNING_IN_DOCKER") else True
 
-api_emitting_port = 8001
-
-
 rootLogger = logging.getLogger("ingest")
 logformatter = logging.Formatter("%(asctime)s;%(levelname)s;%(funcName)s;%(message)s")
 rootLogger.setLevel(logging.INFO)
 
 streamLogger = logging.StreamHandler()
 streamLogger.setFormatter(logformatter)
-streamLogger.setLevel(logging.DEBUG)
+streamLogger.addFilter(MyFilter(logging.INFO))  #docker logs will show simplified
 rootLogger.addHandler(streamLogger)
 rootLogger.info(f"CLI mode : {CLI_MODE}")
 
@@ -74,6 +73,7 @@ if not CLI_MODE:
         "DATAHUB_FRONTEND",
         "ELASTIC_HOST",
         "DATAHUB_BACKEND",
+        "ANNOUNCEMENT_URL"
     ]:
         if not os.environ[env_var]:
             raise Exception(
@@ -89,22 +89,24 @@ if not CLI_MODE:
 else:
     os.environ["ELASTIC_HOST"] = "http://localhost:9200"
     os.environ["DATAHUB_BACKEND"] = "http://localhost:8080"
+    os.environ["ANNOUNCEMENT_URL"] = "https://xaluil.gitlab.io/announce/"
+    os.environ["DATAHUB_FRONTEND"] = "http://172.19.0.1:9002"
     if not os.path.exists("./logs/"):
         os.mkdir(f"{os.getcwd()}/logs/")
     log_path = f"{os.getcwd()}/logs/ingest_api.log"
-    log_path_simple = f"{os.getcwd()}/logs/ingest_api_simple.log"
+    log_path_simple = f"{os.getcwd()}/logs/ingest_api.simple.log"
 
 rest_endpoint = os.environ["DATAHUB_BACKEND"]
 
 log = TimedRotatingFileHandler(
-    log_path, when="midnight", interval=1, backupCount=365
+    log_path, when="midnight", interval=1, backupCount=730
 )
 log.setLevel(logging.DEBUG)
 log.setFormatter(logformatter)
 rootLogger.addHandler(log)
 
 log_simple = TimedRotatingFileHandler(
-    log_path_simple, when="midnight", interval=1, backupCount=365
+    log_path_simple, when="midnight", interval=1, backupCount=730
 )
 log_simple.addFilter(MyFilter(logging.INFO))  # only capture INFO
 log_simple.setFormatter(logformatter)
@@ -134,7 +136,8 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["POST", "GET", "OPTIONS"],
 )
-
+app.add_middleware(PrometheusMiddleware)
+app.add_route("/custom/metrics", handle_metrics)
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request, exc):
@@ -146,12 +149,12 @@ async def validation_exception_handler(request, exc):
     rootLogger.error(exc_str)
     rootLogger.error(
         f"malformed POST request \
-        {request.body} from {request.client}"
+        {request.body} from {request.client} from {request.remote_addr}" 
     )
     return PlainTextResponse(str(exc_str), status_code=400)
 
 
-@app.get("/hello")
+@app.get("/custom/hello")
 async def hello_world() -> None:
     """
     Just a hello world endpoint to ensure that the api is running.
@@ -168,11 +171,35 @@ async def hello_world() -> None:
         status_code=200,
     )
 
+@app.get("/custom/announce")
+async def echo_announce() -> None:
+    """
+    Just a hello world endpoint to ensure that the api is running.
+    """        
+    response = requests.get(os.environ["ANNOUNCEMENT_URL"])
+    if response.status_code!=200:
+        rootLogger.info(f"announcement upstream returns {str(response.status_code)}")
+        JSONResponse(
+        content={
+            "message": "Unable to fetch Gitlab Pages Announcements at this time",
+            "timestamp": int(time.time() * 1000)
+        },
+        status_code=200,
+    )
+    else:
+        received = response.json()
+        return JSONResponse(
+            content={
+                "message": received["message"],
+                "timestamp": received["timestamp"]
+            },
+            status_code=200,
+        )
 
-@app.post("/update_browsepath")
+@app.post("/custom/update_browsepath")
 async def update_browsepath(item: browsepath_params):
 
-    rootLogger.info("update_browsepath_request_received from {}".format(item.requestor))
+    rootLogger.info("update_browsepath_request_received from {} for {}".format(item.requestor, item.dataset_name))
     rootLogger.debug("update_browsepath_request_received {}".format(item))
     datasetName = item.dataset_name
     token = item.user_token
@@ -199,18 +226,19 @@ async def update_browsepath(item: browsepath_params):
             event="UI Update Browsepath",
             token=item.user_token,
         )
+        results = response.json()
         return JSONResponse(
-            content=response.get("message", ""), status_code=response.get("status_code")
-        )
+            content={"message": results.get("message", "")}, status_code=response.status_code
+        ) 
     else:
         rootLogger.info(
             f"authentication failed for request\
             (update_browsepath) from {user}"
         )
-        return JSONResponse(content="Authentication Failed", status_code=401)
+        return JSONResponse(content={"message": "Authentication Failed"}, status_code=401)
 
 
-@app.post("/update_samples")
+@app.post("/custom/update_samples")
 async def update_samples(item: add_sample_params):
 
     rootLogger.info("update_sample_request_received from {}".format(item.requestor))
@@ -230,18 +258,19 @@ async def update_samples(item: add_sample_params):
             event="Update Dataset Profile",
             token=item.user_token,
         )
+        results = response.json()
         return JSONResponse(
-            content=response.get("message", ""), status_code=response.get("status_code")
-        )
+            content={"message": results.get("message", "")}, status_code=response.status_code
+        ) 
     else:
         rootLogger.info(
             f"authentication failed for request\
             (update_samples) from {user}"
         )
-        return JSONResponse(content="Authentication Failed", status_code=401)
+        return JSONResponse(content={"message": "Authentication Failed"}, status_code=401)
 
 
-@app.post("/delete_samples")
+@app.post("/custom/delete_samples")
 async def delete_samples(item: delete_sample_params):
 
     rootLogger.info("delete_sample_request_received from {}".format(item.requestor))
@@ -265,16 +294,19 @@ async def delete_samples(item: delete_sample_params):
             headers=headers,
             data=data,
         )
-        return JSONResponse(content=response.text, status_code=response.status_code)
+        results = response.json()
+        return JSONResponse(
+            content={"message": results.get("message", "")}, status_code=response.status_code
+        )        
     else:
         rootLogger.info(
             f"authentication failed for request\
             (delete_sample) from {user}"
         )
-        return JSONResponse(content="Authentication Failed", status_code=401)
+        return JSONResponse(content={"message": "Authentication Failed"}, status_code=401)
 
 
-@app.post("/update_schema")
+@app.post("/custom/update_schema")
 async def update_schema(item: schema_params):
 
     rootLogger.info(
@@ -316,18 +348,18 @@ async def update_schema(item: schema_params):
             event="UI Update Schema",
             token=item.user_token,
         )
+        results = response.json()
         return JSONResponse(
-            content=response.get("message", ""), status_code=response.get("status_code")
+            content=results.get("message", ""), status_code=response.status_code
         )
     else:
         rootLogger.info(
-            f"authentication failed for request\
-            (update_schema) from {user}"
+            f"authentication failed for request(update_schema) from {user}"
         )
-        return JSONResponse(content="Authentication Failed", status_code=401)
+        return JSONResponse(content={"message": "Authentication Failed"}, status_code=401)
 
 
-@app.post("/update_properties")
+@app.post("/custom/update_properties")
 async def update_prop(item: prop_params):
     # i expect the following:
     # name: do not touch
@@ -372,15 +404,15 @@ async def update_prop(item: prop_params):
             event="UI Update Properties",
             token=token,
         )
+        results = response.json()
         return JSONResponse(
-            content=response.get("message", ""), status_code=response.get("status_code")
-        )
+            content={"message": results.get("message", "")}, status_code=response.status_code
+        ) 
     else:
         rootLogger.info(
-            f"authentication failed for request\
-            (update_props) from {user}"
+            f"authentication failed for request(update_props) from {user}"
         )
-        return JSONResponse(content="Authentication Failed", status_code=401)
+        return JSONResponse(content={"message": "Authentication Failed"}, status_code=401)
 
 
 def emit_mce_respond(
@@ -390,11 +422,13 @@ def emit_mce_respond(
     for mce in metadata_record.proposedSnapshot.aspects:
         if not mce.validate():
             rootLogger.error(f"{mce.__class__} is not defined properly")
-            return {
-                "status_code": 400,
-                "messsage": f"MCE was incorrectly defined.\
-                    {event} was aborted",
-            }
+            return JSONResponse(
+                content = {
+                    "messsage": f"MCE was incorrectly defined.\
+                        {event} was aborted",
+                },
+                status_code = 400,
+            )
 
     if CLI_MODE:
         generate_json_output_mce(metadata_record, "./logs/")
@@ -407,18 +441,21 @@ def emit_mce_respond(
         emitter._session.close()
     except Exception as e:
         rootLogger.error(e)
-        return {
-            "status_code": 500,
-            "messsage": f"{event} failed because upstream error {e}",
-        }
+        return JSONResponse(
+            content={
+                "messsage": f"{event} failed because upstream error {e}",
+            },
+            status_code= 500,
+        )
     rootLogger.info(
         f"{event} {datasetName} requested_by {owner} completed successfully"
     )
-    return {
-        "status_code": 201,
+    return JSONResponse(
+        content={        
         "messsage": f"{event} completed successfully",
-    }
-
+        },
+        status_code = 201,
+    )
 
 def emit_mcp_respond(
     metadata_record: MetadataChangeProposalWrapper, owner: str, event: str, token: str
@@ -435,20 +472,23 @@ def emit_mcp_respond(
         emitter._session.close()
     except Exception as e:
         rootLogger.error(e)
-        return {
-            "status_code": 500,
-            "messsage": f"{event} failed because upstream error {e}",
-        }
+        return JSONResponse(
+            content = {
+                "messsage": f"{event} failed because upstream error {e}",                
+            },
+            status_code = 500
+        )
     rootLogger.info(
         f"{event} {datasetName} requested_by {owner} completed successfully"
     )
-    return {
-        "status_code": 201,
-        "messsage": f"{event} completed successfully",
-    }
+    return JSONResponse(
+        content = {        
+            "messsage": f"{event} completed successfully",
+        },
+        status_code = 201,
+    )  
 
-
-@app.post("/make_dataset")
+@app.post("/custom/make_dataset")
 async def create_item(item: create_dataset_params) -> None:
     """
     This endpoint is meant for manually defined or parsed file datasets.
@@ -534,15 +574,17 @@ async def create_item(item: create_dataset_params) -> None:
             event="Create Dataset",
             token=token,
         )
+        results = response.json()
+        prospective_url = urljoin(os.environ["DATAHUB_FRONTEND"], f"/dataset/{datasetName}")
         return JSONResponse(
-            content=response.get("message", ""), status_code=response.get("status_code")
-        )
+            content={"message": f"{prospective_url}"}, status_code=response.status_code
+        ) 
     else:
         rootLogger.info("make_dataset request failed from {}".format(requestor))
-        return JSONResponse(content="Authentication Failed", status_code=401)
+        return JSONResponse(content={"message": "Authentication Failed"}, status_code=401)
 
 
-@app.post("/update_dataset_status")
+@app.post("/custom/update_dataset_status")
 async def delete_item(item: dataset_status_params) -> None:
     """
     This endpoint is to support soft delete of datasets. Still require
@@ -564,13 +606,13 @@ async def delete_item(item: dataset_status_params) -> None:
             event=f"Status Update removed:{item.desired_state}",
             token=item.user_token,
         )
+        results = response.json()
         return JSONResponse(
-            content=response.get("message", ""), status_code=response.get("status_code")
+            content={"message": results.get("message", "")}, status_code=response.status_code
         )
     else:
         rootLogger.info(
             f"authentication failed for request\
             (update_schema) from {user}"
         )
-        return JSONResponse(content="Authentication Failed", status_code=401)
-
+        return JSONResponse(content={"message": "Authentication Failed"}, status_code=401)

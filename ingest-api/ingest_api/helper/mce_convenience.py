@@ -127,48 +127,6 @@ def derive_platform_name(input: str) -> str:
     platform_name = f"urn:li:dataPlatform:{platform}"
     return platform_name
 
-
-def make_lineage_mce(
-    upstream_urns: List[str],
-    downstream_urn: str,
-    actor: str,
-    lineage_type: str = Union[
-        DatasetLineageTypeClass.TRANSFORMED,
-        DatasetLineageTypeClass.COPY,
-        DatasetLineageTypeClass.VIEW,
-    ],
-) -> MetadataChangeEventClass:
-    """
-    Specifies Upstream Datasets relative to this dataset.
-    Downstream is always referring to current dataset
-    urns should be created using make_dataset_urn
-    lineage have to be one of the 3
-    """
-    sys_time = get_sys_time()
-    actor = actor
-    mce = MetadataChangeEventClass(
-        proposedSnapshot=DatasetSnapshotClass(
-            urn=downstream_urn,
-            aspects=[
-                UpstreamLineageClass(
-                    upstreams=[
-                        UpstreamClass(
-                            auditStamp=AuditStampClass(
-                                time=sys_time,
-                                actor=actor,
-                            ),
-                            dataset=upstream_urn,
-                            type=lineage_type,
-                        )
-                        for upstream_urn in upstream_urns
-                    ]
-                )
-            ],
-        )
-    )
-    return mce
-
-
 def make_dataset_description_mce(
     dataset_name: str,
     description: str,

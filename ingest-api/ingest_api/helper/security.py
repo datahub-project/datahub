@@ -58,8 +58,8 @@ def authenticate_action(token: str, user: str, dataset: str):
         )
     else:
         must_authenticate_actions = False
-    log.error(f"Authenticate user setting is {must_authenticate_actions}")
-    log.error(f"Dataset being updated is {dataset}, requestor is {user}")
+    log.debug(f"Authenticate user setting is {must_authenticate_actions}")
+    log.debug(f"Dataset being updated is {dataset}, requestor is {user}")
     if must_authenticate_actions:
         if verify_token(token, user) and query_dataset_owner(token, dataset, user):
             log.error(f"user {user} is authorized to do something")
@@ -79,9 +79,9 @@ def query_dataset_owner(token: str, dataset_urn: str, user: str):
     Also, currently UI checks also only check for individual owners,
     not owner groups.
     """
-    log.info(f"UI endpoint is {datahub_url}")
+    # log.debug(f"UI endpoint is {datahub_url}")
     query_endpoint = urljoin(datahub_url, "/api/graphql")
-    log.info(f"I will query {query_endpoint} as {user}")
+    log.debug(f"I will query {query_endpoint} as {user}")
     headers = {}
     headers["Authorization"] = f"Bearer {token}"
     headers["Content-Type"] = "application/json"
@@ -105,12 +105,12 @@ def query_dataset_owner(token: str, dataset_urn: str, user: str):
     resp = requests.post(
         query_endpoint, headers=headers, json={"query": query, "variables": variables}
     )
-    log.info(f"resp.status_code is {resp.status_code}")
+    log.debug(f"resp.status_code is {resp.status_code}")
     if resp.status_code != 200:
         return False
     data_received = json.loads(resp.text)
     owners_list = data_received["data"]["dataset"]["ownership"]["owners"]
-    log.info(f"The list of owners for this dataset is {owners_list}")
+    log.debug(f"The list of owners for this dataset is {owners_list}")
     owners = [item["owner"]["username"] for item in owners_list]
     if user not in owners:
         log.error("Ownership Step: False")
