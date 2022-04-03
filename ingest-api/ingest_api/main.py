@@ -1,5 +1,6 @@
 # flake8: noqa
-
+# command to run in CLI mode is 
+# gunicorn -c config.py app:app --workers 4 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:8001
 import logging
 import os
 import time
@@ -7,7 +8,6 @@ from logging.handlers import TimedRotatingFileHandler
 from os import environ
 
 import requests
-import uvicorn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import \
@@ -52,7 +52,7 @@ class MyFilter(object):
 CLI_MODE = False if environ.get("RUNNING_IN_DOCKER") else True
 
 api_emitting_port = 8001
-rest_endpoint = "http://datahub-gms:8080" if not CLI_MODE else "http://localhost:8080"
+
 
 rootLogger = logging.getLogger("ingest")
 logformatter = logging.Formatter("%(asctime)s;%(levelname)s;%(funcName)s;%(message)s")
@@ -73,6 +73,7 @@ if not CLI_MODE:
         "DATAHUB_AUTHENTICATE_INGEST",
         "DATAHUB_FRONTEND",
         "ELASTIC_HOST",
+        "DATAHUB_BACKEND",
     ]:
         if not os.environ[env_var]:
             raise Exception(
@@ -84,15 +85,20 @@ if not CLI_MODE:
     if not os.path.exists("/var/log/ingest/json"):
         os.mkdir("/var/log/ingest/json")
     log_path = "/var/log/ingest/ingest_api.log"
-    log_path_simple = "/var/log/ingest/ingest_api_simple.log"
+    log_path_simple = "/var/log/ingest/ingest_api.simple.log"
 else:
     os.environ["ELASTIC_HOST"] = "http://localhost:9200"
+    os.environ["DATAHUB_BACKEND"] = "http://localhost:8080"
     if not os.path.exists("./logs/"):
         os.mkdir(f"{os.getcwd()}/logs/")
     log_path = f"{os.getcwd()}/logs/ingest_api.log"
     log_path_simple = f"{os.getcwd()}/logs/ingest_api_simple.log"
 
-log = TimedRotatingFileHandler(log_path, when="midnight", interval=1, backupCount=365)
+rest_endpoint = os.environ["DATAHUB_BACKEND"]
+
+log = TimedRotatingFileHandler(
+    log_path, when="midnight", interval=1, backupCount=365
+)
 log.setLevel(logging.DEBUG)
 log.setFormatter(logformatter)
 rootLogger.addHandler(log)
@@ -568,6 +574,3 @@ async def delete_item(item: dataset_status_params) -> None:
         )
         return JSONResponse(content="Authentication Failed", status_code=401)
 
-
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=api_emitting_port)

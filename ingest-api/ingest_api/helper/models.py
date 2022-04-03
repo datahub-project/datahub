@@ -39,44 +39,6 @@ class create_dataset_params(BaseModel):
     browsepathList: List[str]
     user_token: str
 
-    class Config:
-        schema_extra = {
-            "example": {
-                "dataset_name": "name of dataset",
-                "dataset_type": "text/csv",
-                "dataset_description": "What this dataset is about...",
-                "dataset_owner": "12345",
-                "dataset_location": "the file can be found here @...",
-                "dataset_origin": "this dataset found came from...\
-                    ie internet",
-                "hasHeader": "no",
-                "headerLine": 1,
-                "browsepathList": ["/user/", "/csv/"],
-                "dataset_fields": [
-                    {
-                        "field_name": "columnA",
-                        "field_type": "string",
-                        "field_description": "what is column A about",
-                    },
-                    {
-                        "field_name": "columnB",
-                        "field_type": "num",
-                        "field_description": "what is column B about",
-                    },
-                ],
-            }
-        }
-
-    # @validator('dataset_name')
-    # def dataset_name_alphanumeric(cls, v):
-    #     assert len(set(v).difference(ascii_letters+digits+' -_/\\'))==0,
-    # 'dataset_name must be alphanumeric/space character only'
-    #     return v
-    # @validator('dataset_type')
-    # def dataset_type_alphanumeric(cls, v):
-    #     assert v.isalpha(), 'dataset_type must be alphabetical string only'
-    #     return v
-
 
 class dataset_status_params(BaseModel):
     dataset_name: str
@@ -122,11 +84,11 @@ class prop_params(BaseModel):
     properties: List[Dict]
 
 
-class echo_param(BaseModel):
-    user_input: Any
+# class echo_param(BaseModel):
+#     user_input: Any
 
-    class Config:
-        arbitary_types_allowed = True
+#     class Config:
+#         arbitary_types_allowed = True
 
 
 def determine_type(type_input: Union[str, Dict[str, str]]) -> str:
@@ -142,7 +104,7 @@ def determine_type(type_input: Union[str, Dict[str, str]]) -> str:
     ):
         return "csv"
     if type_input_str.lower() == "json":
-        return "json"
+        return "json"  #
     else:
         log.error(f"data type for request is {type_input}")
         return "csv"
