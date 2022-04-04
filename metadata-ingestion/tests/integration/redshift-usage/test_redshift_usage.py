@@ -1,11 +1,15 @@
 import json
 import pathlib
+from typing import Dict, List
 from unittest.mock import patch
 
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.usage.redshift_usage import RedshiftUsageConfig
+from datahub.ingestion.source.usage.redshift_usage import (
+    RedshiftAccessEvent,
+    RedshiftUsageConfig,
+)
 from tests.test_helpers import mce_helpers
 
 FROZEN_TIME = "2021-08-24 09:00:00"
@@ -45,10 +49,22 @@ def test_redshift_usage_source(pytestconfig, tmp_path):
     )
 
     with patch(
-        "datahub.ingestion.source.usage.redshift_usage.RedshiftUsageSource._get_redshift_history"
+        "datahub.ingestion.source.usage.redshift_usage.RedshiftUsageSource._gen_access_events_from_history_query"
     ) as mock_event_history:
-        access_events = load_access_events(test_resources_dir)
-        mock_event_history.return_value = access_events
+        # The raw_access_events mimics the result of query execution
+        raw_access_events: List[Dict] = load_access_events(test_resources_dir)
+        # The redshift_access_events is the response of each call to _gen_access_events_from_history_query.
+        redshift_access_events: List[RedshiftAccessEvent] = []
+        for ae in raw_access_events:
+            try:
+                redshift_access_events.append(RedshiftAccessEvent(**ae))
+            except Exception:
+                pass
+        # Return an iterator to redshift_access_events for each call to _gen_access_events_from_history_query
+        # via the side_effects.
+        mock_event_history.side_effect = lambda *args, **kwdargs: iter(
+            redshift_access_events
+        )
 
         # Run ingestion
         pipeline = Pipeline.create(
@@ -75,6 +91,8 @@ def test_redshift_usage_source(pytestconfig, tmp_path):
         pipeline.run()
         pipeline.raise_from_status()
 
+    # There should be 3 calls (usage aspects -1, insert operation aspects -1, delete operation aspects - 1).
+    assert mock_event_history.call_count == 3
     mce_helpers.check_golden_file(
         pytestconfig=pytestconfig,
         output_path=tmp_path / "redshift_usages.json",
@@ -82,7 +100,7 @@ def test_redshift_usage_source(pytestconfig, tmp_path):
     )
 
 
-def load_access_events(test_resources_dir):
+def load_access_events(test_resources_dir: pathlib.Path) -> List[Dict]:
     access_events_history_file = test_resources_dir / "usage_events_history.json"
     with access_events_history_file.open() as access_events_json:
         access_events = json.loads(access_events_json.read())
