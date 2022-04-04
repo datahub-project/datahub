@@ -31,10 +31,10 @@ public class SecretProviderFactory {
   private EntityClient entityClient;
 
   @Autowired
-  @Qualifier("secretService")
+  @Qualifier("dataHubSecretService")
   private SecretService secretService;
 
-  @Bean(name = "settingsProvider")
+  @Bean(name = "secretProvider")
   @Scope("singleton")
   @Nonnull
   protected SecretProvider getInstance() {

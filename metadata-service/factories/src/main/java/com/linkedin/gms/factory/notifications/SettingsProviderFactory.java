@@ -29,7 +29,7 @@ public class SettingsProviderFactory {
   @Qualifier("restliEntityClient")
   private EntityClient entityClient;
 
-  @Bean(name = "secretProvider")
+  @Bean(name = "settingsProvider")
   @Scope("singleton")
   @Nonnull
   protected SettingsProvider getInstance() {
