@@ -556,12 +556,12 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
             else:
                 sqls.extend(
                     [
-                        f"grant REFERENCES on all tables in database {db_name} to role {role}",
-                        f"grant REFERENCES on future tables in database {db_name} to role {role}",
-                        f"grant REFERENCES on all external tables in database {db_name} to role {role}",
-                        f"grant REFERENCES on future external tables in database {db_name} to role {role}",
-                        f"grant REFERENCES on all views in database {db_name} to role {role}",
-                        f"grant REFERENCES on future views in database {db_name} to role {role}",
+                        f"grant references on all tables in database {db_name} to role {role}",
+                        f"grant references on future tables in database {db_name} to role {role}",
+                        f"grant references on all external tables in database {db_name} to role {role}",
+                        f"grant references on future external tables in database {db_name} to role {role}",
+                        f"grant references on all views in database {db_name} to role {role}",
+                        f"grant references on future views in database {db_name} to role {role}",
                     ]
                 )
         if self.config.username is not None:
