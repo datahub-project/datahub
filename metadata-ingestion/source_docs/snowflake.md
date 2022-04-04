@@ -21,23 +21,23 @@ If your system admins prefer running the commands themselves then they can follo
 ```sql
 create or replace role datahub_role;
 
-//access to a warehouse to run queries to view metadata
+// Grant access to a warehouse to run queries to view metadata
 grant operate, usage on warehouse "<your-warehouse>" to role datahub_role;
 
-//access to view database and schema in which your tables/views exist for which you wish to ingest metadata
+// Grant access to view database and schema in which your tables/views exist
 grant usage on DATABASE "<your-database>" to role datahub_role;
 grant usage on all schemas in database "<your-database>" to role datahub_role;
 grant usage on future schemas in database "<your-database>" to role datahub_role;
 
-//less permissive REFERENCES permissions if not using profiling feature
-grant REFERENCES on all tables in database "<your-database>" to role datahub_role;
-grant REFERENCES on future tables in database "<your-database>" to role datahub_role;
-grant REFERENCES on all external tables in database "<your-database>" to role datahub_role;
-grant REFERENCES on future external tables in database "<your-database>" to role datahub_role;
-grant REFERENCES on all views in database "<your-database>" to role datahub_role;
-grant REFERENCES on future views in database "<your-database>" to role datahub_role;
+// If you are NOT using Snowflake Profiling feature: Grant references privileges to your tables and views 
+grant references on all tables in database "<your-database>" to role datahub_role;
+grant references on future tables in database "<your-database>" to role datahub_role;
+grant references on all external tables in database "<your-database>" to role datahub_role;
+grant references on future external tables in database "<your-database>" to role datahub_role;
+grant references on all views in database "<your-database>" to role datahub_role;
+grant references on future views in database "<your-database>" to role datahub_role;
 
-//select permission required only if using profiling feature
+// If you ARE using Snowflake Profiling feature: Grant select privileges to your tables and views 
 grant select on all tables in database "<your-database>" to role datahub_role;
 grant select on future tables in database "<your-database>" to role datahub_role;
 grant select on all external tables in database "<your-database>" to role datahub_role;
