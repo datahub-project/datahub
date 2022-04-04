@@ -53,6 +53,7 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
+from datahub.utilities.sql_parser import DefaultSQLParser
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +70,11 @@ AND
         AND NOT
         protoPayload.serviceData.jobCompletedEvent.job.jobStatus.error.code:*
         AND
-        protoPayload.serviceData.jobCompletedEvent.job.jobStatistics.referencedTables:*
+        (
+            protoPayload.serviceData.jobCompletedEvent.job.jobStatistics.referencedTables:*
+            OR
+            protoPayload.serviceData.jobCompletedEvent.job.jobStatistics.referencedViews:*
+        )
     )
 )
 AND
@@ -91,7 +96,11 @@ AND
     AND
     protoPayload.metadata.jobChange.job.jobStatus.jobState="DONE"
     AND NOT protoPayload.metadata.jobChange.job.jobStatus.errorResult:*
-    AND protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables:*
+    AND (
+        protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables:*
+        OR
+        protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedViews:*
+    )
 )
 AND
 timestamp >= "{start_time}"
@@ -493,25 +502,63 @@ class BigQuerySource(SQLAlchemySource):
 
     def _create_lineage_map(self, entries: Iterable[QueryEvent]) -> Dict[str, Set[str]]:
         lineage_map: Dict[str, Set[str]] = collections.defaultdict(set)
-        num_entries: int = 0
-        num_skipped_entries: int = 0
+        self.report.num_total_lineage_entries = 0
+        self.report.num_skipped_lineage_entries_missing_data = 0
+        self.report.num_skipped_lineage_entries_not_allowed = 0
+        self.report.num_skipped_lineage_entries_other = 0
         for e in entries:
-            num_entries += 1
-            if e.destinationTable is None or not e.referencedTables:
-                num_skipped_entries += 1
+            self.report.num_total_lineage_entries += 1
+            if e.destinationTable is None or (
+                not e.referencedTables and not e.referencedViews
+            ):
+                self.report.num_skipped_lineage_entries_missing_data += 1
                 continue
+            destination_table_str = str(e.destinationTable.remove_extras())
+            destination_table_str_parts = destination_table_str.split("/")
+            if not self.config.schema_pattern.allowed(
+                destination_table_str_parts[3]
+            ) or not self.config.table_pattern.allowed(destination_table_str_parts[-1]):
+                self.report.num_skipped_lineage_entries_not_allowed += 1
+                continue
+
             entry_consumed: bool = False
-            for ref_table in e.referencedTables:
-                destination_table_str = str(e.destinationTable.remove_extras())
+            referenced_tables = (
+                e.referencedTables if e.referencedTables is not None else []
+            )
+            has_table = False
+            for ref_table in referenced_tables:
                 ref_table_str = str(ref_table.remove_extras())
                 if ref_table_str != destination_table_str:
                     lineage_map[destination_table_str].add(ref_table_str)
                     entry_consumed = True
+                    has_table = True
+            referenced_views = (
+                e.referencedViews if e.referencedViews is not None else []
+            )
+            has_view = False
+            for ref_view in referenced_views:
+                ref_view_str = str(ref_view.remove_extras())
+                if ref_view_str != destination_table_str:
+                    lineage_map[destination_table_str].add(ref_view_str)
+                    entry_consumed = True
+                    has_view = True
+            if has_table and has_view:
+                # Remove base tables when no table is referenced
+                parser = DefaultSQLParser(e.query)
+                referenced_objs = set(
+                    map(lambda x: x.split(".")[-1], parser.get_tables())
+                )
+                curr_lineage_str = lineage_map[destination_table_str]
+                new_lineage_str = set()
+                for lineage_str in curr_lineage_str:
+                    name = lineage_str.split("/")[-1]
+                    if name in referenced_objs:
+                        new_lineage_str.add(lineage_str)
+                lineage_map[destination_table_str] = new_lineage_str
+            if self.config.upstream_lineage_in_report:
+                self.report.upstream_lineage = lineage_map
             if not entry_consumed:
-                num_skipped_entries += 1
-        logger.info(
-            f"Creating lineage map: total number of entries={num_entries}, number skipped={num_skipped_entries}."
-        )
+                self.report.num_skipped_lineage_entries_other += 1
         return lineage_map
 
     def get_latest_partition(
@@ -688,7 +735,7 @@ WHERE
         for ref_table in self.lineage_metadata[str(bq_table)]:
             upstream_table = BigQueryTableRef.from_string_name(ref_table)
             if upstream_table.is_temporary_table():
-                # making sure we don't process a table twice and not get into a recurisve loop
+                # making sure we don't process a table twice and not get into a recursive loop
                 if ref_table in tables_seen:
                     logger.debug(
                         f"Skipping table {ref_table} because it was seen already"

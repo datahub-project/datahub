@@ -305,6 +305,7 @@ class QueryEvent:
     statementType: Optional[str]
     destinationTable: Optional[BigQueryTableRef]
     referencedTables: Optional[List[BigQueryTableRef]]
+    referencedViews: Optional[List[BigQueryTableRef]]
     jobName: Optional[str]
 
     payload: Any
@@ -348,6 +349,13 @@ class QueryEvent:
                 BigQueryTableRef.from_spec_obj(spec) for spec in rawRefTables
             ]
 
+        rawRefViews = job["jobStatistics"].get("referencedViews")
+        referencedViews = None
+        if rawRefViews:
+            referencedViews = [
+                BigQueryTableRef.from_spec_obj(spec) for spec in rawRefViews
+            ]
+
         queryEvent = QueryEvent(
             timestamp=entry.timestamp,
             actor_email=user,
@@ -355,6 +363,7 @@ class QueryEvent:
             statementType=statementType,
             destinationTable=destinationTable,
             referencedTables=referencedTables,
+            referencedViews=referencedViews,
             jobName=jobName,
             payload=entry.payload if DEBUG_INCLUDE_FULL_PAYLOADS else None,
         )
@@ -399,6 +408,13 @@ class QueryEvent:
                 BigQueryTableRef.from_string_name(spec) for spec in raw_ref_tables
             ]
 
+        raw_ref_views = job["jobStats"]["queryStats"].get("referencedViews")
+        referenced_views = None
+        if raw_ref_views:
+            referenced_views = [
+                BigQueryTableRef.from_string_name(spec) for spec in raw_ref_views
+            ]
+
         try:
             statementType = job["jobConfiguration"]["query"]["statementType"]
         except KeyError:
@@ -411,6 +427,7 @@ class QueryEvent:
             statementType=statementType,
             destinationTable=destination_table,
             referencedTables=referenced_tables,
+            referencedViews=referenced_views,
             jobName=job_name,
             payload=payload if DEBUG_INCLUDE_FULL_PAYLOADS else None,
         )
@@ -447,6 +464,13 @@ class QueryEvent:
                 BigQueryTableRef.from_string_name(spec) for spec in raw_ref_tables
             ]
 
+        raw_ref_views = job["jobStats"]["queryStats"].get("referencedViews")
+        referenced_views = None
+        if raw_ref_views:
+            referenced_views = [
+                BigQueryTableRef.from_string_name(spec) for spec in raw_ref_views
+            ]
+
         try:
             statementType = job["jobConfig"]["queryConfig"]["statementType"]
         except KeyError:
@@ -459,6 +483,7 @@ class QueryEvent:
             statementType=statementType,
             destinationTable=destination_table,
             referencedTables=referenced_tables,
+            referencedViews=referenced_views,
             jobName=job_name,
             payload=payload if DEBUG_INCLUDE_FULL_PAYLOADS else None,
         )

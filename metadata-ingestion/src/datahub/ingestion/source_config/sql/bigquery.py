@@ -32,6 +32,8 @@ class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
     _credentials_path: Optional[str] = pydantic.PrivateAttr(None)
     use_v2_audit_metadata: Optional[bool] = False
 
+    upstream_lineage_in_report: bool = False
+
     def __init__(self, **data: Any):
         super().__init__(**data)
 
