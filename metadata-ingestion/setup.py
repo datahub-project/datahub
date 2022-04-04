@@ -150,7 +150,7 @@ plugins: Dict[str, Set[str]] = {
     # PyAthena is pinned with exact version because we use private method in PyAthena
     "athena": sql_common | {"PyAthena[SQLAlchemy]==2.4.1"},
     "azure-ad": set(),
-    "bigquery": sql_common | bigquery_common | {"sqlalchemy-bigquery>=1.4.1"},
+    "bigquery": sql_common | bigquery_common | usage_common | {"sqlalchemy-bigquery>=1.4.1"},
     "bigquery-usage": bigquery_common | usage_common | {"cachetools"},
     "clickhouse": sql_common | {"clickhouse-sqlalchemy==0.1.8"},
     "clickhouse-usage": sql_common | usage_common | {"clickhouse-sqlalchemy==0.1.8", },
