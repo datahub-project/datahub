@@ -45,8 +45,7 @@ const ResultContainer = styled.div`
 const PaginationInfoContainer = styled.div`
     padding: 8px;
     padding-left: 16px;
-    border-bottom: 1px solid;
-    border-color: ${(props) => props.theme.styles['border-color-base']};
+    border: 1px solid ${(props) => props.theme.styles['border-color-base']};
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -95,9 +94,8 @@ const LoadingContainer = styled.div`
 const EntityData = styled.div`
     && {
         width: 100%;
-        margin-top: 12px;
         padding: 16px 32px;
-        border-color: ${(props) => props.theme.styles['border-color-base']};
+        border: 1px solid ${(props) => props.theme.styles['border-color-base']};
     }
 `;
 

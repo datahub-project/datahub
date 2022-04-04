@@ -38,6 +38,7 @@ const PaginationInfoContainer = styled(Row)`
     bottom: 0;
     width: 100%;
     height: 60px;
+    border: 1px solid ${(props) => props.theme.styles['border-color-base']};
 `;
 
 const ResultCard = styled(Card)`
