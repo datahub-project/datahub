@@ -7,9 +7,11 @@ import com.datahub.notification.NotificationTemplateType;
 import com.datahub.notification.SecretProvider;
 import com.datahub.notification.SettingsProvider;
 import com.datahub.notification.IdentityProvider;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.GetMode;
 import com.linkedin.event.notification.NotificationRecipient;
 import com.linkedin.event.notification.NotificationRecipientType;
 import com.linkedin.event.notification.NotificationRequest;
@@ -54,12 +56,21 @@ public class SlackNotificationSink implements NotificationSink {
 
   private final Slack slack = Slack.getInstance();
   private final Map<String, User> emailToSlackUser = new HashMap<>();
-  private MethodsClient slackClient;
   private SettingsProvider settingsProvider;
   private IdentityProvider identityProvider;
   private SecretProvider secretProvider;
   private String defaultChannel;
   private String botToken;
+
+  @VisibleForTesting
+  MethodsClient slackClient;
+
+  @VisibleForTesting
+  SlackNotificationSink(MethodsClient slackClient) {
+    this.slackClient = slackClient;
+  }
+
+  SlackNotificationSink() { }
 
   @Override
   public NotificationSinkType type() {
@@ -117,18 +128,18 @@ public class SlackNotificationSink implements NotificationSink {
       return false;
     }
 
-    // Next, try to init a slack client using the settings we have (via either static OR dynamic cfg)
-    tryInitSlackClient(globalSettings);
-
-    if (this.slackClient != null) {
-      // Next, check to ensure global settings have not been disabled for slack.
-      // The FINAL SAY about whether slack should be enabled comes from global settings.
-      return globalSettings.getIntegrations().hasSlackSettings() && globalSettings.getIntegrations().getSlackSettings().isEnabled();
-    } else {
-      // Could not create slack client. Must be disabled.
-      log.debug("Unable to create slack client using provided config. Slack is currently disabled.");
-      return false;
+    // Next check global settings to determine whether slack is supposed to be enabled.
+    if (globalSettings.getIntegrations().hasSlackSettings() && globalSettings.getIntegrations().getSlackSettings().isEnabled()) {
+      // Slack is enabled. Let's try to create a slack client (if one doesn't already exist)
+      initSlackClient(globalSettings);
+      if (this.slackClient != null) {
+        return true;
+      } else {
+        log.error("Slack is enabled, but failed to create slack client! Missing required bot token.");
+      }
     }
+    // Slack is disabled in settings. Return false.
+    return false;
   }
 
   private void sendNotifications(final NotificationRequest notificationRequest) {
@@ -146,7 +157,10 @@ public class SlackNotificationSink implements NotificationSink {
   }
 
   private void sendCustomNotification(final NotificationRequest request) {
-    sendNotificationToRecipients(request.getRecipients(), request.getMessage().getParameters().get("body"));
+    final String title = request.getMessage().getParameters().get("title");
+    final String body = request.getMessage().getParameters().get("body");
+    final String messageText = String.format("*%s*\n\n%s", title, body);
+    sendNotificationToRecipients(request.getRecipients(), messageText);
   }
 
   private void sendNotificationToRecipients(final List<NotificationRecipient> recipients, final String text) {
@@ -158,8 +172,14 @@ public class SlackNotificationSink implements NotificationSink {
           sendNotificationToUser(UrnUtils.getUrn(recipient.getId()), text);
         } else if (NotificationRecipientType.CUSTOM.equals(recipient.getType()) && SLACK_CHANNEL_RECIPIENT_TYPE.equals(recipient.getCustomType())) {
           // We only support "SLACK_CHANNEL" as a custom type.
-          String channel = getRecipientChannelOrDefault(recipient.getId());
-          sendMessage(channel, text);
+          String channel = getRecipientChannelOrDefault(recipient.getId(GetMode.NULL));
+          if (channel != null) {
+            sendMessage(channel, text);
+          } else {
+            log.warn(String.format(
+                "Failed to resolve channel for recipient of type %s. No default or provided channel.",
+                SLACK_CHANNEL_RECIPIENT_TYPE));
+          }
         } else {
           throw new UnsupportedOperationException(
               String.format("Failed to send Slack notification. Unsupported recipient type %s provided.", recipient.getType()));
@@ -168,7 +188,6 @@ public class SlackNotificationSink implements NotificationSink {
         log.error("Caught exception while attempting to send custom slack notification", e);
       }
     }
-    // todo: figure out the failure story.
   }
 
   private void sendNotificationToUser(final Urn userUrn, final String text) throws Exception {
@@ -183,7 +202,7 @@ public class SlackNotificationSink implements NotificationSink {
     }
   }
 
-  private void sendMessage(final String channel, final String text) throws Exception {
+  private void sendMessage(@Nonnull final String channel, @Nonnull final String text) throws Exception {
     final ChatPostMessageRequest msgRequest = ChatPostMessageRequest.builder()
         .channel(channel)
         .text(text)
@@ -236,36 +255,39 @@ public class SlackNotificationSink implements NotificationSink {
   }
 
   @Nullable
-  private String getRecipientChannelOrDefault(final String recipientId) {
+  private String getRecipientChannelOrDefault(@Nullable final String recipientId) {
     return recipientId != null ? recipientId : getDefaultChannelName().orElse(null);
   }
 
   private Optional<String> getDefaultChannelName() {
+    // Resolves a fallback channel to send the notification to, in the case that a channel is not provided.
+    // Default channel provided in dynamic settings takes precedence over that provided in static sink config.
     GlobalSettingsInfo globalSettings = this.settingsProvider.getGlobalSettings();
-    return globalSettings != null && globalSettings.getIntegrations().hasSlackSettings()
+    return globalSettings != null
+        && globalSettings.getIntegrations().hasSlackSettings()
+        && globalSettings.getIntegrations().getSlackSettings().hasDefaultChannelName()
         ? Optional.ofNullable(globalSettings.getIntegrations().getSlackSettings().getDefaultChannelName())
         : Optional.ofNullable(this.defaultChannel);
   }
 
-  private void tryInitSlackClient(final GlobalSettingsInfo globalSettings) {
+  private void initSlackClient(final GlobalSettingsInfo globalSettings) {
     // Attempt to init the slack client from static config or local configuration.
     if (slackClient == null) {
-      // Next, attempt to instantiate a slack client using a bot token from static config or settings. Bot token provided in static configs takes precedence
-      // because its simpler.
-      if (this.botToken != null) {
-        // Bot token provided in static configuration.
-        this.slackClient = slack.methods(this.botToken);
-      } else if (globalSettings.getIntegrations().hasSlackSettings()
-          && globalSettings.getIntegrations().getSlackSettings().isEnabled()
+      // Next, attempt to instantiate a slack client using a bot token from static config or settings. Bot token provided in dynamic settings
+      // takes precedence over that provided in static sink config.
+      if (globalSettings.getIntegrations().hasSlackSettings()
           && globalSettings.getIntegrations().getSlackSettings().hasBotTokenSecret()) {
         try {
           final String botToken = this.secretProvider.getSecretValue(globalSettings.getIntegrations().getSlackSettings().getBotTokenSecret());
           this.slackClient = slack.methods(botToken);
         } catch (Exception e) {
-          log.error("Caught exception while attempting to resolve bot token secret.", e);
+          log.error("Caught exception while attempting to resolve bot token secret. Failed to create slack client.", e);
         }
+      } else if (this.botToken != null) {
+        // Bot token provided in static configuration.
+        this.slackClient = slack.methods(this.botToken);
       } else {
-        log.warn("Failed to build Slack client - failed to resolve a bot token!");
+        log.warn("Failed to create Slack client - could not resolve a bot token from static config or global settings!");
       }
     }
   }

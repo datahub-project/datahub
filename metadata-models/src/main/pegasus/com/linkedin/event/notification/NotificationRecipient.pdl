@@ -16,6 +16,8 @@ record NotificationRecipient {
 
   /**
    * If type is USER or GROUP, the urn to send the notification to. Otherwise, a unique target id that the sink can pick up.
+   * Most often, a sink will require a recipient id. In some cases, a default recipient id will be used by the sink
+   * if one is not provided.
    */
-   id: string
+   id: optional string
 }
