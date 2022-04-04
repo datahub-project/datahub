@@ -80,7 +80,6 @@ def get_columns(self, connection, table_name, schema=None, **kw):
             FROM v_catalog.view_columns
             WHERE table_name = '%(table_name)s'
             AND %(schema_condition)s
-            ORDER BY ordinal_position ASC
             """ % {
                 'table_name': table_name,
                 'schema_condition': schema_condition
