@@ -55,7 +55,7 @@ def get_columns(self, connection, table_name, schema=None, **kw):
     sql_pk_column = sql.text(
         dedent(
             """
-            SELECT column_name 
+            SELECT column_name
             FROM v_catalog.primary_keys
             WHERE table_name = '%(table_name)s'
             AND constraint_type = 'p'
@@ -71,12 +71,12 @@ def get_columns(self, connection, table_name, schema=None, **kw):
     sql_get_column = sql.text(
         dedent(
             """
-            SELECT column_name, data_type, column_default, is_nullable, comment
+            SELECT column_name, data_type, column_default, is_nullable
             FROM v_catalog.columns
             WHERE table_name = '%(table_name)s'
             AND %(schema_condition)s
             UNION
-            SELECT column_name, data_type, '' as column_default, true as is_nullable, '' as comment
+            SELECT column_name, data_type, '' as column_default, true as is_nullable
             FROM v_catalog.view_columns
             WHERE table_name = '%(table_name)s'
             AND %(schema_condition)s
@@ -95,16 +95,15 @@ def get_columns(self, connection, table_name, schema=None, **kw):
         type = row.data_type.lower()
         default = row.column_default
         nullable = row.is_nullable
-        comment = row.comment
 
-        column_info = _get_column_info(name, type, default, nullable, schema, comment)
+        column_info = _get_column_info(name, type, default, nullable, schema)
         column_info.update({'primary_key': primary_key})
         columns.append(column_info)
     
     return columns
 
 
-def _get_column_info(self, name, data_type, default, is_nullable, schema, comment):
+def _get_column_info(self, name, data_type, default, is_nullable, schema):
     attype = re.sub(r"\(.*\)", "", data_type)
 
     charlen = re.search(r"\(([\d,]+)\)", data_type)
@@ -186,7 +185,6 @@ def _get_column_info(self, name, data_type, default, is_nullable, schema, commen
         nullable=is_nullable,
         default=default,
         autoincrement=autoincrement,
-        comment=comment,
     )
     return column_info
 
