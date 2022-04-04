@@ -108,7 +108,7 @@ public class CassandraEntityServiceTest extends EntityServiceTestBase<CassandraA
             .asCompatibleSubstituteFor("cassandra");
 
     _cassandraContainer = new CassandraContainer(imageName);
-    _cassandraContainer.withEnv("JVM_OPTS", "-Xms512M -Xmx512M");
+    _cassandraContainer.withEnv("JVM_OPTS", "-Xms64M -Xmx64M");
     _cassandraContainer.start();
 
     try (Session session = _cassandraContainer.getCluster().connect()) {
