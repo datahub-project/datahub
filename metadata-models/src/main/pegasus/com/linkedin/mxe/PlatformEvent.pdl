@@ -1,0 +1,21 @@
+namespace com.linkedin.mxe
+
+/**
+ * A DataHub Platform Event.
+ */
+record PlatformEvent {
+  /**
+   * Header information stored with the event.
+   */
+   header: PlatformEventHeader
+
+  /**
+   * The name of the event, e.g. the type of event. For example, 'notificationRequestEvent'.
+   */
+  name: string
+
+  /**
+   * The event payload.
+   */
+  payload: GenericPayload
+}

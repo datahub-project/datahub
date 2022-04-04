@@ -1,15 +1,10 @@
 import datahub.emitter.mce_builder as builder
-import json
-
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
-    DatasetLineageType,
     FineGrainedLineage,
     FineGrainedLineageDownstreamType,
     FineGrainedLineageUpstreamType,
-    Upstream,
-    UpstreamLineage,
 )
 from datahub.metadata.schema_classes import ChangeTypeClass, DataJobInputOutputClass
 

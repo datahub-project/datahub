@@ -10,7 +10,7 @@ import com.linkedin.events.metadata.ChangeType
 record MetadataChangeProposal {
 
   /**
-   * Kafka audit header. See go/kafkaauditheader for more info.
+   * Kafka audit header. Currently remains unused in the open source.
    */
   auditHeader: optional KafkaAuditHeader
 

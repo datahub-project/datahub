@@ -45,6 +45,7 @@ import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKeyProperties;
 import com.linkedin.datahub.graphql.generated.Notebook;
 import com.linkedin.datahub.graphql.generated.Owner;
+import com.linkedin.datahub.graphql.generated.PolicyMatchCriterionValue;
 import com.linkedin.datahub.graphql.generated.RecommendationContent;
 import com.linkedin.datahub.graphql.generated.SearchAcrossLineageResult;
 import com.linkedin.datahub.graphql.generated.SearchResult;
@@ -73,6 +74,7 @@ import com.linkedin.datahub.graphql.resolvers.group.EntityCountsResolver;
 import com.linkedin.datahub.graphql.resolvers.group.ListGroupsResolver;
 import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupMembersResolver;
 import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupResolver;
+import com.linkedin.datahub.graphql.resolvers.policy.GetGrantedPrivilegesResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CancelIngestionExecutionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CreateIngestionExecutionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.GetIngestionExecutionRequestResolver;
@@ -606,6 +608,7 @@ public class GmsGraphQLEngine {
                     (env) -> env.getArgument(URN_FIELD_NAME))))
             .dataFetcher("listPolicies",
                 new ListPoliciesResolver(this.entityClient))
+            .dataFetcher("getGrantedPrivileges", new GetGrantedPrivilegesResolver())
             .dataFetcher("listUsers",
                 new ListUsersResolver(this.entityClient))
             .dataFetcher("listGroups",
@@ -751,8 +754,14 @@ public class GmsGraphQLEngine {
                     new EntityTypeBatchResolver(
                         new ArrayList<>(entityTypes),
                         (env) -> ((AutoCompleteResultForEntity) env.getSource()).getEntities()))
+            )
+            .type("PolicyMatchCriterionValue", typeWiring -> typeWiring
+                .dataFetcher("entity", new AuthenticatedResolver<>(
+                    new EntityTypeResolver(
+                        new ArrayList<>(entityTypes),
+                        (env) -> ((PolicyMatchCriterionValue) env.getSource()).getEntity()))
+                )
             );
-        ;
     }
 
     /**

@@ -80,6 +80,7 @@ public class Constants {
   public static final String SCHEMA_METADATA_ASPECT_NAME = "schemaMetadata";
   public static final String EDITABLE_SCHEMA_METADATA_ASPECT_NAME = "editableSchemaMetadata";
   public static final String VIEW_PROPERTIES_ASPECT_NAME = "viewProperties";
+  public static final String DATASET_PROFILE_ASPECT_NAME = "datasetProfile";
 
   // Chart
   public static final String CHART_KEY_ASPECT_NAME = "chartKey";

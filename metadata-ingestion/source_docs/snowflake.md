@@ -109,6 +109,14 @@ source:
     schema_pattern:
       deny:
         - "information_schema.*"
+    profiling:
+      enabled: true
+    profile_pattern:
+      allow:
+        - "ACCOUNTING_DB.*.*"
+        - "MARKETING_DB.*.*"
+      deny:
+        - ".*information_schema.*"
 
 sink:
   # sink configs
@@ -291,6 +299,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `user_email_pattern.allow`       |          | \*                                                                   | List of regex patterns for user emails to include in usage.                      |
 | `user_email_pattern.deny`        |          |                                                                      | List of regex patterns for user emails to exclude from usage.                    |
 | `user_email_pattern.ignoreCase`  |          | `True`                                                               | Whether to ignore case sensitivity during pattern matching.                      |
+| `format_sql_queries`             |          | `False`                                                              | Whether to format sql queries                                                    |
 
 :::caution
 

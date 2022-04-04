@@ -81,8 +81,7 @@ public class ProtobufExtensionFieldVisitorTest {
                                 .setNativeDataType("extended_protobuf.Department")
                                 .setType(new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new RecordType())))
                                 .setGlobalTags(new GlobalTags().setTags(new TagAssociationArray(
-                                        new TagAssociation().setTag(new TagUrn("MetaEnumExample.ENTITY")),
-                                        new TagAssociation().setTag(new TagUrn("team.TeamA"))
+                                        new TagAssociation().setTag(new TagUrn("MetaEnumExample.ENTITY"))
                                 )))
                                 .setGlossaryTerms(new GlossaryTerms().setTerms(new GlossaryTermAssociationArray(
                                         new GlossaryTermAssociation().setUrn(new GlossaryTermUrn("Classification.Sensitive"))
@@ -206,6 +205,9 @@ public class ProtobufExtensionFieldVisitorTest {
                                 .setType(new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())))
                                 .setGlobalTags(new GlobalTags().setTags(new TagAssociationArray(
                                         new TagAssociation().setTag(new TagUrn("MetaEnumExample.EVENT")),
+                                        new TagAssociation().setTag(new TagUrn("d")),
+                                        new TagAssociation().setTag(new TagUrn("e")),
+                                        new TagAssociation().setTag(new TagUrn("f")),
                                         new TagAssociation().setTag(new TagUrn("product_type.my type")),
                                         new TagAssociation().setTag(new TagUrn("product_type_bool"))
                                 )))

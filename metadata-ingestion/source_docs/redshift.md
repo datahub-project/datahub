@@ -139,12 +139,14 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `domain.domain_key.allow`        |          |                    | List of regex patterns for tables/schemas to set domain_key domain key (domain_key can be any string like `sales`. There can be multiple domain key specified.                          |
 | `domain.domain_key.deny`         |          |                    | List of regex patterns for tables/schemas to not assign domain_key. There can be multiple domain key specified.                                                                         |
 | `domain.domain_key.ignoreCase`   |          | `True`             | Whether to ignore case sensitivity during pattern matching.There can be multiple domain key specified.                                                                                  |
+| `format_sql_queries`             |          | `False`            | Whether to format sql queries                                                                                                                                                           |
 
 ### Lineage
 
 There are multiple lineage collector implementations as Redshift does not support table lineage out of the box.
 
 #### stl_scan_based
+
 The stl_scan based collector uses Redshift's [stl_insert](https://docs.aws.amazon.com/redshift/latest/dg/r_STL_INSERT.html) and [stl_scan](https://docs.aws.amazon.com/redshift/latest/dg/r_STL_SCAN.html) system tables to
 discover lineage between tables.
 Pros:
@@ -158,6 +160,7 @@ Cons:
 - If a table is depending on a view then the view won't be listed as dependency. Instead the table will be connected with the view's dependencies.
 
 #### sql_based
+
 The sql_based based collector uses Redshift's [stl_insert](https://docs.aws.amazon.com/redshift/latest/dg/r_STL_INSERT.html) to discover all the insert queries
 and uses sql parsing to discover the dependecies.
 
@@ -172,6 +175,7 @@ Cons:
 - Less reliable as the query parser can fail on certain queries
 
 #### mixed
+
 Using both collector above and first applying the sql based and then the stl_scan based one.
 
 Pros:
@@ -209,6 +213,7 @@ ALTER USER datahub_user WITH SYSLOG ACCESS UNRESTRICTED;
 ```
 
 ### Setup
+
 To install this plugin, run `pip install 'acryl-datahub[redshift-usage]'`.
 
 ### Capabilities
@@ -255,6 +260,7 @@ sink:
 ```
 
 ### Config details
+
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
 By default, we extract usage stats for the last day, with the recommendation that this source is executed every day.
@@ -277,6 +283,10 @@ By default, we extract usage stats for the last day, with the recommendation tha
 | `user_email_pattern.allow`      |          | \*                                                             | List of regex patterns for user emails to include in usage.                                                                                                                             |
 | `user_email_pattern.deny`       |          |                                                                | List of regex patterns for user emails to exclude from usage.                                                                                                                           |
 | `user_email_pattern.ignoreCase` |          | `True`                                                         | Whether to ignore case sensitivity during pattern matching.                                                                                                                             |
+| `table_pattern.allow`           |          |                                                                | List of regex patterns for tables to include in ingestion.                                                                                                                              |
+| `table_pattern.deny`            |          |                                                                | List of regex patterns for tables to exclude from ingestion.                                                                                                                            |
+| `schema_pattern.allow`          |          |                                                                | List of regex patterns for schemas to include in ingestion.                                                                                                                             |
+| `schema_pattern.deny`           |          |                                                                | List of regex patterns for schemas to exclude from ingestion.                                                                                                                           |
 
 ## Questions
 

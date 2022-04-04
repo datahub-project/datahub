@@ -104,6 +104,11 @@ snowflake_common = {
     "cryptography",
 }
 
+trino = {
+    "trino>=0.308",
+    "trino[sqlalchemy]>=0.308",
+}
+
 microsoft_common = {"msal==1.16.0"}
 
 data_lake_base = {
@@ -113,7 +118,7 @@ data_lake_base = {
     "tableschema>=1.20.2",
     "ujson>=4.3.0",
     "types-ujson>=4.2.1",
-    "smart-open[s3]>=5.2.1"
+    "smart-open[s3]>=5.2.1",
 }
 
 data_lake_profiling = {
@@ -125,6 +130,10 @@ s3_base = {
     *data_lake_base,
     "moto[s3]",
     "wcmatch",
+}
+
+usage_common = {
+    "sqlparse",
 }
 
 # Note: for all of these, framework_common will be added.
@@ -141,10 +150,10 @@ plugins: Dict[str, Set[str]] = {
     # PyAthena is pinned with exact version because we use private method in PyAthena
     "athena": sql_common | {"PyAthena[SQLAlchemy]==2.4.1"},
     "azure-ad": set(),
-    "bigquery": sql_common | bigquery_common | {"sqlalchemy-bigquery>=1.4.1"},
-    "bigquery-usage": bigquery_common | {"cachetools"},
+    "bigquery": sql_common | bigquery_common | {"sqlalchemy-bigquery>=1.4.1", "sqlparse"},
+    "bigquery-usage": bigquery_common | usage_common | {"cachetools"},
     "clickhouse": sql_common | {"clickhouse-sqlalchemy==0.1.8"},
-    "clickhouse-usage": sql_common | {"clickhouse-sqlalchemy==0.1.8"},
+    "clickhouse-usage": sql_common | usage_common | {"clickhouse-sqlalchemy==0.1.8", },
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
     "data-lake": {*data_lake_base, *data_lake_profiling},
@@ -188,15 +197,27 @@ plugins: Dict[str, Set[str]] = {
     "redshift": sql_common
     | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2", "sqllineage==1.3.3"},
     "redshift-usage": sql_common
-    | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2", "sqllineage==1.3.3"},
+    | usage_common
+    | {
+        "sqlalchemy-redshift",
+        "psycopg2-binary",
+        "GeoAlchemy2",
+        "sqllineage==1.3.3",
+    },
     "sagemaker": aws_common,
     "snowflake": snowflake_common,
-    "snowflake-usage": snowflake_common | {"more-itertools>=8.12.0"},
+    "snowflake-usage": snowflake_common | usage_common | {"more-itertools>=8.12.0", },
     "sqlalchemy": sql_common,
-    "superset": {"requests", "sqlalchemy", "great_expectations", "greenlet", "Jinja2<3.1.0"},
+    "superset": {
+        "requests",
+        "sqlalchemy",
+        "great_expectations",
+        "greenlet",
+        "Jinja2<3.1.0",
+    },
     "tableau": {"tableauserverclient>=0.17.0"},
-    "trino": sql_common | {"trino"},
-    "starburst-trino-usage": sql_common | {"trino"},
+    "trino": sql_common | trino,
+    "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging"},
     "powerbi": {"orderedset"} | microsoft_common,
 }
