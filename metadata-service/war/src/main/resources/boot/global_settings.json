@@ -1,17 +1,4 @@
 {
-  "integrations": {
-    "slackSettings": {
-      "enabled": true
-    }
-  },
-  "notifications": {
-    "incidents": {
-      "broadcastNewIncidentNotification": {
-        "value": "ENABLED"
-      },
-      "broadcastIncidentStatusChangeNotification": {
-        "value": "ENABLED"
-      }
-    }
-  }
+  "integrations": {},
+  "notifications": {}
 }
