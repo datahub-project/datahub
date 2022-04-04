@@ -52,11 +52,11 @@ create user datahub_user display_name = 'DataHub' password='' default_role = dat
 grant role datahub_role to user datahub_user;
 ```
 
-The details of what each privileges does can be viewed in [snowflake docs](https://docs.snowflake.com/en/user-guide/security-access-control-privileges.html). To summarise why does the role need these privileges and some alternatives based on how the plugin is being used are below
-- `OPERATE` is required on warehouse to suspend or resume the warehouse
-- `USAGE` is required for us to run queries using the warehouse
-- `Usage` on `DATABASE` and `schema` are required because without it tables and views inside them are not accessible. If an admin does the required grants on `TABLE` but misses the grants on `SCHEMA` or the `DATABASE` in which the table/view exists then we will not be able to get metadata for the table/view.
-- If metadata is required only on some schemas then you can grant the usage privilieges only on the particular schema like
+The details of each granted privilege can be viewed in [snowflake docs](https://docs.snowflake.com/en/user-guide/security-access-control-privileges.html). A summarization of each privilege, and why it is required for this connector: 
+- `operate` is required on warehouse to execute queries 
+- `usage` is required for us to run queries using the warehouse
+- `usage` on `database` and `schema` are required because without it tables and views inside them are not accessible. If an admin does the required grants on `table` but misses the grants on `schema` or the `database` in which the table/view exists then we will not be able to get metadata for the table/view.
+- If metadata is required only on some schemas then you can grant the usage privilieges only on a particular schema like
 ```sql
 grant usage on schema "<your-database>"."<your-schema>" to role datahub_role;
 ```
