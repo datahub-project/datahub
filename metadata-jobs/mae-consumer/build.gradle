@@ -36,6 +36,7 @@ dependencies {
     compile externalDependency.springActuator
 
     compileOnly externalDependency.lombok
+
     annotationProcessor externalDependency.lombok
 
     runtime externalDependency.logbackClassic
