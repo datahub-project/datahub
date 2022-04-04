@@ -3,7 +3,7 @@ import { Card, Col, Pagination, Row, Space, Typography } from 'antd';
 import styled from 'styled-components';
 import { Content } from 'antd/lib/layout/layout';
 import { Link } from 'react-router-dom';
-import { InfoCircleOutlined, RightOutlined } from '@ant-design/icons';
+import { FolderOutlined, InfoCircleOutlined, RightOutlined } from '@ant-design/icons';
 
 import analytics, { EventType } from '../analytics';
 import {
@@ -19,7 +19,6 @@ import { SearchCfg } from '../../conf';
 import { ReactComponent as LoadingSvg } from '../../images/datahub-logo-color-loading_pendulum.svg';
 import EntityRegistry from '../entity/EntityRegistry';
 import { CONTAINER_FILTER_NAME, DATABASE_FILTER_NAME, SCHEMA_FILTER_NAME } from '../search/utils/constants';
-import { formatNumber } from '../shared/formatNumber';
 
 const SearchBody = styled.div`
     display: flex;
@@ -108,14 +107,6 @@ const styles = {
     type: { fontSize: '12px', lineHeight: '20px', fontWeight: 700, color: '#8C8C8C' },
     count: { margin: 0, color: '#00000073' },
 };
-
-const PreviewImage = styled.img`
-    max-height: 18px;
-    width: auto;
-    object-fit: contain;
-    background-color: transparent;
-    margin-right: 4px;
-`;
 
 const ResultCard = styled(Card)`
     && {
@@ -218,15 +209,7 @@ export const MetaDataSearchResults = ({
                                                         <ResultCard>
                                                             <Row style={styles.row} justify="space-between">
                                                                 <Space size="middle" align="center">
-                                                                    {!!containerEntity.platform.properties?.logoUrl && (
-                                                                        <PreviewImage
-                                                                            src={
-                                                                                containerEntity.platform.properties
-                                                                                    ?.logoUrl
-                                                                            }
-                                                                            alt={displayName}
-                                                                        />
-                                                                    )}
+                                                                    <FolderOutlined width={28} />
                                                                     <span>
                                                                         <span style={styles.type}>{type}</span>
                                                                         <Typography.Title
@@ -236,9 +219,6 @@ export const MetaDataSearchResults = ({
                                                                             {displayName}
                                                                         </Typography.Title>
                                                                     </span>
-                                                                    <Typography.Title style={styles.count} level={5}>
-                                                                        {formatNumber(containerEntity.entities?.total)}
-                                                                    </Typography.Title>
                                                                 </Space>
                                                                 <Space size="middle" align="center">
                                                                     {(type === DATABASE_FILTER_NAME ||

@@ -109,8 +109,6 @@ export const MetaDataContainers = ({
         return refetch(variables);
     };
 
-    console.log('query:: ', query);
-
     // Fetching the Meta Data Results
     const { data, loading, error } = useGetSearchResultsForMultipleQuery({
         variables: {
