@@ -212,6 +212,12 @@ public class Constants {
   public static final String NOTIFICATION_REQUEST_EVENT_NAME = "notificationRequest";
 
   /**
+   * Relationships
+   */
+  public static final String GROUP_MEMBERSHIP_RELATIONSHIP_NAME = "IsMemberOfGroup";
+
+
+  /**
    * User Status
    */
   public static final String CORP_USER_STATUS_ACTIVE = "ACTIVE";
