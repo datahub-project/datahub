@@ -1,0 +1,14 @@
+[
+  {
+    "auditHeader":null,
+    "entityType":"globalSettings",
+    "entityUrn": "urn:li:globalSettings:0",
+    "changeType":"UPSERT",
+    "aspectName":"globalSettingsInfo",
+    "aspect":{
+      "value":"{\n  \"integrations\": {\n    \"slackSettings\": {\n      \"enabled\": true\n    }\n  },\n  \"notifications\": {\n    \"incidents\": {\n      \"broadcastNewIncidentNotification\": {\n        \"value\": \"ENABLED\"\n      },\n      \"broadcastIncidentStatusChangeNotification\": {\n        \"value\": \"ENABLED\"\n      }\n    }\n  }\n}",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  }
+]

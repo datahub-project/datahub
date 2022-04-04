@@ -3,7 +3,7 @@
 source:
   type: "file"
   config:
-    filename: "./examples/mce_files/bootstrap_mce.json"
+    filename: "./examples/mce_files/enabled_slack_incidents_settings.json"
 
 # see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:
