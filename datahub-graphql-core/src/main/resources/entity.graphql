@@ -14,7 +14,6 @@ Root type used for fetching DataHub Metadata
 Coming soon listEntity queries for listing all entities of a given type
 """
 type Query {
-
     """
     Fetch a Data Platform by primary key (urn)
     """
