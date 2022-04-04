@@ -49,7 +49,7 @@ public class NotificationSinkManagerTest {
         )
     ));
 
-    manager.handle(request);
+    manager.handle(request).join();
 
     // Verify that "send" was called on the sink.
     Mockito.verify(notificationSink, Mockito.times(1)).send(Mockito.eq(request), Mockito.any());
@@ -85,7 +85,7 @@ public class NotificationSinkManagerTest {
         )
     ));
 
-    manager.handle(request);
+    manager.handle(request).join();
 
     // Verify that "send" was NOT called on the sink. (It cannot handle the template)
     Mockito.verify(notificationSink, Mockito.times(0)).send(Mockito.same(request), Mockito.any());

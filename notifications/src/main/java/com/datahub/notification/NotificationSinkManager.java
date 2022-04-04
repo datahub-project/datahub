@@ -53,12 +53,12 @@ public class NotificationSinkManager {
     this.sinkRegistry = new ArrayList<>(sinks);
   }
 
-  public void handle(@Nonnull final NotificationRequest request) {
+  public CompletableFuture<Void> handle(@Nonnull final NotificationRequest request) {
     log.info(String.format("About to handle with sinks: %s, %s", this.sinkRegistry, request.toString()));
 
     if (NotificationManagerMode.DISABLED.equals(this.mode)) {
       log.debug("NotificationSinkManager is disabled. Skipping sending notification...");
-      return;
+      return CompletableFuture.completedFuture(null);
     }
 
     log.info(String.format("About to validate request sinks: %s, %s", this.sinkRegistry, request.toString()));
@@ -72,11 +72,12 @@ public class NotificationSinkManager {
     final List<NotificationSink> eligibleSinks = getEligibleSinks(template, request);
 
     // 3. Send the messages via each sink.
+    final List<CompletableFuture<Void>> notificationFutures = new ArrayList<>();
     for (final NotificationSink sink : eligibleSinks) {
       log.info(String.format("About to send request %s", request.toString()));
 
       // Run each sink asynchronously.
-      CompletableFuture.runAsync(() -> {
+      notificationFutures.add(CompletableFuture.runAsync(() -> {
         try {
           sink.send(request, new NotificationContext());
         } catch (Exception e) {
@@ -87,8 +88,9 @@ public class NotificationSinkManager {
                   request.getMessage().getParameters(),
                   request.getRecipients()), e);
         }
-      });
+      }));
     }
+    return CompletableFuture.allOf(notificationFutures.toArray(new CompletableFuture[eligibleSinks.size()]));
   }
 
   /**
