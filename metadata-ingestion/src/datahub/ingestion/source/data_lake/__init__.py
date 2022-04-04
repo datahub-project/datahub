@@ -180,7 +180,8 @@ class DataLakeSource(Source):
         conf = SparkConf()
 
         # None by default, which corresponds to local
-        conf.set("spark.master", self.source_config.profiling.spark_cluster_manager)
+        if self.source_config.profiling.spark_cluster_manager:
+            conf.setMaster(self.source_config.profiling.spark_cluster_manager)
 
         conf.set(
             "spark.jars.packages",
