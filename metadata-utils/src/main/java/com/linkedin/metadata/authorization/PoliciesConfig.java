@@ -307,7 +307,7 @@ public class PoliciesConfig {
       "Users",
       "Users on DataHub",
       ImmutableList.of(
-          VIEW_ENTITY_PAGE_PRIVILEGE, 
+          VIEW_ENTITY_PAGE_PRIVILEGE,
           EDIT_CONTACT_INFO_PRIVILEGE,
           EDIT_USER_PROFILE_PRIVILEGE,
           EDIT_ENTITY_PRIVILEGE)

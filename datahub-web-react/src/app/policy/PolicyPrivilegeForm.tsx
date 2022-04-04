@@ -269,6 +269,12 @@ export default function PolicyPrivilegeForm({
         );
     };
 
+    const displayStringWithMaxLength = (displayStr, length) => {
+        return displayStr.length > length
+            ? `${displayStr.substring(0, Math.min(length, displayStr.length))}...`
+            : displayStr;
+    };
+
     return (
         <PrivilegesForm layout="vertical">
             {showResourceFilterInput && (
@@ -280,7 +286,6 @@ export default function PolicyPrivilegeForm({
                     <Select
                         value={resourceTypeSelectValue}
                         mode="multiple"
-                        filterOption={false}
                         placeholder="Apply to ALL resource types by default. Select types to apply to specific types of entities."
                         onSelect={onSelectResourceType}
                         onDeselect={onDeselectResourceType}
@@ -319,7 +324,11 @@ export default function PolicyPrivilegeForm({
                         tagRender={(tagProps) => (
                             <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
                                 <Tooltip title={tagProps.value.toString()}>
-                                    {resourceUrnToDisplayName[tagProps.value.toString()] || tagProps.value.toString()}
+                                    {displayStringWithMaxLength(
+                                        resourceUrnToDisplayName[tagProps.value.toString()] ||
+                                            tagProps.value.toString(),
+                                        75,
+                                    )}
                                 </Tooltip>
                             </Tag>
                         )}
@@ -346,7 +355,10 @@ export default function PolicyPrivilegeForm({
                         onSearch={handleDomainSearch}
                         tagRender={(tagProps) => (
                             <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
-                                {domainUrnToDisplayName[tagProps.value.toString()] || tagProps.value.toString()}
+                                {displayStringWithMaxLength(
+                                    domainUrnToDisplayName[tagProps.value.toString()] || tagProps.value.toString(),
+                                    75,
+                                )}
                             </Tag>
                         )}
                     >
