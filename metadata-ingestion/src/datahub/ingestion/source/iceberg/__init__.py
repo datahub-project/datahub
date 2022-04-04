@@ -13,6 +13,8 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
+    make_group_urn,
+    make_ownership_aspect_from_urn_list,
     make_user_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -64,7 +66,6 @@ class IcebergSource(Source):
         super().__init__(ctx)
         self.config = config
         self.platform = "iceberg"
-        self.fs_client = config.filesystem_client
         self.iceberg_client = config.filesystem_tables
 
     @classmethod
@@ -73,27 +74,15 @@ class IcebergSource(Source):
         return cls(config, ctx)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        """
-        Current code supports this table name scheme:
-          {namespaceName}/{tableName}
-        where each name is only one level deep
-        """
-        for table_path in self.config.get_paths():
+        for dataset_path, dataset_name in self.config.get_paths():
             try:
-                # TODO Stripping 'base_path/' from tablePath.  Weak code, need to be improved later
-                dataset_name = ".".join(
-                    table_path[len(self.config.base_path) + 1 :].split("/")
-                )
-
                 if not self.config.table_pattern.allowed(dataset_name):
                     # Path contained a valid Iceberg table, but is rejected by pattern.
                     self.report.report_dropped(dataset_name)
                     continue
 
                 # Try to load an Iceberg table.  Might not contain one, this will be caught by NoSuchTableException.
-                table: Table = self.iceberg_client.load(
-                    f"{self.config.filesystem_url}/{table_path}"
-                )
+                table: Table = self.iceberg_client.load(dataset_path)
 
                 yield from self._create_iceberg_workunit(dataset_name, table)
             except NoSuchTableException:
@@ -102,7 +91,7 @@ class IcebergSource(Source):
             except Exception as e:
                 self.report.report_failure("general", f"Failed to create workunit: {e}")
                 LOGGER.exception(
-                    f"Exception while processing table {self.config.filesystem_url}/{table_path}, skipping it.",
+                    f"Exception while processing table {dataset_path}, skipping it.",
                     e,
                 )
 
@@ -148,16 +137,8 @@ class IcebergSource(Source):
         # )
         # TODO: How do I add an operation_aspect?
 
-        if "owner" in table.properties():
-            owner_email = table.properties()["owner"]
-            owners = [
-                OwnerClass(
-                    owner=make_user_urn(owner_email),
-                    type=OwnershipTypeClass.PRODUCER,
-                    source=None,
-                )
-            ]
-            dataset_ownership = OwnershipClass(owners=owners)
+        dataset_ownership = self._get_ownership_aspect(table)
+        if dataset_ownership:
             dataset_snapshot.aspects.append(dataset_ownership)
 
         schema_metadata = self._create_schema_metadata(dataset_name, table)
@@ -168,7 +149,7 @@ class IcebergSource(Source):
         self.report.report_workunit(wu)
         yield wu
 
-        dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
+        dpi_aspect = self._get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
         if dpi_aspect:
             yield dpi_aspect
 
@@ -178,7 +159,35 @@ class IcebergSource(Source):
                 dataset_name, dataset_urn, table, schema_metadata
             )
 
-    def get_dataplatform_instance_aspect(
+    def _get_ownership_aspect(self, table: Table) -> Optional[OwnershipClass]:
+        owners = []
+        if self.config.user_ownership_property:
+            if self.config.user_ownership_property in table.properties():
+                user_owner = table.properties()[self.config.user_ownership_property]
+                owners.append(
+                    OwnerClass(
+                        owner=make_user_urn(user_owner),
+                        type=OwnershipTypeClass.TECHNICAL_OWNER,
+                        source=None,
+                    )
+                )
+        if self.config.group_ownership_property:
+            if self.config.group_ownership_property in table.properties():
+                group_owner = table.properties()[self.config.group_ownership_property]
+                owners.append(
+                    OwnerClass(
+                        owner=make_group_urn(group_owner),
+                        type=OwnershipTypeClass.TECHNICAL_OWNER,
+                        source=None,
+                    )
+                )
+        if len(owners) > 0:
+            # TODO: Consider using builder if I can provide OwnershipTypeClass:
+            # return make_ownership_aspect_from_urn_list([make_user_urn(user_owner)], OwnershipTypeClass.TECHNICAL_OWNER)
+            return OwnershipClass(owners=owners)
+        return None
+
+    def _get_dataplatform_instance_aspect(
         self, dataset_urn: str
     ) -> Optional[MetadataWorkUnit]:
         # If we are a platform instance based source, emit the instance aspect
@@ -204,7 +213,7 @@ class IcebergSource(Source):
     def _create_schema_metadata(
         self, dataset_name: str, table: Table
     ) -> SchemaMetadata:
-        schema_fields = self.get_schema_fields(table.schema().columns())
+        schema_fields = self._get_schema_fields(table.schema().columns())
 
         schema_metadata = SchemaMetadata(
             schemaName=dataset_name,
@@ -216,40 +225,36 @@ class IcebergSource(Source):
         )
         return schema_metadata
 
-    def get_schema_fields(self, columns: Tuple) -> List[SchemaField]:
+    def _get_schema_fields(self, columns: Tuple) -> List[SchemaField]:
         canonical_schema = []
         for column in columns:
-            fields = self.get_schema_fields_for_column(column)
+            fields = self._get_schema_fields_for_column(column)
             canonical_schema.extend(fields)
         return canonical_schema
 
-    def get_schema_fields_for_column(
+    def _get_schema_fields_for_column(
         self,
         column: NestedField,
     ) -> List[SchemaField]:
         field_type: IcebergTypes.Type = column.type
         if field_type.is_primitive_type():
-            avro_schema = self.get_avro_schema_from_data_type(column)
+            avro_schema = self._get_avro_schema_from_data_type(column)
             newfields = schema_util.avro_schema_to_mce_fields(
                 json.dumps(avro_schema), default_nullable=column.is_optional
             )
             assert len(newfields) == 1
-            # newfields[0].nullable = column.is_optional
-            # newfields[0].description = column.doc
             return newfields
         elif field_type.is_nested_type():
             # Get avro schema for subfields along with parent complex field
-            avro_schema = self.get_avro_schema_from_data_type(column)
+            avro_schema = self._get_avro_schema_from_data_type(column)
             newfields = schema_util.avro_schema_to_mce_fields(
                 json.dumps(avro_schema), default_nullable=column.is_optional
             )
-            # First field is the parent complex field
-            # newfields[0].nullable = column.is_optional
             return newfields
         else:
-            raise ValueError()
+            raise ValueError(f"Invalid Iceberg field type: {field_type}")
 
-    def get_avro_schema_from_data_type(self, column: NestedField) -> Dict[str, Any]:
+    def _get_avro_schema_from_data_type(self, column: NestedField) -> Dict[str, Any]:
         """
         See Iceberg documentation for Avro mapping:
         https://iceberg.apache.org/#spec/#appendix-a-format-specific-requirements
@@ -267,6 +272,32 @@ class IcebergSource(Source):
                 }
             ],
         }
+
+    # def get_schema_field_from_iceberg_field(self, column: NestedField) -> SchemaField:
+    #     if not isinstance(column.type, IcebergTypes.DecimalType):
+    #         raise ValueError(f"Unsupported type {column.type}")
+    #     field = SchemaField(
+    #         fieldPath=field_path,
+    #         # Populate it with the simple native type for now.
+    #         nativeDataType=native_data_type,
+    #         # type=self._converter._get_column_type(
+    #         #     actual_schema.type, self._actual_schema.props.get("logicalType")
+    #         # ),
+    #         type=self._converter._get_column_type(
+    #             actual_schema.type,
+    #             (
+    #                 getattr(actual_schema, "logical_type", None)
+    #                 or actual_schema.props.get("logicalType")
+    #             ),
+    #         ),
+    #         description=description,
+    #         recursive=False,
+    #         nullable=self._converter._is_nullable(schema),
+    #         isPartOfKey=self._converter._is_key_schema,
+    #         globalTags=tags,
+    #         jsonProps=json.dumps(merged_props) if merged_props else None,
+    #     )
+    #     return field
 
     def get_report(self) -> SourceReport:
         return self.report
@@ -311,7 +342,7 @@ def _parse_struct_fields(parts: Tuple[NestedField], nullable: bool) -> Dict[str,
     for nested_field in parts:
         field_name = nested_field.name
         field_type = _parse_datatype(nested_field.type, nested_field.is_optional)
-        fields.append({"name": field_name, "type": field_type})
+        fields.append({"name": field_name, "type": field_type, "doc": nested_field.doc})
     return {
         "type": "record",
         "name": "__struct_{}".format(str(uuid.uuid4()).replace("-", "")),
@@ -352,7 +383,10 @@ def _parse_basic_datatype(
         # Also of interest: https://avro.apache.org/docs/current/spec.html#Decimal
         decimal_type: IcebergTypes.DecimalType = type
         return {
-            "type": "bytes",
+            # "type": "bytes",
+            "type": "fixed",  # to fix avro bug
+            "name": "bogus",  # to fix avro bug
+            "size": 1,  # to fix avro bug
             "logicalType": "decimal",
             "precision": decimal_type.precision,
             "scale": decimal_type.scale,
@@ -391,9 +425,11 @@ def _parse_basic_datatype(
         # utcAdjustment: bool = True
         return {
             "type": "long",
-            "logicalType": "timestamp-micros"
-            if timestamp_type.adjust_to_utc
-            else "local-timestamp-micros",
+            "logicalType": "timestamp-micros",
+            # Commented out since Avro's Python implementation (1.11.0) does not support local-timestamp-micros, even though it exists in the spec.
+            # "logicalType": "timestamp-micros"
+            # if timestamp_type.adjust_to_utc
+            # else "local-timestamp-micros",
             "native_data_type": repr(timestamp_type),
             "_nullable": nullable,
         }

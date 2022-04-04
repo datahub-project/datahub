@@ -1,0 +1,41 @@
+import pytest
+
+from datahub.ingestion.run.pipeline import Pipeline
+from tests.test_helpers import mce_helpers
+
+FROZEN_TIME = "2020-04-14 07:00:00"
+
+
+@pytest.mark.integration
+def test_iceberg_ingest(pytestconfig, tmp_path, mock_time):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/iceberg/"
+
+    # Run the metadata ingestion pipeline.
+    pipeline = Pipeline.create(
+        {
+            "run_id": "iceberg-test",
+            "source": {
+                "type": "iceberg",
+                "config": {
+                    "localfs": str(test_resources_dir / "test_data"),
+                    "user_ownership_property": "owner",
+                    "group_ownership_property": "owner",
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/iceberg_mces.json",
+                },
+            },
+        }
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    # Verify the output.
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "iceberg_mces.json",
+        golden_path=test_resources_dir / "iceberg_mces_golden.json",
+    )

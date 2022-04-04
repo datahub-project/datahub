@@ -20,9 +20,12 @@ class AdlsSourceConfig(ConfigModel):
     account_key: Optional[str]
     sas_token: Optional[str]
     container_name: str
+    base_path: str = "/"
 
-    def get_abfss_url(self) -> str:
-        return f"abfss://{self.container_name}@{self.account_name}.dfs.core.windows.net"
+    def get_abfss_url(self, folder_path: str = "") -> str:
+        if not folder_path.startswith("/"):
+            folder_path = f"/{folder_path}"
+        return f"abfss://{self.container_name}@{self.account_name}.dfs.core.windows.net{folder_path}"
 
     def get_filesystem_client(self) -> FileSystemClient:
         return self.get_service_client().get_file_system_client(self.container_name)
@@ -30,10 +33,10 @@ class AdlsSourceConfig(ConfigModel):
     def get_service_client(self):
         return DataLakeServiceClient(
             account_url=f"https://{self.account_name}.dfs.core.windows.net",
-            credential=self.getCredentials(),
+            credential=self.get_credentials(),
         )
 
-    def getCredentials(self):
+    def get_credentials(self):
         return self.sas_token if (self.sas_token is not None) else self.account_key
 
     @validator("sas_token")
