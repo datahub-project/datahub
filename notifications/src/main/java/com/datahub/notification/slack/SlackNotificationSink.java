@@ -274,6 +274,7 @@ public class SlackNotificationSink implements NotificationSink {
 
     // Build the message. TODO: Use a template here.
     final String url = String.format("%s%s", this.baseUrl, request.getMessage().getParameters().get("entityPath"));
+    final String message = request.getMessage().getParameters().get("message");
     final String title = request.getMessage().getParameters().get("incidentTitle");
     final String description = request.getMessage().getParameters().get("incidentDescription");
     final String prevStatus = request.getMessage().getParameters().get("prevStatus");
@@ -293,7 +294,7 @@ public class SlackNotificationSink implements NotificationSink {
             .collect(Collectors.toList()));
 
     final String icon = newStatus.equals("RESOLVED") ? ":white_check_mark:" : ":warning:";
-    return String.format("%s%s",
+    return String.format("%s%s%s",
         String.format("%s *Incident Status Changed*\n\n The status of incident *%s* on asset %s has changed from *%s* to *%s*%s.",
             icon,
             title != null ? title : "None",
@@ -301,6 +302,9 @@ public class SlackNotificationSink implements NotificationSink {
             prevStatus,
             newStatus,
             actorName != null ? String.format(" by *%s*", actorName) : ""),
+        String.format("\n\n *Message*: %s\n",
+            message != null ? message : "None"
+        ),
         String.format("\n\n *Incident Name*: %s\n*Incident Description*: %s\n\n *Asset Owners*: %s\n*Downstream Asset Owners*: %s",
             title != null ? title : "None",
             description != null ? description : "None",

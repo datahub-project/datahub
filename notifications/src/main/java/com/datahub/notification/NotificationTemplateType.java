@@ -52,6 +52,7 @@ public enum NotificationTemplateType {
           "newStatus"
       ),
       ImmutableSet.of(
+          "message",
           "incidentTitle",
           "incidentDescription",
           "actorUrn",

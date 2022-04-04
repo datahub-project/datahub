@@ -192,6 +192,9 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
     templateParams.put("owners", listToJSON(owners));
     templateParams.put("downstreamOwners", listToJSON(downstreamOwners));
     templateParams.put("actorUrn", newInfo.getStatus().getLastUpdated().getActor().toString());
+    if (newInfo.getStatus().hasMessage()) {
+      templateParams.put("message", newInfo.getStatus().getMessage());
+    }
     if (newInfo.hasTitle()) {
       templateParams.put("incidentTitle", newInfo.getTitle());
     }
