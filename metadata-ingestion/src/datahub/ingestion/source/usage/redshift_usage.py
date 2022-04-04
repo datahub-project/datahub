@@ -230,12 +230,13 @@ class RedshiftUsageSource(Source):
     ) -> Iterable[RedshiftAccessEvent]:
         results: ResultProxy = engine.execute(query)
         for row in results:  # type: RowProxy
-            if self._should_process_row(row):
-                access_event = RedshiftAccessEvent(**dict(row.items()))
-                # Replace database name with the alias name if one is provided in the config.
-                if self.config.database_alias:
-                    access_event.database = self.config.database_alias
-                yield access_event
+            if not self._should_process_row(row):
+                continue
+            access_event = RedshiftAccessEvent(**dict(row.items()))
+            # Replace database name with the alias name if one is provided in the config.
+            if self.config.database_alias:
+                access_event.database = self.config.database_alias
+            yield access_event
 
     def _gen_operation_aspect_workunits_by_type_from_access_events(
         self,
