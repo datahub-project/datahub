@@ -18,8 +18,12 @@ node {
   // Version of Yarn to use.
   yarnVersion = '1.22.0'
 
-  // Base URL for fetching node distributions (change if you have a mirror).
-  distBaseUrl = 'https://nodejs.org/dist'
+  // Base URL for fetching node distributions (set nodeDistBaseUrl if you have a mirror).
+  if (project.hasProperty('nodeDistBaseUrl')) {
+    distBaseUrl = project.getProperty('nodeDistBaseUrl')
+  } else {
+    distBaseUrl = 'https://nodejs.org/dist'
+  }
 
   // Set the work directory for unpacking node
   workDir = file("${project.projectDir}/.gradle/nodejs")

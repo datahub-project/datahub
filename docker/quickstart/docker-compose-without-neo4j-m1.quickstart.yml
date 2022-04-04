@@ -80,6 +80,7 @@ services:
     - MCE_CONSUMER_ENABLED=true
     - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED}
     - DATAHUB_FOLDER_PATH=/etc/datahub
+    - PE_CONSUMER_ENABLED=true
     hostname: datahub-gms
     image: linkedin/datahub-gms:${DATAHUB_VERSION:-head}
     ports:

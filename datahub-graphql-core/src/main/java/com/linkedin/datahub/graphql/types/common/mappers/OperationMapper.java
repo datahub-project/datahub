@@ -5,7 +5,7 @@ import com.linkedin.datahub.graphql.generated.OperationType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.types.mappers.TimeSeriesAspectMapper;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
@@ -20,7 +20,7 @@ public class OperationMapper implements TimeSeriesAspectMapper<com.linkedin.data
     @Override
     public com.linkedin.datahub.graphql.generated.Operation apply(@Nonnull final EnvelopedAspect envelopedAspect) {
 
-        Operation gmsProfile = GenericAspectUtils
+        Operation gmsProfile = GenericRecordUtils
                 .deserializeAspect(
                         envelopedAspect.getAspect().getValue(),
                         envelopedAspect.getAspect().getContentType(),

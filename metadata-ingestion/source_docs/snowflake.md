@@ -110,6 +110,14 @@ source:
     schema_pattern:
       deny:
       - "information_schema.*"
+    profiling:
+      enabled: true
+    profile_pattern:
+      allow:
+        - 'ACCOUNTING_DB.*.*'
+        - 'MARKETING_DB.*.*'
+      deny:
+        - '.*information_schema.*'
 
 sink:
   # sink configs
@@ -250,7 +258,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 |---------------------------------|----------|---------------------------------------------------------------------|----------------------------------------------------------------------------------|
 | `username`                      |          |                                                                     | Snowflake username.                                                              |
 | `password`                      |          |                                                                     | Snowflake password.                                                              |
-| `host_port`                     | ✅        |                                                                     | Snowflake host URL.                                                              |
+| `host_port`                     | ✅       |                                                                     | Snowflake host URL.                                                              |
 | `warehouse`                     |          |                                                                     | Snowflake warehouse.                                                             |
 | `role`                          |          |                                                                     | Snowflake role.                                                                  |
 | `env`                           |          | `"PROD"`                                                            | Environment to use in namespace when constructing URNs.                          |
@@ -260,24 +268,24 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `end_time`                      |          | Last full day in UTC (or hour, depending on `bucket_duration`)      | Latest date of usage logs to consider.                                           |
 | `top_n_queries`                 |          | `10`                                                                | Number of top queries to save to each table.                                     |
 | `include_operational_stats`     |          | `true`                                                              | Whether to display operational stats.                                            |
-| `database_pattern.allow`        |          |                                                                            | List of regex patterns for databases to include in ingestion.                                                                                                                           |
-| `database_pattern.deny`         |          | `"^UTIL_DB$" `<br />`"^SNOWFLAKE$"`<br />`"^SNOWFLAKE_SAMPLE_DATA$"`       | List of regex patterns for databases to exclude from ingestion.                                                                                                                         |
-| `database_pattern.ignoreCase`   |          | `True`                                                                     | Whether to ignore case sensitivity during pattern matching.                                                                                                                             |
-| `schema_pattern.allow`         |          |                                                                            | List of regex patterns for schemas to include in ingestion.                                                                                                                             |
-| `schema_pattern.deny`          |          |                                                                            | List of regex patterns for schemas to exclude from ingestion.                                                                                                                           |
-| `schema_pattern.ignoreCase`    |          | `True`                                                                     | Whether to ignore case sensitivity during pattern matching.                                                                                                                             |
+| `database_pattern.allow`        |          |                                                                     | List of regex patterns for databases to include in ingestion.                    |
+| `database_pattern.deny`         |          | `"^UTIL_DB$" `<br />`"^SNOWFLAKE$"`<br />`"^SNOWFLAKE_SAMPLE_DATA$"`| List of regex patterns for databases to exclude from ingestion.                  |
+| `database_pattern.ignoreCase`   |          | `True`                                                              | Whether to ignore case sensitivity during pattern matching.                      |
+| `schema_pattern.allow`          |          |                                                                     | List of regex patterns for schemas to include in ingestion.                      |
+| `schema_pattern.deny`           |          |                                                                     | List of regex patterns for schemas to exclude from ingestion.                    |
+| `schema_pattern.ignoreCase`     |          | `True`                                                              | Whether to ignore case sensitivity during pattern matching.                      |
 | `view_pattern`                  |          |                                                                     | Allow/deny patterns for views in snowflake dataset names.                        |
 | `table_pattern`                 |          |                                                                     | Allow/deny patterns for tables in snowflake dataset names.                       |
 | `user_email_pattern.allow`      |          | *                                                                   | List of regex patterns for user emails to include in usage.                      |
 | `user_email_pattern.deny`       |          |                                                                     | List of regex patterns for user emails to exclude from usage.                    |
 | `user_email_pattern.ignoreCase` |          | `True`                                                              | Whether to ignore case sensitivity during pattern matching.                      |
+| `format_sql_queries`            |          | `False`                                                             | Whether to format sql queries                                                    |
 
 :::caution
 
 User's without email address will be ignored from usage if you don't set `email_domain` property.
 
 :::
-
 
 
 ## Compatibility
