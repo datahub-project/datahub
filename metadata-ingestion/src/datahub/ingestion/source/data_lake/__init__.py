@@ -178,7 +178,7 @@ class DataLakeSource(Source):
     def init_spark(self):
 
         conf = SparkConf()
-        
+
         # None by default, which corresponds to local
         conf.set("spark.master", self.source_config.profiling.spark_cluster_manager)
 
