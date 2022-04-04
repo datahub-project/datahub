@@ -24,6 +24,7 @@ import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.LineageSearchEntity;
 import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.PlatformEventHeader;
 import com.linkedin.r2.RemoteInvocationException;
@@ -48,7 +49,7 @@ import static com.linkedin.metadata.Constants.*;
  * This serves as a base class for MAE-based notification generators.
  */
 @Slf4j
-public abstract class BaseNotificationGenerator {
+public abstract class BaseMclNotificationGenerator implements MclNotificationGenerator {
 
   // TODO - decide whether this limit is reasonable!
   private static final Integer MAX_DOWNSTREAMS_TO_FETCH_OWNERSHIP = 1000;
@@ -56,21 +57,24 @@ public abstract class BaseNotificationGenerator {
   protected final EventProducer _eventProducer;
   protected final EntityClient _entityClient;
   protected final GraphClient _graphClient;
-  protected final Authentication _systemAuthentication;
   protected final SettingsProvider _settingsProvider;
+  protected final Authentication _systemAuthentication;
 
-  public BaseNotificationGenerator(
+  public BaseMclNotificationGenerator(
       @Nonnull final EventProducer eventProducer,
       @Nonnull final EntityClient entityClient,
       @Nonnull final GraphClient graphClient,
-      @Nonnull final Authentication systemAuthentication,
-      @Nonnull final SettingsProvider settingsProvider) {
+      @Nonnull final SettingsProvider settingsProvider,
+      @Nonnull final Authentication systemAuthentication) {
     _eventProducer = Objects.requireNonNull(eventProducer);
     _entityClient = Objects.requireNonNull(entityClient);
     _graphClient = Objects.requireNonNull(graphClient);
-    _systemAuthentication = Objects.requireNonNull(systemAuthentication);
     _settingsProvider = Objects.requireNonNull(settingsProvider);
+    _systemAuthentication = Objects.requireNonNull(systemAuthentication);
   }
+
+  @Override
+  public abstract void generate(@Nonnull MetadataChangeLog event);
 
   protected PlatformEvent createPlatformEvent(final NotificationRequest request) {
     PlatformEvent event = new PlatformEvent();
