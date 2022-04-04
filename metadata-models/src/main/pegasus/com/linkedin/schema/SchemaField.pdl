@@ -58,8 +58,8 @@ record SchemaField {
    * Tags associated with the field
    */
   @Relationship = {
-    "/tags/*/tag":  {
-      "name": "TaggedWith",
+    "/tags/*/tag": {
+      "name": "FieldTaggedWith",
       "entityTypes": [ "tag" ]
     }
   }

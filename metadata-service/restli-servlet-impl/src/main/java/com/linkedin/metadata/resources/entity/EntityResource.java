@@ -2,21 +2,17 @@ package com.linkedin.metadata.resources.entity;
 
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.data.DataList;
-import com.linkedin.data.DataMap;
-import com.linkedin.data.schema.ArrayDataSchema;
-import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.PathSpec;
-import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.Entity;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.browse.BrowseResult;
@@ -28,7 +24,7 @@ import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.graph.RelatedEntity;
-import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
@@ -46,8 +42,8 @@ import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
-import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
+import com.linkedin.metadata.utils.AspectProcessor;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
@@ -70,7 +66,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.ListIterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -423,73 +418,56 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                 newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING), offset, 100);
 
         for (RelatedEntity relatedEntity : relatedEntities.getEntities()) {
-          log.info(String.format("Processing related aspect %s with path spec %s", relatedEntity.getAspectName(), relatedEntity.getSpec().toString()));
+          log.info(String.format("Processing related aspect %s with path spec %s", relatedEntity.getAspectName(),
+              relatedEntity.getSpec().toString()));
 
+          try {
+            final PathSpec path = relatedEntity.getSpec();
+            final String aspectName = relatedEntity.getAspectName();
 
-          final PathSpec path = relatedEntity.getSpec();
-          final String aspectName = relatedEntity.getAspectName();
+            // Skip related entity logic if path or aspect name don't exist
+            // -> safeguards against missing dgraph & neo4j implementation
+            if (path == null || aspectName == null) {
+              continue;
+            }
 
-          // Skip related entity logic if path or aspect name don't exist
-          // -> safeguards against missing dgraph & neo4j implementation
-          if (path == null || aspectName == null) {
-            continue;
-          }
+            // Apply policy
+            final Urn relatedEntityUrn = UrnUtils.getUrn(relatedEntity.getUrn());
+            final String relatedEntityName = relatedEntityUrn.getEntityType();
+            final Set<String> entityAspectNames = _entityService.getEntityAspectNames(relatedEntityName);
+            final EntityResponse entityResponse = _entityService.getEntityV2(relatedEntityName, relatedEntityUrn, entityAspectNames);
 
-          // Apply policy
-          final Urn relatedEntityUrn = UrnUtils.getUrn(relatedEntity.getUrn());
-          final Entity entity = _entityService.getEntity(relatedEntityUrn, ImmutableSet.of(aspectName));
+            assert entityResponse != null;
 
-          final EntitySpec entitySpec = _entityService.getEntityRegistry()
-              .getEntitySpec(relatedEntityUrn.getEntityType());
-          final String fullyQualifiedEntitySnapshotName = entitySpec.getSnapshotSchema().getNamespace()
-              + '.' + entitySpec.getSnapshotSchema().getName();
+            final EnvelopedAspect aspect = entityResponse.getAspects().get(aspectName);
 
-          final Snapshot entitySnapshot = entity.getValue();
-          // Can this top-level data property ever not be a map?
-          final DataMap entities = (DataMap) entitySnapshot.data();
-          final DataMap entityContent = (DataMap) entities.get(fullyQualifiedEntitySnapshotName);
-          final DataList aspects = (DataList) entityContent.get("aspects");
-          final RecordDataSchema schema = entitySpec.getAspectSpec(relatedEntity.getAspectName()).getPegasusSchema();
+            if (aspect != null) {
+              log.info(String.format("Working on %s", aspect));
+              AspectSpec aspectSpec = _entityService.getEntityRegistry().getEntitySpec(relatedEntityName).getAspectSpec(aspectName);
+              Aspect updatedAspect = AspectProcessor.removeAspect(urn.toString(), path, aspect.getValue(), aspectSpec);
 
-          final java.util.Optional<Object> optionalAspect = aspects.stream()
-              .filter(DataMap.class::isInstance)
-              .map(DataMap.class::cast)
-              .map(DataMap::entrySet)
-              .flatMap(Set::stream)
-              .filter(entry -> entry.getKey().equals(schema.getNamespace() + '.' + schema.getName()))
-              .map(Map.Entry::getValue)
-              .findFirst();
-
-          if (optionalAspect.isPresent()) {
-            log.info(String.format("Working on %s", optionalAspect));
-            try {
-              Map<String, Object> copy = ((DataMap) optionalAspect.get()).copy();
-              Object newValue = traversePath(urn.toString(), schema, copy, path.getPathComponents(), 0);
-              //entity.checkPutNullValue(new RecordDataSchema.Field(schema), newValue, SetMode.REMOVE_OPTIONAL_IF_NULL);
               final MetadataChangeProposal gmce = new MetadataChangeProposal();
               gmce.setEntityUrn(relatedEntityUrn);
               gmce.setChangeType(ChangeType.UPSERT);
               gmce.setEntityType(relatedEntityUrn.getEntityType());
               gmce.setAspectName(relatedEntity.getAspectName());
-              gmce.setAspect(GenericRecordUtils.serializeAspect(new Aspect((DataMap) newValue)));
-              final AuditStamp auditStamp =
-                  new AuditStamp().setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
+              gmce.setAspect(GenericRecordUtils.serializeAspect(updatedAspect));
+              final AuditStamp auditStamp = new AuditStamp().setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
 
               final EntityService.IngestProposalResult ingestProposalResult = _entityService.ingestProposal(gmce, auditStamp);
 
               if (!ingestProposalResult.isDidUpdate()) {
-                log.warn(String.format("Aspect update did not update metadata graph. Before %s, after: %s", optionalAspect.get(), newValue));
+                log.warn(String.format("Aspect update did not update metadata graph. Before %s, after: %s",
+                    aspect.getValue(), updatedAspect));
               }
               relatedAspectsUpdated++;
-
-              //_entityService.updateAspect(relatedEntity.getUrn(), entitySpec.getName(), aspectName, aspectSpec, entity);
-            } catch (Exception e) {
-              log.warn(String.format("Failed to clone aspect %s from urn %s with content: %s", aspectName, urnStr,
-                  optionalAspect.get()), e);
             }
+          } catch (CloneNotSupportedException e) {
+            log.error(String.format("Failed to clone aspect from entity %s", relatedEntity), e);
+          } catch (URISyntaxException e) {
+            log.error(String.format("Failed to process related entity %s", relatedEntity), e);
           }
         }
-
         offset = relatedEntities.getEntities().size();
       } while (offset > 0);
 
@@ -500,82 +478,6 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
       return response;
     }, MetricRegistry.name(this.getClass(), "delete"));
-  }
-
-  private Object traversePath(String value, DataSchema schema, Object o, List<String> pathComponents, int index) {
-
-    final String subPath = pathComponents.get(index);
-
-    // Processing an array
-    if (subPath.equals("*")) {
-      // Process each entry
-      return processArray(value, (ArrayDataSchema) schema, (DataList) o, pathComponents, index);
-    } else { // Processing a map
-      return processMap(value, (RecordDataSchema) schema, (DataMap) o, pathComponents, index);
-    }
-  }
-
-  private Object processMap(String value, RecordDataSchema spec, DataMap aspectMap, List<String> pathComponents, int index) {
-    // If in the last component of the path spec
-    if (index == pathComponents.size() - 1) {
-      final Object found = aspectMap.remove(pathComponents.get(index));
-      if (found == null) {
-        log.error(String.format("Unable to find value %s in aspect list %s at path %s", value, aspectMap,
-            pathComponents.subList(0, index)));
-      }
-
-    } else { // else traverse further down the tree.
-      final String key = pathComponents.get(index);
-      final boolean optional = spec.getField(key).getOptional();
-      // Check if key exists, this may not exist because you are in wrong branch of the tree (i.e: iterating for an array)
-      if (aspectMap.containsKey(key)) {
-        final Object result = traversePath(value, spec.getField(key).getType(), aspectMap.get(key), pathComponents,
-            index + 1);
-        if (result != null) {
-          aspectMap.put(key, result);
-        } else {
-          if (optional) {
-            aspectMap.remove(key);
-          } else { // if we modified the value but can not set it because the field is not optional, simply log the message.
-            log.warn(String.format("[DANGLING POINTER GC] Can not remove a field that is non-optional "
-                    + "and not part of an array %s", spec.getField(key).getName()));
-            return null;
-          }
-        }
-      }
-    }
-
-    if (aspectMap.isEmpty()) {
-      return null;
-    }
-    return aspectMap;
-  }
-
-  private Object processArray(String value, ArrayDataSchema spec, DataList aspectList, List<String> pathComponents, int index) {
-    // If in the last component of the path spec
-    if (index == pathComponents.size() - 1) {
-      boolean found = aspectList.remove(value);
-      if (!found) {
-        log.error(String.format("Unable to find value %s in aspect list %s at path %s", value, aspectList,
-            pathComponents.subList(0, index)));
-      }
-    } else { // else traverse further down the tree.
-      ListIterator<Object> it = aspectList.listIterator();
-      while(it.hasNext()) {
-        Object o = it.next();
-        final Object result = traversePath(value, spec.getItems(), o, pathComponents, index + 1);
-        if (result != null) {
-          it.set(result);
-        } else {
-          it.remove();
-        }
-      }
-    }
-
-    if (aspectList.isEmpty()) {
-      return null;
-    }
-    return aspectList;
   }
 
   /*

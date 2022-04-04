@@ -13,6 +13,7 @@ import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
 import com.linkedin.gms.factory.search.SearchDocumentTransformerFactory;
 import com.linkedin.gms.factory.timeseries.TimeseriesAspectServiceFactory;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.graph.EdgeMetadata;
 import com.linkedin.metadata.models.extractor.FieldExtractor;
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.GraphService;
@@ -156,7 +157,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
         try {
           edgesToAdd.add(
               new Edge(urn, Urn.createFromString(fieldValue.toString()), entry.getKey().getRelationshipName(),
-                  aspectSpec.getName(), entry.getKey().getPath()));
+                  new EdgeMetadata(aspectSpec.getName(), entry.getKey().getPath())));
         } catch (URISyntaxException e) {
           log.error("Invalid destination urn: {}", fieldValue.toString(), e);
         }

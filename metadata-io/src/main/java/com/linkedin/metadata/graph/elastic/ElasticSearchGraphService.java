@@ -75,8 +75,8 @@ public class ElasticSearchGraphService implements GraphService {
     destinationObject.put("entityType", edge.getDestination().getEntityType());
 
     final ObjectNode metadataObject = JsonNodeFactory.instance.objectNode();
-    metadataObject.put("pathSpec", edge.getPathSpec().toString());
-    metadataObject.put("aspectName", edge.getAspectName());
+    metadataObject.put("pathSpec", edge.getMetadata().getPathSpec().toString());
+    metadataObject.put("aspectName", edge.getMetadata().getAspectName());
 
     searchDocument.set("source", sourceObject);
     searchDocument.set("destination", destinationObject);
@@ -160,6 +160,7 @@ public class ElasticSearchGraphService implements GraphService {
 
           if (!PathSpec.validatePathSpecString(pathSpecStr)) {
             log.error(String.format("Path spec is invalid: %s", pathSpecStr));
+            return null;
           }
 
           final PathSpec pathSpec = new PathSpec(pathSpecStr.substring(1).split("/"));
