@@ -1,0 +1,11 @@
+namespace com.linkedin.event.notification
+
+/**
+ * Information about the sink of a notification, e.g. HOW the notification is sent.
+ */
+record NotificationSink {
+  /**
+   * The type of the sink.
+   */
+  type: NotificationSinkType
+}

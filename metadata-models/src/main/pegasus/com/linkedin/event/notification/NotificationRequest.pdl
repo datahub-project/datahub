@@ -1,0 +1,27 @@
+namespace com.linkedin.event.notification
+
+/**
+ * A request to send a notification.
+ */
+@Event = {
+  "name": "notificationRequest",
+}
+record NotificationRequest {
+  /**
+   * A message to send.
+   */
+  message: NotificationMessage
+
+  /**
+   * The target (receiver) of the notification, in DataHub Terms.
+   */
+  recipients: array[NotificationRecipient]
+
+  /**
+   * Optional: A specific sink / set of sinks to send to.
+   *
+   * If not provided and the recipient type is USER, then default sink type(s) will be sourced from settings.
+   * If not provided and the recipient type is CUSTOM, each notification sink will be tried when sinking the message.
+   */
+  sinks: optional array[NotificationSink]
+}

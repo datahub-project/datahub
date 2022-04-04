@@ -1,0 +1,15 @@
+namespace com.linkedin.settings.global
+
+import com.linkedin.settings.NotificationSetting
+
+/**
+ * DataHub global notification settings
+ */
+record GlobalNotificationSettings {
+  /**
+   * Settings related to asset incidents.
+   */
+  incidents: optional record GlobalIncidentsSettings {
+    // todo
+  }
+}

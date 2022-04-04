@@ -180,4 +180,11 @@ entities:
     keyAspect: incidentKey
     aspects:
       - incidentInfo
+  - name: globalSettings
+    doc: Global settings for an the platform
+    category: internal
+    keyAspect: globalSettingsKey
+    aspects:
+      - globalSettingsInfo
 events:
+  - name: notificationRequest

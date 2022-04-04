@@ -7,6 +7,10 @@ dependencies {
   compile project(':metadata-service:restli-servlet-impl')
   compile project(':metadata-dao-impl:kafka-producer')
   compile project(':ingestion-scheduler')
+
+  // acryl-main only
+  compile project(':notifications')
+
   compile externalDependency.awsGlueSchemaRegistrySerde
   compile externalDependency.elasticSearchRest
   compile externalDependency.httpClient
