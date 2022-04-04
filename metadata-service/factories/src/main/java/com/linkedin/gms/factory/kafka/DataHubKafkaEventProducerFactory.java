@@ -19,8 +19,8 @@ import org.springframework.context.annotation.PropertySource;
 @Configuration
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 @EnableConfigurationProperties(KafkaProperties.class)
-@Import({KafkaProducerFactory.class, TopicConventionFactory.class})
-public class KafkaEventProducerFactory {
+@Import({DataHubKafkaProducerFactory.class, TopicConventionFactory.class})
+public class DataHubKafkaEventProducerFactory {
 
   @Autowired
   @Qualifier("kafkaProducer")
