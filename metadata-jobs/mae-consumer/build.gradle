@@ -11,7 +11,6 @@ configurations {
 dependencies {
     avro project(path: ':metadata-models', configuration: 'avroSchema')
 
-    compile project(':notifications')
     compile project(':li-utils')
     compile project(':metadata-service:auth-api')
     compile project(':metadata-service:restli-client')
@@ -22,6 +21,9 @@ dependencies {
     compile project(':metadata-events:mxe-avro-1.7')
     compile project(':metadata-events:mxe-registration')
     compile project(':metadata-events:mxe-utils-avro-1.7')
+
+    // acryl-main
+    compile project(':notifications')
     compile (project(':metadata-service:factories')) {
         exclude group: 'org.neo4j.test'
     }
