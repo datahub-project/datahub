@@ -52,7 +52,7 @@ public class NotificationSinkManagerTest {
     manager.handle(request);
 
     // Verify that "send" was called on the sink.
-    Mockito.verify(notificationSink, Mockito.times(1)).send(Mockito.same(request), Mockito.any());
+    Mockito.verify(notificationSink, Mockito.times(1)).send(Mockito.eq(request), Mockito.any());
   }
 
   @Test
