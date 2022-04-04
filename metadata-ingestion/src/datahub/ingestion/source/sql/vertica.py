@@ -102,7 +102,7 @@ def get_columns(self, connection, table_name, schema=None, **kw):
     return columns
 
 
-def _get_column_info(self, name, data_type, default, is_nullable, schema):
+def _get_column_info(self, name, data_type, default, is_nullable, schema=None):
     attype = re.sub(r"\(.*\)", "", data_type)
 
     charlen = re.search(r"\(([\d,]+)\)", data_type)
