@@ -14,7 +14,6 @@ import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.genera
 import { SearchCfg } from '../../conf';
 import { ENTITY_FILTER_NAME } from './utils/constants';
 import { GetSearchResultsParams } from '../entity/shared/components/styled/search/types';
-import { decodeComma } from '../entity/shared/utils';
 
 type SearchPageParams = {
     type?: string;
@@ -29,7 +28,7 @@ export const SearchPage = () => {
 
     const entityRegistry = useEntityRegistry();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
-    const query: string = decodeComma(params.query ? (params.query as string) : '');
+    const query: string = decodeURIComponent(params.query ? (params.query as string) : '');
     const activeType = entityRegistry.getTypeOrDefaultFromPathName(useParams<SearchPageParams>().type || '', undefined);
     const page: number = params.page && Number(params.page as string) > 0 ? Number(params.page as string) : 1;
     const filters: Array<FacetFilterInput> = useFilters(params);

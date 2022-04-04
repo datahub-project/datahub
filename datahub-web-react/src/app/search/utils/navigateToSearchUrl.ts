@@ -4,7 +4,6 @@ import { RouteComponentProps } from 'react-router-dom';
 import filtersToQueryStringParams from './filtersToQueryStringParams';
 import { EntityType, FacetFilterInput } from '../../../types.generated';
 import { PageRoutes } from '../../../conf/Global';
-import { encodeComma } from '../../entity/shared/utils';
 
 export const navigateToSearchUrl = ({
     type: newType,
@@ -27,7 +26,7 @@ export const navigateToSearchUrl = ({
     const search = QueryString.stringify(
         {
             ...filtersToQueryStringParams(constructedFilters),
-            query: encodeComma(newQuery || ''),
+            query: encodeURIComponent(newQuery || ''),
             page: newPage,
         },
         { arrayFormat: 'comma' },
@@ -57,7 +56,7 @@ export const navigateToSearchLineageUrl = ({
     const search = QueryString.stringify(
         {
             ...filtersToQueryStringParams(constructedFilters),
-            query: encodeComma(newQuery || ''),
+            query: encodeURIComponent(newQuery || ''),
             page: newPage,
         },
         { arrayFormat: 'comma' },
