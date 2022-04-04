@@ -1,6 +1,7 @@
 package com.linkedin.metadata.kafka.config.notification;
 
 import com.datahub.authentication.Authentication;
+import com.datahub.notification.SettingsProvider;
 import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.common.GraphClientFactory;

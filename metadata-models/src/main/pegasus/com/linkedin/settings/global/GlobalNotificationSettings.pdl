@@ -10,6 +10,16 @@ record GlobalNotificationSettings {
    * Settings related to asset incidents.
    */
   incidents: optional record GlobalIncidentsSettings {
-    // todo
+    /**
+     * Send a 'broadcast' notification when a new incident has been created. A broadcast is a notification that
+     * is sent to a general purpose channel, as opposed to a specific user or group member directly.
+     */
+    broadcastNewIncidentNotification: NotificationSetting
+
+    /**
+     * Send a 'broadcast' notification when an incident status has changed. A broadcast is a notification that
+     * is sent to a general purpose channel, as opposed to a specific user or group member directly.
+     */
+    broadcastIncidentStatusChangeNotification: NotificationSetting
   }
 }

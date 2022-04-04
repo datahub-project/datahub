@@ -27,13 +27,19 @@ import com.slack.api.methods.response.users.UsersLookupByEmailResponse;
 import com.slack.api.model.User;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+
+import static com.datahub.notification.NotificationUtils.*;
 
 
 /**
@@ -49,7 +55,11 @@ public class SlackNotificationSink implements NotificationSink {
   /**
    * A list of notification templates supported by this sink.
    */
-  private static final List<NotificationTemplateType> SUPPORTED_TEMPLATES = ImmutableList.of(NotificationTemplateType.CUSTOM);
+  private static final List<NotificationTemplateType> SUPPORTED_TEMPLATES = ImmutableList.of(
+      NotificationTemplateType.CUSTOM,
+      NotificationTemplateType.BROADCAST_NEW_INCIDENT,
+      NotificationTemplateType.BROADCAST_INCIDENT_STATUS_CHANGE
+  );
   private static final String SLACK_CHANNEL_RECIPIENT_TYPE = "SLACK_CHANNEL";
   private static final String BOT_TOKEN_CONFIG_NAME = "botToken";
   private static final String DEFAULT_CHANNEL_CONFIG_NAME = "defaultChannel";
@@ -59,6 +69,7 @@ public class SlackNotificationSink implements NotificationSink {
   private SettingsProvider settingsProvider;
   private IdentityProvider identityProvider;
   private SecretProvider secretProvider;
+  private String baseUrl;
   private String defaultChannel;
   private String botToken;
 
@@ -87,6 +98,7 @@ public class SlackNotificationSink implements NotificationSink {
     this.settingsProvider = cfg.getSettingsProvider();
     this.identityProvider = cfg.getIdentityProvider();
     this.secretProvider = cfg.getSecretProvider();
+    this.baseUrl = cfg.getBaseUrl();
     // Optional -- Provide the bot token directly in config. Used until this is available inside UI.
     if (cfg.getStaticConfig().containsKey(BOT_TOKEN_CONFIG_NAME)) {
       botToken = (String) cfg.getStaticConfig().get(BOT_TOKEN_CONFIG_NAME);
@@ -148,6 +160,12 @@ public class SlackNotificationSink implements NotificationSink {
       case CUSTOM:
         sendCustomNotification(notificationRequest);
         break;
+      case BROADCAST_NEW_INCIDENT:
+        sendBroadcastNotification(notificationRequest.getRecipients(), buildNewIncidentMessage(notificationRequest));
+        break;
+      case BROADCAST_INCIDENT_STATUS_CHANGE:
+        sendBroadcastNotification(notificationRequest.getRecipients(), buildIncidentStatusChangeMessage(notificationRequest));
+        break;
       default:
         throw new UnsupportedOperationException(String.format(
             "Unsupported template type %s providing to %s",
@@ -163,30 +181,163 @@ public class SlackNotificationSink implements NotificationSink {
     sendNotificationToRecipients(request.getRecipients(), messageText);
   }
 
+  private String buildNewIncidentMessage(NotificationRequest request) {
+
+    // Extract owner urns, downstream owner urns.
+    final List<Urn> ownerUrns = jsonToStrList(request.getMessage()
+        .getParameters()
+        .get("owners"))
+        .stream()
+        .map(UrnUtils::getUrn)
+        .collect(Collectors.toList());
+
+    final List<Urn> downstreamOwnerUrns = jsonToStrList(request.getMessage()
+        .getParameters()
+        .get("downstreamOwners"))
+        .stream()
+        .map(UrnUtils::getUrn)
+        .collect(Collectors.toList());
+
+    // Fetch each user's email, this is required to understand their slack ids.
+    final Set<Urn> allUsers = new HashSet<>();
+    allUsers.addAll(ownerUrns);
+    allUsers.addAll(downstreamOwnerUrns);
+    Map<Urn, IdentityProvider.User> users = Collections.emptyMap();
+    try {
+      users = this.identityProvider.batchGetUsers(
+          allUsers
+      );
+    } catch (Exception e) {
+      // If we cannot resolve the users, still broadcast the message.
+      log.warn("Failed to resolve users from GMS. Skipping tagging them in Slack broadcast.");
+    }
+
+    // Build the message.
+    // TODO: Replace this with a template DSL (e.g. Jinja)
+    final String url = String.format("%s%s", this.baseUrl, request.getMessage().getParameters().get("entityPath"));
+    final String title = request.getMessage().getParameters().get("incidentTitle");
+    final String description = request.getMessage().getParameters().get("incidentDescription");
+    final String actorName = getUserName(request.getMessage().getParameters().get("actorUrn"));
+    final String ownersStr = createUsersTagString(
+        users.keySet()
+            .stream()
+            .filter(ownerUrns::contains)
+            .map(users::get)
+            .collect(Collectors.toList()));
+    final String downstreamOwnersStr = createUsersTagString(
+        users.keySet()
+            .stream()
+            .filter(downstreamOwnerUrns::contains)
+            .map(users::get)
+            .collect(Collectors.toList()));
+
+    return String.format("%s%s",
+        String.format(":warning: *New Incident Raised* \n\nA new incident has been raised on asset %s%s.",
+            url,
+            actorName != null ? String.format(" by *%s*", actorName) : ""),
+        String.format("\n\n *Incident Name*: %s\n*Incident Description*: %s\n\n *Asset Owners*: %s\n*Downstream Asset Owners*: %s",
+            title != null ? title : "None",
+            description != null ? description : "None",
+            ownersStr.length() > 0 ? ownersStr : "N/A",
+            downstreamOwnersStr.length() > 0 ? downstreamOwnersStr : "N/A"
+        )
+    );
+  }
+
+  private String buildIncidentStatusChangeMessage(NotificationRequest request) {
+    final List<Urn> ownerUrns = jsonToStrList(request.getMessage()
+        .getParameters()
+        .get("owners"))
+        .stream()
+        .map(UrnUtils::getUrn)
+        .collect(Collectors.toList());
+
+    final List<Urn> downstreamOwnerUrns = jsonToStrList(request.getMessage()
+        .getParameters()
+        .get("downstreamOwners"))
+        .stream()
+        .map(UrnUtils::getUrn)
+        .collect(Collectors.toList());
+
+    // Fetch each user's email, this is required to understand their slack ids.
+    final Set<Urn> allUsers = new HashSet<>();
+    allUsers.addAll(ownerUrns);
+    allUsers.addAll(downstreamOwnerUrns);
+    Map<Urn, IdentityProvider.User> users = Collections.emptyMap();
+    try {
+      users = this.identityProvider.batchGetUsers(
+          allUsers
+      );
+    } catch (Exception e) {
+      log.warn("Failed to resolve users from GMS. Skipping adding them to notification.");
+    }
+
+    // Build the message. TODO: Use a template here.
+    final String url = String.format("%s%s", this.baseUrl, request.getMessage().getParameters().get("entityPath"));
+    final String title = request.getMessage().getParameters().get("incidentTitle");
+    final String description = request.getMessage().getParameters().get("incidentDescription");
+    final String prevStatus = request.getMessage().getParameters().get("prevStatus");
+    final String newStatus = request.getMessage().getParameters().get("newStatus");
+    final String actorName = getUserName(request.getMessage().getParameters().get("actorUrn"));
+    final String ownersStr = createUsersTagString(
+        users.keySet()
+            .stream()
+            .filter(ownerUrns::contains)
+            .map(users::get)
+            .collect(Collectors.toList()));
+    final String downstreamOwnersStr = createUsersTagString(
+        users.keySet()
+            .stream()
+            .filter(downstreamOwnerUrns::contains)
+            .map(users::get)
+            .collect(Collectors.toList()));
+
+    final String icon = newStatus.equals("RESOLVED") ? ":white_check_mark:" : ":warning:";
+    return String.format("%s%s",
+        String.format("%s *Incident Status Changed*\n\n The status of incident *%s* on asset %s has changed from *%s* to *%s*%s.",
+            icon,
+            title != null ? title : "None",
+            url,
+            prevStatus,
+            newStatus,
+            actorName != null ? String.format(" by *%s*", actorName) : ""),
+        String.format("\n\n *Incident Name*: %s\n*Incident Description*: %s\n\n *Asset Owners*: %s\n*Downstream Asset Owners*: %s",
+            title != null ? title : "None",
+            description != null ? description : "None",
+            ownersStr.length() > 0 ? ownersStr : "N/A",
+            downstreamOwnersStr.length() > 0 ? downstreamOwnersStr : "N/A"
+        )
+    );
+  }
+
   private void sendNotificationToRecipients(final List<NotificationRecipient> recipients, final String text) {
     // Send each recipient a message.
     for (NotificationRecipient recipient : recipients) {
-      // Try to sink message to each user.
-      try {
-        if (NotificationRecipientType.USER.equals(recipient.getType())) {
-          sendNotificationToUser(UrnUtils.getUrn(recipient.getId()), text);
-        } else if (NotificationRecipientType.CUSTOM.equals(recipient.getType()) && SLACK_CHANNEL_RECIPIENT_TYPE.equals(recipient.getCustomType())) {
-          // We only support "SLACK_CHANNEL" as a custom type.
-          String channel = getRecipientChannelOrDefault(recipient.getId(GetMode.NULL));
-          if (channel != null) {
-            sendMessage(channel, text);
-          } else {
-            log.warn(String.format(
-                "Failed to resolve channel for recipient of type %s. No default or provided channel.",
-                SLACK_CHANNEL_RECIPIENT_TYPE));
-          }
+      sendNotificationToRecipient(recipient, text);
+    }
+  }
+
+  private void sendNotificationToRecipient(final NotificationRecipient recipient, final String text) {
+    // Try to sink message to each user.
+    try {
+      if (NotificationRecipientType.USER.equals(recipient.getType())) {
+        sendNotificationToUser(UrnUtils.getUrn(recipient.getId()), text);
+      } else if (NotificationRecipientType.CUSTOM.equals(recipient.getType()) && SLACK_CHANNEL_RECIPIENT_TYPE.equals(recipient.getCustomType())) {
+        // We only support "SLACK_CHANNEL" as a custom type.
+        String channel = getRecipientChannelOrDefault(recipient.getId(GetMode.NULL));
+        if (channel != null) {
+          sendMessage(channel, text);
         } else {
-          throw new UnsupportedOperationException(
-              String.format("Failed to send Slack notification. Unsupported recipient type %s provided.", recipient.getType()));
+          log.warn(String.format(
+              "Failed to resolve channel for recipient of type %s. No default or provided channel.",
+              SLACK_CHANNEL_RECIPIENT_TYPE));
         }
-      } catch (Exception e) {
-        log.error("Caught exception while attempting to send custom slack notification", e);
+      } else {
+        throw new UnsupportedOperationException(
+            String.format("Failed to send Slack notification. Unsupported recipient type %s provided.", recipient.getType()));
       }
+    } catch (Exception e) {
+      log.error("Caught exception while attempting to send custom slack notification", e);
     }
   }
 
@@ -199,6 +350,20 @@ public class SlackNotificationSink implements NotificationSink {
       }
     } else {
       log.warn(String.format("Failed to send notification to user with urn %s. Failed to find user with valid email in DataHub.", userUrn));
+    }
+  }
+
+  private void sendBroadcastNotification(final List<NotificationRecipient> recipients, final String text) {
+    // In the case of a broadcast, if there are no recipients explicitly provided we fallback to sending to the default configured channel.
+    if (recipients.size() > 0) {
+      // Send to each recipient in the list as normal.
+      sendNotificationToRecipients(recipients, text);
+    } else {
+      // Broadcast to the default configured channel.
+      NotificationRecipient defaultChannelRecipient = new NotificationRecipient()
+          .setType(NotificationRecipientType.CUSTOM)
+          .setCustomType(SLACK_CHANNEL_RECIPIENT_TYPE);
+      sendNotificationToRecipient(defaultChannelRecipient, text);
     }
   }
 
@@ -223,6 +388,44 @@ public class SlackNotificationSink implements NotificationSink {
     }
   }
 
+  private String createUsersTagString(final List<IdentityProvider.User> users) {
+    // Resolve a User object to their slack handle.
+    StringBuilder tagString = new StringBuilder();
+    for (IdentityProvider.User user : users) {
+      String userTagString = createUserTagString(user);
+      if (userTagString != null) {
+        tagString.append(String.format("%s ", userTagString));
+      }
+    }
+    return tagString.toString();
+  }
+
+  /**
+   * Returns a formatted slack user tag string, e.g. <@JohnJoyce> if the user can be resolved to a slack id, null if not.
+   */
+  @Nullable
+  private String createUserTagString(final IdentityProvider.User user) {
+    // Resolve a User object to their slack handle.
+    if (user.getEmail() != null) {
+      try {
+        User slackUser = getSlackUserFromEmail(user.getEmail());
+        // Add the slack user to the string.
+        if (slackUser != null) {
+          return String.format("<@%s>", slackUser.getId());
+        } else {
+          log.warn(
+              String.format("Skipping adding user with email %s to tag string. No corresponding slack user found.", user.getEmail()));
+        }
+      } catch (Exception e) {
+        log.error(String.format(
+            "Caught exception while attempting to resolve user with email %s to slack user. Skipping adding user to tag string.", user.getEmail()), e);
+      }
+    } else {
+      log.warn("Failed to resolve DataHub user to slack user by email. No email found for user!");
+    }
+    return null;
+  }
+
   @Nullable
   private User getSlackUserFromEmail(@Nonnull final String email) throws Exception {
     if (this.emailToSlackUser.containsKey(email)) {
@@ -241,6 +444,17 @@ public class SlackNotificationSink implements NotificationSink {
       }
     }
     return null;
+  }
+
+  @Nullable
+  private String getUserName(final String userUrnStr) {
+    try {
+      Urn userUrn = Urn.createFromString(userUrnStr);
+      IdentityProvider.User user = this.identityProvider.getUser(userUrn);
+      return user != null ? user.getResolvedDisplayName() : null;
+    } catch (Exception e) {
+      throw new RuntimeException(String.format("Invalid actor urn %s provided", userUrnStr));
+    }
   }
 
   private UsersLookupByEmailResponse getSlackUserLookupResponseFromEmail(@Nonnull final String email) throws Exception {

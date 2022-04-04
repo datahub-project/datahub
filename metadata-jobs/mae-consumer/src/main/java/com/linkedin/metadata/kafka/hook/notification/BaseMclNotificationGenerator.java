@@ -1,6 +1,7 @@
 package com.linkedin.metadata.kafka.hook.notification;
 
 import com.datahub.authentication.Authentication;
+import com.datahub.notification.SettingsProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.EntityRelationship;

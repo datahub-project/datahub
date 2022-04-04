@@ -30,4 +30,9 @@ public class NotificationSinkConfig {
    * Secret provider, which is responsible for resolving secret values from their urn.
    */
   private final SecretProvider secretProvider;
+
+  /**
+   * The base URL where DataHub is deployed. Used to construct URL strings.
+   */
+  private final String baseUrl;
 }

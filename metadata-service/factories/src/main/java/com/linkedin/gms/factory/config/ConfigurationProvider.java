@@ -16,6 +16,10 @@ import org.springframework.context.annotation.PropertySource;
 @Data
 public class ConfigurationProvider {
   /**
+   * The base URL where DataHub is hosted.
+   */
+  private String baseUrl;
+  /**
    * Authentication related configs
    */
   private AuthenticationConfiguration authentication;

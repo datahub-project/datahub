@@ -57,6 +57,7 @@ public class NotificationSinkManagerFactory {
   @Nonnull
   protected NotificationSinkManager getInstance() {
     boolean isNotificationsEnabled = this.configurationProvider.getNotifications().isEnabled();
+    String baseUrl = this.configurationProvider.getBaseUrl();
 
     final List<NotificationSink> configuredSinks = new ArrayList<>();
     if (isNotificationsEnabled) {
@@ -87,7 +88,8 @@ public class NotificationSinkManagerFactory {
                 configs,
                 this.settingsProvider,
                 this.identityProvider,
-                this.secretProvider
+                this.secretProvider,
+                baseUrl
             ));
             configuredSinks.add(notificationSink);
           } catch (Exception e) {

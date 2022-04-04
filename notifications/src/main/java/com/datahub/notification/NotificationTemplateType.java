@@ -22,7 +22,43 @@ public enum NotificationTemplateType {
           "body"
       ),
       Collections.emptySet()
-  );
+  ),
+  /**
+   * Broadcast that a incident was created to a particular channel.
+   */
+  BROADCAST_NEW_INCIDENT(
+      ImmutableSet.of(
+          "incidentUrn",
+          "entityUrn",
+          "entityPath",
+          "newStatus"
+      ),
+      ImmutableSet.of(
+          "incidentTitle",
+          "incidentDescription",
+          "actorUrn",
+          "entityOwners",
+          "downstreamEntityOwners"
+      )
+  ),
+  /**
+   * Broadcast that a incident's status has changed.
+   */
+  BROADCAST_INCIDENT_STATUS_CHANGE(
+      ImmutableSet.of(
+          "incidentUrn",
+          "entityUrn",
+          "entityPath",
+          "newStatus"
+      ),
+      ImmutableSet.of(
+          "incidentTitle",
+          "incidentDescription",
+          "actorUrn",
+          "entityOwners",
+          "downstreamEntityOwners"
+      )
+  ),;
 
   private final Set<String> requiredParameters;
   private final Set<String> optionalParameters;

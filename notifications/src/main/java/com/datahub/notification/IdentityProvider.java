@@ -126,5 +126,15 @@ public class IdentityProvider {
     private String title;
     private boolean isActive;
     // TODO: User Preferences
+
+    /**
+     * Returns the appropriate display name to use from the set of user fields available.
+     */
+    public String getResolvedDisplayName() {
+      if (displayName != null) {
+        return displayName;
+      }
+      return String.format("%s %s", firstName, lastName);
+    }
   }
 }

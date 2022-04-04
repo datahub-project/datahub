@@ -2,6 +2,7 @@ package com.linkedin.metadata.kafka.hook.notification.incident;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.notification.NotificationTemplateType;
+import com.datahub.notification.SettingsProvider;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.Owner;
 import com.linkedin.common.Ownership;
@@ -17,6 +18,7 @@ import com.linkedin.metadata.kafka.hook.notification.BaseMclNotificationGenerato
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.settings.NotificationSettingValue;
+import com.linkedin.settings.global.GlobalSettingsInfo;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -59,7 +61,7 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
 
       log.debug(String.format("Found eligible new incident event to notify. urn: %s", event.getEntityUrn().toString()));
 
-      generateNewIncidentNotification(
+      generateNewIncidentNotifications(
           event.getEntityUrn(),
           GenericRecordUtils.deserializeAspect(
               event.getAspect().getValue(),
@@ -70,7 +72,7 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
 
       log.debug(String.format("Found eligible incident status change event to notify. urn: %s", event.getEntityUrn().toString()));
 
-      generateUpdatedIncidentNotification(
+      generateUpdatedIncidentNotifications(
           event.getEntityUrn(),
           GenericRecordUtils.deserializeAspect(
               event.getPreviousAspectValue().getValue(),
@@ -92,286 +94,30 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
         && (ChangeType.UPSERT.equals(event.getChangeType()) || ChangeType.CREATE.equals(event.getChangeType()));
   }
 
-  public void generateNewIncidentNotification(
+  public void generateNewIncidentNotifications(
       @Nonnull final Urn urn,
       @Nonnull final IncidentInfo info) {
-    // Produce an NRE
-    if (_settingsProvider.getGlobalSettings() != null) {
-      if (shouldNotifyOnNewIncident()) {
-        log.info(String.format("Generating owners notification for new incident with urn: %s", urn));
-        // Notify immediate owners of new incident.
-        notifyOwnersOnNewIncident(urn, info);
-        // Notify downstream owners of new incident.
-        notifyDownstreamOwnersOnNewIncident(urn, info);
-        // Broadcast new incident to a specific channel.
-        broadcastNewIncident(urn, info);
-      }
-    } else {
-      log.warn("Skipping emitting new incident notification - Global settings not found.");
+    // TODO: Support other notification types on new incidents - e.g. notify owners directly.
+    if (shouldBroadcastNewIncident()) {
+      // Broadcast new incident.
+      broadcastNewIncident(urn, info);
     }
   }
 
-  public void generateUpdatedIncidentNotification(
+  public void generateUpdatedIncidentNotifications(
       @Nonnull final Urn urn,
       @Nonnull final IncidentInfo prevInfo,
       @Nonnull final IncidentInfo newInfo) {
-    if (_settingsProvider.getGlobalSettings() != null) {
-      if (shouldNotifyOnIncidentStatusChange()) {
-        log.info(String.format("Generating owners notification for updated incident with urn: %s", urn));
-        // Notify immediate owners of updated incident.
-        notifyOwnersOnIncidentStatusChange(urn, prevInfo, newInfo);
-        // Notify downstream owners of incident status change.
-        notifyDownstreamOwnersOnIncidentStatusChange(urn, prevInfo, newInfo);
+    // TODO: Support other notification types on updated incidents - e.g. notify owners directly.
+      if (shouldBroadcastIncidentStatusChange()) {
         // Broadcast incident status change.
         broadcastIncidentStatusChange(urn, prevInfo, newInfo);
       }
-    } else {
-      log.warn("Skipping emitting incident status change notification - Global settings not found.");
-    }
   }
 
-  private void notifyOwnersOnIncidentStatusChange(
-      @Nonnull final Urn urn,
-      @Nonnull final IncidentInfo prevInfo,
-      @Nonnull final IncidentInfo newInfo) {
-
-    // Notify a specific slack channel.
-    final Urn entityUrn = newInfo.getEntities().get(0);
-    final Ownership maybeOwnership = getEntityOwnership(entityUrn);
-    final List<Urn> owners = maybeOwnership != null
-        ? maybeOwnership
-          .getOwners()
-          .stream()
-          .map(Owner::getOwner)
-          .collect(Collectors.toList())
-        : Collections.emptyList();
-
-    List<Urn> targetUsers = Collections.emptyList();
-    List<Urn> targetGroups = Collections.emptyList();
-
-    targetUsers = owners.stream()
-      .filter(owner -> Constants.CORP_USER_ENTITY_NAME.equals(owner.getEntityType()))
-      .collect(Collectors.toList());
-
-    targetGroups = owners.stream()
-      .filter(owner -> Constants.CORP_GROUP_ENTITY_NAME.equals(owner.getEntityType()))
-      .collect(Collectors.toList());
-
-    final Map<String, String> templateParams = new HashMap<>();
-    templateParams.put("incidentUrn", urn.toString());
-    templateParams.put("entityUrn", entityUrn.toString());
-    templateParams.put("entityPath", generateEntityPath(entityUrn));
-    templateParams.put("newStatus", newInfo.getStatus().getState().toString());
-    templateParams.put("prevStatus", prevInfo.getStatus().getState().toString());
-    templateParams.put("actorUrn", newInfo.getStatus().getLastUpdated().getActor().toString());
-    if (newInfo.hasTitle()) {
-      templateParams.put("incidentTitle", newInfo.getTitle());
-    }
-    if (newInfo.hasDescription()) {
-      templateParams.put("incidentDescription", newInfo.getDescription());
-    }
-
-    final NotificationRequest notificationRequest = buildNotificationRequest(
-        NotificationTemplateType.NOTIFY_OWNERS_INCIDENT_STATUS_CHANGE.name(),
-        templateParams,
-        targetUsers,
-        targetGroups
-    );
-
-    log.info(String.format("Emitting owners notification request for updated incident for entity %s...", entityUrn));
-    sendNotificationRequest(notificationRequest);
-  }
-
-  private void notifyDownstreamOwnersOnIncidentStatusChange(
-      @Nonnull final Urn urn,
-      @Nonnull final IncidentInfo prevInfo,
-      @Nonnull final IncidentInfo newInfo) {
-
-    // Notify a specific slack channel.
-    final Urn entityUrn = newInfo.getEntities().get(0);
-    final List<Urn> downstreamOwners = getDownstreamOwners(entityUrn);
-
-    List<Urn> targetUsers = Collections.emptyList();
-    List<Urn> targetGroups = Collections.emptyList();
-
-    targetUsers = downstreamOwners.stream()
-        .filter(owner -> Constants.CORP_USER_ENTITY_NAME.equals(owner.getEntityType()))
-        .collect(Collectors.toList());
-
-    targetGroups = downstreamOwners.stream()
-        .filter(owner -> Constants.CORP_GROUP_ENTITY_NAME.equals(owner.getEntityType()))
-        .collect(Collectors.toList());
-
-    final Map<String, String> templateParams = new HashMap<>();
-    templateParams.put("incidentUrn", urn.toString());
-    templateParams.put("entityUrn", entityUrn.toString());
-    templateParams.put("entityPath", generateEntityPath(entityUrn));
-    templateParams.put("newStatus", newInfo.getStatus().getState().toString());
-    templateParams.put("prevStatus", prevInfo.getStatus().getState().toString());
-    templateParams.put("actorUrn", newInfo.getStatus().getLastUpdated().getActor().toString());
-    if (newInfo.hasTitle()) {
-      templateParams.put("incidentTitle", newInfo.getTitle());
-    }
-    if (newInfo.hasDescription()) {
-      templateParams.put("incidentDescription", newInfo.getDescription());
-    }
-
-    final NotificationRequest notificationRequest = buildNotificationRequest(
-        NotificationTemplateType.NOTIFY_OWNERS_INCIDENT_STATUS_CHANGE.name(),
-        templateParams,
-        targetUsers,
-        targetGroups
-    );
-
-    log.info(String.format("Emitting downstream owners notification request for updated incident for entity %s...", entityUrn));
-    sendNotificationRequest(notificationRequest);
-  }
-
-  private void broadcastIncidentStatusChange(
-      @Nonnull final Urn urn,
-      @Nonnull final IncidentInfo prevInfo,
-      @Nonnull final IncidentInfo newInfo) {
-
-    // Notify a specific slack channel to alert the owners of the asset.
-    final Urn entityUrn = newInfo.getEntities().get(0);
-    final Ownership maybeOwnership = getEntityOwnership(entityUrn);
-    final List<Urn> owners = maybeOwnership != null
-        ? maybeOwnership
-        .getOwners()
-        .stream()
-        .map(Owner::getOwner)
-        .collect(Collectors.toList())
-        : Collections.emptyList();
-    final List<Urn> downstreamOwners = getDownstreamOwners(entityUrn);
-
-    final Map<String, String> templateParams = new HashMap<>();
-    templateParams.put("incidentUrn", urn.toString());
-    templateParams.put("entityUrn", entityUrn.toString());
-    templateParams.put("entityPath", generateEntityPath(entityUrn));
-    templateParams.put("newStatus", newInfo.getStatus().getState().toString());
-    templateParams.put("prevStatus", prevInfo.getStatus().getState().toString());
-    templateParams.put("owners", listToJSON(owners));
-    templateParams.put("downstreamOwners", listToJSON(downstreamOwners));
-    templateParams.put("actorUrn", newInfo.getStatus().getLastUpdated().getActor().toString());
-    if (newInfo.hasTitle()) {
-      templateParams.put("incidentTitle", newInfo.getTitle());
-    }
-    if (newInfo.hasDescription()) {
-      templateParams.put("incidentDescription", newInfo.getDescription());
-    }
-
-    final NotificationRequest notificationRequest = buildNotificationRequest(
-        NotificationTemplateType.BROADCAST_INCIDENT_STATUS_CHANGE.name(),
-        templateParams,
-        Collections.emptyList(),
-        Collections.emptyList()
-    );
-
-    log.info(String.format("Emitting downstream notification request for new incident for entity %s...", entityUrn));
-    sendNotificationRequest(notificationRequest);
-
-  }
-
-  private void notifyOwnersOnNewIncident(
-      @Nonnull final Urn urn,
-      @Nonnull final IncidentInfo info) {
-
-    log.info(info.toString());
-
-    // Notify a specific slack channel to alert the owners of the asset.
-    final Urn entityUrn = info.getEntities().get(0);
-    final Ownership maybeOwnership = getEntityOwnership(entityUrn);
-    final List<Urn> owners = maybeOwnership != null
-        ? maybeOwnership
-        .getOwners()
-        .stream()
-        .map(Owner::getOwner)
-        .collect(Collectors.toList())
-        : Collections.emptyList();
-
-    List<Urn> targetUsers = Collections.emptyList();
-    List<Urn> targetGroups = Collections.emptyList();
-
-    targetUsers = owners.stream()
-        .filter(owner -> Constants.CORP_USER_ENTITY_NAME.equals(owner.getEntityType()))
-        .collect(Collectors.toList());
-
-    targetGroups = owners.stream()
-        .filter(owner -> Constants.CORP_GROUP_ENTITY_NAME.equals(owner.getEntityType()))
-        .collect(Collectors.toList());
-
-
-    final Map<String, String> templateParams = new HashMap<>();
-    templateParams.put("incidentUrn", urn.toString());
-    templateParams.put("entityUrn", entityUrn.toString());
-    templateParams.put("entityPath", generateEntityPath(entityUrn));
-    templateParams.put("newStatus", info.getStatus().getState().toString());
-    templateParams.put("actorUrn", info.getStatus().getLastUpdated().getActor().toString());
-    if (info.hasTitle()) {
-      templateParams.put("incidentTitle", info.getTitle());
-    }
-    if (info.hasDescription()) {
-      templateParams.put("incidentDescription", info.getDescription());
-    }
-
-    final NotificationRequest notificationRequest = buildNotificationRequest(
-        NotificationTemplateType.NOTIFY_OWNERS_NEW_INCIDENT.name(),
-        templateParams,
-        targetUsers,
-        targetGroups
-    );
-
-    log.info(String.format("Emitting owners notification request for new incident for entity %s...", entityUrn));
-    sendNotificationRequest(notificationRequest);
-
-  }
-
-  private void notifyDownstreamOwnersOnNewIncident(
-      @Nonnull final Urn urn,
-      @Nonnull final IncidentInfo info) {
-
-    log.info(info.toString());
-
-    // Notify a specific slack channel to alert the owners of the asset.
-    final Urn entityUrn = info.getEntities().get(0);
-    final List<Urn> downstreamOwners = getDownstreamOwners(entityUrn);
-
-    List<Urn> targetUsers = Collections.emptyList();
-    List<Urn> targetGroups = Collections.emptyList();
-
-    targetUsers = downstreamOwners.stream()
-        .filter(owner -> Constants.CORP_USER_ENTITY_NAME.equals(owner.getEntityType()))
-        .collect(Collectors.toList());
-
-    targetGroups = downstreamOwners.stream()
-        .filter(owner -> Constants.CORP_GROUP_ENTITY_NAME.equals(owner.getEntityType()))
-        .collect(Collectors.toList());
-
-    final Map<String, String> templateParams = new HashMap<>();
-    templateParams.put("incidentUrn", urn.toString());
-    templateParams.put("entityUrn", entityUrn.toString());
-    templateParams.put("entityPath", generateEntityPath(entityUrn));
-    templateParams.put("newStatus", info.getStatus().getState().toString());
-    templateParams.put("actorUrn", info.getStatus().getLastUpdated().getActor().toString());
-    if (info.hasTitle()) {
-      templateParams.put("incidentTitle", info.getTitle());
-    }
-    if (info.hasDescription()) {
-      templateParams.put("incidentDescription", info.getDescription());
-    }
-
-    final NotificationRequest notificationRequest = buildNotificationRequest(
-        NotificationTemplateType.NOTIFY_DOWNSTREAM_OWNERS_NEW_INCIDENT.name(),
-        templateParams,
-        targetUsers,
-        targetGroups
-    );
-
-    log.info(String.format("Broadcasting new incident notification request for new incident for entity %s...", entityUrn));
-    sendNotificationRequest(notificationRequest);
-
-  }
-
+  /**
+   * Sends a notification of template type "BROADCAST_NEW_INCIDENT" when an incident is created.
+   */
   private void broadcastNewIncident(
       @Nonnull final Urn urn,
       @Nonnull final IncidentInfo info) {
@@ -413,19 +159,82 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
         Collections.emptyList()
     );
 
-    log.info(String.format("Emitting downstream notification request for new incident for entity %s...", entityUrn));
+    log.info(String.format("Broadcasting new incident for entity %s...", entityUrn));
+    sendNotificationRequest(notificationRequest);
+  }
+
+  /**
+   * Sends a notification of template type "BROADCAST_INCIDENT_STATUS_CHANGE" when an incident's status is changed.
+   */
+  private void broadcastIncidentStatusChange(
+      @Nonnull final Urn urn,
+      @Nonnull final IncidentInfo prevInfo,
+      @Nonnull final IncidentInfo newInfo) {
+
+    // Notify a specific slack channel to alert the owners of the asset.
+    final Urn entityUrn = newInfo.getEntities().get(0);
+    final Ownership maybeOwnership = getEntityOwnership(entityUrn);
+    final List<Urn> owners = maybeOwnership != null
+        ? maybeOwnership
+        .getOwners()
+        .stream()
+        .map(Owner::getOwner)
+        .collect(Collectors.toList())
+        : Collections.emptyList();
+    final List<Urn> downstreamOwners = getDownstreamOwners(entityUrn);
+
+    final Map<String, String> templateParams = new HashMap<>();
+    templateParams.put("incidentUrn", urn.toString());
+    templateParams.put("entityUrn", entityUrn.toString());
+    templateParams.put("entityPath", generateEntityPath(entityUrn));
+    templateParams.put("newStatus", newInfo.getStatus().getState().toString());
+    templateParams.put("prevStatus", prevInfo.getStatus().getState().toString());
+    templateParams.put("owners", listToJSON(owners));
+    templateParams.put("downstreamOwners", listToJSON(downstreamOwners));
+    templateParams.put("actorUrn", newInfo.getStatus().getLastUpdated().getActor().toString());
+    if (newInfo.hasTitle()) {
+      templateParams.put("incidentTitle", newInfo.getTitle());
+    }
+    if (newInfo.hasDescription()) {
+      templateParams.put("incidentDescription", newInfo.getDescription());
+    }
+
+    final NotificationRequest notificationRequest = buildNotificationRequest(
+        NotificationTemplateType.BROADCAST_INCIDENT_STATUS_CHANGE.name(),
+        templateParams,
+        Collections.emptyList(), // no users or groups targeted specifically since its broadcast
+        Collections.emptyList()
+    );
+
+    log.info(String.format("Broadcasting incident status change for entity %s...", entityUrn));
     sendNotificationRequest(notificationRequest);
 
   }
 
-  private boolean shouldNotifyOnNewIncident() {
-    return _globalSettings.getIntegrations().getSlackSettings().isEnabled()
-        && NotificationSettingValue.ENABLED.equals(_globalSettings.getNotifications().getIncidents().getNotifyAllDownstreamOwnersOnNewIncident().getValue());
+  /**
+   * Returns true if the incident notification of type "broadcast new incident" has been enabled in the settings.
+   */
+  private boolean shouldBroadcastNewIncident() {
+    GlobalSettingsInfo globalSettingsInfo = _settingsProvider.getGlobalSettings();
+    return globalSettingsInfo != null
+        && globalSettingsInfo.getIntegrations().getSlackSettings().isEnabled()
+        && globalSettingsInfo.getNotifications().hasIncidents()
+        && globalSettingsInfo.getNotifications().getIncidents().hasBroadcastNewIncidentNotification()
+        && NotificationSettingValue.ENABLED.equals(
+            globalSettingsInfo.getNotifications().getIncidents().getBroadcastNewIncidentNotification().getValue());
   }
 
-  private boolean shouldNotifyOnIncidentStatusChange() {
-    return _globalSettings.getIntegrations().getSlackSettings().isEnabled()
-        && NotificationSettingValue.ENABLED.equals(_globalSettings.getNotifications().getIncidents().getNotifyAllDownstreamOwnersOnStatusChange().getValue());
+  /**
+   * Returns true if the incident notification of type "broadcast incident status change" has been enabled in the settings.
+   */
+  private boolean shouldBroadcastIncidentStatusChange() {
+    GlobalSettingsInfo globalSettingsInfo = _settingsProvider.getGlobalSettings();
+    return globalSettingsInfo != null
+        && globalSettingsInfo.getIntegrations().getSlackSettings().isEnabled()
+        && globalSettingsInfo.getNotifications().hasIncidents()
+        && globalSettingsInfo.getNotifications().getIncidents().hasBroadcastIncidentStatusChangeNotification()
+        && NotificationSettingValue.ENABLED.equals(
+            globalSettingsInfo.getNotifications().getIncidents().getBroadcastIncidentStatusChangeNotification().getValue());
   }
 
   private boolean isNewIncident(final MetadataChangeLog event) {
@@ -444,7 +253,7 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
         event.getAspect().getValue(),
         event.getAspect().getContentType(),
         IncidentInfo.class);
-    return !prevInfo.getStatus().equals(newInfo.getStatus());
+    return !prevInfo.getStatus().getState().equals(newInfo.getStatus().getState());
   }
 
   private String listToJSON(final List<?> list) {
