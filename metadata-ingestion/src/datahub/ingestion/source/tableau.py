@@ -948,7 +948,7 @@ class TableauSource(Source):
         return cls(ctx, config)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        if self.server is None:
+        if self.server is None or not self.server.is_signed_in():
             return
         try:
             yield from self.emit_workbooks(self.config.workbooks_page_size)
