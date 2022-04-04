@@ -30,8 +30,6 @@ dependencies {
   compile externalDependency.springContext
   compile externalDependency.swaggerAnnotations
 
-  runtime externalDependency.logbackClassic
-
   annotationProcessor externalDependency.lombok
 
   testCompile externalDependency.testng
