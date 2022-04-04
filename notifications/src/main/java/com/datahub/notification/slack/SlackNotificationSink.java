@@ -70,7 +70,7 @@ public class SlackNotificationSink implements NotificationSink {
     this.slackClient = slackClient;
   }
 
-  SlackNotificationSink() { }
+  public SlackNotificationSink() { }
 
   @Override
   public NotificationSinkType type() {
