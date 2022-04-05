@@ -286,6 +286,7 @@ public class ProtobufGraph extends DefaultDirectedGraph<ProtobufElement, FieldTy
         });
     }
 
+    private static final Set<String> GOOGLE_WRAPPERS = Set.of("google/protobuf/wrappers.proto", "google/protobuf/timestamp.proto");
     private void flattenGoogleWrapped() {
         HashSet<ProtobufElement> removeVertices = new HashSet<>();
         HashSet<FieldTypeEdge> removeEdges = new HashSet<>();
@@ -294,7 +295,7 @@ public class ProtobufGraph extends DefaultDirectedGraph<ProtobufElement, FieldTy
 
         Set<ProtobufElement> googleWrapped = vertexSet().stream()
                 .filter(v -> v instanceof ProtobufMessage
-                        && "google/protobuf/wrappers.proto".equals(v.fileProto().getName()))
+                        && GOOGLE_WRAPPERS.contains(v.fileProto().getName()))
                 .collect(Collectors.toSet());
         removeVertices.addAll(googleWrapped);
 

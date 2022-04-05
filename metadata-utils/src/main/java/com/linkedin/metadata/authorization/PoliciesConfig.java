@@ -252,7 +252,8 @@ public class PoliciesConfig {
       "tag",
       "Tags",
       "Tags indexed by DataHub",
-      ImmutableList.of(EDIT_ENTITY_OWNERS_PRIVILEGE, EDIT_TAG_COLOR_PRIVILEGE, EDIT_ENTITY_DOCS_PRIVILEGE, EDIT_ENTITY_PRIVILEGE)
+      ImmutableList.of(VIEW_ENTITY_PAGE_PRIVILEGE, EDIT_ENTITY_OWNERS_PRIVILEGE, EDIT_TAG_COLOR_PRIVILEGE,
+          EDIT_ENTITY_DOCS_PRIVILEGE, EDIT_ENTITY_PRIVILEGE)
   );
 
   // Container Privileges
@@ -268,7 +269,8 @@ public class PoliciesConfig {
       "domain",
       "Domains",
       "Domains created on DataHub",
-      ImmutableList.of(EDIT_ENTITY_OWNERS_PRIVILEGE, EDIT_ENTITY_DOCS_PRIVILEGE, EDIT_ENTITY_DOC_LINKS_PRIVILEGE, EDIT_ENTITY_PRIVILEGE)
+      ImmutableList.of(VIEW_ENTITY_PAGE_PRIVILEGE, EDIT_ENTITY_OWNERS_PRIVILEGE, EDIT_ENTITY_DOCS_PRIVILEGE,
+          EDIT_ENTITY_DOC_LINKS_PRIVILEGE, EDIT_ENTITY_PRIVILEGE)
   );
 
   // Glossary Term Privileges
@@ -277,6 +279,7 @@ public class PoliciesConfig {
       "Glossary Terms",
       "Glossary Terms created on DataHub",
       ImmutableList.of(
+          VIEW_ENTITY_PAGE_PRIVILEGE,
           EDIT_ENTITY_OWNERS_PRIVILEGE,
           EDIT_ENTITY_DOCS_PRIVILEGE,
           EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
@@ -290,6 +293,7 @@ public class PoliciesConfig {
       "Groups",
       "Groups on DataHub",
       ImmutableList.of(
+          VIEW_ENTITY_PAGE_PRIVILEGE,
           EDIT_ENTITY_OWNERS_PRIVILEGE,
           EDIT_GROUP_MEMBERS_PRIVILEGE,
           EDIT_CONTACT_INFO_PRIVILEGE,
@@ -303,6 +307,7 @@ public class PoliciesConfig {
       "Users",
       "Users on DataHub",
       ImmutableList.of(
+          VIEW_ENTITY_PAGE_PRIVILEGE,
           EDIT_CONTACT_INFO_PRIVILEGE,
           EDIT_USER_PROFILE_PRIVILEGE,
           EDIT_ENTITY_PRIVILEGE)
