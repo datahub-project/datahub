@@ -38,6 +38,9 @@ public class KafkaEventConsumerFactory {
   @Value("${kafka.schemaRegistry.type}")
   private String schemaRegistryType;
 
+  @Value("${kafka.listener.concurrency:1}")
+  private Integer kafkaListenerConcurrency;
+
   @Autowired
   @Lazy
   @Qualifier("kafkaSchemaRegistry")
@@ -78,6 +81,7 @@ public class KafkaEventConsumerFactory {
     ConcurrentKafkaListenerContainerFactory<String, GenericRecord> factory =
         new ConcurrentKafkaListenerContainerFactory<>();
     factory.setConsumerFactory(new DefaultKafkaConsumerFactory<>(props));
+    factory.setConcurrency(this.kafkaListenerConcurrency);
 
     log.info("Event-based KafkaListenerContainerFactory built successfully");
 

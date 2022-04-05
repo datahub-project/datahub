@@ -27,7 +27,7 @@ import org.springframework.context.annotation.PropertySource;
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 @EnableConfigurationProperties(KafkaProperties.class)
 @Import({KafkaSchemaRegistryFactory.class, AwsGlueSchemaRegistryFactory.class})
-public class KafkaProducerFactory {
+public class DataHubKafkaProducerFactory {
 
   @Value("${kafka.bootstrapServers}")
   private String kafkaBootstrapServers;
