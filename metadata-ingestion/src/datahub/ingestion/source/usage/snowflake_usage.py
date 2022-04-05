@@ -354,14 +354,10 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
         ):
             return False
 
-        if (
-            dataset_type.lower()
-            in {
-                "view",
-                "materialized_view",
-            }
-            and not self.config.view_pattern.allowed(dataset_params[2])
-        ):
+        if dataset_type.lower() in {
+            "view",
+            "materialized_view",
+        } and not self.config.view_pattern.allowed(dataset_params[2]):
             return False
 
         return True
