@@ -40,6 +40,14 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
         return updateCorpGroupDescription(targetUrn, input, environment.getContext());
       case Constants.NOTEBOOK_ENTITY_NAME:
         return updateNotebookDescription(targetUrn, input, environment.getContext());
+      case Constants.ML_MODEL_ENTITY_NAME:
+        return updateMlModelDescription(targetUrn, input, environment.getContext());
+      case Constants.ML_MODEL_GROUP_ENTITY_NAME:
+        return updateMlModelGroupDescription(targetUrn, input, environment.getContext());
+      case Constants.ML_FEATURE_TABLE_ENTITY_NAME:
+        return updateMlFeatureTableDescription(targetUrn, input, environment.getContext());
+      case Constants.ML_FEATURE_ENTITY_NAME:
+        return updateMlFeatureDescription(targetUrn, input, environment.getContext());
       default:
         throw new RuntimeException(
             String.format("Failed to update description. Unsupported resource type %s provided.", targetUrn));
@@ -208,6 +216,106 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
       try {
         Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
         DescriptionUtils.updateNotebookDescription(
+            input.getDescription(),
+            targetUrn,
+            actor,
+            _entityService);
+        return true;
+      } catch (Exception e) {
+        log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
+        throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
+      }
+    });
+  }
+
+  private CompletableFuture<Boolean> updateMlModelDescription(Urn targetUrn, DescriptionUpdateInput input,
+      QueryContext context) {
+    return CompletableFuture.supplyAsync(() -> {
+
+      if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
+        throw new AuthorizationException(
+            "Unauthorized to perform this action. Please contact your DataHub administrator.");
+      }
+      DescriptionUtils.validateLabelInput(targetUrn, _entityService);
+
+      try {
+        Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
+        DescriptionUtils.updateMlModelDescription(
+            input.getDescription(),
+            targetUrn,
+            actor,
+            _entityService);
+        return true;
+      } catch (Exception e) {
+        log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
+        throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
+      }
+    });
+  }
+
+  private CompletableFuture<Boolean> updateMlModelGroupDescription(Urn targetUrn, DescriptionUpdateInput input,
+      QueryContext context) {
+    return CompletableFuture.supplyAsync(() -> {
+
+      if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
+        throw new AuthorizationException(
+            "Unauthorized to perform this action. Please contact your DataHub administrator.");
+      }
+      DescriptionUtils.validateLabelInput(targetUrn, _entityService);
+
+      try {
+        Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
+        DescriptionUtils.updateMlModelGroupDescription(
+            input.getDescription(),
+            targetUrn,
+            actor,
+            _entityService);
+        return true;
+      } catch (Exception e) {
+        log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
+        throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
+      }
+    });
+  }
+
+  private CompletableFuture<Boolean> updateMlFeatureDescription(Urn targetUrn, DescriptionUpdateInput input,
+      QueryContext context) {
+    return CompletableFuture.supplyAsync(() -> {
+
+      if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
+        throw new AuthorizationException(
+            "Unauthorized to perform this action. Please contact your DataHub administrator.");
+      }
+      DescriptionUtils.validateLabelInput(targetUrn, _entityService);
+
+      try {
+        Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
+        DescriptionUtils.updateMlFeatureDescription(
+            input.getDescription(),
+            targetUrn,
+            actor,
+            _entityService);
+        return true;
+      } catch (Exception e) {
+        log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
+        throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
+      }
+    });
+  }
+
+  private CompletableFuture<Boolean> updateMlFeatureTableDescription(Urn targetUrn, DescriptionUpdateInput input,
+      QueryContext context) {
+    return CompletableFuture.supplyAsync(() -> {
+
+      if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
+        throw new AuthorizationException(
+            "Unauthorized to perform this action. Please contact your DataHub administrator.");
+      }
+      DescriptionUtils.validateLabelInput(targetUrn, _entityService);
+
+      try {
+        Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
+        DescriptionUtils.updateMlFeatureTableDescription(
             input.getDescription(),
             targetUrn,
             actor,

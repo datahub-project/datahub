@@ -163,4 +163,28 @@ entities:
     keyAspect: dataPlatformInstanceKey
     aspects:
       - status
+  - name: mlModel
+    category: internal
+    keyAspect: mlModelKey
+    aspects:
+      - glossaryTerms
+      - editableMlModelProperties
+  - name: mlModelGroup
+    category: internal
+    keyAspect: mlModelGroupKey
+    aspects:
+      - glossaryTerms
+      - editableMlModelGroupProperties
+  - name: mlFeatureTable
+    category: internal
+    keyAspect: mlFeatureTableKey
+    aspects:
+      - glossaryTerms
+      - editableMlFeatureTableProperties
+  - name: mlFeature
+    category: internal
+    keyAspect: mlFeatureKey
+    aspects:
+      - glossaryTerms
+      - editableMlFeatureProperties
 events:
