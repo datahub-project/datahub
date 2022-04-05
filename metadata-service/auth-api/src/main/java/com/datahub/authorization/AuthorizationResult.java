@@ -6,17 +6,35 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 
 
+/**
+ * A result returned after requesting authorization for a particular privilege.
+ */
 @Data
 @AllArgsConstructor
 public class AuthorizationResult {
+  /**
+   * The original authorization request
+   */
   AuthorizationRequest request;
 
-  Optional<DataHubPolicyInfo> policy;
+  /**
+   * The result type. Allow or deny the authorization request for the actor.
+   */
+  public enum Type {
+    /**
+     * Allow the request - the requested actor is privileged.
+     */
+    ALLOW,
+    /**
+     * Deny the request - the requested actor is not privileged.
+     */
+    DENY
+  }
 
   Type type;
 
-  public enum Type {
-    ALLOW,
-    DENY
-  }
+  /**
+   * Optional: The DataHub policy that granted the privilege.
+   */
+  Optional<DataHubPolicyInfo> policy;
 }

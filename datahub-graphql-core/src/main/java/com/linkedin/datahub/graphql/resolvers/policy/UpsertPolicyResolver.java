@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.policy;
 
-import com.datahub.authorization.AuthorizationManager;
+import com.datahub.authorization.DataHubAuthorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
@@ -69,8 +69,8 @@ public class UpsertPolicyResolver implements DataFetcher<CompletableFuture<Strin
         try {
           // TODO: We should also provide SystemMetadata.
           String urn = _entityClient.ingestProposal(proposal, context.getAuthentication());
-          if (context.getAuthorizer() instanceof AuthorizationManager) {
-            ((AuthorizationManager) context.getAuthorizer()).invalidateCache();
+          if (context.getAuthorizer() instanceof DataHubAuthorizer) {
+            ((DataHubAuthorizer) context.getAuthorizer()).invalidateCache();
           }
           return urn;
         } catch (Exception e) {
