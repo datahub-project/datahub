@@ -149,40 +149,45 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
 
   @Nonnull
   protected List<Urn> getDownstreamOwners(final Urn entityUrn) {
-    final EntityLineageResult results;
-    results = _graphClient.getLineageEntities(
-        entityUrn.toString(),
-        LineageDirection.DOWNSTREAM,
-        0,
-        MAX_DOWNSTREAMS_TO_FETCH_OWNERSHIP,
-        MAX_DOWNSTREAMS_HOP,
-        _systemAuthentication.getActor().toUrnStr()
-    );
 
-    // Now fetch the ownership for each entity type in batch.
-    final Map<String, Set<Urn>> downstreamEntityUrns = new HashMap<>();
-    for (LineageRelationship relationship : results.getRelationships()) {
-      downstreamEntityUrns.putIfAbsent(relationship.getEntity().getEntityType(), new HashSet<>());
-      downstreamEntityUrns.get(relationship.getEntity().getEntityType()).add(relationship.getEntity());
-    }
-
-    final List<Urn> ownerUrns = new ArrayList<>();
-    for (Map.Entry<String, Set<Urn>> entry : downstreamEntityUrns.entrySet()) {
-      final Map<Urn, Ownership> ownerships = batchGetEntityOwnership(
-          entry.getKey(),
-          entry.getValue()
+    try {
+      final EntityLineageResult results = _graphClient.getLineageEntities(
+          entityUrn.toString(),
+          LineageDirection.DOWNSTREAM,
+          0,
+          MAX_DOWNSTREAMS_TO_FETCH_OWNERSHIP,
+          MAX_DOWNSTREAMS_HOP,
+          _systemAuthentication.getActor().toUrnStr()
       );
-      ownerships.entrySet()
-        .stream()
-        .filter(e -> e.getValue() != null)
-        .forEach(e -> {
-          // Add each owner from the ownership to the master list of owners.
-          ownerUrns.addAll(
-              e.getValue().getOwners().stream().map(Owner::getOwner).collect(Collectors.toList())
-          );
-       });
+
+      // Now fetch the ownership for each entity type in batch.
+      final Map<String, Set<Urn>> downstreamEntityUrns = new HashMap<>();
+      for (LineageRelationship relationship : results.getRelationships()) {
+        downstreamEntityUrns.putIfAbsent(relationship.getEntity().getEntityType(), new HashSet<>());
+        downstreamEntityUrns.get(relationship.getEntity().getEntityType()).add(relationship.getEntity());
+      }
+
+      final List<Urn> ownerUrns = new ArrayList<>();
+      for (Map.Entry<String, Set<Urn>> entry : downstreamEntityUrns.entrySet()) {
+        final Map<Urn, Ownership> ownerships = batchGetEntityOwnership(
+            entry.getKey(),
+            entry.getValue()
+        );
+        ownerships.entrySet()
+            .stream()
+            .filter(e -> e.getValue() != null)
+            .forEach(e -> {
+              // Add each owner from the ownership to the master list of owners.
+              ownerUrns.addAll(
+                  e.getValue().getOwners().stream().map(Owner::getOwner).collect(Collectors.toList())
+              );
+            });
+      }
+      return ownerUrns;
+    } catch (Exception e) {
+      log.error(String.format("Failed to retrieve downstream owners for entity urn %s.", entityUrn));
+      return Collections.emptyList();
     }
-    return ownerUrns;
   }
 
   @Nonnull
