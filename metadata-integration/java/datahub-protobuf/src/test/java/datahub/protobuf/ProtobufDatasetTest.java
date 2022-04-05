@@ -10,6 +10,8 @@ import com.linkedin.common.Status;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.url.Url;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.common.urn.DataPlatformUrn;
+import com.linkedin.common.FabricType;
 import com.linkedin.schema.ArrayType;
 import com.linkedin.schema.BooleanType;
 import com.linkedin.schema.BytesType;
@@ -20,8 +22,6 @@ import com.linkedin.schema.SchemaFieldDataType;
 import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.schema.StringType;
 import com.linkedin.schema.UnionType;
-import com.linkedin.common.urn.DataPlatformUrn;
-import com.linkedin.common.FabricType;
 import com.linkedin.util.Pair;
 import datahub.protobuf.model.ProtobufField;
 import datahub.protobuf.visitors.ProtobufModelVisitor;
@@ -177,7 +177,7 @@ public class ProtobufDatasetTest {
         SchemaMetadata testMetadata = test.getSchemaMetadata();
 
         assertEquals(1, testMetadata.getVersion());
-        assertEquals(23, testMetadata.getFields().size());
+        assertEquals(24, testMetadata.getFields().size());
 
         assertEquals(new SchemaField()
                         .setFieldPath("[version=2.0].[type=protobuf_MessageB].[type=long].id")
@@ -425,5 +425,29 @@ public class ProtobufDatasetTest {
 
         assertEquals(firstNested.size(), secondNested.size());
         assertEquals(firstNested.stream().map(s -> s.replace(".nested", ".secondary_nested")).collect(Collectors.toSet()), secondNested);
+    }
+
+    @Test
+    public void googleTimestamp() throws IOException {
+        ProtobufDataset test = getTestProtobufDataset("protobuf", "messageB");
+
+        assertEquals("urn:li:dataset:(urn:li:dataPlatform:kafka,protobuf.MessageB,TEST)",
+                test.getDatasetUrn().toString());
+
+        SchemaMetadata testMetadata = test.getSchemaMetadata();
+
+        assertEquals(1, testMetadata.getVersion());
+
+        assertEquals(new SchemaField()
+                        .setFieldPath("[version=2.0].[type=protobuf_MessageB].[type=long].time")
+                        .setNullable(true)
+                        .setIsPartOfKey(false)
+                        .setType(new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new NumberType())))
+                        .setNativeDataType("google.protobuf.Timestamp")
+                        .setDescription("google timestamp")
+                        .setGlobalTags(new GlobalTags().setTags(new TagAssociationArray()))
+                        .setGlossaryTerms(new GlossaryTerms().setTerms(new GlossaryTermAssociationArray()).setAuditStamp(test.getAuditStamp())),
+                testMetadata.getFields().stream().filter(f -> f.getFieldPath()
+                        .equals("[version=2.0].[type=protobuf_MessageB].[type=long].time")).findFirst().orElseThrow());
     }
 }
