@@ -110,6 +110,10 @@ source:
     schema_pattern:
       deny:
       - "information_schema.*"
+    table_pattern:
+      allow:
+      # If you just want to ingest for a table with name revenue
+      - ".*revenue"
     profiling:
       enabled: true
     profile_pattern:
