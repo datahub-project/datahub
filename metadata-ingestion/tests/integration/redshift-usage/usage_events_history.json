@@ -2,7 +2,7 @@
     {
         "userid": 1,
         "query": 293100,
-        "usename": "test-name",
+        "username": "test-name",
         "tbl": 101587,
         "querytxt": "select userid from users",
         "database": "dev",
@@ -14,7 +14,7 @@
     {
         "userid": 2,
         "query": 293101,
-        "usename": null,
+        "username": null,
         "tbl": 101588,
         "querytxt": "select catid from category",
         "database": "dev",
@@ -26,7 +26,7 @@
     {
         "userid": 3,
         "query": 293102,
-        "usename": "chinmay",
+        "username": "chinmay",
         "tbl": 101587,
         "querytxt": "select catid from category",
         "database": null,
@@ -38,7 +38,7 @@
     {
         "userid": 4,
         "query": 293102,
-        "usename": "shirshanka",
+        "username": "shirshanka",
         "tbl": 101588,
         "querytxt": "select catid from category",
         "database": "db1",
@@ -50,7 +50,7 @@
     {
         "userid": 5,
         "query": 293102,
-        "usename": "real_shirshanka@acryl.io",
+        "username": "real_shirshanka@acryl.io",
         "tbl": 101588,
         "querytxt": "select catid from category",
         "database": "db1",
@@ -62,7 +62,7 @@
     {
         "userid": 5,
         "query": 293103,
-        "usename": "real_shirshanka@acryl.io",
+        "username": "real_shirshanka@acryl.io",
         "tbl": 101589,
         "querytxt": "select cost from orders",
         "database": "dev",
