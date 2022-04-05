@@ -111,6 +111,7 @@ class DBTConfig(StatefulIngestionConfigBase):
     enable_meta_mapping = True
     write_semantics: str = "PATCH"
     strip_user_ids_from_email: bool = False
+    owner_naming_pattern: Optional[str]
 
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[DBTStatefulIngestionConfig] = None
@@ -1026,9 +1027,18 @@ class DBTSource(StatefulIngestionSourceBase):
     ) -> List[OwnerClass]:
         owner_list: List[OwnerClass] = []
         if node.owner:
+            owner = node.owner
+            if self.config.owner_naming_pattern:
+                found = re.search(re.compile(self.config.owner_naming_pattern), owner)
+                if found:
+                    owner = found.group(2)
+                    logger.info(f"Owner (after applying regex):{owner}")
+            if self.config.strip_user_ids_from_email:
+                owner = owner.split("@")[0]
+                logger.info(f"Owner (after stripping email):{owner}")
             owner_list.append(
                 OwnerClass(
-                    owner=f"urn:li:corpuser:{node.owner}",
+                    owner=f"urn:li:corpuser:{owner}",
                     type=OwnershipTypeClass.DATAOWNER,
                 )
             )
