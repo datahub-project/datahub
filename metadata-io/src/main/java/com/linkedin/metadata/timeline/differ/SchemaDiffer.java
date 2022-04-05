@@ -23,8 +23,6 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-import org.apache.commons.lang.ObjectUtils;
-import org.apache.commons.lang.StringUtils;
 
 
 public class SchemaDiffer implements Differ {
@@ -188,7 +186,7 @@ public class SchemaDiffer implements Differ {
         // Check for rename, if rename coincides with other modifications we assume drop/add.
         // Assumes that two different fields on the same schema would not have the same description, terms,
         // or tags and share the same type
-        SchemaField renamedField = findRenamedField(curBaseField, targetFields);
+        SchemaField renamedField = findRenamedField(curBaseField, targetFields, renamedFields);
         if (renamedField == null) {
           processRemoval(changeCategory, changeEvents, datasetUrn, curBaseField);
           ++baseFieldIdx;
@@ -202,7 +200,7 @@ public class SchemaDiffer implements Differ {
         }
       } else {
         // The targetField got added or a rename occurred. Forward & backwards compatible change + minor version bump.
-        SchemaField renamedField = findRenamedField(curTargetField, baseFields);
+        SchemaField renamedField = findRenamedField(curTargetField, baseFields, renamedFields);
         if (renamedField == null) {
           processAdd(changeCategory, changeEvents, datasetUrn, curTargetField);
           ++targetFieldIdx;
@@ -259,19 +257,22 @@ public class SchemaDiffer implements Differ {
     schemaMetadata.setFields(new SchemaFieldArray(schemaFields));
   }
 
-  private static SchemaField findRenamedField(SchemaField curBaseField, List<SchemaField> targetFields) {
+  private static SchemaField findRenamedField(SchemaField curField, List<SchemaField> targetFields, Set<SchemaField> renamedFields) {
     Predicate<SchemaField> descriptionsMatch = schemaField ->
-        StringUtils.equals(curBaseField.getDescription(), schemaField.getDescription());
+        curField.getDescription() != null && curField.getDescription().equals(schemaField.getDescription());
     Predicate<SchemaField> termsMatch = schemaField ->
-        ObjectUtils.equals(curBaseField.getGlossaryTerms(), schemaField.getGlossaryTerms());
+        curField.getGlossaryTerms() != null && curField.getGlossaryTerms().equals(schemaField.getGlossaryTerms());
     Predicate<SchemaField> tagsMatch = schemaField ->
-        ObjectUtils.equals(curBaseField.getGlobalTags(), schemaField.getGlobalTags());
+        curField.getGlobalTags() != null && curField.getGlobalTags().equals(schemaField.getGlobalTags());
     Predicate<SchemaField> sameType = schemaField ->
-        curBaseField.getNativeDataType().equals(schemaField.getNativeDataType());
+        curField.getNativeDataType().equals(schemaField.getNativeDataType());
     Predicate<SchemaField> isRenamed = schemaField ->
         sameType.test(schemaField)
             && (descriptionsMatch.test(schemaField) || tagsMatch.test(schemaField) || termsMatch.test(schemaField));
-    return targetFields.stream().filter(isRenamed).findFirst().orElse(null);
+    return targetFields.stream()
+        .filter(isRenamed)
+        .filter(field -> !renamedFields.contains(field))
+        .findFirst().orElse(null);
   }
 
   private static void processRemoval(ChangeCategory changeCategory, List<ChangeEvent> changeEvents, Urn datasetUrn,
