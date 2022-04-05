@@ -273,7 +273,8 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
     def _make_usage_query(self) -> str:
         start_time = int(self.config.start_time.timestamp() * 1000)
         end_time = int(self.config.end_time.timestamp() * 1000)
-        return SNOWFLAKE_USAGE_SQL_TEMPLATE.format(
+        usage_sql_template = self.config.usage_custom_sql_template.strip() or SNOWFLAKE_USAGE_SQL_TEMPLATE
+        return usage_sql_template.format(
             start_time_millis=start_time,
             end_time_millis=end_time,
         )

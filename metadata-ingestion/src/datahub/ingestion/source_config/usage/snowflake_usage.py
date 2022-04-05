@@ -37,6 +37,7 @@ class SnowflakeUsageConfig(
     view_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     apply_view_usage_to_tables: bool = False
     stateful_ingestion: Optional[SnowflakeStatefulIngestionConfig] = None
+    usage_custom_sql_template: Optional[str]
 
     def get_sql_alchemy_url(self):
         return super().get_sql_alchemy_url(
