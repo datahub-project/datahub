@@ -1,3 +1,6 @@
+# The base URL where DataHub is accessible to users. This is used for crafting notifications, among other things.
+baseUrl: ${DATAHUB_BASE_URL:http://localhost:9002}
+
 # App Layer
 authentication:
   # Enable if you want all requests to the Metadata Service to be authenticated. Disabled by default.
@@ -168,6 +171,5 @@ notifications:
       # app-layer configurations as to whether notifications are actually sent to slack.
       enabled: ${SLACK_SINK_ENABLED:false}
       configs:
-        baseUrl: ${DATAHUB_BASE_URL:http://localhost:9002}
         botToken: ${SLACK_BOT_TOKEN}
         defaultChannel: ${SLACK_DEFAULT_CHANNEL}

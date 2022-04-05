@@ -35,6 +35,7 @@ import static com.linkedin.metadata.Constants.*;
 public class SlackNotificationSinkTest {
 
   private static final Urn TEST_USER_URN = Urn.createFromTuple(CORP_USER_ENTITY_NAME, "test");
+  private static final String TEST_BASE_URL = "http://localhost:9002";
 
   @Test
   public void testInit() throws Exception {
@@ -50,7 +51,8 @@ public class SlackNotificationSinkTest {
         Collections.emptyMap(),
         mockSettingsProvider,
         mockIdentityProvider,
-        mockSecretProvider
+        mockSecretProvider,
+        TEST_BASE_URL
     ));
 
     // Case 2: Static config with bot token and default channel
@@ -63,7 +65,8 @@ public class SlackNotificationSinkTest {
         ),
         mockSettingsProvider,
         mockIdentityProvider,
-        mockSecretProvider
+        mockSecretProvider,
+        TEST_BASE_URL
     ));
   }
 
@@ -131,7 +134,8 @@ public class SlackNotificationSinkTest {
         ),
         mockSettingsProvider,
         mockIdentityProvider,
-        mockSecretProvider
+        mockSecretProvider,
+        TEST_BASE_URL
     ));
 
     // Now, construct a message request and verify that it is sent to the slack client.
@@ -210,7 +214,8 @@ public class SlackNotificationSinkTest {
         ),
         mockSettingsProvider,
         mockIdentityProvider,
-        mockSecretProvider
+        mockSecretProvider,
+        "http://localhost:9002"
     ));
 
     // Now, construct a message request and verify that it is sent to the slack client.
