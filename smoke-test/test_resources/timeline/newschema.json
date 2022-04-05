@@ -71,6 +71,7 @@
     },
     {
       "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=string].name",
+      "description": "Service provider name",
       "nullable": true,
       "type": {
         "type": {
