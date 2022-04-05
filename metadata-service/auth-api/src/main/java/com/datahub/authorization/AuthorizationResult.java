@@ -31,6 +31,9 @@ public class AuthorizationResult {
     DENY
   }
 
+  /**
+   * The decision - whether to allow or deny the request.
+   */
   Type type;
 
   /**

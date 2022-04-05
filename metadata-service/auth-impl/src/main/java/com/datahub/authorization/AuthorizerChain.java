@@ -25,16 +25,6 @@ public class AuthorizerChain implements Authorizer {
     this.authorizers = Objects.requireNonNull(authorizers);
   }
 
-  /**
-   * Registers a new {@link Authorizer} at the end of the authorizer chain.
-   *
-   * @param authorizer the authorizer to register
-   */
-  public void register(@Nonnull final Authorizer authorizer) {
-    Objects.requireNonNull(authorizer);
-    authorizers.add(authorizer);
-  }
-
   @Override
   public void init(@Nonnull Map<String, Object> authorizerConfig) {
     // pass.
@@ -46,7 +36,7 @@ public class AuthorizerChain implements Authorizer {
    * Returns an instance of {@link AuthorizationResult}.
    */
   @Nullable
-  public AuthorizationResult authorize(@Nonnull final AuthorizationRequest request) throws AuthorizationException {
+  public AuthorizationResult authorize(@Nonnull final AuthorizationRequest request) {
     Objects.requireNonNull(request);
     for (final Authorizer authorizer : this.authorizers) {
       try {
@@ -64,5 +54,16 @@ public class AuthorizerChain implements Authorizer {
     }
     // Return failed Authorization result.
     return new AuthorizationResult(request, AuthorizationResult.Type.DENY, Optional.empty());
+  }
+
+  /**
+   * Returns an instance of {@link DataHubAuthorizer} if it is present in the Authentication chain,
+   * or null if it cannot be found.
+   */
+  public DataHubAuthorizer getDefaultAuthorizer() {
+    return (DataHubAuthorizer) this.authorizers.stream()
+        .filter(authorizer -> authorizer instanceof DataHubAuthorizer)
+        .findFirst()
+        .orElse(null);
   }
 }

@@ -105,7 +105,7 @@ public class DataHubAuthorizerTest {
         _entityClient,
         10,
         10,
-        Authorizer.AuthorizationMode.DEFAULT
+        DataHubAuthorizer.AuthorizationMode.DEFAULT
     );
     _dataHubAuthorizer.invalidateCache();
     Thread.sleep(500); // Sleep so the runnable can execute. (not ideal)
