@@ -1,5 +1,5 @@
 import urllib.parse
-from typing import Dict
+from typing import Dict, Optional, Tuple
 
 import pydantic
 
@@ -10,6 +10,7 @@ from datahub.ingestion.source.sql.sql_common import (
     BasicSQLAlchemyConfig,
     SQLAlchemySource,
 )
+from sqlalchemy.engine.reflection import Inspector
 
 
 class SQLServerConfig(BasicSQLAlchemyConfig):
@@ -57,3 +58,11 @@ class SQLServerSource(SQLAlchemySource):
     def create(cls, config_dict, ctx):
         config = SQLServerConfig.parse_obj(config_dict)
         return cls(config, ctx)
+
+    def get_table_properties(
+        self, inspector: Inspector, schema: str, table: str
+    ) -> Tuple[Optional[str], Optional[Dict[str, str]], Optional[str]]:
+        description, properties, location_urn = super().get_table_properties(
+            inspector, schema, table
+        )
+        return description, properties, location_urn
