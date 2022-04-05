@@ -3807,6 +3807,7 @@
                             ],
                             "upstreamDatasources": [
                                 {
+                                    "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae",
                                     "name": "Superstore Datasource"
                                 }
                             ],
@@ -21783,6 +21784,7 @@
                             ],
                             "upstreamDatasources": [
                                 {
+                                    "id": "00cce29f-b561-bb41-3557-8e19660bb5dd",
                                     "name": "test publish datasource"
                                 }
                             ],

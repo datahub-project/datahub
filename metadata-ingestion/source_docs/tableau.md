@@ -1,22 +1,31 @@
 # Tableau
-For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
 
-Note that this connector is currently considered in `BETA`, and has not been validated for production use. 
+![Testing](https://img.shields.io/badge/support%20status-testing-lightgrey)
 
-## Setup
-
-To install this plugin, run `pip install 'acryl-datahub[tableau]'`.
-
-See documentation for Tableau's metadata API at https://help.tableau.com/current/api/metadata_api/en-us/index.html
-
-## Capabilities
+## Integration Details
 
 This plugin extracts Sheets, Dashboards, Embedded and Published Data sources metadata within Workbooks in a given project
-on a Tableau Online site. This plugin is in beta and has only been tested on PostgreSQL database and sample workbooks 
-on Tableau online.
-
-Tableau's GraphQL interface is used to extract metadata information. Queries used to extract metadata are located
+on a Tableau site. This plugin is in beta and has only been tested on PostgreSQL database and sample workbooks 
+on Tableau online. Tableau's GraphQL interface is used to extract metadata information. Queries used to extract metadata are located
 in `metadata-ingestion/src/datahub/ingestion/source/tableau_common.py`
+
+### Concept Mapping
+
+This ingestion source maps the following Source System Concepts to DataHub Concepts:
+
+| Source Concept | DataHub Concept | Notes |
+| -- | -- | -- |
+| `Tableau` | [Data Platform](../../docs/generated/metamodel/entities/dataPlatform.md) | |
+| Embedded DataSource | [Dataset](../../docs/generated/metamodel/entities/dataset.md) | |
+| Published DataSource | [Dataset](../../docs/generated/metamodel/entities/dataset.md) | |
+| Custom SQL Table | [Dataset](../../docs/generated/metamodel/entities/dataset.md) | |
+| Embedded or External Tables | [Dataset](../../docs/generated/metamodel/entities/dataset.md) | |
+| Sheet | [Chart](../../docs/generated/metamodel/entities/chart.md) | |
+| Dashboard | [Dashboard](../../docs/generated/metamodel/entities/dashboard.md) | |
+| User | [User (a.k.a CorpUser)](../../docs/generated/metamodel/entities/corpuser.md) | |
+| Workbook | [Container](../../docs/generated/metamodel/entities/container.md) | | 
+| Tag | [Tag](../../docs/generated/metamodel/entities/tag.md) | | 
+
 
 - [Workbook](#Workbook)
 - [Dashboard](#Dashboard)
@@ -25,8 +34,7 @@ in `metadata-ingestion/src/datahub/ingestion/source/tableau_common.py`
 - [Published Data source](#Published-Data-Source)
 - [Custom SQL Data source](#Custom-SQL-Data-Source)
 
-
-### Workbook
+#### Workbook
 Workbooks from Tableau are ingested as Container in datahub. <br/>
 - GraphQL query <br/>
 ```graphql
@@ -55,7 +63,7 @@ Workbooks from Tableau are ingested as Container in datahub. <br/>
 }
 ```
 
-### Dashboard
+#### Dashboard
 Dashboards from Tableau are ingested as Dashboard in datahub. <br/>
 - GraphQL query <br/>
 ```graphql
@@ -85,7 +93,7 @@ Dashboards from Tableau are ingested as Dashboard in datahub. <br/>
 
 ```
 
-### Sheet
+#### Sheet
 Sheets from Tableau are ingested as charts in datahub. <br/>
 - GraphQL query <br/>
 ```graphql
@@ -166,7 +174,7 @@ Sheets from Tableau are ingested as charts in datahub. <br/>
 }
 ```
 
-### Embedded Data Source
+#### Embedded Data Source
 Embedded Data source from Tableau is ingested as a Dataset in datahub.
 
 - GraphQL query <br/>
@@ -232,6 +240,7 @@ Embedded Data source from Tableau is ingested as a Dataset in datahub.
           }
         }
         upstreamDatasources {
+          id
           name
         }
         workbook {
@@ -245,7 +254,7 @@ Embedded Data source from Tableau is ingested as a Dataset in datahub.
 }
 ```
 
-### Published Data Source
+#### Published Data Source
 Published Data source from Tableau is ingested as a Dataset in datahub.
 
 - GraphQL query <br/>
@@ -324,7 +333,7 @@ Published Data source from Tableau is ingested as a Dataset in datahub.
 }
 ```
 
-### Custom SQL Data Source
+#### Custom SQL Data Source
 For custom sql data sources, the query is viewable in UI under View Definition tab. <br/>
 - GraphQL query <br/>
 ```graphql
@@ -379,11 +388,64 @@ For custom sql data sources, the query is viewable in UI under View Definition t
 }
 ```
 
-## Quickstart recipe
+#### Lineage
+Lineage is emitted as received from Tableau's metadata API for
+- Sheets contained in Dashboard
+- Embedded or Published datasources upstream to Sheet
+- Published datasources upstream to Embedded datasource
+- Tables upstream to Embedded or Published datasource
+- Custom SQL datasources upstream to Embedded or Published datasource
+- Tables upstream to Custom SQL datasource
 
-Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
 
-For general pointers on writing and running a recipe, see our [main recipe guide](../README.md#recipes).
+#### Caveats
+- Tableau metadata API might return incorrect schema name for tables for some databases, leading to incorrect metadata in DataHub.  Read [Using the databaseTable object in query](https://help.tableau.com/current/api/metadata_api/en-us/docs/meta_api_model.html#schema_attribute) for more details.
+
+
+### Supported Capabilities
+
+<!-- This should be an auto-generated table of supported DataHub features/functionality -->
+<!-- Each capability should link out to a feature guide -->
+
+| Capability | Status | Notes |
+| --- | :-: | --- |
+| Data Container | ✅ | Enabled by default |
+| Detect Deleted Entities | ❌ | |
+| Data Domain | ❌ | Requires transformer |
+| Dataset Profiling | ❌ | |
+| Dataset Usage | ❌ | |
+| Extract Descriptions | ✅ | Enabled by default |
+| Extract Lineage | ✅ | Enabled by default |
+| Extract Ownership | ✅ | Requires recipe configuration |
+| Extract Tags | ✅ | Requires recipe configuration |
+| Partition Support | ❌ | Not applicable to source |
+| Platform Instance | ❌ | Not applicable to source |
+
+## Metadata Ingestion Quickstart
+
+### Prerequisites
+
+In order to ingest metadata from tableau, you will need:
+
+- Python 3.6+
+- Tableau Server Version 2021.1.10 and above. It may also work for older versions.
+- [Enable the Tableau Metadata API](https://help.tableau.com/current/api/metadata_api/en-us/docs/meta_api_start.html#enable-the-tableau-metadata-api-for-tableau-server) for Tableau Server, if its not already enabled.
+- Tableau Credentials (Username/Password or [Personal Access Token](https://help.tableau.com/current/pro/desktop/en-us/useracct.htm#create-and-revoke-personal-access-tokens)) 
+
+
+### Install the Plugin(s)
+
+Run the following commands to install the relevant plugin(s):
+
+`pip install 'acryl-datahub[tableau]'`
+
+### Configure the Ingestion Recipe(s)
+
+Use the following recipe(s) to get started with ingestion. 
+
+_For general pointers on writing and running a recipe, see our [main recipe guide](../README.md#recipes)._
+
+#### `'acryl-datahub[tableau]'`
 
 ```yml
 source:
@@ -395,8 +457,8 @@ source:
     projects: ["default", "Project 2"]
     
     # Credentials
-    username: username@acrylio.com
-    password: pass
+    username: "${TABLEAU_USER}"
+    password: "${TABLEAU_PASSWORD}"
 
     # Options
     ingest_tags: True
@@ -404,13 +466,15 @@ source:
     default_schema_map:
       mydatabase: public
       anotherdatabase: anotherschema
-    
+
 sink:
   # sink configs
 ```
 
-## Config details
-
+<details>
+  <summary>View All Recipe Configuartion Options</summary>
+  
+  
 | Field                 | Required | Default   | Description                                                              |
 |-----------------------|----------|-----------|--------------------------------------------------------------------------|
 | `connect_uri`         | ✅        |           | Tableau host URL.                                                        |
@@ -429,19 +493,11 @@ sink:
 *Tableau may not provide schema name when ingesting Custom SQL data source. Use `default_schema_map` to provide a default
 schema name to use when constructing a table URN.
 
-
-### Authentication
-
-Currently, authentication is supported on Tableau using username and password
-and personal token. For more information on Tableau authentication, refer to [How to Authenticate](https://help.tableau.com/current/api/metadata_api/en-us/docs/meta_api_auth.html) guide.
+</details>
 
 
-## Compatibility
+## Troubleshooting
 
-Tableau Server Version: 2021.4.0 (20214.22.0114.0959) 64-bit Linux 
+### Why are only some workbooks ingested from the specified project?
 
-
-## Questions
-
-If you've got any questions on configuring this source, feel free to ping us on
-[our Slack](https://slack.datahubproject.io/)!
+This happens when the Tableau API returns NODE_LIMIT_EXCEEDED error and returns partial results with message "Showing partial results. , The request exceeded the ‘n’ node limit. Use pagination, additional filtering, or both in the query to adjust results." To resolve this, reduce the page size using the `workbooks_page_size` config param (Defaults to 10).

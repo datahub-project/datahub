@@ -1,9 +1,8 @@
 import collections
 import dataclasses
 import logging
-from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Set, Union
 
 from dateutil import parser
 from pydantic import Field
@@ -90,19 +89,21 @@ class RedshiftUsageConfig(RedshiftConfig, BaseUsageConfig):
         return super().get_sql_alchemy_url()
 
 
-@dataclass
-class RedshiftUsageReport(SourceReport):
-    pass
-
-
 @dataclasses.dataclass
+class RedshiftUsageSourceReport(SourceReport):
+    filtered: Set[str] = dataclasses.field(default_factory=set)
+
+    def report_dropped(self, key: str) -> None:
+        self.filtered.add(key)
+
+
 class RedshiftUsageSource(Source):
     def __init__(self, config: RedshiftUsageConfig, ctx: PipelineContext):
         self.config: RedshiftUsageConfig = config
-        self.report: RedshiftUsageReport = RedshiftUsageReport()
+        self.report: RedshiftUsageSourceReport = RedshiftUsageSourceReport()
 
     @classmethod
-    def create(cls, config_dict, ctx):
+    def create(cls, config_dict: Dict, ctx: PipelineContext) -> "RedshiftUsageSource":
         config = RedshiftUsageConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
@@ -233,7 +234,20 @@ class RedshiftUsageSource(Source):
                 event_dict["endtime"] = event_dict.get("endtime").__str__()
 
             logger.debug(f"event_dict: {event_dict}")
-            events.append(event_dict)
+            # filter based on schema and table pattern
+            if (
+                event_dict["schema"]
+                and self.config.schema_pattern.allowed(event_dict["schema"])
+                and event_dict["table"]
+                and self.config.table_pattern.allowed(event_dict["table"])
+            ):
+                events.append(event_dict)
+            else:
+                full_table_name: str = (
+                    f"{row['database']}.{row['schema']}.{row['table']}"
+                )
+                logger.debug(f"Filtering out {full_table_name}")
+                self.report.report_dropped(full_table_name)
 
         if events:
             return events
@@ -361,9 +375,10 @@ class RedshiftUsageSource(Source):
                 self.config.env,
             ),
             self.config.top_n_queries,
+            self.config.format_sql_queries,
         )
 
-    def get_report(self) -> SourceReport:
+    def get_report(self) -> RedshiftUsageSourceReport:
         return self.report
 
     def close(self) -> None:

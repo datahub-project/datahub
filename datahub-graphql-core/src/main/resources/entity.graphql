@@ -15,6 +15,11 @@ Coming soon listEntity queries for listing all entities of a given type
 """
 type Query {
     """
+    Fetch a Data Platform by primary key (urn)
+    """
+    dataPlatform(urn: String!): DataPlatform
+
+    """
     Fetch a CorpUser, representing a DataHub platform user, by primary key (urn)
     """
     corpUser(urn: String!): CorpUser

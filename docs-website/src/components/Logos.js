@@ -81,6 +81,11 @@ const companiesByIndustry = [
         imageUrl: "/img/logos/companies/stash.svg",
         size: "large",
       },
+      {
+        name: "SumUp",
+        imageUrl: "/img/logos/companies/sumup.png",
+        size: "large",
+      },
     ],
   },
   {
