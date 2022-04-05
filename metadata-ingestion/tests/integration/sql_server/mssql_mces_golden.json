@@ -1065,7 +1065,7 @@
                         "externalUrl": null,
                         "name": "Items",
                         "qualifiedName": null,
-                        "description": null,
+                        "description": "Description for table Items of schema Foo.",
                         "uri": null,
                         "tags": []
                     }

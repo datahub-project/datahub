@@ -1,3 +1,4 @@
+import sys
 import urllib.parse
 from typing import Dict, Optional, Tuple
 
@@ -54,6 +55,57 @@ class SQLServerSource(SQLAlchemySource):
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "mssql")
 
+        self.table_descriptions = {}
+        self.column_descriptions = {}
+
+        for inspector in self.get_inspectors():
+
+            db_name = self.get_db_name(inspector)
+
+            with inspector.engine.connect() as conn:
+                # see https://stackoverflow.com/questions/5953330/how-do-i-map-the-id-in-sys-extended-properties-to-an-object-name
+                # also see https://www.mssqltips.com/sqlservertip/5384/working-with-sql-server-extended-properties/
+
+                table_metadata = conn.execute(
+                    """
+                    SELECT SCHEMA_NAME(T.SCHEMA_ID), T.NAME, EP.VALUE
+                    FROM SYS.TABLES AS T
+                        INNER JOIN SYS.EXTENDED_PROPERTIES AS EP
+                            ON EP.MAJOR_ID = T.[OBJECT_ID]
+                            AND EP.MINOR_ID = 0
+                            AND EP.NAME = 'MS_Description'
+                            AND EP.CLASS = 1
+                    """
+                )
+
+                for schema_name, table_name, table_description in table_metadata:
+                    self.table_descriptions[
+                        f"{db_name}.{schema_name}.{table_name}"
+                    ] = table_description
+
+                column_metadata = conn.execute(
+                    """
+                    SELECT SCHEMA_NAME(T.SCHEMA_ID), T.NAME, C.NAME, EP.VALUE
+                    FROM SYS.TABLES AS T
+                        INNER JOIN SYS.ALL_COLUMNS AS C ON C.OBJECT_ID = T.[OBJECT_ID]
+                        INNER JOIN SYS.EXTENDED_PROPERTIES AS EP
+                            ON EP.MAJOR_ID = T.[OBJECT_ID]
+                            AND EP.MINOR_ID = C.COLUMN_ID
+                            AND EP.NAME = 'MS_Description'
+                            AND EP.CLASS = 1
+                    """
+                )
+
+                for (
+                    schema_name,
+                    table_name,
+                    column_name,
+                    column_description,
+                ) in column_metadata:
+                    self.column_descriptions[
+                        f"{db_name}.{schema_name}.{table_name}.{column_name}"
+                    ] = column_description
+
     @classmethod
     def create(cls, config_dict, ctx):
         config = SQLServerConfig.parse_obj(config_dict)
@@ -62,7 +114,13 @@ class SQLServerSource(SQLAlchemySource):
     def get_table_properties(
         self, inspector: Inspector, schema: str, table: str
     ) -> Tuple[Optional[str], Optional[Dict[str, str]], Optional[str]]:
+
         description, properties, location_urn = super().get_table_properties(
             inspector, schema, table
         )
+        
+        db_name = self.get_db_name(inspector)
+        
+        description = self.table_descriptions.get(f"{db_name}.{schema}.{table}", description)
+        
         return description, properties, location_urn
