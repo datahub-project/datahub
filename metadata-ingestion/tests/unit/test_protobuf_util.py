@@ -129,6 +129,7 @@ message Test11 {
 }
 """
 
+
 def test_protobuf_schema_to_mce_fields_with_single_empty_message():
     schema = SCHEMA_WITH_SINGLE_MESSAGE_EMPTY_MESSAGE
     fields = protobuf_schema_to_mce_fields(ProtobufSchema("main_1.proto", schema))
@@ -298,5 +299,5 @@ def test_protobuf_schema_with_recursive_type():
     schema = SCHEMA_WITH_RECURSIVE_MESSAGE
     with pytest.raises(Exception) as e_info:
         protobuf_schema_to_mce_fields(ProtobufSchema("main_9.proto", schema))
-    
-    assert str(e_info.value) == 'Cyclic schemas are not supported'
+
+    assert str(e_info.value) == "Cyclic schemas are not supported"
