@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.policy;
 
+import com.datahub.authorization.AuthorizerChain;
 import com.datahub.authorization.DataHubAuthorizer;
 import com.datahub.authorization.ResourceSpec;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -35,8 +36,8 @@ public class GetGrantedPrivilegesResolver implements DataFetcher<CompletableFutu
     final Optional<ResourceSpec> resourceSpec = Optional.ofNullable(input.getResourceSpec())
         .map(spec -> new ResourceSpec(EntityTypeMapper.getName(spec.getResourceType()), spec.getResourceUrn()));
 
-    if (context.getAuthorizer() instanceof DataHubAuthorizer) {
-      DataHubAuthorizer dataHubAuthorizer = (DataHubAuthorizer) context.getAuthorizer();
+    if (context.getAuthorizer() instanceof AuthorizerChain) {
+      DataHubAuthorizer dataHubAuthorizer = ((AuthorizerChain) context.getAuthorizer()).getDefaultAuthorizer();
       List<String> privileges = dataHubAuthorizer.getGrantedPrivileges(actor, resourceSpec);
       return CompletableFuture.supplyAsync(() -> Privileges.builder()
           .setPrivileges(privileges)

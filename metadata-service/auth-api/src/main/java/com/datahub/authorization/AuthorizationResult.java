@@ -31,10 +31,13 @@ public class AuthorizationResult {
     DENY
   }
 
+  /**
+   * The decision - whether to allow or deny the request.
+   */
   Type type;
 
   /**
-   * Optional: The DataHub policy that granted the privilege.
+   * Optional message associated with the decision. Useful for debugging.
    */
-  Optional<DataHubPolicyInfo> policy;
+  String message;
 }

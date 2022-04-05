@@ -1,14 +1,11 @@
 package com.datahub.authorization;
 
 import java.util.Map;
-import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.kafka.common.errors.AuthorizationException;
-
 
 /**
  * A configurable chain of {@link Authorizer}s executed in series to attempt to authenticate an inbound request.
@@ -25,16 +22,6 @@ public class AuthorizerChain implements Authorizer {
     this.authorizers = Objects.requireNonNull(authorizers);
   }
 
-  /**
-   * Registers a new {@link Authorizer} at the end of the authorizer chain.
-   *
-   * @param authorizer the authorizer to register
-   */
-  public void register(@Nonnull final Authorizer authorizer) {
-    Objects.requireNonNull(authorizer);
-    authorizers.add(authorizer);
-  }
-
   @Override
   public void init(@Nonnull Map<String, Object> authorizerConfig) {
     // pass.
@@ -46,7 +33,7 @@ public class AuthorizerChain implements Authorizer {
    * Returns an instance of {@link AuthorizationResult}.
    */
   @Nullable
-  public AuthorizationResult authorize(@Nonnull final AuthorizationRequest request) throws AuthorizationException {
+  public AuthorizationResult authorize(@Nonnull final AuthorizationRequest request) {
     Objects.requireNonNull(request);
     for (final Authorizer authorizer : this.authorizers) {
       try {
@@ -55,6 +42,8 @@ public class AuthorizerChain implements Authorizer {
         if (AuthorizationResult.Type.ALLOW.equals(result.type)) {
           // Authorization was successful - Short circuit
           return result;
+        } else {
+          log.debug("Received DENY result from Authorizer with class name {}. message: {}", authorizer.getClass().getCanonicalName(), result.getMessage());
         }
       } catch (Exception e) {
         log.debug(String.format(
@@ -63,6 +52,17 @@ public class AuthorizerChain implements Authorizer {
       }
     }
     // Return failed Authorization result.
-    return new AuthorizationResult(request, AuthorizationResult.Type.DENY, Optional.empty());
+    return new AuthorizationResult(request, AuthorizationResult.Type.DENY, null);
+  }
+
+  /**
+   * Returns an instance of {@link DataHubAuthorizer} if it is present in the Authentication chain,
+   * or null if it cannot be found.
+   */
+  public DataHubAuthorizer getDefaultAuthorizer() {
+    return (DataHubAuthorizer) this.authorizers.stream()
+        .filter(authorizer -> authorizer instanceof DataHubAuthorizer)
+        .findFirst()
+        .orElse(null);
   }
 }
