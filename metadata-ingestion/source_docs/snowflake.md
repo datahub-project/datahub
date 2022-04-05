@@ -132,6 +132,11 @@ source:
     schema_pattern:
       deny:
       - "information_schema.*"
+    table_pattern:
+      allow:
+      # If you want to ingest only few tables with name revenue and revenue
+      - ".*revenue"
+      - ".*sales"
     profiling:
       enabled: true
     profile_pattern:
