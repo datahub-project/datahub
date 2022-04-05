@@ -118,6 +118,8 @@ elasticsearch:
 
 # TODO: Kafka topic convention
 kafka:
+  listener:
+    concurrency: ${KAFKA_LISTENER_CONCURRENCY:1}
   bootstrapServers: ${KAFKA_BOOTSTRAP_SERVER:http://localhost:9092}
   schemaRegistry:
     type: ${SCHEMA_REGISTRY_TYPE:KAFKA} # KAFKA or AWS_GLUE

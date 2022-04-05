@@ -1,6 +1,7 @@
 package com.linkedin.metadata.resources.entity;
 
 import com.codahale.metrics.MetricRegistry;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RollbackRunResult;
@@ -109,7 +110,8 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
         final List<AspectRowSummary> affectedAspectsList = keyAspects.stream()
                 .map((AspectRowSummary urn) -> _systemMetadataService.findByUrn(urn.getUrn(), false))
                 .flatMap(List::stream)
-                .filter(row -> !row.getRunId().equals(runId))
+                .filter(row -> !row.getRunId().equals(runId) && !row.isKeyAspect()
+                        && !row.getAspectName().equals(Constants.STATUS_ASPECT_NAME))
                 .collect(Collectors.toList());
 
         long affectedAspects = affectedAspectsList.size();
@@ -171,7 +173,8 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
       final List<AspectRowSummary> affectedAspectsList = keyAspects.stream()
               .map((AspectRowSummary urn) -> _systemMetadataService.findByUrn(urn.getUrn(), false))
               .flatMap(List::stream)
-              .filter(row -> !row.getRunId().equals(runId))
+              .filter(row -> !row.getRunId().equals(runId) && !row.isKeyAspect()
+                      && !row.getAspectName().equals(Constants.STATUS_ASPECT_NAME))
               .collect(Collectors.toList());
 
       long affectedAspects = affectedAspectsList.size();
