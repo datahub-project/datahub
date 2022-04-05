@@ -155,8 +155,8 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
     final NotificationRequest notificationRequest = buildNotificationRequest(
         NotificationTemplateType.BROADCAST_NEW_INCIDENT.name(),
         templateParams,
-        Collections.emptyList(),
-        Collections.emptyList()
+        Collections.emptySet(),
+        Collections.emptySet()
     );
 
     log.info(String.format("Broadcasting new incident for entity %s...", entityUrn));
@@ -205,8 +205,8 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
     final NotificationRequest notificationRequest = buildNotificationRequest(
         NotificationTemplateType.BROADCAST_INCIDENT_STATUS_CHANGE.name(),
         templateParams,
-        Collections.emptyList(), // no users or groups targeted specifically since its broadcast
-        Collections.emptyList()
+        Collections.emptySet(), // no users or groups targeted specifically since its broadcast
+        Collections.emptySet()
     );
 
     log.info(String.format("Broadcasting incident status change for entity %s...", entityUrn));

@@ -19,16 +19,15 @@ import com.linkedin.event.notification.NotificationRecipientType;
 import com.linkedin.event.notification.NotificationRequest;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.event.EventProducer;
+import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.LineageDirection;
+import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
-import com.linkedin.metadata.search.LineageSearchEntity;
-import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.PlatformEventHeader;
-import com.linkedin.r2.RemoteInvocationException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -54,6 +53,7 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
 
   // TODO - decide whether this limit is reasonable!
   private static final Integer MAX_DOWNSTREAMS_TO_FETCH_OWNERSHIP = 1000;
+  private static final Integer MAX_DOWNSTREAMS_HOP = 1000;
 
   protected final EventProducer _eventProducer;
   protected final EntityClient _entityClient;
@@ -90,8 +90,8 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
   protected NotificationRequest buildNotificationRequest(
       @Nonnull final String templateType,
       @Nonnull final Map<String, String> templateParams,
-      @Nonnull final List<Urn> users,
-      @Nonnull final List<Urn> groups) {
+      @Nonnull final Set<Urn> users,
+      @Nonnull final Set<Urn> groups) {
 
     final NotificationRequest notificationRequest = new NotificationRequest();
     notificationRequest.setMessage(
@@ -154,48 +154,40 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
 
   @Nonnull
   protected List<Urn> getDownstreamOwners(final Urn entityUrn) {
-    final LineageSearchResult results;
-    try {
-      results = _entityClient.searchAcrossLineage(
-          entityUrn,
-          LineageDirection.DOWNSTREAM,
-          Collections.emptyList(),
-          "*",
-          null, // This could be interesting!
-          null,
-          0,
-          MAX_DOWNSTREAMS_TO_FETCH_OWNERSHIP,
-          _systemAuthentication
-      );
+    final EntityLineageResult results;
+    results = _graphClient.getLineageEntities(
+        entityUrn.toString(),
+        LineageDirection.DOWNSTREAM,
+        0,
+        MAX_DOWNSTREAMS_TO_FETCH_OWNERSHIP,
+        MAX_DOWNSTREAMS_HOP,
+        _systemAuthentication.getActor().toUrnStr()
+    );
 
-      // Now fetch the ownership for each entity type in batch.
-      final Map<String, Set<Urn>> downstreamEntityUrns = new HashMap<>();
-      for (LineageSearchEntity result : results.getEntities()) {
-        downstreamEntityUrns.putIfAbsent(result.getEntity().getEntityType(), new HashSet<>());
-        downstreamEntityUrns.get(result.getEntity().getEntityType()).add(result.getEntity());
-      }
-
-      final List<Urn> ownerUrns = new ArrayList<>();
-      for (Map.Entry<String, Set<Urn>> entry : downstreamEntityUrns.entrySet()) {
-        final Map<Urn, Ownership> ownerships = batchGetEntityOwnership(
-            entry.getKey(),
-            entry.getValue()
-        );
-        ownerships.entrySet()
-          .stream()
-          .filter(e -> e.getValue() != null)
-          .forEach(e -> {
-            // Add each owner from the ownership to the master list of owners.
-            ownerUrns.addAll(
-                e.getValue().getOwners().stream().map(Owner::getOwner).collect(Collectors.toList())
-            );
-         });
-      }
-      return ownerUrns;
-    } catch (RemoteInvocationException e) {
-      log.error(String.format("Failed to retrieve downstream owners for entity urn %s. Skipping notification...", entityUrn));
-      return Collections.emptyList();
+    // Now fetch the ownership for each entity type in batch.
+    final Map<String, Set<Urn>> downstreamEntityUrns = new HashMap<>();
+    for (LineageRelationship relationship : results.getRelationships()) {
+      downstreamEntityUrns.putIfAbsent(relationship.getEntity().getEntityType(), new HashSet<>());
+      downstreamEntityUrns.get(relationship.getEntity().getEntityType()).add(relationship.getEntity());
     }
+
+    final List<Urn> ownerUrns = new ArrayList<>();
+    for (Map.Entry<String, Set<Urn>> entry : downstreamEntityUrns.entrySet()) {
+      final Map<Urn, Ownership> ownerships = batchGetEntityOwnership(
+          entry.getKey(),
+          entry.getValue()
+      );
+      ownerships.entrySet()
+        .stream()
+        .filter(e -> e.getValue() != null)
+        .forEach(e -> {
+          // Add each owner from the ownership to the master list of owners.
+          ownerUrns.addAll(
+              e.getValue().getOwners().stream().map(Owner::getOwner).collect(Collectors.toList())
+          );
+       });
+    }
+    return ownerUrns;
   }
 
   @Nonnull

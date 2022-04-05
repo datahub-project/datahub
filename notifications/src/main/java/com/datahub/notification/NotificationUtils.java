@@ -11,13 +11,14 @@ import java.util.List;
  */
 public class NotificationUtils {
 
+  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
   /**
    * Deserializes a json string into a list of strings.
    */
   public static List<String> jsonToStrList(final String jsonList) {
-    ObjectMapper mapper = new ObjectMapper();
     try {
-      String[] listArray = mapper.readValue(jsonList, String[].class);
+      String[] listArray = OBJECT_MAPPER.readValue(jsonList, String[].class);
       return Arrays.asList(listArray);
     } catch (JsonProcessingException e) {
       throw new IllegalArgumentException(String.format("Failed to convert provided string to json list %s", jsonList), e);
