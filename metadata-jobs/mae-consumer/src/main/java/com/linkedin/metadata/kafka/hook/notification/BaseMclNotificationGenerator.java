@@ -100,23 +100,18 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
             .setParameters(new StringMap(templateParams))
     );
 
-    List<NotificationRecipient> recipients = new ArrayList<>();
-
-    // Add user recipients.
-    recipients.addAll(users.stream()
-      .map(user -> new NotificationRecipient()
-          .setType(NotificationRecipientType.USER)
-          .setId(user.toString()))
+    // Merge users + group users.
+    final Set<Urn> finalUsers = new HashSet<>();
+    finalUsers.addAll(users);
+    finalUsers.addAll(groups.stream()
+      .map(this::getGroupMembers)
+      .flatMap(Collection::stream)
       .collect(Collectors.toList()));
 
-    // Add group recipients. Notice that this hydrates group membership on the fly.
-    recipients.addAll(groups.stream()
-        .map(this::getGroupMembers)
-        .flatMap(Collection::stream)
-        .map(user -> new NotificationRecipient()
-            .setType(NotificationRecipientType.USER)
-            .setId(user.toString()))
-        .collect(Collectors.toList()));
+    // Add recipient for each user.
+    List<NotificationRecipient> recipients = finalUsers.stream()
+        .map(user -> new NotificationRecipient().setType(NotificationRecipientType.USER).setId(user.toString()))
+        .collect(Collectors.toList());
 
     notificationRequest.setRecipients(new NotificationRecipientArray(recipients));
     return notificationRequest;
