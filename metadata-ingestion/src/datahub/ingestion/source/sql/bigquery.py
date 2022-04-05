@@ -538,8 +538,9 @@ class BigQuerySource(SQLAlchemySource):
                     entry_consumed = True
                     has_view = True
             if has_table and has_view:
-                # TODO: More comments required on why this is needed.
-                # Remove base tables when no table is referenced
+                # If there is a view being referenced then bigquery sends both the view as well as underlying table
+                # in the references. There is no distinction between direct/base objects accessed. So doing sql parsing
+                # to ensure we only use direct objects accessed for lineage
                 parser = DefaultSQLParser(e.query)
                 referenced_objs = set(
                     map(lambda x: x.split(".")[-1], parser.get_tables())
