@@ -10,7 +10,7 @@ import { useEntityRegistry } from '../useEntityRegistry';
 import { useGetEntityCountsQuery } from '../../graphql/app.generated';
 import { GettingStartedModal } from './GettingStartedModal';
 import { ANTD_GRAY } from '../entity/shared/constants';
-import { MetaDataEntityCard } from '../metaData/MetaDataEntityCard';
+import { ContainerBrowseEntityCard } from '../metaData/ContainerBrowseEntityCard';
 
 const RecommendationsContainer = styled.div`
     margin-top: 32px;
@@ -119,7 +119,7 @@ export const HomePageRecommendations = ({ userUrn }: Props) => {
                                 (entityCount) =>
                                     entityCount &&
                                     entityCount.count !== 0 && (
-                                        <MetaDataEntityCard
+                                        <ContainerBrowseEntityCard
                                             key={entityCount.entityType}
                                             entityType={entityCount.entityType}
                                             count={entityCount.count}

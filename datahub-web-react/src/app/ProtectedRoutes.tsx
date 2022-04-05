@@ -14,7 +14,7 @@ import { ManageIdentitiesPage } from './identity/ManageIdentitiesPage';
 import { SettingsPage } from './settings/SettingsPage';
 import { ManageIngestionPage } from './ingest/ManageIngestionPage';
 import { ManageDomainsPage } from './domain/ManageDomainsPage';
-import { MetaDataResultsPage } from './metaData/MetaDataResultsPage';
+import { ContainerBrowseResultsPage } from './metaData/ContainerBrowseResultsPage';
 
 /**
  * Container for all views behind an authentication wall.
@@ -36,7 +36,7 @@ export const ProtectedRoutes = (): JSX.Element => {
                         ))}
                         <Route path={PageRoutes.SEARCH_RESULTS} render={() => <SearchPage />} />
                         <Route path={PageRoutes.BROWSE_RESULTS} render={() => <BrowseResultsPage />} />
-                        <Route path={PageRoutes.METADATA_RESULTS} render={() => <MetaDataResultsPage />} />
+                        <Route path={PageRoutes.METADATA_RESULTS} render={() => <ContainerBrowseResultsPage />} />
                         <Route path={PageRoutes.ANALYTICS} render={() => <AnalyticsPage />} />
                         <Route path={PageRoutes.POLICIES} render={() => <PoliciesPage />} />
                         <Route path={PageRoutes.IDENTITIES} render={() => <ManageIdentitiesPage />} />

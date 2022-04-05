@@ -58,7 +58,7 @@ const BrowseRow = styled(Row)`
 /**
  * Responsible for rendering a clickable browse path view.
  */
-export const LegacyMetaDataPath = ({ type, path, lineageSupported, isProfilePage, isBrowsable }: Props) => {
+export const ContainerBrowseLegacyPath = ({ type, path, lineageSupported, isProfilePage, isBrowsable }: Props) => {
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
     const location = useLocation();

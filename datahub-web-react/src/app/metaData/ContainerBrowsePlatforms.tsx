@@ -55,7 +55,7 @@ interface Props {
     entityType: EntityType;
 }
 
-export const MetaDataPlatforms = ({ rootPath, entityType }: Props) => {
+export const ContainerBrowsePlatforms = ({ rootPath, entityType }: Props) => {
     const history = useHistory();
     const location = useLocation();
     const params = QueryString.parse(location.search);

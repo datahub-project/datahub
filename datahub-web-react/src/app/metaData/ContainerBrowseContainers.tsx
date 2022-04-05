@@ -12,8 +12,8 @@ import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.genera
 import { BrowseCfg, SearchCfg } from '../../conf';
 import EmbeddedListSearchHeader from '../entity/shared/components/styled/search/EmbeddedListSearchHeader';
 import { GetSearchResultsParams, SearchResultsInterface } from '../entity/shared/components/styled/search/types';
-import { MetaDataSearchResults } from './MetaDataSearchResults';
-import { navigateToMetaDataUrl } from './navigateToMetaDataUrl';
+import { ContainerBrowseSearchResults } from './ContainerBrowseSearchResults';
+import { navigateToContainerBrowseUrl } from './navigateToContainerBrowseUrl';
 
 type Filter = { field: string; value: string };
 
@@ -60,7 +60,7 @@ interface Props {
     entityType: EntityType;
 }
 
-export const MetaDataContainers = ({
+export const ContainerBrowseContainers = ({
     rootPath,
     fixedFilter,
     entityRegistry,
@@ -131,7 +131,7 @@ export const MetaDataContainers = ({
                 return;
             }
         }
-        navigateToMetaDataUrl({
+        navigateToContainerBrowseUrl({
             baseUrl: location.pathname,
             query: finalQuery,
             page: 1,
@@ -140,7 +140,7 @@ export const MetaDataContainers = ({
     };
 
     const onChangeFilters = (newFilters: Array<FacetFilterInput>) => {
-        navigateToMetaDataUrl({
+        navigateToContainerBrowseUrl({
             baseUrl: location.pathname,
             query,
             page: 1,
@@ -150,7 +150,7 @@ export const MetaDataContainers = ({
     };
 
     const onChangePage = (newPage: number) => {
-        navigateToMetaDataUrl({
+        navigateToContainerBrowseUrl({
             baseUrl: location.pathname,
             query,
             page: newPage,
@@ -184,7 +184,7 @@ export const MetaDataContainers = ({
                 callSearchOnVariables={callSearchOnVariables}
                 query={query}
             />
-            <MetaDataSearchResults
+            <ContainerBrowseSearchResults
                 loading={loading}
                 searchResponse={data?.searchAcrossEntities}
                 filters={filteredFilters}

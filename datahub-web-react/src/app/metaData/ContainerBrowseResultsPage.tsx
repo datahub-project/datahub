@@ -5,15 +5,15 @@ import { useLocation, useParams } from 'react-router';
 import { SearchablePage } from '../search/SearchablePage';
 import { PLATFORM_FILTER_NAME } from '../search/utils/constants';
 import { useEntityRegistry } from '../useEntityRegistry';
-import { MetaDataContainers } from './MetaDataContainers';
-import { LegacyMetaDataPath } from './LegacyMetaDataPath';
-import { MetaDataPlatforms } from './MetaDataPlatforms';
+import { ContainerBrowseContainers } from './ContainerBrowseContainers';
+import { ContainerBrowseLegacyPath } from './ContainerBrowseLegacyPath';
+import { ContainerBrowsePlatforms } from './ContainerBrowsePlatforms';
 
 type MetaDataParentPageParams = {
     type: string;
 };
 
-export const MetaDataResultsPage = () => {
+export const ContainerBrowseResultsPage = () => {
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
     const rootPath = location.pathname;
@@ -25,12 +25,12 @@ export const MetaDataResultsPage = () => {
     return (
         <SearchablePage>
             <Affix offsetTop={60}>
-                <LegacyMetaDataPath type={entityType} path={path} isBrowsable />
+                <ContainerBrowseLegacyPath type={entityType} path={path} isBrowsable />
             </Affix>
             {path.length === 0 ? (
-                <MetaDataPlatforms rootPath={rootPath} entityType={entityType} />
+                <ContainerBrowsePlatforms rootPath={rootPath} entityType={entityType} />
             ) : (
-                <MetaDataContainers
+                <ContainerBrowseContainers
                     fixedFilter={{ field: PLATFORM_FILTER_NAME, value: path[0] }}
                     rootPath={rootPath}
                     entityRegistry={entityRegistry}

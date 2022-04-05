@@ -6,7 +6,7 @@ import { IconStyleType } from '../entity/Entity';
 import { EntityType } from '../../types.generated';
 import { LogoCountCard } from '../shared/LogoCountCard';
 
-export const MetaDataEntityCard = ({ entityType, count }: { entityType: EntityType; count: number }) => {
+export const ContainerBrowseEntityCard = ({ entityType, count }: { entityType: EntityType; count: number }) => {
     const entityRegistry = useEntityRegistry();
     return (
         <Link to={`${PageRoutes.METADATA}/${entityRegistry.getPathName(entityType)}`}>

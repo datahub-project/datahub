@@ -3,7 +3,7 @@ import * as QueryString from 'query-string';
 import { EntityType, FacetFilterInput } from '../../types.generated';
 import filtersToQueryStringParams from '../search/utils/filtersToQueryStringParams';
 
-export const navigateToMetaDataUrl = ({
+export const navigateToContainerBrowseUrl = ({
     baseUrl,
     query: newQuery,
     page: newPage = 1,

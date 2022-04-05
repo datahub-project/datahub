@@ -133,7 +133,7 @@ interface Props {
     rootPath: string;
 }
 
-export const MetaDataSearchResults = ({
+export const ContainerBrowseSearchResults = ({
     page,
     searchResponse,
     filters,
