@@ -1,14 +1,11 @@
 package com.datahub.authorization;
 
 import java.util.Map;
-import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.kafka.common.errors.AuthorizationException;
-
 
 /**
  * A configurable chain of {@link Authorizer}s executed in series to attempt to authenticate an inbound request.
@@ -45,6 +42,8 @@ public class AuthorizerChain implements Authorizer {
         if (AuthorizationResult.Type.ALLOW.equals(result.type)) {
           // Authorization was successful - Short circuit
           return result;
+        } else {
+          log.debug("Received DENY result from Authorizer with class name {}. message: {}", authorizer.getClass().getCanonicalName(), result.getMessage());
         }
       } catch (Exception e) {
         log.debug(String.format(
@@ -53,7 +52,7 @@ public class AuthorizerChain implements Authorizer {
       }
     }
     // Return failed Authorization result.
-    return new AuthorizationResult(request, AuthorizationResult.Type.DENY, Optional.empty());
+    return new AuthorizationResult(request, AuthorizationResult.Type.DENY, null);
   }
 
   /**

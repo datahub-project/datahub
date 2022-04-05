@@ -96,7 +96,7 @@ public class DataHubAuthorizer implements Authorizer {
 
     // 0. Short circuit: If the action is being performed by the system (root), always allow it.
     if (isSystemRequest(request, this._systemAuthentication)) {
-      return new AuthorizationResult(request, AuthorizationResult.Type.ALLOW, Optional.empty());
+      return new AuthorizationResult(request, AuthorizationResult.Type.ALLOW, null);
     }
 
     Optional<ResolvedResourceSpec> resolvedResourceSpec = request.getResourceSpec().map(_resourceSpecResolver::resolve);
@@ -108,10 +108,11 @@ public class DataHubAuthorizer implements Authorizer {
     for (DataHubPolicyInfo policy : policiesToEvaluate) {
       if (isRequestGranted(policy, request, resolvedResourceSpec)) {
         // Short circuit if policy has granted privileges to this actor.
-        return new AuthorizationResult(request, AuthorizationResult.Type.ALLOW, Optional.of(policy));
+        return new AuthorizationResult(request, AuthorizationResult.Type.ALLOW,
+            String.format("Granted by policy with type: %s", policy.getType()));
       }
     }
-    return new AuthorizationResult(request, AuthorizationResult.Type.DENY,  Optional.empty());
+    return new AuthorizationResult(request, AuthorizationResult.Type.DENY,  null);
   }
 
   public List<String> getGrantedPrivileges(final String actorUrn, final Optional<ResourceSpec> resourceSpec) {
