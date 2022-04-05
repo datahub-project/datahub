@@ -135,3 +135,11 @@ message tags {
         string tag_list      = 5804 [(datahubField.type) = TAG_LIST];
     }
 }
+
+message fieldTags { extend google.protobuf.FieldOptions {
+    string tag_str                      = 5801 [(datahubField.type) = TAG];
+    bool tag_bool                     = 5802 [(datahubField.type) = TAG];
+    MessageType tag_enum = 5803 [(datahubField.type) = TAG];
+
+    string tag_list                      = 5804 [(datahubField.type) = TAG_LIST];
+}}
