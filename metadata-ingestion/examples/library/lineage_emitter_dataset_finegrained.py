@@ -12,7 +12,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 from datahub.metadata.schema_classes import ChangeTypeClass
 
 
-
 def datasetUrn(tbl):
     return builder.make_dataset_urn("postgres", tbl)
 

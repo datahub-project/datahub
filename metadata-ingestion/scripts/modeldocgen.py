@@ -43,6 +43,7 @@ logger = logging.getLogger(__name__)
 
 # TODO: Support generating docs for each event type in entity registry.
 
+
 def capitalize_first(something: str) -> str:
     return something[0:1].upper() + something[1:]
 
@@ -89,9 +90,11 @@ class AspectDefinition:
     schema: Optional[avro.schema.Schema] = None
     type: Optional[str] = None
 
+
 @dataclass
 class EventDefinition:
     name: str
+
 
 entity_registry: Dict[str, EntityDefinition] = {}
 
