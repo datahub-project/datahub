@@ -508,11 +508,12 @@ class BigQuerySource(SQLAlchemySource):
         self.report.num_skipped_lineage_entries_other = 0
         for e in entries:
             self.report.num_total_lineage_entries += 1
-            if e.destinationTable is None or (
-                not e.referencedTables and not e.referencedViews
+            if e.destinationTable is None or not (
+                e.referencedTables or e.referencedViews
             ):
                 self.report.num_skipped_lineage_entries_missing_data += 1
                 continue
+            # Skip if schema/table pattern don't allow the destination table
             destination_table_str = str(e.destinationTable.remove_extras())
             destination_table_str_parts = destination_table_str.split("/")
             if not self.config.schema_pattern.allowed(
@@ -522,27 +523,22 @@ class BigQuerySource(SQLAlchemySource):
                 continue
 
             entry_consumed: bool = False
-            referenced_tables = (
-                e.referencedTables if e.referencedTables is not None else []
-            )
             has_table = False
-            for ref_table in referenced_tables:
+            for ref_table in e.referencedTables:
                 ref_table_str = str(ref_table.remove_extras())
                 if ref_table_str != destination_table_str:
                     lineage_map[destination_table_str].add(ref_table_str)
                     entry_consumed = True
                     has_table = True
-            referenced_views = (
-                e.referencedViews if e.referencedViews is not None else []
-            )
             has_view = False
-            for ref_view in referenced_views:
+            for ref_view in e.referencedViews:
                 ref_view_str = str(ref_view.remove_extras())
                 if ref_view_str != destination_table_str:
                     lineage_map[destination_table_str].add(ref_view_str)
                     entry_consumed = True
                     has_view = True
             if has_table and has_view:
+                # TODO: More comments required on why this is needed.
                 # Remove base tables when no table is referenced
                 parser = DefaultSQLParser(e.query)
                 referenced_objs = set(
@@ -555,10 +551,11 @@ class BigQuerySource(SQLAlchemySource):
                     if name in referenced_objs:
                         new_lineage_str.add(lineage_str)
                 lineage_map[destination_table_str] = new_lineage_str
-            if self.config.upstream_lineage_in_report:
-                self.report.upstream_lineage = lineage_map
             if not entry_consumed:
                 self.report.num_skipped_lineage_entries_other += 1
+
+        if self.config.upstream_lineage_in_report:
+            self.report.upstream_lineage = lineage_map
         return lineage_map
 
     def get_latest_partition(
