@@ -1,0 +1,11 @@
+namespace com.linkedin.settings.global
+
+/**
+ * Native DataHub Integrations, supported on the UI.
+ */
+record GlobalIntegrationSettings {
+  /**
+   * Slack integration settings.
+   */
+  slackSettings: optional SlackIntegrationSettings
+}

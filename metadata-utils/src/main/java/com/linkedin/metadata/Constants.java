@@ -1,5 +1,8 @@
 package com.linkedin.metadata;
 
+import com.linkedin.common.urn.Urn;
+
+
 /**
  * Static class containing commonly-used constants across DataHub services.
  */
@@ -40,6 +43,7 @@ public class Constants {
   public static final String DOMAIN_ENTITY_NAME = "domain";
   public static final String RECOMMENDATION_MODULE_ENTITY_NAME = "recommendationModule";
   public static final String ASSERTION_ENTITY_NAME = "assertion";
+  public static final String INCIDENT_ENTITY_NAME = "incident";
   public static final String INGESTION_SOURCE_ENTITY_NAME = "dataHubIngestionSource";
   public static final String SECRETS_ENTITY_NAME = "dataHubSecret";
   public static final String EXECUTION_REQUEST_ENTITY_NAME = "dataHubExecutionRequest";
@@ -179,6 +183,10 @@ public class Constants {
   public static final String ASSERTION_RUN_EVENT_ASPECT_NAME = "assertionRunEvent";
   public static final String ASSERTION_RUN_EVENT_STATUS_COMPLETE = "COMPLETE";
 
+  // Incident
+  public static final String INCIDENT_KEY_ASPECT_NAME = "incidentKey";
+  public static final String INCIDENT_INFO_ASPECT_NAME = "incidentInfo";
+
   // DataHub Ingestion Source
   public static final String INGESTION_INFO_ASPECT_NAME = "dataHubIngestionSourceInfo";
 
@@ -192,6 +200,16 @@ public class Constants {
 
   // Constraints
   public static final String CONSTRAINT_INFO_ASPECT_NAME = "constraintInfo";
+
+  /* SaaS-Only */
+
+  // Settings
+  public static final String GLOBAL_SETTINGS_ENTITY_NAME = "globalSettings";
+  public static final String GLOBAL_SETTINGS_INFO_ASPECT_NAME = "globalSettingsInfo";
+  public static final Urn GLOBAL_SETTINGS_URN = Urn.createFromTuple(GLOBAL_SETTINGS_ENTITY_NAME, 0);
+
+  // Events
+  public static final String NOTIFICATION_REQUEST_EVENT_NAME = "notificationRequest";
 
   /**
    * User Status

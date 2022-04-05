@@ -1,0 +1,23 @@
+namespace com.linkedin.settings.global
+
+import com.linkedin.common.Urn
+
+/**
+ * Slack integration settings.
+ */
+record SlackIntegrationSettings {
+  /**
+   * Whether the slack integration is enabled or not.
+   */
+  enabled: boolean
+
+  /**
+   * The urn of a DataHub secret containing the bot token secret. Required if the integration is enabled.
+   */
+  botTokenSecret: optional Urn
+
+  /**
+   * A default slack channel to use.
+   */
+  defaultChannelName: optional string
+}

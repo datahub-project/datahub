@@ -165,8 +165,7 @@ entities:
     keyAspect: dataPlatformInstanceKey
     aspects:
       - status
-
-## Not in OSS
+  ## Not in OSS
   - name: constraint
     keyAspect: constraintKey
     aspects:
@@ -175,5 +174,17 @@ entities:
     keyAspect: recommendationModuleKey
     aspects:
       - recommendationModule
-      
+  - name: incident
+    doc: An incident for an asset.
+    category: core
+    keyAspect: incidentKey
+    aspects:
+      - incidentInfo
+  - name: globalSettings
+    doc: Global settings for an the platform
+    category: internal
+    keyAspect: globalSettingsKey
+    aspects:
+      - globalSettingsInfo
 events:
+  - name: notificationRequest

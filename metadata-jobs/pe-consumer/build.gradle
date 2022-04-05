@@ -16,6 +16,12 @@ dependencies {
   compile (project(':metadata-service:factories')) {
     exclude group: 'org.neo4j.test'
   }
+
+  // acryl-main
+  compile project(':metadata-service:restli-client')
+  compile project(':metadata-io')
+  compile project(':notifications')
+
   compile externalDependency.springKafka
   compile externalDependency.springActuator
   compileOnly externalDependency.lombok

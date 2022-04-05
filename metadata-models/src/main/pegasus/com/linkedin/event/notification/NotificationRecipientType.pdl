@@ -1,0 +1,17 @@
+namespace com.linkedin.event.notification
+
+/**
+ * A type of target (recipient) for a notification.
+ * If a user or group is provided, their default notification settings will apply.
+ */
+enum NotificationRecipientType {
+  /**
+  * A DataHub user (via urn.)
+  */
+  USER
+
+  /**
+   * A custom target, e.g. a slack channel or specific email address.
+   */
+  CUSTOM
+}

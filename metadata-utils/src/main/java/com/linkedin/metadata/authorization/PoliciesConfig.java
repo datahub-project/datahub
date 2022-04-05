@@ -151,6 +151,11 @@ public class PoliciesConfig {
       "Edit Assertions",
       "The ability to add and remove assertions from an entity.");
 
+  public static final Privilege EDIT_ENTITY_INCIDENTS_PRIVILEGE = Privilege.of(
+      "EDIT_ENTITY_INCIDENTS",
+      "Edit Incidents",
+      "The ability to create and remove incidents for an entity.");
+
   public static final Privilege EDIT_ENTITY_PRIVILEGE = Privilege.of(
       "EDIT_ENTITY",
       "Edit All",
@@ -168,6 +173,7 @@ public class PoliciesConfig {
       EDIT_ENTITY_STATUS_PRIVILEGE,
       EDIT_ENTITY_DOMAINS_PRIVILEGE,
       EDIT_ENTITY_DEPRECATION_PRIVILEGE,
+      EDIT_ENTITY_INCIDENTS_PRIVILEGE,
       EDIT_ENTITY_PRIVILEGE
   );
 

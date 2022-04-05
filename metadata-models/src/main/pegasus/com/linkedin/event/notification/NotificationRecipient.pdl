@@ -1,0 +1,23 @@
+namespace com.linkedin.event.notification
+
+/**
+ * The targeted recipient of a notification, either a specific User or a specific channel.
+ */
+record NotificationRecipient {
+  /**
+   * The type of a notification recipient.
+   */
+  type: NotificationRecipientType
+
+  /**
+   * A custom notification recipient type. Required if recipient type is CUSTOM.
+   */
+   customType: optional string
+
+  /**
+   * If type is USER or GROUP, the urn to send the notification to. Otherwise, a unique target id that the sink can pick up.
+   * Most often, a sink will require a recipient id. In some cases, a default recipient id will be used by the sink
+   * if one is not provided.
+   */
+   id: optional string
+}
