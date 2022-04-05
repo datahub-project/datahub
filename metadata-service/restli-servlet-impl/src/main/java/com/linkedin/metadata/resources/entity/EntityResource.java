@@ -25,6 +25,7 @@ import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.graph.RelatedEntity;
 import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
@@ -444,7 +445,10 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             if (aspect != null) {
               log.info(String.format("Working on %s", aspect));
               AspectSpec aspectSpec = _entityService.getEntityRegistry().getEntitySpec(relatedEntityName).getAspectSpec(aspectName);
-              Aspect updatedAspect = AspectProcessor.removeAspect(urn.toString(), path, aspect.getValue(), aspectSpec);
+              List<RelationshipFieldSpec> relationshipFieldSpecs = aspectSpec.getRelationshipFieldSpecs().stream()
+                  .filter(spec -> spec.)
+
+              Aspect updatedAspect = AspectProcessor.removeAspect(urn.toString(), , aspect.getValue(), aspectSpec);
 
               final MetadataChangeProposal gmce = new MetadataChangeProposal();
               gmce.setEntityUrn(relatedEntityUrn);

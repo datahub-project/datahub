@@ -15,6 +15,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class AspectProcessor {
 
+  private AspectProcessor() { }
+
   public static Aspect removeAspect(String aspectName, PathSpec aspectPath, Aspect aspect, AspectSpec aspectSpec) throws CloneNotSupportedException {
     final DataMap copy =  aspect.copy().data();
     final Object newValue = traversePath(aspectName, aspectSpec.getPegasusSchema(), copy,
