@@ -176,6 +176,10 @@ def make_data_job_urn_with_flow(flow_urn: str, job_id: str) -> str:
     return f"urn:li:dataJob:({flow_urn},{job_id})"
 
 
+def make_data_process_instance_urn(dataProcessInstanceId: str) -> str:
+    return f"urn:li:dataProcessInstance:{dataProcessInstanceId}"
+
+
 def make_data_job_urn(
     orchestrator: str, flow_id: str, job_id: str, cluster: str = DEFAULT_FLOW_CLUSTER
 ) -> str:
