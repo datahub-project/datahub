@@ -29,5 +29,12 @@ message Impression {
   option(meta.security.classification)      = "Classification.Sensitive";
 
   google.protobuf.Timestamp timestamp = 1; // event timestamp
-  string details = 2; // event details
+  string details = 2
+  [(meta.fieldTags.tag_str) = "value1",
+   (meta.fieldTags.tag_bool) = true,
+   (meta.fieldTags.tag_enum) = EVENT,
+   (meta.fieldTags.tag_list) = "a, b, c",
+   (meta.securityField.classification_enum) = HighlyConfidential,
+   (meta.securityField.classification) = "Classification.Sensitive"
+]; // event details
 }
