@@ -588,6 +588,9 @@ public class GmsGraphQLEngine {
             .dataFetcher("domain",
                 new LoadableTypeResolver<>(domainType,
                     (env) -> env.getArgument(URN_FIELD_NAME)))
+            .dataFetcher("dataPlatform",
+                new LoadableTypeResolver<>(dataPlatformType,
+                    (env) -> env.getArgument(URN_FIELD_NAME)))
             .dataFetcher("mlFeatureTable", new AuthenticatedResolver<>(
                     new LoadableTypeResolver<>(mlFeatureTableType,
                             (env) -> env.getArgument(URN_FIELD_NAME))))
