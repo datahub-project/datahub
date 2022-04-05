@@ -27,6 +27,8 @@ export type LineageExpandParams = {
 export type FetchedEntity = {
     urn: string;
     name: string;
+    // name to be shown on expansion if available
+    expandedName?: string;
     type: EntityType;
     subtype?: string;
     icon?: string;
@@ -41,6 +43,8 @@ export type FetchedEntity = {
 export type NodeData = {
     urn?: string;
     name: string;
+    // name to be shown on expansion if available
+    expandedName?: string;
     type?: EntityType;
     subtype?: string;
     children?: Array<NodeData>;

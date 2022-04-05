@@ -133,6 +133,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `domain.domain_key.allow`      |          |                    | List of regex patterns for tables/schemas to set domain_key domain key (domain_key can be any string like `sales`. There can be multiple domain key specified.                          |
 | `domain.domain_key.deny`       |          |                    | List of regex patterns for tables/schemas to not assign domain_key. There can be multiple domain key specified.                                                                         |
 | `domain.domain_key.ignoreCase` |          | `True`             | Whether to ignore case sensitivity during pattern matching.There can be multiple domain key specified.                                                                                  |
+| `format_sql_queries`           |          | `False`            | Whether to format sql queries                                                                                                                                                           |
 
 ### Lineage
 
@@ -263,6 +264,10 @@ By default, we extract usage stats for the last day, with the recommendation tha
 | `user_email_pattern.allow`      |          | *                                                              | List of regex patterns for user emails to include in usage.                                                                                                                             |
 | `user_email_pattern.deny`       |          |                                                                | List of regex patterns for user emails to exclude from usage.                                                                                                                           |
 | `user_email_pattern.ignoreCase` |          | `True`                                                         | Whether to ignore case sensitivity during pattern matching.                                                                                                                             |
+| `table_pattern.allow`          |          |                    | List of regex patterns for tables to include in ingestion.                                                                                                                              |
+| `table_pattern.deny`           |          |                    | List of regex patterns for tables to exclude from ingestion.                                                                                                                            |
+| `schema_pattern.allow`         |          |                    | List of regex patterns for schemas to include in ingestion.                                                                                                                             |
+| `schema_pattern.deny`          |          |                    | List of regex patterns for schemas to exclude from ingestion.                                                                                                       
 
 ## Questions
 

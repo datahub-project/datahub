@@ -1,7 +1,7 @@
 package com.linkedin.gms.factory.entity;
 
 import com.linkedin.entity.client.JavaEntityClient;
-import com.linkedin.gms.factory.kafka.KafkaProducerFactory;
+import com.linkedin.gms.factory.kafka.DataHubKafkaProducerFactory;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.search.EntitySearchService;
@@ -16,7 +16,7 @@ import org.springframework.context.annotation.Import;
 
 
 @Configuration
-@Import({KafkaProducerFactory.class})
+@Import({DataHubKafkaProducerFactory.class})
 public class JavaEntityClientFactory {
   @Autowired
   @Qualifier("entityService")
