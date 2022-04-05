@@ -22,11 +22,11 @@ docker info | grep Memory
 mkdir -p airflow_install
 cd airflow_install
 # Download docker-compose file
-curl -L 'https://raw.githubusercontent.com/linkedin/datahub/master/docker/airflow/docker-compose.yaml' -o docker-compose.yaml
+curl -L 'https://raw.githubusercontent.com/datahub-project/datahub/master/docker/airflow/docker-compose.yaml' -o docker-compose.yaml
 # Create dags directory
 mkdir -p dags
 # Download a sample DAG
-curl -L 'https://raw.githubusercontent.com/linkedin/datahub/master/metadata-ingestion/src/datahub_provider/example_dags/lineage_backend_demo.py' -o dags/lineage_backend_demo.py
+curl -L 'https://raw.githubusercontent.com/datahub-project/datahub/master/metadata-ingestion/src/datahub_provider/example_dags/lineage_backend_demo.py' -o dags/lineage_backend_demo.py
 ```
 
 ### What is different between this docker-compose file and the official Apache Airflow docker compose file? 

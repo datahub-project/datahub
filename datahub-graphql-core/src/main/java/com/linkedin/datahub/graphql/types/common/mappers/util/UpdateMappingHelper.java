@@ -2,7 +2,7 @@ package com.linkedin.datahub.graphql.types.common.mappers.util;
 
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import lombok.AllArgsConstructor;
 
@@ -15,7 +15,7 @@ public class UpdateMappingHelper {
     final MetadataChangeProposal metadataChangeProposal = new MetadataChangeProposal();
     metadataChangeProposal.setEntityType(entityName);
     metadataChangeProposal.setChangeType(ChangeType.UPSERT);
-    metadataChangeProposal.setAspect(GenericAspectUtils.serializeAspect(aspect));
+    metadataChangeProposal.setAspect(GenericRecordUtils.serializeAspect(aspect));
     metadataChangeProposal.setAspectName(aspectName);
     return metadataChangeProposal;
   }

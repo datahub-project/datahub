@@ -103,11 +103,16 @@ class Pipeline:
     transformers: List[Transformer]
 
     def __init__(
-        self, config: PipelineConfig, dry_run: bool = False, preview_mode: bool = False
+        self,
+        config: PipelineConfig,
+        dry_run: bool = False,
+        preview_mode: bool = False,
+        preview_workunits: int = 10,
     ):
         self.config = config
         self.dry_run = dry_run
         self.preview_mode = preview_mode
+        self.preview_workunits = preview_workunits
         self.ctx = PipelineContext(
             run_id=self.config.run_id,
             datahub_api=self.config.datahub_api,
@@ -169,28 +174,40 @@ class Pipeline:
 
     @classmethod
     def create(
-        cls, config_dict: dict, dry_run: bool = False, preview_mode: bool = False
+        cls,
+        config_dict: dict,
+        dry_run: bool = False,
+        preview_mode: bool = False,
+        preview_workunits: int = 10,
     ) -> "Pipeline":
         config = PipelineConfig.parse_obj(config_dict)
-        return cls(config, dry_run=dry_run, preview_mode=preview_mode)
+        return cls(
+            config,
+            dry_run=dry_run,
+            preview_mode=preview_mode,
+            preview_workunits=preview_workunits,
+        )
 
     def run(self) -> None:
 
         callback = LoggingCallback()
         extractor: Extractor = self.extractor_class()
         for wu in itertools.islice(
-            self.source.get_workunits(), 10 if self.preview_mode else None
+            self.source.get_workunits(),
+            self.preview_workunits if self.preview_mode else None,
         ):
             # TODO: change extractor interface
             extractor.configure({}, self.ctx)
 
             if not self.dry_run:
                 self.sink.handle_work_unit_start(wu)
-            record_envelopes = extractor.get_records(wu)
-            for record_envelope in self.transform(record_envelopes):
-                if not self.dry_run:
-                    self.sink.write_record_async(record_envelope, callback)
-
+            try:
+                record_envelopes = extractor.get_records(wu)
+                for record_envelope in self.transform(record_envelopes):
+                    if not self.dry_run:
+                        self.sink.write_record_async(record_envelope, callback)
+            except Exception as e:
+                logger.error(f"Failed to extract some records due to: {e}")
             extractor.close()
             if not self.dry_run:
                 self.sink.handle_work_unit_end(wu)

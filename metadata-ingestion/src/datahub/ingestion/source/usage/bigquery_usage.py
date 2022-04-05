@@ -1124,6 +1124,7 @@ class BigQueryUsageSource(Source):
             self.config.bucket_duration,
             lambda resource: _table_ref_to_urn(resource, self.config.env),
             self.config.top_n_queries,
+            self.config.format_sql_queries,
         )
 
     def get_report(self) -> BigQueryUsageSourceReport:

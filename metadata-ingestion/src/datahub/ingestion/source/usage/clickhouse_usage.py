@@ -217,6 +217,7 @@ class ClickHouseUsageSource(Source):
                 "clickhouse", resource, self.config.env
             ),
             self.config.top_n_queries,
+            self.config.format_sql_queries,
         )
 
     def get_report(self) -> SourceReport:
