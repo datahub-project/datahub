@@ -3120,7 +3120,7 @@
                                     "database": {
                                       "name": "dvdrental"
                                     },
-                                    "schema": "public",
+                                    "schema": "public1",
                                     "fullName": "[public].[actor]",
                                     "connectionType": "postgres",
                                     "description": "",
