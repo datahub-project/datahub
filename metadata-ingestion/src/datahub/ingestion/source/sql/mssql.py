@@ -1,6 +1,6 @@
 import sys
 import urllib.parse
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import pydantic
 
@@ -111,6 +111,7 @@ class SQLServerSource(SQLAlchemySource):
         config = SQLServerConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
+    # override to get table descriptions
     def get_table_properties(
         self, inspector: Inspector, schema: str, table: str
     ) -> Tuple[Optional[str], Optional[Dict[str, str]], Optional[str]]:
@@ -118,9 +119,30 @@ class SQLServerSource(SQLAlchemySource):
         description, properties, location_urn = super().get_table_properties(
             inspector, schema, table
         )
-        
+
         db_name = self.get_db_name(inspector)
-        
-        description = self.table_descriptions.get(f"{db_name}.{schema}.{table}", description)
-        
+
+        description = self.table_descriptions.get(
+            f"{db_name}.{schema}.{table}", description
+        )
+
         return description, properties, location_urn
+
+    # override to get column descriptions
+    def _get_columns(
+        self, dataset_name: str, inspector: Inspector, schema: str, table: str
+    ) -> List[dict]:
+        columns = super()._get_columns(dataset_name, inspector, schema, table)
+
+        db_name = self.get_db_name(inspector)
+
+        columns = [
+            {
+                **column,
+                "comment": self.column_descriptions.get(
+                    f"{db_name}.{schema}.{table}.{column['name']}",
+                ),
+            }
+            for column in columns
+        ]
+        return columns

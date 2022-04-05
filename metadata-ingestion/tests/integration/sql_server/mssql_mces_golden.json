@@ -1253,7 +1253,7 @@
                                 "fieldPath": "LastName",
                                 "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
+                                "description": "Description for column LastName of table Persons of schema Foo.",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
