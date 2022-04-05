@@ -89,6 +89,7 @@ def run(
     preview: bool,
     strict_warnings: bool,
     preview_workunits: int,
+    safe: bool,
 ) -> None:
     """Ingest metadata into DataHub."""
 
