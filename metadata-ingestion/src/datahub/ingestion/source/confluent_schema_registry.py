@@ -6,9 +6,13 @@ from typing import List, Optional, Tuple
 import confluent_kafka
 from confluent_kafka.schema_registry.schema_registry_client import Schema
 
+from datahub.ingestion.extractor import protobuf_util
+from datahub.ingestion.extractor.protobuf_util import ProtobufSchema
 from datahub.ingestion.extractor import schema_util
 from datahub.ingestion.source.kafka import KafkaSourceConfig, KafkaSourceReport
-from datahub.ingestion.source.kafka_schema_registry_base import KafkaSchemaRegistryBase
+from datahub.ingestion.source.kafka_schema_registry_base import (
+    KafkaSchemaRegistryBase,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     KafkaSchema,
     SchemaField,
@@ -128,6 +132,25 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             )
         return schema_str
 
+    def get_schemas_from_confluent_ref_protobuf(
+        self, schema: Schema, schema_seen: Optional[set] = None
+    ) -> List[ProtobufSchema]:
+        all_schemas = []
+
+        if schema_seen is None:
+            schema_seen = set()
+
+        for schema_ref in schema.references:
+            ref_subject = schema_ref["subject"]
+            if ref_subject in schema_seen:
+                continue
+            reference_schema = self.schema_registry_client.get_latest_version(
+                ref_subject
+            )
+            schema_seen.add(ref_subject)
+            all_schemas.append((schema_ref["name"], reference_schema.schema.schema_str))
+        return all_schemas
+
     def _get_schema_and_fields(
         self, topic: str, is_key_schema: bool
     ) -> Tuple[Optional[Schema], List[SchemaField]]:
@@ -183,6 +206,19 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             # "value.id" or "value.[type=string]id"
             fields = schema_util.avro_schema_to_mce_fields(
                 cleaned_str, is_key_schema=is_key_schema
+            )
+        elif schema and schema.schema_type == "PROTOBUF":
+            imported_schemas = self.get_schemas_from_confluent_ref_protobuf(schema)
+            base_name = topic.replace(".", "_")
+            fields = protobuf_util.protobuf_schema_to_mce_fields(
+                ProtobufSchema(
+                    f"{base_name}-key.proto"
+                    if is_key_schema
+                    else f"{base_name}-value.proto",
+                    schema.schema_str,
+                ),
+                imported_schemas,
+                is_key_schema=is_key_schema,
             )
         else:
             self.report.report_warning(
