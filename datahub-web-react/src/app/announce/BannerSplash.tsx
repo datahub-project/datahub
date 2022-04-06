@@ -4,21 +4,23 @@ import { Agent } from 'https';
 import { Alert } from 'antd';
 import axios from 'axios';
 import ReactHtmlParser from 'react-html-parser';
-import announceConfig from '../../conf/Announcement';
+import adhocConfig from '../../conf/Adhoc';
 
 export const BannerSplash = () => {
     interface AnnouncementData {
         message: string;
         timestamp: string;
     }
-    const url1 = announceConfig;
+    let url = adhocConfig;
+    const branch = url.lastIndexOf('/');
+    url = `${url.substring(0, branch)}/announce`;
     const closedTime = Number(localStorage.getItem('_banner_closed_time')) || 0;
     const [data, setData] = useState<AnnouncementData>();
     const [showData, setShowData] = useState(false);
     useEffect(() => {
         const fetchData = () => {
             return axios
-                .get(url1, {
+                .get(url, {
                     httpsAgent: new Agent({
                         rejectUnauthorized: false,
                     }),
@@ -40,7 +42,7 @@ export const BannerSplash = () => {
                 }); // todo: can we have error show a default msg
         };
         fetchData();
-    }, [url1, closedTime]);
+    }, [url, closedTime]);
 
     const onClose = () => {
         console.log('Banner was closed.');

@@ -14,14 +14,46 @@ export function FindMyUrn() {
     return data?.me?.corpUser.urn ?? '';
 }
 
+export function FindMyGroups() {
+    const input = FindMyUrn();
+    const queryresult = gql`
+        query test($actorUrn: String!) {
+            corpUser(urn: $actorUrn) {
+                relationships(input: { types: "IsMemberOfGroup", direction: OUTGOING }) {
+                    count
+                    relationships {
+                        entity {
+                            urn
+                        }
+                    }
+                }
+            }
+        }
+    `;
+    const { data, loading, error } = useQuery(queryresult, {
+        variables: {
+            input: {
+                actorUrn: input,
+            },
+        },
+        skip: input === '',
+    });
+    if (error) return 'error...';
+    if (loading) return 'Loading...';
+    return data?.corpUser?.relationships?.relationships;
+}
+
 export function checkOwnership(data: GetDatasetQuery): boolean {
     const currUserUrn = FindMyUrn();
     const ownership = data?.dataset?.ownership?.owners;
-    const ownersArray =
-        ownership?.map((x) =>
-            x?.type === 'DATAOWNER' && x?.owner?.type === EntityType.CorpUser ? x?.owner?.urn : null,
-        ) || [];
-    return ownersArray.includes(currUserUrn);
+    const individualOwnersArray =
+        ownership?.map((x) => (x?.owner?.type === EntityType.CorpUser ? x?.owner?.urn : null)) || [];
+    const groupOwnersArray =
+        ownership?.map((x) => (x?.owner?.type === EntityType.CorpGroup ? x?.owner?.urn : null)) || [];
+    const userGroups = FindMyGroups();
+    const groupUrn = userGroups?.map((x) => x?.entity?.urn) || [];
+    const intersection = groupUrn.filter((x) => groupOwnersArray.includes(x));
+    return individualOwnersArray.includes(currUserUrn) || intersection.length > 0;
 }
 
 export function GetMyToken(userUrn: string) {

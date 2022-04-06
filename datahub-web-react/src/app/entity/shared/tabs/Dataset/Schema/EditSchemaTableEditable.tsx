@@ -58,6 +58,7 @@ export const EditSchemaTableEditable = () => {
             </Select>
         );
         const inputNode = inputType === 'select' ? selector : <Input />;
+
         return (
             <td {...restProps}>
                 {editing ? (
@@ -68,7 +69,8 @@ export const EditSchemaTableEditable = () => {
                         }}
                         rules={[
                             {
-                                required: true,
+                                // because nativeDataType is "optional"
+                                required: title !== 'Native DataType',
                                 message: `Please Input ${title}!`,
                             },
                         ]}

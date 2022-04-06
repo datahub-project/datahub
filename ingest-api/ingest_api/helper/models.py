@@ -108,3 +108,10 @@ def determine_type(type_input: Union[str, Dict[str, str]]) -> str:
     else:
         log.error(f"data type for request is {type_input}")
         return "csv"
+
+class MyFilter(object):
+    def __init__(self, level):
+        self.__level = level
+
+    def filter(self, logRecord):
+        return logRecord.levelno <= self.__level

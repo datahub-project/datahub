@@ -4,11 +4,12 @@
 # also need export PROMETHEUS_MULTIPROC_DIR=/home/admini/development/datahub/fastapi/tmp
 import logging
 import os
+from os import environ
 import time
 from logging.handlers import TimedRotatingFileHandler
-from os import environ
-from urllib.parse import urljoin
 import requests
+import uvicorn
+
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import \
@@ -22,48 +23,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 from starlette_exporter import PrometheusMiddleware, handle_metrics
 
-from ingest_api.helper.mce_convenience import (create_new_schema_mce,
-                                               derive_platform_name,
-                                               generate_json_output_mce,
-                                               generate_json_output_mcp,
-                                               get_sys_time,
-                                               make_browsepath_mce,
-                                               make_dataset_description_mce,
-                                               make_dataset_urn,
-                                               make_ownership_mce,
-                                               make_platform, make_profile_mcp,
-                                               make_schema_mce,
-                                               make_status_mce, make_user_urn,
-                                               update_field_param_class)
-from ingest_api.helper.models import (add_sample_params, browsepath_params,
-                                      create_dataset_params,
-                                      dataset_status_params,
-                                      delete_sample_params, determine_type,
-                                      prop_params, schema_params)
+from ingest_api.helper.mce_convenience import *
+from ingest_api.helper.models import *
 from ingest_api.helper.security import authenticate_action, verify_token
-
-
-class MyFilter(object):
-    def __init__(self, level):
-        self.__level = level
-
-    def filter(self, logRecord):
-        return logRecord.levelno <= self.__level
-
 
 CLI_MODE = False if environ.get("RUNNING_IN_DOCKER") else True
 
-rootLogger = logging.getLogger("ingest")
-logformatter = logging.Formatter("%(asctime)s;%(levelname)s;%(funcName)s;%(message)s")
-rootLogger.setLevel(logging.INFO)
-
-streamLogger = logging.StreamHandler()
-streamLogger.setFormatter(logformatter)
-streamLogger.addFilter(MyFilter(logging.INFO))  #docker logs will show simplified
-rootLogger.addHandler(streamLogger)
-rootLogger.info(f"CLI mode : {CLI_MODE}")
-
 # when running ingest-api from CLI, need to set some params.
+# cos dataset_profile_index name varies depending on ES. If there is an existing index (and datahub is instantiated on top, then it will append a UUID to it)
 if not CLI_MODE:
     for env_var in [
         "ACCEPT_ORIGINS",
@@ -73,7 +40,8 @@ if not CLI_MODE:
         "DATAHUB_FRONTEND",
         "ELASTIC_HOST",
         "DATAHUB_BACKEND",
-        "ANNOUNCEMENT_URL"
+        "ANNOUNCEMENT_URL",
+        "DATASET_PROFILE_INDEX"
     ]:
         if not os.environ[env_var]:
             raise Exception(
@@ -91,13 +59,34 @@ else:
     os.environ["DATAHUB_BACKEND"] = "http://localhost:8080"
     os.environ["ANNOUNCEMENT_URL"] = "https://xaluil.gitlab.io/announce/"
     os.environ["DATAHUB_FRONTEND"] = "http://172.19.0.1:9002"
+    os.environ["DATASET_PROFILE_INDEX"] = "dataset_datasetprofileaspect_v1"
+    
     if not os.path.exists("./logs/"):
         os.mkdir(f"{os.getcwd()}/logs/")
+    if not os.path.exists("./prom/"):
+        os.mkdir(f"{os.getcwd()}/prom/")        
+    os.environ["PROMETHEUS_MULTIPROC_DIR"]=f'{os.getcwd()}/prom'
     log_path = f"{os.getcwd()}/logs/ingest_api.log"
     log_path_simple = f"{os.getcwd()}/logs/ingest_api.simple.log"
 
 rest_endpoint = os.environ["DATAHUB_BACKEND"]
-
+api_emitting_port = 8001
+# logging - 1 console logger showing info-level+, and 2 logger logging INFO+ AND DEBUG+ levels
+# --------------------------------------------------------------
+rootLogger = logging.getLogger("ingest")
+logformatter = logging.Formatter("%(asctime)s;%(levelname)s;%(funcName)s;%(message)s")
+rootLogger.setLevel(logging.DEBUG)
+streamLogger = logging.StreamHandler()
+streamLogger.setFormatter(logformatter)
+streamLogger.setLevel(logging.INFO)  #docker logs will show simplified
+rootLogger.addHandler(streamLogger)
+log_simple = TimedRotatingFileHandler(
+    log_path_simple, when="midnight", interval=1, backupCount=730
+)
+# log_simple.addFilter(MyFilter(logging.INFO))  # only capture INFO
+log_simple.setLevel(logging.INFO)
+log_simple.setFormatter(logformatter)
+rootLogger.addHandler(log_simple)
 log = TimedRotatingFileHandler(
     log_path, when="midnight", interval=1, backupCount=730
 )
@@ -105,19 +94,16 @@ log.setLevel(logging.DEBUG)
 log.setFormatter(logformatter)
 rootLogger.addHandler(log)
 
-log_simple = TimedRotatingFileHandler(
-    log_path_simple, when="midnight", interval=1, backupCount=730
-)
-log_simple.addFilter(MyFilter(logging.INFO))  # only capture INFO
-log_simple.setFormatter(logformatter)
-rootLogger.addHandler(log_simple)
-
+rootLogger.info(f"CLI mode : {CLI_MODE}")
 rootLogger.info("started ingest_api!")
+# --------------------------------------------------------------
+if not os.environ["PROMETHEUS_MULTIPROC_DIR"]:
+    raise Exception("Gunicorn cannot start without multiprocessor directory set!")
 
 app = FastAPI(
     title="Datahub secret API",
-    description="For generating datasets",
-    version="0.0.2",
+    openapi_url=None,
+    redoc_url=None
 )
 origins = [
     "http://localhost:9002",
@@ -136,6 +122,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["POST", "GET", "OPTIONS"],
 )
+# add prometheus monitoring to ingest-api via starlette-exporter
 app.add_middleware(PrometheusMiddleware)
 app.add_route("/custom/metrics", handle_metrics)
 
@@ -161,12 +148,11 @@ async def hello_world() -> None:
     """
     # how to check that this dataset exist? - curl to GMS?
     # rootLogger.info("hello world is called")
-    rootLogger.info("/hello is called!")
+    # rootLogger.info("/custom/hello is called!")
     return JSONResponse(
         content={
-            "message": "<b>Hello world</b>",
+            "message": "Hello world",
             "timestamp": int(time.time() * 1000)
-            # 'timestamp': 1636964967000
         },
         status_code=200,
     )
@@ -175,14 +161,15 @@ async def hello_world() -> None:
 async def echo_announce() -> None:
     """
     Just a hello world endpoint to ensure that the api is running.
-    """        
-    response = requests.get(os.environ["ANNOUNCEMENT_URL"])
+    """
+    # verify = False cos accessing HTTPS page from container.
+    response = requests.get(os.environ["ANNOUNCEMENT_URL"], verify=False) 
     if response.status_code!=200:
-        rootLogger.info(f"announcement upstream returns {str(response.status_code)}")
+        rootLogger.error(f"announcement upstream returns {str(response.status_code)}")
         JSONResponse(
         content={
             "message": "Unable to fetch Gitlab Pages Announcements at this time",
-            "timestamp": int(time.time() * 1000)
+            "timestamp": 0
         },
         status_code=200,
     )
@@ -231,7 +218,7 @@ async def update_browsepath(item: browsepath_params):
             content={"message": results.get("message", "")}, status_code=response.status_code
         ) 
     else:
-        rootLogger.info(
+        rootLogger.error(
             f"authentication failed for request\
             (update_browsepath) from {user}"
         )
@@ -263,7 +250,7 @@ async def update_samples(item: add_sample_params):
             content={"message": results.get("message", "")}, status_code=response.status_code
         ) 
     else:
-        rootLogger.info(
+        rootLogger.error(
             f"authentication failed for request\
             (update_samples) from {user}"
         )
@@ -282,13 +269,14 @@ async def delete_samples(item: delete_sample_params):
         "Content-Type": "application/json",
     }
     elastic_host = os.environ["ELASTIC_HOST"]
+    profile_index = os.environ["DATASET_PROFILE_INDEX"]
     if authenticate_action(token=token, user=user, dataset=datasetName):
         data = """{{"query":{{"bool":{{"must":[{{"match":{{"timestampMillis":{timestamp}}}}},
             {{"match":{{"urn":"{urn}"}}}}]}}}}}}""".format(
             urn=datasetName, timestamp=str(item.timestamp)
         )
         response = requests.post(
-            "{es_host}/dataset_datasetprofileaspect_v1/_delete_by_query".format(
+            "{es_host}/{profile_index}/_delete_by_query".format(
                 es_host=elastic_host
             ),
             headers=headers,
@@ -299,7 +287,7 @@ async def delete_samples(item: delete_sample_params):
             content={"message": results.get("message", "")}, status_code=response.status_code
         )        
     else:
-        rootLogger.info(
+        rootLogger.error(
             f"authentication failed for request\
             (delete_sample) from {user}"
         )
@@ -353,7 +341,7 @@ async def update_schema(item: schema_params):
             content=results.get("message", ""), status_code=response.status_code
         )
     else:
-        rootLogger.info(
+        rootLogger.error(
             f"authentication failed for request(update_schema) from {user}"
         )
         return JSONResponse(content={"message": "Authentication Failed"}, status_code=401)
@@ -409,7 +397,7 @@ async def update_prop(item: prop_params):
             content={"message": results.get("message", "")}, status_code=response.status_code
         ) 
     else:
-        rootLogger.info(
+        rootLogger.error(
             f"authentication failed for request(update_props) from {user}"
         )
         return JSONResponse(content={"message": "Authentication Failed"}, status_code=401)
@@ -422,13 +410,11 @@ def emit_mce_respond(
     for mce in metadata_record.proposedSnapshot.aspects:
         if not mce.validate():
             rootLogger.error(f"{mce.__class__} is not defined properly")
-            return JSONResponse(
-                content = {
-                    "messsage": f"MCE was incorrectly defined.\
-                        {event} was aborted",
-                },
-                status_code = 400,
-            )
+            return {
+                "messsage": f"MCE was incorrectly defined.\
+                    {event} was aborted",
+                "status_code": 400,
+            }
 
     if CLI_MODE:
         generate_json_output_mce(metadata_record, "./logs/")
@@ -441,21 +427,18 @@ def emit_mce_respond(
         emitter._session.close()
     except Exception as e:
         rootLogger.error(e)
-        return JSONResponse(
-            content={
-                "messsage": f"{event} failed because upstream error {e}",
-            },
-            status_code= 500,
-        )
+        return {
+            "messsage": f"{event} failed because upstream error {e}",
+            "status_code": 500,
+        }
+            
     rootLogger.info(
         f"{event} {datasetName} requested_by {owner} completed successfully"
     )
-    return JSONResponse(
-        content={        
+    return {        
         "messsage": f"{event} completed successfully",
-        },
-        status_code = 201,
-    )
+        "status_code" : 201,
+    }
 
 def emit_mcp_respond(
     metadata_record: MetadataChangeProposalWrapper, owner: str, event: str, token: str
@@ -472,21 +455,18 @@ def emit_mcp_respond(
         emitter._session.close()
     except Exception as e:
         rootLogger.error(e)
-        return JSONResponse(
-            content = {
+        return {
                 "messsage": f"{event} failed because upstream error {e}",                
-            },
-            status_code = 500
-        )
+                "status_code": 500,
+        }
+            
     rootLogger.info(
         f"{event} {datasetName} requested_by {owner} completed successfully"
     )
-    return JSONResponse(
-        content = {        
-            "messsage": f"{event} completed successfully",
-        },
-        status_code = 201,
-    )  
+    return {        
+        "messsage": f"{event} completed successfully",
+        "status_code": 201,
+    }       
 
 @app.post("/custom/make_dataset")
 async def create_item(item: create_dataset_params) -> None:
@@ -574,13 +554,13 @@ async def create_item(item: create_dataset_params) -> None:
             event="Create Dataset",
             token=token,
         )
-        results = response.json()
-        
+        if response["status_code"]==201:
+            response["message"] = datasetName
         return JSONResponse(
-            content={"message": f"{datasetName}"}, status_code=response.status_code
+            content={"message": response["message"] }, status_code=response["status_code"]
         ) 
     else:
-        rootLogger.info("make_dataset request failed from {}".format(requestor))
+        rootLogger.error("make_dataset request failed from {}".format(requestor))
         return JSONResponse(content={"message": "Authentication Failed"}, status_code=401)
 
 
@@ -606,13 +586,15 @@ async def delete_item(item: dataset_status_params) -> None:
             event=f"Status Update removed:{item.desired_state}",
             token=item.user_token,
         )
-        results = response.json()
         return JSONResponse(
-            content={"message": results.get("message", "")}, status_code=response.status_code
+            content={"message": response["message"]}, status_code=response["status_code"]
         )
     else:
-        rootLogger.info(
+        rootLogger.error(
             f"authentication failed for request\
             (update_schema) from {user}"
         )
         return JSONResponse(content={"message": "Authentication Failed"}, status_code=401)
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=api_emitting_port)
