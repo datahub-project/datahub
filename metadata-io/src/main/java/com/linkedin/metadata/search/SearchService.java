@@ -6,9 +6,13 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.aggregator.AllEntitiesSearchAggregator;
 import com.linkedin.metadata.search.cache.AllEntitiesSearchAggregatorCache;
+import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.cache.EntitySearchServiceCache;
 import com.linkedin.metadata.search.ranker.SearchRanker;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +25,7 @@ public class SearchService {
   private final AllEntitiesSearchAggregator _aggregator;
   private final SearchRanker _searchRanker;
 
+  private final EntityDocCountCache _entityDocCountCache;
   private final EntitySearchServiceCache _entitySearchServiceCache;
   private final AllEntitiesSearchAggregatorCache _allEntitiesSearchAggregatorCache;
 
@@ -31,18 +36,16 @@ public class SearchService {
     _aggregator =
         new AllEntitiesSearchAggregator(entityRegistry, entitySearchService, searchRanker, cacheManager, batchSize,
             enableCache);
+    _entityDocCountCache = new EntityDocCountCache(entityRegistry, entitySearchService, cacheManager);
     _entitySearchServiceCache = new EntitySearchServiceCache(cacheManager, entitySearchService, batchSize, enableCache);
     _allEntitiesSearchAggregatorCache =
         new AllEntitiesSearchAggregatorCache(cacheManager, _aggregator, batchSize, enableCache);
   }
 
-  /**
-   * Get the number of documents corresponding to the entity
-   *
-   * @param entityName name of the entity
-   */
-  public long docCount(@Nonnull String entityName) {
-    return _entitySearchService.docCount(entityName);
+  public Map<String, Long> docCountPerEntity(@Nonnull List<String> entityNames) {
+    return entityNames.stream()
+        .collect(Collectors.toMap(Function.identity(),
+            entityName -> _entityDocCountCache.getEntityDocCount(true).getOrDefault(entityName, 0L)));
   }
 
   /**

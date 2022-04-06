@@ -15,7 +15,7 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.cache.EntitySearchServiceCache;
-import com.linkedin.metadata.search.cache.NonEmptyEntitiesCache;
+import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.ranker.SearchRanker;
 import com.linkedin.metadata.search.utils.SearchUtils;
 import com.linkedin.metadata.utils.ConcurrencyUtils;
@@ -38,21 +38,17 @@ import static com.linkedin.metadata.search.utils.FilterUtils.rankFilterGroups;
 
 @Slf4j
 public class AllEntitiesSearchAggregator {
-  private final EntityRegistry _entityRegistry;
   private final EntitySearchService _entitySearchService;
   private final SearchRanker _searchRanker;
-  private final CacheManager _cacheManager;
-  private final NonEmptyEntitiesCache _nonEmptyEntitiesCache;
+  private final EntityDocCountCache _entityDocCountCache;
 
   private final EntitySearchServiceCache _entitySearchServiceCache;
 
   public AllEntitiesSearchAggregator(EntityRegistry entityRegistry, EntitySearchService entitySearchService,
       SearchRanker searchRanker, CacheManager cacheManager, int batchSize, boolean enableCache) {
-    _entityRegistry = entityRegistry;
     _entitySearchService = entitySearchService;
     _searchRanker = searchRanker;
-    _cacheManager = cacheManager;
-    _nonEmptyEntitiesCache = new NonEmptyEntitiesCache(entityRegistry, entitySearchService, cacheManager);
+    _entityDocCountCache = new EntityDocCountCache(entityRegistry, entitySearchService, cacheManager);
     _entitySearchServiceCache = new EntitySearchServiceCache(cacheManager, entitySearchService, batchSize, enableCache);
   }
 
@@ -64,7 +60,7 @@ public class AllEntitiesSearchAggregator {
     List<String> nonEmptyEntities;
     List<String> lowercaseEntities = entities.stream().map(String::toLowerCase).collect(Collectors.toList());
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getNonEmptyEntities").time()) {
-      nonEmptyEntities = _nonEmptyEntitiesCache.getNonEmptyEntities();
+      nonEmptyEntities = _entityDocCountCache.getNonEmptyEntities();
     }
     if (!entities.isEmpty()) {
       nonEmptyEntities = nonEmptyEntities.stream().filter(lowercaseEntities::contains).collect(Collectors.toList());
