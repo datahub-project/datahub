@@ -2,7 +2,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, cast
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type, cast
 
 import dateutil.parser
 import requests
@@ -598,7 +598,7 @@ class DBTSource(StatefulIngestionSourceBase):
     """Extract DBT metadata for ingestion to Datahub"""
 
     @classmethod
-    def create(cls, config_dict, ctx):
+    def create(cls, config_dict: Dict, ctx: PipelineContext) -> "DBTSource":
         config = DBTConfig.parse_obj(config_dict)
         return cls(config, ctx, "dbt")
 
@@ -1039,15 +1039,19 @@ class DBTSource(StatefulIngestionSourceBase):
         return owner_list
 
     def _aggregate_tags(self, node: DBTNode, meta_tag_aspect: Any) -> List[str]:
-        tags_list: List[str] = []
+        agg_tags: Set[str] = set()
         if node.tags:
-            tags_list = tags_list + node.tags
+            agg_tags.update(node.tags)
+        for column in node.columns:
+            agg_tags.update(column.tags)
         if meta_tag_aspect and self.config.enable_meta_mapping:
-            tags_list = tags_list + [
-                tag_association.tag[len("urn:li:tag:") :]
-                for tag_association in meta_tag_aspect.tags
-            ]
-        return sorted(tags_list)
+            agg_tags.update(
+                {
+                    tag_association.tag[len("urn:li:tag:") :]
+                    for tag_association in meta_tag_aspect.tags
+                }
+            )
+        return sorted(agg_tags)
 
     def _create_subType_wu(
         self, node: DBTNode, node_datahub_urn: str
