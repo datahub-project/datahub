@@ -1300,6 +1300,12 @@ enum FabricType {
     Designates early integration fabrics
     """
     EI
+
+    """
+    Designates pre-production fabrics
+    """
+    PRE
+
     """
     Designates staging fabrics
     """
