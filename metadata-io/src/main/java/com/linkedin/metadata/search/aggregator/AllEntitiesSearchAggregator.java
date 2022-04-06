@@ -48,7 +48,7 @@ public class AllEntitiesSearchAggregator {
       SearchRanker searchRanker, CacheManager cacheManager, int batchSize, boolean enableCache) {
     _entitySearchService = entitySearchService;
     _searchRanker = searchRanker;
-    _entityDocCountCache = new EntityDocCountCache(entityRegistry, entitySearchService, cacheManager);
+    _entityDocCountCache = new EntityDocCountCache(entityRegistry, entitySearchService);
     _entitySearchServiceCache = new EntitySearchServiceCache(cacheManager, entitySearchService, batchSize, enableCache);
   }
 

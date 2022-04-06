@@ -36,7 +36,7 @@ public class SearchService {
     _aggregator =
         new AllEntitiesSearchAggregator(entityRegistry, entitySearchService, searchRanker, cacheManager, batchSize,
             enableCache);
-    _entityDocCountCache = new EntityDocCountCache(entityRegistry, entitySearchService, cacheManager);
+    _entityDocCountCache = new EntityDocCountCache(entityRegistry, entitySearchService);
     _entitySearchServiceCache = new EntitySearchServiceCache(cacheManager, entitySearchService, batchSize, enableCache);
     _allEntitiesSearchAggregatorCache =
         new AllEntitiesSearchAggregatorCache(cacheManager, _aggregator, batchSize, enableCache);
@@ -45,7 +45,7 @@ public class SearchService {
   public Map<String, Long> docCountPerEntity(@Nonnull List<String> entityNames) {
     return entityNames.stream()
         .collect(Collectors.toMap(Function.identity(),
-            entityName -> _entityDocCountCache.getEntityDocCount(true).getOrDefault(entityName, 0L)));
+            entityName -> _entityDocCountCache.getEntityDocCount().getOrDefault(entityName, 0L)));
   }
 
   /**

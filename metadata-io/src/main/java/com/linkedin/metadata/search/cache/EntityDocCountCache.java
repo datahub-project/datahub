@@ -1,43 +1,44 @@
 package com.linkedin.metadata.search.cache;
 
+import com.google.common.base.Suppliers;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import lombok.RequiredArgsConstructor;
-import org.springframework.cache.Cache;
-import org.springframework.cache.CacheManager;
 
 
-@RequiredArgsConstructor
 public class EntityDocCountCache {
   private static final String CACHE_NAME = "entityDocCount";
 
   private final EntityRegistry _entityRegistry;
   private final EntitySearchService _entitySearchService;
-  private final CacheManager _cacheManager;
+  private final Supplier<Map<String, Long>> entityDocCount;
 
-  @WithSpan
-  public Map<String, Long> getEntityDocCount(boolean skipCache) {
-    Cache.ValueWrapper cachedResult = _cacheManager.getCache(CACHE_NAME).get(CACHE_NAME);
+  public EntityDocCountCache(EntityRegistry entityRegistry, EntitySearchService entitySearchService) {
+    _entityRegistry = entityRegistry;
+    _entitySearchService = entitySearchService;
+    entityDocCount = Suppliers.memoizeWithExpiration(this::fetchEntityDocCount, 1, TimeUnit.MINUTES);
+  }
 
-    if (!skipCache && cachedResult != null) {
-      return (Map<String, Long>) cachedResult.get();
-    }
-
-    Map<String, Long> docCountPerEntity = _entityRegistry.getEntitySpecs()
+  private Map<String, Long> fetchEntityDocCount() {
+    return _entityRegistry.getEntitySpecs()
         .keySet()
         .stream()
         .collect(Collectors.toMap(Function.identity(), _entitySearchService::docCount));
-    _cacheManager.getCache(CACHE_NAME).put(CACHE_NAME, docCountPerEntity);
-    return docCountPerEntity;
+  }
+
+  @WithSpan
+  public Map<String, Long> getEntityDocCount() {
+    return entityDocCount.get();
   }
 
   public List<String> getNonEmptyEntities() {
-    return getEntityDocCount(false).entrySet()
+    return getEntityDocCount().entrySet()
         .stream()
         .filter(entry -> entry.getValue() > 0)
         .map(Map.Entry::getKey)
