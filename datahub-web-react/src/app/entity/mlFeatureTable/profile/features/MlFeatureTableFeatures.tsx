@@ -6,14 +6,13 @@ import styled from 'styled-components';
 import MlFeatureDataTypeIcon from './MlFeatureDataTypeIcon';
 import { MlFeatureDataType, MlPrimaryKey, MlFeature } from '../../../../../types.generated';
 import MarkdownViewer from '../../../shared/components/legacy/MarkdownViewer';
+import { GetMlFeatureTableQuery } from '../../../../../graphql/mlFeatureTable.generated';
+import { useBaseEntity } from '../../../shared/EntityContext';
+import { notEmpty } from '../../../shared/utils';
 
 const FeaturesContainer = styled.div`
     margin-bottom: 100px;
 `;
-
-export type Props = {
-    features: Array<MlFeature | MlPrimaryKey>;
-};
 
 const defaultColumns = [
     {
@@ -50,7 +49,19 @@ const defaultColumns = [
     },
 ];
 
-export default function MlFeatureTableFeatures({ features }: Props) {
+export default function MlFeatureTableFeatures() {
+    const baseEntity = useBaseEntity<GetMlFeatureTableQuery>();
+    const featureTable = baseEntity?.mlFeatureTable;
+
+    const features: Array<MlFeature | MlPrimaryKey> =
+        featureTable?.featureTableProperties &&
+        (featureTable?.featureTableProperties?.mlFeatures || featureTable?.featureTableProperties?.mlPrimaryKeys)
+            ? [
+                  ...(featureTable?.featureTableProperties?.mlPrimaryKeys || []),
+                  ...(featureTable?.featureTableProperties?.mlFeatures || []),
+              ].filter(notEmpty)
+            : [];
+
     return (
         <FeaturesContainer>
             {features && features.length > 0 && (

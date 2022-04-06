@@ -1,12 +1,13 @@
 import React from 'react';
 import { Space, Table, Typography } from 'antd';
 import { MlHyperParam, MlMetric, MlModel } from '../../../../types.generated';
+import { useBaseEntity } from '../../shared/EntityContext';
+import { GetMlModelQuery } from '../../../../graphql/mlModel.generated';
 
-export type Props = {
-    model?: MlModel;
-};
+export default function MLModelSummary() {
+    const baseEntity = useBaseEntity<GetMlModelQuery>();
+    const model = baseEntity.mlModel;
 
-export default function MLModelSummary({ model }: Props) {
     const propertyTableColumns = [
         {
             title: 'Name',

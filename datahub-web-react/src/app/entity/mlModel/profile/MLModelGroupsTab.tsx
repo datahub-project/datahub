@@ -3,15 +3,15 @@ import { Space, Table, Typography } from 'antd';
 import Link from 'antd/lib/typography/Link';
 import { ColumnsType } from 'antd/es/table';
 
-import { EntityType, MlModel, MlModelGroup } from '../../../../types.generated';
+import { EntityType, MlModelGroup } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
+import { useBaseEntity } from '../../shared/EntityContext';
+import { GetMlModelQuery } from '../../../../graphql/mlModel.generated';
 
-export type Props = {
-    model?: MlModel;
-};
+export default function MLModelGroupsTab() {
+    const baseEntity = useBaseEntity<GetMlModelQuery>();
+    const model = baseEntity.mlModel;
 
-export default function MLModelGroupsTab({ model }: Props) {
-    console.log(model?.properties);
     const entityRegistry = useEntityRegistry();
 
     const propertyTableColumns: ColumnsType<MlModelGroup> = [

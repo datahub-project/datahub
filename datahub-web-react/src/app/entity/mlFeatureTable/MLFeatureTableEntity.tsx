@@ -1,10 +1,18 @@
 import * as React from 'react';
 import { DotChartOutlined } from '@ant-design/icons';
-import { MlFeatureTable, EntityType, SearchResult } from '../../../types.generated';
+import { MlFeatureTable, EntityType, SearchResult, OwnershipType } from '../../../types.generated';
 import { Preview } from './preview/Preview';
-import { MLFeatureTableProfile } from './profile/MLFeatureTableProfile';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
+import { GenericEntityProperties } from '../shared/types';
+import { useGetMlFeatureTableQuery } from '../../../graphql/mlFeatureTable.generated';
+import { EntityProfile } from '../shared/containers/profile/EntityProfile';
+import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
+import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
+import MlFeatureTableFeatures from './profile/features/MlFeatureTableFeatures';
+import SourcesView from './profile/Sources';
 
 /**
  * Definition of the DataHub MLFeatureTable entity.
@@ -45,7 +53,49 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
 
     getCollectionName = () => 'Feature Tables';
 
-    renderProfile = (urn: string) => <MLFeatureTableProfile urn={urn} />;
+    getOverridePropertiesFromEntity = (featureTable?: MlFeatureTable | null): GenericEntityProperties => {
+        return {};
+    };
+
+    renderProfile = (urn: string) => (
+        <EntityProfile
+            urn={urn}
+            entityType={EntityType.Mlmodel}
+            useEntityQuery={useGetMlFeatureTableQuery}
+            getOverrideProperties={this.getOverridePropertiesFromEntity}
+            tabs={[
+                {
+                    name: 'Features',
+                    component: MlFeatureTableFeatures,
+                },
+                {
+                    name: 'Sources',
+                    component: SourcesView,
+                },
+            ]}
+            sidebarSections={[
+                {
+                    component: SidebarAboutSection,
+                },
+                {
+                    component: SidebarTagsSection,
+                    properties: {
+                        hasTags: true,
+                        hasTerms: true,
+                    },
+                },
+                {
+                    component: SidebarOwnerSection,
+                    properties: {
+                        defaultOwnerType: OwnershipType.TechnicalOwner,
+                    },
+                },
+                {
+                    component: SidebarDomainSection,
+                },
+            ]}
+        />
+    );
 
     renderPreview = (_: PreviewType, data: MlFeatureTable) => {
         return (
