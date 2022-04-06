@@ -23,7 +23,6 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
-import com.linkedin.metadata.search.ranker.SimpleRanker;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
@@ -78,13 +77,12 @@ public class LineageSearchServiceTest {
     checkContainerEngine(_elasticsearchContainer.getDockerClient());
     _elasticsearchContainer.start();
     _searchClient = ElasticTestUtils.buildRestClient(_elasticsearchContainer);
-    _elasticSearchService = buildEntitySearchService();
+    _elasticSearchService = ElasticSearchServiceTest.buildService(_searchClient, _entityRegistry);
     _elasticSearchService.configure();
     _cacheManager = new ConcurrentMapCacheManager();
     _graphService = mock(GraphService.class);
-    _lineageSearchService = new LineageSearchService(
-        new SearchService(_entityRegistry, _elasticSearchService, new SimpleRanker(), _cacheManager, 100, true),
-        _graphService, _cacheManager.getCache("test"));
+    _lineageSearchService =
+        new LineageSearchService(_elasticSearchService, _graphService, _cacheManager.getCache("test"));
   }
 
   @BeforeMethod
@@ -92,18 +90,6 @@ public class LineageSearchServiceTest {
     _elasticSearchService.clear();
     clearCache();
     syncAfterWrite(_searchClient);
-  }
-
-  @Nonnull
-  private ElasticSearchService buildEntitySearchService() {
-    EntityIndexBuilders indexBuilders =
-        new EntityIndexBuilders(ElasticSearchServiceTest.getIndexBuilder(_searchClient), _entityRegistry,
-            _indexConvention, _settingsBuilder);
-    ESSearchDAO searchDAO = new ESSearchDAO(_entityRegistry, _searchClient, _indexConvention);
-    ESBrowseDAO browseDAO = new ESBrowseDAO(_entityRegistry, _searchClient, _indexConvention);
-    ESWriteDAO writeDAO = new ESWriteDAO(_entityRegistry, _searchClient, _indexConvention,
-        ElasticSearchServiceTest.getBulkProcessor(_searchClient));
-    return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);
   }
 
   private void clearCache() {

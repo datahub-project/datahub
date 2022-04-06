@@ -1,8 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
-import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.DoubleMap;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.FieldSpec;
@@ -21,7 +19,6 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
-import com.linkedin.metadata.search.features.Features;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.SearchUtil;
 import io.opentelemetry.extension.annotations.WithSpan;
@@ -88,17 +85,19 @@ public class SearchRequestHandler {
   }
 
   private SearchRequestHandler(@Nonnull EntityRegistry entityRegistry) {
-    this(mergeSpecs(entityRegistry, EntitySpec::getSearchableFieldSpecs),
-        mergeSpecs(entityRegistry, EntitySpec::getSearchScoreFieldSpecs));
+    this(mergeSpecs(entityRegistry, EntitySpec::getSearchableFieldSpecs,
+        spec -> spec.getSearchableAnnotation().getFieldName()),
+        mergeSpecs(entityRegistry, EntitySpec::getSearchScoreFieldSpecs,
+            spec -> spec.getSearchScoreAnnotation().getFieldName()));
   }
 
   private static <T extends FieldSpec> List<T> mergeSpecs(@Nonnull EntityRegistry entityRegistry,
-      Function<EntitySpec, List<T>> entityToFieldSpecs) {
+      Function<EntitySpec, List<T>> entityToFieldSpecs, Function<T, String> getFieldName) {
     return entityRegistry.getEntitySpecs()
         .values()
         .stream()
         .flatMap(entitySpec -> entityToFieldSpecs.apply(entitySpec).stream())
-        .collect(Collectors.groupingBy(spec -> spec.getPath().toString()))
+        .collect(Collectors.groupingBy(getFieldName))
         .entrySet()
         .stream()
         .map(entry -> entry.getValue().get(0))
@@ -296,15 +295,10 @@ public class SearchRequestHandler {
     return _defaultQueryFieldNames.stream().filter(matchedField::startsWith).findFirst();
   }
 
-  private Map<String, Double> extractFeatures(@Nonnull SearchHit searchHit) {
-    return ImmutableMap.of(Features.Name.SEARCH_BACKEND_SCORE.toString(), (double) searchHit.getScore());
-  }
-
   private SearchEntity getResult(@Nonnull SearchHit hit) {
     return new SearchEntity().setEntity(getUrnFromSearchHit(hit))
         .setMatchedFields(new MatchedFieldArray(extractMatchedFields(hit.getHighlightFields())))
-        .setScore(hit.getScore())
-        .setFeatures(new DoubleMap(extractFeatures(hit)));
+        .setScore(hit.getScore());
   }
 
   /**

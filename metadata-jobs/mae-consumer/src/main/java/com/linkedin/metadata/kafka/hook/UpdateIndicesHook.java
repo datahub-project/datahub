@@ -23,7 +23,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
-import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -57,7 +57,7 @@ import static com.linkedin.metadata.search.utils.QueryUtils.*;
 public class UpdateIndicesHook implements MetadataChangeLogHook {
 
   private final GraphService _graphService;
-  private final EntitySearchService _entitySearchService;
+  private final SearchService _searchService;
   private final TimeseriesAspectService _timeseriesAspectService;
   private final SystemMetadataService _systemMetadataService;
   private final EntityRegistry _entityRegistry;
@@ -66,19 +66,19 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
   @Autowired
   public UpdateIndicesHook(
       GraphService graphService,
-      EntitySearchService entitySearchService,
+      SearchService searchService,
       TimeseriesAspectService timeseriesAspectService,
       SystemMetadataService systemMetadataService,
       EntityRegistry entityRegistry,
       SearchDocumentTransformer searchDocumentTransformer) {
     _graphService = graphService;
-    _entitySearchService = entitySearchService;
+    _searchService = searchService;
     _timeseriesAspectService = timeseriesAspectService;
     _systemMetadataService = systemMetadataService;
     _entityRegistry = entityRegistry;
     _searchDocumentTransformer = searchDocumentTransformer;
     _graphService.configure();
-    _entitySearchService.configure();
+    _searchService.configure();
     _systemMetadataService.configure();
     _timeseriesAspectService.configure();
   }
@@ -206,7 +206,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
       return;
     }
 
-    _entitySearchService.upsertDocument(entityName, searchDocument.get(), docId);
+    _searchService.upsertDocument(entityName, searchDocument.get(), docId);
   }
 
   /**
@@ -273,7 +273,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
       }
 
       if (isKeyAspect) {
-        _entitySearchService.deleteDocument(entityName, docId);
+        _searchService.deleteDocument(entityName, docId);
         return;
       }
 
@@ -289,6 +289,6 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
         return;
       }
 
-    _entitySearchService.upsertDocument(entityName, searchDocument.get(), docId);
+    _searchService.upsertDocument(entityName, searchDocument.get(), docId);
   }
 }

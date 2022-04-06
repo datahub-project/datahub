@@ -44,8 +44,6 @@ public class ElasticSearchServiceTest {
   private ElasticsearchContainer _elasticsearchContainer;
   private RestHighLevelClient _searchClient;
   private EntityRegistry _entityRegistry;
-  private IndexConvention _indexConvention;
-  private SettingsBuilder _settingsBuilder;
   private ElasticSearchService _elasticSearchService;
 
   private static final String ENTITY_NAME = "testEntity";
@@ -53,13 +51,11 @@ public class ElasticSearchServiceTest {
   @BeforeTest
   public void setup() {
     _entityRegistry = new SnapshotEntityRegistry(new Snapshot());
-    _indexConvention = new IndexConventionImpl(null);
     _elasticsearchContainer = ElasticTestUtils.getNewElasticsearchContainer();
-    _settingsBuilder = new SettingsBuilder(Collections.emptyList(), null);
     checkContainerEngine(_elasticsearchContainer.getDockerClient());
     _elasticsearchContainer.start();
     _searchClient = ElasticTestUtils.buildRestClient(_elasticsearchContainer);
-    _elasticSearchService = buildService();
+    _elasticSearchService = buildService(_searchClient, _entityRegistry);
     _elasticSearchService.configure();
   }
 
@@ -84,13 +80,15 @@ public class ElasticSearchServiceTest {
   }
 
   @Nonnull
-  private ElasticSearchService buildService() {
+  public static ElasticSearchService buildService(RestHighLevelClient searchClient, EntityRegistry entityRegistry) {
+    IndexConvention indexConvention = new IndexConventionImpl(null);
+    SettingsBuilder settingsBuilder = new SettingsBuilder(Collections.emptyList(), null);
     EntityIndexBuilders indexBuilders =
-        new EntityIndexBuilders(getIndexBuilder(_searchClient), _entityRegistry, _indexConvention, _settingsBuilder);
-    ESSearchDAO searchDAO = new ESSearchDAO(_entityRegistry, _searchClient, _indexConvention);
-    ESBrowseDAO browseDAO = new ESBrowseDAO(_entityRegistry, _searchClient, _indexConvention);
+        new EntityIndexBuilders(getIndexBuilder(searchClient), entityRegistry, indexConvention, settingsBuilder);
+    ESSearchDAO searchDAO = new ESSearchDAO(entityRegistry, searchClient, indexConvention);
+    ESBrowseDAO browseDAO = new ESBrowseDAO(entityRegistry, searchClient, indexConvention);
     ESWriteDAO writeDAO =
-        new ESWriteDAO(_entityRegistry, _searchClient, _indexConvention, getBulkProcessor(_searchClient));
+        new ESWriteDAO(entityRegistry, searchClient, indexConvention, getBulkProcessor(searchClient));
     return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);
   }
 
