@@ -179,6 +179,10 @@ workbook_graphql_query = """
             dataType
           }
         }
+        upstreamDatasources {
+          id
+          name
+        }
         workbook {
           name
           projectName
@@ -221,6 +225,7 @@ custom_sql_graphql_query = """
                 name
               }
               schema
+              fullName
               connectionType
             }
             ... on PublishedDatasource {
@@ -238,6 +243,10 @@ custom_sql_graphql_query = """
       tables {
         name
         schema
+        fullName
+        database {
+          name
+        }
         connectionType
       }
 }

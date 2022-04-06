@@ -26,7 +26,7 @@ authentication:
 
 ingestion:
   enabled: ${UI_INGESTION_ENABLED:true}
-  defaultCliVersion: '${UI_INGESTION_DEFAULT_CLI_VERSION:0.8.26.6}'
+  defaultCliVersion: '${UI_INGESTION_DEFAULT_CLI_VERSION:0.8.32.1}'
 
 telemetry:
   enabledCli: ${CLI_TELEMETRY_ENABLED:true}
@@ -118,6 +118,8 @@ elasticsearch:
 
 # TODO: Kafka topic convention
 kafka:
+  listener:
+    concurrency: ${KAFKA_LISTENER_CONCURRENCY:1}
   bootstrapServers: ${KAFKA_BOOTSTRAP_SERVER:http://localhost:9092}
   schemaRegistry:
     type: ${SCHEMA_REGISTRY_TYPE:KAFKA} # KAFKA or AWS_GLUE

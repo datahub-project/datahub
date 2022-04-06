@@ -28,7 +28,7 @@ export const SearchPage = () => {
 
     const entityRegistry = useEntityRegistry();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
-    const query: string = params.query ? (params.query as string) : '';
+    const query: string = decodeURIComponent(params.query ? (params.query as string) : '');
     const activeType = entityRegistry.getTypeOrDefaultFromPathName(useParams<SearchPageParams>().type || '', undefined);
     const page: number = params.page && Number(params.page as string) > 0 ? Number(params.page as string) : 1;
     const filters: Array<FacetFilterInput> = useFilters(params);

@@ -239,7 +239,9 @@ class TableauSource(Source):
         # Tableau shows custom sql datasource as a table in ColumnField.
         if field.get("__typename", "") == "ColumnField":
             for column in field.get("columns", []):
-                table_id = column.get("table", {}).get("id")
+                table_id = (
+                    column.get("table", {}).get("id") if column.get("table") else None
+                )
 
                 if (
                     table_id is not None
@@ -262,7 +264,14 @@ class TableauSource(Source):
                 continue
 
             upstream_db = table.get("database", {}).get("name", "")
-            schema = self._get_schema(table.get("schema", ""), upstream_db)
+            logger.debug(
+                "Processing Table with Connection Type: {0} and id {1}".format(
+                    table.get("connectionType", ""), table.get("id", "")
+                )
+            )
+            schema = self._get_schema(
+                table.get("schema", ""), upstream_db, table.get("fullName", "")
+            )
             table_urn = make_table_urn(
                 self.config.env,
                 upstream_db,
@@ -281,6 +290,17 @@ class TableauSource(Source):
                 table.get("columns", []),
                 table_path,
             )
+
+        for datasource in datasource.get("upstreamDatasources", []):
+            datasource_urn = builder.make_dataset_urn(
+                self.platform, datasource["id"], self.config.env
+            )
+            upstream_table = UpstreamClass(
+                dataset=datasource_urn,
+                type=DatasetLineageTypeClass.TRANSFORMED,
+            )
+            upstream_tables.append(upstream_table)
+
         return upstream_tables
 
     def emit_custom_sql_datasources(self) -> Iterable[MetadataWorkUnit]:
@@ -893,12 +913,34 @@ class TableauSource(Source):
             yield from self.emit_datasource(datasource, workbook)
 
     @lru_cache(maxsize=None)
-    def _get_schema(self, schema_provided: str, database: str) -> str:
-        schema = schema_provided
-        if not schema_provided and database in self.config.default_schema_map:
+    def _get_schema(self, schema_provided: str, database: str, fullName: str) -> str:
+
+        # For some databases, the schema attribute in tableau api does not return
+        # correct schema name for the table. For more information, see
+        # https://help.tableau.com/current/api/metadata_api/en-us/docs/meta_api_model.html#schema_attribute.
+        # Hence we extract schema from fullName whenever fullName is available
+        schema = self._extract_schema_from_fullName(fullName) if fullName else ""
+        if not schema:
+            schema = schema_provided
+        elif schema != schema_provided:
+            logger.debug(
+                "Correcting schema, provided {0}, corrected {1}".format(
+                    schema_provided, schema
+                )
+            )
+
+        if not schema and database in self.config.default_schema_map:
             schema = self.config.default_schema_map[database]
 
         return schema
+
+    @lru_cache(maxsize=None)
+    def _extract_schema_from_fullName(self, fullName: str) -> str:
+        # fullName is observed to be in format [schemaName].[tableName]
+        # OR simply tableName OR [tableName]
+        if fullName.startswith("[") and fullName.find("].[") >= 0:
+            return fullName[1 : fullName.index("]")]
+        return ""
 
     @lru_cache(maxsize=None)
     def get_last_modified(
@@ -937,7 +979,7 @@ class TableauSource(Source):
         return cls(ctx, config)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        if self.server is None:
+        if self.server is None or not self.server.is_signed_in():
             return
         try:
             yield from self.emit_workbooks(self.config.workbooks_page_size)
