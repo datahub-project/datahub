@@ -327,7 +327,7 @@ public class SchemaDiffer implements Differ {
           .target(datasetUrn.toString())
           .changeType(ChangeOperation.MODIFY)
           .semVerChange(SemanticChangeType.MINOR)
-          .description(BACK_AND_FORWARD_COMPATIBLE_DESC + "renaming of the field'" + getFieldPathV1(curBaseField)
+          .description(BACK_AND_FORWARD_COMPATIBLE_DESC + "renaming of the field '" + getFieldPathV1(curBaseField)
               + " to " + getFieldPathV1(curTargetField) +  "'.")
           .build();
   }
