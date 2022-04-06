@@ -213,9 +213,9 @@ async def update_browsepath(item: browsepath_params):
             event="UI Update Browsepath",
             token=item.user_token,
         )
-        results = response.json()
+        
         return JSONResponse(
-            content={"message": results.get("message", "")}, status_code=response.status_code
+            content={"message": response.get("message", "")}, status_code=response['status_code']
         ) 
     else:
         rootLogger.error(
@@ -245,9 +245,9 @@ async def update_samples(item: add_sample_params):
             event="Update Dataset Profile",
             token=item.user_token,
         )
-        results = response.json()
+        
         return JSONResponse(
-            content={"message": results.get("message", "")}, status_code=response.status_code
+            content={"message": response.get("message", "")}, status_code=response["status_code"]
         ) 
     else:
         rootLogger.error(
@@ -282,9 +282,9 @@ async def delete_samples(item: delete_sample_params):
             headers=headers,
             data=data,
         )
-        results = response.json()
+        
         return JSONResponse(
-            content={"message": results.get("message", "")}, status_code=response.status_code
+            content={"message": response.get("message", "")}, status_code=response["status_code"]
         )        
     else:
         rootLogger.error(
@@ -335,10 +335,9 @@ async def update_schema(item: schema_params):
             owner=item.requestor,
             event="UI Update Schema",
             token=item.user_token,
-        )
-        results = response.json()
+        )        
         return JSONResponse(
-            content=results.get("message", ""), status_code=response.status_code
+            content=response.get("message", ""), status_code=response["status_code"]
         )
     else:
         rootLogger.error(
@@ -392,9 +391,9 @@ async def update_prop(item: prop_params):
             event="UI Update Properties",
             token=token,
         )
-        results = response.json()
+        
         return JSONResponse(
-            content={"message": results.get("message", "")}, status_code=response.status_code
+            content={"message": response.get("message", "")}, status_code=response["status_code"]
         ) 
     else:
         rootLogger.error(
