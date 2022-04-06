@@ -474,7 +474,7 @@ async def create_item(item: create_dataset_params) -> None:
     This endpoint is meant for manually defined or parsed file datasets.
     #todo - to revisit to see if refactoring is needed when make_json is up.
     """
-    rootLogger.info("make_dataset_request_received from {}".format(item.requestor))
+    rootLogger.info("make_dataset_request_received from {}".format(item.dataset_owner))
     rootLogger.debug("make_dataset_request_received {}".format(item))
     item.dataset_type = determine_type(item.dataset_type)
     token = item.user_token
