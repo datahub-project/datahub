@@ -154,7 +154,11 @@ public class SchemaDiffer implements Differ {
       SchemaField curTargetField = targetFields.get(targetFieldIdx);
       //TODO: Re-evaluate ordinal processing?
       int comparison = curBaseField.getFieldPath().compareTo(curTargetField.getFieldPath());
-      if (comparison == 0) {
+      if (renamedFields.contains(curBaseField)) {
+        baseFieldIdx++;
+      } else if (renamedFields.contains(curTargetField)) {
+        targetFieldIdx++;
+      } else if (comparison == 0) {
         // This is the same field. Check for change events from property changes.
         if (!curBaseField.getNativeDataType().equals(curTargetField.getNativeDataType())) {
           // Non-backward compatible change + Major version bump
@@ -258,21 +262,29 @@ public class SchemaDiffer implements Differ {
   }
 
   private static SchemaField findRenamedField(SchemaField curField, List<SchemaField> targetFields, Set<SchemaField> renamedFields) {
-    Predicate<SchemaField> descriptionsMatch = schemaField ->
-        curField.getDescription() != null && curField.getDescription().equals(schemaField.getDescription());
-    Predicate<SchemaField> termsMatch = schemaField ->
-        curField.getGlossaryTerms() != null && curField.getGlossaryTerms().equals(schemaField.getGlossaryTerms());
-    Predicate<SchemaField> tagsMatch = schemaField ->
-        curField.getGlobalTags() != null && curField.getGlobalTags().equals(schemaField.getGlobalTags());
-    Predicate<SchemaField> sameType = schemaField ->
-        curField.getNativeDataType().equals(schemaField.getNativeDataType());
-    Predicate<SchemaField> isRenamed = schemaField ->
-        sameType.test(schemaField)
-            && (descriptionsMatch.test(schemaField) || tagsMatch.test(schemaField) || termsMatch.test(schemaField));
     return targetFields.stream()
-        .filter(isRenamed)
+        .filter(schemaField -> isRenamed(curField, schemaField))
         .filter(field -> !renamedFields.contains(field))
         .findFirst().orElse(null);
+  }
+
+  private static boolean isRenamed(SchemaField curField, SchemaField schemaField) {
+    return curField.getNativeDataType().equals(schemaField.getNativeDataType())
+        && (descriptionsMatch(curField, schemaField)
+            || tagsMatch(curField, schemaField)
+            || termsMatch(curField, schemaField));
+  }
+
+  private static boolean descriptionsMatch(SchemaField curField, SchemaField schemaField) {
+    return curField.getDescription() != null && curField.getDescription().equals(schemaField.getDescription());
+  }
+
+  private static boolean tagsMatch(SchemaField curField, SchemaField schemaField) {
+    return curField.getGlobalTags() != null && curField.getGlobalTags().equals(schemaField.getGlobalTags());
+  }
+
+  private static boolean termsMatch(SchemaField curField, SchemaField schemaField) {
+    return curField.getGlossaryTerms() != null && curField.getGlossaryTerms().equals(schemaField.getGlossaryTerms());
   }
 
   private static void processRemoval(ChangeCategory changeCategory, List<ChangeEvent> changeEvents, Urn datasetUrn,
