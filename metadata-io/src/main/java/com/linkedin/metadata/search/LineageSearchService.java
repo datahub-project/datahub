@@ -104,8 +104,8 @@ public class LineageSearchService {
           lineageRelationships.stream().collect(Collectors.toMap(LineageRelationship::getEntity, Function.identity()));
       Filter finalFilter = buildFilter(urnToRelationship.keySet(), inputFilters);
       LineageSearchResult resultForBatch = buildLineageSearchResult(
-          _searchService.searchAcrossEntities(entitiesToQuery, input, finalFilter, sortCriterion, queryFrom, querySize,
-              SKIP_CACHE), urnToRelationship);
+          _searchService.searchAcrossEntities(entitiesToQuery, input, finalFilter, sortCriterion, queryFrom, querySize),
+          urnToRelationship);
       queryFrom = Math.max(0, from - resultForBatch.getNumEntities());
       querySize = Math.max(0, size - resultForBatch.getEntities().size());
       finalResult = merge(finalResult, resultForBatch);

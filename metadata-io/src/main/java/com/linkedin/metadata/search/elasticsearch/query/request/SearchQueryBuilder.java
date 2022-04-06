@@ -1,6 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
-import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.SearchScoreFieldSpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchScoreAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
@@ -36,13 +36,16 @@ public class SearchQueryBuilder {
   private SearchQueryBuilder() {
   }
 
-  public static QueryBuilder buildQuery(@Nonnull EntitySpec entitySpec, @Nonnull String query) {
-    return QueryBuilders.functionScoreQuery(buildInternalQuery(entitySpec, query), buildScoreFunctions(entitySpec))
+  public static QueryBuilder buildQuery(@Nonnull List<SearchableFieldSpec> searchableFieldSpecs,
+      @Nonnull List<SearchScoreFieldSpec> searchScoreFieldSpecs, @Nonnull String query) {
+    return QueryBuilders.functionScoreQuery(buildInternalQuery(searchableFieldSpecs, query),
+        buildScoreFunctions(searchableFieldSpecs, searchScoreFieldSpecs))
         .scoreMode(FunctionScoreQuery.ScoreMode.AVG) // Average score functions
         .boostMode(CombineFunction.MULTIPLY); // Multiply score function with the score from query
   }
 
-  private static QueryBuilder buildInternalQuery(@Nonnull EntitySpec entitySpec, @Nonnull String query) {
+  private static QueryBuilder buildInternalQuery(@Nonnull List<SearchableFieldSpec> searchableFieldSpecs,
+      @Nonnull String query) {
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
     // Key word lowercase queries do case agnostic exact matching between document value and query
     QueryStringQueryBuilder keywordLowercaseQuery = QueryBuilders.queryStringQuery(query);
@@ -53,7 +56,7 @@ public class SearchQueryBuilder {
     textQuery.analyzer(TEXT_ANALYZER);
     textQuery.defaultOperator(Operator.AND);
 
-    for (SearchableFieldSpec fieldSpec : entitySpec.getSearchableFieldSpecs()) {
+    for (SearchableFieldSpec fieldSpec : searchableFieldSpecs) {
       if (!fieldSpec.getSearchableAnnotation().isQueryByDefault()) {
         continue;
       }
@@ -81,13 +84,14 @@ public class SearchQueryBuilder {
     return finalQuery;
   }
 
-  private static FunctionScoreQueryBuilder.FilterFunctionBuilder[] buildScoreFunctions(@Nonnull EntitySpec entitySpec) {
+  private static FunctionScoreQueryBuilder.FilterFunctionBuilder[] buildScoreFunctions(
+      @Nonnull List<SearchableFieldSpec> searchableFieldSpecs,
+      @Nonnull List<SearchScoreFieldSpec> searchScoreFieldSpecs) {
     List<FunctionScoreQueryBuilder.FilterFunctionBuilder> finalScoreFunctions = new ArrayList<>();
     // Add a default weight of 1.0 to make sure the score function is larger than 1
     finalScoreFunctions.add(
         new FunctionScoreQueryBuilder.FilterFunctionBuilder(ScoreFunctionBuilders.weightFactorFunction(1.0f)));
-    entitySpec.getSearchableFieldSpecs()
-        .stream()
+    searchableFieldSpecs.stream()
         .flatMap(fieldSpec -> fieldSpec.getSearchableAnnotation()
             .getWeightsPerFieldValue()
             .entrySet()
@@ -96,8 +100,7 @@ public class SearchQueryBuilder {
                 entry.getValue())))
         .forEach(finalScoreFunctions::add);
 
-    entitySpec.getSearchScoreFieldSpecs()
-        .stream()
+    searchScoreFieldSpecs.stream()
         .map(fieldSpec -> buildScoreFunctionFromSearchScoreAnnotation(fieldSpec.getSearchScoreAnnotation()))
         .forEach(finalScoreFunctions::add);
 

@@ -12,12 +12,14 @@ import org.testng.annotations.Test;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
+
 public class SearchQueryBuilderTest {
 
   @Test
   public void testQueryBuilder() {
-    FunctionScoreQueryBuilder result =
-        (FunctionScoreQueryBuilder) SearchQueryBuilder.buildQuery(TestEntitySpecBuilder.getSpec(), "testQuery");
+    FunctionScoreQueryBuilder result = (FunctionScoreQueryBuilder) SearchQueryBuilder.buildQuery(
+        TestEntitySpecBuilder.getSpec().getSearchableFieldSpecs(),
+        TestEntitySpecBuilder.getSpec().getSearchScoreFieldSpecs(), "testQuery");
     BoolQueryBuilder mainQuery = (BoolQueryBuilder) result.query();
     List<QueryBuilder> shouldQueries = mainQuery.should();
     assertEquals(shouldQueries.size(), 2);

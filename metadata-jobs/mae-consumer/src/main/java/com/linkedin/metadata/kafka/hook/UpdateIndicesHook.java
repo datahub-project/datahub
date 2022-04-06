@@ -9,7 +9,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.common.GraphServiceFactory;
 import com.linkedin.gms.factory.common.SystemMetadataServiceFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
-import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
+import com.linkedin.gms.factory.search.SearchServiceFactory;
 import com.linkedin.gms.factory.search.SearchDocumentTransformerFactory;
 import com.linkedin.gms.factory.timeseries.TimeseriesAspectServiceFactory;
 import com.linkedin.metadata.Constants;
@@ -52,7 +52,7 @@ import static com.linkedin.metadata.search.utils.QueryUtils.*;
 
 @Slf4j
 @Component
-@Import({GraphServiceFactory.class, EntitySearchServiceFactory.class, TimeseriesAspectServiceFactory.class,
+@Import({GraphServiceFactory.class, SearchServiceFactory.class, TimeseriesAspectServiceFactory.class,
     EntityRegistryFactory.class, SystemMetadataServiceFactory.class, SearchDocumentTransformerFactory.class})
 public class UpdateIndicesHook implements MetadataChangeLogHook {
 

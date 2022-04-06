@@ -1,8 +1,8 @@
 package com.linkedin.gms.factory.recommendation.candidatesource;
 
-import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
+import com.linkedin.gms.factory.search.SearchServiceFactory;
 import com.linkedin.metadata.recommendation.candidatesource.TopTermsSource;
-import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.SearchService;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -12,16 +12,16 @@ import org.springframework.context.annotation.Import;
 
 
 @Configuration
-@Import({EntitySearchServiceFactory.class})
+@Import({SearchServiceFactory.class})
 public class TopTermsCandidateSourceFactory {
 
   @Autowired
-  @Qualifier("entitySearchService")
-  private EntitySearchService entitySearchService;
+  @Qualifier("searchService")
+  private SearchService searchService;
 
   @Bean(name = "topTermsCandidateSource")
   @Nonnull
   protected TopTermsSource getInstance() {
-    return new TopTermsSource(entitySearchService);
+    return new TopTermsSource(searchService);
   }
 }

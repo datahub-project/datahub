@@ -4,7 +4,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.recommendation.RecommendationRenderType;
 import com.linkedin.metadata.recommendation.RecommendationRequestContext;
 import com.linkedin.metadata.recommendation.ScenarioType;
-import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.SearchService;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -14,8 +14,8 @@ public class DomainsCandidateSource extends EntitySearchAggregationSource {
 
   private static final String DOMAINS = "domains";
 
-  public DomainsCandidateSource(EntitySearchService entitySearchService) {
-    super(entitySearchService);
+  public DomainsCandidateSource(SearchService searchService) {
+    super(searchService);
   }
 
   @Override

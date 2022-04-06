@@ -5,8 +5,11 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.DoubleMap;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.FieldSpec;
+import com.linkedin.metadata.models.SearchScoreFieldSpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.AggregationMetadata;
@@ -33,6 +36,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -58,32 +62,62 @@ import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
 public class SearchRequestHandler {
 
   private static final Map<EntitySpec, SearchRequestHandler> REQUEST_HANDLER_BY_ENTITY_NAME = new ConcurrentHashMap<>();
-
-  private final EntitySpec _entitySpec;
+  private static SearchRequestHandler ALL_ENTITIES_REQUEST_HANDLER;
+  private final List<SearchableFieldSpec> _searchableFieldSpecs;
+  private final List<SearchScoreFieldSpec> _searchScoreFieldSpecs;
   private final Set<String> _facetFields;
   private final Set<String> _defaultQueryFieldNames;
   private final Map<String, String> _filtersToDisplayName;
   private final int _maxTermBucketSize = 100;
   private static final String REMOVED = "removed";
 
-  private SearchRequestHandler(@Nonnull EntitySpec entitySpec) {
-    _entitySpec = entitySpec;
+  private SearchRequestHandler(@Nonnull List<SearchableFieldSpec> searchableFieldSpecs,
+      @Nonnull List<SearchScoreFieldSpec> searchScoreFieldSpecs) {
+    _searchableFieldSpecs = searchableFieldSpecs;
+    _searchScoreFieldSpecs = searchScoreFieldSpecs;
     _facetFields = getFacetFields();
     _defaultQueryFieldNames = getDefaultQueryFieldNames();
-    _filtersToDisplayName = _entitySpec.getSearchableFieldSpecs()
-        .stream()
+    _filtersToDisplayName = _searchableFieldSpecs.stream()
         .filter(spec -> spec.getSearchableAnnotation().isAddToFilters())
         .collect(Collectors.toMap(spec -> spec.getSearchableAnnotation().getFieldName(),
             spec -> spec.getSearchableAnnotation().getFilterName()));
+  }
+
+  private SearchRequestHandler(@Nonnull EntitySpec entitySpec) {
+    this(entitySpec.getSearchableFieldSpecs(), entitySpec.getSearchScoreFieldSpecs());
+  }
+
+  private SearchRequestHandler(@Nonnull EntityRegistry entityRegistry) {
+    this(mergeSpecs(entityRegistry, EntitySpec::getSearchableFieldSpecs),
+        mergeSpecs(entityRegistry, EntitySpec::getSearchScoreFieldSpecs));
+  }
+
+  private static <T extends FieldSpec> List<T> mergeSpecs(@Nonnull EntityRegistry entityRegistry,
+      Function<EntitySpec, List<T>> entityToFieldSpecs) {
+    return entityRegistry.getEntitySpecs()
+        .values()
+        .stream()
+        .flatMap(entitySpec -> entityToFieldSpecs.apply(entitySpec).stream())
+        .collect(Collectors.groupingBy(spec -> spec.getPath().toString()))
+        .entrySet()
+        .stream()
+        .map(entry -> entry.getValue().get(0))
+        .collect(Collectors.toList());
   }
 
   public static SearchRequestHandler getBuilder(@Nonnull EntitySpec entitySpec) {
     return REQUEST_HANDLER_BY_ENTITY_NAME.computeIfAbsent(entitySpec, k -> new SearchRequestHandler(entitySpec));
   }
 
+  public static SearchRequestHandler getBuilderForAllEntities(@Nonnull EntityRegistry entityRegistry) {
+    if (ALL_ENTITIES_REQUEST_HANDLER == null) {
+      ALL_ENTITIES_REQUEST_HANDLER = new SearchRequestHandler(entityRegistry);
+    }
+    return ALL_ENTITIES_REQUEST_HANDLER;
+  }
+
   private Set<String> getFacetFields() {
-    return _entitySpec.getSearchableFieldSpecs()
-        .stream()
+    return _searchableFieldSpecs.stream()
         .map(SearchableFieldSpec::getSearchableAnnotation)
         .filter(SearchableAnnotation::isAddToFilters)
         .map(SearchableAnnotation::getFieldName)
@@ -91,8 +125,7 @@ public class SearchRequestHandler {
   }
 
   private Set<String> getDefaultQueryFieldNames() {
-    return _entitySpec.getSearchableFieldSpecs()
-        .stream()
+    return _searchableFieldSpecs.stream()
         .map(SearchableFieldSpec::getSearchableAnnotation)
         .filter(SearchableAnnotation::isQueryByDefault)
         .map(SearchableAnnotation::getFieldName)
@@ -104,9 +137,9 @@ public class SearchRequestHandler {
 
     boolean removedInOrFilter = false;
     if (filter != null) {
-      removedInOrFilter = filter.getOr().stream().anyMatch(
-              or -> or.getAnd().stream().anyMatch(criterion -> criterion.getField().equals(REMOVED))
-      );
+      removedInOrFilter = filter.getOr()
+          .stream()
+          .anyMatch(or -> or.getAnd().stream().anyMatch(criterion -> criterion.getField().equals(REMOVED)));
     }
     // Filter out entities that are marked "removed" if and only if filter does not contain a criterion referencing it.
     if (!removedInOrFilter) {
@@ -197,7 +230,7 @@ public class SearchRequestHandler {
   }
 
   private QueryBuilder getQuery(@Nonnull String query) {
-    return SearchQueryBuilder.buildQuery(_entitySpec, query);
+    return SearchQueryBuilder.buildQuery(_searchableFieldSpecs, _searchScoreFieldSpecs, query);
   }
 
   private List<AggregationBuilder> getAggregations() {

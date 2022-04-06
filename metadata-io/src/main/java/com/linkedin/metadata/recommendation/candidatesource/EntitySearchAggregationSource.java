@@ -9,7 +9,7 @@ import com.linkedin.metadata.recommendation.RecommendationContent;
 import com.linkedin.metadata.recommendation.RecommendationParams;
 import com.linkedin.metadata.recommendation.RecommendationRequestContext;
 import com.linkedin.metadata.recommendation.SearchParams;
-import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.SearchService;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.Collections;
@@ -35,7 +35,7 @@ import org.apache.commons.lang3.tuple.Pair;
 @Slf4j
 @RequiredArgsConstructor
 public abstract class EntitySearchAggregationSource implements RecommendationSource {
-  private final EntitySearchService _entitySearchService;
+  private final SearchService _searchService;
 
   /**
    * Field to aggregate on
@@ -82,7 +82,7 @@ public abstract class EntitySearchAggregationSource implements RecommendationSou
   public List<RecommendationContent> getRecommendations(@Nonnull Urn userUrn,
       @Nullable RecommendationRequestContext requestContext) {
     Map<String, Long> aggregationResult =
-        _entitySearchService.aggregateByValue(null, getSearchFieldName(), null, getMaxContent());
+        _searchService.aggregateByValue(null, getSearchFieldName(), null, getMaxContent());
 
     if (aggregationResult.isEmpty()) {
       return Collections.emptyList();
