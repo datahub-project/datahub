@@ -77,7 +77,7 @@ def ingest() -> None:
     type=bool,
     is_flag=True,
     default=False,
-    help="Supress display of credentials in logs by supressing elaborae stacktrace (stackprinter) during ingestion failures"
+    help="Supress display of credentials in logs by supressing elaborae stacktrace (stackprinter) during ingestion failures",
 )
 @click.pass_context
 @telemetry.with_telemetry
@@ -110,7 +110,7 @@ def run(
         raise SensitiveError() from e
 
     logger.info("Starting metadata ingestion")
-    
+
     try:
         pipeline.run()
     except Exception as e:
@@ -121,7 +121,7 @@ def run(
             raise SensitiveError() from e
         else:
             raise e
-            
+
     logger.info("Finished metadata ingestion")
     ret = pipeline.pretty_print_summary(warnings_as_failure=strict_warnings)
     pipeline.log_ingestion_stats()
