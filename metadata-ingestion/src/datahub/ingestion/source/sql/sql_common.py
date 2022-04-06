@@ -97,7 +97,7 @@ if TYPE_CHECKING:
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-def get_platform_from_sqlalchemy_uri(sqlalchemy_uri: str) -> str:
+def get_platform_from_sqlalchemy_uri(sqlalchemy_uri: str) -> str:  # noqa: C901
     if sqlalchemy_uri.startswith("bigquery"):
         return "bigquery"
     if sqlalchemy_uri.startswith("clickhouse"):
