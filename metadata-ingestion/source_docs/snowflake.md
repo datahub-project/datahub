@@ -16,22 +16,34 @@ from your warehouse.
 
 You can use the `provision_role` block in the recipe to grant the requires roles. 
 
-If your system admins prefer running the commands themselves then they can follow this guide to create a DataHub-specific role, assign it the required privileges, and assign it to a new DataHub user by executing the following Snowflake commands from a user with the `ACCOUNTADMIN` role: 
+If your system admins prefer running the commands themselves then they can follow this guide to create a DataHub-specific role, assign it the required privileges, and assign it to a new DataHub user by executing the following Snowflake commands from a user with the `ACCOUNTADMIN` role or `MANAGE GRANTS` privilege.
 
 ```sql
 create or replace role datahub_role;
 
-// Grant privileges to use and select from your target warehouses / dbs / schemas / tables
-grant operate, usage on warehouse <your-warehouse> to role datahub_role;
-grant usage on DATABASE <your-database> to role datahub_role;
-grant usage on all schemas in database <your-database> to role datahub_role; 
-grant select on all tables in database <your-database> to role datahub_role; 
-grant select on all external tables in database <your-database> to role datahub_role;
-grant select on all views in database <your-database> to role datahub_role;
+// Grant access to a warehouse to run queries to view metadata
+grant operate, usage on warehouse "<your-warehouse>" to role datahub_role;
 
-// Grant privileges for all future schemas and tables created in a warehouse 
+// Grant access to view database and schema in which your tables/views exist
+grant usage on DATABASE "<your-database>" to role datahub_role;
+grant usage on all schemas in database "<your-database>" to role datahub_role;
 grant usage on future schemas in database "<your-database>" to role datahub_role;
+
+// If you are NOT using Snowflake Profiling feature: Grant references privileges to your tables and views 
+grant references on all tables in database "<your-database>" to role datahub_role;
+grant references on future tables in database "<your-database>" to role datahub_role;
+grant references on all external tables in database "<your-database>" to role datahub_role;
+grant references on future external tables in database "<your-database>" to role datahub_role;
+grant references on all views in database "<your-database>" to role datahub_role;
+grant references on future views in database "<your-database>" to role datahub_role;
+
+// If you ARE using Snowflake Profiling feature: Grant select privileges to your tables and views 
+grant select on all tables in database "<your-database>" to role datahub_role;
 grant select on future tables in database "<your-database>" to role datahub_role;
+grant select on all external tables in database "<your-database>" to role datahub_role;
+grant select on future external tables in database "<your-database>" to role datahub_role;
+grant select on all views in database "<your-database>" to role datahub_role;
+grant select on future views in database "<your-database>" to role datahub_role;
 
 // Create a new DataHub user and assign the DataHub role to it 
 create user datahub_user display_name = 'DataHub' password='' default_role = datahub_role default_warehouse = '<your-warehouse>';
@@ -39,6 +51,16 @@ create user datahub_user display_name = 'DataHub' password='' default_role = dat
 // Grant the datahub_role to the new DataHub user. 
 grant role datahub_role to user datahub_user;
 ```
+
+The details of each granted privilege can be viewed in [snowflake docs](https://docs.snowflake.com/en/user-guide/security-access-control-privileges.html). A summarization of each privilege, and why it is required for this connector: 
+- `operate` is required on warehouse to execute queries 
+- `usage` is required for us to run queries using the warehouse
+- `usage` on `database` and `schema` are required because without it tables and views inside them are not accessible. If an admin does the required grants on `table` but misses the grants on `schema` or the `database` in which the table/view exists then we will not be able to get metadata for the table/view.
+- If metadata is required only on some schemas then you can grant the usage privilieges only on a particular schema like
+```sql
+grant usage on schema "<your-database>"."<your-schema>" to role datahub_role;
+```
+- To get the lineage and usage data we need access to the default `snowflake` database
 
 This represents the bare minimum privileges required to extract databases, schemas, views, tables from Snowflake. 
 
@@ -110,6 +132,11 @@ source:
     schema_pattern:
       deny:
       - "information_schema.*"
+    table_pattern:
+      allow:
+      # If you want to ingest only few tables with name revenue and revenue
+      - ".*revenue"
+      - ".*sales"
     profiling:
       enabled: true
     profile_pattern:
@@ -188,7 +215,7 @@ To install this plugin, run `pip install 'acryl-datahub[snowflake-usage]'`.
 
 ### Prerequisites 
 
-In order to execute the snowflake-usage source, your Snowflake user will need to have specific privileges granted to it. Specifically, you'll need to grant access to the [Account Usage](https://docs.snowflake.com/en/sql-reference/account-usage.html) system tables, using which the DataHub source extracts information. Assuming you've followed the steps outlined in `snowflake` plugin to create a DataHub-specific User & Role, you'll simply need to execute the following commands in Snowflake. This will require a user with the `ACCOUNTADMIN` role (or a role granted the IMPORT SHARES global privilege). Please see [Snowflake docs for more details](https://docs.snowflake.com/en/user-guide/data-share-consumers.html).
+In order to execute the `snowflake-usage` source, your Snowflake user will need to have specific privileges granted to it. Specifically, you'll need to grant access to the [Account Usage](https://docs.snowflake.com/en/sql-reference/account-usage.html) system tables, using which the DataHub source extracts information. Assuming you've followed the steps outlined in `snowflake` plugin to create a DataHub-specific User & Role, you'll simply need to execute the following commands in Snowflake. This will require a user with the `ACCOUNTADMIN` role (or a role granted the IMPORT SHARES global privilege). Please see [Snowflake docs for more details](https://docs.snowflake.com/en/user-guide/data-share-consumers.html).
 
 ```sql
 grant imported privileges on database snowflake to role datahub_role;
@@ -258,7 +285,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 |---------------------------------|----------|---------------------------------------------------------------------|----------------------------------------------------------------------------------|
 | `username`                      |          |                                                                     | Snowflake username.                                                              |
 | `password`                      |          |                                                                     | Snowflake password.                                                              |
-| `host_port`                     | ✅        |                                                                     | Snowflake host URL.                                                              |
+| `host_port`                     | ✅       |                                                                     | Snowflake host URL.                                                              |
 | `warehouse`                     |          |                                                                     | Snowflake warehouse.                                                             |
 | `role`                          |          |                                                                     | Snowflake role.                                                                  |
 | `env`                           |          | `"PROD"`                                                            | Environment to use in namespace when constructing URNs.                          |
@@ -268,24 +295,24 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `end_time`                      |          | Last full day in UTC (or hour, depending on `bucket_duration`)      | Latest date of usage logs to consider.                                           |
 | `top_n_queries`                 |          | `10`                                                                | Number of top queries to save to each table.                                     |
 | `include_operational_stats`     |          | `true`                                                              | Whether to display operational stats.                                            |
-| `database_pattern.allow`        |          |                                                                            | List of regex patterns for databases to include in ingestion.                                                                                                                           |
-| `database_pattern.deny`         |          | `"^UTIL_DB$" `<br />`"^SNOWFLAKE$"`<br />`"^SNOWFLAKE_SAMPLE_DATA$"`       | List of regex patterns for databases to exclude from ingestion.                                                                                                                         |
-| `database_pattern.ignoreCase`   |          | `True`                                                                     | Whether to ignore case sensitivity during pattern matching.                                                                                                                             |
-| `schema_pattern.allow`         |          |                                                                            | List of regex patterns for schemas to include in ingestion.                                                                                                                             |
-| `schema_pattern.deny`          |          |                                                                            | List of regex patterns for schemas to exclude from ingestion.                                                                                                                           |
-| `schema_pattern.ignoreCase`    |          | `True`                                                                     | Whether to ignore case sensitivity during pattern matching.                                                                                                                             |
+| `database_pattern.allow`        |          |                                                                     | List of regex patterns for databases to include in ingestion.                    |
+| `database_pattern.deny`         |          | `"^UTIL_DB$" `<br />`"^SNOWFLAKE$"`<br />`"^SNOWFLAKE_SAMPLE_DATA$"`| List of regex patterns for databases to exclude from ingestion.                  |
+| `database_pattern.ignoreCase`   |          | `True`                                                              | Whether to ignore case sensitivity during pattern matching.                      |
+| `schema_pattern.allow`          |          |                                                                     | List of regex patterns for schemas to include in ingestion.                      |
+| `schema_pattern.deny`           |          |                                                                     | List of regex patterns for schemas to exclude from ingestion.                    |
+| `schema_pattern.ignoreCase`     |          | `True`                                                              | Whether to ignore case sensitivity during pattern matching.                      |
 | `view_pattern`                  |          |                                                                     | Allow/deny patterns for views in snowflake dataset names.                        |
 | `table_pattern`                 |          |                                                                     | Allow/deny patterns for tables in snowflake dataset names.                       |
 | `user_email_pattern.allow`      |          | *                                                                   | List of regex patterns for user emails to include in usage.                      |
 | `user_email_pattern.deny`       |          |                                                                     | List of regex patterns for user emails to exclude from usage.                    |
 | `user_email_pattern.ignoreCase` |          | `True`                                                              | Whether to ignore case sensitivity during pattern matching.                      |
+| `format_sql_queries`            |          | `False`                                                             | Whether to format sql queries                                                    |
 
 :::caution
 
 User's without email address will be ignored from usage if you don't set `email_domain` property.
 
 :::
-
 
 
 ## Compatibility

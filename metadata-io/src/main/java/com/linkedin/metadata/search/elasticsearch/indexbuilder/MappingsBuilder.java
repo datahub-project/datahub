@@ -77,6 +77,8 @@ public class MappingsBuilder {
       mappingForField.put("type", "boolean");
     } else if (fieldType == FieldType.COUNT) {
       mappingForField.put("type", "long");
+    } else if (fieldType == FieldType.DATETIME) {
+      mappingForField.put("type", "date");
     } else {
       log.info("FieldType {} has no mappings implemented", fieldType);
     }

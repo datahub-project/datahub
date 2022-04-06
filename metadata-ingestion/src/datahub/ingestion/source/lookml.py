@@ -2,6 +2,7 @@ import glob
 import importlib
 import itertools
 import logging
+import os
 import pathlib
 import re
 import sys
@@ -922,8 +923,10 @@ class LookMLSource(Source):
             return None
 
     def _get_custom_properties(self, looker_view: LookerView) -> DatasetPropertiesClass:
-        file_path = str(pathlib.Path(looker_view.absolute_file_path).resolve()).replace(
-            str(self.source_config.base_folder.resolve()), ""
+        file_path = (
+            str(pathlib.Path(looker_view.absolute_file_path).resolve())
+            .replace(str(self.source_config.base_folder.resolve()), "")
+            .lstrip(os.sep)
         )
 
         custom_properties = {
