@@ -2,6 +2,7 @@ package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.SearchScoreFieldSpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import java.util.HashMap;
@@ -21,6 +22,8 @@ public class MappingsBuilder {
     mappings.put("urn", getMappingsForUrn());
     entitySpec.getSearchableFieldSpecs()
         .forEach(searchableFieldSpec -> mappings.putAll(getMappingsForField(searchableFieldSpec)));
+    entitySpec.getSearchScoreFieldSpecs()
+        .forEach(searchScoreFieldSpec -> mappings.putAll(getMappingsForSearchScoreField(searchScoreFieldSpec)));
     return ImmutableMap.of("properties", mappings);
   }
 
@@ -92,5 +95,11 @@ public class MappingsBuilder {
         .ifPresent(fieldName -> mappings.put(fieldName, ImmutableMap.of("type", "long")));
 
     return mappings;
+  }
+
+  private static Map<String, Object> getMappingsForSearchScoreField(
+      @Nonnull final SearchScoreFieldSpec searchScoreFieldSpec) {
+    return ImmutableMap.of(searchScoreFieldSpec.getSearchScoreAnnotation().getFieldName(),
+        ImmutableMap.of("type", "double"));
   }
 }
