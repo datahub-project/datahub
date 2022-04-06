@@ -584,7 +584,15 @@ class BigQuerySource(SQLAlchemySource):
         if partition:
             partition_ts: Union[datetime.datetime, datetime.date]
             if not partition_datetime:
-                partition_datetime = parser.parse(partition.partition_id)
+                """
+                bigquery partition_id of the MONTHLY partition is a format of {year}{month} such as 202204.
+                dateutil.parser.parse consider six digits string as {day}{month}{year}.
+                Thus we need to append a seperator like '-' between 2022 and 04.
+                """
+                partition_id_for_parse = partition.partition_id
+                if len(partition_id_for_parse) == 6:
+                    partition_id_for_parse = partition_id_for_parse[:4] + '-' + partition_id_for_parse[4:]
+                partition_datetime = parser.parse(partition_id_for_parse)
             logger.debug(f"{table} is partitioned and partition column is {partition}")
             if partition.data_type in ("TIMESTAMP", "DATETIME"):
                 partition_ts = partition_datetime
