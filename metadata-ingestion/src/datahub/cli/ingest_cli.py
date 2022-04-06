@@ -102,8 +102,11 @@ def run(
         raise SensitiveError() from e
 
     logger.info("Starting metadata ingestion")
-    pipeline.run()
-    logger.info("Finished metadata ingestion")
+    try:
+        pipeline.run()
+        logger.info("Finished metadata ingestion")
+    except Exception as e:
+        logger.error(f"Exception was {e}")
     ret = pipeline.pretty_print_summary(warnings_as_failure=strict_warnings)
     pipeline.log_ingestion_stats()
     sys.exit(ret)
