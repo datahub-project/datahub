@@ -32,6 +32,7 @@
                                                 },
                                                 "name": "customer",
                                                 "schema": "",
+                                                "fullName": "customer",
                                                 "connectionType": "postgres"
                                             },
                                             {
@@ -41,6 +42,7 @@
                                                 },
                                                 "name": "payment",
                                                 "schema": "",
+                                                "fullName": "payment",
                                                 "connectionType": "postgres"
                                             }
                                         ],
@@ -77,6 +79,7 @@
                                                 },
                                                 "name": "customer",
                                                 "schema": "",
+                                                "fullName": "customer",
                                                 "connectionType": "postgres"
                                             },
                                             {
@@ -86,6 +89,7 @@
                                                 },
                                                 "name": "payment",
                                                 "schema": "",
+                                                "fullName": "payment",
                                                 "connectionType": "postgres"
                                             }
                                         ],
@@ -122,6 +126,7 @@
                                                 },
                                                 "name": "customer",
                                                 "schema": "",
+                                                "fullName": "customer",
                                                 "connectionType": "postgres"
                                             },
                                             {
@@ -131,6 +136,7 @@
                                                 },
                                                 "name": "payment",
                                                 "schema": "",
+                                                "fullName": "payment",
                                                 "connectionType": "postgres"
                                             }
                                         ],
@@ -167,6 +173,7 @@
                                                 },
                                                 "name": "customer",
                                                 "schema": "",
+                                                "fullName": "customer",
                                                 "connectionType": "postgres"
                                             },
                                             {
@@ -176,6 +183,7 @@
                                                 },
                                                 "name": "payment",
                                                 "schema": "",
+                                                "fullName": "payment",
                                                 "connectionType": "postgres"
                                             }
                                         ],
@@ -212,6 +220,7 @@
                                                 },
                                                 "name": "customer",
                                                 "schema": "",
+                                                "fullName": "customer",
                                                 "connectionType": "postgres"
                                             },
                                             {
@@ -221,6 +230,7 @@
                                                 },
                                                 "name": "payment",
                                                 "schema": "",
+                                                "fullName": "payment",
                                                 "connectionType": "postgres"
                                             }
                                         ],
@@ -257,6 +267,7 @@
                                                 },
                                                 "name": "customer",
                                                 "schema": "",
+                                                "fullName": "customer",
                                                 "connectionType": "postgres"
                                             },
                                             {
@@ -266,6 +277,7 @@
                                                 },
                                                 "name": "payment",
                                                 "schema": "",
+                                                "fullName": "payment",
                                                 "connectionType": "postgres"
                                             }
                                         ],
@@ -282,11 +294,19 @@
                         {
                             "name": "customer",
                             "schema": "",
+                            "fullName": "customer",
+                            "database":{
+                                "name":"dvdrental"
+                            },
                             "connectionType": "postgres"
                         },
                         {
                             "name": "payment",
                             "schema": "",
+                            "fullName": "payment",
+                            "database":{
+                                "name":"dvdrental"
+                            },
                             "connectionType": "postgres"
                         }
                     ]
@@ -321,6 +341,7 @@
                                                 },
                                                 "name": "customer",
                                                 "schema": "",
+                                                "fullName": "customer",
                                                 "connectionType": "postgres"
                                             },
                                             {
@@ -330,6 +351,7 @@
                                                 },
                                                 "name": "payment",
                                                 "schema": "",
+                                                "fullName": "payment",
                                                 "connectionType": "postgres"
                                             },
                                             {
@@ -339,6 +361,7 @@
                                                 },
                                                 "name": "staff",
                                                 "schema": "",
+                                                "fullName": "staff",
                                                 "connectionType": "postgres"
                                             }
                                         ],
@@ -372,6 +395,7 @@
                                                 },
                                                 "name": "customer",
                                                 "schema": "",
+                                                "fullName": "customer",
                                                 "connectionType": "postgres"
                                             },
                                             {
@@ -381,6 +405,7 @@
                                                 },
                                                 "name": "payment",
                                                 "schema": "",
+                                                "fullName": "payment",
                                                 "connectionType": "postgres"
                                             },
                                             {
@@ -390,6 +415,7 @@
                                                 },
                                                 "name": "staff",
                                                 "schema": "",
+                                                "fullName": "staff",
                                                 "connectionType": "postgres"
                                             }
                                         ],
@@ -423,6 +449,7 @@
                                                 },
                                                 "name": "customer",
                                                 "schema": "",
+                                                "fullName": "customer",
                                                 "connectionType": "postgres"
                                             },
                                             {
@@ -432,6 +459,7 @@
                                                 },
                                                 "name": "payment",
                                                 "schema": "",
+                                                "fullName": "payment",
                                                 "connectionType": "postgres"
                                             },
                                             {
@@ -441,6 +469,7 @@
                                                 },
                                                 "name": "staff",
                                                 "schema": "",
+                                                "fullName": "staff",
                                                 "connectionType": "postgres"
                                             }
                                         ],
@@ -474,6 +503,7 @@
                                                 },
                                                 "name": "customer",
                                                 "schema": "",
+                                                "fullName": "customer",
                                                 "connectionType": "postgres"
                                             },
                                             {
@@ -483,6 +513,7 @@
                                                 },
                                                 "name": "payment",
                                                 "schema": "",
+                                                "fullName": "payment",
                                                 "connectionType": "postgres"
                                             },
                                             {
@@ -492,6 +523,7 @@
                                                 },
                                                 "name": "staff",
                                                 "schema": "",
+                                                "fullName": "staff",
                                                 "connectionType": "postgres"
                                             }
                                         ],
@@ -525,6 +557,7 @@
                                                 },
                                                 "name": "customer",
                                                 "schema": "",
+                                                "fullName": "customer",
                                                 "connectionType": "postgres"
                                             },
                                             {
@@ -534,6 +567,7 @@
                                                 },
                                                 "name": "payment",
                                                 "schema": "",
+                                                "fullName": "payment",
                                                 "connectionType": "postgres"
                                             },
                                             {
@@ -543,6 +577,7 @@
                                                 },
                                                 "name": "staff",
                                                 "schema": "",
+                                                "fullName": "staff",
                                                 "connectionType": "postgres"
                                             }
                                         ],
@@ -576,6 +611,7 @@
                                                 },
                                                 "name": "customer",
                                                 "schema": "",
+                                                "fullName": "customer",
                                                 "connectionType": "postgres"
                                             },
                                             {
@@ -585,6 +621,7 @@
                                                 },
                                                 "name": "payment",
                                                 "schema": "",
+                                                "fullName": "payment",
                                                 "connectionType": "postgres"
                                             },
                                             {
@@ -594,6 +631,7 @@
                                                 },
                                                 "name": "staff",
                                                 "schema": "",
+                                                "fullName": "staff",
                                                 "connectionType": "postgres"
                                             }
                                         ],
@@ -627,6 +665,7 @@
                                                 },
                                                 "name": "customer",
                                                 "schema": "",
+                                                "fullName": "customer",
                                                 "connectionType": "postgres"
                                             },
                                             {
@@ -636,6 +675,7 @@
                                                 },
                                                 "name": "payment",
                                                 "schema": "",
+                                                "fullName": "payment",
                                                 "connectionType": "postgres"
                                             },
                                             {
@@ -645,6 +685,7 @@
                                                 },
                                                 "name": "staff",
                                                 "schema": "",
+                                                "fullName": "staff",
                                                 "connectionType": "postgres"
                                             }
                                         ],
@@ -658,16 +699,28 @@
                         {
                             "name": "customer",
                             "schema": "",
+                            "fullName": "customer",
+                            "database":{
+                                "name":"dvdrental"
+                            },
                             "connectionType": "postgres"
                         },
                         {
                             "name": "payment",
                             "schema": "",
+                            "fullName": "payment",
+                            "database":{
+                                "name":"dvdrental"
+                            },
                             "connectionType": "postgres"
                         },
                         {
                             "name": "staff",
                             "schema": "",
+                            "fullName": "staff",
+                            "database":{
+                                "name":"dvdrental"
+                            },
                             "connectionType": "postgres"
                         }
                     ]
