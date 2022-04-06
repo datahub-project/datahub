@@ -13,8 +13,6 @@ import java.util.stream.Collectors;
 
 
 public class EntityDocCountCache {
-  private static final String CACHE_NAME = "entityDocCount";
-
   private final EntityRegistry _entityRegistry;
   private final EntitySearchService _entitySearchService;
   private final Supplier<Map<String, Long>> entityDocCount;
