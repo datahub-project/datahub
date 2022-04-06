@@ -225,6 +225,7 @@ custom_sql_graphql_query = """
                 name
               }
               schema
+              fullName
               connectionType
             }
             ... on PublishedDatasource {
@@ -242,6 +243,10 @@ custom_sql_graphql_query = """
       tables {
         name
         schema
+        fullName
+        database {
+          name
+        }
         connectionType
       }
 }

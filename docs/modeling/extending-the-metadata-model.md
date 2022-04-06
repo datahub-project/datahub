@@ -323,7 +323,7 @@ It takes the following parameters:
   annotations. To customize the set of analyzers used to index a certain field, you must add a new field type and define
   the set of mappings to be applied in the MappingsBuilder.
 
-  Thus far, we have implemented 8 fieldTypes:
+  Thus far, we have implemented 9 fieldTypes:
 
     1. *KEYWORD* - Short text fields that only support exact matches, often used only for filtering
 
@@ -342,6 +342,8 @@ It takes the following parameters:
     7. *BOOLEAN* - Boolean fields used for filtering.
 
     8. *COUNT* - Count fields used for filtering.
+  
+    9. *DATETIME* - Datetime fields used to represent timestamps.
 
 - **fieldName**: string (optional) - The name of the field in search index document. Defaults to the field name where
   the annotation resides.
