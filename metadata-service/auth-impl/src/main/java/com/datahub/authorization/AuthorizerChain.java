@@ -37,7 +37,7 @@ public class AuthorizerChain implements Authorizer {
     Objects.requireNonNull(request);
     for (final Authorizer authorizer : this.authorizers) {
       try {
-        log.debug(String.format("Executing Authorizer with class name %s", authorizer.getClass().getCanonicalName()));
+        log.debug("Executing Authorizer with class name {}", authorizer.getClass().getCanonicalName());
         AuthorizationResult result = authorizer.authorize(request);
         if (AuthorizationResult.Type.ALLOW.equals(result.type)) {
           // Authorization was successful - Short circuit
@@ -46,9 +46,9 @@ public class AuthorizerChain implements Authorizer {
           log.debug("Received DENY result from Authorizer with class name {}. message: {}", authorizer.getClass().getCanonicalName(), result.getMessage());
         }
       } catch (Exception e) {
-        log.debug(String.format(
-            "Caught exception while attempting to authorize request using Authorizer %s. Skipping authorizer.",
-            authorizer.getClass().getCanonicalName()), e);
+        log.error(
+            "Caught exception while attempting to authorize request using Authorizer {}. Skipping authorizer.",
+            authorizer.getClass().getCanonicalName(), e);
       }
     }
     // Return failed Authorization result.
