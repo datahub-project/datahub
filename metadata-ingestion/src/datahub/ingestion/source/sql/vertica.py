@@ -5,7 +5,6 @@ from pydantic.class_validators import validator
 from sqlalchemy import sql, util
 from sqlalchemy.engine import reflection
 from sqlalchemy.sql import sqltypes
-from sqlalchemy.sql.sqltypes import String
 from sqla_vertica_python.vertica_python import VerticaDialect
 
 from datahub.ingestion.source.sql.sql_common import (
@@ -13,6 +12,19 @@ from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
 )
 from datahub.utilities import config_clean
+from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+    ArrayType,
+    BooleanType,
+    BytesType,
+    DateType,
+    EnumType,
+    NullType,
+    NumberType,
+    RecordType,
+    StringType,
+    TimeType,
+    UnionType,
+)
 
 
 @reflection.cache
@@ -145,7 +157,9 @@ def _get_column_info(self, name, data_type, default, is_nullable, schema=None):
         args = ()
     elif charlen:
         args = (int(charlen),)
-    self.ischema_names["UUID"] = UUID
+    self.ischema_names["UUID"] = StringType
+    self.ischema_names["DATE"] = DateType
+    self.ischema_names["TIMESTAMP"] = TimeType
     if attype.upper() in self.ischema_names:
         coltype = self.ischema_names[attype.upper()]
     else:
@@ -185,18 +199,6 @@ def _get_column_info(self, name, data_type, default, is_nullable, schema=None):
         autoincrement=autoincrement,
     )
     return column_info
-
-class UUID(String):
-
-    """The SQL UUID type."""
-
-    __visit_name__ = "UUID"
-
-class DATE(String):
-
-    """The SQL DATE type."""
-
-    __visit_name__ = "DATE"
 
 
 VerticaDialect.get_view_definition = get_view_definition
