@@ -6,13 +6,12 @@ import com.linkedin.metadata.search.features.FeatureExtractor;
 import com.linkedin.metadata.search.features.Features;
 import java.util.List;
 import java.util.Optional;
-import org.apache.commons.lang3.tuple.Pair;
 
 
 /**
  * Simple ranker that diversifies the results between different entities. For the same entity, returns the same order from elasticsearch
  */
-public class SimpleRanker extends SearchRanker<Pair<Double, Double>> {
+public class SimpleRanker extends SearchRanker<Double> {
 
   private final List<FeatureExtractor> featureExtractors;
 
@@ -26,9 +25,7 @@ public class SimpleRanker extends SearchRanker<Pair<Double, Double>> {
   }
 
   @Override
-  public Pair<Double, Double> score(SearchEntity searchEntity) {
-    Features features = Features.from(searchEntity.getFeatures());
-    return Pair.of(Optional.ofNullable(searchEntity.getScore()).orElse(0.0),
-        -features.getNumericFeature(Features.Name.RANK_WITHIN_TYPE, 0.0));
+  public Double score(SearchEntity searchEntity) {
+    return Optional.ofNullable(searchEntity.getScore()).orElse(0.0);
   }
 }
