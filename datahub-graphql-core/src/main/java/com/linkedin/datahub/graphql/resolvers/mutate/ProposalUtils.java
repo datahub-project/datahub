@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.mutate;
 
-import com.datahub.authorization.AuthorizationManager;
+import com.datahub.authorization.DataHubAuthorizer;
 import com.datahub.authorization.ResourceSpec;
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
@@ -182,9 +182,9 @@ public class ProposalUtils {
       String subResource,
       SubResourceType subResourceType,
       EntityService entityService,
-      AuthorizationManager authorizationManager
+      DataHubAuthorizer authorizationManager
   ) throws URISyntaxException {
-    AuthorizationManager.AuthorizedActors actors = null;
+    DataHubAuthorizer.AuthorizedActors actors = null;
 
     ResourceSpec spec = new ResourceSpec(targetUrn.getEntityType(), targetUrn.toString());
     if (subResource != null && subResource.length() > 0) {
@@ -272,9 +272,9 @@ public class ProposalUtils {
       String subResource,
       SubResourceType subResourceType,
       EntityService entityService,
-      AuthorizationManager authorizationManager
+      DataHubAuthorizer authorizationManager
   ) throws URISyntaxException {
-    AuthorizationManager.AuthorizedActors actors = null;
+    DataHubAuthorizer.AuthorizedActors actors = null;
 
     if (subResource != null && subResource.length() > 0) {
       ResourceSpec spec = new ResourceSpec(targetUrn.getEntityType(), targetUrn.toString());
