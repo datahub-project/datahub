@@ -27,7 +27,9 @@ To install this plugin, run `pip install 'acryl-datahub[bigquery]'`.
    bigquery.tables.get
    bigquery.tables.getData # Needs for profiling
    bigquery.tables.list
-   logging.logEntries.list # Needs for lineage generation
+   # needed for lineage generation via GCP logging
+   logging.logEntries.list
+   logging.privateLogEntries.list
    resourcemanager.projects.get
 ```
 #### Create a service account

@@ -370,7 +370,9 @@ class QueryEvent:
     def get_missing_key_exported_bigquery_audit_metadata(
         row: BigQueryAuditMetadata,
     ) -> Optional[str]:
-        return get_first_missing_key_any(row, ["timestamp", "protoPayload", "metadata"])
+        return get_first_missing_key_any(
+            row._xxx_field_to_index, ["timestamp", "protoPayload", "metadata"]
+        )
 
     @classmethod
     def from_exported_bigquery_audit_metadata(

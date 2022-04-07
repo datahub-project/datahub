@@ -241,10 +241,6 @@ class BigQueryPartitionColumn:
 
 
 class BigQuerySource(SQLAlchemySource):
-    config: BigQueryConfig
-    maximum_shard_ids: Dict[str, str] = dict()
-    lineage_metadata: Optional[Dict[str, Set[str]]] = None
-
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "bigquery")
         self.config: BigQueryConfig = config
@@ -372,7 +368,9 @@ class BigQuerySource(SQLAlchemySource):
             end_time=end_time,
         )
 
-        assert self.config.log_page_size is not None
+        if self.config.log_page_size is None:
+            self.error(logger, "log-entry", "log_page_size missing")
+            return
 
         logger.info(
             f"Start loading log entries from BigQuery start_time={start_time} and end_time={end_time}"
@@ -393,6 +391,10 @@ class BigQuerySource(SQLAlchemySource):
         self, bigquery_client: BigQueryClient
     ) -> Iterable[BigQueryAuditMetadata]:
         if self.config.bigquery_audit_metadata_datasets is None:
+            self.error(
+                logger, "audit-metadata", "bigquery_audit_metadata_datasets missing"
+            )
+            self.report.bigquery_audit_metadata_datasets_missing = True
             return
 
         start_time: str = (
@@ -684,7 +686,11 @@ WHERE
     def add_config_to_report(self):
         self.report.start_time = self.config.start_time
         self.report.end_time = self.config.end_time
-
+        self.report.include_table_lineage = self.config.include_table_lineage
+        self.report.use_date_sharded_audit_log_tables = (
+            self.config.use_date_sharded_audit_log_tables
+        )
+        self.report.log_page_size = self.config.log_page_size
         self.report.use_exported_bigquery_audit_metadata = (
             self.config.use_exported_bigquery_audit_metadata
         )
