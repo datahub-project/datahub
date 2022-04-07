@@ -76,7 +76,14 @@ public class KafkaEventConsumerFactory {
 
     consumerProps.setValueDeserializer(schemaRegistryConfig.getDeserializer());
     Map<String, Object> props = properties.buildConsumerProperties();
-    props.putAll(schemaRegistryConfig.getProperties());
+
+    // Override KafkaProperties with SchemaRegistryConfig only for non-empty values
+    for (Map.Entry<String, Object> e : schemaRegistryConfig.getProperties().entrySet()) {
+      Object v = e.getValue();
+      if (v != null && !v.toString().isEmpty()) {
+        props.put(e.getKey(), v);
+      }
+    }
 
     ConcurrentKafkaListenerContainerFactory<String, GenericRecord> factory =
         new ConcurrentKafkaListenerContainerFactory<>();
