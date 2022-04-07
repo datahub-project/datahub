@@ -116,11 +116,11 @@ public class SearchQueryBuilder {
         ScoreFunctionBuilders.fieldValueFactorFunction(annotation.getFieldName());
     scoreFunction.factor((float) annotation.getWeight());
     scoreFunction.missing(annotation.getDefaultValue());
-    annotation.getModifier().ifPresent(modifier -> scoreFunction.modifier(getModifier(modifier)));
+    annotation.getModifier().ifPresent(modifier -> scoreFunction.modifier(mapModifier(modifier)));
     return new FunctionScoreQueryBuilder.FilterFunctionBuilder(scoreFunction);
   }
 
-  private static FieldValueFactorFunction.Modifier getModifier(SearchScoreAnnotation.Modifier modifier) {
+  private static FieldValueFactorFunction.Modifier mapModifier(SearchScoreAnnotation.Modifier modifier) {
     switch (modifier) {
       case LOG:
         return FieldValueFactorFunction.Modifier.LOG1P;

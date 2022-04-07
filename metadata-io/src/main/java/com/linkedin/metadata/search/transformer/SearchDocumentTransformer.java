@@ -150,6 +150,8 @@ public class SearchDocumentTransformer {
         return;
       default:
         // Only the above types are supported
+        throw new IllegalArgumentException(
+            String.format("SearchScore fields must be a numeric type: field %s, value %s", fieldName, fieldValue));
     }
   }
 

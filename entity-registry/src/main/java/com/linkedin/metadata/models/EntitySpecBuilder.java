@@ -207,7 +207,7 @@ public class EntitySpecBuilder {
           SchemaAnnotationProcessor.process(Collections.singletonList(_searchScoreHandler), aspectRecordSchema,
               new SchemaAnnotationProcessor.AnnotationProcessOption());
 
-      // Extract Searchable Field Specs
+      // Extract SearchScore Field Specs
       final SearchScoreFieldSpecExtractor searchScoreFieldSpecExtractor = new SearchScoreFieldSpecExtractor();
       final DataSchemaRichContextTraverser searcScoreFieldSpecTraverser =
           new DataSchemaRichContextTraverser(searchScoreFieldSpecExtractor);
