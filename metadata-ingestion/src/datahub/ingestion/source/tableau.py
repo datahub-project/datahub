@@ -418,18 +418,19 @@ class TableauSource(Source):
         self, csql_urn: str, csql_datasource: List[dict]
     ) -> Iterable[MetadataWorkUnit]:
         for datasource in csql_datasource:
-            datasource_urn = builder.make_dataset_urn(
-                self.platform, datasource.get("id", ""), self.config.env
-            )
-            upstream_csql = UpstreamClass(
-                dataset=csql_urn,
-                type=DatasetLineageTypeClass.TRANSFORMED,
-            )
+            if datasource is not None:
+                datasource_urn = builder.make_dataset_urn(
+                    self.platform, datasource.get("id", ""), self.config.env
+                )
+                upstream_csql = UpstreamClass(
+                    dataset=csql_urn,
+                    type=DatasetLineageTypeClass.TRANSFORMED,
+                )
 
-            upstream_lineage = UpstreamLineage(upstreams=[upstream_csql])
-            yield self.get_metadata_change_proposal(
-                datasource_urn, aspect_name="upstreamLineage", aspect=upstream_lineage
-            )
+                upstream_lineage = UpstreamLineage(upstreams=[upstream_csql])
+                yield self.get_metadata_change_proposal(
+                    datasource_urn, aspect_name="upstreamLineage", aspect=upstream_lineage
+                )
 
     def _create_lineage_to_upstream_tables(
         self, csql_urn: str, columns: List[dict]
