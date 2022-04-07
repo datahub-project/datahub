@@ -125,8 +125,7 @@ class GenericAggregatedDataset(Generic[ResourceType]):
         )
 
         return MetadataWorkUnit(
-            id=f"{self.bucket_start_time.isoformat()}-usage-aspect-{self.resource}",
-            mcp=mcp,
+            id=f"{self.bucket_start_time.isoformat()}-{self.resource}", mcp=mcp
         )
 
 
