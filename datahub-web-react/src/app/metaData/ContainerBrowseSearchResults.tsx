@@ -23,6 +23,7 @@ import { CONTAINER_FILTER_NAME, DATABASE_FILTER_NAME, SCHEMA_FILTER_NAME } from 
 const SearchBody = styled.div`
     display: flex;
     flex-direction: row;
+    min-height: calc(100vh - 152px);
 `;
 
 const PaginationInfo = styled(Typography.Text)`
@@ -51,7 +52,6 @@ const PaginationInfoContainer = styled.div`
     align-items: center;
     position: absolute;
     bottom: 0;
-    width: 100%;
     height: 60px;
 `;
 
@@ -262,7 +262,7 @@ export const ContainerBrowseSearchResults = ({
                             </Row>
                         </Content>
                     )}
-                    <PaginationInfoContainer>
+                    <PaginationInfoContainer style={{ width: showFilters ? 'calc(100% - 261px)' : '100%' }}>
                         <PaginationInfo>
                             <b>
                                 {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
