@@ -1,9 +1,15 @@
 import json
 import os
 
+import pytest
+
+from datahub.configuration.common import ConfigurationError
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.sql.bigquery import BigQueryConfig, BigQuerySource
+from datahub.ingestion.source.usage.bigquery_usage import BigQueryTableRef
+
 
 def test_bigquery_uri():
-    from datahub.ingestion.source.sql.bigquery import BigQueryConfig
 
     config = BigQueryConfig.parse_obj(
         {
@@ -14,7 +20,6 @@ def test_bigquery_uri():
 
 
 def test_bigquery_uri_with_credential():
-    from datahub.ingestion.source.sql.bigquery import BigQueryConfig
 
     expected_credential_json = {
         "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
@@ -62,9 +67,6 @@ def test_bigquery_uri_with_credential():
 
 
 def test_simple_upstream_table_generation():
-    from datahub.ingestion.api.common import PipelineContext
-    from datahub.ingestion.source.sql.bigquery import BigQueryConfig, BigQuerySource
-    from datahub.ingestion.source.usage.bigquery_usage import BigQueryTableRef
 
     a: BigQueryTableRef = BigQueryTableRef(
         project="test-project", dataset="test-dataset", table="a"
@@ -84,10 +86,17 @@ def test_simple_upstream_table_generation():
     assert list(upstreams) == [b]
 
 
+def test_error_on_missing_config():
+    with pytest.raises(ConfigurationError):
+        BigQueryConfig.parse_obj(
+            {
+                "project_id": "test-project",
+                "use_exported_bigquery_audit_metadata": True,
+            }
+        )
+
+
 def test_upstream_table_generation_with_temporary_table_without_temp_upstream():
-    from datahub.ingestion.api.common import PipelineContext
-    from datahub.ingestion.source.sql.bigquery import BigQueryConfig, BigQuerySource
-    from datahub.ingestion.source.usage.bigquery_usage import BigQueryTableRef
 
     a: BigQueryTableRef = BigQueryTableRef(
         project="test-project", dataset="test-dataset", table="a"
@@ -134,9 +143,6 @@ def test_upstream_table_generation_with_temporary_table_with_temp_upstream():
 
 
 def test_upstream_table_generation_with_temporary_table_with_multiple_temp_upstream():
-    from datahub.ingestion.api.common import PipelineContext
-    from datahub.ingestion.source.sql.bigquery import BigQueryConfig, BigQuerySource
-    from datahub.ingestion.source.usage.bigquery_usage import BigQueryTableRef
 
     a: BigQueryTableRef = BigQueryTableRef(
         project="test-project", dataset="test-dataset", table="a"
