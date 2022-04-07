@@ -1,20 +1,15 @@
 import * as React from 'react';
 import { CodeSandboxOutlined } from '@ant-design/icons';
-import { MlModelGroup, EntityType, SearchResult, MlModelGroup, OwnershipType } from '../../../types.generated';
+import { MlModelGroup, EntityType, SearchResult, OwnershipType } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
-import { MLModelGroupProfile } from './profile/MLModelGroupProfile';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { GenericEntityProperties } from '../shared/types';
-import { useGetMlModelQuery } from '../../../graphql/mlModel.generated';
-import MLModelGroupsTab from '../mlModel/profile/MLModelGroupsTab';
-import MLModelSummary from '../mlModel/profile/MLModelSummary';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
-import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { useGetMlModelGroupQuery } from '../../../graphql/mlModelGroup.generated';
 import ModelGroupModels from './profile/ModelGroupModels';
 
@@ -57,7 +52,7 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
 
     getCollectionName = () => 'ML Groups';
 
-    getOverridePropertiesFromEntity = (mlModel?: MlModelGroup | null): GenericEntityProperties => {
+    getOverridePropertiesFromEntity = (_?: MlModelGroup | null): GenericEntityProperties => {
         return {};
     };
 

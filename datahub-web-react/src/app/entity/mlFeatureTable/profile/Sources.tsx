@@ -1,25 +1,38 @@
 import { List, Typography } from 'antd';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
-import { MlFeature, MlPrimaryKey, Dataset, EntityType } from '../../../../types.generated';
+import { GetMlFeatureTableQuery } from '../../../../graphql/mlFeatureTable.generated';
+import { Dataset, EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { PreviewType } from '../../Entity';
-
-export type Props = {
-    features?: Array<MlFeature | MlPrimaryKey>;
-};
+import { useBaseEntity } from '../../shared/EntityContext';
+import { notEmpty } from '../../shared/utils';
 
 const ViewRawButtonContainer = styled.div`
     display: flex;
     justify-content: flex-end;
 `;
 
-export default function SourcesView({ features }: Props) {
+export default function SourcesView() {
     const entityRegistry = useEntityRegistry();
+    const baseEntity = useBaseEntity<GetMlFeatureTableQuery>();
+    const featureTable = baseEntity?.mlFeatureTable;
+
+    const features = useMemo(
+        () =>
+            featureTable?.featureTableProperties &&
+            (featureTable?.featureTableProperties?.mlFeatures || featureTable?.featureTableProperties?.mlPrimaryKeys)
+                ? [
+                      ...(featureTable?.featureTableProperties?.mlPrimaryKeys || []),
+                      ...(featureTable?.featureTableProperties?.mlFeatures || []),
+                  ].filter(notEmpty)
+                : [],
+        [featureTable?.featureTableProperties],
+    );
 
     const sources = useMemo(
         () =>
-            features?.reduce((accumulator: Array<Dataset>, feature: MlFeature | MlPrimaryKey) => {
+            features?.reduce((accumulator: Array<Dataset>, feature) => {
                 if (feature.__typename === 'MLFeature' && feature.featureProperties?.sources) {
                     // eslint-disable-next-line array-callback-return
                     feature.featureProperties?.sources.map((source: Dataset | null) => {

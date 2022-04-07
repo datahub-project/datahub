@@ -12,7 +12,7 @@ import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Owners
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
 import MlFeatureTableFeatures from './profile/features/MlFeatureTableFeatures';
-import SourcesView from './profile/Sources';
+import Sources from './profile/Sources';
 
 /**
  * Definition of the DataHub MLFeatureTable entity.
@@ -53,7 +53,7 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
 
     getCollectionName = () => 'Feature Tables';
 
-    getOverridePropertiesFromEntity = (featureTable?: MlFeatureTable | null): GenericEntityProperties => {
+    getOverridePropertiesFromEntity = (_?: MlFeatureTable | null): GenericEntityProperties => {
         return {};
     };
 
@@ -70,7 +70,7 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
                 },
                 {
                     name: 'Sources',
-                    component: SourcesView,
+                    component: Sources,
                 },
             ]}
             sidebarSections={[

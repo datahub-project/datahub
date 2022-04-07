@@ -2,7 +2,6 @@ import * as React from 'react';
 import { CodeSandboxOutlined } from '@ant-design/icons';
 import { MlModel, EntityType, SearchResult, OwnershipType } from '../../../types.generated';
 import { Preview } from './preview/Preview';
-import { MLModelProfile } from './profile/MLModelProfile';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
@@ -55,7 +54,7 @@ export class MLModelEntity implements Entity<MlModel> {
 
     getCollectionName = () => 'ML Models';
 
-    getOverridePropertiesFromEntity = (mlModel?: MlModel | null): GenericEntityProperties => {
+    getOverridePropertiesFromEntity = (_?: MlModel | null): GenericEntityProperties => {
         return {};
     };
 

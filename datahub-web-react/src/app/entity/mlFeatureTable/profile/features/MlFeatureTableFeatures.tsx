@@ -53,7 +53,7 @@ export default function MlFeatureTableFeatures() {
     const baseEntity = useBaseEntity<GetMlFeatureTableQuery>();
     const featureTable = baseEntity?.mlFeatureTable;
 
-    const features: Array<MlFeature | MlPrimaryKey> =
+    const features =
         featureTable?.featureTableProperties &&
         (featureTable?.featureTableProperties?.mlFeatures || featureTable?.featureTableProperties?.mlPrimaryKeys)
             ? [
@@ -67,6 +67,8 @@ export default function MlFeatureTableFeatures() {
             {features && features.length > 0 && (
                 <Table
                     columns={defaultColumns}
+                    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                    // @ts-ignore
                     dataSource={features}
                     rowKey={(record) => `${record.dataType}-${record.name}`}
                     expandable={{ defaultExpandAllRows: true, expandRowByClick: true }}
