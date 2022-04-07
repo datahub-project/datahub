@@ -941,17 +941,6 @@ class DBTSource(StatefulIngestionSourceBase):
         )
         return dbt_properties
 
-    def _get_owners_aspect(self, node: DBTNode) -> OwnershipClass:
-        owners = [
-            OwnerClass(
-                owner=f"urn:li:corpuser:{node.owner}",
-                type=OwnershipTypeClass.DATAOWNER,
-            )
-        ]
-        return OwnershipClass(
-            owners=owners,
-        )
-
     def _create_view_properties_aspect(self, node: DBTNode) -> ViewPropertiesClass:
         materialized = node.materialization in {"table", "incremental"}
         # this function is only called when raw sql is present. assert is added to satisfy lint checks

@@ -3007,7 +3007,7 @@
         "tags": [],
         "vars": {},
         "meta": {
-          "owner": "@alice2"
+          "owner": "alice2"
         }
       },
       "database": "pagila",
@@ -3404,7 +3404,7 @@
       "meta": {
         "model_maturity": "in dev",
         "some_other_property": "test 1",
-        "owner": "@alice1"
+        "owner": "alice1"
       },
       "name": "actor",
       "original_file_path": "models/base.yml",
@@ -3607,7 +3607,7 @@
       "loader": "",
       "meta": {
         "model_maturity": "in prod",
-        "owner": "@bob",
+        "owner": "bob@gmail.com",
         "some_other_property": "test 2"
       },
       "name": "country",
@@ -3766,7 +3766,7 @@
           "charlie"
         ],
         "model_maturity": "in prod",
-        "owner": "@charles",
+        "owner": "Analytics User(charles@gmail.com)",
         "some_other_property": "test 3"
       },
       "name": "payment_p2020_02",

@@ -40,7 +40,7 @@
                         "com.linkedin.pegasus2avro.common.Ownership": {
                             "owners": [
                                 {
-                                    "owner": "urn:li:corpuser:@alice2",
+                                    "owner": "urn:li:corpuser:alice2",
                                     "type": "DATAOWNER",
                                     "source": null
                                 }
@@ -363,7 +363,7 @@
                             "customProperties": {
                                 "model_maturity": "in dev",
                                 "some_other_property": "test 1",
-                                "owner": "@alice1",
+                                "owner": "alice1",
                                 "node_type": "source",
                                 "dbt_file_path": "models/base.yml",
                                 "catalog_type": "BASE TABLE",
@@ -389,7 +389,7 @@
                         "com.linkedin.pegasus2avro.common.Ownership": {
                             "owners": [
                                 {
-                                    "owner": "urn:li:corpuser:@alice1",
+                                    "owner": "urn:li:corpuser:alice1",
                                     "type": "DATAOWNER",
                                     "source": null
                                 }
@@ -549,7 +549,7 @@
                         "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                             "customProperties": {
                                 "model_maturity": "in prod",
-                                "owner": "@bob",
+                                "owner": "bob@gmail.com",
                                 "some_other_property": "test 2",
                                 "node_type": "source",
                                 "dbt_file_path": "models/base.yml",
@@ -576,7 +576,7 @@
                         "com.linkedin.pegasus2avro.common.Ownership": {
                             "owners": [
                                 {
-                                    "owner": "urn:li:corpuser:@bob",
+                                    "owner": "urn:li:corpuser:bob@gmail.com",
                                     "type": "DATAOWNER",
                                     "source": null
                                 }
@@ -695,7 +695,7 @@
                             "customProperties": {
                                 "an_array_property": "['alpha', 'beta', 'charlie']",
                                 "model_maturity": "in prod",
-                                "owner": "@charles",
+                                "owner": "Analytics User(charles@gmail.com)",
                                 "some_other_property": "test 3",
                                 "node_type": "source",
                                 "dbt_file_path": "models/base.yml",
@@ -722,7 +722,7 @@
                         "com.linkedin.pegasus2avro.common.Ownership": {
                             "owners": [
                                 {
-                                    "owner": "urn:li:corpuser:@charles",
+                                    "owner": "urn:li:corpuser:Analytics User(charles@gmail.com)",
                                     "type": "DATAOWNER",
                                     "source": null
                                 }

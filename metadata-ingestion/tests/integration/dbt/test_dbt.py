@@ -179,7 +179,12 @@ def test_dbt_ingest(pytestconfig, tmp_path, mock_time, **kwargs):
             tmp_path,
             "dbt_enabled_with_schemas_mces.json",
             "dbt_enabled_with_schemas_mces_golden.json",
-            source_config_modifiers={"load_schemas": True, "enable_meta_mapping": True},
+            source_config_modifiers={
+                "load_schemas": True,
+                "enable_meta_mapping": True,
+                "owner_naming_pattern": "(\\((.*)\\))",
+                "strip_user_ids_from_email": True,
+            },
         ),
         DbtTestConfig(
             "dbt-test-without-schemas-dbt-enabled",
@@ -202,6 +207,8 @@ def test_dbt_ingest(pytestconfig, tmp_path, mock_time, **kwargs):
                 "node_name_pattern": {
                     "deny": ["source.sample_dbt.pagila.payment_p2020_06"]
                 },
+                "owner_naming_pattern": "(\\((.*)\\))",
+                "strip_user_ids_from_email": False,
             },
         ),
     ]
@@ -307,7 +314,6 @@ def test_dbt_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
         mock_datahub_graph,
     ) as mock_checkpoint:
-
         mock_checkpoint.return_value = mock_datahub_graph
 
         # Do the first run of the pipeline and get the default job's checkpoint.
