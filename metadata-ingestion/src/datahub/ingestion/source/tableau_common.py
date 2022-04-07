@@ -425,8 +425,18 @@ def make_table_urn(
     database_name = f"{upstream_db}." if upstream_db else ""
     schema_name = f"{schema}." if schema else ""
 
+    fully_qualified_table_name = f"{database_name}{schema_name}{final_name}"
+
+    # do some final adjustments on the fully qualified table name to help them line up with source systems:
+    # lowercase it
+    fully_qualified_table_name = fully_qualified_table_name.lower()
+    # strip double quotes and escaped double quotes
+    fully_qualified_table_name = fully_qualified_table_name.replace('\\"', '').replace('"', '').replace('\\', '')
+    # if there are more than 3 tokens, just take the final 3
+    fully_qualified_table_name = ".".join(fully_qualified_table_name.split(".")[-3:])
+
     urn = builder.make_dataset_urn(
-        platform, f"{database_name}{schema_name}{final_name}", env
+        platform, fully_qualified_table_name, env
     )
     return urn
 
