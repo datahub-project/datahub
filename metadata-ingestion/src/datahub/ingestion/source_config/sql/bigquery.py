@@ -56,6 +56,21 @@ class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
                 "BigQuery project ids are globally unique. You do not need to specify a platform instance."
             )
 
+    @pydantic.root_validator()
+    def validate_that_bigquery_audit_metadata_datasets_is_correctly_configured(
+        cls, values: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        if (
+            values.get("use_exported_bigquery_audit_metadata")
+            and not values.get("use_v2_audit_metadata")
+            and not values.get("bigquery_audit_metadata_datasets")
+        ):
+            raise ConfigurationError(
+                "bigquery_audit_metadata_datasets must be specified if using exported audit metadata. Otherwise set use_v2_audit_metadata to True."
+            )
+            pass
+        return values
+
     @pydantic.validator("platform")
     def platform_is_always_bigquery(cls, v):
         return "bigquery"

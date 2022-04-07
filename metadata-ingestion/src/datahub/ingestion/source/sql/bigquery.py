@@ -388,7 +388,7 @@ class BigQuerySource(SQLAlchemySource):
     ) -> Iterable[BigQueryAuditMetadata]:
         if self.config.bigquery_audit_metadata_datasets is None:
             self.error(
-                logger, "audit-metadata", "bigquery_audit_metadata_datasets missing"
+                logger, "audit-metadata", "bigquery_audit_metadata_datasets not set"
             )
             self.report.bigquery_audit_metadata_datasets_missing = True
             return
