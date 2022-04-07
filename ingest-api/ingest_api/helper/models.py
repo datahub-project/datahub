@@ -80,7 +80,7 @@ class prop_params(BaseModel):
     dataset_name: str
     requestor: str
     user_token: str
-    description: str
+    description: Optional[str]=""
     properties: List[Dict]
 
 

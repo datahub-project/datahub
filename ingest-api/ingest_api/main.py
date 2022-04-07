@@ -367,7 +367,7 @@ async def update_prop(item: prop_params):
             urn=datasetName,
             aspects=[],
         )
-        description = item.description
+        description = item.description if item.description else ''
         properties = item.properties
         all_properties = {}
         for prop in properties:
@@ -410,7 +410,7 @@ def emit_mce_respond(
         if not mce.validate():
             rootLogger.error(f"{mce.__class__} is not defined properly")
             return {
-                "messsage": f"MCE was incorrectly defined.\
+                "message": f"MCE was incorrectly defined.\
                     {event} was aborted",
                 "status_code": 400,
             }
@@ -427,7 +427,7 @@ def emit_mce_respond(
     except Exception as e:
         rootLogger.error(e)
         return {
-            "messsage": f"{event} failed because upstream error {e}",
+            "message": f"{event} failed because upstream error {e}",
             "status_code": 500,
         }
             
@@ -435,7 +435,7 @@ def emit_mce_respond(
         f"{event} {datasetName} requested_by {owner} completed successfully"
     )
     return {        
-        "messsage": f"{event} completed successfully",
+        "message": f"{event} completed successfully",
         "status_code" : 201,
     }
 
@@ -455,7 +455,7 @@ def emit_mcp_respond(
     except Exception as e:
         rootLogger.error(e)
         return {
-                "messsage": f"{event} failed because upstream error {e}",                
+                "message": f"{event} failed because upstream error {e}",                
                 "status_code": 500,
         }
             
@@ -463,7 +463,7 @@ def emit_mcp_respond(
         f"{event} {datasetName} requested_by {owner} completed successfully"
     )
     return {        
-        "messsage": f"{event} completed successfully",
+        "message": f"{event} completed successfully",
         "status_code": 201,
     }       
 
@@ -478,6 +478,7 @@ async def create_item(item: create_dataset_params) -> None:
     item.dataset_type = determine_type(item.dataset_type)
     token = item.user_token
     user = item.dataset_owner
+    requestor = make_user_urn(item.dataset_owner)
     if verify_token(token, user):
         item.dataset_name = "{}_{}".format(item.dataset_name, str(get_sys_time()))
         datasetName = make_dataset_urn(item.dataset_type, item.dataset_name)
@@ -488,9 +489,7 @@ async def create_item(item: create_dataset_params) -> None:
         ]
         # this line is in case the endpoint is called by API and not UI,
         # which will enforce ending with /.
-        browsepaths = [path + "dataset" for path in item.browsepathList]
-
-        requestor = make_user_urn(item.dataset_owner)
+        browsepaths = [path + "dataset" for path in item.browsepathList]        
         headerRowNum = (
             "n/a"
             if item.dict().get("hasHeader", "n/a") == "no"
@@ -585,6 +584,7 @@ async def delete_item(item: dataset_status_params) -> None:
             event=f"Status Update removed:{item.desired_state}",
             token=item.user_token,
         )
+        rootLogger.error(response)
         return JSONResponse(
             content={"message": response["message"]}, status_code=response["status_code"]
         )

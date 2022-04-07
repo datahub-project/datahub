@@ -47,14 +47,15 @@ export function checkOwnership(data: GetDatasetQuery): boolean {
     const ownership = data?.dataset?.ownership?.owners;
     const individualOwnersArray =
         ownership?.map((x) => (x?.owner?.type === EntityType.CorpUser ? x?.owner?.urn : null)) || [];
-    console.log(`individualOwnersArray is ${individualOwnersArray}`);
+    // console.log(`individualOwnersArray is ${individualOwnersArray}`);
     const groupOwnersArray =
         ownership?.map((x) => (x?.owner?.type === EntityType.CorpGroup ? x?.owner?.urn : null)) || [];
-    console.log(`groupOwnersArray is ${groupOwnersArray}`);
+    // console.log(`groupOwnersArray is ${groupOwnersArray}`);
     const userGroups = FindMyGroups();
-    console.log(`userGroups is ${userGroups}`);
+    // console.log(`userGroups is ${userGroups}`);
     const groupUrn = userGroups?.map((x) => x?.entity?.urn) || [];
     const intersection = groupUrn.filter((x) => groupOwnersArray.includes(x));
+    console.log(`groups intersection is ${intersection.length}`);
     return individualOwnersArray.includes(currUserUrn) || intersection.length > 0;
 }
 

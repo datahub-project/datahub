@@ -36,16 +36,16 @@ def verify_token(token: str, user: str):
                 f"token verified for {user}, expires {exp_datetime.strftime('%Y:%m:%d %H:%M')}"
             )
             return True
-        log.error("user id does not match token payload user id!")
+        log.error(f"user id does not match token payload user id! token:{token}")
         return False
     except ExpiredSignatureError:
-        log.error("token has expired!")
+        log.error(f"token has expired! token:{token}")
         return False
     except InvalidTokenError:
-        log.error(f"Invalid token for {user}")
+        log.error(f"Invalid token for {user} token:{token}")
         return False
     except Exception as e:
-        log.error(f"I cant figure out this token for {user}, so its an error {e}")
+        log.error(f"I cant figure out this token for {user}, so its an error {e}. token:{token}")
         return False
 
 
@@ -129,6 +129,7 @@ def query_dataset_ownership(token: str, dataset_urn:str, query_endpoint:str):
     if resp.status_code != 200:
         return []
     data_received = json.loads(resp.text)
+    log.error(f"received from graphql ownership info: {data_received}")
     owners_list = data_received["data"]["dataset"]["ownership"]["owners"]
     return owners_list
 
