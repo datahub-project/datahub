@@ -2,8 +2,8 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Dict, List
 
 import datahub.emitter.mce_builder as builder
+from datahub.api.dataprocess.dataprocess_instance import InstanceRunResult
 from datahub.configuration.common import ConfigModel
-from datahub.metadata.schema_classes import RunResultTypeClass
 from datahub_provider.client.airflow_generator import AirflowGenerator
 from datahub_provider.entities import _Entity
 
@@ -71,8 +71,8 @@ def send_lineage_to_datahub(
         capture_tags=config.capture_tags_info,
         capture_owner=config.capture_ownership_info,
     )
-    datajob.inlets.extend(inlets)
-    datajob.outlets.extend(outlets)
+    datajob.inlets.extend(_entities_to_urn_list(inlets))
+    datajob.outlets.extend(_entities_to_urn_list(outlets))
 
     datajob.emit(emitter)
 
@@ -89,7 +89,7 @@ def send_lineage_to_datahub(
             ti=ti,
             dag=dag,
             datajob=datajob,
-            result=RunResultTypeClass.SUCCESS,
+            result=InstanceRunResult.SUCCESS,
             end_timestamp_millis=int(datetime.utcnow().timestamp() * 1000),
         )
         print(f"Emitted from Lineage: {dpi}")

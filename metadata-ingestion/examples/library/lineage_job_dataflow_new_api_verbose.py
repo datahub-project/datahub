@@ -3,9 +3,9 @@ import uuid
 
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import RunResultTypeClass
-from datahub.api.dataflow import DataFlow
-from datahub.api.datajob import DataJob
-from datahub.api.dataprocess_instance import DataProcessInstance
+from datahub.api.dataprocess.dataflow import DataFlow
+from datahub.api.dataprocess.datajob import DataJob
+from datahub.api.dataprocess.dataprocess_instance import DataProcessInstance, InstanceRunResult
 
 emitter = DatahubRestEmitter("http://localhost:8080")
 
@@ -18,18 +18,18 @@ dataJob.properties["custom_properties"] = "test"
 dataJob.emit(emitter)
 
 dataJob2 = DataJob(flow_urn=jobFlow.urn, id="job2", name="My Job 2")
-dataJob2.input_datajob_urns.append(dataJob.urn)
+dataJob2.upstream_urns.append(dataJob.urn)
 dataJob2.tags.add("TestTag")
 dataJob2.owners.add("test@test.com")
 dataJob2.emit(emitter)
 
 dataJob3 = DataJob(flow_urn=jobFlow.urn, id="job3", name="My Job 3")
-dataJob3.input_datajob_urns.append(dataJob.urn)
+dataJob3.upstream_urns.append(dataJob.urn)
 dataJob3.emit(emitter)
 
 dataJob4 = DataJob(flow_urn=jobFlow.urn, id="job4", name="My Job 4")
-dataJob4.input_datajob_urns.append(dataJob2.urn)
-dataJob4.input_datajob_urns.append(dataJob3.urn)
+dataJob4.upstream_urns.append(dataJob2.urn)
+dataJob4.upstream_urns.append(dataJob3.urn)
 dataJob4.emit(emitter)
 
 # Hello World
@@ -42,7 +42,7 @@ jobRun1: DataProcessInstance = DataProcessInstance(
 jobRun1.parent_instance = jobFlowRun.urn
 jobRun1.template_urn = dataJob.urn
 jobRun1.emit_process_start(
-    emitter=emitter, start_timestamp_millis=int(time.time() * 1000),emit_template=False
+    emitter=emitter, start_timestamp_millis=int(time.time() * 1000), emit_template=False
 )
 jobRun1.emit_process_end(
     emitter=emitter,
@@ -94,5 +94,5 @@ jobRun4.emit_process_start(
 jobRun4.emit_process_end(
     emitter=emitter,
     end_timestamp_millis=int(time.time() * 1000),
-    result=RunResultTypeClass.SUCCESS,
+    result=InstanceRunResult.SUCCESS,
 )

@@ -1,11 +1,11 @@
 import time
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import TYPE_CHECKING, Callable, Dict, Iterable, List, Optional, Union, cast
 
-from datahub.api.dataflow import DataFlow
-from datahub.api.datajob import DataJob
-from datahub.api.entity import Entity
-from datahub.api.urn import DataFlowUrn, DataJobUrn
+from datahub.api.dataprocess.dataflow import DataFlow
+from datahub.api.dataprocess.datajob import DataJob
+from datahub.api.dataprocess.urn import DataFlowUrn, DataJobUrn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import DatahubKey
 from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import (
@@ -13,6 +13,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import (
     DataProcessInstanceOutput,
     DataProcessInstanceProperties,
     DataProcessInstanceRelationships,
+    RunResultType,
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -47,6 +48,12 @@ class DataProcessInstanceUrn:
         return make_data_process_instance_urn(f"{self.key.guid()}")
 
 
+class InstanceRunResult(str, Enum):
+    SUCCESS = RunResultType.SUCCESS
+    SKIPPED = RunResultType.SKIPPED
+    FAILURE = RunResultType.FAILURE
+
+
 @dataclass
 class DataProcessInstance:
     """This is a DataProcessInstance class which represent an instance of a DataFlow or DataJob.
@@ -59,8 +66,8 @@ class DataProcessInstance:
         parent_instance (Optional[DataProcessInstanceUrn]): The parent execution's urn if applicable
         properties Dict[str, str]: Custom properties to set for the DataProcessInstance
         url (Optional[str]): Url which points to the exection at the orchestrator
-        inlets (List[_Entity]): List of entities the DataProcessInstance consumes
-        outlest (List[_Entity]): List of entities the DataProcessInstance produces
+        inlets (List[str]): List of entities the DataProcessInstance consumes
+        outlets (List[str]): List of entities the DataProcessInstance produces
     """
 
     id: str
@@ -72,11 +79,11 @@ class DataProcessInstance:
     parent_instance: Optional[DataProcessInstanceUrn] = None
     properties: Dict[str, str] = field(default_factory=dict)
     url: Optional[str] = None
-    inlets: List[Entity] = field(default_factory=list)
-    outlets: List[Entity] = field(default_factory=list)
+    inlets: List[str] = field(default_factory=list)
+    outlets: List[str] = field(default_factory=list)
     upstreams_urns: List[DataProcessInstanceUrn] = field(default_factory=list)
-    template_object: Optional[Union[DataJob, DataFlow]] = field(
-        init=False, default=None
+    _template_object: Optional[Union[DataJob, DataFlow]] = field(
+        init=False, default=None, repr=False
     )
 
     def __post_init__(self):
@@ -87,10 +94,6 @@ class DataProcessInstance:
                 id=self.id,
             )
         )
-
-    @staticmethod
-    def _entities_to_urn_list(iolets: List[Entity]) -> List[str]:
-        return [let.urn for let in iolets]
 
     def start_event_mcp(
         self, start_timestamp_millis: int, attempt: Optional[int] = None
@@ -133,7 +136,7 @@ class DataProcessInstance:
         """
         if emit_template and self.template_urn is not None:
             template_object: Union[DataJob, DataFlow]
-            if self.template_object is None:
+            if self._template_object is None:
                 input_datajob_urns: List[DataJobUrn] = []
                 if isinstance(self.template_urn, DataFlowUrn):
                     job_flow_urn = self.template_urn
@@ -148,7 +151,7 @@ class DataProcessInstance:
                     job_flow_urn = self.template_urn.flow_urn
                     template_object = DataJob(
                         id=self.template_urn.id,
-                        input_datajob_urns=input_datajob_urns,
+                        upstream_urns=input_datajob_urns,
                         flow_urn=self.template_urn.flow_urn,
                     )
                     for mcp in template_object.generate_mcp():
@@ -162,7 +165,7 @@ class DataProcessInstance:
                         DataJobUrn(id=trigger.key.id, flow_urn=job_flow_urn)
                     )
             else:
-                template_object = self.template_object
+                template_object = self._template_object
 
             for mcp in template_object.generate_mcp():
                 self._emit_mcp(mcp, emitter, callback)
@@ -175,14 +178,14 @@ class DataProcessInstance:
     def end_event_mcp(
         self,
         end_timestamp_millis: int,
-        result: str,
+        result: InstanceRunResult,
         result_type: Optional[str] = None,
         attempt: Optional[int] = None,
     ) -> Iterable[MetadataChangeProposalWrapper]:
         """
 
         :param end_timestamp_millis: the end time of the execution in milliseconds
-        :param result: (string) One possible result from com.linkedin.pegasus2avro.dataprocess.RunResultType
+        :param result: (InstanceRunResult) the result of the run
         :param result_type: (string) It identifies the system where the native result comes from like Airflow, Azkaban
         :param attempt: (int) the attempt number of this execution
         """
@@ -209,7 +212,7 @@ class DataProcessInstance:
         self,
         emitter: Union["DatahubRestEmitter", "DatahubKafkaEmitter"],
         end_timestamp_millis: int,
-        result: str,
+        result: InstanceRunResult,
         result_type: Optional[str] = None,
         attempt: Optional[int] = None,
         callback: Optional[Callable[[Exception, str], None]] = None,
@@ -219,7 +222,7 @@ class DataProcessInstance:
 
         :param emitter: (Union[DatahubRestEmitter, DatahubKafkaEmitter]) the datahub emitter to emit generated mcps
         :param end_timestamp_millis: (int) the end time of the execution in milliseconds
-        :param result: (string) One possible result from com.linkedin.pegasus2avro.dataprocess.RunResultType
+        :param result: (InstanceRunResult) The result of the run
         :param result_type: (string) It identifies the system where the native result comes from like Airflow, Azkaban
         :param attempt: (int) the attempt number of this execution
         :param callback: (Optional[Callable[[Exception, str], None]]) the callback method for KafkaEmitter if it is used
@@ -326,7 +329,7 @@ class DataProcessInstance:
             template_urn=datajob.urn,
             id=id,
         )
-        dpi.template_object = datajob
+        dpi._template_object = datajob
 
         if clone_inlets:
             dpi.inlets = datajob.inlets
@@ -349,7 +352,7 @@ class DataProcessInstance:
             cluster=dataflow.cluster,
             template_urn=dataflow.urn,
         )
-        dpi.template_object = dataflow
+        dpi._template_object = dataflow
         return dpi
 
     def generate_inlet_outlet_mcp(self) -> Iterable[MetadataChangeProposalWrapper]:
@@ -358,9 +361,7 @@ class DataProcessInstance:
                 entityType="dataProcessInstance",
                 entityUrn=self.urn.urn,
                 aspectName="dataProcessInstanceInput",
-                aspect=DataProcessInstanceInput(
-                    inputs=[urn.urn for urn in self.inlets]
-                ),
+                aspect=DataProcessInstanceInput(inputs=self.inlets),
                 changeType=ChangeTypeClass.UPSERT,
             )
             yield mcp
@@ -370,9 +371,7 @@ class DataProcessInstance:
                 entityType="dataProcessInstance",
                 entityUrn=self.urn.urn,
                 aspectName="dataProcessInstanceOutput",
-                aspect=DataProcessInstanceOutput(
-                    outputs=[urn.urn for urn in self.outlets]
-                ),
+                aspect=DataProcessInstanceOutput(outputs=self.outlets),
                 changeType=ChangeTypeClass.UPSERT,
             )
             yield mcp

@@ -4,12 +4,15 @@ from airflow.configuration import conf
 from airflow.utils.state import DagRunState, TaskInstanceState
 from airflow.utils.types import DagRunType
 
-from datahub.api.dataflow import DataFlow
-from datahub.api.datajob import DataJob
-from datahub.api.dataprocess_instance import DataProcessInstance
-from datahub.api.urn import DataFlowUrn, DataJobUrn
+from datahub.api.dataprocess.dataflow import DataFlow
+from datahub.api.dataprocess.datajob import DataJob
+from datahub.api.dataprocess.dataprocess_instance import (
+    DataProcessInstance,
+    InstanceRunResult,
+)
+from datahub.api.dataprocess.urn import DataFlowUrn, DataJobUrn
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.metadata.schema_classes import DataProcessTypeClass, RunResultTypeClass
+from datahub.metadata.schema_classes import DataProcessTypeClass
 from datahub_provider.hooks.datahub import AIRFLOW_1
 
 if TYPE_CHECKING:
@@ -224,7 +227,7 @@ class AirflowGenerator:
             datajob.tags.update(dag.tags)
 
         if set_dependendecies:
-            datajob.input_datajob_urns.extend(
+            datajob.upstream_urns.extend(
                 AirflowGenerator._get_dependencies(
                     task=task, dag=dag, flow_urn=datajob.flow_urn
                 )
@@ -313,16 +316,19 @@ class AirflowGenerator:
             end_timestamp_millis = int(dag_run.end_date.timestamp() * 1000)
 
         if dag_run.state == DagRunState.SUCCESS:
-            result = RunResultTypeClass.SUCCESS
+            result = InstanceRunResult.SUCCESS
         elif dag_run.state == DagRunState.FAILED:
-            result = RunResultTypeClass.FAILURE
+            result = InstanceRunResult.FAILURE
         else:
             raise Exception(
                 f"Result should be either success or failure and it was {dag_run.state}"
             )
 
         dpi.emit_process_end(
-            emitter=emitter, end_timestamp_millis=end_timestamp_millis, result=result, result_type="airflow"
+            emitter=emitter,
+            end_timestamp_millis=end_timestamp_millis,
+            result=result,
+            result_type="airflow",
         )
 
     @staticmethod
@@ -391,7 +397,7 @@ class AirflowGenerator:
         ti: "TaskInstance",
         dag: "DAG",
         end_timestamp_millis: Optional[int] = None,
-        result: Optional[str] = None,
+        result: Optional[InstanceRunResult] = None,
         datajob: Optional[DataJob] = None,
     ) -> DataProcessInstance:
         """
@@ -414,9 +420,9 @@ class AirflowGenerator:
 
         if result is None:
             if ti.state == TaskInstanceState.SUCCESS:
-                result = RunResultTypeClass.SUCCESS
+                result = InstanceRunResult.SUCCESS
             elif ti.state == TaskInstanceState.FAILED:
-                result = RunResultTypeClass.FAILURE
+                result = InstanceRunResult.FAILURE
             else:
                 raise Exception(
                     f"Result should be either success or failure and it was {ti.state}"
@@ -429,6 +435,9 @@ class AirflowGenerator:
             clone_outlets=True,
         )
         dpi.emit_process_end(
-            emitter=emitter, end_timestamp_millis=end_timestamp_millis, result=result, result_type="airflow"
+            emitter=emitter,
+            end_timestamp_millis=end_timestamp_millis,
+            result=result,
+            result_type="airflow",
         )
         return dpi
