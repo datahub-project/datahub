@@ -21,6 +21,8 @@ class BigQueryUsageSourceReport(SourceReport):
     deny_pattern: Optional[str] = None
     log_entry_start_time: Optional[str] = None
     log_entry_end_time: Optional[str] = None
+    num_usage_workunits_emitted: Optional[int] = None
+    num_operational_stats_workunits_emitted: Optional[int] = None
 
     def report_dropped(self, key: str) -> None:
         self.dropped_table[key] += 1
