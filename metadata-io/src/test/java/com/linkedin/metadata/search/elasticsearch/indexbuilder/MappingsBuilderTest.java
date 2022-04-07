@@ -17,7 +17,7 @@ public class MappingsBuilderTest {
     Map<String, Object> result = MappingsBuilder.getMappings(TestEntitySpecBuilder.getSpec());
     assertEquals(result.size(), 1);
     Map<String, Object> properties = (Map<String, Object>) result.get("properties");
-    assertEquals(properties.size(), 12);
+    assertEquals(properties.size(), 14);
     assertEquals(properties.get("urn"), ImmutableMap.of("type", "keyword"));
     assertTrue(properties.containsKey("browsePaths"));
     // KEYWORD
@@ -73,5 +73,12 @@ public class MappingsBuilderTest {
     Map<String, Object> nestedForeignKeySubfields = (Map<String, Object>) nestedForeignKey.get("fields");
     assertEquals(nestedForeignKeySubfields.size(), 1);
     assertTrue(nestedForeignKeySubfields.containsKey("ngram"));
+
+    // Scores
+    Map<String, Object> feature1 = (Map<String, Object>) properties.get("feature1");
+    assertEquals(feature1.get("type"), "double");
+    Map<String, Object> feature2 = (Map<String, Object>) properties.get("feature2");
+    assertEquals(feature2.get("type"), "double");
+
   }
 }

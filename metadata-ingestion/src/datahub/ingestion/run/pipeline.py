@@ -8,7 +8,6 @@ from typing import Any, Dict, Iterable, List, Optional
 import click
 from pydantic import validator
 
-import datahub
 from datahub.configuration.common import (
     ConfigModel,
     DynamicTypedConfig,
@@ -193,7 +192,6 @@ class Pipeline:
 
         callback = LoggingCallback()
         extractor: Extractor = self.extractor_class()
-        self.source.get_report().cli_version = datahub.nice_version_name()
         for wu in itertools.islice(
             self.source.get_workunits(),
             self.preview_workunits if self.preview_mode else None,
