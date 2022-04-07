@@ -591,7 +591,9 @@ class BigQuerySource(SQLAlchemySource):
                 """
                 partition_id_for_parse = partition.partition_id
                 if len(partition_id_for_parse) == 6:
-                    partition_id_for_parse = partition_id_for_parse[:4] + '-' + partition_id_for_parse[4:]
+                    partition_id_for_parse = (
+                        partition_id_for_parse[:4] + "-" + partition_id_for_parse[4:]
+                    )
                 partition_datetime = parser.parse(partition_id_for_parse)
             logger.debug(f"{table} is partitioned and partition column is {partition}")
             if partition.data_type in ("TIMESTAMP", "DATETIME"):
