@@ -370,6 +370,7 @@ class QueryEvent:
     def get_missing_key_exported_bigquery_audit_metadata(
         row: BigQueryAuditMetadata,
     ) -> Optional[str]:
+        # We expect a dictionary so need to use row._xxx_field_to_index to convert from row -> Dict
         return get_first_missing_key_any(
             row._xxx_field_to_index, ["timestamp", "protoPayload", "metadata"]
         )
