@@ -10,7 +10,7 @@ import { useEntityRegistry } from '../useEntityRegistry';
 import { useGetEntityCountsQuery } from '../../graphql/app.generated';
 import { GettingStartedModal } from './GettingStartedModal';
 import { ANTD_GRAY } from '../entity/shared/constants';
-import { ContainerBrowseEntityCard } from '../metaData/ContainerBrowseEntityCard';
+import { ContainerBrowseEntityCard } from '../browse/container/ContainerBrowseEntityCard';
 
 const RecommendationsContainer = styled.div`
     margin-top: 32px;

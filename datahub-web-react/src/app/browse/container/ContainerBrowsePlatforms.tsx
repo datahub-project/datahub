@@ -6,13 +6,12 @@ import { Link } from 'react-router-dom';
 import { RightOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import * as QueryString from 'query-string';
-
-import { BrowseCfg } from '../../conf';
-import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.generated';
-import { DataPlatform, EntityType } from '../../types.generated';
-import { PLATFORM_FILTER_NAME } from '../search/utils/constants';
-import { Message } from '../shared/Message';
-import { formatNumber } from '../shared/formatNumber';
+import { BrowseCfg } from '../../../conf';
+import { useGetSearchResultsForMultipleQuery } from '../../../graphql/search.generated';
+import { EntityType, DataPlatform } from '../../../types.generated';
+import { PLATFORM_FILTER_NAME } from '../../search/utils/constants';
+import { formatNumber } from '../../shared/formatNumber';
+import { Message } from '../../shared/Message';
 
 const styles = {
     row: { padding: '8px 8px 8px 76px' },

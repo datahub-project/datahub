@@ -4,16 +4,16 @@ import * as QueryString from 'query-string';
 import { message } from 'antd';
 import { ApolloError } from '@apollo/client';
 
-import { EntityType, FacetFilterInput } from '../../types.generated';
-import EntityRegistry from '../entity/EntityRegistry';
-import useFilters from '../search/utils/useFilters';
-import { CONTAINER_FILTER_NAME, ENTITY_FILTER_NAME } from '../search/utils/constants';
-import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.generated';
-import { BrowseCfg, SearchCfg } from '../../conf';
-import EmbeddedListSearchHeader from '../entity/shared/components/styled/search/EmbeddedListSearchHeader';
-import { GetSearchResultsParams, SearchResultsInterface } from '../entity/shared/components/styled/search/types';
 import { ContainerBrowseSearchResults } from './ContainerBrowseSearchResults';
 import { navigateToContainerBrowseUrl } from './navigateToContainerBrowseUrl';
+import { SearchCfg, BrowseCfg } from '../../../conf';
+import { useGetSearchResultsForMultipleQuery } from '../../../graphql/search.generated';
+import { FacetFilterInput, EntityType } from '../../../types.generated';
+import EntityRegistry from '../../entity/EntityRegistry';
+import EmbeddedListSearchHeader from '../../entity/shared/components/styled/search/EmbeddedListSearchHeader';
+import { GetSearchResultsParams, SearchResultsInterface } from '../../entity/shared/components/styled/search/types';
+import { ENTITY_FILTER_NAME, CONTAINER_FILTER_NAME } from '../../search/utils/constants';
+import useFilters from '../../search/utils/useFilters';
 
 type Filter = { field: string; value: string };
 

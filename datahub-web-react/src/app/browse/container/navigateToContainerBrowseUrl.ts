@@ -1,7 +1,7 @@
 import { RouteComponentProps } from 'react-router';
 import * as QueryString from 'query-string';
-import { EntityType, FacetFilterInput } from '../../types.generated';
-import filtersToQueryStringParams from '../search/utils/filtersToQueryStringParams';
+import { EntityType, FacetFilterInput } from '../../../types.generated';
+import filtersToQueryStringParams from '../../search/utils/filtersToQueryStringParams';
 
 export const navigateToContainerBrowseUrl = ({
     baseUrl,

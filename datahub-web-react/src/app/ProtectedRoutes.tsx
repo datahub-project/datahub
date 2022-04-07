@@ -14,7 +14,7 @@ import { ManageIdentitiesPage } from './identity/ManageIdentitiesPage';
 import { SettingsPage } from './settings/SettingsPage';
 import { ManageIngestionPage } from './ingest/ManageIngestionPage';
 import { ManageDomainsPage } from './domain/ManageDomainsPage';
-import { ContainerBrowseResultsPage } from './metaData/ContainerBrowseResultsPage';
+import { ContainerBrowseResultsPage } from './browse/container/ContainerBrowseResultsPage';
 
 /**
  * Container for all views behind an authentication wall.

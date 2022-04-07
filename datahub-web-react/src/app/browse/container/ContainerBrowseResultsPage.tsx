@@ -2,12 +2,12 @@ import React from 'react';
 import { Affix } from 'antd';
 import { useLocation, useParams } from 'react-router';
 
-import { SearchablePage } from '../search/SearchablePage';
-import { PLATFORM_FILTER_NAME } from '../search/utils/constants';
-import { useEntityRegistry } from '../useEntityRegistry';
 import { ContainerBrowseContainers } from './ContainerBrowseContainers';
 import { ContainerBrowseLegacyPath } from './ContainerBrowseLegacyPath';
 import { ContainerBrowsePlatforms } from './ContainerBrowsePlatforms';
+import { SearchablePage } from '../../search/SearchablePage';
+import { PLATFORM_FILTER_NAME } from '../../search/utils/constants';
+import { useEntityRegistry } from '../../useEntityRegistry';
 
 type MetaDataParentPageParams = {
     type: string;

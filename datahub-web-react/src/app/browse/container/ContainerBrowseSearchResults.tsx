@@ -5,7 +5,7 @@ import { Content } from 'antd/lib/layout/layout';
 import { Link } from 'react-router-dom';
 import { FolderOutlined, InfoCircleOutlined, RightOutlined } from '@ant-design/icons';
 
-import analytics, { EventType } from '../analytics';
+import analytics, { EventType } from '../../analytics';
 import {
     FacetMetadata,
     FacetFilterInput,
@@ -13,12 +13,12 @@ import {
     Container,
     Entity,
     EntityType,
-} from '../../types.generated';
-import { SearchFilters } from '../search/SearchFilters';
-import { SearchCfg } from '../../conf';
-import { ReactComponent as LoadingSvg } from '../../images/datahub-logo-color-loading_pendulum.svg';
-import EntityRegistry from '../entity/EntityRegistry';
-import { CONTAINER_FILTER_NAME, DATABASE_FILTER_NAME, SCHEMA_FILTER_NAME } from '../search/utils/constants';
+} from '../../../types.generated';
+import { SearchFilters } from '../../search/SearchFilters';
+import { SearchCfg } from '../../../conf';
+import { ReactComponent as LoadingSvg } from '../../../images/datahub-logo-color-loading_pendulum.svg';
+import EntityRegistry from '../../entity/EntityRegistry';
+import { CONTAINER_FILTER_NAME, DATABASE_FILTER_NAME, SCHEMA_FILTER_NAME } from '../../search/utils/constants';
 
 const SearchBody = styled.div`
     display: flex;

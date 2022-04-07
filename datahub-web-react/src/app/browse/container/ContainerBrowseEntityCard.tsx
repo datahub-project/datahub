@@ -1,10 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { useEntityRegistry } from '../useEntityRegistry';
-import { PageRoutes } from '../../conf/Global';
-import { IconStyleType } from '../entity/Entity';
-import { EntityType } from '../../types.generated';
-import { LogoCountCard } from '../shared/LogoCountCard';
+import { PageRoutes } from '../../../conf/Global';
+import { EntityType } from '../../../types.generated';
+import { IconStyleType } from '../../entity/Entity';
+import { LogoCountCard } from '../../shared/LogoCountCard';
+import { useEntityRegistry } from '../../useEntityRegistry';
 
 export const ContainerBrowseEntityCard = ({ entityType, count }: { entityType: EntityType; count: number }) => {
     const entityRegistry = useEntityRegistry();
