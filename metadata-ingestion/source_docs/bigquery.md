@@ -245,6 +245,14 @@ source:
 
     # Options
     top_n_queries: 10
+    dataset_pattern:
+      allow:
+        - marketing_db
+        - sales_db
+    table_pattern:
+      deny:
+        - .*feedback.*
+        - .*salary.*
 
 sink:
   # sink configs
@@ -273,6 +281,8 @@ By default, we extract usage stats for the last day, with the recommendation tha
 | `extra_client_options`          |                                                                           |                                                                | Additional options to pass to `google.cloud.logging_v2.client.Client`.                                                                                                                                                                                                                                                                                                                 |
 | `query_log_delay`               |                                                                           |                                                                | To account for the possibility that the query event arrives after the read event in the audit logs, we wait for at least `query_log_delay` additional events to be processed before attempting to resolve BigQuery job information from the logs. If `query_log_delay` is `None`, it gets treated as an unlimited delay, which prioritizes correctness at the expense of memory usage. |
 | `max_query_duration`            |                                                                           | `15`                                                           | Correction to pad `start_time` and `end_time` with. For handling the case where the read happens within our time range but the query completion event is delayed and happens after the configured end time.                                                                                                                                                                            |
+| `dataset_pattern.allow`         |                                                                           |                                                                | List of regex patterns for datasets to include in ingestion.                                                                                                                                                                                                                                                                                                                             |
+| `dataset_pattern.deny`          |                                                                           |                                                                | List of regex patterns for datasets to exclude in ingestion.                                                                                                                                                                                                                                                                                                                             |
 | `table_pattern.allow`           |                                                                           |                                                                | List of regex patterns for tables to include in ingestion.                                                                                                                                                                                                                                                                                                                             |
 | `table_pattern.deny`            |                                                                           |                                                                | List of regex patterns for tables to exclude in ingestion.                                                                                                                                                                                                                                                                                                                             |
 | `user_email_pattern.allow`      |                                                                           | *                                                              | List of regex patterns for user emails to include in usage.                                                                                                                                                                                                                                                                                                                            |

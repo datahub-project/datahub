@@ -489,6 +489,13 @@ class BigQueryUsageSource(Source):
         self.report.allow_pattern = self.config.get_allow_pattern_string()
         self.report.deny_pattern = self.config.get_deny_pattern_string()
 
+    def _is_table_allowed(self, table_ref: Optional[BigQueryTableRef]) -> bool:
+        return (
+            table_ref is not None
+            and self.config.dataset_pattern.allowed(table_ref.dataset)
+            and self.config.table_pattern.allowed(table_ref.table)
+        )
+
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         clients = self._make_bigquery_clients()
         bigquery_log_entries = self._get_bigquery_log_entries(clients)
@@ -692,17 +699,24 @@ class BigQueryUsageSource(Source):
     ) -> Iterable[Union[ReadEvent, QueryEvent, MetadataWorkUnit]]:
         self.report.num_read_events = 0
         self.report.num_query_events = 0
+        self.report.num_filtered_events = 0
         for entry in entries:
             event: Optional[Union[ReadEvent, QueryEvent]] = None
 
             missing_read_entry = ReadEvent.get_missing_key_entry(entry)
             if missing_read_entry is None:
                 event = ReadEvent.from_entry(entry)
+                if not self._is_table_allowed(event.resource):
+                    self.report.num_filtered_events += 1
+                    continue
                 self.report.num_read_events += 1
 
             missing_query_entry = QueryEvent.get_missing_key_entry(entry)
             if event is None and missing_query_entry is None:
                 event = QueryEvent.from_entry(entry)
+                if not self._is_table_allowed(event.destinationTable):
+                    self.report.num_filtered_events += 1
+                    continue
                 self.report.num_query_events += 1
                 wu = self._create_operation_aspect_work_unit(event)
                 if wu:
@@ -712,6 +726,9 @@ class BigQueryUsageSource(Source):
 
             if event is None and missing_query_entry_v2 is None:
                 event = QueryEvent.from_entry_v2(entry)
+                if not self._is_table_allowed(event.destinationTable):
+                    self.report.num_filtered_events += 1
+                    continue
                 self.report.num_query_events += 1
                 wu = self._create_operation_aspect_work_unit(event)
                 if wu:
@@ -770,6 +787,7 @@ class BigQueryUsageSource(Source):
             if (
                 event.timestamp < self.config.start_time
                 or event.timestamp >= self.config.end_time
+                or not self._is_table_allowed(event.resource)
             ):
                 continue
 
