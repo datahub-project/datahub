@@ -211,6 +211,7 @@ module.exports = {
       "docs/developers",
       "docs/docker/development",
       "docs/how/backup-datahub",
+      "docs/how/updating-datahub",
       {
         type: "doc",
         label: "Ingesting files from S3",
