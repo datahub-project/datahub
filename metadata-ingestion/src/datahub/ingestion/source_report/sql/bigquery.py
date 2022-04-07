@@ -2,6 +2,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, Optional
 
+import pydantic
+
 from datahub.ingestion.source.sql.sql_common import SQLSourceReport
 
 
@@ -15,7 +17,11 @@ class BigQueryReport(SQLSourceReport):
     num_parsed_log_entires: Optional[int] = None
     num_total_audit_entries: Optional[int] = None
     num_parsed_audit_entires: Optional[int] = None
+    bigquery_audit_metadata_datasets_missing: Optional[bool] = None
     lineage_metadata_entries: Optional[int] = None
+    include_table_lineage: Optional[bool] = None
+    use_date_sharded_audit_log_tables: Optional[bool] = None
+    log_page_size: Optional[pydantic.PositiveInt] = None
     use_v2_audit_metadata: Optional[bool] = None
     use_exported_bigquery_audit_metadata: Optional[bool] = None
     start_time: Optional[datetime] = None
