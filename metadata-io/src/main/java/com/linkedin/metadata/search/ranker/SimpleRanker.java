@@ -3,7 +3,6 @@ package com.linkedin.metadata.search.ranker;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.features.FeatureExtractor;
-import com.linkedin.metadata.search.features.Features;
 import java.util.List;
 import java.util.Optional;
 
