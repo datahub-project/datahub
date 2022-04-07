@@ -1,8 +1,6 @@
 import json
 import os
 
-import pytest
-
 
 def test_bigquery_uri():
     from datahub.ingestion.source.sql.bigquery import BigQueryConfig
