@@ -182,20 +182,20 @@ public class ProposalUtils {
       String subResource,
       SubResourceType subResourceType,
       EntityService entityService,
-      DataHubAuthorizer authorizationManager
+      DataHubAuthorizer DataHubAuthorizer
   ) throws URISyntaxException {
     DataHubAuthorizer.AuthorizedActors actors = null;
 
     ResourceSpec spec = new ResourceSpec(targetUrn.getEntityType(), targetUrn.toString());
     if (subResource != null && subResource.length() > 0) {
-      actors = authorizationManager.authorizedActors(
+      actors = DataHubAuthorizer.authorizedActors(
           PoliciesConfig.MANAGE_DATASET_COL_TAGS_PRIVILEGE.getType(),
           Optional.of(spec)
       );
 
       addTagToSchemaProposalsAspect(creator, tagUrn, targetUrn, subResource, entityService);
     } else {
-      actors = authorizationManager.authorizedActors(
+      actors = DataHubAuthorizer.authorizedActors(
           PoliciesConfig.MANAGE_ENTITY_TAGS_PRIVILEGE.getType(),
           Optional.of(spec)
       );
@@ -272,13 +272,13 @@ public class ProposalUtils {
       String subResource,
       SubResourceType subResourceType,
       EntityService entityService,
-      DataHubAuthorizer authorizationManager
+      DataHubAuthorizer DataHubAuthorizer
   ) throws URISyntaxException {
     DataHubAuthorizer.AuthorizedActors actors = null;
 
     if (subResource != null && subResource.length() > 0) {
       ResourceSpec spec = new ResourceSpec(targetUrn.getEntityType(), targetUrn.toString());
-      actors = authorizationManager.authorizedActors(
+      actors = DataHubAuthorizer.authorizedActors(
           PoliciesConfig.MANAGE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE.getType(),
           Optional.of(spec)
       );
@@ -286,7 +286,7 @@ public class ProposalUtils {
       addTermToSchemaProposalsAspect(creator, termUrn, targetUrn, subResource, entityService);
     } else {
       ResourceSpec spec = new ResourceSpec(targetUrn.getEntityType(), targetUrn.toString());
-      actors = authorizationManager.authorizedActors(
+      actors = DataHubAuthorizer.authorizedActors(
           PoliciesConfig.MANAGE_ENTITY_GLOSSARY_TERMS_PRIVILEGE.getType(),
           Optional.of(spec)
       );
