@@ -4,7 +4,6 @@ import os
 import pytest
 
 
-@pytest.mark.integration
 def test_bigquery_uri():
     from datahub.ingestion.source.sql.bigquery import BigQueryConfig
 
@@ -16,7 +15,6 @@ def test_bigquery_uri():
     assert config.get_sql_alchemy_url() == "bigquery://test-project"
 
 
-@pytest.mark.integration
 def test_bigquery_uri_with_credential():
     from datahub.ingestion.source.sql.bigquery import BigQueryConfig
 
@@ -65,7 +63,6 @@ def test_bigquery_uri_with_credential():
         raise e
 
 
-@pytest.mark.integration
 def test_simple_upstream_table_generation():
     from datahub.ingestion.api.common import PipelineContext
     from datahub.ingestion.source.sql.bigquery import BigQueryConfig, BigQuerySource
@@ -89,7 +86,6 @@ def test_simple_upstream_table_generation():
     assert list(upstreams) == [b]
 
 
-@pytest.mark.integration
 def test_upstream_table_generation_with_temporary_table_without_temp_upstream():
     from datahub.ingestion.api.common import PipelineContext
     from datahub.ingestion.source.sql.bigquery import BigQueryConfig, BigQuerySource
@@ -113,7 +109,6 @@ def test_upstream_table_generation_with_temporary_table_without_temp_upstream():
     assert list(upstreams) == []
 
 
-@pytest.mark.integration
 def test_upstream_table_generation_with_temporary_table_with_temp_upstream():
     from datahub.ingestion.api.common import PipelineContext
     from datahub.ingestion.source.sql.bigquery import BigQueryConfig, BigQuerySource
@@ -140,7 +135,6 @@ def test_upstream_table_generation_with_temporary_table_with_temp_upstream():
     assert list(upstreams) == [c]
 
 
-@pytest.mark.integration
 def test_upstream_table_generation_with_temporary_table_with_multiple_temp_upstream():
     from datahub.ingestion.api.common import PipelineContext
     from datahub.ingestion.source.sql.bigquery import BigQueryConfig, BigQuerySource
