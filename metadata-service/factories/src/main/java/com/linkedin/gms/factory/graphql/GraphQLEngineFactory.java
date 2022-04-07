@@ -111,6 +111,7 @@ public class GraphQLEngineFactory {
           _entityRegistry,
           _secretService,
           _configProvider.getIngestion(),
+          _configProvider.getAuthorization(),
           _gitVersion,
           _graphService.supportsMultiHop()
           ).builder().build();
@@ -127,6 +128,7 @@ public class GraphQLEngineFactory {
         _entityRegistry,
         _secretService,
         _configProvider.getIngestion(),
+        _configProvider.getAuthorization(),
         _gitVersion,
         _graphService.supportsMultiHop()
     ).builder().build();
