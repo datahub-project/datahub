@@ -4,12 +4,12 @@ from airflow.configuration import conf
 from airflow.utils.state import DagRunState, TaskInstanceState
 from airflow.utils.types import DagRunType
 
-from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.metadata.schema_classes import DataProcessTypeClass, RunResultTypeClass
 from datahub.api.dataflow import DataFlow
 from datahub.api.datajob import DataJob
 from datahub.api.dataprocess_instance import DataProcessInstance
 from datahub.api.urn import DataFlowUrn, DataJobUrn
+from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.metadata.schema_classes import DataProcessTypeClass, RunResultTypeClass
 from datahub_provider.hooks.datahub import AIRFLOW_1
 
 if TYPE_CHECKING:
@@ -243,7 +243,7 @@ class AirflowGenerator:
         if data_job is None:
             data_job = AirflowGenerator.generate_datajob(cluster, task=task, dag=dag)
         dpi = DataProcessInstance.from_datajob(
-            data_job=data_job, id=task.task_id, clone_inlets=True, clone_outlets=True
+            datajob=data_job, id=task.task_id, clone_inlets=True, clone_outlets=True
         )
         return dpi
 
@@ -263,9 +263,7 @@ class AirflowGenerator:
         if start_timestamp_millis is None:
             start_timestamp_millis = int(dag_run.execution_date.timestamp() * 1000)
 
-        dpi = DataProcessInstance.from_dataflow(
-            dataflow=dataflow, id=f"{dag_run.dag_id}_{dag_run.run_id}"
-        )
+        dpi = DataProcessInstance.from_dataflow(dataflow=dataflow, id=dag_run.run_id)
         if dag_run.run_type == DagRunType.SCHEDULED:
             dpi.type = DataProcessTypeClass.BATCH_SCHEDULED
         elif dag_run.run_type == DagRunType.MANUAL:
@@ -306,7 +304,7 @@ class AirflowGenerator:
             assert dag_run.dag
             dataflow = AirflowGenerator.generate_dataflow(cluster, dag_run.dag)
 
-        dpi = DataProcessInstance.from_dataflow(dataflow=dataflow, id=dag_run.id)
+        dpi = DataProcessInstance.from_dataflow(dataflow=dataflow, id=dag_run.run_id)
         if end_timestamp_millis is None:
             if dag_run.end_date is None:
                 raise Exception(
@@ -324,7 +322,7 @@ class AirflowGenerator:
             )
 
         dpi.emit_process_end(
-            emitter=emitter, end_timestamp_millis=end_timestamp_millis, result=result
+            emitter=emitter, end_timestamp_millis=end_timestamp_millis, result=result, result_type="airflow"
         )
 
     @staticmethod
@@ -335,12 +333,13 @@ class AirflowGenerator:
         dag: "DAG",
         start_timestamp_millis: Optional[int] = None,
         datajob: Optional[DataJob] = None,
+        attempt: Optional[int] = None,
     ) -> DataProcessInstance:
         if datajob is None:
             datajob = AirflowGenerator.generate_datajob(cluster, ti.task, dag)
 
         dpi = DataProcessInstance.from_datajob(
-            data_job=datajob,
+            datajob=datajob,
             id=f"{dag.dag_id}_{ti.task_id}_{ti.run_id}",
             clone_inlets=True,
             clone_outlets=True,
@@ -375,8 +374,13 @@ class AirflowGenerator:
             assert ti.start_date
             start_timestamp_millis = int(ti.start_date.timestamp() * 1000)
 
+        if attempt is None:
+            attempt = ti.try_number
+
         dpi.emit_process_start(
-            emitter=emitter, start_timestamp_millis=start_timestamp_millis
+            emitter=emitter,
+            start_timestamp_millis=start_timestamp_millis,
+            attempt=attempt,
         )
         return dpi
 
@@ -419,12 +423,12 @@ class AirflowGenerator:
                 )
 
         dpi = DataProcessInstance.from_datajob(
-            data_job=datajob,
-            id=f"{ti.run_id}",
+            datajob=datajob,
+            id=f"{dag.dag_id}_{ti.task_id}_{ti.run_id}",
             clone_inlets=True,
             clone_outlets=True,
         )
         dpi.emit_process_end(
-            emitter=emitter, end_timestamp_millis=end_timestamp_millis, result=result
+            emitter=emitter, end_timestamp_millis=end_timestamp_millis, result=result, result_type="airflow"
         )
         return dpi

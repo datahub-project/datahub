@@ -3,9 +3,14 @@ from abc import abstractmethod
 import attr
 
 import datahub.emitter.mce_builder as builder
+from datahub.api.datajob import Entity
 
 
-class _Entity:
+class _Entity(Entity):
+    @property
+    def urn(self) -> str:
+        raise NotImplementedError("urn method needs to be implemented")
+
     def set_context(self, context):
         # Required for compat with Airflow 1.10.x
         pass
@@ -13,11 +18,6 @@ class _Entity:
     def as_dict(self):
         # Required for compat with Airflow 1.10.x
         return attr.asdict(self)
-
-    @property
-    @abstractmethod
-    def urn(self) -> str:
-        pass
 
 
 @attr.s(auto_attribs=True, str=True)

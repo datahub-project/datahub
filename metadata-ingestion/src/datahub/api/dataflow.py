@@ -1,11 +1,14 @@
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Set
+from typing import TYPE_CHECKING, Callable, Dict, Iterable, List, Optional, Set, Union, cast
 
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
 from datahub.api.urn import DataFlowUrn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
+
+if TYPE_CHECKING:
+    from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
+    from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 
 @dataclass
@@ -108,6 +111,22 @@ class DataFlow:
             )
             yield mcp
 
-    def emit(self, emitter: DatahubRestEmitter) -> None:
+    def emit(
+        self,
+        emitter: Union["DatahubRestEmitter", "DatahubKafkaEmitter"],
+        callback: Optional[Callable[[Exception, str], None]] = None,
+    ) -> None:
+        """
+        Emit the DataFlow entity to Datahub
+
+        :param emitter: Datahub Emitter to emit the proccess event
+        :param callback: (Optional[Callable[[Exception, str], None]]) the callback method for KafkaEmitter if it is used
+        """
         for mcp in self.generate_mcp():
-            emitter.emit(mcp)
+            if type(emitter).__name__ == "DatahubKafkaEmitter":
+                assert callback is not None
+                kafka_emitter = cast("DatahubKafkaEmitter", emitter)
+                kafka_emitter.emit(mcp, callback)
+            else:
+                rest_emitter = cast("DatahubRestEmitter", emitter)
+                rest_emitter.emit(mcp)

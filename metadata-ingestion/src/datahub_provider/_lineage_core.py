@@ -32,7 +32,7 @@ class DatahubBasicLineageConfig(ConfigModel):
     # If true, the tags field of the DAG will be captured as DataHub tags.
     capture_tags_info: bool = True
 
-    capture_execution = True
+    capture_executions: bool = False
 
     def make_emitter_hook(self) -> "DatahubGenericHook":
         # This is necessary to avoid issues with circular imports.
@@ -76,7 +76,7 @@ def send_lineage_to_datahub(
 
     datajob.emit(emitter)
 
-    if config.capture_execution:
+    if config.capture_executions:
         dpi = AirflowGenerator.run_datajob(
             emitter=emitter, cluster=config.cluster, ti=ti, dag=dag, datajob=datajob
         )

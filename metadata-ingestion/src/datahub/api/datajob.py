@@ -1,14 +1,16 @@
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Set
+from typing import TYPE_CHECKING, Callable, Dict, Iterable, List, Optional, Set, Union, cast
 
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
 from datahub.api.dataflow import DataFlowUrn
+from datahub.api.entity import Entity
 from datahub.api.urn import DataJobUrn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub_provider.entities import _Entity
 
+if TYPE_CHECKING:
+    from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
+    from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 @dataclass
 class DataJob:
@@ -36,8 +38,8 @@ class DataJob:
     url: Optional[str] = None
     tags: Set[str] = field(default_factory=set)
     owners: Set[str] = field(default_factory=set)
-    inlets: List[_Entity] = field(default_factory=list)
-    outlets: List[_Entity] = field(default_factory=list)
+    inlets: List[Entity] = field(default_factory=list)
+    outlets: List[Entity] = field(default_factory=list)
     input_datajob_urns: List[DataJobUrn] = field(default_factory=list)
 
     def __post_init__(self):
@@ -77,7 +79,7 @@ class DataJob:
         return [tags]
 
     @staticmethod
-    def _entities_to_urn_list(iolets: List[_Entity]) -> List[str]:
+    def _entities_to_urn_list(iolets: List[Entity]) -> List[str]:
         return [let.urn for let in iolets]
 
     def generate_mce(self) -> models.MetadataChangeEventClass:
@@ -143,9 +145,26 @@ class DataJob:
             )
             yield mcp
 
-    def emit(self, emitter: DatahubRestEmitter) -> None:
+    def emit(
+        self,
+        emitter: Union["DatahubRestEmitter", "DatahubKafkaEmitter"],
+        callback: Optional[Callable[[Exception, str], None]] = None,
+    ) -> None:
+        """
+        Emit the DataJob entity to Datahub
+
+        :param emitter: Datahub Emitter to emit the proccess event
+        :param callback: (Optional[Callable[[Exception, str], None]]) the callback method for KafkaEmitter if it is used
+        :rtype: None
+        """
         for mcp in self.generate_mcp():
-            emitter.emit(mcp)
+            if type(emitter).__name__ == "DatahubKafkaEmitter":
+                assert callback is not None
+                kafka_emitter = cast("DatahubKafkaEmitter", emitter)
+                kafka_emitter.emit(mcp, callback)
+            else:
+                rest_emitter = cast("DatahubRestEmitter", emitter)
+                rest_emitter.emit(mcp)
 
     def generate_data_input_output_mcp(self) -> Iterable[MetadataChangeProposalWrapper]:
         mcp = MetadataChangeProposalWrapper(
@@ -160,7 +179,3 @@ class DataJob:
             changeType=models.ChangeTypeClass.UPSERT,
         )
         yield mcp
-
-    def emit_data_inputs_output(self, emitter: DatahubRestEmitter) -> None:
-        for mcp in self.generate_data_input_output_mcp():
-            emitter.emit(mcp)
