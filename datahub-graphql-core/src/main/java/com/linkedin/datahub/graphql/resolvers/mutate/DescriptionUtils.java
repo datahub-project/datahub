@@ -19,6 +19,7 @@ import com.linkedin.ml.metadata.EditableMLFeatureProperties;
 import com.linkedin.ml.metadata.EditableMLFeatureTableProperties;
 import com.linkedin.ml.metadata.EditableMLModelGroupProperties;
 import com.linkedin.ml.metadata.EditableMLModelProperties;
+import com.linkedin.ml.metadata.EditableMLPrimaryKeyProperties;
 import com.linkedin.notebook.EditableNotebookProperties;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaMetadata;
@@ -307,5 +308,16 @@ public class DescriptionUtils {
         resourceUrn.toString(), Constants.ML_FEATURE_TABLE_EDITABLE_PROPERTIES_ASPECT_NAME, entityService, new EditableMLFeatureTableProperties());
     editableProperties.setDescription(newDescription);
     persistAspect(resourceUrn, Constants.ML_FEATURE_TABLE_EDITABLE_PROPERTIES_ASPECT_NAME, editableProperties, actor, entityService);
+  }
+
+  public static void updateMlPrimaryKeyDescription(
+      String newDescription,
+      Urn resourceUrn,
+      Urn actor,
+      EntityService entityService) {
+    EditableMLPrimaryKeyProperties editableProperties = (EditableMLPrimaryKeyProperties) getAspectFromEntity(
+        resourceUrn.toString(), Constants.ML_PRIMARY_KEY_EDITABLE_PROPERTIES_ASPECT_NAME, entityService, new EditableMLPrimaryKeyProperties());
+    editableProperties.setDescription(newDescription);
+    persistAspect(resourceUrn, Constants.ML_PRIMARY_KEY_EDITABLE_PROPERTIES_ASPECT_NAME, editableProperties, actor, entityService);
   }
 }

@@ -147,6 +147,7 @@ public class Constants {
   // ML Primary Key
   public static final String ML_PRIMARY_KEY_KEY_ASPECT_NAME = "mlPrimaryKeyKey";
   public static final String ML_PRIMARY_KEY_PROPERTIES_ASPECT_NAME = "mlPrimaryKeyProperties";
+  public static final String ML_PRIMARY_KEY_EDITABLE_PROPERTIES_ASPECT_NAME = "mlPrimaryKeyEditableProperties";
 
   // Policy
   public static final String DATAHUB_POLICY_INFO_ASPECT_NAME = "dataHubPolicyInfo";

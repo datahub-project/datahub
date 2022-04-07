@@ -48,6 +48,8 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
         return updateMlFeatureTableDescription(targetUrn, input, environment.getContext());
       case Constants.ML_FEATURE_ENTITY_NAME:
         return updateMlFeatureDescription(targetUrn, input, environment.getContext());
+      case Constants.ML_PRIMARY_KEY_ENTITY_NAME:
+        return updateMlPrimaryKeyDescription(targetUrn, input, environment.getContext());
       default:
         throw new RuntimeException(
             String.format("Failed to update description. Unsupported resource type %s provided.", targetUrn));
@@ -291,6 +293,31 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
       try {
         Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
         DescriptionUtils.updateMlFeatureDescription(
+            input.getDescription(),
+            targetUrn,
+            actor,
+            _entityService);
+        return true;
+      } catch (Exception e) {
+        log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
+        throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
+      }
+    });
+  }
+
+  private CompletableFuture<Boolean> updateMlPrimaryKeyDescription(Urn targetUrn, DescriptionUpdateInput input,
+      QueryContext context) {
+    return CompletableFuture.supplyAsync(() -> {
+
+      if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
+        throw new AuthorizationException(
+            "Unauthorized to perform this action. Please contact your DataHub administrator.");
+      }
+      DescriptionUtils.validateLabelInput(targetUrn, _entityService);
+
+      try {
+        Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
+        DescriptionUtils.updateMlPrimaryKeyDescription(
             input.getDescription(),
             targetUrn,
             actor,
