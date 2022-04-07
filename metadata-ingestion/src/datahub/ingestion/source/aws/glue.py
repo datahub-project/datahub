@@ -165,7 +165,9 @@ class GlueSource(Source):
         paginator = self.glue_client.get_paginator("get_jobs")
 
         if self.source_config.catalog_id:
-            paginator_response = paginator.paginate(CatalogId=self.source_config.catalog_id)
+            paginator_response = paginator.paginate(
+                CatalogId=self.source_config.catalog_id
+            )
         else:
             paginator_response = paginator.paginate()
 
@@ -504,8 +506,9 @@ class GlueSource(Source):
             paginator = self.glue_client.get_paginator("get_tables")
 
             if self.source_config.catalog_id:
-                paginator_response = paginator.paginate(DatabaseName=database_name,
-                                                    CatalogId=self.source_config.catalog_id)
+                paginator_response = paginator.paginate(
+                    DatabaseName=database_name, CatalogId=self.source_config.catalog_id
+                )
             else:
                 paginator_response = paginator.paginate(DatabaseName=database_name)
 
@@ -521,7 +524,9 @@ class GlueSource(Source):
             paginator = self.glue_client.get_paginator("get_databases")
 
             if self.source_config.catalog_id:
-                paginator_response = paginator.paginate(CatalogId=self.source_config.catalog_id)
+                paginator_response = paginator.paginate(
+                    CatalogId=self.source_config.catalog_id
+                )
             else:
                 paginator_response = paginator.paginate()
 
