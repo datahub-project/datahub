@@ -368,10 +368,6 @@ class BigQuerySource(SQLAlchemySource):
             end_time=end_time,
         )
 
-        if self.config.log_page_size is None:
-            self.error(logger, "log-entry", "log_page_size missing")
-            return
-
         logger.info(
             f"Start loading log entries from BigQuery start_time={start_time} and end_time={end_time}"
         )

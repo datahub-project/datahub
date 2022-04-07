@@ -17,7 +17,7 @@ class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
     scheme: str = "bigquery"
     project_id: Optional[str] = None
     lineage_client_project_id: Optional[str] = None
-    log_page_size: Optional[pydantic.PositiveInt] = 1000
+    log_page_size: pydantic.PositiveInt = 1000
     credential: Optional[BigQueryCredential]
     # extra_client_options, include_table_lineage and max_query_duration are relevant only when computing the lineage.
     extra_client_options: Dict[str, Any] = {}

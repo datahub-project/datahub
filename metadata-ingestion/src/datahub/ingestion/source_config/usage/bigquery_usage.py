@@ -48,7 +48,7 @@ class BigQueryUsageConfig(DatasetSourceConfigBase, BaseUsageConfig):
     extra_client_options: dict = {}
     table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     dataset_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    log_page_size: Optional[pydantic.PositiveInt] = 1000
+    log_page_size: pydantic.PositiveInt = 1000
     query_log_delay: Optional[pydantic.PositiveInt] = None
     max_query_duration: timedelta = timedelta(minutes=15)
     use_v2_audit_metadata: Optional[bool] = False
