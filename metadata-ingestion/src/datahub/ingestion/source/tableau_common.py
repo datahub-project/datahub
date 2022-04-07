@@ -431,13 +431,13 @@ def make_table_urn(
     # lowercase it
     fully_qualified_table_name = fully_qualified_table_name.lower()
     # strip double quotes and escaped double quotes
-    fully_qualified_table_name = fully_qualified_table_name.replace('\\"', '').replace('"', '').replace('\\', '')
+    fully_qualified_table_name = (
+        fully_qualified_table_name.replace('\\"', "").replace('"', "").replace("\\", "")
+    )
     # if there are more than 3 tokens, just take the final 3
     fully_qualified_table_name = ".".join(fully_qualified_table_name.split(".")[-3:])
 
-    urn = builder.make_dataset_urn(
-        platform, fully_qualified_table_name, env
-    )
+    urn = builder.make_dataset_urn(platform, fully_qualified_table_name, env)
     return urn
 
 
