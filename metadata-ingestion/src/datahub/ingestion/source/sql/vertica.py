@@ -1,4 +1,3 @@
-from email.policy import default
 import re
 from textwrap import dedent
 from pydantic.class_validators import validator
@@ -95,7 +94,7 @@ def get_columns(self, connection, table_name, schema=None, **kw):
         default = row.column_default
         nullable = row.is_nullable
 
-        column_info = _get_column_info(name, type, default, nullable, schema)
+        column_info = self._get_column_info(name, type, default, nullable, schema)
         column_info.update({'primary_key': primary_key})
         columns.append(column_info)
     
@@ -192,6 +191,12 @@ class UUID(String):
     """The SQL UUID type."""
 
     __visit_name__ = "UUID"
+
+class DATE(String):
+
+    """The SQL DATE type."""
+
+    __visit_name__ = "DATE"
 
 
 VerticaDialect.get_view_definition = get_view_definition
