@@ -1,3 +1,4 @@
+import urllib.parse
 from typing import List
 
 from datahub.utilities.urns.error import InvalidUrnError
@@ -73,6 +74,11 @@ class Urn:
 
         cls._validate_entity_type(parts[2])
         cls._validate_entity_id(cls._get_entity_id_from_str(parts[3]))
+
+    @staticmethod
+    def url_encode(urn: str) -> str:
+        # safe='' encodes '/' as '%2F'
+        return urllib.parse.quote(urn, safe="")
 
     def get_type(self) -> str:
         return self._entity_type

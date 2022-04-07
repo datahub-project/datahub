@@ -1,7 +1,6 @@
 import json
 import logging
 import time
-import urllib.parse
 from datetime import datetime
 from typing import Any, List, Optional
 
@@ -13,6 +12,7 @@ from termcolor import colored
 import datahub.cli.cli_utils
 from datahub.emitter.mce_builder import dataset_urn_to_key, schema_field_urn_to_key
 from datahub.telemetry import telemetry
+from datahub.utilities.urns.urn import Urn
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +74,7 @@ def get_timeline(
         # we assume the urn is already encoded
         encoded_urn: str = urn
     elif urn.startswith("urn:"):
-        encoded_urn = urllib.parse.quote(urn, safe="")
+        encoded_urn = Urn.url_encode(urn)
     else:
         raise Exception(
             f"urn {urn} does not seem to be a valid raw (starts with urn:) or encoded urn (starts with urn%3A)"

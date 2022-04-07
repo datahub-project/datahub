@@ -3,7 +3,6 @@ import logging
 import os.path
 import sys
 import typing
-import urllib.parse
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, Union
 
@@ -55,6 +54,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
+from datahub.utilities.urns.urn import Urn
 
 log = logging.getLogger(__name__)
 
@@ -448,7 +448,7 @@ def batch_get_ids(
     url = gms_host + endpoint
     ids_to_get = []
     for id in ids:
-        ids_to_get.append(urllib.parse.quote(id, safe=""))
+        ids_to_get.append(Urn.url_encode(id))
 
     response = session.get(
         f"{url}?ids=List({','.join(ids_to_get)})",
@@ -482,7 +482,7 @@ def get_outgoing_relationships(urn: str, types: List[str]) -> Iterable[Dict]:
 
 def get_relationships(urn: str, types: List[str], direction: str) -> Iterable[Dict]:
     session, gms_host = get_session_and_host()
-    encoded_urn = urllib.parse.quote(urn, safe="")
+    encoded_urn: str = Urn.url_encode(urn)
     types_param_string = "List(" + ",".join(types) + ")"
     endpoint: str = f"{gms_host}/relationships?urn={encoded_urn}&direction={direction}&types={types_param_string}"
     response: Response = session.get(endpoint)
@@ -515,7 +515,7 @@ def get_entity(
         # we assume the urn is already encoded
         encoded_urn: str = urn
     elif urn.startswith("urn:"):
-        encoded_urn = urllib.parse.quote(urn, safe="")
+        encoded_urn = Urn.url_encode(urn)
     else:
         raise Exception(
             f"urn {urn} does not seem to be a valid raw (starts with urn:) or encoded urn (starts with urn%3A)"
