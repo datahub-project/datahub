@@ -11,6 +11,8 @@ import { EntityType } from '../../../types.generated';
 import { navigateToLineageUrl } from '../../lineage/utils/navigateToLineageUrl';
 import useIsLineageMode from '../../lineage/utils/useIsLineageMode';
 import { useEntityRegistry } from '../../useEntityRegistry';
+import { GetPlatformNameFromPath } from './GetPlatformNameFromPath';
+import { GetContainerNameFromPath } from './GetContainerNameFromPath';
 
 interface Props {
     type: EntityType;
@@ -64,24 +66,26 @@ export const ContainerBrowseLegacyPath = ({ type, path, lineageSupported, isProf
     const location = useLocation();
     const isLineageMode = useIsLineageMode();
 
-    const createPartialPath = (parts: Array<string>) => {
-        return parts.join('/');
-    };
-
     const baseBrowsePath = `${PageRoutes.METADATA}/${entityRegistry.getPathName(type)}`;
     const pathCrumbs = path.map((part, index) => {
-        return (
-            <Breadcrumb.Item key={`${part || index}`}>
-                <Link
-                    to={
-                        (isProfilePage && index === path.length - 1) || !isBrowsable
-                            ? '#'
-                            : `${baseBrowsePath}/${createPartialPath(path.slice(0, index + 1))}`
-                    }
-                >
-                    {part}
-                </Link>
-            </Breadcrumb.Item>
+        return index === 0 ? (
+            <GetPlatformNameFromPath
+                part={part}
+                index={index}
+                baseBrowsePath={baseBrowsePath}
+                path={path}
+                isProfilePage={isProfilePage}
+                isBrowsable={isBrowsable}
+            />
+        ) : (
+            <GetContainerNameFromPath
+                part={part}
+                index={index}
+                baseBrowsePath={baseBrowsePath}
+                path={path}
+                isProfilePage={isProfilePage}
+                isBrowsable={isBrowsable}
+            />
         );
     });
 
