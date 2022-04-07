@@ -315,7 +315,7 @@ fragment dashboardFields on Dashboard {
     ownership {
         ...ownershipFields
     }
-    globalTags {
+    tags {
         ...globalTagsFields
     }
     institutionalMemory {
