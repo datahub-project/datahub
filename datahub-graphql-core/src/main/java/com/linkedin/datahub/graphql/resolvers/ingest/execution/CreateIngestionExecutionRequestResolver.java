@@ -20,7 +20,7 @@ import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.key.ExecutionRequestKey;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -68,7 +68,7 @@ public class CreateIngestionExecutionRequestResolver implements DataFetcher<Comp
           final UUID uuid = UUID.randomUUID();
           final String uuidStr = uuid.toString();
           key.setId(uuidStr);
-          proposal.setEntityKeyAspect(GenericAspectUtils.serializeAspect(key));
+          proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(key));
 
           // Fetch the original ingestion source
           final Urn ingestionSourceUrn = Urn.createFromString(input.getIngestionSourceUrn());
@@ -112,7 +112,7 @@ public class CreateIngestionExecutionRequestResolver implements DataFetcher<Comp
 
           proposal.setEntityType(Constants.EXECUTION_REQUEST_ENTITY_NAME);
           proposal.setAspectName(Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME);
-          proposal.setAspect(GenericAspectUtils.serializeAspect(execInput));
+          proposal.setAspect(GenericRecordUtils.serializeAspect(execInput));
           proposal.setChangeType(ChangeType.UPSERT);
 
           return _entityClient.ingestProposal(proposal, context.getAuthentication());

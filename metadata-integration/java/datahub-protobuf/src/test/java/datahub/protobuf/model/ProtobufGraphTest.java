@@ -5,6 +5,8 @@ import org.junit.Test;
 
 import java.io.IOException;
 import java.util.HashSet;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import static datahub.protobuf.TestFixtures.getTestProtobufFileSet;
 import static datahub.protobuf.TestFixtures.getTestProtobufGraph;
@@ -18,10 +20,10 @@ public class ProtobufGraphTest {
         ProtobufGraph test = getTestProtobufGraph("protobuf", "messageB");
 
         assertEquals("MessageB", test.autodetectRootMessage(
-                fileset.getFile(2)).messageProto().getName());
+                fileset.getFileList().stream().filter(f -> f.getName().equals("protobuf/messageB.proto")).findFirst().get()).get().messageProto().getName());
 
         assertEquals("MessageA", test.autodetectRootMessage(
-                fileset.getFile(1)).messageProto().getName());
+                fileset.getFileList().stream().filter(f -> f.getName().equals("protobuf/messageA.proto")).findFirst().get()).get().messageProto().getName());
     }
 
     @Test
@@ -67,5 +69,16 @@ public class ProtobufGraphTest {
         graphs.add(testB);
         graphs.add(new ProtobufGraph(filesetB));
         assertEquals(2, graphs.size());
+    }
+
+    @Test
+    public void duplicateNestedTest() throws IOException {
+        FileDescriptorSet fileset = getTestProtobufFileSet("protobuf", "messageB");
+        ProtobufGraph test = getTestProtobufGraph("protobuf", "messageB");
+
+        List<ProtobufElement> nestedMessages = test.vertexSet().stream().filter(f -> f.name().endsWith("nested"))
+                .collect(Collectors.toList());
+
+        assertEquals(2, nestedMessages.size(), "Expected 2 nested fields");
     }
 }

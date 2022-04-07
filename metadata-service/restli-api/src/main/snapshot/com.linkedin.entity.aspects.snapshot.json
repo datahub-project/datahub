@@ -45,10 +45,12 @@
               "doc" : "Generic record structure for serializing an Aspect\n",
               "fields" : [ {
                 "name" : "value",
-                "type" : "bytes"
+                "type" : "bytes",
+                "doc" : "The value of the aspect, serialized as bytes."
               }, {
                 "name" : "contentType",
-                "type" : "string"
+                "type" : "string",
+                "doc" : "The content type, which represents the fashion in which the aspect was serialized.\nThe only type currently supported is application/json."
               } ]
             }
           }, {
@@ -510,7 +512,7 @@
         "type" : "array",
         "items" : "string"
       },
-      "doc" : "A list of valid browse paths for the entity.\n\nBrowse paths are expected to be backslash-separated strings. For example: 'prod/snowflake/datasetName'",
+      "doc" : "A list of valid browse paths for the entity.\n\nBrowse paths are expected to be forward slash-separated strings. For example: 'prod/snowflake/datasetName'",
       "Searchable" : {
         "/*" : {
           "fieldName" : "browsePaths",
@@ -1006,7 +1008,7 @@
       "type" : "Urn",
       "doc" : "Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name\n(Caveat: only corpuser is currently supported in the frontend.)",
       "Relationship" : {
-        "entityTypes" : [ "corpUser", "corpGroup" ],
+        "entityTypes" : [ "corpuser", "corpGroup" ],
         "name" : "OwnedBy"
       },
       "Searchable" : {
@@ -1790,7 +1792,7 @@
       "doc" : "owners of this group\nDeprecated! Replaced by Ownership aspect.",
       "Relationship" : {
         "/*" : {
-          "entityTypes" : [ "corpUser" ],
+          "entityTypes" : [ "corpuser" ],
           "name" : "OwnedBy"
         }
       },
@@ -1804,7 +1806,7 @@
       "doc" : "List of ldap urn in this group.\nDeprecated! Replaced by GroupMembership aspect.",
       "Relationship" : {
         "/*" : {
-          "entityTypes" : [ "corpUser" ],
+          "entityTypes" : [ "corpuser" ],
           "name" : "IsPartOf"
         }
       },
@@ -1876,7 +1878,7 @@
       "name" : "pictureLink",
       "type" : "com.linkedin.common.Url",
       "doc" : "A URL which points to a picture which user wants to set as a profile photo",
-      "default" : "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/default_avatar.png"
+      "default" : "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/default_avatar.png"
     }, {
       "name" : "displayName",
       "type" : "string",
@@ -1956,7 +1958,7 @@
       "doc" : "direct manager of this user",
       "optional" : true,
       "Relationship" : {
-        "entityTypes" : [ "corpUser" ],
+        "entityTypes" : [ "corpuser" ],
         "name" : "ReportsTo"
       },
       "Searchable" : {
@@ -3414,7 +3416,7 @@
     "fields" : [ {
       "name" : "auditHeader",
       "type" : "com.linkedin.avro2pegasus.events.KafkaAuditHeader",
-      "doc" : "Kafka audit header. See go/kafkaauditheader for more info.",
+      "doc" : "Kafka audit header. Currently remains unused in the open source.",
       "optional" : true
     }, {
       "name" : "entityType",

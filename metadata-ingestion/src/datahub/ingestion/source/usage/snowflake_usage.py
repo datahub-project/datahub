@@ -11,7 +11,6 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -275,7 +274,8 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
         start_time = int(self.config.start_time.timestamp() * 1000)
         end_time = int(self.config.end_time.timestamp() * 1000)
         return SNOWFLAKE_USAGE_SQL_TEMPLATE.format(
-            start_time_millis=start_time, end_time_millis=end_time
+            start_time_millis=start_time,
+            end_time_millis=end_time,
         )
 
     def _make_sql_engine(self) -> Engine:
@@ -299,7 +299,12 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
         with PerfTimer() as timer:
             try:
                 for db_row in engine.execute(query):
-                    if len(db_row) < 2:
+                    if len(db_row) < 2 or db_row[0] is None or db_row[1] is None:
+                        self.warn(
+                            logger,
+                            "check-usage-data",
+                            f"Missing data for access_history {db_row} - Check if using Enterprise edition of Snowflake",
+                        )
                         continue
                     self.report.min_access_history_time = db_row[0].astimezone(
                         tz=timezone.utc
@@ -315,6 +320,10 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
 
     def _is_unsupported_object_accessed(self, obj: Dict[str, Any]) -> bool:
         unsupported_keys = ["locations"]
+
+        if obj.get("objectDomain") in ["Stage"]:
+            return True
+
         return any([obj.get(key) is not None for key in unsupported_keys])
 
     def _is_object_valid(self, obj: Dict[str, Any]) -> bool:
@@ -329,32 +338,28 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
     def _is_dataset_pattern_allowed(
         self, dataset_name: Optional[Any], dataset_type: Optional[Any]
     ) -> bool:
-        # TODO: support table/view patterns for usage logs by pulling that information as well from the usage query
         if not dataset_type or not dataset_name:
             return True
-
-        table_or_view_pattern: Optional[AllowDenyPattern] = AllowDenyPattern.allow_all()
-        # Test domain type = external_table and then add it
-        table_or_view_pattern = (
-            self.config.table_pattern
-            if dataset_type.lower() in {"table"}
-            else (
-                self.config.view_pattern
-                if dataset_type.lower() in {"view", "materialized_view"}
-                else None
-            )
-        )
-        if table_or_view_pattern is None:
-            return True
-
         dataset_params = dataset_name.split(".")
-        assert len(dataset_params) == 3
-        if (
-            not self.config.database_pattern.allowed(dataset_params[0])
-            or not self.config.schema_pattern.allowed(dataset_params[1])
-            or not table_or_view_pattern.allowed(dataset_params[2])
+        if len(dataset_params) != 3:
+            self.warn(logger, "invalid-dataset-pattern", f"Found {dataset_params}")
+            return False
+        if not self.config.database_pattern.allowed(
+            dataset_params[0]
+        ) or not self.config.schema_pattern.allowed(dataset_params[1]):
+            return False
+
+        if dataset_type.lower() in {"table"} and not self.config.table_pattern.allowed(
+            dataset_params[2]
         ):
             return False
+
+        if dataset_type.lower() in {
+            "view",
+            "materialized_view",
+        } and not self.config.view_pattern.allowed(dataset_params[2]):
+            return False
+
         return True
 
     def _process_snowflake_history_row(
@@ -420,6 +425,12 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
         logger.info("Checking usage date ranges")
         self._check_usage_date_ranges(engine)
 
+        if (
+            self.report.min_access_history_time is None
+            or self.report.max_access_history_time is None
+        ):
+            return
+
         logger.info("Getting usage history")
         with PerfTimer() as timer:
             query = self._make_usage_query()
@@ -461,7 +472,7 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
                     aspect=operation_aspect,
                 )
                 wu = MetadataWorkUnit(
-                    id=f"operation-aspect-{resource}-{start_time.isoformat()}",
+                    id=f"{start_time.isoformat()}-operation-aspect-{resource}",
                     mcp=mcp,
                 )
                 yield wu
@@ -516,6 +527,7 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
                 self.config.env,
             ),
             self.config.top_n_queries,
+            self.config.format_sql_queries,
         )
 
     def get_report(self):

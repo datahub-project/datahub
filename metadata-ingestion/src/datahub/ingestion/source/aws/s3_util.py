@@ -19,6 +19,10 @@ def strip_s3_prefix(s3_uri: str) -> str:
     )
 
 
+def get_bucket_relative_path(s3_uri: str) -> str:
+    return "/".join(strip_s3_prefix(s3_uri).split("/")[1:])
+
+
 def make_s3_urn(s3_uri: str, env: str) -> str:
 
     s3_name = strip_s3_prefix(s3_uri)
@@ -33,3 +37,11 @@ def make_s3_urn(s3_uri: str, env: str) -> str:
         return f"urn:li:dataset:(urn:li:dataPlatform:s3,{name}_{extension},{env})"
 
     return f"urn:li:dataset:(urn:li:dataPlatform:s3,{s3_name},{env})"
+
+
+def get_bucket_name(s3_uri: str) -> str:
+    if not is_s3_uri(s3_uri):
+        raise ValueError(
+            f"Not an S3 URI. Must start with one of the following prefixes: {str(S3_PREFIXES)}"
+        )
+    return strip_s3_prefix(s3_uri).split("/")[0]

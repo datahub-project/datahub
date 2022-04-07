@@ -17,8 +17,10 @@ import datahub.protobuf.model.ProtobufGraph;
 import datahub.protobuf.visitors.ProtobufModelVisitor;
 import datahub.protobuf.visitors.VisitContext;
 import datahub.protobuf.visitors.dataset.DatasetVisitor;
+import datahub.protobuf.visitors.dataset.DomainVisitor;
 import datahub.protobuf.visitors.dataset.InstitutionalMemoryVisitor;
 import datahub.protobuf.visitors.dataset.KafkaTopicPropertyVisitor;
+import datahub.protobuf.visitors.dataset.OwnershipVisitor;
 import datahub.protobuf.visitors.dataset.ProtobufExtensionPropertyVisitor;
 import datahub.protobuf.visitors.dataset.ProtobufExtensionTagAssocVisitor;
 import datahub.protobuf.visitors.dataset.ProtobufExtensionTermAssocVisitor;
@@ -145,6 +147,16 @@ public class ProtobufDataset {
                             .termAssociationVisitors(
                                     List.of(
                                             new ProtobufExtensionTermAssocVisitor()
+                                    )
+                            )
+                            .ownershipVisitors(
+                                    List.of(
+                                            new OwnershipVisitor()
+                                    )
+                            )
+                            .domainVisitors(
+                                    List.of(
+                                            new DomainVisitor()
                                     )
                             )
                             .build()
