@@ -1,12 +1,15 @@
 import json
 import pathlib
-from typing import Dict, List
+from typing import Dict, List, cast
 from unittest.mock import patch
 
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.usage.redshift_usage import RedshiftUsageConfig
+from datahub.ingestion.source.usage.redshift_usage import (
+    RedshiftUsageConfig,
+    RedshiftUsageSourceReport,
+)
 from tests.test_helpers import mce_helpers
 
 FROZEN_TIME = "2021-08-24 09:00:00"
@@ -76,8 +79,13 @@ def test_redshift_usage_source(pytestconfig, tmp_path):
         pipeline.run()
         pipeline.raise_from_status()
 
-    # There should be 3 calls (usage aspects -1, insert operation aspects -1, delete operation aspects - 1).
-    assert mock_engine_execute.call_count == 3
+    # There should be 2 calls (usage aspects -1, operation aspects -1).
+    assert mock_engine_execute.call_count == 2
+    source_report: RedshiftUsageSourceReport = cast(
+        RedshiftUsageSourceReport, pipeline.source.get_report()
+    )
+    assert source_report.num_usage_workunits_emitted == 3
+    assert source_report.num_operational_stats_workunits_emitted == 3
     mce_helpers.check_golden_file(
         pytestconfig=pytestconfig,
         output_path=tmp_path / "redshift_usages.json",
