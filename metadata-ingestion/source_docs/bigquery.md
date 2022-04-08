@@ -27,7 +27,9 @@ To install this plugin, run `pip install 'acryl-datahub[bigquery]'`.
    bigquery.tables.get
    bigquery.tables.getData # Needs for profiling
    bigquery.tables.list
-   logging.logEntries.list # Needs for lineage generation
+   # needed for lineage generation via GCP logging
+   logging.logEntries.list
+   logging.privateLogEntries.list
    resourcemanager.projects.get
 ```
 #### Create a service account
@@ -157,6 +159,7 @@ As a SQL-based service, the Athena integration is also supported by our SQL prof
 | `domain.domain_key.ignoreCase`         |                                                                           | `True`                                                                  | Whether to ignore case sensitivity during pattern matching.There can be multiple domain key specified.                                                                                                                                                                                  |
 | `lineage_client_project_id`            |                                                                           | None                                                                    | The project to use when creating the BigQuery Client. If left empty, the required `project_id` will be used. This is helpful in case the default project_id is not used for querying.                                                                                    |
 | `use_v2_audit_metadata`                |   | `False` | Whether to use `BigQuery audit logs` to get the lineage or not |
+| `upstream_lineage_in_report`           |   | `False` | Useful for debugging lineage information. Set to `True` to see the raw lineage created internally. |
 
 
 The following parameters are only relevant if include_table_lineage is set to true:
@@ -242,6 +245,14 @@ source:
 
     # Options
     top_n_queries: 10
+    dataset_pattern:
+      allow:
+        - marketing_db
+        - sales_db
+    table_pattern:
+      deny:
+        - .*feedback.*
+        - .*salary.*
 
 sink:
   # sink configs
@@ -270,6 +281,8 @@ By default, we extract usage stats for the last day, with the recommendation tha
 | `extra_client_options`          |                                                                           |                                                                | Additional options to pass to `google.cloud.logging_v2.client.Client`.                                                                                                                                                                                                                                                                                                                 |
 | `query_log_delay`               |                                                                           |                                                                | To account for the possibility that the query event arrives after the read event in the audit logs, we wait for at least `query_log_delay` additional events to be processed before attempting to resolve BigQuery job information from the logs. If `query_log_delay` is `None`, it gets treated as an unlimited delay, which prioritizes correctness at the expense of memory usage. |
 | `max_query_duration`            |                                                                           | `15`                                                           | Correction to pad `start_time` and `end_time` with. For handling the case where the read happens within our time range but the query completion event is delayed and happens after the configured end time.                                                                                                                                                                            |
+| `dataset_pattern.allow`         |                                                                           |                                                                | List of regex patterns for datasets to include in ingestion.                                                                                                                                                                                                                                                                                                                             |
+| `dataset_pattern.deny`          |                                                                           |                                                                | List of regex patterns for datasets to exclude from ingestion.                                                                                                                                                                                                                                                                                                                             |
 | `table_pattern.allow`           |                                                                           |                                                                | List of regex patterns for tables to include in ingestion.                                                                                                                                                                                                                                                                                                                             |
 | `table_pattern.deny`            |                                                                           |                                                                | List of regex patterns for tables to exclude in ingestion.                                                                                                                                                                                                                                                                                                                             |
 | `user_email_pattern.allow`      |                                                                           | *                                                              | List of regex patterns for user emails to include in usage.                                                                                                                                                                                                                                                                                                                            |

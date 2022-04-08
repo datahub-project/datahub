@@ -251,17 +251,21 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase):
 class BasicSQLAlchemyConfig(SQLAlchemyConfig):
     username: Optional[str] = None
     password: Optional[pydantic.SecretStr] = None
-    host_port: str
+    host_port: Optional[str] = None
     database: Optional[str] = None
     database_alias: Optional[str] = None
-    scheme: str
+    scheme: Optional[str] = None
+    sqlalchemy_uri: Optional[str] = None
 
     def get_sql_alchemy_url(self, uri_opts=None):
-        return make_sqlalchemy_uri(
-            self.scheme,
+        if not ((self.host_port and self.scheme) or self.sqlalchemy_uri):
+            raise ValueError("host_port and schema or connect_uri required.")
+
+        return self.sqlalchemy_uri or make_sqlalchemy_uri(
+            self.scheme,  # type: ignore
             self.username,
             self.password.get_secret_value() if self.password else None,
-            self.host_port,
+            self.host_port,  # type: ignore
             self.database,
             uri_opts=uri_opts,
         )

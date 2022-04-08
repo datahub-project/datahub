@@ -1,6 +1,13 @@
 name: Publish Datahub Client
 
 on:
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+    inputs:
+      use_cache:
+        description: 'Whether to use cache'
+        required: true
+        default: 'true'
   workflow_run:
     workflows: ["build & test"]
     types:
@@ -8,9 +15,6 @@ on:
 
   release:
     types: [published, edited]
-
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
 
 jobs:
 
@@ -45,6 +49,27 @@ jobs:
         run: |
           git remote add upstream https://github.com/datahub-project/datahub.git
           git fetch upstream --tags --force
+      - name: Setup Cache for Gradle
+        uses: actions/cache@v2
+        if: ${{ github.event.inputs.use_cache != 'false' }}
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: baseprefix1-${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}-${{ github.job }}
+          restore-keys: |
+            baseprefix1-${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}-
+            baseprefix1-${{ runner.os }}-gradle-
+      - name: Setup Cache for pip
+        uses: actions/cache@v2
+        if: ${{ github.event.inputs.use_cache != 'false' }}
+        with:
+          path: ~/.cache/pip
+          key: baseprefix1-${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('**/requirements.txt', '**/setup.py') }}-${{ github.job }}
+          restore-keys: |
+            baseprefix1-${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('**/requirements.txt', '**/setup.py') }}-
+            baseprefix1-${{ runner.os }}-pip-${{ matrix.python-version }}-
+            baseprefix1-${{ runner.os }}-pip-
       - name: publish datahub-client jar
         env:
           RELEASE_USERNAME: ${{ secrets.RELEASE_USERNAME }}
