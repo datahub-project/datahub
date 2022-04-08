@@ -4,6 +4,7 @@ import logging
 from dataclasses import dataclass
 from typing import Union, cast
 
+from datahub.cli.cli_utils import set_env_variables_override_config
 from datahub.configuration.common import OperationalError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
@@ -57,7 +58,9 @@ class DatahubRestSink(Sink):
             .get("linkedin/datahub", {})
             .get("version", "")
         )
-        logger.info("Setting gms config")
+        logger.debug("Setting env variables to override config")
+        set_env_variables_override_config(self.config.server, self.config.token)
+        logger.debug("Setting gms config")
         set_gms_config(gms_config)
         self.executor = concurrent.futures.ThreadPoolExecutor(
             max_workers=self.config.max_threads

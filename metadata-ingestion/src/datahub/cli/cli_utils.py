@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import os.path
 import sys
 import typing
@@ -74,6 +75,14 @@ class GmsConfig(BaseModel):
 
 class DatahubConfig(BaseModel):
     gms: GmsConfig
+
+
+def set_env_variables_override_config(host: str, token: Optional[str]) -> None:
+    """Should be used to override the config when using rest emitter"""
+    os.environ[ENV_SKIP_CONFIG] = "true"
+    os.environ[ENV_METADATA_HOST] = host
+    if token is not None:
+        os.environ[ENV_METADATA_TOKEN] = token
 
 
 def write_datahub_config(host: str, token: Optional[str]) -> None:
