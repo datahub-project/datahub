@@ -287,11 +287,14 @@ base_dev_requirements = {
     *list(
         dependency
         for plugin in [
+            "athena",
             "bigquery",
             "bigquery-usage",
             "clickhouse",
             "clickhouse-usage",
+            "druid",
             "elasticsearch",
+            "ldap",
             "looker",
             "glue",
             "mariadb",
@@ -310,7 +313,7 @@ base_dev_requirements = {
             "trino",
             "hive",
             "starburst-trino-usage",
-            "powerbi"
+            "powerbi",
             # airflow is added below
         ]
         for dependency in plugins[plugin]
