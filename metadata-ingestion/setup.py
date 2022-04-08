@@ -291,7 +291,9 @@ base_dev_requirements = {
             "bigquery-usage",
             "clickhouse",
             "clickhouse-usage",
+            "druid",
             "elasticsearch",
+            "ldap",
             "looker",
             "glue",
             "mariadb",
@@ -310,7 +312,7 @@ base_dev_requirements = {
             "trino",
             "hive",
             "starburst-trino-usage",
-            "powerbi"
+            "powerbi",
             # airflow is added below
         ]
         for dependency in plugins[plugin]
