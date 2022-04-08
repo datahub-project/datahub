@@ -5,6 +5,7 @@ from pydantic.class_validators import validator
 from sqlalchemy import sql, util
 from sqlalchemy.engine import reflection
 from sqlalchemy.sql import sqltypes
+from sqlalchemy.sql.sqltypes import TIME, TIMESTAMP
 from sqla_vertica_python.vertica_python import VerticaDialect
 
 from datahub.ingestion.source.sql.sql_common import (
@@ -12,23 +13,21 @@ from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
 )
 from datahub.utilities import config_clean
-from datahub.metadata.com.linkedin.pegasus2avro.schema import (
-    ArrayType,
-    BooleanType,
-    BytesType,
-    DateType,
-    EnumType,
-    NullType,
-    NumberType,
-    RecordType,
-    StringType,
-    TimeType,
-    UnionType,
-)
+
+
+def TIMESTAMP_WITH_TIMEZONE(*args, **kwargs):
+    kwargs['timezone'] = True
+    return TIMESTAMP(*args, **kwargs)
+
+
+def TIME_WITH_TIMEZONE(*args, **kwargs):
+    kwargs['timezone'] = True
+    return TIME(*args, **kwargs)
 
 
 @reflection.cache
-def get_view_definition(self, connection, view_name, schema=None, **kw):
+def get_view_definition(self: VerticaDialect, connection, view_name,
+                        schema=None, **kw):
     if schema is not None:
         schema_condition = "lower(table_schema) = '%(schema)s'" % {
             'schema': schema.lower()
@@ -55,7 +54,8 @@ def get_view_definition(self, connection, view_name, schema=None, **kw):
 
 
 @reflection.cache
-def get_columns(self, connection, table_name, schema=None, **kw):
+def get_columns(self: VerticaDialect, connection, table_name, schema=None,
+                **kw):
     if schema is not None:
         schema_condition = "lower(table_schema) = '%(schema)s'" % {
             'schema': schema.lower()
@@ -106,14 +106,20 @@ def get_columns(self, connection, table_name, schema=None, **kw):
         default = row.column_default
         nullable = row.is_nullable
 
-        column_info = self._get_column_info(name, type, default, nullable, schema)
+        column_info = self._get_column_info(name, type, default, nullable,
+                                            schema)
         column_info.update({'primary_key': primary_key})
         columns.append(column_info)
-    
+
     return columns
 
 
-def _get_column_info(self, name, data_type, default, is_nullable, schema=None):
+def _get_column_info(self: VerticaDialect, name, data_type, default,
+                     is_nullable, schema=None):
+    self.ischema_names['TIMESTAMP WITH TIMEZONE'] = TIMESTAMP_WITH_TIMEZONE
+    self.ischema_names['TIMESTAMPTZ'] = TIMESTAMP_WITH_TIMEZONE
+    self.ischema_names['TIMETZ'] = TIME_WITH_TIMEZONE
+
     attype = re.sub(r"\(.*\)", "", data_type)
 
     charlen = re.search(r"\(([\d,]+)\)", data_type)
@@ -139,10 +145,7 @@ def _get_column_info(self, name, data_type, default, is_nullable, schema=None):
         if charlen:
             kwargs["precision"] = int(charlen)
         args = ()
-    elif attype in (
-        "timestamp",
-        "time",
-    ):
+    elif attype in ("timestamp", "time"):
         kwargs["timezone"] = False
         if charlen:
             kwargs["precision"] = int(charlen)
@@ -157,13 +160,14 @@ def _get_column_info(self, name, data_type, default, is_nullable, schema=None):
         args = ()
     elif charlen:
         args = (int(charlen),)
-    self.ischema_names["UUID"] = StringType
-    self.ischema_names["DATE"] = DateType
-    self.ischema_names["TIMESTAMP"] = TimeType
-    if attype.upper() in self.ischema_names:
-        coltype = self.ischema_names[attype.upper()]
-    else:
-        coltype = None
+
+    while True:
+        if attype.upper() in self.ischema_names:
+            coltype = self.ischema_names[attype.upper()]
+            break
+        else:
+            coltype = None
+            break
 
     if coltype:
         coltype = coltype(*args, **kwargs)
@@ -221,7 +225,7 @@ class VerticaSource(SQLAlchemySource):
 
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "vertica")
-    
+
     @classmethod
     def create(cls, config_dict, ctx):
         config = VerticaConfig.parse_obj(config_dict)
