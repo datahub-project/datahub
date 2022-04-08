@@ -102,22 +102,21 @@ def run(
         raise SensitiveError() from e
 
     logger.info("Starting metadata ingestion")
-    had_error: bool = False
     try:
         pipeline.run()
     except Exception as e:
-        had_error = True
-        logger.error(f"Caught exception while running metadata ingestion: {e}")
+        logger.info(
+            f"Source ({pipeline.config.source.type}) report:\n{pipeline.source.get_report().as_string()}"
+        )
+        logger.info(
+            f"Sink ({pipeline.config.sink.type}) report:\n{pipeline.sink.get_report().as_string()}"
+        )
         raise e
     else:
         logger.info("Finished metadata pipeline")
         pipeline.log_ingestion_stats()
-    finally:
-        ret = pipeline.pretty_print_summary(
-            warnings_as_failure=strict_warnings, had_error=had_error
-        )
-
-    sys.exit(ret)
+        ret = pipeline.pretty_print_summary(warnings_as_failure=strict_warnings)
+        sys.exit(ret)
 
 
 def get_runs_url(gms_host: str) -> str:
