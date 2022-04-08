@@ -85,7 +85,7 @@ public class DatasetRunsResolver implements DataFetcher<CompletableFuture<DataPr
             null,
             context.getAuthentication());
 
-        // Step 3: Map GMS incident model to GraphQL model
+        // Step 3: Map GMS instance model to GraphQL model
         final List<EntityResponse> gmsResults = new ArrayList<>();
         for (Urn urn : dataProcessInstanceUrns) {
           gmsResults.add(entities.getOrDefault(urn, null));
