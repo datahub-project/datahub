@@ -32,6 +32,7 @@ export const GetPlatformNameFromPath = ({ part, index, path, isProfilePage, isBr
         return null;
     }
 
+    const logoUrl = data?.dataPlatform?.properties?.logoUrl || '';
     return (
         <Breadcrumb.Item key={`${part || index}`}>
             <Link
@@ -41,7 +42,7 @@ export const GetPlatformNameFromPath = ({ part, index, path, isProfilePage, isBr
                         : `${baseBrowsePath}/${createPartialPath(path.slice(0, index + 1))}`
                 }
             >
-                <PreviewImage src={data?.dataPlatform?.properties?.logoUrl} alt="platform" />;
+                <PreviewImage src={logoUrl} alt="platform" />
                 {data?.dataPlatform?.properties?.displayName}
             </Link>
         </Breadcrumb.Item>

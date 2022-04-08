@@ -1,3 +1,4 @@
+import { FolderOpenOutlined } from '@ant-design/icons';
 import { Breadcrumb } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
@@ -33,6 +34,7 @@ export const GetContainerNameFromPath = ({ part, index, path, isProfilePage, isB
                         : `${baseBrowsePath}/${createPartialPath(path.slice(0, index + 1))}`
                 }
             >
+                <FolderOpenOutlined style={{ fontSize: '16px', color: '#000000', marginRight: '4px' }} />
                 {data?.container?.properties?.name}
             </Link>
         </Breadcrumb.Item>
