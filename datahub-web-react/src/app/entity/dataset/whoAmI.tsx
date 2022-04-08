@@ -15,8 +15,8 @@ export function FindMyUrn() {
 }
 
 export function FindMyGroups() {
-    const input = FindMyUrn();
-    console.log(`myurn is ${input}`);
+    const currUserUrn = FindMyUrn();
+    console.log(`myurn is ${currUserUrn}`);
     const queryresult = gql`
         query test($urn: String!) {
             corpUser(urn: $urn) {
@@ -33,9 +33,9 @@ export function FindMyGroups() {
     `;
     const { data, loading, error } = useQuery(queryresult, {
         variables: {
-            urn: input,
+            urn: currUserUrn,
         },
-        skip: input === '',
+        skip: currUserUrn === '',
     });
     if (error) return [];
     if (loading) return [];
