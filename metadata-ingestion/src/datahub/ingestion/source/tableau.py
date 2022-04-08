@@ -429,7 +429,9 @@ class TableauSource(Source):
 
                 upstream_lineage = UpstreamLineage(upstreams=[upstream_csql])
                 yield self.get_metadata_change_proposal(
-                    datasource_urn, aspect_name="upstreamLineage", aspect=upstream_lineage
+                    datasource_urn,
+                    aspect_name="upstreamLineage",
+                    aspect=upstream_lineage,
                 )
 
     def _create_lineage_to_upstream_tables(
