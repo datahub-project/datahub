@@ -210,7 +210,7 @@ def test_lineage_backend(mock_emit, inlets, outlets):
             "AIRFLOW__LINEAGE__BACKEND": "datahub_provider.lineage.datahub.DatahubLineageBackend",
             "AIRFLOW__LINEAGE__DATAHUB_CONN_ID": datahub_rest_connection_config.conn_id,
             "AIRFLOW__LINEAGE__DATAHUB_KWARGS": json.dumps(
-                {"graceful_exceptions": False, "capture_execution": False}
+                {"graceful_exceptions": False, "capture_executions": False}
             ),
         },
     ), mock.patch("airflow.models.BaseOperator.xcom_pull"), mock.patch(
