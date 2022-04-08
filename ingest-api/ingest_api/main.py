@@ -156,29 +156,29 @@ async def hello_world() -> None:
         },
         status_code=200,
     )
-
+# import responses
 @app.get("/custom/announce")
 async def echo_announce() -> None:
     """
     Just a hello world endpoint to ensure that the api is running.
     """
     # verify = False cos accessing HTTPS page from container.
-    response = requests.get(os.environ["ANNOUNCEMENT_URL"], verify=False) 
-    if response.status_code!=200:
-        rootLogger.error(f"announcement upstream returns {str(response.status_code)}")
-        JSONResponse(
-        content={
-            "message": "Unable to fetch Gitlab Pages Announcements at this time",
-            "timestamp": 0
-        },
-        status_code=200,
-    )
-    else:
+    try:
+        response = requests.get(os.environ["ANNOUNCEMENT_URL"], verify=False)         
         received = response.json()
         return JSONResponse(
             content={
                 "message": received["message"],
                 "timestamp": received["timestamp"]
+            },
+            status_code=200,
+        )
+    except:        
+        rootLogger.error(f"announcement upstream returns error")
+        return JSONResponse(
+            content={
+                "message": "Unable to fetch Gitlab Pages Announcements at this time",
+                "timestamp": 0
             },
             status_code=200,
         )

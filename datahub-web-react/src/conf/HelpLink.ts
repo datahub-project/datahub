@@ -1,5 +1,5 @@
 /*
-    url to look for announcements
+    url to look for Help Page
 */
 const config = 'https://datahubproject.io/docs/';
 
