@@ -106,9 +106,10 @@ def run(
         pipeline.run()
         logger.info("Finished metadata pipeline")
     except Exception as e:
-        ret = pipeline.pretty_print_summary(warnings_as_failure=strict_warnings)
         logger.error(f"Caught exception while running metadata ingestion: {e}")
         raise e
+    finally:
+        ret = pipeline.pretty_print_summary(warnings_as_failure=strict_warnings)
 
     pipeline.log_ingestion_stats()
     sys.exit(ret)
