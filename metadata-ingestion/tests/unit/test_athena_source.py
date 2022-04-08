@@ -4,17 +4,17 @@ from unittest import mock
 
 import pytest
 from freezegun import freeze_time
-from pyathena.model import AthenaTableMetadata
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.sql.athena import AthenaConfig, AthenaSource
 from src.datahub.ingestion.source.aws.s3_util import make_s3_urn
 
 FROZEN_TIME = "2020-04-14 07:00:00"
 
 
+@pytest.mark.integration
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 def test_athena_uri():
+    from datahub.ingestion.source.sql.athena import AthenaConfig
 
     config = AthenaConfig.parse_obj(
         {
@@ -29,9 +29,13 @@ def test_athena_uri():
     )
 
 
+@pytest.mark.integration
 @freeze_time(FROZEN_TIME)
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 def test_athena_get_table_properties():
+    from pyathena.model import AthenaTableMetadata
+
+    from datahub.ingestion.source.sql.athena import AthenaConfig, AthenaSource
 
     config = AthenaConfig.parse_obj(
         {
