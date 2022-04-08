@@ -304,14 +304,20 @@ class Pipeline:
             },
         )
 
-    def pretty_print_summary(self, warnings_as_failure: bool = False) -> int:
+    def pretty_print_summary(
+        self, warnings_as_failure: bool = False, had_error: bool = False
+    ) -> int:
         click.echo()
         click.secho(f"Source ({self.config.source.type}) report:", bold=True)
         click.echo(self.source.get_report().as_string())
         click.secho(f"Sink ({self.config.sink.type}) report:", bold=True)
         click.echo(self.sink.get_report().as_string())
         click.echo()
-        if self.source.get_report().failures or self.sink.get_report().failures:
+        if (
+            self.source.get_report().failures
+            or self.sink.get_report().failures
+            or had_error
+        ):
             click.secho("Pipeline finished with failures", fg="bright_red", bold=True)
             return 1
         elif self.source.get_report().warnings or self.sink.get_report().warnings:
