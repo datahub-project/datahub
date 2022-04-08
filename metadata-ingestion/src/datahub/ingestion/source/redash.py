@@ -228,6 +228,7 @@ class RedashConfig(ConfigModel):
     env: str = DEFAULT_ENV
 
     # Optionals
+    database_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
     dashboard_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
     chart_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
     skip_draft: bool = True
@@ -493,6 +494,12 @@ class RedashSource(Source):
 
         return dashboard_snapshot
 
+    def _get_database_name_from_datasource_id(self, data_source_id: int) -> Optional[str]:
+        data_source = self._get_chart_data_source(data_source_id)
+        data_source_type = data_source.get("type")
+
+        return self._get_database_name_based_on_datasource(data_source_type)
+
     def _emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
         current_dashboards_page = 1
         skip_draft = self.config.skip_draft
@@ -529,6 +536,16 @@ class RedashSource(Source):
                 # Continue producing MCE
                 dashboard_slug = dashboard_response["slug"]
                 dashboard_data = self.client.dashboard(dashboard_slug)
+
+                # Check dashboard queries datasource
+                for widget in dashboard_data["widgets"]:
+                    visualization = widget["visualization"]
+                    query_data = visualization["query"]
+                    database_name = self._get_database_name_from_datasource_id(query_data.get("data_source_id"))
+                    if not self.config.database_patterns.allowed(database_name):
+                        self.report.report_dropped(dashboard_name)
+                        break
+
                 logger.debug(dashboard_data)
                 dashboard_snapshot = self._get_dashboard_snapshot(dashboard_data)
                 mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
@@ -639,11 +656,12 @@ class RedashSource(Source):
             for query_response in queries_response["results"]:
 
                 chart_name = query_response["name"]
-
+                database_name = self._get_database_name_from_datasource_id(query_response["data_source_id"])
                 self.report.report_item_scanned()
 
                 if (not self.config.chart_patterns.allowed(chart_name)) or (
-                    skip_draft and query_response["is_draft"]
+                    skip_draft and query_response["is_draft"]) or (
+                    self.config.database_patterns.allowed(database_name)
                 ):
                     self.report.report_dropped(chart_name)
                     continue
