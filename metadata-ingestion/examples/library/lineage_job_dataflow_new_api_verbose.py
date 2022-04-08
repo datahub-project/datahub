@@ -1,14 +1,13 @@
 import time
 import uuid
 
-from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.metadata.schema_classes import RunResultTypeClass
 from datahub.api.dataprocess.dataflow import DataFlow
 from datahub.api.dataprocess.datajob import DataJob
 from datahub.api.dataprocess.dataprocess_instance import (
     DataProcessInstance,
     InstanceRunResult,
 )
+from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 emitter = DatahubRestEmitter("http://localhost:8080")
 
@@ -52,7 +51,7 @@ jobRun1.emit_process_start(
 jobRun1.emit_process_end(
     emitter=emitter,
     end_timestamp_millis=int(time.time() * 1000),
-    result=RunResultTypeClass.SUCCESS,
+    result=InstanceRunResult.SUCCESS,
 )
 
 jobRun2: DataProcessInstance = DataProcessInstance(
@@ -69,7 +68,7 @@ jobRun2.emit_process_start(
 jobRun2.emit_process_end(
     emitter=emitter,
     end_timestamp_millis=int(time.time() * 1000),
-    result=RunResultTypeClass.SUCCESS,
+    result=InstanceRunResult.SUCCESS,
 )
 
 
@@ -87,7 +86,7 @@ jobRun3.emit_process_start(
 jobRun3.emit_process_end(
     emitter=emitter,
     end_timestamp_millis=int(time.time() * 1000),
-    result=RunResultTypeClass.SUCCESS,
+    result=InstanceRunResult.SUCCESS,
 )
 
 jobRun4: DataProcessInstance = DataProcessInstance(
