@@ -6,7 +6,7 @@ import { GetMlModelQuery } from '../../../../graphql/mlModel.generated';
 
 export default function MLModelSummary() {
     const baseEntity = useBaseEntity<GetMlModelQuery>();
-    const model = baseEntity.mlModel;
+    const model = baseEntity?.mlModel;
 
     const propertyTableColumns = [
         {

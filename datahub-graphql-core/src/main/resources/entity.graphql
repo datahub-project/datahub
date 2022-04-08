@@ -6268,6 +6268,21 @@ type MLModel implements EntityWithRelationships & Entity {
     Edges extending from this entity grouped by direction in the lineage graph
     """
     lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    The structured glossary terms associated with the entity
+    """
+    glossaryTerms: GlossaryTerms
+
+    """
+    The Domain associated with the entity
+    """
+    domain: Domain
+
+    """
+    An additional set of of read write properties
+    """
+    editableProperties: MLModelEditableProperties
 }
 
 """
@@ -6334,11 +6349,31 @@ type MLModelGroup implements EntityWithRelationships & Entity {
     Edges extending from this entity grouped by direction in the lineage graph
     """
     lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    Tags applied to entity
+    """
+    tags: GlobalTags
+
+    """
+    The structured glossary terms associated with the entity
+    """
+    glossaryTerms: GlossaryTerms
+
+    """
+    The Domain associated with the entity
+    """
+    domain: Domain
+
+    """
+    An additional set of of read write properties
+    """
+    editableProperties: MLModelGroupEditableProperties
 }
 
 type MLModelGroupProperties {
 
-    description: String
+description: String
 
     createdAt: Long
 
@@ -6413,12 +6448,32 @@ type MLFeature implements Entity {
     Edges extending from this entity grouped by direction in the lineage graph
     """
     lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    Tags applied to entity
+    """
+    tags: GlobalTags
+
+    """
+    The structured glossary terms associated with the entity
+    """
+    glossaryTerms: GlossaryTerms
+
+    """
+    The Domain associated with the entity
+    """
+    domain: Domain
+
+    """
+    An additional set of of read write properties
+    """
+    editableProperties: MLFeatureEditableProperties
 }
 
 type MLHyperParam {
-    name: String
+name: String
 
-    description: String
+description: String
 
     value: String
 
@@ -6545,11 +6600,31 @@ type MLPrimaryKey implements Entity {
     Edges extending from this entity grouped by direction in the lineage graph
     """
     lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    Tags applied to entity
+    """
+    tags: GlobalTags
+
+    """
+    The structured glossary terms associated with the entity
+    """
+    glossaryTerms: GlossaryTerms
+
+    """
+    The Domain associated with the entity
+    """
+    domain: Domain
+
+    """
+    An additional set of of read write properties
+    """
+    editableProperties: MLPrimaryKeyEditableProperties
 }
 
 type MLPrimaryKeyProperties {
 
-    description: String
+description: String
 
     dataType: MLFeatureDataType
 
@@ -6627,11 +6702,66 @@ type MLFeatureTable implements Entity {
     Edges extending from this entity grouped by direction in the lineage graph
     """
     lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    Tags applied to entity
+    """
+    tags: GlobalTags
+
+    """
+    The structured glossary terms associated with the entity
+    """
+    glossaryTerms: GlossaryTerms
+
+    """
+    The Domain associated with the entity
+    """
+    domain: Domain
+
+    """
+    An additional set of of read write properties
+    """
+    editableProperties: MLFeatureTableEditableProperties
+}
+
+type MLFeatureTableEditableProperties {
+    """
+    The edited description
+    """
+    description: String
+}
+
+type MLFeatureEditableProperties {
+    """
+    The edited description
+    """
+    description: String
+}
+
+type MLPrimaryKeyEditableProperties {
+    """
+    The edited description
+    """
+    description: String
+}
+
+type MLModelEditableProperties {
+    """
+    The edited description
+    """
+    description: String
+}
+
+type MLModelGroupEditableProperties {
+    """
+    The edited description
+    """
+    description: String
 }
 
 type MLFeatureTableProperties {
 
-    description: String
+description: String
 
     mlFeatures: [MLFeature]
 

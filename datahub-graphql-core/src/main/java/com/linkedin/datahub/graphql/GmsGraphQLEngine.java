@@ -1150,6 +1150,13 @@ public class GmsGraphQLEngine {
                         new LoadableTypeResolver<>(dataPlatformType,
                                 (env) -> ((MLFeatureTable) env.getSource()).getPlatform().getUrn()))
                 )
+                .dataFetcher("domain",
+                    new LoadableTypeResolver<>(
+                        domainType,
+                        (env) -> {
+                            final MLFeatureTable entity = env.getSource();
+                            return entity.getDomain() != null ? entity.getDomain().getUrn() : null;
+                        }))
             )
             .type("MLFeatureTableProperties", typeWiring -> typeWiring
                 .dataFetcher("mlFeatures", new AuthenticatedResolver<>(
@@ -1192,6 +1199,13 @@ public class GmsGraphQLEngine {
                         new LoadableTypeResolver<>(dataPlatformType,
                                 (env) -> ((MLModel) env.getSource()).getPlatform().getUrn()))
                 )
+                .dataFetcher("domain",
+                    new LoadableTypeResolver<>(
+                        domainType,
+                        (env) -> {
+                            final MLModel mlModel = env.getSource();
+                            return mlModel.getDomain() != null ? mlModel.getDomain().getUrn() : null;
+                        }))
             )
             .type("MLModelProperties", typeWiring -> typeWiring
                 .dataFetcher("groups", new AuthenticatedResolver<>(
@@ -1218,6 +1232,13 @@ public class GmsGraphQLEngine {
                         new LoadableTypeResolver<>(dataPlatformType,
                                 (env) -> ((MLModelGroup) env.getSource()).getPlatform().getUrn()))
                 )
+                .dataFetcher("domain",
+                    new LoadableTypeResolver<>(
+                        domainType,
+                        (env) -> {
+                            final MLModelGroup entity = env.getSource();
+                            return entity.getDomain() != null ? entity.getDomain().getUrn() : null;
+                        }))
             );
     }
 

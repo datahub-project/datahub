@@ -13,6 +13,7 @@ import { SidebarAboutSection } from '../shared/containers/profile/sidebar/Sideba
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
 import MlFeatureTableFeatures from './profile/features/MlFeatureTableFeatures';
 import Sources from './profile/Sources';
+import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 
 /**
  * Definition of the DataHub MLFeatureTable entity.
@@ -60,7 +61,7 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}
-            entityType={EntityType.Mlmodel}
+            entityType={EntityType.MlfeatureTable}
             useEntityQuery={useGetMlFeatureTableQuery}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
             tabs={[
@@ -71,6 +72,10 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
                 {
                     name: 'Sources',
                     component: Sources,
+                },
+                {
+                    name: 'Documentation',
+                    component: DocumentationTab,
                 },
             ]}
             sidebarSections={[

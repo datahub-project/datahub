@@ -117,12 +117,12 @@ public class Constants {
   // ML Feature
   public static final String ML_FEATURE_KEY_ASPECT_NAME = "mlFeatureKey";
   public static final String ML_FEATURE_PROPERTIES_ASPECT_NAME = "mlFeatureProperties";
-  public static final String ML_FEATURE_EDITABLE_PROPERTIES_ASPECT_NAME = "mlFeatureEditableProperties";
+  public static final String ML_FEATURE_EDITABLE_PROPERTIES_ASPECT_NAME = "editableMlFeatureProperties";
 
   // ML Feature Table
   public static final String ML_FEATURE_TABLE_KEY_ASPECT_NAME = "mlFeatureTableKey";
   public static final String ML_FEATURE_TABLE_PROPERTIES_ASPECT_NAME = "mlFeatureTableProperties";
-  public static final String ML_FEATURE_TABLE_EDITABLE_PROPERTIES_ASPECT_NAME = "mlFeatureTableEditableProperties";
+  public static final String ML_FEATURE_TABLE_EDITABLE_PROPERTIES_ASPECT_NAME = "editableMlFeatureTableProperties";
 
   //ML Model
   public static final String ML_MODEL_KEY_ASPECT_NAME = "mlModelKey";
@@ -142,12 +142,12 @@ public class Constants {
   // ML Model Group
   public static final String ML_MODEL_GROUP_KEY_ASPECT_NAME = "mlModelGroupKey";
   public static final String ML_MODEL_GROUP_PROPERTIES_ASPECT_NAME = "mlModelGroupProperties";
-  public static final String ML_MODEL_GROUP_EDITABLE_PROPERTIES_ASPECT_NAME = "mlModelGroupEditableProperties";
+  public static final String ML_MODEL_GROUP_EDITABLE_PROPERTIES_ASPECT_NAME = "editableMlModelGroupProperties";
 
   // ML Primary Key
   public static final String ML_PRIMARY_KEY_KEY_ASPECT_NAME = "mlPrimaryKeyKey";
   public static final String ML_PRIMARY_KEY_PROPERTIES_ASPECT_NAME = "mlPrimaryKeyProperties";
-  public static final String ML_PRIMARY_KEY_EDITABLE_PROPERTIES_ASPECT_NAME = "mlPrimaryKeyEditableProperties";
+  public static final String ML_PRIMARY_KEY_EDITABLE_PROPERTIES_ASPECT_NAME = "editableMlPrimaryKeyProperties";
 
   // Policy
   public static final String DATAHUB_POLICY_INFO_ASPECT_NAME = "dataHubPolicyInfo";

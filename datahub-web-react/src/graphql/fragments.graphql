@@ -373,6 +373,18 @@ fragment nonRecursiveMLFeature on MLFeature {
     status {
         removed
     }
+    glossaryTerms {
+        ...glossaryTerms
+    }
+    domain {
+        ...entityDomain
+    }
+    tags {
+        ...globalTagsFields
+    }
+    editableProperties {
+        description
+    }
 }
 
 fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
@@ -410,6 +422,18 @@ fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
     status {
         removed
     }
+    glossaryTerms {
+        ...glossaryTerms
+    }
+    domain {
+        ...entityDomain
+    }
+    tags {
+        ...globalTagsFields
+    }
+    editableProperties {
+        description
+    }
 }
 
 fragment nonRecursiveMLFeatureTable on MLFeatureTable {
@@ -437,6 +461,18 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
     }
     status {
         removed
+    }
+    glossaryTerms {
+        ...glossaryTerms
+    }
+    domain {
+        ...entityDomain
+    }
+    tags {
+        ...globalTagsFields
+    }
+    editableProperties {
+        description
     }
 }
 
@@ -553,6 +589,18 @@ fragment nonRecursiveMLModel on MLModel {
     status {
         removed
     }
+    glossaryTerms {
+        ...glossaryTerms
+    }
+    domain {
+        ...entityDomain
+    }
+    tags {
+        ...globalTagsFields
+    }
+    editableProperties {
+        description
+    }
 }
 
 fragment nonRecursiveMLModelGroupFields on MLModelGroup {
@@ -569,6 +617,18 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
     }
     status {
         removed
+    }
+    glossaryTerms {
+        ...glossaryTerms
+    }
+    domain {
+        ...entityDomain
+    }
+    tags {
+        ...globalTagsFields
+    }
+    editableProperties {
+        description
     }
 }
 
