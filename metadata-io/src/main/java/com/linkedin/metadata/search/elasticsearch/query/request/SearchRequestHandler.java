@@ -67,7 +67,7 @@ public class SearchRequestHandler {
 
   private static final String REMOVED = "removed";
   // List of fields in the search document to fetch
-  private static final String[] fieldToFetch = new String[]{"urn", "usageCountLast30Days"};
+  private static final String[] FIELDS_TO_FETCH = new String[]{"urn", "usageCountLast30Days"};
 
   private SearchRequestHandler(@Nonnull EntitySpec entitySpec) {
     _entitySpec = entitySpec;
@@ -139,7 +139,7 @@ public class SearchRequestHandler {
 
     searchSourceBuilder.from(from);
     searchSourceBuilder.size(size);
-    searchSourceBuilder.fetchSource(fieldToFetch, null);
+    searchSourceBuilder.fetchSource(FIELDS_TO_FETCH, null);
 
     BoolQueryBuilder filterQuery = getFilterQuery(filter);
     searchSourceBuilder.query(QueryBuilders.boolQuery().must(getQuery(input)).must(filterQuery));

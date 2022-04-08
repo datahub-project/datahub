@@ -1,9 +1,9 @@
 namespace com.linkedin.metadata.search.features
 
 @Aspect = {
-  "name": "usageBasedFeatures"
+  "name": "usageFeatures"
 }
-record UsageBasedFeatures {
+record UsageFeatures {
   /**
    * Usage count in the last 30 days
    */
