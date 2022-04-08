@@ -3,7 +3,7 @@ package com.linkedin.datahub.graphql.types.dataprocessinst.mappers;
 import com.linkedin.datahub.graphql.types.mappers.TimeSeriesAspectMapper;
 import com.linkedin.dataprocess.DataProcessInstanceRunEvent;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import javax.annotation.Nonnull;
 
 
@@ -18,7 +18,7 @@ public class DataProcessInstanceRunEventMapper implements TimeSeriesAspectMapper
     @Override
     public com.linkedin.datahub.graphql.generated.DataProcessRunEvent apply(@Nonnull final EnvelopedAspect envelopedAspect) {
 
-        DataProcessInstanceRunEvent runEvent = GenericAspectUtils
+        DataProcessInstanceRunEvent runEvent = GenericRecordUtils
                 .deserializeAspect(
                         envelopedAspect.getAspect().getValue(),
                         envelopedAspect.getAspect().getContentType(),
