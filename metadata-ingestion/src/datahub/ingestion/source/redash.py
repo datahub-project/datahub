@@ -664,7 +664,7 @@ class RedashSource(Source):
 
                 if (not self.config.chart_patterns.allowed(chart_name)) or (
                     skip_draft and query_response["is_draft"]) or (
-                    self.config.database_patterns.allowed(database_name)
+                    not self.config.database_patterns.allowed(database_name)
                 ):
                     self.report.report_dropped(chart_name)
                     continue
