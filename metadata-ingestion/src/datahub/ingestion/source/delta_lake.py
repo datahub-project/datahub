@@ -162,7 +162,7 @@ class DeltaLakeSourceConfig(DatasetSourceConfigBase):
 _field_type_mapping: Dict[str, Type] = {
     "array": ArrayTypeClass,
     "boolean": BooleanTypeClass,
-    "binary": BytesTypeClass, 
+    "binary": BytesTypeClass,
     "short": NumberTypeClass,
     "integer": NumberTypeClass,
     "long": NumberTypeClass,
@@ -179,7 +179,7 @@ _field_type_mapping: Dict[str, Type] = {
 _field_avro_mapping: Dict[str, Type] = {
     "array": "array",
     "boolean": "boolean",
-    "binary": "bytes", 
+    "binary": "bytes",
     "short": "int",
     "integer": "int",
     "long": "long",
@@ -187,8 +187,8 @@ _field_avro_mapping: Dict[str, Type] = {
     "float": "float",
     "double": "double",
     "string": "string",
-#    "date": "date", #handled separately
-#    "timestamp": "timestamp-milis", #handled separately
+    #    "date": "date", #handled separately
+    #    "timestamp": "timestamp-milis", #handled separately
     "map": "map",
     "struct": "struct",
 }
@@ -390,7 +390,7 @@ class DeltaLakeSource(Source):
                     ),
                 )
                 datahubName = column["name"]
-                column_dict=column["type"]
+                column_dict = column["type"]
                 nativeType = str(column_dict.get("type"))
                 datahubDescription = column["metadata"].get("comment")
 
@@ -429,63 +429,65 @@ class DeltaLakeSource(Source):
         return canonical_schema
 
     def get_avro_schema_from_data_type(
-        self, column_dict: Dict[str,Any], column_name: str
+        self, column_dict: Dict[str, Any], column_name: str
     ) -> Dict[str, Any]:
         # Below Record structure represents the dataset level
         # Inner fields represent the complex field (struct/array/map)
         return {
             "type": "record",
             "name": "__struct_",
-            "fields": [{"name": column_name, "type": self._parse_datatype(column_dict)}],
+            "fields": [
+                {"name": column_name, "type": self._parse_datatype(column_dict)}
+            ],
         }
 
-    def _parse_datatype(self,column_dict: Dict[str,Any]):
+    def _parse_datatype(self, column_dict: Dict[str, Any]):
         if column_dict.get("type") == "array":
-            # if not atomic
-            if isinstance(column_dict.get("elementType"),dict):
-                items_payload = column_dict.get("elementType")
-            else:
-                # remap for easy parsing
-                items_payload = {"type": column_dict.get("elementType"), 
-                "nullable": column_dict.get("containsNull")}
             return {
                 "type": "array",
-                "items": self._parse_datatype(self._remap_colum_to_dict(column_dict.get("elementType"))),
+                "items": self._parse_datatype(
+                    self._remap_colum_to_dict(column_dict.get("elementType"))
+                ),
                 "native_data_type": column_dict.get("type"),
-                "_nullable": column_dict.get("containsNull")
+                "_nullable": column_dict.get("containsNull"),
+                "description": column_dict["metadata"].get("comment"),
             }
         elif column_dict.get("type") == "map":
-            kt = self._parse_datatype(self._remap_colum_to_dict(column_dict.get("keyType")))
-            vt = self._parse_datatype(self._remap_colum_to_dict(column_dict.get("valueType")))
+            kt = self._parse_datatype(
+                self._remap_colum_to_dict(column_dict.get("keyType"))
+            )
+            vt = self._parse_datatype(
+                self._remap_colum_to_dict(column_dict.get("valueType"))
+            )
             # keys are assumed to be strings in avro map
             return {
                 "type": "map",
                 "values": vt,
-                "native_data_type": column_dict.get("type"),#TODO: combined type?
+                "native_data_type": column_dict.get("type"),  # TODO: combined type?
                 "key_type": kt,
                 "key_native_data_type": column_dict.get("keyType"),
-                "_nullable": column_dict.get("valueContainsNull")
+                "_nullable": column_dict.get("valueContainsNull"),
+                "description": column_dict["metadata"].get("comment"),
             }
         elif column_dict.get("type") == "struct":
             return self._parse_struct_fields(column_dict["fields"])
         else:
-            #get atomic datatypes
+            # get atomic datatypes
             return self._parse_basic_datatype(column_dict)
 
-    #function: remap payload dict to basic datatype dict or leave intact
-    #TODO: metadata parsing and co?
+    # function: remap payload dict to basic datatype dict or leave intact
     def _remap_colum_to_dict(self, column):
         if isinstance(column, dict):
             return column
         else:
-            #remap
-            remap_dict={"type":column}
+            # remap
+            remap_dict = {"type": column}
             return remap_dict
 
     def _parse_struct_fields(self, dicts):
         fields = []
         for dict in dicts:
-            field_name = dict.get("name","")
+            field_name = dict.get("name", "")
             field_type = self._parse_datatype(dict)
             fields.append({"name": field_name, "type": field_type})
         return {
@@ -493,31 +495,34 @@ class DeltaLakeSource(Source):
             "name": "__struct_{}".format(str(uuid.uuid4()).replace("-", "")),
             "fields": fields,
             "native_data_type": "fields: {}".format(dicts),
+            "description": fields["metadata"].get("comment"),
         }
-
 
     def _parse_basic_datatype(self, column_dict):
         if column_dict.get("type") in _field_avro_mapping:
             return {
-                    "type": _field_avro_mapping[column_dict.get("type")],
-                    "native_data_type": column_dict.get("type"),
-                    "_nullable": column_dict.get("nullable"),
-                }
+                "type": _field_avro_mapping[column_dict.get("type")],
+                "native_data_type": column_dict.get("type"),
+                "_nullable": column_dict.get("nullable"),
+                "description": column_dict["metadata"].get("comment"),
+            }
 
         elif column_dict.get("type") == "date":
             return {
-                    "type": "int",
-                    "logicalType": "date",
-                    "native_data_type": "date",
-                    "_nullable": column_dict.get("nullable"),
-                }
+                "type": "int",
+                "logicalType": "date",
+                "native_data_type": "date",
+                "_nullable": column_dict.get("nullable"),
+                "description": column_dict["metadata"].get("comment"),
+            }
         elif column_dict.get("type") == "timestamp":
             return {
-                    "type": "int",
-                    "logicalType": "timestamp-millis",
-                    "native_data_type": "timestamp",
-                    "_nullable": column_dict.get("nullable"),
-                }
+                "type": "int",
+                "logicalType": "timestamp-millis",
+                "native_data_type": "timestamp",
+                "_nullable": column_dict.get("nullable"),
+                "description": column_dict["metadata"].get("comment"),
+            }
         else:
             return {"type": "null", "native_data_type": column_dict.get("type")}
 
@@ -551,7 +556,7 @@ if __name__ == "__main__":
         config=DeltaLakeSourceConfig(url="url", token="x"),
     )
     schema_fields = source._get_schema_fields(testdata1.metadata)
-    testdata2=QueryTableMetadataResponse_extended(
+    testdata2 = QueryTableMetadataResponse_extended(
         protocol=Protocol(min_reader_version=1),
         metadata=Metadata(
             id="test2",
