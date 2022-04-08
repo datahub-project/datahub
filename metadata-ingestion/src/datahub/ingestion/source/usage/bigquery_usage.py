@@ -627,19 +627,21 @@ class BigQueryUsageSource(Source):
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         if self.config.use_exported_bigquery_audit_metadata:
-            clients = self._make_bigquery_clients()
+            bigquery_clients: List[BigQueryClient] = self._make_bigquery_clients()
             bigquery_log_entries = (
                 self._get_bigquery_log_entries_via_exported_bigquery_audit_metadata(
-                    clients
+                    bigquery_clients
                 )
             )
             parsed_bigquery_log_events = self._parse_exported_bigquery_audit_metadata(
                 bigquery_log_entries
             )
         else:
-            clients = self._make_bigquery_logging_clients()
+            logging_clients: List[
+                GCPLoggingClient
+            ] = self._make_bigquery_logging_clients()
             bigquery_log_entries = self._get_bigquery_log_entries_via_gcp_logging(
-                clients
+                logging_clients
             )
             parsed_bigquery_log_events = self._parse_bigquery_log_entries(
                 bigquery_log_entries
