@@ -39,15 +39,4 @@ record DataFlowInfo includes CustomProperties, ExternalReference {
     "queryByDefault": false
   }
   project: optional string
-  
-  /**
-   * Optional list of jobs contained in this data flow
-   */
-  @Relationship = {
-    "/*": {
-      "name": "Contains",
-      "entityTypes": [ "dataJob" ]
-    }
-  }
-  jobs: optional array[Urn]
 }
