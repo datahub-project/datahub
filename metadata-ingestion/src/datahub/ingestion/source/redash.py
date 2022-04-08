@@ -539,7 +539,10 @@ class RedashSource(Source):
 
                 # Check dashboard queries datasource
                 for widget in dashboard_data["widgets"]:
-                    visualization = widget["visualization"]
+                    visualization = widget.get("visualization")
+                    if not visualization:
+                        continue
+                    
                     query_data = visualization["query"]
                     database_name = self._get_database_name_from_datasource_id(query_data.get("data_source_id"))
                     if not self.config.database_patterns.allowed(database_name):
