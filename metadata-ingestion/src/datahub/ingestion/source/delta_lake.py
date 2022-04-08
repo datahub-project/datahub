@@ -1,8 +1,9 @@
 import json
 import logging
+import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import BinaryIO, Dict, Iterable, List, Sequence, TextIO, Type, Union
+from typing import BinaryIO, Dict, Iterable, List, Sequence, TextIO, Type, Union, Any
 
 from delta_sharing.delta_sharing import SharingClient
 from delta_sharing.protocol import DeltaSharingProfile, Table
@@ -26,6 +27,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.extractor import schema_util
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -137,7 +139,7 @@ class SharingClient_extended(SharingClient):
 
         return querytablesmetadata
 
-    def query_table_version(self, table: Table) -> QueryTableMetadataResponse:
+    def query_table_version(self, table: Table) -> QueryTableVersionResponse:
         """
         List the version of a specified table in a Delta Sharing Server.
         :return: version of a specified table.
@@ -160,10 +162,10 @@ class DeltaLakeSourceConfig(DatasetSourceConfigBase):
 _field_type_mapping: Dict[str, Type] = {
     "array": ArrayTypeClass,
     "boolean": BooleanTypeClass,
-    "binary": BytesTypeClass,  # TODO: might need to change
+    "binary": BytesTypeClass, 
     "short": NumberTypeClass,
     "integer": NumberTypeClass,
-    "short": NumberTypeClass,
+    "long": NumberTypeClass,
     "byte": BytesTypeClass,
     "float": NumberTypeClass,
     "double": NumberTypeClass,
@@ -171,7 +173,24 @@ _field_type_mapping: Dict[str, Type] = {
     "date": DateTypeClass,
     "timestamp": TimeTypeClass,
     "map": MapTypeClass,
-    "struct": RecordTypeClass,  # TODO: needs custom handling if we want to show nested field in UI
+    "struct": RecordTypeClass,
+}
+
+_field_avro_mapping: Dict[str, Type] = {
+    "array": "array",
+    "boolean": "boolean",
+    "binary": "bytes", 
+    "short": "int",
+    "integer": "int",
+    "long": "long",
+    "byte": "bytes",
+    "float": "float",
+    "double": "double",
+    "string": "string",
+#    "date": "date", #handled separately
+#    "timestamp": "timestamp-milis", #handled separately
+    "map": "map",
+    "struct": "struct",
 }
 
 
@@ -371,22 +390,24 @@ class DeltaLakeSource(Source):
                     ),
                 )
                 datahubName = column["name"]
-                nativeType = str(column["type"].get("type"))
-                datahubType = _field_type_mapping.get(
-                    nativeType, NullTypeClass
-                )  # NullTypeClass if we cannot map
+                column_dict=column["type"]
+                nativeType = str(column_dict.get("type"))
                 datahubDescription = column["metadata"].get("comment")
-                datahubJsonProps = json.dumps(column["type"])
-                # send to recursion column["type"]["fields"]
 
-                datahubField = SchemaField(
-                    fieldPath=datahubName,
-                    type=SchemaFieldDataType(type=datahubType()),
-                    nativeDataType=nativeType,
-                    nullable=column["nullable"],
-                    description=datahubDescription,
-                    jsonProps=datahubJsonProps,
+                # Get avro schema for subfields along with parent complex field
+                avro_schema = self.get_avro_schema_from_data_type(
+                    column_dict, datahubName
                 )
+
+                newfields = schema_util.avro_schema_to_mce_fields(
+                    json.dumps(avro_schema), default_nullable=True
+                )
+
+                # First field is the parent complex field
+                newfields[0].nullable = column["nullable"]
+                newfields[0].description = datahubDescription
+                newfields[0].nativeDataType = nativeType
+
             else:
                 # primitive type
                 datahubName = column["name"]
@@ -407,6 +428,99 @@ class DeltaLakeSource(Source):
             canonical_schema.append(datahubField)
         return canonical_schema
 
+    def get_avro_schema_from_data_type(
+        self, column_dict: Dict[str,Any], column_name: str
+    ) -> Dict[str, Any]:
+        # Below Record structure represents the dataset level
+        # Inner fields represent the complex field (struct/array/map)
+        return {
+            "type": "record",
+            "name": "__struct_",
+            "fields": [{"name": column_name, "type": self._parse_datatype(column_dict)}],
+        }
+
+    def _parse_datatype(self,column_dict: Dict[str,Any]):
+        if column_dict.get("type") == "array":
+            # if not atomic
+            if isinstance(column_dict.get("elementType"),dict):
+                items_payload = column_dict.get("elementType")
+            else:
+                # remap for easy parsing
+                items_payload = {"type": column_dict.get("elementType"), 
+                "nullable": column_dict.get("containsNull")}
+            return {
+                "type": "array",
+                "items": self._parse_datatype(self._remap_colum_to_dict(column_dict.get("elementType"))),
+                "native_data_type": column_dict.get("type"),
+                "_nullable": column_dict.get("containsNull")
+            }
+        elif column_dict.get("type") == "map":
+            kt = self._parse_datatype(self._remap_colum_to_dict(column_dict.get("keyType")))
+            vt = self._parse_datatype(self._remap_colum_to_dict(column_dict.get("valueType")))
+            # keys are assumed to be strings in avro map
+            return {
+                "type": "map",
+                "values": vt,
+                "native_data_type": column_dict.get("type"),#TODO: combined type?
+                "key_type": kt,
+                "key_native_data_type": column_dict.get("keyType"),
+                "_nullable": column_dict.get("valueContainsNull")
+            }
+        elif column_dict.get("type") == "struct":
+            return self._parse_struct_fields(column_dict["fields"])
+        else:
+            #get atomic datatypes
+            return self._parse_basic_datatype(column_dict)
+
+    #function: remap payload dict to basic datatype dict or leave intact
+    #TODO: metadata parsing and co?
+    def _remap_colum_to_dict(self, column):
+        if isinstance(column, dict):
+            return column
+        else:
+            #remap
+            remap_dict={"type":column}
+            return remap_dict
+
+    def _parse_struct_fields(self, dicts):
+        fields = []
+        for dict in dicts:
+            field_name = dict.get("name","")
+            field_type = self._parse_datatype(dict)
+            fields.append({"name": field_name, "type": field_type})
+        return {
+            "type": "record",
+            "name": "__struct_{}".format(str(uuid.uuid4()).replace("-", "")),
+            "fields": fields,
+            "native_data_type": "fields: {}".format(dicts),
+        }
+
+
+    def _parse_basic_datatype(self, column_dict):
+        if column_dict.get("type") in _field_avro_mapping:
+            return {
+                    "type": _field_avro_mapping[column_dict.get("type")],
+                    "native_data_type": column_dict.get("type"),
+                    "_nullable": column_dict.get("nullable"),
+                }
+
+        elif column_dict.get("type") == "date":
+            return {
+                    "type": "int",
+                    "logicalType": "date",
+                    "native_data_type": "date",
+                    "_nullable": column_dict.get("nullable"),
+                }
+        elif column_dict.get("type") == "timestamp":
+            return {
+                    "type": "int",
+                    "logicalType": "timestamp-millis",
+                    "native_data_type": "timestamp",
+                    "_nullable": column_dict.get("nullable"),
+                }
+        else:
+            return {"type": "null", "native_data_type": column_dict.get("type")}
+
     def get_report(self) -> SourceReport:
         return self.report
 
@@ -416,46 +530,44 @@ class DeltaLakeSource(Source):
 
 if __name__ == "__main__":
 
-    a = 1
+    import delta_sharing
+    from delta_sharing.protocol import Format, Table
+    from delta_sharing.rest_client import Metadata, Protocol
 
-    # import delta_sharing
-    # from delta_sharing.protocol import Format, Table
-    # from delta_sharing.rest_client import Metadata, Protocol
-
-    # testdata1 = QueryTableMetadataResponse_extended(
-    #     protocol=Protocol(min_reader_version=1),
-    #     metadata=Metadata(
-    #         id="test2",
-    #         name=None,
-    #         description=None,
-    #         format=Format(provider="parquet", options={}),
-    #         schema_string='{"type":"struct","fields":[{"name":"a","type":"integer","nullable":false,"metadata":{"comment":"this is a comment"}},{"name":"b","type":{"type":"struct","fields":[{"name":"d","type":"integer","nullable":false,"metadata":{}}]},"nullable":true,"metadata":{}},{"name":"c","type":{"type":"array","elementType":"integer","containsNull":false},"nullable":true,"metadata":{}},{"name":"e","type":{"type":"array","elementType":{"type":"struct","fields":[{"name":"d","type":"integer","nullable":false,"metadata":{}}]},"containsNull":true},"nullable":true,"metadata":{}},{"name":"f","type":{"type":"map","keyType":"string","valueType":"string","valueContainsNull":true},"nullable":true,"metadata":{}}]}',
-    #         partition_columns=[],
-    #     ),
-    #     table=Table(name="testdata2", share="delta_sharing", schema="default"),
-    # )
-    # source = DeltaLakeSource(
-    #     ctx=PipelineContext(run_id="delta-lake-source-test2"),
-    #     config=DeltaLakeSourceConfig(url="url", token="x"),
-    # )
-    # schema_fields = source._get_schema_fields(testdata1.metadata)
-    # testdata2=QueryTableMetadataResponse_extended(
-    #     protocol=Protocol(min_reader_version=1),
-    #     metadata=Metadata(
-    #         id="test2",
-    #         name=None,
-    #         description=None,
-    #         format=Format(provider="parquet", options={}),
-    #         schema_string='{"type":"struct","fields":[{"name":"a","type":"integer","nullable":false,"metadata":{"comment":"this is a comment"}},{"name":"b","type":{"type":"struct","fields":[{"name":"d","type":"integer","nullable":false,"metadata":{}}]},"nullable":true,"metadata":{}},{"name":"c","type":{"type":"array","elementType":"integer","containsNull":false},"nullable":true,"metadata":{}},{"name":"e","type":{"type":"array","elementType":{"type":"struct","fields":[{"name":"d","type":"integer","nullable":false,"metadata":{}}]},"containsNull":true},"nullable":true,"metadata":{}},{"name":"f","type":{"type":"map","keyType":"string","valueType":"string","valueContainsNull":true},"nullable":true,"metadata":{}}]}',
-    #         partition_columns=[],
-    #     ),
-    #     table=Table(name="testdata2", share="delta_sharing", schema="default"),
-    # )
-    # source = DeltaLakeSource(
-    #     ctx=PipelineContext(run_id="delta-lake-source-test3"),
-    #     config=DeltaLakeSourceConfig(url="url", token="x"),
-    # )
-    # schema_fields = source._get_schema_fields(testdata2.metadata)
+    testdata1 = QueryTableMetadataResponse_extended(
+        protocol=Protocol(min_reader_version=1),
+        metadata=Metadata(
+            id="test2",
+            name=None,
+            description=None,
+            format=Format(provider="parquet", options={}),
+            schema_string='{"type":"struct","fields":[{"name":"a","type":"integer","nullable":false,"metadata":{"comment":"this is a comment"}},{"name":"b","type":{"type":"struct","fields":[{"name":"d","type":"integer","nullable":false,"metadata":{}}]},"nullable":true,"metadata":{}},{"name":"c","type":{"type":"array","elementType":"integer","containsNull":false},"nullable":true,"metadata":{}},{"name":"e","type":{"type":"array","elementType":{"type":"struct","fields":[{"name":"d","type":"integer","nullable":false,"metadata":{}}]},"containsNull":true},"nullable":true,"metadata":{}},{"name":"f","type":{"type":"map","keyType":"string","valueType":"string","valueContainsNull":true},"nullable":true,"metadata":{}}]}',
+            partition_columns=[],
+        ),
+        table=Table(name="testdata2", share="delta_sharing", schema="default"),
+    )
+    source = DeltaLakeSource(
+        ctx=PipelineContext(run_id="delta-lake-source-test2"),
+        config=DeltaLakeSourceConfig(url="url", token="x"),
+    )
+    schema_fields = source._get_schema_fields(testdata1.metadata)
+    testdata2=QueryTableMetadataResponse_extended(
+        protocol=Protocol(min_reader_version=1),
+        metadata=Metadata(
+            id="test2",
+            name=None,
+            description=None,
+            format=Format(provider="parquet", options={}),
+            schema_string='{"type":"struct","fields":[{"name":"a","type":"integer","nullable":false,"metadata":{"comment":"this is a comment"}},{"name":"b","type":{"type":"struct","fields":[{"name":"d","type":"integer","nullable":false,"metadata":{}}]},"nullable":true,"metadata":{}},{"name":"c","type":{"type":"array","elementType":"integer","containsNull":false},"nullable":true,"metadata":{}},{"name":"e","type":{"type":"array","elementType":{"type":"struct","fields":[{"name":"d","type":"integer","nullable":false,"metadata":{}}]},"containsNull":true},"nullable":true,"metadata":{}},{"name":"f","type":{"type":"map","keyType":"string","valueType":"string","valueContainsNull":true},"nullable":true,"metadata":{}}]}',
+            partition_columns=[],
+        ),
+        table=Table(name="testdata2", share="delta_sharing", schema="default"),
+    )
+    source = DeltaLakeSource(
+        ctx=PipelineContext(run_id="delta-lake-source-test3"),
+        config=DeltaLakeSourceConfig(url="url", token="x"),
+    )
+    schema_fields = source._get_schema_fields(testdata2.metadata)
     # Get the access keys for delta-sharing & start the client
     # profile = delta_sharing.protocol.DeltaSharingProfile(
     #     share_credentials_version=1,
