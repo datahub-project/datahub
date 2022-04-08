@@ -864,7 +864,7 @@ type Dataset implements EntityWithRelationships & Entity {
     externalUrl: String @deprecated
 
     """
-    Deprecated,se the properties field instead
+    Deprecated, see the properties field instead
     Environment in which the dataset belongs to or where it was generated
     Note that this field will soon be deprecated in favor of a more standardized concept of Environment
     """
@@ -1360,6 +1360,12 @@ enum FabricType {
     Designates early integration fabrics
     """
     EI
+
+    """
+    Designates pre-production fabrics
+    """
+    PRE
+
     """
     Designates staging fabrics
     """

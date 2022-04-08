@@ -446,11 +446,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 },
             )
 
-    def warn(self, log: logging.Logger, key: str, reason: str) -> Any:
+    def warn(self, log: logging.Logger, key: str, reason: str) -> None:
         self.report.report_warning(key, reason)
-        log.warning(reason)
+        log.warning(f"{key} => {reason}")
 
-    def error(self, log: logging.Logger, key: str, reason: str) -> Any:
+    def error(self, log: logging.Logger, key: str, reason: str) -> None:
         self.report.report_failure(key, reason)
         log.error(f"{key} => {reason}")
 

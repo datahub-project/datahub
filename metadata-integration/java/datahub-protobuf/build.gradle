@@ -49,7 +49,7 @@ jacocoTestReport {
     dependsOn test // tests are required to run before generating the report
 }
 
-test {
-    useJUnit()
-    finalizedBy jacocoTestReport
-}
+//test {
+//    useJUnit()
+//    finalizedBy jacocoTestReport
+//}

@@ -157,6 +157,7 @@ As a SQL-based service, the Athena integration is also supported by our SQL prof
 | `domain.domain_key.ignoreCase`         |                                                                           | `True`                                                                  | Whether to ignore case sensitivity during pattern matching.There can be multiple domain key specified.                                                                                                                                                                                  |
 | `lineage_client_project_id`            |                                                                           | None                                                                    | The project to use when creating the BigQuery Client. If left empty, the required `project_id` will be used. This is helpful in case the default project_id is not used for querying.                                                                                    |
 | `use_v2_audit_metadata`                |   | `False` | Whether to use `BigQuery audit logs` to get the lineage or not |
+| `upstream_lineage_in_report`           |   | `False` | Useful for debugging lineage information. Set to `True` to see the raw lineage created internally. |
 
 
 The following parameters are only relevant if include_table_lineage is set to true:

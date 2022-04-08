@@ -20,10 +20,10 @@ public class ProtobufGraphTest {
         ProtobufGraph test = getTestProtobufGraph("protobuf", "messageB");
 
         assertEquals("MessageB", test.autodetectRootMessage(
-                fileset.getFile(2)).get().messageProto().getName());
+                fileset.getFileList().stream().filter(f -> f.getName().equals("protobuf/messageB.proto")).findFirst().get()).get().messageProto().getName());
 
         assertEquals("MessageA", test.autodetectRootMessage(
-                fileset.getFile(1)).get().messageProto().getName());
+                fileset.getFileList().stream().filter(f -> f.getName().equals("protobuf/messageA.proto")).findFirst().get()).get().messageProto().getName());
     }
 
     @Test

@@ -73,6 +73,10 @@ DataHub is an open-source metadata platform for the modern data stack. Read abou
 
 Please follow the [DataHub Quickstart Guide](https://datahubproject.io/docs/quickstart) to get a copy of DataHub up & running locally using [Docker](https://docker.com). As the guide assumes some basic knowledge of Docker, we'd recommend you to go through the "Hello World" example of [A Docker Tutorial for Beginners](https://docker-curriculum.com) if Docker is completely foreign to you.
 
+## Development
+
+If you're looking to build & modify datahub please take a look at our [Development Guide](https://datahubproject.io/docs/developers).
+
 ## Demo and Screenshots
 
 There's a [hosted demo environment](https://datahubproject.io/docs/demo) where you can play around with DataHub before installing.

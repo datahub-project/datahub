@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.config;
 
-import com.datahub.authorization.Authorizer;
+import com.datahub.authorization.AuthorizationConfiguration;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ActionRequestsConfig;
 import com.linkedin.datahub.graphql.generated.AnalyticsConfig;
@@ -25,19 +25,22 @@ import java.util.stream.Collectors;
  */
 public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfig>> {
 
+  private final GitVersion _gitVersion;
   private final boolean _isAnalyticsEnabled;
   private final IngestionConfiguration _ingestionConfiguration;
-  private final GitVersion _gitVersion;
+  private final AuthorizationConfiguration _authorizationConfiguration;
   private final boolean _supportsImpactAnalysis;
 
   public AppConfigResolver(
       final GitVersion gitVersion,
       final boolean isAnalyticsEnabled,
       final IngestionConfiguration ingestionConfiguration,
+      final AuthorizationConfiguration authorizationConfiguration,
       final boolean supportsImpactAnalysis) {
     _gitVersion = gitVersion;
     _isAnalyticsEnabled = isAnalyticsEnabled;
     _ingestionConfiguration = ingestionConfiguration;
+    _authorizationConfiguration = authorizationConfiguration;
     _supportsImpactAnalysis = supportsImpactAnalysis;
   }
 
@@ -58,9 +61,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     analyticsConfig.setEnabled(_isAnalyticsEnabled);
 
     final PoliciesConfig policiesConfig = new PoliciesConfig();
-
-    boolean policiesEnabled = Authorizer.AuthorizationMode.DEFAULT.equals(context.getAuthorizer().mode());
-    policiesConfig.setEnabled(policiesEnabled);
+    policiesConfig.setEnabled(_authorizationConfiguration.getDefaultAuthorizer().isEnabled());
 
     policiesConfig.setPlatformPrivileges(com.linkedin.metadata.authorization.PoliciesConfig.PLATFORM_PRIVILEGES
         .stream()

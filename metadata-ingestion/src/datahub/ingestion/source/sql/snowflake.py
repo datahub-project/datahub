@@ -539,17 +539,38 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
                 [
                     f"grant usage on DATABASE {db_name} to role {role}",
                     f"grant usage on all schemas in database {db_name} to role {role}",
-                    f"grant select on all tables in database {db_name} to role {role}",
-                    f"grant select on all external tables in database {db_name} to role {role}",
-                    f"grant select on all views in database {db_name} to role {role}",
                     f"grant usage on future schemas in database {db_name} to role {role}",
-                    f"grant select on future tables in database {db_name} to role {role}",
                 ]
             )
+            if self.config.profiling.enabled:
+                sqls.extend(
+                    [
+                        f"grant select on all tables in database {db_name} to role {role}",
+                        f"grant select on future tables in database {db_name} to role {role}",
+                        f"grant select on all external tables in database {db_name} to role {role}",
+                        f"grant select on future external tables in database {db_name} to role {role}",
+                        f"grant select on all views in database {db_name} to role {role}",
+                        f"grant select on future views in database {db_name} to role {role}",
+                    ]
+                )
+            else:
+                sqls.extend(
+                    [
+                        f"grant references on all tables in database {db_name} to role {role}",
+                        f"grant references on future tables in database {db_name} to role {role}",
+                        f"grant references on all external tables in database {db_name} to role {role}",
+                        f"grant references on future external tables in database {db_name} to role {role}",
+                        f"grant references on all views in database {db_name} to role {role}",
+                        f"grant references on future views in database {db_name} to role {role}",
+                    ]
+                )
         if self.config.username is not None:
             sqls.append(f"grant role {role} to user {self.config.username}")
 
-        sqls.append(f"grant imported privileges on database snowflake to role {role}")
+        if self.config.include_table_lineage or self.config.include_view_lineage:
+            sqls.append(
+                f"grant imported privileges on database snowflake to role {role}"
+            )
 
         dry_run_str = "[DRY RUN] " if provision_role_block.dry_run else ""
         for sql in sqls:

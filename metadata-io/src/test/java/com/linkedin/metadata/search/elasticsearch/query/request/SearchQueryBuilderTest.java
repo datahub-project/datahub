@@ -42,5 +42,9 @@ public class SearchQueryBuilderTest {
     assertEquals(textFields.get("textArrayField.delimited").floatValue(), 0.4f);
     assertEquals(textFields.get("textArrayField.ngram").floatValue(), 0.1f);
     assertEquals(textFields.get("customProperties.delimited").floatValue(), 0.4f);
+
+    // Validate scorer
+    FunctionScoreQueryBuilder.FilterFunctionBuilder[] scoringFunctions = result.filterFunctionBuilders();
+    assertEquals(scoringFunctions.length, 3);
   }
 }

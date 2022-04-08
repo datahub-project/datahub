@@ -399,7 +399,7 @@ Lineage is emitted as received from Tableau's metadata API for
 
 
 #### Caveats
-- Tableau metadata API might return incorrect schema name for tables for some databases, leading to incorrect metadata in DataHub.  Read [Using the databaseTable object in query](https://help.tableau.com/current/api/metadata_api/en-us/docs/meta_api_model.html#schema_attribute) for more details.
+- Tableau metadata API might return incorrect schema name for tables for some databases, leading to incorrect metadata in DataHub. This source attempts to extract correct schema from databaseTable's fully qualified name, wherever possible. Read [Using the databaseTable object in query](https://help.tableau.com/current/api/metadata_api/en-us/docs/meta_api_model.html#schema_attribute) for caveats in using schema attribute.
 
 
 ### Supported Capabilities
@@ -484,7 +484,7 @@ sink:
 | `password`            |          |           | Tableau password, must be set if authenticating using username/password.    |
 | `token_name`          |          |           | Tableau token name, must be set if authenticating using a personal access token.  |
 | `token_value`         |          |           | Tableau token value, must be set if authenticating using a personal access token. |
-| `projects`            |          | `default` | List of projects                                                         |
+| `projects`            |          | `["default"]` | List of projects                                                         |
 | `workbooks_page_size`            |          | 10 | Number of workbooks to query at a time using Tableau api.                                              |
 | `default_schema_map`* |          |           | Default schema to use when schema is not found.                          |
 | `ingest_tags`         |          | `False`   | Ingest Tags from source. This will override Tags entered from UI         |

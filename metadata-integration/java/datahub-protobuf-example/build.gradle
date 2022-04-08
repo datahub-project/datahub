@@ -22,7 +22,7 @@ dependencies {
     datahub files('libs/datahub-protobuf.jar')
 
     // transitive deps
-    datahub 'io.acryl:datahub-client:0.8.27'
+    datahub 'io.acryl:datahub-client:0.8.+'
     datahub "com.google.protobuf:protobuf-java:$protobuf_version"
     datahub 'org.jgrapht:jgrapht-core:1.5.1'
     datahub 'com.google.guava:guava:27.0.1-jre'
@@ -71,7 +71,7 @@ task publishSchema(dependsOn: build) {
     }
 
     fileTree("schema").matching {
-        exclude "schema/protobuf/meta/**"
+        exclude "protobuf/meta/**"
     }.each {f ->
         doLast {
             javaexec {
