@@ -1,25 +1,35 @@
 import unittest
 
 from datahub.utilities.urns.data_job_urn import DataJobUrn
+from datahub.utilities.urns.data_platform_urn import DataPlatformUrn
 from datahub.utilities.urns.error import InvalidUrnError
 
 
-class TestDataJobUrnUrn(unittest.TestCase):
+class TestDataJobUrn(unittest.TestCase):
     def test_parse_urn(self) -> None:
-        data_job_urn_str = "urn:li:dataJob:abc"
+        data_job_urn_str = (
+            "urn:li:dataJob:(urn:li:dataFlow:(airflow,flow_id,prod),job_id)"
+        )
         data_job_urn = DataJobUrn.create_from_string(data_job_urn_str)
-        assert data_job_urn.get_type() == DataJobUrn.ENTITY_TYPE
-
-        assert data_job_urn.get_entity_id() == ["abc"]
-        assert str(data_job_urn) == data_job_urn_str
-        assert data_job_urn == DataJobUrn("dataJob", ["abc"])
-        assert data_job_urn == DataJobUrn.create_from_id("abc")
+        assert data_job_urn.get_data_flow_urn() == DataPlatformUrn.create_from_string(
+            "urn:li:dataFlow:(airflow,flow_id,prod)"
+        )
+        assert data_job_urn.get_job_id() == "job_id"
+        assert data_job_urn.__str__() == data_job_urn_str
+        assert data_job_urn == DataJobUrn(
+            "dataJob", ["urn:li:dataFlow:(airflow,flow_id,prod)", "job_id"]
+        )
 
     def test_invalid_urn(self) -> None:
         with self.assertRaises(InvalidUrnError):
             DataJobUrn.create_from_string(
-                "urn:li:abc:(urn:li:dataPlatform:abc,def,prod)"
+                "urn:li:abc:(urn:li:dataFlow:(airflow,flow_id,prod),job_id)"
             )
 
         with self.assertRaises(InvalidUrnError):
-            DataJobUrn.create_from_string("urn:li:dataJob:(part1,part2)")
+            DataJobUrn.create_from_string("urn:li:dataJob:(urn:li:user:abc,job_id)")
+
+        with self.assertRaises(InvalidUrnError):
+            DataJobUrn.create_from_string(
+                "urn:li:dataJob:(urn:li:dataFlow:(airflow,flow_id,prod))"
+            )
