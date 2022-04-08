@@ -1409,7 +1409,7 @@ type Container implements Entity {
     domain: Domain
 
     """
-    The deprecation status of the dashboard
+    The deprecation status of the container
     """
     deprecation: Deprecation
 

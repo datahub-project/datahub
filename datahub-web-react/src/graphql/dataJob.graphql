@@ -33,6 +33,9 @@ query getDataJob($urn: String!) {
             start
             total
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
 }
 
