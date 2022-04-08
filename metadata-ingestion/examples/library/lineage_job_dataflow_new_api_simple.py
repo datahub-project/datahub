@@ -4,7 +4,10 @@ import uuid
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.api.dataprocess.dataflow import DataFlow
 from datahub.api.dataprocess.datajob import DataJob
-from datahub.api.dataprocess.dataprocess_instance import DataProcessInstance, InstanceRunResult
+from datahub.api.dataprocess.dataprocess_instance import (
+    DataProcessInstance,
+    InstanceRunResult,
+)
 
 emitter = DatahubRestEmitter("http://localhost:8080")
 
@@ -31,23 +34,43 @@ dataJob4.upstream_urns.append(dataJob2.urn)
 dataJob4.upstream_urns.append(dataJob3.urn)
 dataJob4.emit(emitter)
 
-jobFlowRun = DataProcessInstance.from_dataflow(dataflow=jobFlow, id=f"{jobFlow.id}-{uuid.uuid4()}")
+jobFlowRun = DataProcessInstance.from_dataflow(
+    dataflow=jobFlow, id=f"{jobFlow.id}-{uuid.uuid4()}"
+)
 jobFlowRun.emit_process_start(emitter, int(datetime.utcnow().timestamp() * 1000))
 
-jobRun = DataProcessInstance.from_datajob(datajob=dataJob, id=f"{jobFlow.id}-{uuid.uuid4()}")
+jobRun = DataProcessInstance.from_datajob(
+    datajob=dataJob, id=f"{jobFlow.id}-{uuid.uuid4()}"
+)
 jobRun.emit_process_start(emitter, int(datetime.utcnow().timestamp() * 1000))
-jobRun.emit_process_end(emitter, int(datetime.utcnow().timestamp() * 1000), result=InstanceRunResult.SUCCESS)
+jobRun.emit_process_end(
+    emitter, int(datetime.utcnow().timestamp() * 1000), result=InstanceRunResult.SUCCESS
+)
 
-job2Run = DataProcessInstance.from_datajob(datajob=dataJob2, id=f"{jobFlow.id}-{uuid.uuid4()}")
+job2Run = DataProcessInstance.from_datajob(
+    datajob=dataJob2, id=f"{jobFlow.id}-{uuid.uuid4()}"
+)
 job2Run.emit_process_start(emitter, int(datetime.utcnow().timestamp() * 1000))
-job2Run.emit_process_end(emitter, int(datetime.utcnow().timestamp() * 1000), result=InstanceRunResult.SUCCESS)
+job2Run.emit_process_end(
+    emitter, int(datetime.utcnow().timestamp() * 1000), result=InstanceRunResult.SUCCESS
+)
 
-job3Run = DataProcessInstance.from_datajob(datajob=dataJob3, id=f"{jobFlow.id}-{uuid.uuid4()}")
+job3Run = DataProcessInstance.from_datajob(
+    datajob=dataJob3, id=f"{jobFlow.id}-{uuid.uuid4()}"
+)
 job3Run.emit_process_start(emitter, int(datetime.utcnow().timestamp() * 1000))
-job3Run.emit_process_end(emitter, int(datetime.utcnow().timestamp() * 1000), result=InstanceRunResult.SUCCESS)
+job3Run.emit_process_end(
+    emitter, int(datetime.utcnow().timestamp() * 1000), result=InstanceRunResult.SUCCESS
+)
 
-job4Run = DataProcessInstance.from_datajob(datajob=dataJob4, id=f"{jobFlow.id}-{uuid.uuid4()}")
+job4Run = DataProcessInstance.from_datajob(
+    datajob=dataJob4, id=f"{jobFlow.id}-{uuid.uuid4()}"
+)
 job4Run.emit_process_start(emitter, int(datetime.utcnow().timestamp() * 1000))
-job4Run.emit_process_end(emitter, int(datetime.utcnow().timestamp() * 1000), result=InstanceRunResult.SUCCESS)
+job4Run.emit_process_end(
+    emitter, int(datetime.utcnow().timestamp() * 1000), result=InstanceRunResult.SUCCESS
+)
 
-jobFlowRun.emit_process_end(emitter, int(datetime.utcnow().timestamp() * 1000), result=InstanceRunResult.SUCCESS)
+jobFlowRun.emit_process_end(
+    emitter, int(datetime.utcnow().timestamp() * 1000), result=InstanceRunResult.SUCCESS
+)

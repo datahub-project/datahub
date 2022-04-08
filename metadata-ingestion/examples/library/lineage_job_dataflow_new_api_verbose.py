@@ -5,7 +5,10 @@ from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import RunResultTypeClass
 from datahub.api.dataprocess.dataflow import DataFlow
 from datahub.api.dataprocess.datajob import DataJob
-from datahub.api.dataprocess.dataprocess_instance import DataProcessInstance, InstanceRunResult
+from datahub.api.dataprocess.dataprocess_instance import (
+    DataProcessInstance,
+    InstanceRunResult,
+)
 
 emitter = DatahubRestEmitter("http://localhost:8080")
 
@@ -37,7 +40,9 @@ jobFlowRun: DataProcessInstance = DataProcessInstance(
     orchestrator="airflow", cluster="prod", id=f"{jobFlow.id}-{uuid.uuid4()}"
 )
 jobRun1: DataProcessInstance = DataProcessInstance(
-    orchestrator="airflow", cluster="prod", id=f"{jobFlow.id}-{dataJob.id}-{uuid.uuid4()}"
+    orchestrator="airflow",
+    cluster="prod",
+    id=f"{jobFlow.id}-{dataJob.id}-{uuid.uuid4()}",
 )
 jobRun1.parent_instance = jobFlowRun.urn
 jobRun1.template_urn = dataJob.urn
@@ -51,14 +56,15 @@ jobRun1.emit_process_end(
 )
 
 jobRun2: DataProcessInstance = DataProcessInstance(
-    orchestrator="airflow", cluster="prod", id=f"{jobFlow.id}-{dataJob2.id}-{uuid.uuid4()}"
+    orchestrator="airflow",
+    cluster="prod",
+    id=f"{jobFlow.id}-{dataJob2.id}-{uuid.uuid4()}",
 )
 jobRun2.template_urn = dataJob2.urn
 jobRun2.parent_instance = jobFlowRun.urn
 jobRun2.upstreams_urns = [jobRun1.urn]
 jobRun2.emit_process_start(
-    emitter=emitter, start_timestamp_millis=int(time.time() * 1000)
-    ,emit_template=False
+    emitter=emitter, start_timestamp_millis=int(time.time() * 1000), emit_template=False
 )
 jobRun2.emit_process_end(
     emitter=emitter,
@@ -68,7 +74,9 @@ jobRun2.emit_process_end(
 
 
 jobRun3: DataProcessInstance = DataProcessInstance(
-    orchestrator="airflow", cluster="prod", id=f"{jobFlow.id}-{dataJob3.id}-{uuid.uuid4()}"
+    orchestrator="airflow",
+    cluster="prod",
+    id=f"{jobFlow.id}-{dataJob3.id}-{uuid.uuid4()}",
 )
 jobRun3.parent_instance = jobFlowRun.urn
 jobRun3.template_urn = dataJob3.urn
@@ -83,7 +91,9 @@ jobRun3.emit_process_end(
 )
 
 jobRun4: DataProcessInstance = DataProcessInstance(
-    orchestrator="airflow", cluster="prod", id=f"{jobFlow.id}-{dataJob4.id}-{uuid.uuid4()}"
+    orchestrator="airflow",
+    cluster="prod",
+    id=f"{jobFlow.id}-{dataJob4.id}-{uuid.uuid4()}",
 )
 jobRun4.parent_instance = jobFlowRun.urn
 jobRun4.template_urn = dataJob4.urn

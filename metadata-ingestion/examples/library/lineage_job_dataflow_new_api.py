@@ -6,9 +6,7 @@ from datahub.api.dataprocess.datajob import DataJob
 
 emitter = DatahubRestEmitter("http://localhost:8080")
 
-jobFlow = DataFlow(
-    cluster="prod", orchestrator="airflow", id="flow_new_api"
-)
+jobFlow = DataFlow(cluster="prod", orchestrator="airflow", id="flow_new_api")
 jobFlow.emit(emitter)
 
 dataJob = DataJob(flow_urn=jobFlow.urn, id="job1")
