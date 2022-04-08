@@ -205,6 +205,7 @@ const dataset1 = {
     downstream: null,
     health: null,
     assertions: null,
+    deprecation: null,
 };
 
 const dataset2 = {
@@ -283,6 +284,7 @@ const dataset2 = {
     health: null,
     assertions: null,
     status: null,
+    deprecation: null,
 };
 
 export const dataset3 = {
@@ -789,6 +791,7 @@ const glossaryTerm1 = {
         sourceRef: 'sourceRef',
         sourceURI: 'sourceURI',
     },
+    deprecation: null,
 } as GlossaryTerm;
 
 const glossaryTerm2 = {
@@ -831,6 +834,7 @@ const glossaryTerm2 = {
         ],
         __typename: 'GlossaryTermProperties',
     },
+    deprecation: null,
     isRealtedTerms: {
         start: 0,
         count: 0,
@@ -922,6 +926,7 @@ const glossaryTerm3 = {
         ],
         __typename: 'GlossaryRelatedTerms',
     },
+    deprecation: null,
     __typename: 'GlossaryTerm',
 } as GlossaryTerm;
 
@@ -1010,6 +1015,7 @@ export const dataFlow1 = {
         ...dataPlatform,
     },
     domain: null,
+    deprecation: null,
 } as DataFlow;
 
 export const dataJob1 = {
@@ -1086,6 +1092,7 @@ export const dataJob1 = {
     },
     domain: null,
     status: null,
+    deprecation: null,
 } as DataJob;
 
 export const dataJob2 = {
@@ -1147,6 +1154,7 @@ export const dataJob2 = {
     domain: null,
     upstream: null,
     downstream: null,
+    deprecation: null,
 } as DataJob;
 
 export const dataJob3 = {
@@ -1209,6 +1217,7 @@ export const dataJob3 = {
     upstream: null,
     downstream: null,
     status: null,
+    deprecation: null,
 } as DataJob;
 
 export const mlModel = {
@@ -1284,6 +1293,7 @@ export const mlModel = {
     upstream: null,
     downstream: null,
     status: null,
+    deprecation: null,
 } as MlModel;
 
 export const mlModelGroup = {
@@ -1347,6 +1357,7 @@ export const mlModelGroup = {
     upstream: null,
     downstream: null,
     status: null,
+    deprecation: null,
 } as MlModelGroup;
 
 export const recommendationModules = [

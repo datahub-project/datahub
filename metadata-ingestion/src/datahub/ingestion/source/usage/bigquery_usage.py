@@ -5,7 +5,7 @@ import logging
 import os
 import re
 import textwrap
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Union, cast
 
@@ -424,14 +424,13 @@ class QueryEvent:
 
     timestamp: datetime
     actor_email: str
-
     query: str
-    statementType: Optional[str]
-    destinationTable: Optional[BigQueryTableRef]
-    referencedTables: Optional[List[BigQueryTableRef]]
-    jobName: Optional[str]
-
-    payload: Any
+    statementType: Optional[str] = None
+    destinationTable: Optional[BigQueryTableRef] = None
+    referencedTables: List[BigQueryTableRef] = field(default_factory=list)
+    referencedViews: List[BigQueryTableRef] = field(default_factory=list)
+    jobName: Optional[str] = None
+    payload: Optional[Dict] = None
 
     @staticmethod
     def get_missing_key_entry(entry: AuditLogEntry) -> Optional[str]:
@@ -447,55 +446,56 @@ class QueryEvent:
 
     @classmethod
     def from_entry(cls, entry: AuditLogEntry) -> "QueryEvent":
-        user = entry.payload["authenticationInfo"]["principalEmail"]
-
-        job = entry.payload["serviceData"]["jobCompletedEvent"]["job"]
-        jobName = _job_name_ref(
+        job: Dict = entry.payload["serviceData"]["jobCompletedEvent"]["job"]
+        job_query_conf: Dict = job["jobConfiguration"]["query"]
+        # basic query_event
+        query_event = QueryEvent(
+            timestamp=entry.timestamp,
+            actor_email=entry.payload["authenticationInfo"]["principalEmail"],
+            query=job_query_conf["query"],
+        )
+        # jobName
+        query_event.jobName = _job_name_ref(
             job.get("jobName", {}).get("projectId"), job.get("jobName", {}).get("jobId")
         )
-        rawQuery = job["jobConfiguration"]["query"]["query"]
-
-        rawDestTable = job["jobConfiguration"]["query"]["destinationTable"]
-        destinationTable = None
-        if rawDestTable:
-            destinationTable = BigQueryTableRef.from_spec_obj(rawDestTable)
-
-        try:
-            statementType = job["jobConfiguration"]["query"]["statementType"]
-        except KeyError:
-            statementType = None
-
-        rawRefTables = job["jobStatistics"].get("referencedTables")
-        referencedTables = None
-        if rawRefTables:
-            referencedTables = [
-                BigQueryTableRef.from_spec_obj(spec) for spec in rawRefTables
+        # destinationTable
+        raw_dest_table = job_query_conf.get("destinationTable")
+        if raw_dest_table:
+            query_event.destinationTable = BigQueryTableRef.from_spec_obj(
+                raw_dest_table
+            )
+        # statementType
+        query_event.statementType = job_query_conf.get("statementType")
+        # referencedTables
+        job_stats: Dict = job["jobStatistics"]
+        raw_ref_tables = job_stats.get("referencedTables")
+        if raw_ref_tables:
+            query_event.referencedTables = [
+                BigQueryTableRef.from_spec_obj(spec) for spec in raw_ref_tables
             ]
+        # referencedViews
+        raw_ref_views = job_stats.get("referencedViews")
+        if raw_ref_views:
+            query_event.referencedViews = [
+                BigQueryTableRef.from_spec_obj(spec) for spec in raw_ref_views
+            ]
+        # payload
+        query_event.payload = entry.payload if DEBUG_INCLUDE_FULL_PAYLOADS else None
 
-        queryEvent = QueryEvent(
-            timestamp=entry.timestamp,
-            actor_email=user,
-            query=rawQuery,
-            statementType=statementType,
-            destinationTable=destinationTable,
-            referencedTables=referencedTables,
-            jobName=jobName,
-            payload=entry.payload if DEBUG_INCLUDE_FULL_PAYLOADS else None,
-        )
-        if not jobName:
+        if not query_event.jobName:
             logger.debug(
                 "jobName from query events is absent. "
                 "Auditlog entry - {logEntry}".format(logEntry=entry)
             )
 
-        return queryEvent
+        return query_event
 
     @staticmethod
     def get_missing_key_exported_bigquery_audit_metadata(
         row: BigQueryAuditMetadata,
     ) -> Optional[str]:
         missing_key = get_first_missing_key_any(
-            dict(row), ["timestamp", "protoPayload", "metadata"]
+            row._xxx_field_to_index, ["timestamp", "protoPayload", "metadata"]
         )
         if not missing_key:
             missing_key = get_first_missing_key_any(
@@ -507,54 +507,44 @@ class QueryEvent:
     def from_exported_bigquery_audit_metadata(
         cls, row: BigQueryAuditMetadata
     ) -> "QueryEvent":
-        """
-        This method currently only supports v2 logs. Parses rows into QueryEvent container objects.
-        :param row:
-        :return QueryEvent container object:
-        """
-        timestamp = row["timestamp"]
-        payload = row["protoPayload"]
-        metadata = json.loads(row["metadata"])
 
-        user = payload["authenticationInfo"]["principalEmail"]
-
-        job = metadata["jobChange"]["job"]
-
-        job_name = job.get("jobName")
-        raw_query = job["jobConfig"]["queryConfig"]["query"]
-
-        raw_dest_table = job["jobConfig"]["queryConfig"].get("destinationTable")
-        destination_table = None
+        payload: Dict = row["protoPayload"]
+        metadata: Dict = json.loads(row["metadata"])
+        job: Dict = metadata["jobChange"]["job"]
+        query_config: Dict = job["jobConfig"]["queryConfig"]
+        # basic query_event
+        query_event = QueryEvent(
+            timestamp=row["timestamp"],
+            actor_email=payload["authenticationInfo"]["principalEmail"],
+            query=query_config["query"],
+        )
+        # jobName
+        query_event.jobName = job.get("jobName")
+        # destinationTable
+        raw_dest_table = query_config.get("destinationTable")
         if raw_dest_table:
-            destination_table = BigQueryTableRef.from_string_name(raw_dest_table)
-
-        raw_ref_tables = job["jobStats"]["queryStats"].get("referencedTables")
-        referenced_tables = None
+            query_event.destinationTable = BigQueryTableRef.from_string_name(
+                raw_dest_table
+            )
+        # referencedTables
+        query_stats: Dict = job["jobStats"]["queryStats"]
+        raw_ref_tables = query_stats.get("referencedTables")
         if raw_ref_tables:
-            referenced_tables = [
+            query_event.referencedTables = [
                 BigQueryTableRef.from_string_name(spec) for spec in raw_ref_tables
             ]
+        # referencedViews
+        raw_ref_views = query_stats.get("referencedViews")
+        if raw_ref_views:
+            query_event.referencedViews = [
+                BigQueryTableRef.from_string_name(spec) for spec in raw_ref_views
+            ]
+        # statementType
+        query_event.statementType = query_config.get("statementType")
+        # payload
+        query_event.payload = payload if DEBUG_INCLUDE_FULL_PAYLOADS else None
 
-        try:
-            # handle V2 logs - potential for refactor here
-            if "jobConfiguration" in job:
-                statementType = job["jobConfiguration"]["query"]["statementType"]
-            else:
-                statementType = job["jobConfig"]["queryConfig"]["statementType"]
-        except KeyError:
-            statementType = None
-
-        query_event = QueryEvent(
-            timestamp=timestamp,
-            actor_email=user,
-            query=raw_query,
-            statementType=statementType,
-            destinationTable=destination_table,
-            referencedTables=referenced_tables,
-            jobName=job_name,
-            payload=payload if DEBUG_INCLUDE_FULL_PAYLOADS else None,
-        )
-        if not job_name:
+        if not query_event.jobName:
             logger.debug(
                 "jobName from query events is absent. "
                 "BigQueryAuditMetadata entry - {logEntry}".format(logEntry=row)
@@ -564,45 +554,42 @@ class QueryEvent:
 
     @classmethod
     def from_entry_v2(cls, row: BigQueryAuditMetadata) -> "QueryEvent":
-        timestamp = row.timestamp
-        payload = row.payload
-        metadata = payload["metadata"]
-
-        user = payload["authenticationInfo"]["principalEmail"]
-
-        job = metadata["jobChange"]["job"]
-
-        job_name = job.get("jobName")
-        raw_query = job["jobConfig"]["queryConfig"]["query"]
-
-        raw_dest_table = job["jobConfig"]["queryConfig"].get("destinationTable")
-        destination_table = None
+        payload: Dict = row.payload
+        metadata: Dict = payload["metadata"]
+        job: Dict = metadata["jobChange"]["job"]
+        query_config: Dict = job["jobConfig"]["queryConfig"]
+        # basic query_event
+        query_event = QueryEvent(
+            timestamp=row.timestamp,
+            actor_email=payload["authenticationInfo"]["principalEmail"],
+            query=query_config["query"],
+        )
+        query_event.jobName = job.get("jobName")
+        # destinationTable
+        raw_dest_table = query_config.get("destinationTable")
         if raw_dest_table:
-            destination_table = BigQueryTableRef.from_string_name(raw_dest_table)
-
-        raw_ref_tables = job["jobStats"]["queryStats"].get("referencedTables")
-        referenced_tables = None
+            query_event.destinationTable = BigQueryTableRef.from_string_name(
+                raw_dest_table
+            )
+        # statementType
+        query_event.statementType = query_config.get("statementType")
+        # referencedTables
+        query_stats: Dict = job["jobStats"]["queryStats"]
+        raw_ref_tables = query_stats.get("referencedTables")
         if raw_ref_tables:
-            referenced_tables = [
+            query_event.referencedTables = [
                 BigQueryTableRef.from_string_name(spec) for spec in raw_ref_tables
             ]
+        # referencedViews
+        raw_ref_views = query_stats.get("referencedViews")
+        if raw_ref_views:
+            query_event.referencedViews = [
+                BigQueryTableRef.from_string_name(spec) for spec in raw_ref_views
+            ]
+        # payload
+        query_event.payload = payload if DEBUG_INCLUDE_FULL_PAYLOADS else None
 
-        try:
-            statementType = job["jobConfig"]["queryConfig"]["statementType"]
-        except KeyError:
-            statementType = None
-
-        query_event = QueryEvent(
-            timestamp=timestamp,
-            actor_email=user,
-            query=raw_query,
-            statementType=statementType,
-            destinationTable=destination_table,
-            referencedTables=referenced_tables,
-            jobName=job_name,
-            payload=payload if DEBUG_INCLUDE_FULL_PAYLOADS else None,
-        )
-        if not job_name:
+        if not query_event.jobName:
             logger.debug(
                 "jobName from query events is absent. "
                 "BigQueryAuditMetadata entry - {logEntry}".format(logEntry=row)
@@ -630,6 +617,13 @@ class BigQueryUsageSource(Source):
         self.report.log_page_size = self.config.log_page_size
         self.report.allow_pattern = self.config.get_allow_pattern_string()
         self.report.deny_pattern = self.config.get_deny_pattern_string()
+
+    def _is_table_allowed(self, table_ref: Optional[BigQueryTableRef]) -> bool:
+        return (
+            table_ref is not None
+            and self.config.dataset_pattern.allowed(table_ref.dataset)
+            and self.config.table_pattern.allowed(table_ref.table)
+        )
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         if self.config.use_exported_bigquery_audit_metadata:
@@ -664,17 +658,22 @@ class BigQueryUsageSource(Source):
             Iterable[MetadataWorkUnit], last_updated_work_units_uncasted
         )
         if self.config.include_operational_stats:
+            self.report.num_operational_stats_workunits_emitted = 0
             for wu in last_updated_work_units:
                 self.report.report_workunit(wu)
                 yield wu
+                self.report.num_operational_stats_workunits_emitted += 1
+
         hydrated_read_events = self._join_events_by_job_id(parsed_events)
         aggregated_info = self._aggregate_enriched_read_events(hydrated_read_events)
 
+        self.report.num_usage_workunits_emitted = 0
         for time_bucket in aggregated_info.values():
             for aggregate in time_bucket.values():
                 wu = self._make_usage_stat(aggregate)
                 self.report.report_workunit(wu)
                 yield wu
+                self.report.num_usage_workunits_emitted += 1
 
     def _make_bigquery_clients(self) -> List[BigQueryClient]:
         if self.config.projects is None:
@@ -934,17 +933,24 @@ class BigQueryUsageSource(Source):
     ) -> Iterable[Union[ReadEvent, QueryEvent, MetadataWorkUnit]]:
         self.report.num_read_events = 0
         self.report.num_query_events = 0
+        self.report.num_filtered_events = 0
         for entry in entries:
             event: Optional[Union[ReadEvent, QueryEvent]] = None
 
             missing_read_entry = ReadEvent.get_missing_key_entry(entry)
             if missing_read_entry is None:
                 event = ReadEvent.from_entry(entry)
+                if not self._is_table_allowed(event.resource):
+                    self.report.num_filtered_events += 1
+                    continue
                 self.report.num_read_events += 1
 
             missing_query_entry = QueryEvent.get_missing_key_entry(entry)
             if event is None and missing_query_entry is None:
                 event = QueryEvent.from_entry(entry)
+                if not self._is_table_allowed(event.destinationTable):
+                    self.report.num_filtered_events += 1
+                    continue
                 self.report.num_query_events += 1
                 wu = self._create_operation_aspect_work_unit(event)
                 if wu:
@@ -954,6 +960,9 @@ class BigQueryUsageSource(Source):
 
             if event is None and missing_query_entry_v2 is None:
                 event = QueryEvent.from_entry_v2(entry)
+                if not self._is_table_allowed(event.destinationTable):
+                    self.report.num_filtered_events += 1
+                    continue
                 self.report.num_query_events += 1
                 wu = self._create_operation_aspect_work_unit(event)
                 if wu:
@@ -1048,6 +1057,7 @@ class BigQueryUsageSource(Source):
             if (
                 event.timestamp < self.config.start_time
                 or event.timestamp >= self.config.end_time
+                or not self._is_table_allowed(event.resource)
             ):
                 continue
 

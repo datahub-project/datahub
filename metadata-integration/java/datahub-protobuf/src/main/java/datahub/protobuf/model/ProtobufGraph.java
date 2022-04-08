@@ -306,7 +306,7 @@ public class ProtobufGraph extends DefaultDirectedGraph<ProtobufElement, FieldTy
                 .collect(Collectors.toSet());
         removeVertices.addAll(wrappedPrimitiveFields);
 
-        wrappedPrimitiveFields.forEach(primitiveField -> {
+        wrappedPrimitiveFields.stream().filter(fld -> fld.getNumber() == 1).forEach(primitiveField -> {
             // remove incoming old edges to primitive
             removeEdges.addAll(incomingEdgesOf(primitiveField));
 

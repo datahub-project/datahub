@@ -45,12 +45,12 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 
-public class AuthorizationManagerTest {
+public class DataHubAuthorizerTest {
 
   public static final String DATAHUB_SYSTEM_CLIENT_ID = "__datahub_system";
 
   private EntityClient _entityClient;
-  private AuthorizationManager _authorizationManager;
+  private DataHubAuthorizer _dataHubAuthorizer;
 
   @BeforeMethod
   public void setupTest() throws Exception {
@@ -100,14 +100,14 @@ public class AuthorizationManagerTest {
         ""
     );
 
-    _authorizationManager = new AuthorizationManager(
+    _dataHubAuthorizer = new DataHubAuthorizer(
         systemAuthentication,
         _entityClient,
         10,
         10,
-        Authorizer.AuthorizationMode.DEFAULT
+        DataHubAuthorizer.AuthorizationMode.DEFAULT
     );
-    _authorizationManager.invalidateCache();
+    _dataHubAuthorizer.invalidateCache();
     Thread.sleep(500); // Sleep so the runnable can execute. (not ideal)
   }
 
@@ -124,7 +124,7 @@ public class AuthorizationManagerTest {
         Optional.of(resourceSpec)
     );
 
-    assertEquals(_authorizationManager.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
+    assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
   }
 
   @Test
@@ -138,7 +138,7 @@ public class AuthorizationManagerTest {
         Optional.of(resourceSpec)
       );
 
-    assertEquals(_authorizationManager.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
+    assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
   }
 
   @Test
@@ -153,13 +153,13 @@ public class AuthorizationManagerTest {
         Optional.of(resourceSpec)
     );
 
-    assertEquals(_authorizationManager.authorize(request).getType(), AuthorizationResult.Type.DENY);
+    assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.DENY);
   }
 
   @Test
   public void testAllowAllMode() throws Exception {
 
-    _authorizationManager.setMode(Authorizer.AuthorizationMode.ALLOW_ALL);
+    _dataHubAuthorizer.setMode(DataHubAuthorizer.AuthorizationMode.ALLOW_ALL);
 
     ResourceSpec resourceSpec = new ResourceSpec("dataset", "urn:li:dataset:test");
 
@@ -170,7 +170,7 @@ public class AuthorizationManagerTest {
         Optional.of(resourceSpec)
     );
 
-    assertEquals(_authorizationManager.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
+    assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
   }
 
   @Test
@@ -185,7 +185,7 @@ public class AuthorizationManagerTest {
         Optional.of(resourceSpec)
     );
 
-    assertEquals(_authorizationManager.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
+    assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
 
     // Now init the mocks to return 0 policies.
     final ListUrnsResult emptyUrnsResult = new ListUrnsResult();
@@ -201,16 +201,16 @@ public class AuthorizationManagerTest {
     );
 
     // Invalidate Cache.
-    _authorizationManager.invalidateCache();
+    _dataHubAuthorizer.invalidateCache();
     Thread.sleep(500); // Sleep so the runnable can execute. (not ideal)
     // Now verify that invalidating the cache updates the policies by running the same authorization request.
-    assertEquals(_authorizationManager.authorize(request).getType(), AuthorizationResult.Type.DENY);
+    assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.DENY);
   }
 
   @Test
   public void testAuthorizedActorsActivePolicy() throws Exception {
-    final AuthorizationManager.AuthorizedActors actors =
-        _authorizationManager.authorizedActors("EDIT_ENTITY_TAGS", // Should be inside the active policy.
+    final DataHubAuthorizer.AuthorizedActors actors =
+        _dataHubAuthorizer.authorizedActors("EDIT_ENTITY_TAGS", // Should be inside the active policy.
             Optional.of(new ResourceSpec("dataset", "urn:li:dataset:1")));
 
     assertTrue(actors.allUsers());

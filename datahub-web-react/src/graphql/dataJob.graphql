@@ -28,6 +28,9 @@ query getDataJob($urn: String!) {
         status {
             removed
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
 }
 
