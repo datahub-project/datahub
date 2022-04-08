@@ -116,9 +116,10 @@ def get_columns(self: VerticaDialect, connection, table_name, schema=None,
 
 def _get_column_info(self: VerticaDialect, name, data_type, default,
                      is_nullable, schema=None):
-    self.ischema_names['TIMESTAMP WITH TIMEZONE'] = TIMESTAMP_WITH_TIMEZONE
-    self.ischema_names['TIMESTAMPTZ'] = TIMESTAMP_WITH_TIMEZONE
     self.ischema_names['TIMETZ'] = TIME_WITH_TIMEZONE
+    self.ischema_names['TIME WITH TIMEZONE'] = TIME_WITH_TIMEZONE
+    self.ischema_names['TIMESTAMPTZ'] = TIMESTAMP_WITH_TIMEZONE
+    self.ischema_names['TIMESTAMP WITH TIMEZONE'] = TIMESTAMP_WITH_TIMEZONE
 
     attype = re.sub(r"\(.*\)", "", data_type)
 

@@ -1,0 +1,11 @@
+version: '3.9'
+services:
+  vertica:
+    image: vertica/vertica-ce:11.1.0-0
+    container_name: vertica_ce
+    environment:
+      - APP_DB_USER=dbadmin
+      - APP_DB_PASSWORD=vertica
+    ports:
+      - 5433:5433
+      - 5444:5444
