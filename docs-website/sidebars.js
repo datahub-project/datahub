@@ -90,7 +90,7 @@ module.exports = {
           "metadata-ingestion/schedule_docs/intro",
           "metadata-ingestion/schedule_docs/cron",
           "metadata-ingestion/schedule_docs/airflow",
-          "docs/ui-ingestion",
+          "metadata-ingestion/schedule_docs/datahub",
         ],
       },
       {
