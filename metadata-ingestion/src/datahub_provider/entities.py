@@ -6,7 +6,6 @@ import datahub.emitter.mce_builder as builder
 
 
 class _Entity:
-
     @property
     @abstractmethod
     def urn(self) -> str:

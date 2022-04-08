@@ -16,7 +16,6 @@ import datahub.metadata.schema_classes as models
 from datahub.api.dataprocess.dataflow import DataFlowUrn
 from datahub.api.dataprocess.urn import DataJobUrn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 if TYPE_CHECKING:
     from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
