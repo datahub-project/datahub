@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
 
 
 /**
- * GraphQL Resolver used for fetching the list of Assertions associated with an Entity.
+ * GraphQL Resolver used for fetching the list of task runs associated with a Dataset.
  */
 public class DatasetRunsResolver implements DataFetcher<CompletableFuture<DataProcessInstanceResult>> {
 
