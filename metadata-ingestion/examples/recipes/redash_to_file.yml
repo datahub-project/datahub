@@ -8,6 +8,11 @@ source:
     # Optionals
     # api_page_limit: 1 #default: None, no limit on ingested dashboards and charts API pagination
     # skip_draft: true  #default: true, only ingest published dashboards and charts
+    # database_patterns:
+    #   deny:
+    #     - ^denied database.*
+    #   allow:
+    #     - .*allowed database.*
     # dashboard_patterns:
     #   deny:
     #     - ^denied dashboard.*

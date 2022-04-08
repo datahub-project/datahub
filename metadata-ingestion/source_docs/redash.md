@@ -39,6 +39,11 @@ source:
     #     - ^denied chart.*
     #   allow:
     #     - .*allowed chart.*
+    # database_patterns:
+    #   deny:
+    #     - ^denied database.*
+    #   allow:
+    #     - .*allowed database.*
     # parse_table_names_from_sql: false
 ```
 
@@ -52,6 +57,8 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `api_key`                     | ✅       |                        | Redash user API key.                                             |
 | `api_page_limit`              |          | `None`                 | Limit on ingested dashboards and charts API pagination.          |
 | `skip_draft`                  |          | `true`                 | Only ingest published dashboards and charts.                     |
+| `database_patterns.allow`     |          |                        | List of regex patterns for databases to exclude from ingestion.  |
+| `database_patterns.deny`      |          |                        | List of regex patterns for databases to exclude from ingestion.  |
 | `dashboard_patterns.allow`    |          |                        | List of regex patterns for dashboards to include in ingestion.   |
 | `dashboard_patterns.deny`     |          |                        | List of regex patterns for dashboards to exclude from ingestion. |
 | `chart_patterns.allow`        |          |                        | List of regex patterns for charts to include in ingestion.       |
