@@ -39,6 +39,13 @@ public interface EntitySpec {
         .collect(Collectors.toList());
   }
 
+  default List<SearchScoreFieldSpec> getSearchScoreFieldSpecs() {
+    return getAspectSpecs().stream()
+        .map(AspectSpec::getSearchScoreFieldSpecs)
+        .flatMap(List::stream)
+        .collect(Collectors.toList());
+  }
+
   default List<RelationshipFieldSpec> getRelationshipFieldSpecs() {
     return getAspectSpecs().stream()
         .map(AspectSpec::getRelationshipFieldSpecs)
