@@ -73,6 +73,10 @@ public class ProtobufField implements ProtobufElement {
         return nativeType();
     }
 
+    public int getNumber() { 
+        return fieldProto.getNumber(); 
+    }
+
     @Override
     public String nativeType() {
         return Optional.ofNullable(nativeType).orElseGet(() -> {
