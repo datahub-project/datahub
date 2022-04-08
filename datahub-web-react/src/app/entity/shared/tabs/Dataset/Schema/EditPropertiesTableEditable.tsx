@@ -17,7 +17,7 @@ export const EditPropertiesTableEditable = () => {
     const branch = url.lastIndexOf('/');
     url = `${url.substring(0, branch)}/update_properties`;
     const queryFields = useBaseEntity<GetDatasetQuery>()?.dataset?.properties?.customProperties;
-    const datasetDescription = useBaseEntity<GetDatasetQuery>()?.dataset?.properties?.description;
+    const datasetDescription = useBaseEntity<GetDatasetQuery>()?.dataset?.properties?.description || '';
 
     const urn = useBaseEntity<GetDatasetQuery>()?.dataset?.urn;
     // const currUser = useGetAuthenticatedUser()?.corpUser?.urn || '-';

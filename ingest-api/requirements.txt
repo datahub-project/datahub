@@ -1,2 +1,5 @@
-fastapi[all]
+fastapi
+uvicorn[standard]
+gunicorn
 pyjwt
+starlette_exporter

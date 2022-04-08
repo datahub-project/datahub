@@ -14,14 +14,49 @@ export function FindMyUrn() {
     return data?.me?.corpUser.urn ?? '';
 }
 
+export function FindMyGroups() {
+    const currUserUrn = FindMyUrn();
+    console.log(`myurn is ${currUserUrn}`);
+    const queryresult = gql`
+        query test($urn: String!) {
+            corpUser(urn: $urn) {
+                relationships(input: { types: "IsMemberOfGroup", direction: OUTGOING }) {
+                    count
+                    relationships {
+                        entity {
+                            urn
+                        }
+                    }
+                }
+            }
+        }
+    `;
+    const { data, loading, error } = useQuery(queryresult, {
+        variables: {
+            urn: currUserUrn,
+        },
+        skip: currUserUrn === '',
+    });
+    if (error) return [];
+    if (loading) return [];
+    return data?.corpUser?.relationships?.relationships || [];
+}
+
 export function checkOwnership(data: GetDatasetQuery): boolean {
     const currUserUrn = FindMyUrn();
     const ownership = data?.dataset?.ownership?.owners;
-    const ownersArray =
-        ownership?.map((x) =>
-            x?.type === 'DATAOWNER' && x?.owner?.type === EntityType.CorpUser ? x?.owner?.urn : null,
-        ) || [];
-    return ownersArray.includes(currUserUrn);
+    const individualOwnersArray =
+        ownership?.map((x) => (x?.owner?.type === EntityType.CorpUser ? x?.owner?.urn : null)) || [];
+    // console.log(`individualOwnersArray is ${individualOwnersArray}`);
+    const groupOwnersArray =
+        ownership?.map((x) => (x?.owner?.type === EntityType.CorpGroup ? x?.owner?.urn : null)) || [];
+    // console.log(`groupOwnersArray is ${groupOwnersArray}`);
+    const userGroups = FindMyGroups();
+    // console.log(`userGroups is ${userGroups}`);
+    const groupUrn = userGroups?.map((x) => x?.entity?.urn) || [];
+    const intersection = groupUrn.filter((x) => groupOwnersArray.includes(x));
+    console.log(`groups intersection is ${intersection.length}`);
+    return individualOwnersArray.includes(currUserUrn) || intersection.length > 0;
 }
 
 export function GetMyToken(userUrn: string) {

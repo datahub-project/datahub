@@ -13,8 +13,10 @@ import { useGetAllEntitySearchResults } from '../../utils/customGraphQL/useGetAl
 import { EntityType } from '../../types.generated';
 import analytics, { EventType } from '../analytics';
 import AdhocLink from '../create/AdhocLink';
+import HelpLink from '../shared/admin/HelpLink';
 import { AdminHeaderLinks } from '../shared/admin/AdminHeaderLinks';
 import { ANTD_GRAY } from '../entity/shared/constants';
+import ContactLink from '../shared/admin/ContactLink';
 
 const Background = styled.div`
     width: 100%;
@@ -210,6 +212,8 @@ export const HomePageHeader = () => {
                     )}
                 </WelcomeText>
                 <NavGroup>
+                    <ContactLink />
+                    <HelpLink />
                     <AdhocLink />
                     <AdminHeaderLinks />
                     <ManageAccount

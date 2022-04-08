@@ -8,8 +8,10 @@ import { ManageAccount } from '../shared/ManageAccount';
 import { AutoCompleteResultForEntity, EntityType } from '../../types.generated';
 import EntityRegistry from '../entity/EntityRegistry';
 import AdhocLink from '../create/AdhocLink';
+import HelpLink from '../shared/admin/HelpLink';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { AdminHeaderLinks } from '../shared/admin/AdminHeaderLinks';
+import ContactLink from '../shared/admin/ContactLink';
 
 const { Header } = Layout;
 
@@ -92,6 +94,8 @@ export const SearchHeader = ({
                 />
             </LogoSearchContainer>
             <NavGroup>
+                <ContactLink />
+                <HelpLink />
                 <AdhocLink />
                 <AdminHeaderLinks />
                 <ManageAccount urn={authenticatedUserUrn} pictureLink={authenticatedUserPictureLink || ''} />

@@ -114,7 +114,9 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Lineage',
                     component: LineageTab,
                     display: {
-                        visible: (_, _1) => true,
+                        visible: (_, dataset: GetDatasetQuery) =>
+                            (dataset?.dataset?.incoming?.count || 0) > 0 ||
+                            (dataset?.dataset?.outgoing?.count || 0) > 0,
                         enabled: (_, dataset: GetDatasetQuery) =>
                             (dataset?.dataset?.incoming?.count || 0) > 0 ||
                             (dataset?.dataset?.outgoing?.count || 0) > 0,
@@ -124,7 +126,8 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Queries',
                     component: QueriesTab,
                     display: {
-                        visible: (_, _1) => true,
+                        visible: (_, dataset: GetDatasetQuery) =>
+                            (dataset?.dataset?.usageStats?.buckets?.length || 0) > 0,
                         enabled: (_, dataset: GetDatasetQuery) =>
                             (dataset?.dataset?.usageStats?.buckets?.length || 0) > 0,
                     },

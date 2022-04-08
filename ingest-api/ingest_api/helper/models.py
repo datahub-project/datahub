@@ -1,7 +1,12 @@
 # flake8: noqa
+import logging
 from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, validator
+
+log = logging.getLogger("ingest")
+logformatter = logging.Formatter("%(asctime)s;%(levelname)s;%(funcName)s;%(message)s")
+log.setLevel(logging.DEBUG)
 
 
 class FieldParam(BaseModel):
@@ -33,44 +38,6 @@ class create_dataset_params(BaseModel):
     headerLine: int = 1
     browsepathList: List[str]
     user_token: str
-
-    class Config:
-        schema_extra = {
-            "example": {
-                "dataset_name": "name of dataset",
-                "dataset_type": "text/csv",
-                "dataset_description": "What this dataset is about...",
-                "dataset_owner": "12345",
-                "dataset_location": "the file can be found here @...",
-                "dataset_origin": "this dataset found came from...\
-                    ie internet",
-                "hasHeader": "no",
-                "headerLine": 1,
-                "browsepathList": ["/user/", "/csv/"],
-                "dataset_fields": [
-                    {
-                        "field_name": "columnA",
-                        "field_type": "string",
-                        "field_description": "what is column A about",
-                    },
-                    {
-                        "field_name": "columnB",
-                        "field_type": "num",
-                        "field_description": "what is column B about",
-                    },
-                ],
-            }
-        }
-
-    # @validator('dataset_name')
-    # def dataset_name_alphanumeric(cls, v):
-    #     assert len(set(v).difference(ascii_letters+digits+' -_/\\'))==0,
-    # 'dataset_name must be alphanumeric/space character only'
-    #     return v
-    # @validator('dataset_type')
-    # def dataset_type_alphanumeric(cls, v):
-    #     assert v.isalpha(), 'dataset_type must be alphabetical string only'
-    #     return v
 
 
 class dataset_status_params(BaseModel):
@@ -113,15 +80,15 @@ class prop_params(BaseModel):
     dataset_name: str
     requestor: str
     user_token: str
-    description: str
+    description: Optional[str]=""
     properties: List[Dict]
 
 
-class echo_param(BaseModel):
-    user_input: Any
+# class echo_param(BaseModel):
+#     user_input: Any
 
-    class Config:
-        arbitary_types_allowed = True
+#     class Config:
+#         arbitary_types_allowed = True
 
 
 def determine_type(type_input: Union[str, Dict[str, str]]) -> str:
@@ -137,6 +104,14 @@ def determine_type(type_input: Union[str, Dict[str, str]]) -> str:
     ):
         return "csv"
     if type_input_str.lower() == "json":
-        return "json"
+        return "json"  #
     else:
-        return "undefined"
+        log.error(f"data type for request is {type_input}")
+        return "csv"
+
+class MyFilter(object):
+    def __init__(self, level):
+        self.__level = level
+
+    def filter(self, logRecord):
+        return logRecord.levelno <= self.__level
