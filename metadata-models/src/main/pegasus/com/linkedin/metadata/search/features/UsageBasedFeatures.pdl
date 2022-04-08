@@ -1,0 +1,14 @@
+namespace com.linkedin.metadata.search.features
+
+@Aspect = {
+  "name": "usageBasedFeatures"
+}
+record UsageBasedFeatures {
+  /**
+   * Usage count in the last 30 days
+   */
+  @SearchScore = {
+    "modifier": "LOG"
+  }
+  usageCountLast30Days: optional long
+}

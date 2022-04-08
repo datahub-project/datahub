@@ -80,6 +80,8 @@ graphService:
 searchService:
   resultBatchSize: ${SEARCH_SERVICE_BATCH_SIZE:100}
   enableCache: ${SEARCH_SERVICE_ENABLE_CACHE:false}
+  ranker:
+    type: ${SEARCH_SERVICE_RANKER_TYPE:}
 
 recommendationService:
   mostPopular:
