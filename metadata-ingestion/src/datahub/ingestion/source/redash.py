@@ -659,12 +659,15 @@ class RedashSource(Source):
             for query_response in queries_response["results"]:
 
                 chart_name = query_response["name"]
-                database_name = self._get_database_name_from_datasource_id(query_response["data_source_id"])
+                database_name = self._get_database_name_from_datasource_id(
+                    query_response["data_source_id"]
+                )
                 self.report.report_item_scanned()
 
-                if (not self.config.chart_patterns.allowed(chart_name)) or (
-                    skip_draft and query_response["is_draft"]) or (
-                    not self.config.database_patterns.allowed(database_name)
+                if (
+                    (not self.config.chart_patterns.allowed(chart_name))
+                    or (skip_draft and query_response["is_draft"])
+                    or (not self.config.database_patterns.allowed(database_name))
                 ):
                     self.report.report_dropped(chart_name)
                     continue
