@@ -94,7 +94,9 @@ public class ProtobufUtils {
 
         // Finally, construct the actual descriptor.
         Descriptors.FileDescriptor[] empty = new Descriptors.FileDescriptor[0];
-        return Descriptors.FileDescriptor.buildFrom(descriptorProto, dependencies.build().toArray(empty), false);
+        Descriptors.FileDescriptor descript = Descriptors.FileDescriptor.buildFrom(descriptorProto, dependencies.build().toArray(empty), false);
+        descriptorCache.put(descript.getName(), descript);
+        return descript;
     }
 
 }

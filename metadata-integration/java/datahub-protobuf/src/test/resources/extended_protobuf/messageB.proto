@@ -29,8 +29,9 @@ message Person {
   Department dept = 4; // department name of the person
 
   string test_coverage = 5
-  [(meta.fld.product_type_bool) = true,
-    (meta.fld.product_type) = "my type",
-    (meta.fld.product_type_enum) = EVENT,
-    (meta.fld.tag_list) = "d, e, f"];
+  [deprecated = true,
+   (meta.fld.product_type_bool) = true,
+   (meta.fld.product_type) = "my type",
+   (meta.fld.product_type_enum) = EVENT,
+   (meta.fld.tag_list) = "d, e, f"];
 }
