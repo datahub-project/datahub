@@ -515,23 +515,28 @@ class LookerExplore:
                 else:
                     aliased_explore = False
 
+                potential_views = [e.name for e in explore.joins if e.name is not None]
                 for e_join in [
                     e for e in explore.joins if e.dependent_fields is not None
                 ]:
                     assert e_join.dependent_fields is not None
                     for field_name in e_join.dependent_fields:
+                        assert e_join.dependent_fields is not None
                         try:
                             view_name = LookerUtil._extract_view_from_field(field_name)
-                            if (view_name == explore.name) and aliased_explore:
-                                assert explore.view_name is not None
-                                view_name = explore.view_name
-                            views.add(view_name)
+                            potential_views.append(view_name)
                         except AssertionError:
                             reporter.report_warning(
                                 key=f"chart-field-{field_name}",
                                 reason="The field was not prefixed by a view name. This can happen when the field references another dynamic field.",
                             )
                             continue
+
+                for view_name in potential_views:
+                    if (view_name == explore.name) and aliased_explore:
+                        assert explore.view_name is not None
+                        view_name = explore.view_name
+                    views.add(view_name)
             else:
                 assert explore.view_name is not None
                 views.add(explore.view_name)
