@@ -383,12 +383,7 @@ class DeltaLakeSource(Source):
         for column in columns:
             if isinstance(column["type"], dict):
                 # nested type
-                self.report.report_warning(
-                    column["name"],
-                    "Warning {} is a nested field this will not be processed properly and it will displayed poorly in UI.".format(
-                        column["name"]
-                    ),
-                )
+                
                 datahubName = column["name"]
                 column_dict = column["type"]
                 nativeType = str(column_dict.get("type"))
@@ -415,7 +410,7 @@ class DeltaLakeSource(Source):
                 datahubType = _field_type_mapping.get(
                     nativeType, NullTypeClass
                 )  # NullTypeClass if we cannot map
-                datahubDescription = column["metadata"].get("comment")
+                datahubDescription = column.get("metadata",{}).get("comment")
 
                 datahubField = SchemaField(
                     fieldPath=datahubName,
@@ -450,7 +445,7 @@ class DeltaLakeSource(Source):
                 ),
                 "native_data_type": column_dict.get("type"),
                 "_nullable": column_dict.get("containsNull"),
-                "description": column_dict["metadata"].get("comment"),
+                "description": column_dict.get("metadata",{}).get("comment"),
             }
         elif column_dict.get("type") == "map":
             kt = self._parse_datatype(
@@ -463,11 +458,11 @@ class DeltaLakeSource(Source):
             return {
                 "type": "map",
                 "values": vt,
-                "native_data_type": column_dict.get("type"),  # TODO: combined type?
+                "native_data_type": column_dict.get("type"),
                 "key_type": kt,
                 "key_native_data_type": column_dict.get("keyType"),
                 "_nullable": column_dict.get("valueContainsNull"),
-                "description": column_dict["metadata"].get("comment"),
+                "description": column_dict.get("metadata",{}).get("comment"),
             }
         elif column_dict.get("type") == "struct":
             return self._parse_struct_fields(column_dict["fields"])
@@ -495,7 +490,6 @@ class DeltaLakeSource(Source):
             "name": "__struct_{}".format(str(uuid.uuid4()).replace("-", "")),
             "fields": fields,
             "native_data_type": "fields: {}".format(dicts),
-            "description": fields["metadata"].get("comment"),
         }
 
     def _parse_basic_datatype(self, column_dict):
@@ -504,7 +498,7 @@ class DeltaLakeSource(Source):
                 "type": _field_avro_mapping[column_dict.get("type")],
                 "native_data_type": column_dict.get("type"),
                 "_nullable": column_dict.get("nullable"),
-                "description": column_dict["metadata"].get("comment"),
+                "description": column_dict.get("metadata",{}).get("comment"),
             }
 
         elif column_dict.get("type") == "date":
@@ -513,7 +507,7 @@ class DeltaLakeSource(Source):
                 "logicalType": "date",
                 "native_data_type": "date",
                 "_nullable": column_dict.get("nullable"),
-                "description": column_dict["metadata"].get("comment"),
+                "description": column_dict.get("metadata",{}).get("comment"),
             }
         elif column_dict.get("type") == "timestamp":
             return {
@@ -521,7 +515,7 @@ class DeltaLakeSource(Source):
                 "logicalType": "timestamp-millis",
                 "native_data_type": "timestamp",
                 "_nullable": column_dict.get("nullable"),
-                "description": column_dict["metadata"].get("comment"),
+                "description": column_dict.get("metadata",{}).get("comment"),
             }
         else:
             return {"type": "null", "native_data_type": column_dict.get("type")}
