@@ -257,9 +257,11 @@ export const EntityHeader = () => {
                     }}
                 />
             </Tooltip>
-            <Dropdown overlay={menu} trigger={['click']}>
-                <MenuIcon />
-            </Dropdown>
+            {!entityData?.deprecation?.deprecated && (
+                <Dropdown overlay={menu} trigger={['click']}>
+                    <MenuIcon />
+                </Dropdown>
+            )}
         </HeaderContainer>
     );
 };
