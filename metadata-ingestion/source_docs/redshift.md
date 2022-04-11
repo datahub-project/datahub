@@ -16,6 +16,8 @@ This source needs to access system tables that require extra permissions.
 To grant these permissions, please alter your datahub Redshift user the following way:
 ```sql
 ALTER USER datahub_user WITH SYSLOG ACCESS UNRESTRICTED;
+GRANT SELECT ON pg_catalog.svv_table_info to datahub_user;
+GRANT SELECT ON pg_catalog.svl_user_info to datahub_user;
 ```
 :::note
 

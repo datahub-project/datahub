@@ -109,7 +109,7 @@ class TableauSource(Source):
     config: TableauConfig
     report: SourceReport
     platform = "tableau"
-    server: Server
+    server: Optional[Server]
     upstream_tables: Dict[str, Tuple[Any, str]] = {}
 
     def __hash__(self):
@@ -136,7 +136,7 @@ class TableauSource(Source):
 
     def _authenticate(self):
         # https://tableau.github.io/server-client-python/docs/api-ref#authentication
-        authentication = None
+        authentication: Optional[Union[TableauAuth, PersonalAccessTokenAuth]] = None
         if self.config.username and self.config.password:
             authentication = TableauAuth(
                 username=self.config.username,
