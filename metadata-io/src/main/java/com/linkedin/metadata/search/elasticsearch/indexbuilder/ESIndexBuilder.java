@@ -86,7 +86,8 @@ public class ESIndexBuilder {
       return;
     }
 
-    // If there are no updates to settings, and there are only pure additions to mappings (no updates to existing fields), there is no need to reindex. Just update mappings
+    // If there are no updates to settings, and there are only pure additions to mappings (no updates to existing fields),
+    // there is no need to reindex. Just update mappings
     if (isSettingsEqual && isPureAddition(mappingsDiff)) {
       log.info("New fields have been added to index {}. Updating index in place", indexName);
       PutMappingRequest request = new PutMappingRequest(indexName).source(mappings);
