@@ -269,7 +269,7 @@ public class SearchRequestHandler {
     Map<String, Double> features = new HashMap<>();
     features.put(Features.Name.SEARCH_BACKEND_SCORE.toString(), (double) searchHit.getScore());
     Optional.ofNullable(searchHit.getSourceAsMap().get("usageCountLast30Days"))
-        .ifPresent(value -> features.put(Features.Name.QUERY_COUNT.toString(), (Double) value));
+        .ifPresent(value -> features.put(Features.Name.QUERY_COUNT.toString(), ((Number) value).doubleValue()));
     return features;
   }
 
