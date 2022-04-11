@@ -862,10 +862,28 @@ type Dataset implements EntityWithRelationships & Entity {
     runs(start: Int, count: Int, direction: RelationshipDirection!): DataProcessInstanceResult
 }
 
+"""
+Data Process instances that match the provided query
+"""
 type DataProcessInstanceResult {
+    """
+    The number of entities to include in result set
+    """
     count: Int
+
+    """
+    The offset of the result set
+    """
     start: Int
+
+    """
+    The total number of run events returned
+    """
     total: Int
+
+    """
+    The data process instances that produced or consumed the entity
+    """
     runs: [DataProcessInstance]
 }
 

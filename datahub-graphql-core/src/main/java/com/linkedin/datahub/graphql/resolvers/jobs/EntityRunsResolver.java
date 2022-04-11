@@ -37,7 +37,7 @@ import java.util.stream.Collectors;
 /**
  * GraphQL Resolver used for fetching the list of Assertions associated with an Entity.
  */
-public class DatasetRunsResolver implements DataFetcher<CompletableFuture<DataProcessInstanceResult>> {
+public class EntityRunsResolver implements DataFetcher<CompletableFuture<DataProcessInstanceResult>> {
 
   private static final String INPUT_FIELD_NAME = "inputs.keyword";
   private static final String OUTPUT_FIELD_NAME = "outputs.keyword";
@@ -45,7 +45,7 @@ public class DatasetRunsResolver implements DataFetcher<CompletableFuture<DataPr
 
   private final EntityClient _entityClient;
 
-  public DatasetRunsResolver(final EntityClient entityClient) {
+  public EntityRunsResolver(final EntityClient entityClient) {
     _entityClient = entityClient;
   }
 

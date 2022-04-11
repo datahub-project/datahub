@@ -35,14 +35,14 @@ import java.util.stream.Collectors;
 /**
  * GraphQL Resolver used for fetching the list of Assertions associated with an Entity.
  */
-public class TaskRunsResolver implements DataFetcher<CompletableFuture<DataProcessInstanceResult>> {
+public class DataJobRunsResolver implements DataFetcher<CompletableFuture<DataProcessInstanceResult>> {
 
   private static final String PARENT_TEMPLATE_URN_SEARCH_INDEX_FIELD_NAME = "parentTemplate";
   private static final String CREATED_TIME_SEARCH_INDEX_FIELD_NAME = "created";
 
   private final EntityClient _entityClient;
 
-  public TaskRunsResolver(final EntityClient entityClient) {
+  public DataJobRunsResolver(final EntityClient entityClient) {
     _entityClient = entityClient;
   }
 
