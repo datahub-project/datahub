@@ -34,7 +34,7 @@ from networkx import DiGraph
 from networkx.algorithms import dag
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Generator, Iterator, List, Set, Tuple, Union
+from typing import Generator, Iterator, List, Optional, Set, Tuple
 
 """A helper file for Protobuf schema -> MCE schema transformations"""
 
@@ -154,7 +154,7 @@ def _add_field(graph, parent_node: str, field: FieldDescriptor) -> None:
 
 
 def _add_fields(
-    graph, fields: List[FieldDescriptor], parent_name: str, parent_type: str = "message", visited: Set[str] = None
+    graph, fields: List[FieldDescriptor], parent_name: str, parent_type: str = "message", visited: Optional[Set[str]] = None
 ) -> None:
     if not visited:
         visited = set()
