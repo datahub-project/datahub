@@ -34,10 +34,12 @@ export const DeleteSchemaTabv2 = () => {
     // for UI edit pages, the URL is complicated, need to find the root path.
     const mainPathLength = initialUrl.split('/', 3).join('/').length;
     const mainPath = `${initialUrl.substring(0, mainPathLength + 1)}`;
-    let publishUrl = initialUrl.includes(':3000') ? initialUrl.replace(':3000/', ':8001/custom/update_dataset_status') : mainPath;
+    let publishUrl = initialUrl.includes(':3000')
+        ? initialUrl.replace(':3000/', ':8001/custom/update_dataset_status')
+        : mainPath;
     publishUrl = publishUrl.includes(':9002') 
         ? publishUrl.replace(':9002/', ':8001/custom/update_dataset_status') 
-        : `${mainPath}/custom/update_dataset_status`
+        : `${mainPath}/custom/update_dataset_status`;
     // const publishUrl = mainPath.includes(':3000')
     //     ? mainPath.replace(':3000/', ':8001/custom/update_dataset_status')
     //     : `${mainPath}/custom/update_dataset_status`;
