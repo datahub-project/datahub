@@ -412,6 +412,7 @@ def test_lineage_backend_capture_executions(mock_emit, inlets, outlets):
             dag_run = DagRun(state="success")  # type: ignore
             ti.dag_run = dag_run
             ti.start_date = datetime.datetime.utcnow()
+            ti.execution_date = DEFAULT_DATE
 
         else:
             from airflow.utils.state import DagRunState
@@ -420,6 +421,7 @@ def test_lineage_backend_capture_executions(mock_emit, inlets, outlets):
             dag_run = DagRun(state=DagRunState.SUCCESS)
             ti.dag_run = dag_run
             ti.start_date = datetime.datetime.utcnow()
+            ti.execution_date = DEFAULT_DATE
 
         ctx1 = {
             "dag": dag,
