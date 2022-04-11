@@ -125,6 +125,26 @@ datahub check plugins
 
 [extra requirements]: https://www.python-ldap.org/en/python-ldap-3.3.0/installing.html#build-prerequisites
 
+## Environment variables supported
+The env variables take precedence over what is in the DataHub CLI config created through `init` command. The list of supported environment variables are as follows
+- `DATAHUB_SKIP_CONFIG` (default `false`) - Set to `true` to skip creating the configuration file.
+- `DATAHUB_GMS_HOST` (default `http://localhost:8080`) - Set to a URL of GMS instance.
+- `DATAHUB_GMS_TOKEN` (default `None`) - Used for communicating with DataHub Cloud.
+- `DATAHUB_TELEMETRY_ENABLED` (default `true`) - Set to `false` to disable telemetry. If CLI is being run in an environment with no access to public internet then this should be disabled.
+- `DATAHUB_TELEMETRY_TIMEOUT` (default `10`) - Set to a custom integer value to specify timeout in secs when sending telemetry.
+- `DATAHUB_DEBUG` (default `false`) - Set to `true` to enable debug logging for CLI. Can also be achieved through `--debug` option of the CLI.
+- `DATAHUB_VERSION` (default `head`) - Set to a specific version to run quickstart with the particular version of docker images. 
+- `ACTIONS_VERSION` (default `head`) - Set to a specific version to run quickstart with that image tag of `datahub-actions` container.
+
+```shell
+DATAHUB_SKIP_CONFIG=false
+DATAHUB_GMS_HOST=http://localhost:8080
+DATAHUB_GMS_TOKEN=
+DATAHUB_TELEMETRY_ENABLED=true
+DATAHUB_TELEMETRY_TIMEOUT=10
+DATAHUB_DEBUG=false
+```
+
 ## User Guide
 
 The `datahub` cli allows you to do many things, such as quickstarting a DataHub docker instance locally, ingesting metadata from your sources, as well as retrieving and modifying metadata.
@@ -161,6 +181,17 @@ The `docker` command allows you to start up a local DataHub instance using `data
 
 The `ingest` command allows you to ingest metadata from your sources using ingestion configuration files, which we call recipes. [Removing Metadata from DataHub](./how/delete-metadata.md) contains detailed instructions about how you can use the ingest command to perform operations like rolling-back previously ingested metadata through the `rollback` sub-command and listing all runs that happened through `list-runs` sub-command.
 
+```console
+Usage: datahub [datahub-options] ingest [command-options]
+
+Command Options:
+  -c / --config        Config file in .toml or .yaml format
+  -n / --dry-run       Perform a dry run of the ingestion, essentially skipping writing to sink
+  --preview            Perform limited ingestion from the source to the sink to get a quick preview
+  --preview-workunits  The number of workunits to produce for preview
+  --strict-warnings    If enabled, ingestion runs with warnings will yield a non-zero error code
+```
+
 ### check
 
 The datahub package is composed of different plugins that allow you to connect to different metadata sources and ingest metadata from them.
@@ -173,15 +204,6 @@ Running `datahub init` will allow you to customize the datahub instance you are 
 
 **_Note_**: Provide your GMS instance's host when the prompt asks you for the DataHub host.
 
-Alternatively, you can set the following env variables if you don't want to use a config file
-
-```shell
-DATAHUB_SKIP_CONFIG=True
-DATAHUB_GMS_HOST=http://localhost:8080
-DATAHUB_GMS_TOKEN= # Used for communicating with DataHub Cloud
-The env variables take precedence over what is in the config.
-```
-
 ### telemetry
 
 To help us understand how people are using DataHub, we collect anonymous usage statistics on actions such as command invocations via Mixpanel.
@@ -189,9 +211,6 @@ We do not collect private information such as IP addresses, contents of ingestio
 The code responsible for collecting and broadcasting these events is open-source and can be found [within our GitHub](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/telemetry/telemetry.py).
 
 Telemetry is enabled by default, and the `telemetry` command lets you toggle the sending of these statistics via `telemetry enable/disable`.
-You can also disable telemetry by setting the env variable `DATAHUB_TELEMETRY_ENABLED` to `false`. If you are running CLI in a private environment with no access to public internet then you need to disable telemetry.
-
-You can set the env variable `DATAHUB_TELEMETRY_TIMEOUT` to an integer value to specify timeout in secs when sending telemetry. By default it is set to 10 seconds.
 
 ### delete
 

@@ -46,9 +46,9 @@ class BigQueryUsageConfig(DatasetSourceConfigBase, BaseUsageConfig):
     projects: Optional[List[str]] = None
     project_id: Optional[str] = None  # deprecated in favor of `projects`
     extra_client_options: dict = {}
-    table_pattern: Optional[AllowDenyPattern] = None
-
-    log_page_size: Optional[pydantic.PositiveInt] = 1000
+    table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    dataset_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    log_page_size: pydantic.PositiveInt = 1000
     query_log_delay: Optional[pydantic.PositiveInt] = None
     max_query_duration: timedelta = timedelta(minutes=15)
     use_v2_audit_metadata: Optional[bool] = False

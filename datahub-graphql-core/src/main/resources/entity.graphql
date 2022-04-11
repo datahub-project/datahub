@@ -1469,7 +1469,7 @@ type Container implements Entity {
       count: Int): EntityIncidentsResult
 
     """
-    The deprecation status of the dashboard
+    The deprecation status of the container
     """
     deprecation: Deprecation
 
