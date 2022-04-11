@@ -98,5 +98,4 @@ jobs:
           push: ${{ needs.setup.outputs.publish == 'true' }}
           build-args: |
             RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}
-          cache-from: type=registry,ref=linkedin/datahub-ingestion:head-buildcache
-          cache-to: ${{ env.DOCKER_CACHE_TO }}
+

@@ -82,5 +82,4 @@ jobs:
           file: ./docker/mysql-setup/Dockerfile
           tags: ${{ steps.docker_meta.outputs.tags }}
           push: ${{ needs.setup.outputs.publish == 'true' }}
-          cache-from: type=registry,ref=acryldata/datahub-mysql-setup:head-buildcache
-          cache-to: ${{ env.DOCKER_CACHE_TO }}
+
