@@ -41,7 +41,7 @@ const DATA_TYPE_ICON_MAP: Record<SchemaFieldDataType, { icon: FC<{ style: any }>
             text: 'Boolean',
         },
         [SchemaFieldDataType.Fixed]: { icon: FieldBinaryOutlined, size: 18, text: 'Fixed' },
-        [SchemaFieldDataType.Unknown]: { icon: FieldBinaryOutlined, size: 18, text: 'Unknown' },
+        [SchemaFieldDataType.Unknown]: { icon: FieldBinaryOutlined, size: 18, text: 'Unknown'},
         [SchemaFieldDataType.String]: {
             icon: () => (
                 <IconSpan role="img" aria-label="calendar" className="anticon anticon-calendar">

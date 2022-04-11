@@ -5,11 +5,19 @@ import { Form, Input, Space, Select, Button, message, Divider, InputNumber } fro
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 // import { gql, useQuery } from '@apollo/client';
 import { CommonFields } from './CommonFields';
-import adhocConfig from '../../../conf/Adhoc';
+// import adhocConfig from '../../../conf/Adhoc';
 import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
 import { GetMyToken } from '../../entity/dataset/whoAmI';
 
 export const CsvForm = () => {
+    // this wacky setup is because the URL is different when running docker-compose vs Ingress
+    // for docker-compose, need to change port. For ingress, just modify subpath will do.
+    // having a setup that works for both makes development easier.
+    const initialUrl = window.location.href;
+    const publishUrl = initialUrl.includes(':3000')
+        ? initialUrl.replace(':3000/adhoc/', ':8001/custom/make_dataset')
+        : initialUrl.replace('/adhoc/', '/custom/make_dataset');
+    console.log(`the publish url is ${publishUrl}`);
     const user = useGetAuthenticatedUser();
     const userUrn = user?.corpUser?.urn || '';
     const userToken = GetMyToken(userUrn);
@@ -38,8 +46,9 @@ export const CsvForm = () => {
         const finalValue = { ...values, ...fileType, dataset_owner: user?.corpUser?.username, user_token: userToken };
         // console.log('Received finalValue:', finalValue);
         // POST request using axios with error handling
+        console.log(`publish is now ${publishUrl}`);
         axios
-            .post(adhocConfig, finalValue)
+            .post(publishUrl, finalValue)
             .then((response) => printSuccessMsg(response.status))
             .catch((error) => {
                 printErrorMsg(error.toString());
@@ -143,6 +152,7 @@ export const CsvForm = () => {
                                                 <Option value="date">Date</Option>
                                                 <Option value="time">Time</Option>
                                                 <Option value="bytes">Bytes</Option>
+                                                <Option value="unknown">Unknown</Option>
                                             </Select>
                                         </Form.Item>
                                         <Form.Item

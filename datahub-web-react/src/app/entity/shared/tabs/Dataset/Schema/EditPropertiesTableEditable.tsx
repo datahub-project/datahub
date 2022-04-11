@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Button, Divider, Form, Input, message, Table, Typography } from 'antd';
 import PropTypes from 'prop-types';
 import axios from 'axios';
-import adhocConfig from '../../../../../../conf/Adhoc';
+// import adhocConfig from '../../../../../../conf/Adhoc';
 import { useBaseEntity } from '../../../EntityContext';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 // import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
@@ -13,9 +13,20 @@ import { FindMyUrn, FindWhoAmI, GetMyToken } from '../../../../dataset/whoAmI';
 // editable version
 
 export const EditPropertiesTableEditable = () => {
-    let url = adhocConfig;
-    const branch = url.lastIndexOf('/');
-    url = `${url.substring(0, branch)}/update_properties`;
+    const initialUrl = window.location.href;
+    // this wacky setup is because the URL is different when running docker-compose vs Ingress
+    // for docker-compose, need to change port. For ingress, just modify subpath will do.
+    // having a setup that works for both makes development easier.
+    // for UI edit pages, the URL is complicated, need to find the root path.
+    const mainPathLength = initialUrl.split('/', 3).join('/').length;
+    const mainPath = `${initialUrl.substring(0, mainPathLength + 1)}`;
+    const publishUrl = mainPath.includes(':3000')
+        ? mainPath.replace(':3000/', ':8001/custom/update_properties')
+        : `${mainPath}/custom/update_properties`;
+    console.log(`the final url is ${publishUrl}`);
+    // let url = adhocConfig;
+    // const branch = url.lastIndexOf('/');
+    // url = `${url.substring(0, branch)}/update_properties`;
     const queryFields = useBaseEntity<GetDatasetQuery>()?.dataset?.properties?.customProperties;
     const datasetDescription = useBaseEntity<GetDatasetQuery>()?.dataset?.properties?.description || '';
 
@@ -201,7 +212,7 @@ export const EditPropertiesTableEditable = () => {
         };
         console.log(dataSubmission);
         axios
-            .post(url, dataSubmission)
+            .post(publishUrl, dataSubmission)
             .then((response) => printSuccessMsg(response.status))
             .catch((error) => {
                 printErrorMsg(error.toString());

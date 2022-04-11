@@ -7,7 +7,7 @@ import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 // import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
 import { useBaseEntity } from '../../../EntityContext';
 import { FindMyUrn, FindWhoAmI, GetMyToken } from '../../../../dataset/whoAmI';
-import adhocConfig from '../../../../../../conf/Adhoc';
+// import adhocConfig from '../../../../../../conf/Adhoc';
 
 // function CheckStatus(queryresult, currDataset) {
 //     const { data } = useQuery(queryresult, { skip: currDataset === undefined });
@@ -27,9 +27,20 @@ function CheckStatus(entity) {
 export const DeleteSchemaTabv2 = () => {
     // const entity = useBaseEntity<GetDatasetQuery>();
     // const delay = (ms) => new Promise((res) => setTimeout(res, ms));
-    let url = adhocConfig;
-    const branch = url.lastIndexOf('/');
-    url = `${url.substring(0, branch)}/update_dataset_status`;
+    const initialUrl = window.location.href;
+    // this wacky setup is because the URL is different when running docker-compose vs Ingress
+    // for docker-compose, need to change port. For ingress, just modify subpath will do.
+    // having a setup that works for both makes development easier.
+    // for UI edit pages, the URL is complicated, need to find the root path.
+    const mainPathLength = initialUrl.split('/', 3).join('/').length;
+    const mainPath = `${initialUrl.substring(0, mainPathLength + 1)}`;
+    const publishUrl = mainPath.includes(':3000')
+        ? mainPath.replace(':3000/', ':8001/custom/update_dataset_status')
+        : `${mainPath}/custom/update_dataset_status`;
+    console.log(`the final url is ${publishUrl}`);
+    // let url = adhocConfig;
+    // const branch = url.lastIndexOf('/');
+    // url = `${url.substring(0, branch)}/update_dataset_status`;
     const [visible, setVisible] = React.useState(false);
     const [confirmLoading, setConfirmLoading] = React.useState(false);
     const baseEntity = useBaseEntity<GetDatasetQuery>();
@@ -60,7 +71,7 @@ export const DeleteSchemaTabv2 = () => {
 
     const deleteDataset = async () => {
         axios
-            .post(url, {
+            .post(publishUrl, {
                 dataset_name: currDataset,
                 requestor: currUser,
                 desired_state: !CheckStatus(baseEntity),

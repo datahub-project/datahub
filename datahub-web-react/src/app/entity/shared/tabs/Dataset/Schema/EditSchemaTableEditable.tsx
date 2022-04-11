@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Button, Divider, Form, Input, message, Select, Table, Typography } from 'antd';
 import PropTypes from 'prop-types';
 import axios from 'axios';
-import adhocConfig from '../../../../../../conf/Adhoc';
+// import adhocConfig from '../../../../../../conf/Adhoc';
 import { useBaseEntity } from '../../../EntityContext';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 // import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
@@ -15,9 +15,20 @@ import { FindMyUrn, FindWhoAmI, GetMyToken } from '../../../../dataset/whoAmI';
 const { Option } = Select;
 
 export const EditSchemaTableEditable = () => {
-    let url = adhocConfig;
-    const branch = url.lastIndexOf('/');
-    url = `${url.substring(0, branch)}/update_schema`;
+    const initialUrl = window.location.href;
+    // this wacky setup is because the URL is different when running docker-compose vs Ingress
+    // for docker-compose, need to change port. For ingress, just modify subpath will do.
+    // having a setup that works for both makes development easier.
+    // for UI edit pages, the URL is complicated, need to find the root path.
+    const mainPathLength = initialUrl.split('/', 3).join('/').length;
+    const mainPath = `${initialUrl.substring(0, mainPathLength + 1)}`;
+    const publishUrl = mainPath.includes(':3000')
+        ? mainPath.replace(':3000/', ':8001/custom/update_schema')
+        : `${mainPath}/custom/update_schema`;
+    console.log(`the final url is ${publishUrl}`);
+    // let url = adhocConfig;
+    // const branch = url.lastIndexOf('/');
+    // url = `${url.substring(0, branch)}/update_schema`;
     const queryFields = useBaseEntity<GetDatasetQuery>()?.dataset?.schemaMetadata?.fields;
     const urn = useBaseEntity<GetDatasetQuery>()?.dataset?.urn;
     const currUser = FindWhoAmI();
@@ -55,6 +66,7 @@ export const EditSchemaTableEditable = () => {
                 <Option value="NULL">NULL</Option>
                 <Option value="RECORD">RECORD</Option>
                 <Option value="ARRAY">ARRAY</Option>
+                <Option value="UNKNOWN">UNKNOWN</Option>
             </Select>
         );
         const inputNode = inputType === 'select' ? selector : <Input />;
@@ -226,7 +238,7 @@ export const EditSchemaTableEditable = () => {
             user_token: userToken,
         };
         axios
-            .post(url, dataSubmission)
+            .post(publishUrl, dataSubmission)
             .then((response) => printSuccessMsg(response.status))
             .catch((error) => {
                 printErrorMsg(error.toString());
