@@ -354,14 +354,20 @@ class AirflowGenerator:
         if datajob is None:
             datajob = AirflowGenerator.generate_datajob(cluster, ti.task, dag)
 
+        # In Airflow 1 there is not such thing like run_id so we use execution_date as run_id
+        if hasattr(ti, "run_id"):
+            run_id = ti.run_id
+        else:
+            run_id = ti.execution_date
+
         dpi = DataProcessInstance.from_datajob(
             datajob=datajob,
-            id=f"{dag.dag_id}_{ti.task_id}_{ti.run_id}",
+            id=f"{dag.dag_id}_{ti.task_id}_{run_id}",
             clone_inlets=True,
             clone_outlets=True,
         )
         job_property_bag: Dict[str, str] = {}
-        job_property_bag["run_id"] = str(ti.run_id)
+        job_property_bag["run_id"] = str(run_id)
         job_property_bag["duration"] = str(ti.duration)
         job_property_bag["start_date"] = str(ti.start_date)
         job_property_bag["end_date"] = str(ti.end_date)
@@ -390,10 +396,8 @@ class AirflowGenerator:
             elif ti.dag_run.run_type == DagRunType.MANUAL:
                 dpi.type = DataProcessTypeClass.BATCH_AD_HOC
         else:
-            if ti.run_id.startswith("scheduled__"):
-                dpi.type = DataProcessTypeClass.BATCH_SCHEDULED
-            else:
-                dpi.type = DataProcessTypeClass.BATCH_AD_HOC
+            # In Airflow 1 it is not trivial to get if it was scheduled or manual run
+            dpi.type = DataProcessTypeClass.BATCH_SCHEDULED
 
         if start_timestamp_millis is None:
             assert ti.start_date
