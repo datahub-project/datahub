@@ -40,6 +40,7 @@ record MLFeatureTableProperties includes CustomProperties {
   @Relationship = {
     "/*": {
       "name": "KeyedBy",
+      "isLineage": true
       "entityTypes": [ "mlPrimaryKey" ]
     }
   }

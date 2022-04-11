@@ -79,4 +79,14 @@ export class MLFeatureEntity implements Entity<MlFeature> {
     getGenericEntityProperties = (mlFeature: MlFeature) => {
         return getDataForEntityType({ data: mlFeature, entityType: this.type, getOverrideProperties: (data) => data });
     };
+
+    getLineageVizConfig = (entity: MlFeature) => {
+        return {
+            urn: entity.urn,
+            name: entity.name,
+            type: EntityType.Mlfeature,
+            icon: undefined,
+            platform: undefined,
+        };
+    };
 }

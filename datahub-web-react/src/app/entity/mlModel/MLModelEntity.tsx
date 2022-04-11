@@ -62,6 +62,7 @@ export class MLModelEntity implements Entity<MlModel> {
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}
+            key={urn}
             entityType={EntityType.Mlmodel}
             useEntityQuery={useGetMlModelQuery}
             getOverrideProperties={this.getOverridePropertiesFromEntity}

@@ -6383,7 +6383,7 @@ description: String
 """
 An ML Feature Metadata Entity Note that this entity is incubating
 """
-type MLFeature implements Entity {
+type MLFeature implements EntityWithRelationships & Entity {
     """
     The primary key of the ML Feature
     """
@@ -6529,7 +6529,7 @@ type MLFeatureProperties {
 """
 An ML Primary Key Entity Note that this entity is incubating
 """
-type MLPrimaryKey implements Entity {
+type MLPrimaryKey implements EntityWithRelationships & Entity {
     """
     The primary key of the ML Primary Key
     """
@@ -6636,7 +6636,7 @@ description: String
 """
 An ML Feature Table Entity Note that this entity is incubating
 """
-type MLFeatureTable implements Entity {
+type MLFeatureTable implements EntityWithRelationships & Entity {
     """
     The primary key of the ML Feature Table
     """

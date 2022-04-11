@@ -60,6 +60,7 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}
+            key={urn}
             entityType={EntityType.MlmodelGroup}
             useEntityQuery={useGetMlModelGroupQuery}
             getOverrideProperties={this.getOverridePropertiesFromEntity}

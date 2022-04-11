@@ -61,6 +61,7 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}
+            key={urn}
             entityType={EntityType.MlfeatureTable}
             useEntityQuery={useGetMlFeatureTableQuery}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
@@ -134,8 +135,6 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
             urn: entity.urn,
             name: entity.name,
             type: EntityType.MlfeatureTable,
-            upstreamChildren: [],
-            downstreamChildren: [],
             icon: entity.platform.properties?.logoUrl || undefined,
             platform: entity.platform.name,
         };
