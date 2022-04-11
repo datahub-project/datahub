@@ -354,7 +354,7 @@
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=map].[type=string].recordid",
                                 "jsonPath": null,
-                                "nullable": false,
+                                "nullable": true,
                                 "description": null,
                                 "type": {
                                     "type": {
@@ -686,7 +686,7 @@
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service",
                                 "jsonPath": null,
-                                "nullable": false,
+                                "nullable": true,
                                 "description": null,
                                 "type": {
                                     "type": {
@@ -720,7 +720,7 @@
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider",
                                 "jsonPath": null,
-                                "nullable": false,
+                                "nullable": true,
                                 "description": null,
                                 "type": {
                                     "type": {
@@ -871,7 +871,7 @@
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].service",
                                 "jsonPath": null,
-                                "nullable": false,
+                                "nullable": true,
                                 "description": null,
                                 "type": {
                                     "type": {
@@ -907,7 +907,7 @@
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].service.[type=array].[type=int].provider",
                                 "jsonPath": null,
-                                "nullable": false,
+                                "nullable": true,
                                 "description": null,
                                 "type": {
                                     "type": {
@@ -1026,7 +1026,7 @@
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service",
                                 "jsonPath": null,
-                                "nullable": false,
+                                "nullable": true,
                                 "description": null,
                                 "type": {
                                     "type": {
@@ -1060,7 +1060,7 @@
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=array].[type=int].provider",
                                 "jsonPath": null,
-                                "nullable": false,
+                                "nullable": true,
                                 "description": null,
                                 "type": {
                                     "type": {

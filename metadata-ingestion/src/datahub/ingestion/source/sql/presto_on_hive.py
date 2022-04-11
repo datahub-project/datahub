@@ -417,7 +417,9 @@ class PrestoOnHiveSource(SQLAlchemySource):
         column: Dict[Any, Any],
         pk_constraints: Optional[Dict[Any, Any]] = None,
     ) -> List[SchemaField]:
-        return get_schema_fields_for_hive_column(column["col_name"], column["col_type"])
+        return get_schema_fields_for_hive_column(
+            column["col_name"], column["col_type"], default_nullable=True
+        )
 
 
 class SQLAlchemyClient:
