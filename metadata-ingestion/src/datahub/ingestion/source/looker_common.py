@@ -519,9 +519,7 @@ class LookerExplore:
                 for e_join in [
                     e for e in explore.joins if e.dependent_fields is not None
                 ]:
-                    assert e_join.dependent_fields is not None
                     for field_name in e_join.dependent_fields:
-                        assert e_join.dependent_fields is not None
                         try:
                             view_name = LookerUtil._extract_view_from_field(field_name)
                             potential_views.append(view_name)
