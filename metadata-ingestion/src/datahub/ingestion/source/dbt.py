@@ -1020,11 +1020,11 @@ class DBTSource(StatefulIngestionSourceBase):
             if self.config.owner_naming_pattern:
                 found = re.search(re.compile(self.config.owner_naming_pattern), owner)
                 if found:
-                    owner = found.group(2)
-                    logger.info(f"Owner (after applying regex):{owner}")
+                    owner = found.group("owner")
+                    logger.debug(f"Owner (after applying regex):{owner}")
             if self.config.strip_user_ids_from_email:
                 owner = owner.split("@")[0]
-                logger.info(f"Owner (after stripping email):{owner}")
+                logger.debug(f"Owner (after stripping email):{owner}")
             owner_list.append(
                 OwnerClass(
                     owner=f"urn:li:corpuser:{owner}",

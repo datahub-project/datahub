@@ -182,7 +182,7 @@ def test_dbt_ingest(pytestconfig, tmp_path, mock_time, **kwargs):
             source_config_modifiers={
                 "load_schemas": True,
                 "enable_meta_mapping": True,
-                "owner_naming_pattern": "(\\((.*)\\))",
+                "owner_naming_pattern": "(?P<owner>(?<=\\().*?(?=\\)))",
                 "strip_user_ids_from_email": True,
             },
         ),
@@ -207,7 +207,7 @@ def test_dbt_ingest(pytestconfig, tmp_path, mock_time, **kwargs):
                 "node_name_pattern": {
                     "deny": ["source.sample_dbt.pagila.payment_p2020_06"]
                 },
-                "owner_naming_pattern": "(\\((.*)\\))",
+                "owner_naming_pattern": "(?P<owner>(?<=\\().*?(?=\\)))",
                 "strip_user_ids_from_email": False,
             },
         ),
