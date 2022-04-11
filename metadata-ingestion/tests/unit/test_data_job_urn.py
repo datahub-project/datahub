@@ -1,7 +1,7 @@
 import unittest
 
+from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
-from datahub.utilities.urns.data_platform_urn import DataPlatformUrn
 from datahub.utilities.urns.error import InvalidUrnError
 
 
@@ -11,7 +11,7 @@ class TestDataJobUrn(unittest.TestCase):
             "urn:li:dataJob:(urn:li:dataFlow:(airflow,flow_id,prod),job_id)"
         )
         data_job_urn = DataJobUrn.create_from_string(data_job_urn_str)
-        assert data_job_urn.get_data_flow_urn() == DataPlatformUrn.create_from_string(
+        assert data_job_urn.get_data_flow_urn() == DataFlowUrn.create_from_string(
             "urn:li:dataFlow:(airflow,flow_id,prod)"
         )
         assert data_job_urn.get_job_id() == "job_id"

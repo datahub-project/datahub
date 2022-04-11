@@ -106,25 +106,25 @@ class Urn:
         part_start = 1
         for i in range(1, len(entity_id)):
             c = entity_id[i]
-            if c == '(':
+            if c == "(":
                 start_paren_count += 1
-            elif c == ')':
+            elif c == ")":
                 start_paren_count -= 1
                 if start_paren_count < 0:
                     raise InvalidUrnError(f"{entity_id}, mismatched paren nesting")
-            elif c == ',':
+            elif c == ",":
                 if start_paren_count != 1:
                     continue
 
                 if i - part_start <= 0:
                     raise InvalidUrnError(f"{entity_id}, empty part disallowed")
-                parts.append(entity_id[part_start: i])
+                parts.append(entity_id[part_start:i])
                 part_start = i + 1
 
         if start_paren_count != 0:
             raise InvalidUrnError(f"{entity_id}, mismtached paren nesting")
 
-        parts.append(entity_id[part_start: len(entity_id) - 1])
+        parts.append(entity_id[part_start : len(entity_id) - 1])
 
         return parts
 
