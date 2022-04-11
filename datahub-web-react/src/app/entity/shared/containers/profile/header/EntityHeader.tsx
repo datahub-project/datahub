@@ -1,6 +1,6 @@
-import { CheckOutlined, CopyOutlined, FolderOpenOutlined } from '@ant-design/icons';
-import { Typography, Image, Button, Tooltip } from 'antd';
 import React, { useState } from 'react';
+import { CheckOutlined, CopyOutlined, FolderOpenOutlined, InfoCircleOutlined, MoreOutlined } from '@ant-design/icons';
+import { Typography, Image, Button, Tooltip, Menu, Dropdown, message } from 'antd';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { EntityType } from '../../../../../../types.generated';
@@ -8,10 +8,11 @@ import { capitalizeFirstLetterOnly } from '../../../../../shared/textUtil';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { IconStyleType } from '../../../../Entity';
 import { ANTD_GRAY } from '../../../constants';
-import { useEntityData } from '../../../EntityContext';
+import { useEntityData, useRefetch } from '../../../EntityContext';
 import { useEntityPath } from '../utils';
 import analytics, { EventType, EntityActionType } from '../../../../../analytics';
 import { EntityHealthStatus } from './EntityHealthStatus';
+import { useUpdateDeprecationMutation } from '../../../../../../graphql/mutations.generated';
 
 const LogoContainer = styled.span`
     margin-right: 10px;
@@ -93,8 +94,39 @@ const ContainerIcon = styled(FolderOpenOutlined)`
     }
 `;
 
+const DeprecatedContainer = styled.div`
+    width: 110px;
+    height: 18px;
+    border: 1px solid #ef5b5b;
+    border-radius: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #ef5b5b;
+    margin-left: 5px;
+`;
+
+const DeprecatedText = styled.div`
+    color: #ef5b5b;
+    margin-left: 5px;
+`;
+
+const MenuIcon = styled(MoreOutlined)`
+    font-size: 30px;
+    height: 30px;
+`;
+
+const MenuItem = styled.div`
+    font-size: 12px;
+    padding-left: 12px;
+    padding-right: 12px;
+    color: rgba(0, 0, 0, 0.85);
+`;
+
 export const EntityHeader = () => {
     const { urn, entityType, entityData } = useEntityData();
+    const [updateDeprecation] = useUpdateDeprecationMutation();
+    const refetch = useRefetch();
     const entityRegistry = useEntityRegistry();
     const [copiedUrn, setCopiedUrn] = useState(false);
     const basePlatformName = entityData?.platform?.properties?.displayName || entityData?.platform?.name;
@@ -120,6 +152,43 @@ export const EntityHeader = () => {
     const entityCount = entityData?.entityCount;
     const typeIcon = entityRegistry.getIcon(entityType, 12, IconStyleType.ACCENT);
     const container = entityData?.container;
+
+    // Update Deprecation
+    const UpdateDeprecationMutation = () => {
+        return updateDeprecation({
+            variables: {
+                input: {
+                    urn,
+                    deprecated: true,
+                },
+            },
+        });
+    };
+
+    // Update the Deprecation
+    const handleUpdateDeprecation = async () => {
+        message.loading({ content: 'Updating...' });
+        try {
+            await UpdateDeprecationMutation();
+            message.destroy();
+            message.success({ content: 'Deprecation Updated', duration: 2 });
+        } catch (e: unknown) {
+            message.destroy();
+            if (e instanceof Error) {
+                message.error({ content: `Failed to update Deprecation: \n ${e.message || ''}`, duration: 2 });
+            }
+        }
+        refetch?.();
+    };
+
+    const menu = (
+        <Menu>
+            <Menu.Item key="0">
+                <MenuItem onClick={() => handleUpdateDeprecation()}>Mark as deprecated</MenuItem>
+            </Menu.Item>
+        </Menu>
+    );
+
     return (
         <HeaderContainer>
             <MainHeaderContent>
@@ -160,6 +229,12 @@ export const EntityHeader = () => {
                     <Link to={entityPath}>
                         <EntityTitle level={3}>{entityData?.name || ' '}</EntityTitle>
                     </Link>
+                    {entityData?.deprecation?.deprecated && (
+                        <DeprecatedContainer>
+                            <InfoCircleOutlined />
+                            <DeprecatedText>Deprecated</DeprecatedText>
+                        </DeprecatedContainer>
+                    )}
                     {entityData?.health && (
                         <EntityHealthStatus
                             status={entityData?.health.status}
@@ -182,6 +257,9 @@ export const EntityHeader = () => {
                     }}
                 />
             </Tooltip>
+            <Dropdown overlay={menu} trigger={['click']}>
+                <MenuIcon />
+            </Dropdown>
         </HeaderContainer>
     );
 };
