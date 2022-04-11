@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 from contextlib import contextmanager
 from typing import Iterator
 from unittest import mock
@@ -267,59 +268,63 @@ def test_lineage_backend(mock_emit, inlets, outlets):
 
         # Check that the right things were emitted.
         assert mock_emitter.emit.call_count == 7
-        assert mock_emitter.method_calls[0].args[0].aspectName == "dataFlowInfo"
-        assert (
-            mock_emitter.method_calls[0].args[0].entityUrn
-            == "urn:li:dataFlow:(airflow,test_lineage_is_sent_to_backend,prod)"
-        )
+        # Running further checks based on python version because args only exists in python 3.7+
+        if sys.version_info[:3] > (3, 7):
+            assert mock_emitter.method_calls[0].args[0].aspectName == "dataFlowInfo"
+            assert (
+                mock_emitter.method_calls[0].args[0].entityUrn
+                == "urn:li:dataFlow:(airflow,test_lineage_is_sent_to_backend,prod)"
+            )
 
-        assert mock_emitter.method_calls[1].args[0].aspectName == "ownership"
-        assert (
-            mock_emitter.method_calls[1].args[0].entityUrn
-            == "urn:li:dataFlow:(airflow,test_lineage_is_sent_to_backend,prod)"
-        )
+            assert mock_emitter.method_calls[1].args[0].aspectName == "ownership"
+            assert (
+                mock_emitter.method_calls[1].args[0].entityUrn
+                == "urn:li:dataFlow:(airflow,test_lineage_is_sent_to_backend,prod)"
+            )
 
-        assert mock_emitter.method_calls[2].args[0].aspectName == "globalTags"
-        assert (
-            mock_emitter.method_calls[2].args[0].entityUrn
-            == "urn:li:dataFlow:(airflow,test_lineage_is_sent_to_backend,prod)"
-        )
+            assert mock_emitter.method_calls[2].args[0].aspectName == "globalTags"
+            assert (
+                mock_emitter.method_calls[2].args[0].entityUrn
+                == "urn:li:dataFlow:(airflow,test_lineage_is_sent_to_backend,prod)"
+            )
 
-        assert mock_emitter.method_calls[3].args[0].aspectName == "dataJobInfo"
-        assert (
-            mock_emitter.method_calls[3].args[0].entityUrn
-            == "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_lineage_is_sent_to_backend,prod),task2)"
-        )
+            assert mock_emitter.method_calls[3].args[0].aspectName == "dataJobInfo"
+            assert (
+                mock_emitter.method_calls[3].args[0].entityUrn
+                == "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_lineage_is_sent_to_backend,prod),task2)"
+            )
 
-        assert mock_emitter.method_calls[4].args[0].aspectName == "dataJobInputOutput"
-        assert (
-            mock_emitter.method_calls[4].args[0].entityUrn
-            == "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_lineage_is_sent_to_backend,prod),task2)"
-        )
-        assert (
-            mock_emitter.method_calls[4].args[0].aspect.inputDatajobs[0]
-            == "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_lineage_is_sent_to_backend,prod),task1_upstream)"
-        )
-        assert (
-            mock_emitter.method_calls[4].args[0].aspect.inputDatasets[0]
-            == "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableConsumed,PROD)"
-        )
-        assert (
-            mock_emitter.method_calls[4].args[0].aspect.outputDatasets[0]
-            == "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableProduced,PROD)"
-        )
+            assert (
+                mock_emitter.method_calls[4].args[0].aspectName == "dataJobInputOutput"
+            )
+            assert (
+                mock_emitter.method_calls[4].args[0].entityUrn
+                == "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_lineage_is_sent_to_backend,prod),task2)"
+            )
+            assert (
+                mock_emitter.method_calls[4].args[0].aspect.inputDatajobs[0]
+                == "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_lineage_is_sent_to_backend,prod),task1_upstream)"
+            )
+            assert (
+                mock_emitter.method_calls[4].args[0].aspect.inputDatasets[0]
+                == "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableConsumed,PROD)"
+            )
+            assert (
+                mock_emitter.method_calls[4].args[0].aspect.outputDatasets[0]
+                == "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableProduced,PROD)"
+            )
 
-        assert mock_emitter.method_calls[5].args[0].aspectName == "ownership"
-        assert (
-            mock_emitter.method_calls[5].args[0].entityUrn
-            == "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_lineage_is_sent_to_backend,prod),task2)"
-        )
+            assert mock_emitter.method_calls[5].args[0].aspectName == "ownership"
+            assert (
+                mock_emitter.method_calls[5].args[0].entityUrn
+                == "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_lineage_is_sent_to_backend,prod),task2)"
+            )
 
-        assert mock_emitter.method_calls[6].args[0].aspectName == "globalTags"
-        assert (
-            mock_emitter.method_calls[6].args[0].entityUrn
-            == "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_lineage_is_sent_to_backend,prod),task2)"
-        )
+            assert mock_emitter.method_calls[6].args[0].aspectName == "globalTags"
+            assert (
+                mock_emitter.method_calls[6].args[0].entityUrn
+                == "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_lineage_is_sent_to_backend,prod),task2)"
+            )
 
 
 #        assert all(mce.validate() for mce in mock_emitter.call_args[0][0])
