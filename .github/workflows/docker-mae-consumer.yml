@@ -67,6 +67,16 @@ jobs:
           registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      - 
+        name: Set env DOCKER_CACHE_TO
+        run: |
+          if [[ ${{ needs.setup.outputs.publish }} == 'true' ]]; then
+            echo "DOCKER_CACHE_TO=type=registry,ref=${{ steps.docker_meta.outputs.tags }}-buildcache,mode=max" >> "$GITHUB_ENV"
+          else
+            echo "DOCKER_CACHE_TO=type=inline" >> "$GITHUB_ENV"
+          fi
       - name: Build and Push image
         uses: docker/build-push-action@v2
         with:
@@ -74,3 +84,5 @@ jobs:
           file: ./docker/datahub-mae-consumer/Dockerfile
           tags: ${{ steps.docker_meta.outputs.tags }}
           push: ${{ needs.setup.outputs.publish == 'true' }}
+          cache-from: type=registry,ref=linkedin/datahub-mae-consumer:head-buildcache
+          cache-to: ${{ env.DOCKER_CACHE_TO }}
