@@ -16,9 +16,10 @@ export const JsonForm = () => {
     // having a setup that works for both makes development easier.
     // for make_dataset, the URL is simple.
     const initialUrl = window.location.href;
-    const publishUrl = initialUrl.includes(':3000')
-        ? initialUrl.replace(':3000/adhoc/', ':8001/custom/make_dataset')
-        : initialUrl.replace('/adhoc/', '/custom/make_dataset');
+    let publishUrl = initialUrl.includes(':3000') ? initialUrl.replace(':3000/adhoc/', ':8001/custom/make_dataset') : initialUrl;
+    publishUrl = publishUrl.includes(':9002') 
+        ? publishUrl.replace(':9002/adhoc/', ':8001/custom/make_dataset') 
+        : publishUrl.replace('/adhoc/', '/custom/make_dataset');
     const user = useGetAuthenticatedUser();
     const userUrn = user?.corpUser?.urn || '';
     const userToken = GetMyToken(userUrn);

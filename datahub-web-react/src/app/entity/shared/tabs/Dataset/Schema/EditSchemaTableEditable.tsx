@@ -22,9 +22,13 @@ export const EditSchemaTableEditable = () => {
     // for UI edit pages, the URL is complicated, need to find the root path.
     const mainPathLength = initialUrl.split('/', 3).join('/').length;
     const mainPath = `${initialUrl.substring(0, mainPathLength + 1)}`;
-    const publishUrl = mainPath.includes(':3000')
-        ? mainPath.replace(':3000/', ':8001/custom/update_schema')
-        : `${mainPath}/custom/update_schema`;
+    let publishUrl = mainPath.includes(':3000') ? mainPath.replace(':3000/', ':8001/custom/update_schema') : mainPath;
+    publishUrl = mainPath.includes(':9002') 
+        ? mainPath.replace(':9002/', ':8001/custom/update_schema')
+        : `${mainPath}/custom/update_schema`
+    // const publishUrl = mainPath.includes(':3000')
+    //     ? mainPath.replace(':3000/', ':8001/custom/update_schema')
+    //     : `${mainPath}/custom/update_schema`;
     console.log(`the final url is ${publishUrl}`);
     // let url = adhocConfig;
     // const branch = url.lastIndexOf('/');
