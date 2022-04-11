@@ -409,12 +409,13 @@ def test_lineage_backend_capture_executions(mock_emit, inlets, outlets):
         if AIRFLOW_VERSION < packaging.version.parse("2.2.0"):
             ti = TaskInstance(task=op2, execution_date=DEFAULT_DATE)
             # Ignoring type here because DagRun state is just a sring at Airflow 1
-            dag_run = DagRun(state="success") # type: ignore
+            dag_run = DagRun(state="success")  # type: ignore
             ti.dag_run = dag_run
             ti.start_date = datetime.datetime.utcnow()
 
         else:
             from airflow.utils.state import DagRunState
+
             ti = TaskInstance(task=op2, run_id=f"test_airflow-{DEFAULT_DATE}")
             dag_run = DagRun(state=DagRunState.SUCCESS)
             ti.dag_run = dag_run
