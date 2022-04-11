@@ -10,6 +10,7 @@ from datahub_provider.entities import _Entity
 if TYPE_CHECKING:
     from airflow import DAG
     from airflow.models.baseoperator import BaseOperator
+    from airflow.models.dagrun import DagRun
     from airflow.models.taskinstance import TaskInstance
 
     from datahub_provider.hooks.datahub import DatahubGenericHook
@@ -77,11 +78,14 @@ def send_lineage_to_datahub(
     datajob.emit(emitter)
 
     if config.capture_executions:
+        dag_run: "DagRun" = context["dag_run"]
+
         dpi = AirflowGenerator.run_datajob(
             emitter=emitter,
             cluster=config.cluster,
             ti=ti,
             dag=dag,
+            dag_run=dag_run,
             datajob=datajob,
             emit_templates=False,
         )
@@ -93,6 +97,7 @@ def send_lineage_to_datahub(
             cluster=config.cluster,
             ti=ti,
             dag=dag,
+            dag_run=dag_run,
             datajob=datajob,
             result=InstanceRunResult.SUCCESS,
             end_timestamp_millis=int(datetime.utcnow().timestamp() * 1000),

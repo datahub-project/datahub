@@ -409,7 +409,7 @@ def test_lineage_backend_capture_executions(mock_emit, inlets, outlets):
         if AIRFLOW_VERSION < packaging.version.parse("2.2.0"):
             ti = TaskInstance(task=op2, execution_date=DEFAULT_DATE)
             # Ignoring type here because DagRun state is just a sring at Airflow 1
-            dag_run = DagRun(state="success")  # type: ignore
+            dag_run = DagRun(state="success", run_id=f"scheduled_{DEFAULT_DATE}")  # type: ignore
             ti.dag_run = dag_run
             ti.start_date = datetime.datetime.utcnow()
             ti.execution_date = DEFAULT_DATE
@@ -418,7 +418,9 @@ def test_lineage_backend_capture_executions(mock_emit, inlets, outlets):
             from airflow.utils.state import DagRunState
 
             ti = TaskInstance(task=op2, run_id=f"test_airflow-{DEFAULT_DATE}")
-            dag_run = DagRun(state=DagRunState.SUCCESS)
+            dag_run = DagRun(
+                state=DagRunState.SUCCESS, run_id=f"scheduled_{DEFAULT_DATE}"
+            )
             ti.dag_run = dag_run
             ti.start_date = datetime.datetime.utcnow()
             ti.execution_date = DEFAULT_DATE
@@ -523,7 +525,7 @@ def test_lineage_backend_capture_executions(mock_emit, inlets, outlets):
             )
             assert (
                 mock_emitter.method_calls[9].args[0].entityUrn
-                == "urn:li:dataProcessInstance:e22ef18bb8d10b9a49dbc538469acd6a"
+                == "urn:li:dataProcessInstance:3906c4a89059bf2eb6c1c326e88b6fc3"
             )
 
             assert (
@@ -532,7 +534,7 @@ def test_lineage_backend_capture_executions(mock_emit, inlets, outlets):
             )
             assert (
                 mock_emitter.method_calls[10].args[0].entityUrn
-                == "urn:li:dataProcessInstance:e22ef18bb8d10b9a49dbc538469acd6a"
+                == "urn:li:dataProcessInstance:3906c4a89059bf2eb6c1c326e88b6fc3"
             )
             assert (
                 mock_emitter.method_calls[11].args[0].aspectName
@@ -540,7 +542,7 @@ def test_lineage_backend_capture_executions(mock_emit, inlets, outlets):
             )
             assert (
                 mock_emitter.method_calls[11].args[0].entityUrn
-                == "urn:li:dataProcessInstance:e22ef18bb8d10b9a49dbc538469acd6a"
+                == "urn:li:dataProcessInstance:3906c4a89059bf2eb6c1c326e88b6fc3"
             )
             assert (
                 mock_emitter.method_calls[12].args[0].aspectName
@@ -548,7 +550,7 @@ def test_lineage_backend_capture_executions(mock_emit, inlets, outlets):
             )
             assert (
                 mock_emitter.method_calls[12].args[0].entityUrn
-                == "urn:li:dataProcessInstance:e22ef18bb8d10b9a49dbc538469acd6a"
+                == "urn:li:dataProcessInstance:3906c4a89059bf2eb6c1c326e88b6fc3"
             )
             assert mock_emitter.method_calls[13].args[0].aspectName == "status"
             assert (
@@ -566,7 +568,7 @@ def test_lineage_backend_capture_executions(mock_emit, inlets, outlets):
             )
             assert (
                 mock_emitter.method_calls[15].args[0].entityUrn
-                == "urn:li:dataProcessInstance:e22ef18bb8d10b9a49dbc538469acd6a"
+                == "urn:li:dataProcessInstance:3906c4a89059bf2eb6c1c326e88b6fc3"
             )
             assert (
                 mock_emitter.method_calls[16].args[0].aspectName
@@ -574,5 +576,5 @@ def test_lineage_backend_capture_executions(mock_emit, inlets, outlets):
             )
             assert (
                 mock_emitter.method_calls[16].args[0].entityUrn
-                == "urn:li:dataProcessInstance:e22ef18bb8d10b9a49dbc538469acd6a"
+                == "urn:li:dataProcessInstance:3906c4a89059bf2eb6c1c326e88b6fc3"
             )
