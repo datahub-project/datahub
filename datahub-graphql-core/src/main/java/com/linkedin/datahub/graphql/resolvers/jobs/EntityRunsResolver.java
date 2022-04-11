@@ -6,6 +6,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DataProcessInstance;
 import com.linkedin.datahub.graphql.generated.DataProcessInstanceResult;
 import com.linkedin.datahub.graphql.generated.Entity;
+import com.linkedin.datahub.graphql.generated.RelationshipDirection;
 import com.linkedin.datahub.graphql.types.dataprocessinst.mappers.DataProcessInstanceMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
@@ -32,17 +33,19 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
-/**
- * GraphQL Resolver used for fetching a list of Task Runs associated with a Data Job
- */
-public class TaskRunsResolver implements DataFetcher<CompletableFuture<DataProcessInstanceResult>> {
 
-  private static final String PARENT_TEMPLATE_URN_SEARCH_INDEX_FIELD_NAME = "parentTemplate";
+/**
+ * GraphQL Resolver used for fetching the list of task runs associated with a Dataset.
+ */
+public class EntityRunsResolver implements DataFetcher<CompletableFuture<DataProcessInstanceResult>> {
+
+  private static final String INPUT_FIELD_NAME = "inputs.keyword";
+  private static final String OUTPUT_FIELD_NAME = "outputs.keyword";
   private static final String CREATED_TIME_SEARCH_INDEX_FIELD_NAME = "created";
 
   private final EntityClient _entityClient;
 
-  public TaskRunsResolver(final EntityClient entityClient) {
+  public EntityRunsResolver(final EntityClient entityClient) {
     _entityClient = entityClient;
   }
 
@@ -55,11 +58,13 @@ public class TaskRunsResolver implements DataFetcher<CompletableFuture<DataProce
       final String entityUrn = ((Entity) environment.getSource()).getUrn();
       final Integer start = environment.getArgumentOrDefault("start", 0);
       final Integer count = environment.getArgumentOrDefault("count", 20);
+      final RelationshipDirection direction = RelationshipDirection.valueOf(environment.getArgumentOrDefault("direction",
+          RelationshipDirection.INCOMING.toString()));
 
       try {
         // Step 1: Fetch set of task runs associated with the target entity from the Search Index!
         // We use the search index so that we can easily sort by the last updated time.
-        final Filter filter = buildTaskRunsEntityFilter(entityUrn);
+        final Filter filter = buildTaskRunsEntityFilter(entityUrn, direction);
         final SortCriterion sortCriterion = buildTaskRunsSortCriterion();
         final SearchResult gmsResult = _entityClient.filter(
             Constants.DATA_PROCESS_INSTANCE_ENTITY_NAME,
@@ -80,7 +85,7 @@ public class TaskRunsResolver implements DataFetcher<CompletableFuture<DataProce
             null,
             context.getAuthentication());
 
-        // Step 3: Map GMS incident model to GraphQL model
+        // Step 3: Map GMS instance model to GraphQL model
         final List<EntityResponse> gmsResults = new ArrayList<>();
         for (Urn urn : dataProcessInstanceUrns) {
           gmsResults.add(entities.getOrDefault(urn, null));
@@ -103,11 +108,11 @@ public class TaskRunsResolver implements DataFetcher<CompletableFuture<DataProce
     });
   }
 
-  private Filter buildTaskRunsEntityFilter(final String entityUrn) {
+  private Filter buildTaskRunsEntityFilter(final String entityUrn, final RelationshipDirection direction) {
     CriterionArray array = new CriterionArray(
         ImmutableList.of(
             new Criterion()
-                .setField(PARENT_TEMPLATE_URN_SEARCH_INDEX_FIELD_NAME)
+                .setField(direction.equals(RelationshipDirection.INCOMING) ? INPUT_FIELD_NAME : OUTPUT_FIELD_NAME)
                 .setCondition(Condition.EQUAL)
                 .setValue(entityUrn)
         ));

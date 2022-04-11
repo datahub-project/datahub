@@ -50,7 +50,7 @@ const LoadingContainer = styled.div`
 function getStatusForStyling(status: DataProcessRunStatus, resultType: DataProcessInstanceRunResultType) {
     if (status === 'COMPLETE') {
         if (resultType === 'SKIPPED') {
-            return 'CANCELLEd';
+            return 'CANCELLED';
         }
         return resultType;
     }
