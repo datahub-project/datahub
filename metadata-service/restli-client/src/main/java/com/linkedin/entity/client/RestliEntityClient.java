@@ -28,6 +28,7 @@ import com.linkedin.entity.EntitiesDoSearchRequestBuilder;
 import com.linkedin.entity.EntitiesDoSetWritableRequestBuilder;
 import com.linkedin.entity.EntitiesRequestBuilders;
 import com.linkedin.entity.EntitiesV2BatchGetRequestBuilder;
+import com.linkedin.entity.EntitiesV2DoGetVersionedEntityRequestBuilder;
 import com.linkedin.entity.EntitiesV2GetRequestBuilder;
 import com.linkedin.entity.EntitiesV2RequestBuilders;
 import com.linkedin.entity.Entity;
@@ -587,6 +588,29 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     }
 
     return Optional.empty();
+  }
+
+  @Override
+  public EntityResponse getVersionedEntity(@Nonnull final String entityName,
+      @Nonnull final Urn urn,
+      @Nonnull final String aspectName,
+      long version,
+      @Nonnull Authentication authentication) throws RemoteInvocationException {
+    EntitiesV2DoGetVersionedEntityRequestBuilder requestBuilder =
+        ENTITIES_V2_REQUEST_BUILDERS.actionGetVersionedEntity().urnParam(urn.toString())
+            .aspectParam(aspectName).versionParam(version);
+
+    try {
+      return sendClientRequest(requestBuilder, authentication).getEntity();
+    } catch (RestLiResponseException e) {
+      if (e.getStatus() == 404) {
+        log.debug("Could not find aspect {} for entity {}", aspectName, urn);
+        return null;
+      } else {
+        // re-throw other exceptions
+        throw new RuntimeException(e);
+      }
+    }
   }
 
   @SneakyThrows

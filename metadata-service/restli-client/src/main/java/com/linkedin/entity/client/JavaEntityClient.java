@@ -349,6 +349,15 @@ public class JavaEntityClient implements EntityClient {
         return _entityService.getVersionedAspect(Urn.createFromString(urn), aspect, version);
     }
 
+    @Override
+    public EntityResponse getVersionedEntity(@Nonnull final String entityName,
+        @Nonnull final Urn urn,
+        @Nonnull final String aspectName,
+        long version,
+        @Nonnull Authentication authentication) throws RemoteInvocationException {
+        return _entityService.getEntityVersionedAspectV2(entityName, urn, aspectName, version);
+    }
+
     @SneakyThrows
     @Override
     public VersionedAspect getAspectOrNull(@Nonnull String urn, @Nonnull String aspect, @Nonnull Long version,

@@ -127,6 +127,23 @@
           "optional" : true
         } ]
       } ],
+      "actions" : [ {
+        "name" : "getVersionedEntity",
+        "parameters" : [ {
+          "name" : "entityType",
+          "type" : "string"
+        }, {
+          "name" : "urn",
+          "type" : "string"
+        }, {
+          "name" : "aspect",
+          "type" : "string"
+        }, {
+          "name" : "version",
+          "type" : "long"
+        } ],
+        "returns" : "com.linkedin.entity.EntityResponse"
+      } ],
       "entity" : {
         "path" : "/entitiesV2/{entitiesV2Id}"
       }

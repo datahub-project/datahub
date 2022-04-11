@@ -2,10 +2,13 @@ package com.linkedin.metadata.resources.entity;
 
 import com.codahale.metrics.MetricRegistry;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.parseq.Task;
+import com.linkedin.restli.server.annotations.Action;
+import com.linkedin.restli.server.annotations.ActionParam;
 import com.linkedin.restli.server.annotations.Optional;
 import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.annotations.RestLiCollection;
@@ -24,7 +27,7 @@ import javax.inject.Inject;
 import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_ASPECTS;
+import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 
 
@@ -87,6 +90,24 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
             e);
       }
     }, MetricRegistry.name(this.getClass(), "batchGet"));
+  }
+
+  @Action(name = "getVersionedEntity")
+  @Nonnull
+  @WithSpan
+  public Task<EntityResponse> getVersionedEntity(
+      @Nonnull @ActionParam(PARAM_ENTITY_TYPE) final String entityName,
+      @Nonnull @ActionParam(PARAM_URN) final String urnStr,
+      @Nonnull @ActionParam(PARAM_ASPECT) final String aspectName,
+      @ActionParam(PARAM_VERSION) long version) {
+    return RestliUtil.toTask(() -> {
+      try {
+        return _entityService.getEntityVersionedAspectV2(entityName, UrnUtils.getUrn(urnStr), aspectName, version);
+      } catch (Exception e) {
+        throw new RuntimeException(
+            String.format("Failed to get entity with urns: %s, aspect: %s", urnStr, aspectName), e);
+      }
+    }, MetricRegistry.name(this.getClass(), "getEnvelopedAspect"));
   }
 
   private Set<String> getAllAspectNames(final String entityName) {

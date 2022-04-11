@@ -213,7 +213,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 platformName={data.platform.properties?.displayName || data.platform.name}
                 platformLogo={data.platform.properties?.logoUrl}
                 owners={data.ownership?.owners}
-                globalTags={data.globalTags}
+                globalTags={data.tags}
                 glossaryTerms={data.glossaryTerms}
                 domain={data.domain}
                 container={data.container}

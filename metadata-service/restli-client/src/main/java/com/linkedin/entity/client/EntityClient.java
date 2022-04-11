@@ -274,6 +274,12 @@ public interface EntityClient {
       @Nonnull Long version, @Nonnull Class<T> aspectClass, @Nonnull Authentication authentication)
       throws RemoteInvocationException;
 
+  EntityResponse getVersionedEntity(@Nonnull final String entityName,
+      @Nonnull final Urn urn,
+      @Nonnull final String aspectName,
+      long version,
+      @Nonnull Authentication authentication) throws RemoteInvocationException;
+
   @Deprecated
   public DataMap getRawAspect(@Nonnull String urn, @Nonnull String aspect, @Nonnull Long version,
       @Nonnull Authentication authentication) throws RemoteInvocationException;

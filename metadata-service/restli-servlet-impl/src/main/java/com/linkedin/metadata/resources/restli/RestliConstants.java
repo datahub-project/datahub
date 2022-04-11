@@ -34,4 +34,7 @@ public final class RestliConstants {
   public static final String PARAM_URNS = "urns";
   public static final String PARAM_MODE = "mode";
   public static final String PARAM_DIRECTION = "direction";
+  public static final String PARAM_ENTITY_TYPE = "entityType";
+  public static final String PARAM_ASPECT = "aspect";
+  public static final String PARAM_VERSION = "version";
 }

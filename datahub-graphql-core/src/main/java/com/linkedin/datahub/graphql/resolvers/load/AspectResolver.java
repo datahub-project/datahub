@@ -17,11 +17,21 @@ import org.dataloader.DataLoader;
  *
  */
 public class AspectResolver implements DataFetcher<CompletableFuture<Aspect>> {
+    private final String fieldNameOverride;
+
+    public AspectResolver() {
+        fieldNameOverride = null;
+    }
+
+    public AspectResolver(String fieldNameOverride) {
+        this.fieldNameOverride = fieldNameOverride;
+    }
+
     @Override
     public CompletableFuture<Aspect> get(DataFetchingEnvironment environment) {
         final DataLoader<VersionedAspectKey, Aspect> loader = environment.getDataLoaderRegistry().getDataLoader("Aspect");
-        final String fieldName = environment.getField().getName();
-        final Long version = environment.getArgument("version");
+        final String fieldName = fieldNameOverride != null ? fieldNameOverride : environment.getField().getName();
+        final Long version = environment.containsArgument("version") ? environment.getArgument("version") : 0L;
         final String urn = ((Entity) environment.getSource()).getUrn();
         return loader.load(new VersionedAspectKey(urn, fieldName, version));
     }

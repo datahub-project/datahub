@@ -1,17 +1,15 @@
 package com.linkedin.datahub.graphql.types.aspect;
 
-import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.VersionedAspectKey;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Aspect;
 import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.restli.client.RestLiResponseException;
+import com.linkedin.util.Pair;
 import graphql.execution.DataFetcherResult;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
@@ -37,21 +35,20 @@ public class AspectType {
         try {
           Urn entityUrn = Urn.createFromString(key.getUrn());
 
-          Map<Urn, EntityResponse> response = _entityClient.batchGetV2(
+          EntityResponse response = _entityClient.getVersionedEntity(
               entityUrn.getEntityType(),
-              ImmutableSet.of(entityUrn),
-              ImmutableSet.of(key.getAspectName()),
+              entityUrn,
+              key.getAspectName(),
+              key.getVersion(),
               context.getAuthentication()
           );
 
-          EntityResponse entityResponse = response.get(entityUrn);
-
-          if (entityResponse == null || entityResponse.getAspects().get(key.getAspectName()) == null) {
+          if (response == null || response.getAspects().get(key.getAspectName()) == null) {
             // The aspect was not found. Return null.
             return DataFetcherResult.<Aspect>newResult().data(null).build();
           }
-          final EnvelopedAspect aspect = entityResponse.getAspects().get(key.getAspectName());
-          return DataFetcherResult.<Aspect>newResult().data(AspectMapper.map(aspect)).build();
+          Pair<VersionedAspectKey, EntityResponse> responsePair = new Pair<>(key, response);
+          return DataFetcherResult.<Aspect>newResult().data(AspectMapper.map(responsePair)).build();
         } catch (Exception e) {
           if (e instanceof RestLiResponseException) {
             // if no aspect is found, restli will return a 404 rather than null

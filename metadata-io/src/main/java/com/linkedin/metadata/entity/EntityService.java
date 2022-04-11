@@ -179,6 +179,29 @@ public abstract class EntityService {
   }
 
   /**
+   * Retrieves the versioned aspects for the given set of urns as dynamic aspect objects
+   * (Without having to define union objects)
+   *
+   * @param entityName name of the entity to fetch
+   * @param urn urn to fetch
+   * @param aspectName aspect to fetch
+   * @param version version to fetch
+   * @return a map of {@link Urn} to {@link Entity} object
+   */
+  @Nullable
+  public EntityResponse getEntityVersionedAspectV2(
+      @Nonnull final String entityName,
+      @Nonnull final Urn urn,
+      @Nonnull final String aspectName,
+      final long version) {
+    EnvelopedAspect aspect = getEnvelopedAspect(entityName, urn, aspectName, version);
+    if (aspect == null) {
+      return null;
+    }
+    return toEntityResponse(urn, Collections.singletonList(aspect));
+  }
+
+  /**
    * Retrieves the latest aspects for the given set of urns as a list of enveloped aspects
    *
    * @param entityName name of the entity to fetch
@@ -217,7 +240,7 @@ public abstract class EntityService {
       @Nonnull final String entityName,
       @Nonnull final Urn urn,
       @Nonnull final String aspectName,
-      long version) throws Exception;
+      long version);
 
   /**
    * Retrieves an {@link VersionedAspect}, or null if one cannot be found.

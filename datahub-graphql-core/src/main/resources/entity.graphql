@@ -704,17 +704,17 @@ type Dataset implements EntityWithRelationships & Entity {
     """
     An additional set of read only properties
     """
-    properties: DatasetProperties
+    properties(version: Long): DatasetProperties
 
     """
     An additional set of of read write properties
     """
-    editableProperties: DatasetEditableProperties
+    editableProperties(version: Long): DatasetEditableProperties
 
     """
     Ownership metadata of the dataset
     """
-    ownership: Ownership
+    ownership(version: Long): Ownership
 
     """
     The deprecation status of the dataset
@@ -724,7 +724,7 @@ type Dataset implements EntityWithRelationships & Entity {
     """
     References to internal resources related to the dataset
     """
-    institutionalMemory: InstitutionalMemory
+    institutionalMemory(version: Long): InstitutionalMemory
 
     """
     Schema metadata of the dataset, available by version number
@@ -734,7 +734,7 @@ type Dataset implements EntityWithRelationships & Entity {
     """
     Editable schema metadata of the dataset
     """
-    editableSchemaMetadata: EditableSchemaMetadata
+    editableSchemaMetadata(version: Long): EditableSchemaMetadata
 
     """
     Status of the Dataset
@@ -744,12 +744,12 @@ type Dataset implements EntityWithRelationships & Entity {
     """
     Tags used for searching dataset
     """
-    tags: GlobalTags
+    tags(version: Long): GlobalTags
 
     """
     The structured glossary terms associated with the dataset
     """
-    glossaryTerms: GlossaryTerms
+    glossaryTerms(version: Long): GlossaryTerms
 
     """
     The Domain associated with the Dataset
@@ -833,7 +833,7 @@ type Dataset implements EntityWithRelationships & Entity {
     Deprecated, use tags field instead
     The structured tags associated with the dataset
     """
-    globalTags: GlobalTags @deprecated
+    globalTags(version: Long): GlobalTags @deprecated
 
     """
     Sub Types that this entity implements
@@ -907,7 +907,12 @@ type AspectRenderSpec {
 """
 Additional read only properties about a Dataset
 """
-type DatasetProperties {
+type DatasetProperties implements Aspect {
+    """
+    The logical version of the schema metadata, where zero represents the latest version
+    with otherwise monotonic ordering starting at one
+    """
+    version: Long
 
     """
     The name of the dataset used in display
@@ -1520,7 +1525,13 @@ type DatasetDeprecation {
 """
 Institutional memory metadata, meaning internal links and pointers related to an Entity
 """
-type InstitutionalMemory {
+type InstitutionalMemory implements Aspect {
+    """
+    The logical version of the schema metadata, where zero represents the latest version
+    with otherwise monotonic ordering starting at one
+    """
+    version: Long
+
     """
     List of records that represent the institutional memory or internal documentation of an entity
     """
@@ -1815,7 +1826,13 @@ type SchemaField {
 """
 Information about schema metadata that is editable via the UI
 """
-type EditableSchemaMetadata {
+type EditableSchemaMetadata implements Aspect {
+    """
+    The logical version of the schema metadata, where zero represents the latest version
+    with otherwise monotonic ordering starting at one
+    """
+    version: Long
+
     """
     Editable schema field metadata
     """
@@ -1948,7 +1965,13 @@ type ViewProperties {
 Dataset properties that are editable via the UI This represents logical metadata,
 as opposed to technical metadata
 """
-type DatasetEditableProperties {
+type DatasetEditableProperties implements Aspect {
+    """
+    The logical version of the schema metadata, where zero represents the latest version
+    with otherwise monotonic ordering starting at one
+    """
+    version: Long
+
     """
     Description of the Dataset
     """
@@ -2749,7 +2772,13 @@ type Owner {
 """
 Ownership information about a Metadata Entity
 """
-type Ownership {
+type Ownership implements Aspect {
+    """
+    The logical version of the schema metadata, where zero represents the latest version
+    with otherwise monotonic ordering starting at one
+    """
+    version: Long
+
     """
     List of owners of the entity
     """
@@ -2860,7 +2889,13 @@ type TagAssociation {
 """
 Tags attached to a particular Metadata Entity
 """
-type GlobalTags {
+type GlobalTags implements Aspect {
+    """
+    The logical version of the schema metadata, where zero represents the latest version
+    with otherwise monotonic ordering starting at one
+    """
+    version: Long
+
     """
     The set of tags attached to the Metadata Entity
     """
@@ -2877,8 +2912,14 @@ type VersionTag {
 """
 Glossary Terms attached to a particular Metadata Entity
 """
-type GlossaryTerms {
-     """
+type GlossaryTerms implements Aspect {
+    """
+    The logical version of the schema metadata, where zero represents the latest version
+    with otherwise monotonic ordering starting at one
+    """
+    version: Long
+
+    """
      The set of glossary terms attached to the Metadata Entity
      """
     terms: [GlossaryTermAssociation!]

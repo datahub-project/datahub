@@ -258,25 +258,6 @@ public class GmsGraphQLEngine {
      */
     public final List<BrowsableEntityType<?>> browsableTypes;
 
-    @Deprecated
-    public GmsGraphQLEngine() {
-        this(
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            false);
-    }
-
     public GmsGraphQLEngine(
         final EntityClient entityClient,
         final GraphClient graphClient,
@@ -367,88 +348,16 @@ public class GmsGraphQLEngine {
             .collect(Collectors.toList());
     }
 
-    public static String entitySchema() {
-        String defaultSchemaString;
+    public static String fileBasedSchema(String fileName) {
+        String schema;
         try {
-            InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(GMS_SCHEMA_FILE);
-            defaultSchemaString = IOUtils.toString(is, StandardCharsets.UTF_8);
+            InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(fileName);
+            schema = IOUtils.toString(is, StandardCharsets.UTF_8);
             is.close();
         } catch (IOException e) {
-            throw new RuntimeException("Failed to find GraphQL Schema with name " + GMS_SCHEMA_FILE, e);
+            throw new RuntimeException("Failed to find GraphQL Schema with name " + fileName, e);
         }
-        return defaultSchemaString;
-    }
-
-    public static String searchSchema() {
-        String defaultSchemaString;
-        try {
-            InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(SEARCH_SCHEMA_FILE);
-            defaultSchemaString = IOUtils.toString(is, StandardCharsets.UTF_8);
-            is.close();
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to find GraphQL Schema with name " + SEARCH_SCHEMA_FILE, e);
-        }
-        return defaultSchemaString;
-    }
-
-    public static String appSchema() {
-        String defaultSchemaString;
-        try {
-            InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(APP_SCHEMA_FILE);
-            defaultSchemaString = IOUtils.toString(is, StandardCharsets.UTF_8);
-            is.close();
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to find GraphQL Schema with name " + APP_SCHEMA_FILE, e);
-        }
-        return defaultSchemaString;
-    }
-
-    public static String authSchema() {
-        String defaultSchemaString;
-        try {
-            InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(AUTH_SCHEMA_FILE);
-            defaultSchemaString = IOUtils.toString(is, StandardCharsets.UTF_8);
-            is.close();
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to find GraphQL Schema with name " + AUTH_SCHEMA_FILE, e);
-        }
-        return defaultSchemaString;
-    }
-
-    public static String analyticsSchema() {
-        String analyticsSchemaString;
-        try {
-            InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(ANALYTICS_SCHEMA_FILE);
-            analyticsSchemaString = IOUtils.toString(is, StandardCharsets.UTF_8);
-            is.close();
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to find GraphQL Schema with name " + ANALYTICS_SCHEMA_FILE, e);
-        }
-        return analyticsSchemaString;
-    }
-
-    public static String recommendationsSchema() {
-        String recommendationsSchemaString;
-        try {
-            InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(RECOMMENDATIONS_SCHEMA_FILE);
-            recommendationsSchemaString = IOUtils.toString(is, StandardCharsets.UTF_8);
-            is.close();
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to find GraphQL Schema with name " + RECOMMENDATIONS_SCHEMA_FILE, e);
-        }
-        return recommendationsSchemaString;
-    }
-
-    public static String ingestionSchema() {
-        String ingestionSchema;
-        try {
-            InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(INGESTION_SCHEMA_FILE);
-            ingestionSchema = IOUtils.toString(is, StandardCharsets.UTF_8);
-            is.close();
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to find GraphQL Schema with name " + INGESTION_SCHEMA_FILE, e);
-        }
-        return ingestionSchema;
+        return schema;
     }
 
     /**
@@ -492,16 +401,16 @@ public class GmsGraphQLEngine {
 
     public GraphQLEngine.Builder builder() {
         return GraphQLEngine.builder()
-            .addSchema(entitySchema())
-            .addSchema(searchSchema())
-            .addSchema(appSchema())
-            .addSchema(authSchema())
-            .addSchema(analyticsSchema())
-            .addSchema(recommendationsSchema())
-            .addSchema(ingestionSchema())
+            .addSchema(fileBasedSchema(GMS_SCHEMA_FILE))
+            .addSchema(fileBasedSchema(SEARCH_SCHEMA_FILE))
+            .addSchema(fileBasedSchema(APP_SCHEMA_FILE))
+            .addSchema(fileBasedSchema(AUTH_SCHEMA_FILE))
+            .addSchema(fileBasedSchema(ANALYTICS_SCHEMA_FILE))
+            .addSchema(fileBasedSchema(RECOMMENDATIONS_SCHEMA_FILE))
+            .addSchema(fileBasedSchema(INGESTION_SCHEMA_FILE))
             .addDataLoaders(loaderSuppliers(loadableTypes))
-            .addDataLoader("Aspect", (context) -> createAspectLoader(context))
-            .addDataLoader("UsageQueryResult", (context) -> createUsageLoader(context))
+            .addDataLoader("Aspect", this::createAspectLoader)
+            .addDataLoader("UsageQueryResult", this::createUsageLoader)
             .configureRuntimeWiring(this::configureRuntimeWiring);
     }
 
@@ -825,8 +734,33 @@ public class GmsGraphQLEngine {
                 .dataFetcher("schemaMetadata", new AuthenticatedResolver<>(
                     new AspectResolver())
                 )
+                .dataFetcher("tags", new AuthenticatedResolver<>(
+                    new AspectResolver("globalTags"))
+                )
+                .dataFetcher("globalTags", new AuthenticatedResolver<>(
+                    new AspectResolver())
+                )
+                .dataFetcher("glossaryTerms", new AuthenticatedResolver<>(
+                    new AspectResolver())
+                )
+                .dataFetcher("editableSchemaMetadata", new AuthenticatedResolver<>(
+                    new AspectResolver())
+                )
+                .dataFetcher("properties", new AuthenticatedResolver<>(
+                    new AspectResolver("datasetProperties"))
+                )
+                .dataFetcher("editableProperties", new AuthenticatedResolver<>(
+                    new AspectResolver("editableDatasetProperties"))
+                )
+                .dataFetcher("ownership", new AuthenticatedResolver<>(
+                    new AspectResolver())
+                )
+                .dataFetcher("institutionalMemory", new AuthenticatedResolver<>(
+                    new AspectResolver())
+                )
+
                 .dataFetcher("assertions", new EntityAssertionsResolver(entityClient, graphClient))
-               .dataFetcher("aspects", new AuthenticatedResolver<>(
+                .dataFetcher("aspects", new AuthenticatedResolver<>(
                    new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
                )
                .dataFetcher("subTypes", new AuthenticatedResolver(new SubTypesResolver(

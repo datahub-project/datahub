@@ -9,6 +9,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.JacksonDataTemplateCodec;
@@ -245,7 +246,7 @@ public class EbeanEntityService extends EntityService {
       @Nonnull String entityName,
       @Nonnull Urn urn,
       @Nonnull String aspectName,
-      long version) throws Exception {
+      long version) {
     log.debug(String.format("Invoked getEnvelopedAspect with entityName: %s, urn: %s, aspectName: %s, version: %s",
         entityName,
         urn,
@@ -705,7 +706,7 @@ public class EbeanEntityService extends EntityService {
     return result;
   }
 
-  private Map<EbeanAspectV2.PrimaryKey, EnvelopedAspect> getEnvelopedAspects(final Set<EbeanAspectV2.PrimaryKey> dbKeys) throws URISyntaxException {
+  private Map<EbeanAspectV2.PrimaryKey, EnvelopedAspect> getEnvelopedAspects(final Set<EbeanAspectV2.PrimaryKey> dbKeys) {
     final Map<EbeanAspectV2.PrimaryKey, EnvelopedAspect> result = new HashMap<>();
     final Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> dbEntries = _entityDao.batchGet(dbKeys);
 
@@ -726,7 +727,7 @@ public class EbeanEntityService extends EntityService {
       envelopedAspect.setVersion(currAspectEntry.getKey().getVersion());
       envelopedAspect.setValue(aspect);
       envelopedAspect.setCreated(new AuditStamp()
-          .setActor(Urn.createFromString(currAspectEntry.getCreatedBy()))
+          .setActor(UrnUtils.getUrn(currAspectEntry.getCreatedBy()))
           .setTime(currAspectEntry.getCreatedOn().getTime())
       );
       result.put(currKey, envelopedAspect);
