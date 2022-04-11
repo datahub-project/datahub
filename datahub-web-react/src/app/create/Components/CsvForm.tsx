@@ -17,8 +17,8 @@ export const CsvForm = () => {
     let publishUrl = initialUrl.includes(':3000')
         ? initialUrl.replace(':3000/adhoc/', ':8001/custom/make_dataset')
         : initialUrl;
-    publishUrl = publishUrl.includes(':9002') 
-        ? publishUrl.replace(':9002/adhoc/', ':8001/custom/make_dataset') 
+    publishUrl = publishUrl.includes(':9002')
+        ? publishUrl.replace(':9002/adhoc/', ':8001/custom/make_dataset')
         : publishUrl.replace('/adhoc/', '/custom/make_dataset');
 
     console.log(`the publish url is ${publishUrl}`);

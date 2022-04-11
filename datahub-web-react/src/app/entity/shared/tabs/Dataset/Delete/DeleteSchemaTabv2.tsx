@@ -37,8 +37,8 @@ export const DeleteSchemaTabv2 = () => {
     let publishUrl = initialUrl.includes(':3000')
         ? initialUrl.replace(':3000/', ':8001/custom/update_dataset_status')
         : mainPath;
-    publishUrl = publishUrl.includes(':9002') 
-        ? publishUrl.replace(':9002/', ':8001/custom/update_dataset_status') 
+    publishUrl = publishUrl.includes(':9002')
+        ? publishUrl.replace(':9002/', ':8001/custom/update_dataset_status')
         : `${mainPath}/custom/update_dataset_status`;
     // const publishUrl = mainPath.includes(':3000')
     //     ? mainPath.replace(':3000/', ':8001/custom/update_dataset_status')

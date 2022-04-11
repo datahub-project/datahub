@@ -23,7 +23,7 @@ export const BannerSplash = () => {
     let publishUrl = mainPath.includes(':3000')
         ? mainPath.replace(':3000/', ':8001/custom/announce')
         : mainPath;
-    publishUrl = publishUrl.includes(':9002') 
+    publishUrl = publishUrl.includes(':9002')
         ? publishUrl.replace(':9002/', ':8001/custom/announce')
         : `${publishUrl}/custom/announce`;
     console.log(`the final url is ${publishUrl}`);

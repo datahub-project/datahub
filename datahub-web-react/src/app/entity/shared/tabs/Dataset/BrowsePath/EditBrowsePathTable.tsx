@@ -38,8 +38,8 @@ export const EditBrowsePathTable = () => {
     let publishUrl = initialUrl.includes(':3000')
         ? initialUrl.replace(':3000/', ':8001/custom/update_browsepath')
         : mainPath;
-    publishUrl = publishUrl.includes(':9002') 
-        ? publishUrl.replace(':9002/', ':8001/custom/update_browsepath') 
+    publishUrl = publishUrl.includes(':9002')
+        ? publishUrl.replace(':9002/', ':8001/custom/update_browsepath')
         : `${mainPath}/custom/update_browsepath`;
     console.log(`the final url is ${publishUrl}`);
     // let url = adhocConfig;

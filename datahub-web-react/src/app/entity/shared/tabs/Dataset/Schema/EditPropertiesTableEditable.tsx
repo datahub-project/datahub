@@ -23,9 +23,9 @@ export const EditPropertiesTableEditable = () => {
     let publishUrl = mainPath.includes(':3000')
         ? mainPath.replace(':3000/', ':8001/custom/update_properties')
         : mainPath;
-    publishUrl = mainPath.includes(':9002') 
+    publishUrl = mainPath.includes(':9002')
         ? mainPath.replace(':9002/', ':8001/custom/update_properties')
-        : `${mainPath}/custom/update_properties`;    
+        : `${mainPath}/custom/update_properties`;
     console.log(`the final url is ${publishUrl}`);
     // let url = adhocConfig;
     // const branch = url.lastIndexOf('/');
