@@ -26,6 +26,11 @@ APPLICATION_NAME = "acryl_datahub"
 
 logger: logging.Logger = logging.getLogger(__name__)
 
+valid_auth_types = {
+    "DEFAULT_AUTHENTICATOR": DEFAULT_AUTHENTICATOR,
+    "EXTERNAL_BROWSER_AUTHENTICATOR": EXTERNAL_BROWSER_AUTHENTICATOR,
+    "KEY_PAIR_AUTHENTICATOR": KEY_PAIR_AUTHENTICATOR,
+}
 
 class SnowflakeProvisionRoleConfig(ConfigModel):
     enabled: bool = False
@@ -76,7 +81,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
     include_table_lineage: Optional[bool] = True
     include_view_lineage: Optional[bool] = True
 
-    connect_args: Optional[dict]
+    connect_args: Optional[dict] = pydantic.Field(default=None, exclude=True)
 
     @pydantic.validator("host_port", always=True)
     def host_port_is_valid(cls, v, values, **kwargs):
@@ -87,11 +92,6 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
 
     @pydantic.validator("authentication_type", always=True)
     def authenticator_type_is_valid(cls, v, values, **kwargs):
-        valid_auth_types = {
-            "DEFAULT_AUTHENTICATOR": DEFAULT_AUTHENTICATOR,
-            "EXTERNAL_BROWSER_AUTHENTICATOR": EXTERNAL_BROWSER_AUTHENTICATOR,
-            "KEY_PAIR_AUTHENTICATOR": KEY_PAIR_AUTHENTICATOR,
-        }
         if v not in valid_auth_types.keys():
             raise ValueError(
                 f"unsupported authenticator type '{v}' was provided,"
@@ -105,13 +105,8 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
                         f"'private_key_path' was none "
                         f"but should be set when using {v} authentication"
                     )
-                if values.get("private_key_password") is None:
-                    raise ValueError(
-                        f"'private_key_password' was none "
-                        f"but should be set when using {v} authentication"
-                    )
             logger.info(f"using authenticator type '{v}'")
-        return valid_auth_types.get(v)
+        return v
 
     @pydantic.validator("include_view_lineage")
     def validate_include_view_lineage(cls, v, values):
@@ -144,7 +139,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
                 # Drop the options if value is None.
                 key: value
                 for (key, value) in {
-                    "authenticator": self.authentication_type,
+                    "authenticator": valid_auth_types.get(self.authentication_type),
                     "warehouse": self.warehouse,
                     "role": role,
                     "application": APPLICATION_NAME,
@@ -154,7 +149,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
         )
 
     def get_sql_alchemy_connect_args(self) -> dict:
-        if self.authentication_type != KEY_PAIR_AUTHENTICATOR:
+        if self.authentication_type != 'KEY_PAIR_AUTHENTICATOR':
             return {}
         if self.connect_args is None:
             if self.private_key_path is None:
