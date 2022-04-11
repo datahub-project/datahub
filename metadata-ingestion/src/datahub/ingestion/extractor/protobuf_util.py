@@ -154,7 +154,11 @@ def _add_field(graph, parent_node: str, field: FieldDescriptor) -> None:
 
 
 def _add_fields(
-    graph, fields: List[FieldDescriptor], parent_name: str, parent_type: str = "message", visited: Optional[Set[str]] = None
+    graph,
+    fields: List[FieldDescriptor],
+    parent_name: str,
+    parent_type: str = "message",
+    visited: Optional[Set[str]] = None,
 ) -> None:
     if not visited:
         visited = set()
@@ -182,13 +186,15 @@ def _add_message(graph: DiGraph, message: Descriptor, visited: Set[str]) -> None
             _add_oneof(graph, node_name, oneof, visited)
 
 
-def _add_oneof(graph: DiGraph, parent_node: str, oneof: OneofDescriptor, visited: Set[str]) -> None:
+def _add_oneof(
+    graph: DiGraph, parent_node: str, oneof: OneofDescriptor, visited: Set[str]
+) -> None:
     node_name = _get_node_name(oneof)
     node_type = _get_type_ascription(oneof)
     graph.add_node(node_name, node_type=node_type)
     graph.add_edge(parent_node, node_name, fields=[oneof])
 
-    _add_fields(graph, oneof.fields, node_name, parent_type="oneof", visited = visited)
+    _add_fields(graph, oneof.fields, node_name, parent_type="oneof", visited=visited)
 
 
 @contextlib.contextmanager
