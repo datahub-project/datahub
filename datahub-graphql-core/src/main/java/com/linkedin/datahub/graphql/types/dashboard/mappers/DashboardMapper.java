@@ -70,6 +70,7 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
         mappingHelper.mapToResult(DOMAINS_ASPECT_NAME, this::mapDomains);
         mappingHelper.mapToResult(DEPRECATION_ASPECT_NAME, (dashboard, dataMap) ->
             dashboard.setDeprecation(DeprecationMapper.map(new Deprecation(dataMap))));
+        mappingHelper.mapToResult(GLOBAL_TAGS_ASPECT_NAME, this::mapGlobalTags);
 
         return mappingHelper.getResult();
     }

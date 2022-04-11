@@ -61,6 +61,9 @@ fragment searchResultFields on Entity {
         container {
             ...entityContainer
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
     ... on CorpUser {
         username
@@ -133,6 +136,9 @@ fragment searchResultFields on Entity {
         container {
             ...entityContainer
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
     ... on Chart {
         urn
@@ -170,6 +176,9 @@ fragment searchResultFields on Entity {
         container {
             ...entityContainer
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
     ... on DataFlow {
         urn
@@ -200,6 +209,9 @@ fragment searchResultFields on Entity {
         domain {
             ...entityDomain
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
     ... on DataJob {
         urn
@@ -227,6 +239,9 @@ fragment searchResultFields on Entity {
         domain {
             ...entityDomain
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
     ... on GlossaryTerm {
         name
@@ -242,6 +257,9 @@ fragment searchResultFields on Entity {
                 key
                 value
             }
+        }
+        deprecation {
+            ...deprecationFields
         }
     }
     ... on Domain {
@@ -287,6 +305,9 @@ fragment searchResultFields on Entity {
         container {
             ...entityContainer
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
     ... on MLFeatureTable {
         urn
@@ -308,6 +329,9 @@ fragment searchResultFields on Entity {
         platform {
             ...platformFields
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
     ... on MLModel {
         name
@@ -319,6 +343,9 @@ fragment searchResultFields on Entity {
         platform {
             ...platformFields
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
     ... on MLModelGroup {
         name
@@ -329,6 +356,9 @@ fragment searchResultFields on Entity {
         }
         platform {
             ...platformFields
+        }
+        deprecation {
+            ...deprecationFields
         }
     }
     ... on Tag {
