@@ -1,6 +1,5 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
-import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.DoubleMap;
 import com.linkedin.data.template.LongMap;
@@ -64,7 +63,10 @@ public class SearchRequestHandler {
   private final Set<String> _defaultQueryFieldNames;
   private final Map<String, String> _filtersToDisplayName;
   private final int _maxTermBucketSize = 100;
+
   private static final String REMOVED = "removed";
+  // List of fields in the search document to fetch
+  private static final String[] FIELDS_TO_FETCH = new String[]{"urn", "usageCountLast30Days"};
 
   private SearchRequestHandler(@Nonnull EntitySpec entitySpec) {
     _entitySpec = entitySpec;
@@ -104,9 +106,9 @@ public class SearchRequestHandler {
 
     boolean removedInOrFilter = false;
     if (filter != null) {
-      removedInOrFilter = filter.getOr().stream().anyMatch(
-              or -> or.getAnd().stream().anyMatch(criterion -> criterion.getField().equals(REMOVED))
-      );
+      removedInOrFilter = filter.getOr()
+          .stream()
+          .anyMatch(or -> or.getAnd().stream().anyMatch(criterion -> criterion.getField().equals(REMOVED)));
     }
     // Filter out entities that are marked "removed" if and only if filter does not contain a criterion referencing it.
     if (!removedInOrFilter) {
@@ -136,7 +138,7 @@ public class SearchRequestHandler {
 
     searchSourceBuilder.from(from);
     searchSourceBuilder.size(size);
-    searchSourceBuilder.fetchSource("urn", null);
+    searchSourceBuilder.fetchSource(FIELDS_TO_FETCH, null);
 
     BoolQueryBuilder filterQuery = getFilterQuery(filter);
     searchSourceBuilder.query(QueryBuilders.boolQuery().must(getQuery(input)).must(filterQuery));
@@ -263,13 +265,12 @@ public class SearchRequestHandler {
     return _defaultQueryFieldNames.stream().filter(matchedField::startsWith).findFirst();
   }
 
-  private double hasOwners(@Nonnull SearchHit searchHit) {
-    return ((Boolean) searchHit.getSourceAsMap().getOrDefault("hasOwners", false)) ? 1 : 0;
-  }
-
   private Map<String, Double> extractFeatures(@Nonnull SearchHit searchHit) {
-    return ImmutableMap.of(Features.Name.SEARCH_BACKEND_SCORE.toString(), (double) searchHit.getScore(),
-        Features.Name.HAS_OWNERS.toString(), hasOwners(searchHit));
+    Map<String, Double> features = new HashMap<>();
+    features.put(Features.Name.SEARCH_BACKEND_SCORE.toString(), (double) searchHit.getScore());
+    Optional.ofNullable(searchHit.getSourceAsMap().get("usageCountLast30Days"))
+        .ifPresent(value -> features.put(Features.Name.QUERY_COUNT.toString(), (Double) value));
+    return features;
   }
 
   private SearchEntity getResult(@Nonnull SearchHit hit) {
