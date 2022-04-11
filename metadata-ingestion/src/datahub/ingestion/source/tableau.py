@@ -122,7 +122,7 @@ class TableauSource(Source):
 
     def _authenticate(self):
         # https://tableau.github.io/server-client-python/docs/api-ref#authentication
-        authentication : Any = None
+        authentication: Any = None
         if self.config.username and self.config.password:
             authentication = TableauAuth(
                 self.config.username, self.config.password, self.config.site
