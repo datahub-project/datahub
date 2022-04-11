@@ -1,6 +1,5 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
-import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.DoubleMap;
 import com.linkedin.data.template.LongMap;
@@ -267,9 +266,11 @@ public class SearchRequestHandler {
   }
 
   private Map<String, Double> extractFeatures(@Nonnull SearchHit searchHit) {
-    Optional<Long> usageCount = Optional.ofNullable(searchHit.field("usageCountLast30Days").getValue());
-    return ImmutableMap.of(Features.Name.SEARCH_BACKEND_SCORE.toString(), (double) searchHit.getScore(),
-        Features.Name.QUERY_COUNT.toString(), usageCount.orElse(0L).doubleValue());
+    Map<String, Double> features = new HashMap<>();
+    features.put(Features.Name.SEARCH_BACKEND_SCORE.toString(), (double) searchHit.getScore());
+    Optional.ofNullable(searchHit.getSourceAsMap().get("usageCountLast30Days"))
+        .ifPresent(value -> features.put(Features.Name.QUERY_COUNT.toString(), (Double) value));
+    return features;
   }
 
   private SearchEntity getResult(@Nonnull SearchHit hit) {
