@@ -22,6 +22,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import org.apache.commons.lang.StringUtils;
+import org.springframework.util.CollectionUtils;
 
 
 public class SchemaDiffer implements Differ {
@@ -269,21 +271,35 @@ public class SchemaDiffer implements Differ {
 
   private static boolean isRenamed(SchemaField curField, SchemaField schemaField) {
     return curField.getNativeDataType().equals(schemaField.getNativeDataType())
-        && (descriptionsMatch(curField, schemaField)
+        && (parentFieldsMatch(curField, schemaField)
+            || descriptionsMatch(curField, schemaField)
             || tagsMatch(curField, schemaField)
             || termsMatch(curField, schemaField));
   }
 
+  private static boolean parentFieldsMatch(SchemaField curField, SchemaField schemaField) {
+    int curFieldIndex = curField.getFieldPath().lastIndexOf(".");
+    int schemaFieldIndex = schemaField.getFieldPath().lastIndexOf(".");
+    if (curFieldIndex > 0 && schemaFieldIndex > 0) {
+      String curFieldParentPath = curField.getFieldPath().substring(0, curFieldIndex);
+      String schemaFieldParentPath = schemaField.getFieldPath().substring(0, schemaFieldIndex);
+      return StringUtils.isNotBlank(curFieldParentPath) && curFieldParentPath.equals(schemaFieldParentPath);
+    }
+    return false;
+  }
+
   private static boolean descriptionsMatch(SchemaField curField, SchemaField schemaField) {
-    return curField.getDescription() != null && curField.getDescription().equals(schemaField.getDescription());
+    return StringUtils.isNotBlank(curField.getDescription()) && curField.getDescription().equals(schemaField.getDescription());
   }
 
   private static boolean tagsMatch(SchemaField curField, SchemaField schemaField) {
-    return curField.getGlobalTags() != null && curField.getGlobalTags().equals(schemaField.getGlobalTags());
+    return curField.getGlobalTags() != null && !CollectionUtils.isEmpty(curField.getGlobalTags().getTags())
+        && curField.getGlobalTags().equals(schemaField.getGlobalTags());
   }
 
   private static boolean termsMatch(SchemaField curField, SchemaField schemaField) {
-    return curField.getGlossaryTerms() != null && curField.getGlossaryTerms().equals(schemaField.getGlossaryTerms());
+    return curField.getGlossaryTerms() != null && !CollectionUtils.isEmpty(curField.getGlossaryTerms().getTerms())
+        && curField.getGlossaryTerms().equals(schemaField.getGlossaryTerms());
   }
 
   private static void processRemoval(ChangeCategory changeCategory, List<ChangeEvent> changeEvents, Urn datasetUrn,
