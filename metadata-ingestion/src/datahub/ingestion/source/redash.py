@@ -494,7 +494,9 @@ class RedashSource(Source):
 
         return dashboard_snapshot
 
-    def _get_database_name_from_datasource_id(self, data_source_id: int) -> Optional[str]:
+    def _get_database_name_from_datasource_id(
+        self, data_source_id: int
+    ) -> Optional[str]:
         data_source = self._get_chart_data_source(data_source_id)
         data_source_type = data_source.get("type")
 
@@ -542,9 +544,11 @@ class RedashSource(Source):
                     visualization = widget.get("visualization")
                     if not visualization:
                         continue
-                    
+
                     query_data = visualization["query"]
-                    database_name = self._get_database_name_from_datasource_id(query_data.get("data_source_id"))
+                    database_name = self._get_database_name_from_datasource_id(
+                        query_data.get("data_source_id")
+                    )
                     if not self.config.database_patterns.allowed(database_name):
                         self.report.report_dropped(dashboard_name)
                         break
