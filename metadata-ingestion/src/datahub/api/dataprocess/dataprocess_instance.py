@@ -22,6 +22,7 @@ from datahub.metadata.schema_classes import (
     DataProcessInstanceRunResultClass,
     DataProcessRunStatusClass,
     DataProcessTypeClass,
+    StatusClass,
 )
 
 if TYPE_CHECKING:
@@ -374,4 +375,16 @@ class DataProcessInstance:
                 aspect=DataProcessInstanceOutput(outputs=self.outlets),
                 changeType=ChangeTypeClass.UPSERT,
             )
+            yield mcp
+
+            # Force entity materialization
+        for iolet in self.inlets + self.outlets:
+            mcp = MetadataChangeProposalWrapper(
+                entityType="dataset",
+                entityUrn=iolet,
+                aspectName="status",
+                aspect=StatusClass(removed=False),
+                changeType=ChangeTypeClass.UPSERT,
+            )
+
             yield mcp

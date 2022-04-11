@@ -1,8 +1,6 @@
 from typing import TYPE_CHECKING, Dict, List, Optional
 
 from airflow.configuration import conf
-from airflow.utils.state import DagRunState, TaskInstanceState
-from airflow.utils.types import DagRunType
 
 from datahub.api.dataprocess.dataflow import DataFlow
 from datahub.api.dataprocess.datajob import DataJob
@@ -267,10 +265,20 @@ class AirflowGenerator:
             start_timestamp_millis = int(dag_run.execution_date.timestamp() * 1000)
 
         dpi = DataProcessInstance.from_dataflow(dataflow=dataflow, id=dag_run.run_id)
-        if dag_run.run_type == DagRunType.SCHEDULED:
-            dpi.type = DataProcessTypeClass.BATCH_SCHEDULED
-        elif dag_run.run_type == DagRunType.MANUAL:
-            dpi.type = DataProcessTypeClass.BATCH_AD_HOC
+
+        # This property only exists in Airflow2
+        if hasattr(dag_run, "run_type"):
+            from airflow.utils.types import DagRunType
+
+            if dag_run.run_type == DagRunType.SCHEDULED:
+                dpi.type = DataProcessTypeClass.BATCH_SCHEDULED
+            elif dag_run.run_type == DagRunType.MANUAL:
+                dpi.type = DataProcessTypeClass.BATCH_AD_HOC
+        else:
+            if dag_run.run_id.startswith("scheduled__"):
+                dpi.type = DataProcessTypeClass.BATCH_SCHEDULED
+            else:
+                dpi.type = DataProcessTypeClass.BATCH_AD_HOC
 
         property_bag: Dict[str, str] = {}
         property_bag["run_id"] = str(dag_run.run_id)
@@ -315,9 +323,10 @@ class AirflowGenerator:
                 )
             end_timestamp_millis = int(dag_run.end_date.timestamp() * 1000)
 
-        if dag_run.state == DagRunState.SUCCESS:
+        # We should use DagRunState but it is not available in Airflow 1
+        if dag_run.state == "success":
             result = InstanceRunResult.SUCCESS
-        elif dag_run.state == DagRunState.FAILED:
+        elif dag_run.state == "failed":
             result = InstanceRunResult.FAILURE
         else:
             raise Exception(
@@ -340,6 +349,7 @@ class AirflowGenerator:
         start_timestamp_millis: Optional[int] = None,
         datajob: Optional[DataJob] = None,
         attempt: Optional[int] = None,
+        emit_templates: bool = True,
     ) -> DataProcessInstance:
         if datajob is None:
             datajob = AirflowGenerator.generate_datajob(cluster, ti.task, dag)
@@ -371,10 +381,19 @@ class AirflowGenerator:
         dpi.properties.update(job_property_bag)
         dpi.url = ti.log_url
 
-        if ti.dag_run.run_type == DagRunType.SCHEDULED:
-            dpi.type = DataProcessTypeClass.BATCH_SCHEDULED
-        elif ti.dag_run.run_type == DagRunType.MANUAL:
-            dpi.type = DataProcessTypeClass.BATCH_AD_HOC
+        # This property only exists in Airflow2
+        if hasattr(ti.dag_run, "run_type"):
+            from airflow.utils.types import DagRunType
+
+            if ti.dag_run.run_type == DagRunType.SCHEDULED:
+                dpi.type = DataProcessTypeClass.BATCH_SCHEDULED
+            elif ti.dag_run.run_type == DagRunType.MANUAL:
+                dpi.type = DataProcessTypeClass.BATCH_AD_HOC
+        else:
+            if ti.run_id.startswith("scheduled__"):
+                dpi.type = DataProcessTypeClass.BATCH_SCHEDULED
+            else:
+                dpi.type = DataProcessTypeClass.BATCH_AD_HOC
 
         if start_timestamp_millis is None:
             assert ti.start_date
@@ -387,6 +406,7 @@ class AirflowGenerator:
             emitter=emitter,
             start_timestamp_millis=start_timestamp_millis,
             attempt=attempt,
+            emit_template=emit_templates,
         )
         return dpi
 
@@ -419,9 +439,10 @@ class AirflowGenerator:
             end_timestamp_millis = int(ti.end_date.timestamp() * 1000)
 
         if result is None:
-            if ti.state == TaskInstanceState.SUCCESS:
+            # We should use TaskInstanceState but it is not available in Airflow 1
+            if ti.state == "success":
                 result = InstanceRunResult.SUCCESS
-            elif ti.state == TaskInstanceState.FAILED:
+            elif ti.state == "failed":
                 result = InstanceRunResult.FAILURE
             else:
                 raise Exception(

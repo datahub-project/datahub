@@ -78,7 +78,12 @@ def send_lineage_to_datahub(
 
     if config.capture_executions:
         dpi = AirflowGenerator.run_datajob(
-            emitter=emitter, cluster=config.cluster, ti=ti, dag=dag, datajob=datajob
+            emitter=emitter,
+            cluster=config.cluster,
+            ti=ti,
+            dag=dag,
+            datajob=datajob,
+            emit_templates=False,
         )
 
         print(f"Emitted from Lineage: {dpi}")

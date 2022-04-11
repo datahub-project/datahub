@@ -12,9 +12,22 @@ from typing import (
 )
 
 import datahub.emitter.mce_builder as builder
-import datahub.metadata.schema_classes as models
 from datahub.api.dataprocess.urn import DataFlowUrn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.metadata.schema_classes import (
+    AuditStampClass,
+    ChangeTypeClass,
+    DataFlowInfoClass,
+    DataFlowSnapshotClass,
+    GlobalTagsClass,
+    MetadataChangeEventClass,
+    OwnerClass,
+    OwnershipClass,
+    OwnershipSourceClass,
+    OwnershipSourceTypeClass,
+    OwnershipTypeClass,
+    TagAssociationClass,
+)
 
 if TYPE_CHECKING:
     from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
@@ -40,39 +53,39 @@ class DataFlow:
         )
 
     def generate_ownership_aspect(self):
-        ownership = models.OwnershipClass(
+        ownership = OwnershipClass(
             owners=[
-                models.OwnerClass(
+                OwnerClass(
                     owner=builder.make_user_urn(owner),
-                    type=models.OwnershipTypeClass.DEVELOPER,
-                    source=models.OwnershipSourceClass(
-                        type=models.OwnershipSourceTypeClass.SERVICE,
+                    type=OwnershipTypeClass.DEVELOPER,
+                    source=OwnershipSourceClass(
+                        type=OwnershipSourceTypeClass.SERVICE,
                         # url=dag.filepath,
                     ),
                 )
                 for owner in (self.owners or [])
             ],
-            lastModified=models.AuditStampClass(
+            lastModified=AuditStampClass(
                 time=0, actor=builder.make_user_urn(self.orchestrator)
             ),
         )
         return [ownership]
 
-    def generate_tags_aspect(self) -> List[models.GlobalTagsClass]:
-        tags = models.GlobalTagsClass(
+    def generate_tags_aspect(self) -> List[GlobalTagsClass]:
+        tags = GlobalTagsClass(
             tags=[
-                models.TagAssociationClass(tag=builder.make_tag_urn(tag))
+                TagAssociationClass(tag=builder.make_tag_urn(tag))
                 for tag in (self.tags or [])
             ]
         )
         return [tags]
 
-    def generate_mce(self) -> models.MetadataChangeEventClass:
-        flow_mce = models.MetadataChangeEventClass(
-            proposedSnapshot=models.DataFlowSnapshotClass(
+    def generate_mce(self) -> MetadataChangeEventClass:
+        flow_mce = MetadataChangeEventClass(
+            proposedSnapshot=DataFlowSnapshotClass(
                 urn=self.urn.urn,
                 aspects=[
-                    models.DataFlowInfoClass(
+                    DataFlowInfoClass(
                         name=self.id,
                         description=self.description,
                         customProperties=self.properties,
@@ -91,13 +104,13 @@ class DataFlow:
             entityType="dataflow",
             entityUrn=self.urn.urn,
             aspectName="dataFlowInfo",
-            aspect=models.DataFlowInfoClass(
+            aspect=DataFlowInfoClass(
                 name=self.name if self.name is not None else self.id,
                 description=self.description,
                 customProperties=self.properties,
                 externalUrl=self.url,
             ),
-            changeType=models.ChangeTypeClass.UPSERT,
+            changeType=ChangeTypeClass.UPSERT,
         )
         yield mcp
 
@@ -107,7 +120,7 @@ class DataFlow:
                 entityUrn=self.urn.urn,
                 aspectName="ownership",
                 aspect=owner,
-                changeType=models.ChangeTypeClass.UPSERT,
+                changeType=ChangeTypeClass.UPSERT,
             )
             yield mcp
 
@@ -117,7 +130,7 @@ class DataFlow:
                 entityUrn=self.urn.urn,
                 aspectName="globalTags",
                 aspect=tag,
-                changeType=models.ChangeTypeClass.UPSERT,
+                changeType=ChangeTypeClass.UPSERT,
             )
             yield mcp
 

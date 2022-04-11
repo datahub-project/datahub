@@ -12,10 +12,26 @@ from typing import (
 )
 
 import datahub.emitter.mce_builder as builder
-import datahub.metadata.schema_classes as models
 from datahub.api.dataprocess.dataflow import DataFlowUrn
 from datahub.api.dataprocess.urn import DataJobUrn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.metadata.schema_classes import (
+    AuditStampClass,
+    AzkabanJobTypeClass,
+    ChangeTypeClass,
+    DataJobInfoClass,
+    DataJobInputOutputClass,
+    DataJobSnapshotClass,
+    GlobalTagsClass,
+    MetadataChangeEventClass,
+    OwnerClass,
+    OwnershipClass,
+    OwnershipSourceClass,
+    OwnershipSourceTypeClass,
+    OwnershipTypeClass,
+    StatusClass,
+    TagAssociationClass,
+)
 
 if TYPE_CHECKING:
     from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
@@ -60,47 +76,47 @@ class DataJob:
         )
         self.urn = DataJobUrn(flow_urn=job_flow_urn, id=self.id)
 
-    def generate_ownership_aspect(self) -> Iterable[models.OwnershipClass]:
-        ownership = models.OwnershipClass(
+    def generate_ownership_aspect(self) -> Iterable[OwnershipClass]:
+        ownership = OwnershipClass(
             owners=[
-                models.OwnerClass(
+                OwnerClass(
                     owner=builder.make_user_urn(owner),
-                    type=models.OwnershipTypeClass.DEVELOPER,
-                    source=models.OwnershipSourceClass(
-                        type=models.OwnershipSourceTypeClass.SERVICE,
+                    type=OwnershipTypeClass.DEVELOPER,
+                    source=OwnershipSourceClass(
+                        type=OwnershipSourceTypeClass.SERVICE,
                         # url=dag.filepath,
                     ),
                 )
                 for owner in (self.owners or [])
             ],
-            lastModified=models.AuditStampClass(
+            lastModified=AuditStampClass(
                 time=0, actor=builder.make_user_urn(self.flow_urn.orchestrator)
             ),
         )
         return [ownership]
 
-    def generate_tags_aspect(self) -> Iterable[models.GlobalTagsClass]:
-        tags = models.GlobalTagsClass(
+    def generate_tags_aspect(self) -> Iterable[GlobalTagsClass]:
+        tags = GlobalTagsClass(
             tags=[
-                models.TagAssociationClass(tag=builder.make_tag_urn(tag))
+                TagAssociationClass(tag=builder.make_tag_urn(tag))
                 for tag in (self.tags or [])
             ]
         )
         return [tags]
 
-    def generate_mce(self) -> models.MetadataChangeEventClass:
-        job_mce = models.MetadataChangeEventClass(
-            proposedSnapshot=models.DataJobSnapshotClass(
+    def generate_mce(self) -> MetadataChangeEventClass:
+        job_mce = MetadataChangeEventClass(
+            proposedSnapshot=DataJobSnapshotClass(
                 urn=self.urn.urn,
                 aspects=[
-                    models.DataJobInfoClass(
+                    DataJobInfoClass(
                         name=self.name if self.name is not None else self.id,
-                        type=models.AzkabanJobTypeClass.COMMAND,
+                        type=AzkabanJobTypeClass.COMMAND,
                         description=self.description,
                         customProperties=self.properties,
                         externalUrl=self.url,
                     ),
-                    models.DataJobInputOutputClass(
+                    DataJobInputOutputClass(
                         inputDatasets=self.inlets,
                         outputDatasets=self.outlets,
                         inputDatajobs=[urn.urn for urn in self.upstream_urns],
@@ -118,14 +134,14 @@ class DataJob:
             entityType="datajob",
             entityUrn=self.urn.urn,
             aspectName="dataJobInfo",
-            aspect=models.DataJobInfoClass(
+            aspect=DataJobInfoClass(
                 name=self.name if self.name is not None else self.id,
-                type=models.AzkabanJobTypeClass.COMMAND,
+                type=AzkabanJobTypeClass.COMMAND,
                 description=self.description,
                 customProperties=self.properties,
                 externalUrl=self.url,
             ),
-            changeType=models.ChangeTypeClass.UPSERT,
+            changeType=ChangeTypeClass.UPSERT,
         )
         yield mcp
 
@@ -137,7 +153,7 @@ class DataJob:
                 entityUrn=self.urn.urn,
                 aspectName="ownership",
                 aspect=owner,
-                changeType=models.ChangeTypeClass.UPSERT,
+                changeType=ChangeTypeClass.UPSERT,
             )
             yield mcp
 
@@ -147,7 +163,7 @@ class DataJob:
                 entityUrn=self.urn.urn,
                 aspectName="globalTags",
                 aspect=tag,
-                changeType=models.ChangeTypeClass.UPSERT,
+                changeType=ChangeTypeClass.UPSERT,
             )
             yield mcp
 
@@ -177,11 +193,23 @@ class DataJob:
             entityType="datajob",
             entityUrn=self.urn.urn,
             aspectName="dataJobInputOutput",
-            aspect=models.DataJobInputOutputClass(
+            aspect=DataJobInputOutputClass(
                 inputDatasets=self.inlets,
                 outputDatasets=self.outlets,
                 inputDatajobs=[urn.urn for urn in self.upstream_urns],
             ),
-            changeType=models.ChangeTypeClass.UPSERT,
+            changeType=ChangeTypeClass.UPSERT,
         )
         yield mcp
+
+        # Force entity materialization
+        for iolet in self.inlets + self.outlets:
+            mcp = MetadataChangeProposalWrapper(
+                entityType="dataset",
+                entityUrn=iolet,
+                aspectName="status",
+                aspect=StatusClass(removed=False),
+                changeType=ChangeTypeClass.UPSERT,
+            )
+
+            yield mcp
