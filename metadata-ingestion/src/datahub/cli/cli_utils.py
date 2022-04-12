@@ -150,8 +150,8 @@ def guess_entity_type(urn: str) -> str:
 def get_host_and_token():
     gms_host_env, gms_token_env = get_details_from_env()
     if len(config_override.keys()) > 0:
-        gms_host = config_override[ENV_METADATA_HOST]
-        gms_token = config_override[ENV_METADATA_TOKEN]
+        gms_host = config_override.get(ENV_METADATA_HOST)
+        gms_token = config_override.get(ENV_METADATA_TOKEN)
     elif should_skip_config():
         gms_host = gms_host_env
         gms_token = gms_token_env
