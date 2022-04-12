@@ -77,6 +77,7 @@ def send_lineage_to_datahub(
     datajob.outlets.extend(_entities_to_urn_list(outlets))
 
     datajob.emit(emitter)
+    operator.log.info(f"Emitted from Lineage: {datajob}")
 
     if config.capture_executions:
         dag_run: "DagRun" = context["dag_run"]
