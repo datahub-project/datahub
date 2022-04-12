@@ -116,6 +116,12 @@ source:
       admin_username: "${SNOWFLAKE_ADMIN_USER}"
       admin_password: "${SNOWFLAKE_ADMIN_PASS}"
 
+    # This option is recommended to be used for the first time to ingest all lineage
+    ignore_start_time_lineage: true
+    # This is an alternative option to specify the start_time for lineage
+    # if you don't want to look back since beginning
+    start_time: '2022-03-01T00:00:00Z'
+
     # Coordinates
     host_port: account_name
     warehouse: "COMPUTE_WH"
@@ -125,6 +131,7 @@ source:
     password: "${SNOWFLAKE_PASS}"
     role: "datahub_role"
 
+    # Change these as per your database names. Remove to all all databases
     database_pattern:
       allow:
       - "^ACCOUNTING_DB$"
@@ -134,10 +141,12 @@ source:
       - "information_schema.*"
     table_pattern:
       allow:
-      # If you want to ingest only few tables with name revenue and revenue
+      # If you want to ingest only few tables with name revenue and sales
       - ".*revenue"
       - ".*sales"
+
     profiling:
+      # Change to false to disable profiling
       enabled: true
     profile_pattern:
       allow:
