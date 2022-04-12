@@ -366,7 +366,7 @@ def test_lineage_backend(mock_emit, inlets, outlets):
 )
 @mock.patch("datahub_provider.hooks.datahub.DatahubRestHook.make_emitter")
 def test_lineage_backend_capture_executions(mock_emit, inlets, outlets):
-    DEFAULT_DATE = days_ago(2)
+    DEFAULT_DATE = datetime.datetime(2020, 5, 17)
     mock_emitter = Mock()
     mock_emit.return_value = mock_emitter
     # Using autospec on xcom_pull and xcom_push methods fails on Python 3.6.
@@ -525,7 +525,7 @@ def test_lineage_backend_capture_executions(mock_emit, inlets, outlets):
             )
             assert (
                 mock_emitter.method_calls[9].args[0].entityUrn
-                == "urn:li:dataProcessInstance:3906c4a89059bf2eb6c1c326e88b6fc3"
+                == "urn:li:dataProcessInstance:b6375e5f5faeb543cfb5d7d8a47661fb"
             )
 
             assert (
@@ -534,7 +534,7 @@ def test_lineage_backend_capture_executions(mock_emit, inlets, outlets):
             )
             assert (
                 mock_emitter.method_calls[10].args[0].entityUrn
-                == "urn:li:dataProcessInstance:3906c4a89059bf2eb6c1c326e88b6fc3"
+                == "urn:li:dataProcessInstance:b6375e5f5faeb543cfb5d7d8a47661fb"
             )
             assert (
                 mock_emitter.method_calls[11].args[0].aspectName
@@ -542,7 +542,7 @@ def test_lineage_backend_capture_executions(mock_emit, inlets, outlets):
             )
             assert (
                 mock_emitter.method_calls[11].args[0].entityUrn
-                == "urn:li:dataProcessInstance:3906c4a89059bf2eb6c1c326e88b6fc3"
+                == "urn:li:dataProcessInstance:b6375e5f5faeb543cfb5d7d8a47661fb"
             )
             assert (
                 mock_emitter.method_calls[12].args[0].aspectName
@@ -550,7 +550,7 @@ def test_lineage_backend_capture_executions(mock_emit, inlets, outlets):
             )
             assert (
                 mock_emitter.method_calls[12].args[0].entityUrn
-                == "urn:li:dataProcessInstance:3906c4a89059bf2eb6c1c326e88b6fc3"
+                == "urn:li:dataProcessInstance:b6375e5f5faeb543cfb5d7d8a47661fb"
             )
             assert mock_emitter.method_calls[13].args[0].aspectName == "status"
             assert (
@@ -568,7 +568,7 @@ def test_lineage_backend_capture_executions(mock_emit, inlets, outlets):
             )
             assert (
                 mock_emitter.method_calls[15].args[0].entityUrn
-                == "urn:li:dataProcessInstance:3906c4a89059bf2eb6c1c326e88b6fc3"
+                == "urn:li:dataProcessInstance:b6375e5f5faeb543cfb5d7d8a47661fb"
             )
             assert (
                 mock_emitter.method_calls[16].args[0].aspectName
@@ -576,5 +576,5 @@ def test_lineage_backend_capture_executions(mock_emit, inlets, outlets):
             )
             assert (
                 mock_emitter.method_calls[16].args[0].entityUrn
-                == "urn:li:dataProcessInstance:3906c4a89059bf2eb6c1c326e88b6fc3"
+                == "urn:li:dataProcessInstance:b6375e5f5faeb543cfb5d7d8a47661fb"
             )
