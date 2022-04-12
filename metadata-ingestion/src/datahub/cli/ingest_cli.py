@@ -110,7 +110,6 @@ def run(
         raise SensitiveError() from e
 
     logger.info("Starting metadata ingestion")
-
     try:
         pipeline.run()
     except Exception as e:
