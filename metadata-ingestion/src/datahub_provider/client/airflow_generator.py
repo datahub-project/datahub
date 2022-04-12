@@ -2,8 +2,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional
 
 from airflow.configuration import conf
 
-from datahub.api.entities.datajob.dataflow import DataFlow
-from datahub.api.entities.datajob.datajob import DataJob
+from datahub.api.entities.datajob import DataFlow, DataJob
 from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
     InstanceRunResult,

@@ -3,8 +3,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Callable, Dict, Iterable, List, Optional, Union, cast
 
-from datahub.api.entities.datajob.dataflow import DataFlow
-from datahub.api.entities.datajob.datajob import DataJob
+from datahub.api.entities.datajob import DataFlow, DataJob
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import DatahubKey
 from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import (
@@ -25,6 +24,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
+from datahub.utilities.urns.data_process_instance_urn import DataProcessInstanceUrn
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 if TYPE_CHECKING:
@@ -36,19 +36,6 @@ class DataProcessInstanceKey(DatahubKey):
     cluster: str
     orchestrator: str
     id: str
-
-
-def make_data_process_instance_urn(dataProcessInstanceId: str) -> str:
-    return f"urn:li:dataProcessInstance:{dataProcessInstanceId}"
-
-
-@dataclass(frozen=True, eq=True)
-class DataProcessInstanceUrn:
-    key: DataProcessInstanceKey
-
-    @property
-    def urn(self):
-        return make_data_process_instance_urn(f"{self.key.guid()}")
 
 
 class InstanceRunResult(str, Enum):
@@ -90,12 +77,12 @@ class DataProcessInstance:
     )
 
     def __post_init__(self):
-        self.urn = DataProcessInstanceUrn(
-            key=DataProcessInstanceKey(
+        self.urn = DataProcessInstanceUrn.create_from_id(
+            dataprocessinstance_id=DataProcessInstanceKey(
                 cluster=self.cluster,
                 orchestrator=self.orchestrator,
                 id=self.id,
-            )
+            ).guid()
         )
 
     def start_event_mcp(
@@ -109,7 +96,7 @@ class DataProcessInstance:
         """
         mcp = MetadataChangeProposalWrapper(
             entityType="dataProcessInstance",
-            entityUrn=self.urn.urn,
+            entityUrn=str(self.urn),
             aspectName="dataProcessInstanceRunEvent",
             aspect=DataProcessInstanceRunEventClass(
                 status=DataProcessRunStatusClass.STARTED,
@@ -163,10 +150,11 @@ class DataProcessInstance:
                     raise Exception(
                         f"Invalid urn type {self.template_urn.__class__.__name__}"
                     )
-                for trigger in self.upstream_urns:
+                for upstream in self.upstream_urns:
                     input_datajob_urns.append(
                         DataJobUrn.create_from_ids(
-                            job_id=trigger.key.id, data_flow_urn=str(job_flow_urn)
+                            job_id=upstream.get_dataprocessinstance_id(),
+                            data_flow_urn=str(job_flow_urn),
                         )
                     )
             else:
@@ -196,7 +184,7 @@ class DataProcessInstance:
         """
         mcp = MetadataChangeProposalWrapper(
             entityType="dataProcessInstance",
-            entityUrn=self.urn.urn,
+            entityUrn=str(self.urn),
             aspectName="dataProcessInstanceRunEvent",
             aspect=DataProcessInstanceRunEventClass(
                 status=DataProcessRunStatusClass.COMPLETE,
@@ -247,7 +235,7 @@ class DataProcessInstance:
         """
         mcp = MetadataChangeProposalWrapper(
             entityType="dataProcessInstance",
-            entityUrn=self.urn.urn,
+            entityUrn=str(self.urn),
             aspectName="dataProcessInstanceProperties",
             aspect=DataProcessInstanceProperties(
                 name=self.id,
@@ -265,12 +253,12 @@ class DataProcessInstance:
 
         mcp = MetadataChangeProposalWrapper(
             entityType="dataProcessInstance",
-            entityUrn=self.urn.urn,
+            entityUrn=str(self.urn),
             aspectName="dataProcessInstanceRelationships",
             aspect=DataProcessInstanceRelationships(
-                upstreamInstances=[urn.urn for urn in self.upstream_urns],
+                upstreamInstances=[str(urn) for urn in self.upstream_urns],
                 parentTemplate=str(self.template_urn) if self.template_urn else None,
-                parentInstance=self.parent_instance.urn
+                parentInstance=str(self.parent_instance)
                 if self.parent_instance is not None
                 else None,
             ),
@@ -364,7 +352,7 @@ class DataProcessInstance:
         if self.inlets:
             mcp = MetadataChangeProposalWrapper(
                 entityType="dataProcessInstance",
-                entityUrn=self.urn.urn,
+                entityUrn=str(self.urn),
                 aspectName="dataProcessInstanceInput",
                 aspect=DataProcessInstanceInput(
                     inputs=[str(urn) for urn in self.inlets]
@@ -376,7 +364,7 @@ class DataProcessInstance:
         if self.outlets:
             mcp = MetadataChangeProposalWrapper(
                 entityType="dataProcessInstance",
-                entityUrn=self.urn.urn,
+                entityUrn=str(self.urn),
                 aspectName="dataProcessInstanceOutput",
                 aspect=DataProcessInstanceOutput(
                     outputs=[str(urn) for urn in self.outlets]
