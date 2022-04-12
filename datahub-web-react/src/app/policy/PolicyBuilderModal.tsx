@@ -91,7 +91,9 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
             <PolicyPrivilegeForm
                 policyType={policy.type}
                 resources={policy.resources!}
-                setResources={(resources: ResourceFilter) => setPolicy({ ...policy, resources })}
+                setResources={(resources: ResourceFilter) => {
+                    setPolicy({ ...policy, resources });
+                }}
                 privileges={policy.privileges}
                 setPrivileges={(privileges: string[]) => setPolicy({ ...policy, privileges })}
             />

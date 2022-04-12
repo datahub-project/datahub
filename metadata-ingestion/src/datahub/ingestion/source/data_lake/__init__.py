@@ -3,7 +3,7 @@ import os
 from datetime import datetime
 from enum import Enum
 from math import log10
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import parse
 import pydeequ
@@ -179,6 +179,10 @@ class DataLakeSource(Source):
 
         conf = SparkConf()
 
+        # None by default, which corresponds to local
+        if self.source_config.profiling.spark_cluster_manager:
+            conf.setMaster(self.source_config.profiling.spark_cluster_manager)
+
         conf.set(
             "spark.jars.packages",
             ",".join(
@@ -301,7 +305,11 @@ class DataLakeSource(Source):
         return df.toDF(*(c.replace(".", "_") for c in df.columns))
 
     def get_table_schema(
-        self, file_path: str, table_name: str, is_aws: bool
+        self,
+        file_path: str,
+        table_name: str,
+        is_aws: bool,
+        properties: Optional[Dict[str, str]],
     ) -> Iterable[MetadataWorkUnit]:
 
         data_platform_urn = make_data_platform_urn(self.source_config.platform)
@@ -318,7 +326,7 @@ class DataLakeSource(Source):
 
         dataset_properties = DatasetPropertiesClass(
             description="",
-            customProperties={},
+            customProperties=properties if properties is not None else {},
         )
         dataset_snapshot.aspects.append(dataset_properties)
 
@@ -418,7 +426,11 @@ class DataLakeSource(Source):
         return ".".join(name_components)
 
     def ingest_table(
-        self, full_path: str, relative_path: str, is_aws: bool
+        self,
+        full_path: str,
+        relative_path: str,
+        is_aws: bool,
+        properties: Optional[Dict[str, str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
 
         table_name = self.get_table_name(relative_path, full_path)
@@ -427,7 +439,7 @@ class DataLakeSource(Source):
         logger.debug(
             f"Ingesting {full_path}: making table schemas {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
         )
-        yield from self.get_table_schema(full_path, table_name, is_aws)
+        yield from self.get_table_schema(full_path, table_name, is_aws, properties)
 
         # If profiling is not enabled, skip the rest
         if not self.source_config.profiling.enabled:
@@ -515,7 +527,7 @@ class DataLakeSource(Source):
         s3 = self.source_config.aws_config.get_s3_resource()
         bucket = s3.Bucket(plain_base_path.split("/")[0])
 
-        base_obj_paths = []
+        base_obj_paths: List[Tuple[str, Dict[str, str]]] = []
 
         for obj in bucket.objects.filter(
             Prefix=plain_base_path.split("/", maxsplit=1)[1]
@@ -538,14 +550,28 @@ class DataLakeSource(Source):
 
             base_obj_path = f"{obj.bucket_name}/{obj.key}"
 
-            base_obj_paths.append(base_obj_path)
+            properties = {
+                "owner": str(obj.owner) if obj.owner else "",
+                "e_tag": str(obj.e_tag) if obj.e_tag else "",
+                "last_modified": str(obj.last_modified) if obj.last_modified else "",
+                "size": str(obj.size) if obj.size else "",
+                "storage_class": str(obj.storage_class) if obj.storage_class else "",
+                "service_name": str(obj.meta.service_name)
+                if obj.meta and obj.meta.service_name
+                else "",
+            }
+            logger.debug(f"Adding file {base_obj_path} for ingestion")
+            base_obj_paths.append((base_obj_path, properties))
 
-        for aws_file in sorted(base_obj_paths):
-
-            relative_path = "./" + aws_file[len(plain_base_path) :]
+        for aws_file in sorted(base_obj_paths, key=lambda a: a[0]):
+            path = aws_file[0]
+            properties = aws_file[1]
+            relative_path = "./" + path[len(plain_base_path) :]
 
             # pass in the same relative_path as the full_path for S3 files
-            yield from self.ingest_table(aws_file, relative_path, is_aws=True)
+            yield from self.ingest_table(
+                path, relative_path, is_aws=True, properties=properties
+            )
 
     def get_workunits_local(self) -> Iterable[MetadataWorkUnit]:
         for root, dirs, files in os.walk(self.source_config.base_path):

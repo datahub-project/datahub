@@ -23,6 +23,8 @@ import {
     SubTypes,
     Container,
     Health,
+    Status,
+    Deprecation,
 } from '../../../types.generated';
 import { FetchedEntity } from '../../lineage/types';
 
@@ -65,12 +67,14 @@ export type GenericEntityProperties = {
     editableSchemaMetadata?: Maybe<EditableSchemaMetadata>;
     editableProperties?: Maybe<DatasetEditableProperties>;
     autoRenderAspects?: Maybe<Array<RawAspect>>;
-    upstreams?: Maybe<EntityLineageResult>;
-    downstreams?: Maybe<EntityLineageResult>;
+    upstream?: Maybe<EntityLineageResult>;
+    downstream?: Maybe<EntityLineageResult>;
     subTypes?: Maybe<SubTypes>;
     entityCount?: number;
     container?: Maybe<Container>;
     health?: Maybe<Health>;
+    status?: Maybe<Status>;
+    deprecation?: Maybe<Deprecation>;
 };
 
 export type GenericEntityUpdate = {

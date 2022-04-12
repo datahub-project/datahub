@@ -38,7 +38,7 @@ and mapped to the DataHub `CorpUserInfo` aspect:
 - email
 - title
 - department
-- country code 
+- country code
 
 ### Extracting DataHub Groups
 
@@ -67,7 +67,13 @@ was created outside of the connector. That means if you've used the DataHub REST
 when the Okta source is executed. If you intend to *always* pull users, groups, and their relationships from your Identity Provider, then
 this should not matter. 
 
-This is a known limitation in our data model that is being tracked by [this ticket](https://github.com/linkedin/datahub/issues/3065).
+This is a known limitation in our data model that is being tracked by [this ticket](https://github.com/datahub-project/datahub/issues/3065).
+
+### Filtering and Searching
+You can also choose to ingest a subset of users or groups to Datahub by adding flags for filtering or searching. For
+users, set either the `okta_users_filter` or `okta_users_search` flag (only one can be set at a time). For groups, set
+either the `okta_groups_filter` or `okta_groups_search` flag. Note that these are not regular expressions. See [below](#config-details) for full configuration
+options.
 
 
 ## Quickstart recipe
@@ -98,21 +104,25 @@ For general pointers on writing and running a recipe, see our [main recipe guide
 
 Note that a `.` is used to denote nested fields in the YAML configuration block.
 
-| Field                              | Type   | Required | Default     | Description                                                                                                     |
-|------------------------------------|--------|----------|-------------|-----------------------------------------------------------------------------------------------------------------|
-| `okta_domain`                      | string | ✅       |             | The location of your Okta Domain, without a protocol. Can be found in Okta Developer console.                   |
-| `okta_api_token`                   | string | ✅       |             | An API token generated for the DataHub application inside your Okta Developer Console.                          |
-| `ingest_users`                     | bool   |          | `True`      | Whether users should be ingested into DataHub.                                                                  |
-| `ingest_groups`                    | bool   |          | `True`      | Whether groups should be ingested into DataHub.                                                                 |
-| `ingest_group_membership`          | bool   |          | `True`      | Whether group membership should be ingested into DataHub. ingest_groups must be True if this is True.           |
-| `okta_profile_to_username_attr`    | string |          | `"login"`   | Which Okta User Profile attribute to use as input to DataHub username mapping.                                  |
-| `okta_profile_to_username_regex`   | string |          | `"([^@]+)"` | A regex used to parse the DataHub username from the attribute specified in `okta_profile_to_username_attr`.     |
-| `okta_profile_to_group_name_attr`  | string |          | `"name"`    | Which Okta Group Profile attribute to use as input to DataHub group name mapping.                               |
-| `okta_profile_to_group_name_regex` | string |          | `"(.*)"`    | A regex used to parse the DataHub group name from the attribute specified in `okta_profile_to_group_name_attr`. |
-| `include_deprovisioned_users`      | bool   |          | `False`     | Whether to ingest users in the DEPROVISIONED state from Okta.                                                   |
-| `include_suspended_users`          | bool   |          | `False`     | Whether to ingest users in the SUSPENDED state from Okta.                                                       |
-| `page_size`                        | number |          | `100`       | The number of entities requested from Okta's REST APIs in one request.                                          |
-| `delay_seconds`                    | number |          | `0.01`      | Number of seconds to wait between calls to Okta's REST APIs. (Okta rate limits). Defaults to 10ms.              |
+| Field                              | Type   | Required | Default     | Description                                                                                                                                                                                                                                          |
+|------------------------------------|--------|----------|-------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `okta_domain`                      | string | ✅       |             | The location of your Okta Domain, without a protocol. Can be found in Okta Developer console.                                                                                                                                                        |
+| `okta_api_token`                   | string | ✅       |             | An API token generated for the DataHub application inside your Okta Developer Console.                                                                                                                                                               |
+| `ingest_users`                     | bool   |          | `True`      | Whether users should be ingested into DataHub.                                                                                                                                                                                                       |
+| `ingest_groups`                    | bool   |          | `True`      | Whether groups should be ingested into DataHub.                                                                                                                                                                                                      |
+| `ingest_group_membership`          | bool   |          | `True`      | Whether group membership should be ingested into DataHub. ingest_groups must be True if this is True.                                                                                                                                                |
+| `okta_profile_to_username_attr`    | string |          | `"login"`   | Which Okta User Profile attribute to use as input to DataHub username mapping.                                                                                                                                                                       |
+| `okta_profile_to_username_regex`   | string |          | `"([^@]+)"` | A regex used to parse the DataHub username from the attribute specified in `okta_profile_to_username_attr`.                                                                                                                                          |
+| `okta_profile_to_group_name_attr`  | string |          | `"name"`    | Which Okta Group Profile attribute to use as input to DataHub group name mapping.                                                                                                                                                                    |
+| `okta_profile_to_group_name_regex` | string |          | `"(.*)"`    | A regex used to parse the DataHub group name from the attribute specified in `okta_profile_to_group_name_attr`.                                                                                                                                      |
+| `include_deprovisioned_users`      | bool   |          | `False`     | Whether to ingest users in the DEPROVISIONED state from Okta.                                                                                                                                                                                        |
+| `include_suspended_users`          | bool   |          | `False`     | Whether to ingest users in the SUSPENDED state from Okta.                                                                                                                                                                                            |
+| `page_size`                        | number |          | `100`       | The number of entities requested from Okta's REST APIs in one request.                                                                                                                                                                               |
+| `delay_seconds`                    | number |          | `0.01`      | Number of seconds to wait between calls to Okta's REST APIs. (Okta rate limits). Defaults to 10ms.                                                                                                                                                   |
+| `okta_users_filter`                | string |          | `None`        | Okta filter expression (not regex) for ingesting users. Only one of `okta_users_filter` and `okta_users_search` can be set. See the [Okta API docs](https://developer.okta.com/docs/reference/api/users/#list-users-with-a-filter) for more info.    |
+| `okta_users_search`                | string |          | `None`        | Okta search expression (not regex) for ingesting users. Only one of `okta_users_filter` and `okta_users_search` can be set. See the [Okta API docs](https://developer.okta.com/docs/reference/api/users/#list-users-with-search) for more info.      |
+| `okta_groups_filter`               | string |          | `None`        | Okta filter expression (not regex) for ingesting groups. Only one of `okta_groups_filter` and `okta_groups_search` can be set. See the [Okta API docs](https://developer.okta.com/docs/reference/api/groups/#filters) for more info.                 |
+| `okta_users_search`                | string |          | `None`        | Okta search expression (not regex) for ingesting groups. Only one of `okta_groups_filter` and `okta_groups_search` can be set. See the [Okta API docs](https://developer.okta.com/docs/reference/api/groups/#list-groups-with-search) for more info. |
 
 ## Compatibility
 

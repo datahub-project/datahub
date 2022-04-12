@@ -38,6 +38,9 @@ public class KafkaEventConsumerFactory {
   @Value("${kafka.schemaRegistry.type}")
   private String schemaRegistryType;
 
+  @Value("${kafka.listener.concurrency:1}")
+  private Integer kafkaListenerConcurrency;
+
   @Autowired
   @Lazy
   @Qualifier("kafkaSchemaRegistry")
@@ -73,11 +76,17 @@ public class KafkaEventConsumerFactory {
 
     consumerProps.setValueDeserializer(schemaRegistryConfig.getDeserializer());
     Map<String, Object> props = properties.buildConsumerProperties();
-    props.putAll(schemaRegistryConfig.getProperties());
+
+    // Override KafkaProperties with SchemaRegistryConfig only for non-empty values
+    schemaRegistryConfig.getProperties().entrySet()
+      .stream()
+      .filter(entry -> entry.getValue() != null && !entry.getValue().toString().isEmpty())
+      .forEach(entry -> props.put(entry.getKey(), entry.getValue())); 
 
     ConcurrentKafkaListenerContainerFactory<String, GenericRecord> factory =
         new ConcurrentKafkaListenerContainerFactory<>();
     factory.setConsumerFactory(new DefaultKafkaConsumerFactory<>(props));
+    factory.setConcurrency(this.kafkaListenerConcurrency);
 
     log.info("Event-based KafkaListenerContainerFactory built successfully");
 

@@ -11,7 +11,7 @@ record Owner {
    */
   @Relationship = {
     "name": "OwnedBy",
-    "entityTypes": [ "corpUser", "corpGroup" ]
+    "entityTypes": [ "corpuser", "corpGroup" ]
   }
   @Searchable = {
     "fieldName": "owners",

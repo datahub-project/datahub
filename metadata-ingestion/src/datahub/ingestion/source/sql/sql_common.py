@@ -2,11 +2,13 @@ import datetime
 import logging
 import traceback
 from abc import abstractmethod
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import (
     TYPE_CHECKING,
     Any,
+    Callable,
     Dict,
     Iterable,
     List,
@@ -55,6 +57,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -77,8 +80,12 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DataPlatformInstanceClass,
+    DatasetLineageTypeClass,
     DatasetPropertiesClass,
     JobStatusClass,
+    SubTypesClass,
+    UpstreamClass,
+    ViewPropertiesClass,
 )
 from datahub.telemetry import telemetry
 from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombinerReport
@@ -91,41 +98,49 @@ if TYPE_CHECKING:
 
 logger: logging.Logger = logging.getLogger(__name__)
 
+def _platform_alchemy_uri_tester_gen(
+    platform: str, opt_starts_with: Optional[str] = None
+) -> Tuple[str, Callable[[str], bool]]:
+    return platform, lambda x: x.startswith(
+        platform if not opt_starts_with else opt_starts_with
+    )
 
-def get_platform_from_sqlalchemy_uri(sqlalchemy_uri: str) -> str:  # noqa: C901
-    if sqlalchemy_uri.startswith("bigquery"):
-        return "bigquery"
-    if sqlalchemy_uri.startswith("clickhouse"):
-        return "clickhouse"
-    if sqlalchemy_uri.startswith("druid"):
-        return "druid"
-    if sqlalchemy_uri.startswith("mssql"):
-        return "mssql"
-    if (
-        sqlalchemy_uri.startswith("jdbc:postgres:")
-        and sqlalchemy_uri.index("redshift.amazonaws") > 0
-    ) or sqlalchemy_uri.startswith("redshift"):
-        return "redshift"
-    if sqlalchemy_uri.startswith("snowflake"):
-        return "snowflake"
-    if sqlalchemy_uri.startswith("presto"):
-        return "presto"
-    if sqlalchemy_uri.startswith("postgresql"):
-        return "postgres"
-    if sqlalchemy_uri.startswith("pinot"):
-        return "pinot"
-    if sqlalchemy_uri.startswith("oracle"):
-        return "oracle"
-    if sqlalchemy_uri.startswith("mysql"):
-        return "mysql"
-    if sqlalchemy_uri.startswith("mongodb"):
-        return "mongodb"
-    if sqlalchemy_uri.startswith("hive"):
-        return "hive"
-    if sqlalchemy_uri.startswith("awsathena"):
-        return "athena"
-    if sqlalchemy_uri.startswith("hana"):
-        return "hana"
+
+PLATFORM_TO_SQLALCHEMY_URI_TESTER_MAP: Dict[str, Callable[[str], bool]] = OrderedDict(
+    [
+        _platform_alchemy_uri_tester_gen("athena", "awsathena"),
+        _platform_alchemy_uri_tester_gen("bigquery"),
+        _platform_alchemy_uri_tester_gen("clickhouse"),
+        _platform_alchemy_uri_tester_gen("druid"),
+        _platform_alchemy_uri_tester_gen("hana"),
+        _platform_alchemy_uri_tester_gen("hive"),
+        _platform_alchemy_uri_tester_gen("mongodb"),
+        _platform_alchemy_uri_tester_gen("mssql"),
+        _platform_alchemy_uri_tester_gen("mysql"),
+        _platform_alchemy_uri_tester_gen("oracle"),
+        _platform_alchemy_uri_tester_gen("pinot"),
+        _platform_alchemy_uri_tester_gen("presto"),
+        (
+            "redshift",
+            lambda x: (
+                x.startswith(("jdbc:postgres:", "postgresql"))
+                and x.find("redshift.amazonaws") > 0
+            )
+            or x.startswith("redshift"),
+        ),
+        # Don't move this before redshift.
+        _platform_alchemy_uri_tester_gen("postgres", "postgresql"),
+        _platform_alchemy_uri_tester_gen("snowflake"),
+        _platform_alchemy_uri_tester_gen("trino"),
+    ]
+)
+
+
+def get_platform_from_sqlalchemy_uri(sqlalchemy_uri: str) -> str:
+
+    for platform, tester in PLATFORM_TO_SQLALCHEMY_URI_TESTER_MAP.items():
+        if tester(sqlalchemy_uri):
+            return platform
     return "external"
 
 
@@ -246,17 +261,21 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase):
 class BasicSQLAlchemyConfig(SQLAlchemyConfig):
     username: Optional[str] = None
     password: Optional[pydantic.SecretStr] = None
-    host_port: str
+    host_port: Optional[str] = None
     database: Optional[str] = None
     database_alias: Optional[str] = None
-    scheme: str
+    scheme: Optional[str] = None
+    sqlalchemy_uri: Optional[str] = None
 
     def get_sql_alchemy_url(self, uri_opts=None):
-        return make_sqlalchemy_uri(
-            self.scheme,
+        if not ((self.host_port and self.scheme) or self.sqlalchemy_uri):
+            raise ValueError("host_port and schema or connect_uri required.")
+
+        return self.sqlalchemy_uri or make_sqlalchemy_uri(
+            self.scheme,  # type: ignore
             self.username,
             self.password.get_secret_value() if self.password else None,
-            self.host_port,
+            self.host_port,  # type: ignore
             self.database,
             uri_opts=uri_opts,
         )
@@ -443,11 +462,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 },
             )
 
-    def warn(self, log: logging.Logger, key: str, reason: str) -> Any:
+    def warn(self, log: logging.Logger, key: str, reason: str) -> None:
         self.report.report_warning(key, reason)
-        log.warning(reason)
+        log.warning(f"{key} => {reason}")
 
-    def error(self, log: logging.Logger, key: str, reason: str) -> Any:
+    def error(self, log: logging.Logger, key: str, reason: str) -> None:
         self.report.report_failure(key, reason)
         log.error(f"{key} => {reason}")
 
@@ -592,14 +611,18 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             database=db_name,
             schema=schema,
             platform=self.platform,
-            instance=self.config.env,
+            instance=self.config.platform_instance
+            if self.config.platform_instance is not None
+            else self.config.env,
         )
 
     def gen_database_key(self, database: str) -> PlatformKey:
         return DatabaseKey(
             database=database,
             platform=self.platform,
-            instance=self.config.env,
+            instance=self.config.platform_instance
+            if self.config.platform_instance is not None
+            else self.config.env,
         )
 
     def gen_database_containers(self, database: str) -> Iterable[MetadataWorkUnit]:
@@ -842,13 +865,35 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                     BaseSQLAlchemyCheckpointState, cur_checkpoint.state
                 )
                 checkpoint_state.add_table_urn(dataset_urn)
-        description, properties = self.get_table_properties(inspector, schema, table)
-        if description is not None or properties:
-            dataset_properties = DatasetPropertiesClass(
-                description=description,
-                customProperties=properties,
+
+        description, properties, location_urn = self.get_table_properties(
+            inspector, schema, table
+        )
+        dataset_properties = DatasetPropertiesClass(
+            name=table,
+            description=description,
+            customProperties=properties,
+        )
+        dataset_snapshot.aspects.append(dataset_properties)
+
+        if location_urn:
+            external_upstream_table = UpstreamClass(
+                dataset=location_urn,
+                type=DatasetLineageTypeClass.COPY,
             )
-            dataset_snapshot.aspects.append(dataset_properties)
+            lineage_mcpw = MetadataChangeProposalWrapper(
+                entityType="dataset",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=dataset_snapshot.urn,
+                aspectName="upstreamLineage",
+                aspect=UpstreamLineage(upstreams=[external_upstream_table]),
+            )
+            lineage_wu = MetadataWorkUnit(
+                id=f"{self.platform}-{lineage_mcpw.entityUrn}-{lineage_mcpw.aspectName}",
+                mcp=lineage_mcpw,
+            )
+            yield lineage_wu
+
         pk_constraints: dict = inspector.get_pk_constraint(table, schema)
         foreign_keys = self._get_foreign_keys(dataset_urn, inspector, schema, table)
         schema_fields = self.get_schema_fields(dataset_name, columns, pk_constraints)
@@ -871,6 +916,18 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
         if dpi_aspect:
             yield dpi_aspect
+        subtypes_aspect = MetadataWorkUnit(
+            id=f"{dataset_name}-subtypes",
+            mcp=MetadataChangeProposalWrapper(
+                entityType="dataset",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=dataset_urn,
+                aspectName="subTypes",
+                aspect=SubTypesClass(typeNames=["table"]),
+            ),
+        )
+        yield subtypes_aspect
+
         yield from self._get_domain_wu(
             dataset_name=dataset_name,
             entity_urn=dataset_urn,
@@ -880,8 +937,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
     def get_table_properties(
         self, inspector: Inspector, schema: str, table: str
-    ) -> Tuple[Optional[str], Optional[Dict[str, str]]]:
+    ) -> Tuple[Optional[str], Optional[Dict[str, str]], Optional[str]]:
         try:
+            location: Optional[str] = None
             # SQLALchemy stubs are incomplete and missing this method.
             # PR: https://github.com/dropbox/sqlalchemy-stubs/pull/223.
             table_info: dict = inspector.get_table_comment(table, schema)  # type: ignore
@@ -902,7 +960,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
             # The "properties" field is a non-standard addition to SQLAlchemy's interface.
             properties = table_info.get("properties", {})
-        return description, properties
+        return description, properties, location
 
     def get_dataplatform_instance_aspect(
         self, dataset_urn: str
@@ -1098,13 +1156,12 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                     BaseSQLAlchemyCheckpointState, cur_checkpoint.state
                 )
                 checkpoint_state.add_view_urn(dataset_urn)
-        if description is not None or properties:
-            dataset_properties = DatasetPropertiesClass(
-                description=description,
-                customProperties=properties,
-                # uri=dataset_name,
-            )
-            dataset_snapshot.aspects.append(dataset_properties)
+        dataset_properties = DatasetPropertiesClass(
+            name=view,
+            description=description,
+            customProperties=properties,
+        )
+        dataset_snapshot.aspects.append(dataset_properties)
         if schema_metadata:
             dataset_snapshot.aspects.append(schema_metadata)
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
@@ -1114,6 +1171,33 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
         if dpi_aspect:
             yield dpi_aspect
+        subtypes_aspect = MetadataWorkUnit(
+            id=f"{view}-subtypes",
+            mcp=MetadataChangeProposalWrapper(
+                entityType="dataset",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=dataset_urn,
+                aspectName="subTypes",
+                aspect=SubTypesClass(typeNames=["view"]),
+            ),
+        )
+        yield subtypes_aspect
+        if "view_definition" in properties:
+            view_definition_string = properties["view_definition"]
+            view_properties_aspect = ViewPropertiesClass(
+                materialized=False, viewLanguage="SQL", viewLogic=view_definition_string
+            )
+            yield MetadataWorkUnit(
+                id=f"{view}-viewProperties",
+                mcp=MetadataChangeProposalWrapper(
+                    entityType="dataset",
+                    changeType=ChangeTypeClass.UPSERT,
+                    entityUrn=dataset_urn,
+                    aspectName="viewProperties",
+                    aspect=view_properties_aspect,
+                ),
+            )
+
         yield from self._get_domain_wu(
             dataset_name=dataset_name,
             entity_urn=dataset_urn,

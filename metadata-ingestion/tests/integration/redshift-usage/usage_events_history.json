@@ -2,9 +2,10 @@
     {
         "userid": 1,
         "query": 293100,
-        "usename": "test-name",
+        "username": "test-name",
         "tbl": 101587,
         "querytxt": "select userid from users",
+        "operation_type": "insert",
         "database": "dev",
         "schema": "public",
         "table": "users",
@@ -14,7 +15,7 @@
     {
         "userid": 2,
         "query": 293101,
-        "usename": null,
+        "username": null,
         "tbl": 101588,
         "querytxt": "select catid from category",
         "database": "dev",
@@ -26,7 +27,7 @@
     {
         "userid": 3,
         "query": 293102,
-        "usename": "chinmay",
+        "username": "chinmay",
         "tbl": 101587,
         "querytxt": "select catid from category",
         "database": null,
@@ -38,7 +39,7 @@
     {
         "userid": 4,
         "query": 293102,
-        "usename": "shirshanka",
+        "username": "shirshanka",
         "tbl": 101588,
         "querytxt": "select catid from category",
         "database": "db1",
@@ -50,12 +51,26 @@
     {
         "userid": 5,
         "query": 293102,
-        "usename": "real_shirshanka@acryl.io",
+        "username": "real_shirshanka@acryl.io",
         "tbl": 101588,
         "querytxt": "select catid from category",
+        "operation_type": "insert",
         "database": "db1",
         "schema": "schema1",
         "table": "category",
+        "starttime": "2021-09-14 00:00:00",
+        "endtime": "2021-09-15 00:00:00"
+    },
+    {
+        "userid": 5,
+        "query": 293103,
+        "username": "real_shirshanka@acryl.io",
+        "tbl": 101589,
+        "querytxt": "select cost from orders",
+        "operation_type": "delete",
+        "database": "dev",
+        "schema": "public",
+        "table": "orders",
         "starttime": "2021-09-14 00:00:00",
         "endtime": "2021-09-15 00:00:00"
     }

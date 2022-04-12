@@ -16,7 +16,7 @@ import { DataJobFlowTab } from '../shared/tabs/Entity/DataJobFlowTab';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { capitalizeFirstLetter } from '../../shared/textUtil';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { EntityAndType } from '../../lineage/types';
+import { RunsTab } from './tabs/RunsTab';
 
 /**
  * Definition of the DataHub DataJob entity.
@@ -85,6 +85,14 @@ export class DataJobEntity implements Entity<DataJob> {
                         enabled: (_, dataJob: GetDataJobQuery) =>
                             (dataJob?.dataJob?.incoming?.count || 0) !== 0 ||
                             (dataJob?.dataJob?.outgoing?.count || 0) !== 0,
+                    },
+                },
+                {
+                    name: 'Runs',
+                    component: RunsTab,
+                    display: {
+                        visible: (_, _1) => true,
+                        enabled: (_, dataJob: GetDataJobQuery) => (dataJob?.dataJob?.runs?.total || 0) !== 0,
                     },
                 },
             ]}
@@ -178,14 +186,6 @@ export class DataJobEntity implements Entity<DataJob> {
             name: entity?.properties?.name || '',
             type: EntityType.DataJob,
             icon: entity?.dataFlow?.platform?.properties?.logoUrl || '',
-            // eslint-disable-next-line @typescript-eslint/dot-notation
-            downstreamChildren: entity?.['downstream']?.relationships?.map(
-                (relationship) => ({ entity: relationship.entity, type: relationship.entity.type } as EntityAndType),
-            ),
-            // eslint-disable-next-line @typescript-eslint/dot-notation
-            upstreamChildren: entity?.['upstream']?.relationships?.map(
-                (relationship) => ({ entity: relationship.entity, type: relationship.entity.type } as EntityAndType),
-            ),
             platform: entity?.dataFlow?.orchestrator || '',
         };
     };

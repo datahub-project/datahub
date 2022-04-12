@@ -2,9 +2,13 @@
 
 DataHub comes with a friendly cli called `datahub` that allows you to perform a lot of common operations using just the command line.
 
-## Release Notes
+## Release Notes and CLI versions
 
-You can find the release notes in [github releases](https://github.com/linkedin/datahub/releases). If you wish release notes for each bug-fix release you can find them in [acryldata releases](https://github.com/acryldata/datahub/releases).
+The server release notes can be found in [github releases](https://github.com/datahub-project/datahub/releases). These releases are done approximately every week on a regular cadence unless a blocking issue or regression is discovered.
+
+CLI release is made through a different repository and release notes can be found in [acryldata releases](https://github.com/acryldata/datahub/releases). At least one release which is tied to the server release is always made alongwith the server release. Multiple other bigfix releases are made in between based on amount of fixes that are merged between the server release mentioned above.
+
+If server with version `0.8.28` is being used then CLI used to connect to it should be `0.8.28.x`. Tests of new CLI are not ran with older server versions so it is not recommended to update the CLI if the server is not updated.
 
 ## Installation
 ### Using pip
@@ -33,7 +37,7 @@ If you run into an error, try checking the [_common setup issues_](../metadata-i
 ### Using docker
 
 [![Docker Hub](https://img.shields.io/docker/pulls/linkedin/datahub-ingestion?style=plastic)](https://hub.docker.com/r/linkedin/datahub-ingestion)
-[![datahub-ingestion docker](https://github.com/linkedin/datahub/actions/workflows/docker-ingestion.yml/badge.svg)](https://github.com/linkedin/datahub/actions/workflows/docker-ingestion.yml)
+[![datahub-ingestion docker](https://github.com/datahub-project/datahub/actions/workflows/docker-ingestion.yml/badge.svg)](https://github.com/datahub-project/datahub/actions/workflows/docker-ingestion.yml)
 
 If you don't want to install locally, you can alternatively run metadata ingestion within a Docker container.
 We have prebuilt images available on [Docker hub](https://hub.docker.com/r/linkedin/datahub-ingestion). All plugins will be installed and enabled automatically.
@@ -64,7 +68,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 | [bigquery](../metadata-ingestion/source_docs/bigquery.md)                           | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source                     |
 | [bigquery-usage](../metadata-ingestion/source_docs/bigquery.md)                     | `pip install 'acryl-datahub[bigquery-usage]'`              | BigQuery usage statistics source    |
 | [datahub-lineage-file](../metadata-ingestion/source_docs/file_lineage.md)           | _no additional dependencies_                               | Lineage File source                 |
-| [datahub-business-glossary](../metadata-ingestion/source_docs/business_glossary.md) | _no additional dependencies_                               | Business Glossary File source                         |
+| [datahub-business-glossary](../metadata-ingestion/source_docs/business_glossary.md) | _no additional dependencies_                               | Business Glossary File source       |
 | [dbt](../metadata-ingestion/source_docs/dbt.md)                                     | _no additional dependencies_                               | dbt source                          |
 | [druid](../metadata-ingestion/source_docs/druid.md)                                 | `pip install 'acryl-datahub[druid]'`                       | Druid Source                        |
 | [feast](../metadata-ingestion/source_docs/feast.md)                                 | `pip install 'acryl-datahub[feast]'`                       | Feast source                        |
@@ -76,7 +80,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 | [ldap](../metadata-ingestion/source_docs/ldap.md)                                   | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                         |
 | [looker](../metadata-ingestion/source_docs/looker.md)                               | `pip install 'acryl-datahub[looker]'`                      | Looker source                       |
 | [lookml](../metadata-ingestion/source_docs/lookml.md)                               | `pip install 'acryl-datahub[lookml]'`                      | LookML source, requires Python 3.7+ |
-| [metabase](../metadata-ingestion/source_docs/metabase.md)                           | `pip install 'acryl-datahub[metabase]`                     | Metabase source                     |
+| [metabase](../metadata-ingestion/source_docs/metabase.md)                           | `pip install 'acryl-datahub[metabase]'`                    | Metabase source                     |
 | [mode](../metadata-ingestion/source_docs/mode.md)                                   | `pip install 'acryl-datahub[mode]'`                        | Mode Analytics source               |
 | [mongodb](../metadata-ingestion/source_docs/mongodb.md)                             | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source                      |
 | [mssql](../metadata-ingestion/source_docs/mssql.md)                                 | `pip install 'acryl-datahub[mssql]'`                       | SQL Server source                   |
@@ -94,10 +98,10 @@ We use a plugin architecture so that you can install only the dependencies you a
 | [sqlalchemy](../metadata-ingestion/source_docs/sqlalchemy.md)                       | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source           |
 | [superset](../metadata-ingestion/source_docs/superset.md)                           | `pip install 'acryl-datahub[superset]'`                    | Superset source                     |
 | [tableau](../metadata-ingestion/source_docs/tableau.md)                             | `pip install 'acryl-datahub[tableau]'`                     | Tableau source                      |
-| [trino](../metadata-ingestion/source_docs/trino.md)                                 | `pip install 'acryl-datahub[trino]`                        | Trino source                     |
-| [starburst-trino-usage](../metadata-ingestion/source_docs/trino.md)                 | `pip install 'acryl-datahub[starburst-trino-usage]'`       | Starburst Trino usage statistics source   |
-| [nifi](../metadata-ingestion/source_docs/nifi.md)                                   | `pip install 'acryl-datahub[nifi]`                         | Nifi source                         |
-| [powerbi](../metadata-ingestion/source_docs/powerbi.md)                             | `pip install 'acryl-datahub[powerbi]`                      | Microsoft Power BI source           |
+| [trino](../metadata-ingestion/source_docs/trino.md)                                 | `pip install 'acryl-datahub[trino]'`                       | Trino source                        |
+| [starburst-trino-usage](../metadata-ingestion/source_docs/trino.md)                 | `pip install 'acryl-datahub[starburst-trino-usage]'`       | Starburst Trino usage statistics source |
+| [nifi](../metadata-ingestion/source_docs/nifi.md)                                   | `pip install 'acryl-datahub[nifi]'`                        | Nifi source                         |
+| [powerbi](../metadata-ingestion/source_docs/powerbi.md)                             | `pip install 'acryl-datahub[powerbi]'`                     | Microsoft Power BI source           |
 
 ### Sinks
 
@@ -121,6 +125,26 @@ datahub check plugins
 ```
 
 [extra requirements]: https://www.python-ldap.org/en/python-ldap-3.3.0/installing.html#build-prerequisites
+
+## Environment variables supported
+The env variables take precedence over what is in the DataHub CLI config created through `init` command. The list of supported environment variables are as follows
+- `DATAHUB_SKIP_CONFIG` (default `false`) - Set to `true` to skip creating the configuration file.
+- `DATAHUB_GMS_HOST` (default `http://localhost:8080`) - Set to a URL of GMS instance.
+- `DATAHUB_GMS_TOKEN` (default `None`) - Used for communicating with DataHub Cloud.
+- `DATAHUB_TELEMETRY_ENABLED` (default `true`) - Set to `false` to disable telemetry. If CLI is being run in an environment with no access to public internet then this should be disabled.
+- `DATAHUB_TELEMETRY_TIMEOUT` (default `10`) - Set to a custom integer value to specify timeout in secs when sending telemetry.
+- `DATAHUB_DEBUG` (default `false`) - Set to `true` to enable debug logging for CLI. Can also be achieved through `--debug` option of the CLI.
+- `DATAHUB_VERSION` (default `head`) - Set to a specific version to run quickstart with the particular version of docker images. 
+- `ACTIONS_VERSION` (default `head`) - Set to a specific version to run quickstart with that image tag of `datahub-actions` container.
+
+```shell
+DATAHUB_SKIP_CONFIG=false
+DATAHUB_GMS_HOST=http://localhost:8080
+DATAHUB_GMS_TOKEN=
+DATAHUB_TELEMETRY_ENABLED=true
+DATAHUB_TELEMETRY_TIMEOUT=10
+DATAHUB_DEBUG=false
+```
 
 ## User Guide
 
@@ -158,6 +182,17 @@ The `docker` command allows you to start up a local DataHub instance using `data
 
 The `ingest` command allows you to ingest metadata from your sources using ingestion configuration files, which we call recipes. [Removing Metadata from DataHub](./how/delete-metadata.md) contains detailed instructions about how you can use the ingest command to perform operations like rolling-back previously ingested metadata through the `rollback` sub-command and listing all runs that happened through `list-runs` sub-command.
 
+```console
+Usage: datahub [datahub-options] ingest [command-options]
+
+Command Options:
+  -c / --config        Config file in .toml or .yaml format
+  -n / --dry-run       Perform a dry run of the ingestion, essentially skipping writing to sink
+  --preview            Perform limited ingestion from the source to the sink to get a quick preview
+  --preview-workunits  The number of workunits to produce for preview
+  --strict-warnings    If enabled, ingestion runs with warnings will yield a non-zero error code
+```
+
 ### check
 
 The datahub package is composed of different plugins that allow you to connect to different metadata sources and ingest metadata from them.
@@ -170,25 +205,13 @@ Running `datahub init` will allow you to customize the datahub instance you are 
 
 **_Note_**: Provide your GMS instance's host when the prompt asks you for the DataHub host.
 
-Alternatively, you can set the following env variables if you don't want to use a config file
-
-```shell
-DATAHUB_SKIP_CONFIG=True
-DATAHUB_GMS_HOST=http://localhost:8080
-DATAHUB_GMS_TOKEN= # Used for communicating with DataHub Cloud
-The env variables take precedence over what is in the config.
-```
-
 ### telemetry
 
 To help us understand how people are using DataHub, we collect anonymous usage statistics on actions such as command invocations via Mixpanel.
 We do not collect private information such as IP addresses, contents of ingestions, or credentials.
-The code responsible for collecting and broadcasting these events is open-source and can be found [within our GitHub](https://github.com/linkedin/datahub/blob/master/metadata-ingestion/src/datahub/telemetry/telemetry.py).
+The code responsible for collecting and broadcasting these events is open-source and can be found [within our GitHub](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/telemetry/telemetry.py).
 
 Telemetry is enabled by default, and the `telemetry` command lets you toggle the sending of these statistics via `telemetry enable/disable`.
-You can also disable telemetry by setting the env variable `DATAHUB_TELEMETRY_ENABLED` to `false`. If you are running CLI in a private environment with no access to public internet then you need to disable telemetry.
-
-You can set the env variable `DATAHUB_TELEMETRY_TIMEOUT` to an integer value to specify timeout in secs when sending telemetry. By default it is set to 10 seconds.
 
 ### delete
 
@@ -245,7 +268,7 @@ datahub get --urn "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PR
 
 The `put` command allows you to write metadata into DataHub. This is a flexible way for you to issue edits to metadata from the command line.
 For example, the following command instructs `datahub` to set the `ownership` aspect of the dataset `urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)` to the value in the file `ownership.json`.
-The JSON in the `ownership.json` file needs to conform to the [`Ownership`](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/common/Ownership.pdl) Aspect model as shown below.
+The JSON in the `ownership.json` file needs to conform to the [`Ownership`](https://github.com/datahub-project/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/common/Ownership.pdl) Aspect model as shown below.
 
 ```json
 {
@@ -272,7 +295,7 @@ Update succeeded with status 200
 
 ### migrate
 
-The `migrate` group of commands allows you to perform certain kinds of migrations. 
+The `migrate` group of commands allows you to perform certain kinds of migrations.
 
 #### dataplatform2instance
 
@@ -305,7 +328,7 @@ Starting migration: platform:elasticsearch, instance=prod_index, force=False, dr
 
 ##### Real Migration (with soft-delete)
 ```
-> datahub migrate dataplatform2instance --platform hive --instance 
+> datahub migrate dataplatform2instance --platform hive --instance
 datahub migrate dataplatform2instance --platform hive --instance warehouse
 Starting migration: platform:hive, instance=warehouse, force=False, dry-run=False
 Will migrate 4 urns such as ['urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)']

@@ -4,13 +4,15 @@ import re
 import urllib
 from dataclasses import dataclass, field
 from time import sleep
-from typing import Dict, Iterable, List, Union
+from typing import Dict, Iterable, List, Optional, Union
 
 from okta.client import Client as OktaClient
 from okta.exceptions import OktaAPIException
 from okta.models import Group, GroupProfile, User, UserProfile, UserStatus
+from pydantic import validator
 
 from datahub.configuration import ConfigModel
+from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -59,6 +61,30 @@ class OktaConfig(ConfigModel):
 
     # Optional: Set the delay for fetching batches of entities from Okta. Okta has rate limiting in place.
     delay_seconds = 0.01
+
+    # Optional: Filter and search expression for ingesting a subset of users. Only one can be specified at a time.
+    okta_users_filter: Optional[str] = None
+    okta_users_search: Optional[str] = None
+
+    # Optional: Filter and search expression for ingesting a subset of groups. Only one can be specified at a time.
+    okta_groups_filter: Optional[str] = None
+    okta_groups_search: Optional[str] = None
+
+    @validator("okta_users_search")
+    def okta_users_one_of_filter_or_search(cls, v, values):
+        if v and values["okta_users_filter"]:
+            raise ConfigurationError(
+                "Only one of okta_users_filter or okta_users_search can be set"
+            )
+        return v
+
+    @validator("okta_groups_search")
+    def okta_groups_one_of_filter_or_search(cls, v, values):
+        if v and values["okta_groups_filter"]:
+            raise ConfigurationError(
+                "Only one of okta_groups_filter or okta_groups_search can be set"
+            )
+        return v
 
 
 @dataclass
@@ -201,7 +227,12 @@ class OktaSource(Source):
         logger.debug("Extracting all Okta groups")
 
         # Note that this is not taking full advantage of Python AsyncIO, as we are blocking on calls.
-        query_parameters = {"limit": self.config.page_size}
+        query_parameters: Dict[str, Union[str, int]] = {"limit": self.config.page_size}
+        if self.config.okta_groups_filter:
+            query_parameters.update({"filter": self.config.okta_groups_filter})
+        if self.config.okta_groups_search:
+            query_parameters.update({"search": self.config.okta_groups_search})
+        groups = resp = err = None
         try:
             groups, resp, err = event_loop.run_until_complete(
                 self.okta_client.list_groups(query_parameters)
@@ -238,6 +269,7 @@ class OktaSource(Source):
 
         # Note that this is not taking full advantage of Python AsyncIO; we are blocking on calls.
         query_parameters = {"limit": self.config.page_size}
+        users = resp = err = None
         try:
             users, resp, err = event_loop.run_until_complete(
                 self.okta_client.list_group_users(group.id, query_parameters)
@@ -272,7 +304,12 @@ class OktaSource(Source):
     def _get_okta_users(self, event_loop: asyncio.AbstractEventLoop) -> Iterable[User]:
         logger.debug("Extracting all Okta users")
 
-        query_parameters = {"limit": self.config.page_size}
+        query_parameters: Dict[str, Union[str, int]] = {"limit": self.config.page_size}
+        if self.config.okta_users_filter:
+            query_parameters.update({"filter": self.config.okta_users_filter})
+        if self.config.okta_users_search:
+            query_parameters.update({"search": self.config.okta_users_search})
+        users = resp = err = None
         try:
             users, resp, err = event_loop.run_until_complete(
                 self.okta_client.list_users(query_parameters)

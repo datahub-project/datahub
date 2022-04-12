@@ -32,12 +32,23 @@ entities:
       - datahubIngestionCheckpoint
       - domains
       - deprecation
+      - versionInfo
   - name: dataFlow
     category: core
     keyAspect: dataFlowKey
     aspects:
       - domains
       - deprecation
+      - versionInfo
+  - name: dataProcessInstance
+    doc: DataProcessInstance represents an instance of a datajob/jobflow run
+    keyAspect: dataProcessInstanceKey
+    aspects:
+      - dataProcessInstanceInput
+      - dataProcessInstanceOutput
+      - dataProcessInstanceProperties
+      - dataProcessInstanceRelationships
+      - dataProcessInstanceRunEvent
   - name: chart
     keyAspect: chartKey
     aspects:
@@ -50,6 +61,22 @@ entities:
       - domains
       - container
       - deprecation
+  - name: notebook
+    doc: Notebook represents a combination of query, text, chart and etc. This is in BETA version
+    keyAspect: notebookKey
+    aspects:
+      - notebookInfo
+      - notebookContent
+      - editableNotebookProperties
+      - ownership
+      - status
+      - globalTags
+      - glossaryTerms
+      - browsePaths
+      - institutionalMemory
+      - domains
+      - subTypes
+      - dataPlatformInstance
   - name: corpuser
     doc: CorpUser represents an identity of a person (or an account) in the enterprise.
     keyAspect: corpUserKey
@@ -142,3 +169,9 @@ entities:
     keyAspect: dataHubRetentionKey
     aspects:
       - dataHubRetentionConfig
+  - name: dataPlatformInstance
+    category: internal
+    keyAspect: dataPlatformInstanceKey
+    aspects:
+      - status
+events:

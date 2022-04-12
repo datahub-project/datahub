@@ -62,6 +62,7 @@ def null_str(value: Any) -> Optional[str]:
 class DataLakeProfilerConfig(ConfigModel):
     enabled: bool = False
 
+    spark_cluster_manager: Optional[str] = None
     # These settings will override the ones below.
     profile_table_level_only: bool = False
 

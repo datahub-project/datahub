@@ -1,4 +1,4 @@
-import { EntityType, SearchResult } from '../../types.generated';
+import { Entity as EntityInterface, EntityType, SearchResult } from '../../types.generated';
 import { FetchedEntity } from '../lineage/types';
 import { Entity, IconStyleType, PreviewType } from './Entity';
 import { GenericEntityProperties } from './shared/types';
@@ -116,7 +116,25 @@ export default class EntityRegistry {
 
     getLineageVizConfig<T>(type: EntityType, data: T): FetchedEntity | undefined {
         const entity = validatedGet(type, this.entityTypeToEntity);
-        return entity.getLineageVizConfig?.(data) || undefined;
+        const genericEntityProperties = this.getGenericEntityProperties(type, data);
+        return (
+            ({
+                ...entity.getLineageVizConfig?.(data),
+                downstreamChildren: genericEntityProperties?.downstream?.relationships
+                    ?.filter((relationship) => relationship.entity)
+                    ?.map((relationship) => ({
+                        entity: relationship.entity as EntityInterface,
+                        type: (relationship.entity as EntityInterface).type,
+                    })),
+                upstreamChildren: genericEntityProperties?.upstream?.relationships
+                    ?.filter((relationship) => relationship.entity)
+                    ?.map((relationship) => ({
+                        entity: relationship.entity as EntityInterface,
+                        type: (relationship.entity as EntityInterface).type,
+                    })),
+                status: genericEntityProperties?.status,
+            } as FetchedEntity) || undefined
+        );
     }
 
     getDisplayName<T>(type: EntityType, data: T): string {

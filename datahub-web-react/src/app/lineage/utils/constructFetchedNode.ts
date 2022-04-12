@@ -21,6 +21,7 @@ export default function constructFetchedNode(
     if (fetchedNode && !constructedNodes[urn]) {
         const node: NodeData = {
             name: fetchedNode.name,
+            expandedName: fetchedNode.expandedName,
             urn: fetchedNode.urn,
             type: fetchedNode.type,
             subtype: fetchedNode.subtype,
@@ -35,6 +36,7 @@ export default function constructFetchedNode(
                 ) || [],
             children: [],
             platform: fetchedNode?.platform,
+            status: fetchedNode.status,
         };
 
         // eslint-disable-next-line no-param-reassign

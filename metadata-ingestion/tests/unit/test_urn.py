@@ -15,12 +15,21 @@ class TestUrn(unittest.TestCase):
         assert urn.__str__() == simple_urn_str
         assert urn == Urn("dataPlatform", ["abc"])
 
-        complex_urn_str = "urn:li:dataset:(urn:li:dataPlatform:abc, def, prod)"
+        complex_urn_str = "urn:li:dataset:(urn:li:dataPlatform:abc,def,prod)"
         urn = Urn.create_from_string(complex_urn_str)
         assert urn.get_entity_id_as_string() == "(urn:li:dataPlatform:abc,def,prod)"
         assert urn.get_entity_id() == ["urn:li:dataPlatform:abc", "def", "prod"]
         assert urn.get_type() == "dataset"
         assert urn.__str__() == "urn:li:dataset:(urn:li:dataPlatform:abc,def,prod)"
+
+    def test_url_encode_urn(self) -> None:
+        urn_with_slash: Urn = Urn.create_from_string(
+            "urn:li:dataset:(urn:li:dataPlatform:abc,def/ghi,prod)"
+        )
+        assert (
+            Urn.url_encode(str(urn_with_slash))
+            == "urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aabc%2Cdef%2Fghi%2Cprod%29"
+        )
 
     def test_invalid_urn(self) -> None:
         with self.assertRaises(InvalidUrnError):

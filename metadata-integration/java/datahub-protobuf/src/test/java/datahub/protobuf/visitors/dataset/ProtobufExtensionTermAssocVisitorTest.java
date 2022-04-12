@@ -20,7 +20,11 @@ public class ProtobufExtensionTermAssocVisitorTest {
     public void extendedMessageTest() throws IOException {
         ProtobufExtensionTermAssocVisitor test = new ProtobufExtensionTermAssocVisitor();
         assertEquals(Set.of(
-                        new GlossaryTermAssociation().setUrn(new GlossaryTermUrn("Classification.HighlyConfidential"))
+                    new GlossaryTermAssociation().setUrn(new GlossaryTermUrn("a")),
+                    new GlossaryTermAssociation().setUrn(new GlossaryTermUrn("b")),
+                    new GlossaryTermAssociation().setUrn(new GlossaryTermUrn("MetaEnumExample.ENTITY")),
+                    new GlossaryTermAssociation().setUrn(new GlossaryTermUrn("MetaEnumExample.EVENT")),
+                    new GlossaryTermAssociation().setUrn(new GlossaryTermUrn("Classification.HighlyConfidential"))
                 ),
                 getTestProtobufGraph("extended_protobuf", "messageA")
                         .accept(getVisitContextBuilder("extended_protobuf.Person"),
