@@ -149,7 +149,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
         )
 
     def get_sql_alchemy_connect_args(self) -> dict:
-        if self.authentication_type != 'KEY_PAIR_AUTHENTICATOR':
+        if self.authentication_type != "KEY_PAIR_AUTHENTICATOR":
             return {}
         if self.connect_args is None:
             if self.private_key_path is None:
