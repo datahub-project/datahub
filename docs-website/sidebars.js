@@ -90,6 +90,7 @@ module.exports = {
           "metadata-ingestion/schedule_docs/intro",
           "metadata-ingestion/schedule_docs/cron",
           "metadata-ingestion/schedule_docs/airflow",
+          "metadata-ingestion/schedule_docs/datahub",
         ],
       },
       {
@@ -211,6 +212,7 @@ module.exports = {
       "docs/developers",
       "docs/docker/development",
       "docs/how/backup-datahub",
+      "docs/how/updating-datahub",
       {
         type: "doc",
         label: "Ingesting files from S3",

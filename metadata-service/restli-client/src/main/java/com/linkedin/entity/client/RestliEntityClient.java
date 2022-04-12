@@ -19,7 +19,6 @@ import com.linkedin.entity.EntitiesDoBrowseRequestBuilder;
 import com.linkedin.entity.EntitiesDoDeleteRequestBuilder;
 import com.linkedin.entity.EntitiesDoFilterRequestBuilder;
 import com.linkedin.entity.EntitiesDoGetBrowsePathsRequestBuilder;
-import com.linkedin.entity.EntitiesDoGetTotalEntityCountRequestBuilder;
 import com.linkedin.entity.EntitiesDoIngestRequestBuilder;
 import com.linkedin.entity.EntitiesDoListRequestBuilder;
 import com.linkedin.entity.EntitiesDoListUrnsRequestBuilder;
@@ -416,14 +415,6 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     EntitiesDoSetWritableRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS.actionSetWritable().valueParam(canWrite);
     sendClientRequest(requestBuilder, authentication);
-  }
-
-  @Nonnull
-  public long getTotalEntityCount(@Nonnull String entityName, @Nonnull final Authentication authentication)
-      throws RemoteInvocationException {
-    EntitiesDoGetTotalEntityCountRequestBuilder requestBuilder =
-        ENTITIES_REQUEST_BUILDERS.actionGetTotalEntityCount().entityParam(entityName);
-    return sendClientRequest(requestBuilder, authentication).getEntity();
   }
 
   @Nonnull

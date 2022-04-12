@@ -24,6 +24,7 @@ import {
     Container,
     Health,
     Status,
+    Deprecation,
 } from '../../../types.generated';
 import { FetchedEntity } from '../../lineage/types';
 
@@ -73,6 +74,7 @@ export type GenericEntityProperties = {
     container?: Maybe<Container>;
     health?: Maybe<Health>;
     status?: Maybe<Status>;
+    deprecation?: Maybe<Deprecation>;
 };
 
 export type GenericEntityUpdate = {

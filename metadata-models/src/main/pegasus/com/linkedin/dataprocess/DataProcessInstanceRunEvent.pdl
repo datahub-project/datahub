@@ -1,0 +1,36 @@
+namespace com.linkedin.dataprocess
+
+import com.linkedin.timeseries.TimeseriesAspectBase
+import com.linkedin.common.ExternalReference
+import com.linkedin.common.Urn
+
+/**
+ * An event representing the current status of data process run.
+ * DataProcessRunEvent should be used for reporting the status of a dataProcess' run.
+ */
+@Aspect = {
+  "name": "dataProcessInstanceRunEvent",
+  "type": "timeseries",
+}
+record DataProcessInstanceRunEvent includes TimeseriesAspectBase, ExternalReference {
+
+  @TimeseriesField = {}
+  status: enum DataProcessRunStatus {
+    /**
+     * The status where the Data processing run is in.
+     */
+    STARTED,
+    COMPLETE
+  }
+
+  /**
+    * Return the try number that this Instance Run is in
+    */
+  attempt: optional int
+
+  /**
+    * The final result of the Data Processing run.
+    */
+  @TimeseriesField = {}
+  result: optional DataProcessInstanceRunResult
+}
