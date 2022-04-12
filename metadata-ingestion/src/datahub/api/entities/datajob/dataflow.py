@@ -12,7 +12,6 @@ from typing import (
 )
 
 import datahub.emitter.mce_builder as builder
-from datahub.api.dataprocess.urn import DataFlowUrn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -28,6 +27,7 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     TagAssociationClass,
 )
+from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 
 if TYPE_CHECKING:
     from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
@@ -48,8 +48,8 @@ class DataFlow:
     owners: Set[str] = field(default_factory=set)
 
     def __post_init__(self):
-        self.urn = DataFlowUrn(
-            orchestrator=self.orchestrator, cluster=self.cluster, id=self.id
+        self.urn = DataFlowUrn.create_from_ids(
+            orchestrator=self.orchestrator, env=self.cluster, flow_id=self.id
         )
 
     def generate_ownership_aspect(self):
@@ -83,7 +83,7 @@ class DataFlow:
     def generate_mce(self) -> MetadataChangeEventClass:
         flow_mce = MetadataChangeEventClass(
             proposedSnapshot=DataFlowSnapshotClass(
-                urn=self.urn.urn,
+                urn=str(self.urn),
                 aspects=[
                     DataFlowInfoClass(
                         name=self.id,
@@ -102,7 +102,7 @@ class DataFlow:
     def generate_mcp(self) -> Iterable[MetadataChangeProposalWrapper]:
         mcp = MetadataChangeProposalWrapper(
             entityType="dataflow",
-            entityUrn=self.urn.urn,
+            entityUrn=str(self.urn),
             aspectName="dataFlowInfo",
             aspect=DataFlowInfoClass(
                 name=self.name if self.name is not None else self.id,
@@ -117,7 +117,7 @@ class DataFlow:
         for owner in self.generate_ownership_aspect():
             mcp = MetadataChangeProposalWrapper(
                 entityType="dataflow",
-                entityUrn=self.urn.urn,
+                entityUrn=str(self.urn),
                 aspectName="ownership",
                 aspect=owner,
                 changeType=ChangeTypeClass.UPSERT,
@@ -127,7 +127,7 @@ class DataFlow:
         for tag in self.generate_tags_aspect():
             mcp = MetadataChangeProposalWrapper(
                 entityType="dataflow",
-                entityUrn=self.urn.urn,
+                entityUrn=str(self.urn),
                 aspectName="globalTags",
                 aspect=tag,
                 changeType=ChangeTypeClass.UPSERT,

@@ -3,9 +3,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Callable, Dict, Iterable, List, Optional, Union, cast
 
-from datahub.api.dataprocess.dataflow import DataFlow
-from datahub.api.dataprocess.datajob import DataJob
-from datahub.api.dataprocess.urn import DataFlowUrn, DataJobUrn
+from datahub.api.entities.datajob.dataflow import DataFlow
+from datahub.api.entities.datajob.datajob import DataJob
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import DatahubKey
 from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import (
@@ -24,6 +23,9 @@ from datahub.metadata.schema_classes import (
     DataProcessTypeClass,
     StatusClass,
 )
+from datahub.utilities.urns.data_flow_urn import DataFlowUrn
+from datahub.utilities.urns.data_job_urn import DataJobUrn
+from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 if TYPE_CHECKING:
     from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
@@ -80,9 +82,9 @@ class DataProcessInstance:
     parent_instance: Optional[DataProcessInstanceUrn] = None
     properties: Dict[str, str] = field(default_factory=dict)
     url: Optional[str] = None
-    inlets: List[str] = field(default_factory=list)
-    outlets: List[str] = field(default_factory=list)
-    upstreams_urns: List[DataProcessInstanceUrn] = field(default_factory=list)
+    inlets: List[DatasetUrn] = field(default_factory=list)
+    outlets: List[DatasetUrn] = field(default_factory=list)
+    upstream_urns: List[DataProcessInstanceUrn] = field(default_factory=list)
     _template_object: Optional[Union[DataJob, DataFlow]] = field(
         init=False, default=None, repr=False
     )
@@ -142,18 +144,18 @@ class DataProcessInstance:
                 if isinstance(self.template_urn, DataFlowUrn):
                     job_flow_urn = self.template_urn
                     template_object = DataFlow(
-                        cluster=self.template_urn.cluster,
-                        orchestrator=self.template_urn.orchestrator,
-                        id=self.template_urn.id,
+                        cluster=self.template_urn.get_env(),
+                        orchestrator=self.template_urn.get_orchestrator_name(),
+                        id=self.template_urn.get_flow_id(),
                     )
                     for mcp in template_object.generate_mcp():
                         self._emit_mcp(mcp, emitter, callback)
                 elif isinstance(self.template_urn, DataJobUrn):
-                    job_flow_urn = self.template_urn.flow_urn
+                    job_flow_urn = self.template_urn.get_data_flow_urn()
                     template_object = DataJob(
-                        id=self.template_urn.id,
+                        id=self.template_urn.get_job_id(),
                         upstream_urns=input_datajob_urns,
-                        flow_urn=self.template_urn.flow_urn,
+                        flow_urn=self.template_urn.get_data_flow_urn(),
                     )
                     for mcp in template_object.generate_mcp():
                         self._emit_mcp(mcp, emitter, callback)
@@ -161,9 +163,11 @@ class DataProcessInstance:
                     raise Exception(
                         f"Invalid urn type {self.template_urn.__class__.__name__}"
                     )
-                for trigger in self.upstreams_urns:
+                for trigger in self.upstream_urns:
                     input_datajob_urns.append(
-                        DataJobUrn(id=trigger.key.id, flow_urn=job_flow_urn)
+                        DataJobUrn.create_from_ids(
+                            job_id=trigger.key.id, data_flow_urn=str(job_flow_urn)
+                        )
                     )
             else:
                 template_object = self._template_object
@@ -264,8 +268,8 @@ class DataProcessInstance:
             entityUrn=self.urn.urn,
             aspectName="dataProcessInstanceRelationships",
             aspect=DataProcessInstanceRelationships(
-                upstreamInstances=[urn.urn for urn in self.upstreams_urns],
-                parentTemplate=self.template_urn.urn if self.template_urn else None,
+                upstreamInstances=[urn.urn for urn in self.upstream_urns],
+                parentTemplate=str(self.template_urn) if self.template_urn else None,
                 parentInstance=self.parent_instance.urn
                 if self.parent_instance is not None
                 else None,
@@ -325,8 +329,8 @@ class DataProcessInstance:
         :return: DataProcessInstance
         """
         dpi: DataProcessInstance = DataProcessInstance(
-            orchestrator=datajob.flow_urn.orchestrator,
-            cluster=datajob.flow_urn.cluster,
+            orchestrator=datajob.flow_urn.get_orchestrator_name(),
+            cluster=datajob.flow_urn.get_env(),
             template_urn=datajob.urn,
             id=id,
         )
@@ -362,7 +366,9 @@ class DataProcessInstance:
                 entityType="dataProcessInstance",
                 entityUrn=self.urn.urn,
                 aspectName="dataProcessInstanceInput",
-                aspect=DataProcessInstanceInput(inputs=self.inlets),
+                aspect=DataProcessInstanceInput(
+                    inputs=[str(urn) for urn in self.inlets]
+                ),
                 changeType=ChangeTypeClass.UPSERT,
             )
             yield mcp
@@ -372,16 +378,18 @@ class DataProcessInstance:
                 entityType="dataProcessInstance",
                 entityUrn=self.urn.urn,
                 aspectName="dataProcessInstanceOutput",
-                aspect=DataProcessInstanceOutput(outputs=self.outlets),
+                aspect=DataProcessInstanceOutput(
+                    outputs=[str(urn) for urn in self.outlets]
+                ),
                 changeType=ChangeTypeClass.UPSERT,
             )
             yield mcp
 
-            # Force entity materialization
+        # Force entity materialization
         for iolet in self.inlets + self.outlets:
             mcp = MetadataChangeProposalWrapper(
                 entityType="dataset",
-                entityUrn=iolet,
+                entityUrn=str(iolet),
                 aspectName="status",
                 aspect=StatusClass(removed=False),
                 changeType=ChangeTypeClass.UPSERT,

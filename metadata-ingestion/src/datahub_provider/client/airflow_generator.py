@@ -2,15 +2,16 @@ from typing import TYPE_CHECKING, Dict, List, Optional
 
 from airflow.configuration import conf
 
-from datahub.api.dataprocess.dataflow import DataFlow
-from datahub.api.dataprocess.datajob import DataJob
-from datahub.api.dataprocess.dataprocess_instance import (
+from datahub.api.entities.datajob.dataflow import DataFlow
+from datahub.api.entities.datajob.datajob import DataJob
+from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
     InstanceRunResult,
 )
-from datahub.api.dataprocess.urn import DataFlowUrn, DataJobUrn
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import DataProcessTypeClass
+from datahub.utilities.urns.data_flow_urn import DataFlowUrn
+from datahub.utilities.urns.data_job_urn import DataJobUrn
 from datahub_provider.hooks.datahub import AIRFLOW_1
 
 if TYPE_CHECKING:
@@ -42,8 +43,8 @@ class AirflowGenerator:
                     upstream_subdag_task_id
                 ]
 
-                upstream_subdag_task_urn = DataJobUrn(
-                    id=upstream_subdag_task_id, flow_urn=flow_urn
+                upstream_subdag_task_urn = DataJobUrn.create_from_ids(
+                    job_id=upstream_subdag_task_id, data_flow_urn=str(flow_urn)
                 )
 
                 # if subdag task is a leaf task, then link it as an upstream task
@@ -78,7 +79,9 @@ class AirflowGenerator:
             # iterate through the parent dag's tasks and find the ones that trigger the subdag
             for upstream_task_id in dag.parent_dag.task_dict:
                 upstream_task = dag.parent_dag.task_dict[upstream_task_id]
-                upstream_task_urn = DataJobUrn(flow_urn=flow_urn, id=upstream_task_id)
+                upstream_task_urn = DataJobUrn.create_from_ids(
+                    data_flow_urn=str(flow_urn), job_id=upstream_task_id
+                )
 
                 # if the task triggers the subdag, link it to this node in the subdag
                 if subdag_task_id in upstream_task._downstream_task_ids:
@@ -87,7 +90,7 @@ class AirflowGenerator:
         # exclude subdag operator tasks since these are not emitted, resulting in empty metadata
         upstream_tasks = (
             [
-                DataJobUrn(id=task_id, flow_urn=flow_urn)
+                DataJobUrn.create_from_ids(job_id=task_id, data_flow_urn=str(flow_urn))
                 for task_id in task.upstream_task_ids
                 if dag.task_dict[task_id].subdag is None
             ]
@@ -176,8 +179,8 @@ class AirflowGenerator:
         """
         from airflow.serialization.serialized_objects import SerializedBaseOperator
 
-        dataflow_urn = DataFlowUrn(
-            orchestrator="airflow", cluster=cluster, id=dag.dag_id
+        dataflow_urn = DataFlowUrn.create_from_ids(
+            orchestrator="airflow", env=cluster, flow_id=dag.dag_id
         )
         datajob = DataJob(id=task.task_id, flow_urn=dataflow_urn)
         datajob.description = (
@@ -216,7 +219,7 @@ class AirflowGenerator:
 
         datajob.properties = job_property_bag
         base_url = conf.get("webserver", "base_url")
-        datajob.url = f"{base_url}/taskinstance/list/?flt1_dag_id_equals={datajob.flow_urn.id}&_flt_3_task_id={task.task_id}"
+        datajob.url = f"{base_url}/taskinstance/list/?flt1_dag_id_equals={datajob.flow_urn.get_flow_id()}&_flt_3_task_id={task.task_id}"
 
         if capture_owner and dag.owner:
             datajob.owners.add(dag.owner)

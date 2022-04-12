@@ -1,9 +1,9 @@
 import time
 import uuid
 
-from datahub.api.dataprocess.dataflow import DataFlow
-from datahub.api.dataprocess.datajob import DataJob
-from datahub.api.dataprocess.dataprocess_instance import (
+from datahub.api.entities.datajob.dataflow import DataFlow
+from datahub.api.entities.datajob.datajob import DataJob
+from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
     InstanceRunResult,
 )
@@ -61,7 +61,7 @@ jobRun2: DataProcessInstance = DataProcessInstance(
 )
 jobRun2.template_urn = dataJob2.urn
 jobRun2.parent_instance = jobFlowRun.urn
-jobRun2.upstreams_urns = [jobRun1.urn]
+jobRun2.upstream_urns = [jobRun1.urn]
 jobRun2.emit_process_start(
     emitter=emitter, start_timestamp_millis=int(time.time() * 1000), emit_template=False
 )
@@ -79,7 +79,7 @@ jobRun3: DataProcessInstance = DataProcessInstance(
 )
 jobRun3.parent_instance = jobFlowRun.urn
 jobRun3.template_urn = dataJob3.urn
-jobRun3.upstreams_urns = [jobRun1.urn]
+jobRun3.upstream_urns = [jobRun1.urn]
 jobRun3.emit_process_start(
     emitter=emitter, start_timestamp_millis=int(time.time() * 1000), emit_template=False
 )
@@ -96,7 +96,7 @@ jobRun4: DataProcessInstance = DataProcessInstance(
 )
 jobRun4.parent_instance = jobFlowRun.urn
 jobRun4.template_urn = dataJob4.urn
-jobRun4.upstreams_urns = [jobRun2.urn, jobRun3.urn]
+jobRun4.upstream_urns = [jobRun2.urn, jobRun3.urn]
 jobRun4.emit_process_start(
     emitter=emitter, start_timestamp_millis=int(time.time() * 1000), emit_template=False
 )

@@ -2,8 +2,9 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Dict, List
 
 import datahub.emitter.mce_builder as builder
-from datahub.api.dataprocess.dataprocess_instance import InstanceRunResult
+from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
 from datahub.configuration.common import ConfigModel
+from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub_provider.client.airflow_generator import AirflowGenerator
 from datahub_provider.entities import _Entity
 
@@ -16,8 +17,8 @@ if TYPE_CHECKING:
     from datahub_provider.hooks.datahub import DatahubGenericHook
 
 
-def _entities_to_urn_list(iolets: List[_Entity]) -> List[str]:
-    return [let.urn for let in iolets]
+def _entities_to_urn_list(iolets: List[_Entity]) -> List[DatasetUrn]:
+    return [DatasetUrn.create_from_string(let.urn) for let in iolets]
 
 
 class DatahubBasicLineageConfig(ConfigModel):
@@ -63,7 +64,7 @@ def send_lineage_to_datahub(
         capture_owner=config.capture_ownership_info,
     )
     dataflow.emit(emitter)
-    print(f"Emitted from Lineage: {dataflow}")
+    operator.log.info(f"Emitted from Lineage: {dataflow}")
 
     datajob = AirflowGenerator.generate_datajob(
         cluster=config.cluster,
@@ -90,7 +91,7 @@ def send_lineage_to_datahub(
             emit_templates=False,
         )
 
-        print(f"Emitted from Lineage: {dpi}")
+        operator.log.info(f"Emitted from Lineage: {dpi}")
 
         dpi = AirflowGenerator.complete_datajob(
             emitter=emitter,
@@ -102,4 +103,4 @@ def send_lineage_to_datahub(
             result=InstanceRunResult.SUCCESS,
             end_timestamp_millis=int(datetime.utcnow().timestamp() * 1000),
         )
-        print(f"Emitted from Lineage: {dpi}")
+        operator.log.info(f"Emitted from Lineage: {dpi}")
