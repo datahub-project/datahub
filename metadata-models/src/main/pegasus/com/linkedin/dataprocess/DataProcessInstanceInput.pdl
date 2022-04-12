@@ -1,0 +1,31 @@
+namespace com.linkedin.dataprocess
+
+import com.linkedin.common.Urn
+
+/**
+ * Information about the inputs datasets of a Data process
+ */
+@Aspect = {
+  "name": "dataProcessInstanceInput"
+}
+record DataProcessInstanceInput {
+  /**
+   * Input datasets to be consumed
+   */
+  @Relationship = {
+    "/*": {
+      "name": "Consumes",
+      "entityTypes": [ "dataset" ]
+    }
+  }
+  @Searchable = {
+    "/*": {
+      "fieldName": "inputs",
+      "fieldType": "URN",
+      "numValuesFieldName": "numInputs",
+      "queryByDefault": false,
+      "addToFilters": true
+    }
+  }
+  inputs: array[Urn]
+}
