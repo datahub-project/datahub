@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { CheckOutlined, CopyOutlined, FolderOpenOutlined, InfoCircleOutlined, MoreOutlined } from '@ant-design/icons';
-import { Typography, Image, Button, Tooltip, Menu, Dropdown, message } from 'antd';
+import { Typography, Image, Button, Tooltip, Menu, Dropdown, message, Popover } from 'antd';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { EntityType } from '../../../../../../types.generated';
@@ -13,6 +13,7 @@ import { useEntityPath } from '../utils';
 import analytics, { EventType, EntityActionType } from '../../../../../analytics';
 import { EntityHealthStatus } from './EntityHealthStatus';
 import { useUpdateDeprecationMutation } from '../../../../../../graphql/mutations.generated';
+import { getLocaleTimezone } from '../../../../../shared/time/timeUtils';
 
 const LogoContainer = styled.span`
     margin-right: 10px;
@@ -98,12 +99,14 @@ const DeprecatedContainer = styled.div`
     width: 110px;
     height: 18px;
     border: 1px solid #ef5b5b;
-    border-radius: 10px;
+    border-radius: 15px;
     display: flex;
     justify-content: center;
     align-items: center;
     color: #ef5b5b;
-    margin-left: 5px;
+    margin-left: 15px;
+    padding-top: 12px;
+    padding-bottom: 12px;
 `;
 
 const DeprecatedText = styled.div`
@@ -112,8 +115,12 @@ const DeprecatedText = styled.div`
 `;
 
 const MenuIcon = styled(MoreOutlined)`
-    font-size: 30px;
-    height: 30px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 25px;
+    height: 32px;
+    margin-left: 5px;
 `;
 
 const MenuItem = styled.div`
@@ -121,6 +128,14 @@ const MenuItem = styled.div`
     padding-left: 12px;
     padding-right: 12px;
     color: rgba(0, 0, 0, 0.85);
+`;
+
+const LastEvaluatedAtLabel = styled.div`
+    padding: 0;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    color: ${ANTD_GRAY[7]};
 `;
 
 export const EntityHeader = () => {
@@ -154,22 +169,22 @@ export const EntityHeader = () => {
     const container = entityData?.container;
 
     // Update Deprecation
-    const UpdateDeprecationMutation = () => {
+    const UpdateDeprecationMutation = (deprecatedStatus: boolean) => {
         return updateDeprecation({
             variables: {
                 input: {
                     urn,
-                    deprecated: true,
+                    deprecated: deprecatedStatus,
                 },
             },
         });
     };
 
     // Update the Deprecation
-    const handleUpdateDeprecation = async () => {
+    const handleUpdateDeprecation = async (deprecatedStatus: boolean) => {
         message.loading({ content: 'Updating...' });
         try {
-            await UpdateDeprecationMutation();
+            await UpdateDeprecationMutation(deprecatedStatus);
             message.destroy();
             message.success({ content: 'Deprecation Updated', duration: 2 });
         } catch (e: unknown) {
@@ -184,10 +199,26 @@ export const EntityHeader = () => {
     const menu = (
         <Menu>
             <Menu.Item key="0">
-                <MenuItem onClick={() => handleUpdateDeprecation()}>Mark as deprecated</MenuItem>
+                {!entityData?.deprecation?.deprecated ? (
+                    <MenuItem onClick={() => handleUpdateDeprecation(true)}>Mark as deprecated</MenuItem>
+                ) : (
+                    <MenuItem onClick={() => handleUpdateDeprecation(false)}>Mark as un-deprecated</MenuItem>
+                )}
             </Menu.Item>
         </Menu>
     );
+
+    /**
+     * Deprecation Decommission Timestamp
+     */
+    // const lastEvaluatedAt = new Date(entityData?.deprecation?.decommissionTime);
+    const localeTimezone = getLocaleTimezone();
+    const lastEvaluatedAt = new Date();
+    const lastEvaluatedTimeLocal =
+        (lastEvaluatedAt &&
+            `Last evaluated on ${lastEvaluatedAt.toLocaleDateString()} at ${lastEvaluatedAt.toLocaleTimeString()} (${localeTimezone})`) ||
+        'No evaluations found';
+    const lastEvaluatedTimeGMT = lastEvaluatedAt && lastEvaluatedAt.toUTCString();
 
     return (
         <HeaderContainer>
@@ -229,12 +260,32 @@ export const EntityHeader = () => {
                     <Link to={entityPath}>
                         <EntityTitle level={3}>{entityData?.name || ' '}</EntityTitle>
                     </Link>
-                    {entityData?.deprecation?.deprecated && (
-                        <DeprecatedContainer>
-                            <InfoCircleOutlined />
-                            <DeprecatedText>Deprecated</DeprecatedText>
-                        </DeprecatedContainer>
-                    )}
+                    <Popover
+                        overlayStyle={{ maxWidth: 600 }}
+                        placement="right"
+                        title={<Typography.Text strong>This entity is deprecated.</Typography.Text>}
+                        content={
+                            <Typography.Text type="secondary">
+                                {entityData?.deprecation?.decommissionTime === null ? (
+                                    <Tooltip placement="right" title={lastEvaluatedTimeGMT}>
+                                        <LastEvaluatedAtLabel>
+                                            Scheduled to be decommissioned at {lastEvaluatedTimeLocal}
+                                        </LastEvaluatedAtLabel>
+                                    </Tooltip>
+                                ) : (
+                                    'No Decommission Time'
+                                )}
+                            </Typography.Text>
+                        }
+                    >
+                        {entityData?.deprecation?.deprecated && (
+                            <DeprecatedContainer>
+                                <InfoCircleOutlined />
+                                <DeprecatedText>Deprecated</DeprecatedText>
+                            </DeprecatedContainer>
+                        )}
+                    </Popover>
+
                     {entityData?.health && (
                         <EntityHealthStatus
                             status={entityData?.health.status}
@@ -257,11 +308,9 @@ export const EntityHeader = () => {
                     }}
                 />
             </Tooltip>
-            {!entityData?.deprecation?.deprecated && (
-                <Dropdown overlay={menu} trigger={['click']}>
-                    <MenuIcon />
-                </Dropdown>
-            )}
+            <Dropdown overlay={menu} trigger={['click']}>
+                <MenuIcon />
+            </Dropdown>
         </HeaderContainer>
     );
 };
