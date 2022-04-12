@@ -626,6 +626,9 @@ class BigQueryUsageSource(Source):
         )
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        parsed_bigquery_log_events: Iterable[
+            Union[ReadEvent, QueryEvent, MetadataWorkUnit]
+        ]
         if self.config.use_exported_bigquery_audit_metadata:
             bigquery_clients: List[BigQueryClient] = self._make_bigquery_clients()
             bigquery_log_entries = (
@@ -704,9 +707,7 @@ class BigQueryUsageSource(Source):
     def _get_bigquery_log_entries_via_exported_bigquery_audit_metadata(
         self, clients: List[BigQueryClient]
     ) -> Iterable[BigQueryAuditMetadata]:
-        list_entry_generators_across_clients: List[
-            Iterable[BigQueryAuditMetadata]
-        ] = list()
+        list_entry_generators_across_clients: List[Iterable[BigQueryAuditMetadata]] = []
         for client in clients:
             try:
                 list_entries: Iterable[
@@ -754,7 +755,6 @@ class BigQueryUsageSource(Source):
             logger.info(
                 f"Start loading log entries from BigQueryAuditMetadata in {dataset}"
             )
-
             query: str
             if self.config.use_date_sharded_audit_log_tables:
                 start_date: str = (
@@ -776,12 +776,11 @@ class BigQueryUsageSource(Source):
                 query = bigquery_audit_metadata_query_template(
                     dataset, self.config.use_date_sharded_audit_log_tables, allow_filter
                 ).format(start_time=start_time, end_time=end_time)
-            query_job = bigquery_client.query(query)
 
+            query_job = bigquery_client.query(query)
             logger.info(
                 f"Finished loading log entries from BigQueryAuditMetadata in {dataset}"
             )
-
             yield from query_job
 
     def _get_entry_timestamp(
@@ -993,7 +992,6 @@ class BigQueryUsageSource(Source):
                     audit_metadata
                 )
             )
-
             if missing_query_event_exported_audit is None:
                 event = QueryEvent.from_exported_bigquery_audit_metadata(audit_metadata)
                 wu = self._create_operation_aspect_work_unit(event)
@@ -1008,16 +1006,16 @@ class BigQueryUsageSource(Source):
             if missing_read_event_exported_audit is None:
                 event = ReadEvent.from_exported_bigquery_audit_metadata(audit_metadata)
 
-            if event is None:
-                if event is None:
-                    self.error(
-                        logger,
-                        f"{audit_metadata['logName']}-{audit_metadata['insertId']}",
-                        f"Unable to parse audit metadata missing "
-                        f"QueryEvent keys:{str(missing_query_event_exported_audit)}, ReadEvent keys: {str(missing_read_event_exported_audit)} for {audit_metadata}",
-                    )
             if event is not None:
                 yield event
+            else:
+                self.error(
+                    logger,
+                    f"{audit_metadata['logName']}-{audit_metadata['insertId']}",
+                    f"Unable to parse audit metadata missing "
+                    f"QueryEvent keys:{str(missing_query_event_exported_audit)},"
+                    f" ReadEvent keys: {str(missing_read_event_exported_audit)} for {audit_metadata}",
+                )
 
     def error(self, log: logging.Logger, key: str, reason: str) -> Any:
         self.report.report_failure(key, reason)
@@ -1073,7 +1071,7 @@ class BigQueryUsageSource(Source):
                 else:
                     self.report.report_warning(
                         str(event.resource),
-                        f"failed to match table read event {event.jobName} with job; try increasing `query_log_delay` or `max_query_duration`",
+                        f"Failed to match table read event {event.jobName} with job; try increasing `query_log_delay` or `max_query_duration`",
                     )
             yield event
 
