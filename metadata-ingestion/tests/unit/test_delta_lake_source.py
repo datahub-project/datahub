@@ -9,13 +9,13 @@ from datahub.ingestion.source.delta_lake import (
     QueryTableMetadataResponse_extended,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
-    ArrayTypeClass,
-    MapTypeClass,
-    NumberTypeClass,
-    RecordTypeClass,
+    ArrayType,
+    MapType,
+    NumberType,
+    RecordType,
     SchemaField,
     SchemaFieldDataType,
-    StringTypeClass,
+    StringType,
 )
 
 
@@ -72,7 +72,7 @@ def test_get_schema_fields(testdata1):
             jsonPath=None,
             nullable=True,
             description=None,
-            type=SchemaFieldDataType(type=StringTypeClass()),
+            type=SchemaFieldDataType(type=StringType()),
             nativeDataType="string",
             recursive=False,
             globalTags=None,
@@ -85,7 +85,7 @@ def test_get_schema_fields(testdata1):
             jsonPath=None,
             nullable=True,
             description=None,
-            type=SchemaFieldDataType(type=StringTypeClass()),
+            type=SchemaFieldDataType(type=StringType()),
             nativeDataType="string",
             recursive=False,
             globalTags=None,
@@ -98,7 +98,7 @@ def test_get_schema_fields(testdata1):
             jsonPath=None,
             nullable=True,
             description=None,
-            type=SchemaFieldDataType(type=StringTypeClass()),
+            type=SchemaFieldDataType(type=StringType()),
             nativeDataType="string",
             recursive=False,
             globalTags=None,
@@ -111,7 +111,7 @@ def test_get_schema_fields(testdata1):
             jsonPath=None,
             nullable=True,
             description=None,
-            type=SchemaFieldDataType(type=NumberTypeClass()),
+            type=SchemaFieldDataType(type=NumberType()),
             nativeDataType="integer",
             recursive=False,
             globalTags=None,
@@ -124,7 +124,7 @@ def test_get_schema_fields(testdata1):
             jsonPath=None,
             nullable=True,
             description=None,
-            type=SchemaFieldDataType(type=NumberTypeClass()),
+            type=SchemaFieldDataType(type=NumberType()),
             nativeDataType="integer",
             recursive=False,
             globalTags=None,
@@ -137,7 +137,7 @@ def test_get_schema_fields(testdata1):
             jsonPath=None,
             nullable=True,
             description=None,
-            type=SchemaFieldDataType(type=NumberTypeClass()),
+            type=SchemaFieldDataType(type=NumberType()),
             nativeDataType="integer",
             recursive=False,
             globalTags=None,
@@ -157,122 +157,108 @@ def test_get_schema_fields_nested(testdata2):
 
     assert schema_fields == [
         SchemaField(
-            {
-                "fieldPath": "a",
-                "jsonPath": None,
-                "nullable": False,
-                "description": "this is a comment",
-                "type": SchemaFieldDataType({"type": NumberTypeClass({})}),
-                "nativeDataType": "integer",
-                "recursive": False,
-                "globalTags": None,
-                "glossaryTerms": None,
-                "isPartOfKey": False,
-                "jsonProps": None,
-            }
+                fieldPath = "a",
+                jsonPath = None,
+                nullable = False,
+                description = "this is a comment",
+                type = SchemaFieldDataType(type = NumberType()),
+                nativeDataType = "integer",
+                recursive = False,
+                globalTags = None,
+                glossaryTerms = None,
+                isPartOfKey = False,
+                jsonProps = None,
         ),
         [
             SchemaField(
-                {
-                    "fieldPath": "[version=2.0].[type=struct].[type=struct].b",
-                    "jsonPath": None,
-                    "nullable": True,
-                    "description": None,
-                    "type": SchemaFieldDataType({"type": RecordTypeClass({})}),
-                    "nativeDataType": "struct",
-                    "recursive": False,
-                    "globalTags": None,
-                    "glossaryTerms": None,
-                    "isPartOfKey": False,
-                    "jsonProps": "{\"native_data_type\": \"fields: [{'name': 'd', 'type': 'integer', 'nullable': False, 'metadata': {}}]\"}",
-                }
+                    fieldPath = "[version=2.0].[type=struct].[type=struct].b",
+                    jsonPath = None,
+                    nullable = True,
+                    description = None,
+                    type = SchemaFieldDataType(type = RecordType()),
+                    nativeDataType = "struct",
+                    recursive = False,
+                    globalTags = None,
+                    glossaryTerms = None,
+                    isPartOfKey = False,
+                    jsonProps = "{\"native_data_type\": \"fields: [{'name': 'd', 'type': 'integer', 'nullable': False, 'metadata': {}}]\"}",
             ),
             SchemaField(
-                {
-                    "fieldPath": "[version=2.0].[type=struct].[type=struct].b.[type=int].d",
-                    "jsonPath": None,
-                    "nullable": False,
-                    "description": None,
-                    "type": SchemaFieldDataType({"type": NumberTypeClass({})}),
-                    "nativeDataType": "integer",
-                    "recursive": False,
-                    "globalTags": None,
-                    "glossaryTerms": None,
-                    "isPartOfKey": False,
-                    "jsonProps": '{"native_data_type": "integer", "_nullable": false, "description": null}',
-                }
+                    fieldPath = "[version=2.0].[type=struct].[type=struct].b.[type=int].d",
+                    jsonPath = None,
+                    nullable = False,
+                    description = None,
+                    type = SchemaFieldDataType(type = NumberType()),
+                    nativeDataType = "integer",
+                    recursive = False,
+                    globalTags = None,
+                    glossaryTerms = None,
+                    isPartOfKey = False,
+                    jsonProps = '{"native_data_type": "integer", "_nullable": false, "description": null}',
             ),
         ],
         [
             SchemaField(
-                {
-                    "fieldPath": "[version=2.0].[type=struct].[type=array].[type=int].c",
-                    "jsonPath": None,
-                    "nullable": True,
-                    "description": None,
-                    "type": SchemaFieldDataType(
-                        {"type": ArrayTypeClass({"nestedType": None})}
+                    fieldPath = "[version=2.0].[type=struct].[type=array].[type=int].c",
+                    jsonPath = None,
+                    nullable = True,
+                    description = None,
+                    type = SchemaFieldDataType(
+                        type = ArrayType(nestedType = None)
                     ),
-                    "nativeDataType": "array",
-                    "recursive": False,
-                    "globalTags": None,
-                    "glossaryTerms": None,
-                    "isPartOfKey": False,
-                    "jsonProps": '{"native_data_type": "array", "_nullable": false, "description": null}',
-                }
+                    nativeDataType = "array",
+                    recursive = False,
+                    globalTags = None,
+                    glossaryTerms = None,
+                    isPartOfKey = False,
+                    jsonProps = '{"native_data_type": "array", "_nullable": false, "description": null}',
             )
         ],
         [
-            SchemaField(
-                {
-                    "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].e",
-                    "jsonPath": None,
-                    "nullable": True,
-                    "description": None,
-                    "type": SchemaFieldDataType(
-                        {"type": ArrayTypeClass({"nestedType": None})}
+            SchemaField(                
+                    fieldPath = "[version=2.0].[type=struct].[type=array].[type=struct].e",
+                    jsonPath = None,
+                    nullable = True,
+                    description = None,
+                    type = SchemaFieldDataType(
+                        type = ArrayType(nestedType = None)
                     ),
-                    "nativeDataType": "array",
-                    "recursive": False,
-                    "globalTags": None,
-                    "glossaryTerms": None,
-                    "isPartOfKey": False,
-                    "jsonProps": '{"native_data_type": "array", "_nullable": true, "description": null}',
-                }
+                    nativeDataType = "array",
+                    recursive = False,
+                    globalTags = None,
+                    glossaryTerms = None,
+                    isPartOfKey = False,
+                    jsonProps = '{"native_data_type": "array", "_nullable": true, "description": null}',
             ),
             SchemaField(
-                {
-                    "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].e.[type=int].d",
-                    "jsonPath": None,
-                    "nullable": False,
-                    "description": None,
-                    "type": SchemaFieldDataType({"type": NumberTypeClass({})}),
-                    "nativeDataType": "integer",
-                    "recursive": False,
-                    "globalTags": None,
-                    "glossaryTerms": None,
-                    "isPartOfKey": False,
-                    "jsonProps": '{"native_data_type": "integer", "_nullable": false, "description": null}',
-                }
+                    fieldPath = "[version=2.0].[type=struct].[type=array].[type=struct].e.[type=int].d",
+                    jsonPath = None,
+                    nullable = False,
+                    description = None,
+                    type = SchemaFieldDataType(type = NumberType()),
+                    nativeDataType = "integer",
+                    recursive = False,
+                    globalTags = None,
+                    glossaryTerms = None,
+                    isPartOfKey = False,
+                    jsonProps = '{"native_data_type": "integer", "_nullable": false, "description": null}',
             ),
         ],
         [
             SchemaField(
-                {
-                    "fieldPath": "[version=2.0].[type=struct].[type=map].[type=string].f",
-                    "jsonPath": None,
-                    "nullable": True,
-                    "description": None,
-                    "type": SchemaFieldDataType(
-                        {"type": MapTypeClass({"keyType": None, "valueType": None})}
+                    fieldPath = "[version=2.0].[type=struct].[type=map].[type=string].f",
+                    jsonPath = None,
+                    nullable = True,
+                    description = None,
+                    type = SchemaFieldDataType(
+                        type = MapType(keyType = None, valueType = None)
                     ),
-                    "nativeDataType": "map",
-                    "recursive": False,
-                    "globalTags": None,
-                    "glossaryTerms": None,
-                    "isPartOfKey": False,
-                    "jsonProps": '{"native_data_type": "map", "key_type": {"type": "string", "native_data_type": "string", "_nullable": null, "description": null}, "key_native_data_type": "string", "_nullable": true, "description": null}',
-                }
+                    nativeDataType = "map",
+                    recursive = False,
+                    globalTags = None,
+                    glossaryTerms = None,
+                    isPartOfKey = False,
+                    jsonProps = '{"native_data_type": "map", "key_type": {"type": "string", "native_data_type": "string", "_nullable": null, "description": null}, "key_native_data_type": "string", "_nullable": true, "description": null}',
             )
         ],
     ]
