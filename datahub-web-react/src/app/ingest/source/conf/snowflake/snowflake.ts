@@ -7,6 +7,14 @@ const placeholderRecipe = `\
 source: 
     type: snowflake
     config:
+        # Uncomment this section to provision the role required for ingestion
+        # provision_role:
+        #     enabled: true
+        #     dry_run: false
+        #     run_ingestion: true
+        #     admin_username: "\${SNOWFLAKE_ADMIN_USER}"
+        #     admin_password: "\${SNOWFLAKE_ADMIN_PASS}"
+
         # Your Snowflake account name
         # e.g. if URL is example48144.us-west-2.snowflakecomputing.com then use "example48144"
         account_id: "example48144"
@@ -19,26 +27,27 @@ source:
 
         # Suggest to have this set to true initially to get all lineage
         ignore_start_time_lineage: true
+
         # This is an alternative option to specify the start_time for lineage
         # if you don't want to look back since beginning
         # start_time: '2022-03-01T00:00:00Z'
 
         # Uncomment and change to only allow some database metadata to be ingested
         # database_pattern:
-        #    allow:
-        #    - "^ACCOUNTING_DB$"
-        #    - "^MARKETING_DB$"
+        #     allow:
+        #     - "^ACCOUNTING_DB$"
+        #     - "^MARKETING_DB$"
 
         # Uncomment and change to deny some metadata from few schemas 
         # schema_pattern:
-        #    deny:
-        #    - "information_schema.*"
+        #     deny:
+        #     - "information_schema.*"
 
         # If you want to ingest only few tables with name revenue and sales
         # table_pattern:
-        #    allow:  
-        #    - ".*revenue"
-        #    - ".*sales"
+        #     allow:  
+        #     - ".*revenue"
+        #     - ".*sales"
         
 sink: 
     type: datahub-rest 
