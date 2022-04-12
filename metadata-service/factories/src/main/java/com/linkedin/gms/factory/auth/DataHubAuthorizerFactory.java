@@ -1,7 +1,7 @@
 package com.linkedin.gms.factory.auth;
 
 import com.datahub.authentication.Authentication;
-import com.datahub.authorization.AuthorizationManager;
+import com.datahub.authorization.DataHubAuthorizer;
 import com.linkedin.entity.client.JavaEntityClient;
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
@@ -19,7 +19,7 @@ import org.springframework.context.annotation.Scope;
 @Configuration
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 @Import({RestliEntityClientFactory.class})
-public class AuthorizationManagerFactory {
+public class DataHubAuthorizerFactory {
 
   @Autowired
   @Qualifier("systemAuthentication")
@@ -29,21 +29,21 @@ public class AuthorizationManagerFactory {
   @Qualifier("javaEntityClient")
   private JavaEntityClient entityClient;
 
-  @Value("${authorizationManager.cacheRefreshIntervalSecs}")
+  @Value("${authorization.defaultAuthorizer.cacheRefreshIntervalSecs}")
   private Integer policyCacheRefreshIntervalSeconds;
 
-  @Value("${authorizationManager.enabled:true}")
+  @Value("${authorization.defaultAuthorizer..enabled:true}")
   private Boolean policiesEnabled;
 
-  @Bean(name = "authorizationManager")
+  @Bean(name = "dataHubAuthorizer")
   @Scope("singleton")
   @Nonnull
-  protected AuthorizationManager getInstance() {
+  protected DataHubAuthorizer getInstance() {
 
-    final AuthorizationManager.AuthorizationMode mode = policiesEnabled ? AuthorizationManager.AuthorizationMode.DEFAULT
-        : AuthorizationManager.AuthorizationMode.ALLOW_ALL;
+    final DataHubAuthorizer.AuthorizationMode mode = policiesEnabled ? DataHubAuthorizer.AuthorizationMode.DEFAULT
+        : DataHubAuthorizer.AuthorizationMode.ALLOW_ALL;
 
-    return new AuthorizationManager(systemAuthentication, entityClient, 10,
+    return new DataHubAuthorizer(systemAuthentication, entityClient, 10,
         policyCacheRefreshIntervalSeconds, mode);
   }
 }

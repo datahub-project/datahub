@@ -1,0 +1,33 @@
+fragment runResults on DataProcessInstanceResult {
+    count
+    start
+    total
+    runs {
+        urn
+        type
+        created {
+            time
+            actor
+        }
+        name
+        state(startTimeMillis: null, endTimeMillis: null, limit: 1) {
+            status
+            attempt
+            result {
+                resultType
+                nativeResultType
+            }
+            timestampMillis
+        }
+        inputs: relationships(input: { types: ["Consumes"], direction: OUTGOING, start: 0, count: 20 }) {
+            ...fullRelationshipResults
+        }
+        outputs: relationships(input: { types: ["Produces"], direction: OUTGOING, start: 0, count: 20 }) {
+            ...fullRelationshipResults
+        }
+        parentTemplate: relationships(input: { types: ["InstanceOf"], direction: OUTGOING, start: 0, count: 1 }) {
+            ...fullRelationshipResults
+        }
+        externalUrl
+    }
+}

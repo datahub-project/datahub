@@ -27,7 +27,7 @@ import org.springframework.context.annotation.PropertySource;
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 @EnableConfigurationProperties(KafkaProperties.class)
 @Import({KafkaSchemaRegistryFactory.class, AwsGlueSchemaRegistryFactory.class})
-public class KafkaProducerFactory {
+public class DataHubKafkaProducerFactory {
 
   @Value("${kafka.bootstrapServers}")
   private String kafkaBootstrapServers;
@@ -65,7 +65,12 @@ public class KafkaProducerFactory {
     Map<String, Object> props = properties.buildProducerProperties();
 
     props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, schemaRegistryConfig.getSerializer().getName());
-    props.putAll(schemaRegistryConfig.getProperties());
+
+    // Override KafkaProperties with SchemaRegistryConfig only for non-empty values
+    schemaRegistryConfig.getProperties().entrySet()
+      .stream()
+      .filter(entry -> entry.getValue() != null && !entry.getValue().toString().isEmpty())
+      .forEach(entry -> props.put(entry.getKey(), entry.getValue())); 
 
     return new KafkaProducer<>(props);
   }
