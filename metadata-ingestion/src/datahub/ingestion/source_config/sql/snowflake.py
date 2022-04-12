@@ -10,7 +10,11 @@ from snowflake.connector.network import (
     KEY_PAIR_AUTHENTICATOR,
 )
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    ConfigurationError,
+)
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemyConfig,
@@ -71,7 +75,9 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
     )
     authentication_type: Optional[str] = "DEFAULT_AUTHENTICATOR"
     host_port: Optional[str] = None  # Deprecated
-    account_id: str
+    account_id: Optional[
+        str
+    ] = None  # Once host_port is removed this will be made mandatory
     warehouse: Optional[str]
     role: Optional[str]
     include_table_lineage: Optional[bool] = True
@@ -79,21 +85,30 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
 
     connect_args: Optional[dict]
 
-    @pydantic.validator("account_id", always=True)
-    def clean_account_id(cls, v, values, **kwargs):
+    def _clean_account(cls, v: str) -> str:
         v = remove_protocol(v)
         v = remove_trailing_slashes(v)
         v = remove_suffix(v, ".snowflakecomputing.com")
         return v
 
-    @pydantic.validator("host_port")
-    def host_port_is_valid(cls, v, values, **kwargs):
-        logger.warning(
-            "snowflake's `host_port` option has been deprecated; use account_id instead"
-        )
-        cleaned_val = cls.clean_account_id(cls, v, values)
-        values["account_id"] = cleaned_val
-        return cleaned_val
+    @pydantic.root_validator
+    def one_of_host_port_or_account_id_is_required(cls, values):
+        host_port = values.get("host_port")
+        if host_port is not None:
+            logger.warning(
+                "snowflake's `host_port` option has been deprecated; use account_id instead"
+            )
+            host_port = cls._clean_account(cls, v=host_port)
+            values["host_port"] = host_port
+        account_id = values.get("account_id")
+        if account_id is None and host_port is not None:
+            account_id = host_port
+            values["account_id"] = host_port
+        else:
+            raise ConfigurationError(
+                "One of account_id (recommended) or host_port (deprecated) is required"
+            )
+        return values
 
     @pydantic.validator("authentication_type", always=True)
     def authenticator_type_is_valid(cls, v, values, **kwargs):
