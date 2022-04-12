@@ -25,6 +25,7 @@ from datahub.ingestion.source.sql.sql_common import (
     TimeTypeClass,
     register_custom_type,
 )
+from snowflake.connector.network import OAUTH_AUTHENTICATOR
 from datahub.ingestion.source_config.sql.snowflake import SnowflakeConfig
 from datahub.ingestion.source_report.sql.snowflake import SnowflakeReport
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
@@ -78,11 +79,18 @@ class SnowflakeSource(SQLAlchemySource):
             database=database, username=username, password=password, role=role
         )
         logger.debug(f"sql_alchemy_url={url}")
-        return create_engine(
-            url,
-            connect_args=self.config.get_sql_alchemy_connect_args(),
-            **self.config.options,
-        )
+        if self.authentication_type == OAUTH_AUTHENTICATOR:
+            return create_engine(
+                url,
+                creator=self.config.get_oauth_connection
+                **self.config.options,
+            )
+        else:
+            return create_engine(
+                url,
+                connect_args=self.config.get_sql_alchemy_connect_args(),
+                **self.config.options,
+            )
 
     def inspect_version(self) -> Any:
         db_engine = self.get_metadata_engine()
