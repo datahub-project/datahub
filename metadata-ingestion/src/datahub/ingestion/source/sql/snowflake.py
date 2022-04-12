@@ -489,7 +489,7 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
         return None
 
     def add_config_to_report(self):
-        self.report.cleaned_host_port = self.config.host_port
+        self.report.cleaned_account_id = self.config.account_id
         self.report.ignore_start_time_lineage = self.config.ignore_start_time_lineage
         self.report.report_upstream_lineage = self.config.report_upstream_lineage
         if not self.report.ignore_start_time_lineage:
@@ -697,4 +697,4 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
     # NOTE: There is no special state associated with this source yet than what is provided by sql_common.
     def get_platform_instance_id(self) -> str:
         """Overrides the source identifier for stateful ingestion."""
-        return self.config.host_port
+        return self.config.account_id

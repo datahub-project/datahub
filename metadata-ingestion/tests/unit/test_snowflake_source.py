@@ -5,8 +5,8 @@ def test_snowflake_uri_default_authentication():
         {
             "username": "user",
             "password": "password",
-            "host_port": "acctname",
-            "database": "demo",
+            "account_id": "acctname",
+            "database_pattern": {"allow": {"^demo$"}},
             "warehouse": "COMPUTE_WH",
             "role": "sysadmin",
         }
@@ -25,8 +25,8 @@ def test_snowflake_uri_external_browser_authentication():
     config = SnowflakeConfig.parse_obj(
         {
             "username": "user",
-            "host_port": "acctname",
-            "database": "demo",
+            "account_id": "acctname",
+            "database_pattern": {"allow": {"^demo$"}},
             "warehouse": "COMPUTE_WH",
             "role": "sysadmin",
             "authentication_type": "EXTERNAL_BROWSER_AUTHENTICATOR",
@@ -46,8 +46,8 @@ def test_snowflake_uri_key_pair_authentication():
     config = SnowflakeConfig.parse_obj(
         {
             "username": "user",
-            "host_port": "acctname",
-            "database": "demo",
+            "account_id": "acctname",
+            "database_pattern": {"allow": {"^demo$"}},
             "warehouse": "COMPUTE_WH",
             "role": "sysadmin",
             "authentication_type": "KEY_PAIR_AUTHENTICATOR",

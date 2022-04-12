@@ -146,7 +146,7 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
         return JobId("snowflake_usage_ingestion")
 
     def get_platform_instance_id(self) -> str:
-        return self.config.host_port
+        return self.config.account_id
 
     def create_checkpoint(self, job_id: JobId) -> Optional[Checkpoint]:
         """

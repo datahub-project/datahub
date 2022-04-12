@@ -70,7 +70,8 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
         default=None, exclude=True
     )
     authentication_type: Optional[str] = "DEFAULT_AUTHENTICATOR"
-    host_port: str
+    host_port: Optional[str] = None  # Deprecated
+    account_id: str
     warehouse: Optional[str]
     role: Optional[str]
     include_table_lineage: Optional[bool] = True
@@ -78,12 +79,21 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
 
     connect_args: Optional[dict]
 
-    @pydantic.validator("host_port", always=True)
-    def host_port_is_valid(cls, v, values, **kwargs):
+    @pydantic.validator("account_id", always=True)
+    def clean_account_id(cls, v, values, **kwargs):
         v = remove_protocol(v)
         v = remove_trailing_slashes(v)
         v = remove_suffix(v, ".snowflakecomputing.com")
         return v
+
+    @pydantic.validator("host_port")
+    def host_port_is_valid(cls, v, values, **kwargs):
+        logger.warning(
+            "snowflake's `host_port` option has been deprecated; use account_id instead"
+        )
+        cleaned_val = cls.clean_account_id(cls, v, values)
+        values["account_id"] = cleaned_val
+        return cleaned_val
 
     @pydantic.validator("authentication_type", always=True)
     def authenticator_type_is_valid(cls, v, values, **kwargs):
@@ -138,7 +148,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
             self.scheme,
             username,
             password.get_secret_value() if password else None,
-            self.host_port,
+            self.account_id,
             f'"{database}"' if database is not None else database,
             uri_opts={
                 # Drop the options if value is None.
@@ -182,19 +192,9 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
         deny=[r"^UTIL_DB$", r"^SNOWFLAKE$", r"^SNOWFLAKE_SAMPLE_DATA$"]
     )
 
-    database: Optional[str]  # deprecated
-
     provision_role: Optional[SnowflakeProvisionRoleConfig] = None
     ignore_start_time_lineage: bool = False
     report_upstream_lineage: bool = False
-
-    @pydantic.validator("database")
-    def note_database_opt_deprecation(cls, v, values, **kwargs):
-        logger.warning(
-            "snowflake's `database` option has been deprecated; use database_pattern instead"
-        )
-        values["database_pattern"].allow = f"^{v}$"
-        return None
 
     def get_sql_alchemy_url(
         self,
