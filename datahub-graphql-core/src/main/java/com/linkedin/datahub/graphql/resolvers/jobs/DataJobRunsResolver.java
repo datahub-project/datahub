@@ -33,7 +33,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 /**
- * GraphQL Resolver used for fetching the list of Assertions associated with an Entity.
+ * GraphQL Resolver used for fetching a list of Task Runs associated with a Data Job
  */
 public class DataJobRunsResolver implements DataFetcher<CompletableFuture<DataProcessInstanceResult>> {
 

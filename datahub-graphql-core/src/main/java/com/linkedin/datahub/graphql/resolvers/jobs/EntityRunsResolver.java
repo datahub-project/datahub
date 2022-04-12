@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
 
 
 /**
- * GraphQL Resolver used for fetching the list of Assertions associated with an Entity.
+ * GraphQL Resolver used for fetching the list of task runs associated with a Dataset.
  */
 public class EntityRunsResolver implements DataFetcher<CompletableFuture<DataProcessInstanceResult>> {
 
@@ -85,7 +85,7 @@ public class EntityRunsResolver implements DataFetcher<CompletableFuture<DataPro
             null,
             context.getAuthentication());
 
-        // Step 3: Map GMS incident model to GraphQL model
+        // Step 3: Map GMS instance model to GraphQL model
         final List<EntityResponse> gmsResults = new ArrayList<>();
         for (Urn urn : dataProcessInstanceUrns) {
           gmsResults.add(entities.getOrDefault(urn, null));
