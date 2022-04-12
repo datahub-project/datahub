@@ -9,19 +9,11 @@ import axios from 'axios';
 import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
 import { CommonFields } from './CommonFields';
 import { GetMyToken } from '../../entity/dataset/whoAmI';
+import { WhereAmI } from '../../home/whereAmI';
 
 export const JsonForm = () => {
-    // this wacky setup is because the URL is different when running docker-compose vs Ingress
-    // for docker-compose, need to change port. For ingress, just modify subpath will do.
-    // having a setup that works for both makes development easier.
-    // for make_dataset, the URL is simple.
-    const initialUrl = window.location.href;
-    let publishUrl = initialUrl.includes(':3000')
-        ? initialUrl.replace(':3000/adhoc/', ':8001/custom/make_dataset')
-        : initialUrl;
-    publishUrl = publishUrl.includes(':9002')
-        ? publishUrl.replace(':9002/adhoc/', ':8001/custom/make_dataset')
-        : publishUrl.replace('/adhoc/', '/custom/make_dataset');
+    const urlBase = WhereAmI();
+    const publishUrl = `${urlBase}custom/make_dataset`;
     const user = useGetAuthenticatedUser();
     const userUrn = user?.corpUser?.urn || '';
     const userToken = GetMyToken(userUrn);

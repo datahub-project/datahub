@@ -4,31 +4,17 @@ import { Agent } from 'https';
 import { Alert } from 'antd';
 import axios from 'axios';
 import ReactHtmlParser from 'react-html-parser';
-// import adhocConfig from '../../conf/Adhoc';
+import { WhereAmI } from '../home/whereAmI';
 
 export const BannerSplash = () => {
     interface AnnouncementData {
         message: string;
         timestamp: string;
     }
-    const initialUrl = window.location.href;
-    // this wacky setup is because the URL is different when running docker-compose vs Ingress
-    // for docker-compose, need to change port. For ingress, just modify subpath will do.
-    // having a setup that works for both makes development easier.
-    // for UI edit pages, the URL is complicated, need to find the root path.
-    const mainPathLength = initialUrl.split('/', 3).join('/').length;
-    const mainPath = `${initialUrl.substring(0, mainPathLength + 1)}`;
-    // const publishUrl = mainPath.includes(':3000') ? mainPath.replace(':3000/', ':8001/custom/announce')
-    //   : `${mainPath}/custom/announce`;
-    let publishUrl = mainPath.includes(':3000') ? mainPath.replace(':3000/', ':8001/custom/announce') : mainPath;
-    publishUrl = publishUrl.includes(':9002')
-        ? publishUrl.replace(':9002/', ':8001/custom/announce')
-        : `${publishUrl}/custom/announce`;
+    const urlBase = WhereAmI();
+    const publishUrl = `${urlBase}custom/announce`;
     console.log(`the final url is ${publishUrl}`);
 
-    // let url = adhocConfig;
-    // const branch = url.lastIndexOf('/');
-    // url = `${url.substring(0, branch)}/announce`;
     const closedTime = Number(localStorage.getItem('_banner_closed_time')) || 0;
     const [data, setData] = useState<AnnouncementData>();
     const [showData, setShowData] = useState(false);

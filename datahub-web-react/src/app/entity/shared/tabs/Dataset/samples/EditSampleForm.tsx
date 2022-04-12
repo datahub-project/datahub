@@ -5,6 +5,7 @@ import { gql, useLazyQuery, useQuery } from '@apollo/client';
 import { useBaseEntity } from '../../../EntityContext';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { FindMyUrn, FindWhoAmI, GetMyToken } from '../../../../dataset/whoAmI';
+import { WhereAmI } from '../../../../../home/whereAmI';
 // import adhocConfig from '../../../../../../conf/Adhoc';
 
 function GetProfileTimestamps(datasetUrn) {
@@ -35,20 +36,10 @@ function timeout(delay: number) {
 }
 
 export const EditSampleForm = () => {
-    // const entity = useBaseEntity<GetDatasetQuery>();
-    // const delay = (ms) => new Promise((res) => setTimeout(res, ms));
-    const initialUrl = window.location.href;
-    // this wacky setup is because the URL is different when running docker-compose vs Ingress
-    // for docker-compose, need to change port. For ingress, just modify subpath will do.
-    // having a setup that works for both makes development easier.
-    // for UI edit pages, the URL is complicated, need to find the root path.
-    const mainPathLength = initialUrl.split('/', 3).join('/').length;
-    const mainPath = `${initialUrl.substring(0, mainPathLength + 1)}`;
-    let publishUrl = mainPath.includes(':3000') ? mainPath.replace(':3000/', ':8001/custom') : mainPath;
-    publishUrl = mainPath.includes(':9002') ? mainPath.replace(':9002/', ':8001/custom') : `${mainPath}/custom`;
-    console.log(`the final url is ${publishUrl}`);
-    const makeUrl = `${publishUrl}/update_samples`;
-    const delUrl = `${publishUrl}/delete_samples`;
+    const urlBase = WhereAmI();
+    const makeUrl = `${urlBase}custom/update_samples`;
+    const delUrl = `${urlBase}custom/delete_samples`;
+    console.log(`makeSample url: ${makeUrl}, delSample url: ${delUrl}`);
     const queryTimeStamps = gql`
         query getProfiles($urn: String!, $timestamp: Long!) {
             dataset(urn: $urn) {
