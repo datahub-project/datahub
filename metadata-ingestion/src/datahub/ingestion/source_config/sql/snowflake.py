@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Dict, Optional
 
 import pydantic
 from cryptography.hazmat.backends import default_backend
@@ -22,15 +22,16 @@ from datahub.utilities.config_clean import (
     remove_trailing_slashes,
 )
 
-APPLICATION_NAME = "acryl_datahub"
-
 logger: logging.Logger = logging.getLogger(__name__)
 
-valid_auth_types = {
+APPLICATION_NAME: str = "acryl_datahub"
+
+VALID_AUTH_TYPES: Dict[str, str] = {
     "DEFAULT_AUTHENTICATOR": DEFAULT_AUTHENTICATOR,
     "EXTERNAL_BROWSER_AUTHENTICATOR": EXTERNAL_BROWSER_AUTHENTICATOR,
     "KEY_PAIR_AUTHENTICATOR": KEY_PAIR_AUTHENTICATOR,
 }
+
 
 class SnowflakeProvisionRoleConfig(ConfigModel):
     enabled: bool = False
@@ -66,22 +67,20 @@ class SnowflakeProvisionRoleConfig(ConfigModel):
 class BaseSnowflakeConfig(BaseTimeWindowConfig):
     # Note: this config model is also used by the snowflake-usage source.
 
-    scheme = "snowflake"
-
+    scheme: str = "snowflake"
     username: Optional[str] = None
     password: Optional[pydantic.SecretStr] = pydantic.Field(default=None, exclude=True)
     private_key_path: Optional[str]
     private_key_password: Optional[pydantic.SecretStr] = pydantic.Field(
         default=None, exclude=True
     )
-    authentication_type: Optional[str] = "DEFAULT_AUTHENTICATOR"
+    authentication_type: str = "DEFAULT_AUTHENTICATOR"
     host_port: str
     warehouse: Optional[str]
     role: Optional[str]
     include_table_lineage: Optional[bool] = True
     include_view_lineage: Optional[bool] = True
-
-    connect_args: Optional[dict] = pydantic.Field(default=None, exclude=True)
+    connect_args: Optional[Dict] = pydantic.Field(default=None, exclude=True)
 
     @pydantic.validator("host_port", always=True)
     def host_port_is_valid(cls, v, values, **kwargs):
@@ -92,10 +91,10 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
 
     @pydantic.validator("authentication_type", always=True)
     def authenticator_type_is_valid(cls, v, values, **kwargs):
-        if v not in valid_auth_types.keys():
+        if v not in VALID_AUTH_TYPES.keys():
             raise ValueError(
                 f"unsupported authenticator type '{v}' was provided,"
-                f" use one of {list(valid_auth_types.keys())}"
+                f" use one of {list(VALID_AUTH_TYPES.keys())}"
             )
         else:
             if v == "KEY_PAIR_AUTHENTICATOR":
@@ -139,7 +138,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
                 # Drop the options if value is None.
                 key: value
                 for (key, value) in {
-                    "authenticator": valid_auth_types.get(self.authentication_type),
+                    "authenticator": VALID_AUTH_TYPES.get(self.authentication_type),
                     "warehouse": self.warehouse,
                     "role": role,
                     "application": APPLICATION_NAME,
