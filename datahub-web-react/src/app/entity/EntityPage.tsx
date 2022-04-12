@@ -61,6 +61,8 @@ export const EntityPage = ({ entityType }: Props) => {
         entityType === EntityType.DataFlow ||
         entityType === EntityType.DataJob ||
         entityType === EntityType.Mlmodel ||
+        entityType === EntityType.Mlfeature ||
+        entityType === EntityType.MlprimaryKey ||
         entityType === EntityType.MlfeatureTable ||
         entityType === EntityType.MlmodelGroup ||
         entityType === EntityType.GlossaryTerm;

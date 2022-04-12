@@ -77,7 +77,7 @@ export class MLModelEntity implements Entity<MlModel> {
                     component: DocumentationTab,
                 },
                 {
-                    name: 'Groups',
+                    name: 'Group',
                     component: MLModelGroupsTab,
                 },
                 {

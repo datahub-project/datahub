@@ -1642,7 +1642,12 @@
               "description": null,
               "dataType": "TEXT",
               "version": null,
-              "sources": [ ]
+              "sources": ["urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD)"]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.GlobalTags": {
+              "tags": [{ "tag": "urn:li:tag:CypressFeatureTag" }]
             }
           }
         ]
@@ -1662,7 +1667,12 @@
               "description": "this is a description from source system",
               "dataType": "ORDINAL",
               "version": null,
-              "sources": [ ]
+              "sources": ["urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD)"]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.GlobalTags": {
+              "tags": [{ "tag": "urn:li:tag:CypressPrimaryKeyTag" }]
             }
           }
         ]
@@ -1718,7 +1728,7 @@
                 "EnableNetworkIsolation": "True"
               },
               "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/models/the-first-model",
-              "description": null,
+              "description": "ml model description",
               "date": 1420070400000,
               "version": null,
               "type": null,

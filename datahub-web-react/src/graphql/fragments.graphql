@@ -661,6 +661,9 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
     deprecation {
         ...deprecationFields
     }
+    properties {
+        description
+    }
 }
 
 fragment platformFields on DataPlatform {
