@@ -498,9 +498,8 @@ class RedashSource(Source):
         self, data_source_id: int
     ) -> Optional[str]:
         data_source = self._get_chart_data_source(data_source_id)
-        data_source_type = data_source.get("type")
 
-        return self._get_database_name_based_on_datasource(data_source_type)
+        return self._get_database_name_based_on_datasource(data_source)
 
     def _emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
         current_dashboards_page = 1
