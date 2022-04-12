@@ -39,5 +39,8 @@ query getContainer($urn: String!) {
         domain {
             ...entityDomain
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
 }
