@@ -15,6 +15,7 @@ import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Owners
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
+import MlModelFeaturesTab from './profile/MlModelFeaturesTab';
 
 /**
  * Definition of the DataHub MlModel entity.
@@ -78,6 +79,10 @@ export class MLModelEntity implements Entity<MlModel> {
                 {
                     name: 'Groups',
                     component: MLModelGroupsTab,
+                },
+                {
+                    name: 'Features',
+                    component: MlModelFeaturesTab,
                 },
                 {
                     name: 'Properties',

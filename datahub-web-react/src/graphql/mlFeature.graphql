@@ -7,5 +7,8 @@ query getMLFeature($urn: String!) {
         downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
             ...fullLineageResults
         }
+        featureTables: relationships(input: { types: ["Contains"], direction: INCOMING, start: 0, count: 100 }) {
+            ...fullRelationshipResults
+        }
     }
 }

@@ -1,10 +1,18 @@
 import * as React from 'react';
 import { DotChartOutlined } from '@ant-design/icons';
-import { MlFeature, EntityType, SearchResult } from '../../../types.generated';
+import { MlFeature, EntityType, SearchResult, OwnershipType } from '../../../types.generated';
 import { Preview } from './preview/Preview';
-import { MLFeatureProfile } from './profile/MLFeatureProfile';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
+import { EntityProfile } from '../shared/containers/profile/EntityProfile';
+import { GenericEntityProperties } from '../shared/types';
+import { useGetMlFeatureQuery } from '../../../graphql/mlFeature.generated';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
+import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
+import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
+import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
+import { FeatureTableTab } from '../shared/tabs/ML/MlFeatureFeatureTableTab';
 
 /**
  * Definition of the DataHub MLFeature entity.
@@ -45,7 +53,50 @@ export class MLFeatureEntity implements Entity<MlFeature> {
 
     getCollectionName = () => 'Features';
 
-    renderProfile = (urn: string) => <MLFeatureProfile urn={urn} />;
+    getOverridePropertiesFromEntity = (_?: MlFeature | null): GenericEntityProperties => {
+        return {};
+    };
+
+    renderProfile = (urn: string) => (
+        <EntityProfile
+            urn={urn}
+            key={urn}
+            entityType={EntityType.Mlfeature}
+            useEntityQuery={useGetMlFeatureQuery}
+            getOverrideProperties={this.getOverridePropertiesFromEntity}
+            tabs={[
+                {
+                    name: 'Feature Tables',
+                    component: FeatureTableTab,
+                },
+                {
+                    name: 'Documentation',
+                    component: DocumentationTab,
+                },
+            ]}
+            sidebarSections={[
+                {
+                    component: SidebarAboutSection,
+                },
+                {
+                    component: SidebarTagsSection,
+                    properties: {
+                        hasTags: true,
+                        hasTerms: true,
+                    },
+                },
+                {
+                    component: SidebarOwnerSection,
+                    properties: {
+                        defaultOwnerType: OwnershipType.TechnicalOwner,
+                    },
+                },
+                {
+                    component: SidebarDomainSection,
+                },
+            ]}
+        />
+    );
 
     renderPreview = (_: PreviewType, data: MlFeature) => {
         return (
@@ -85,8 +136,10 @@ export class MLFeatureEntity implements Entity<MlFeature> {
             urn: entity.urn,
             name: entity.name,
             type: EntityType.Mlfeature,
-            icon: undefined,
-            platform: undefined,
+            // eslint-disable-next-line
+            icon: entity?.['featureTables']?.relationships?.[0]?.entity?.platform?.properties?.logoUrl || undefined,
+            // eslint-disable-next-line
+            platform: entity?.['featureTables']?.relationships?.[0]?.entity?.platform?.name,
         };
     };
 }

@@ -30,7 +30,7 @@
         "aspects": [
           {
             "com.linkedin.pegasus2avro.ml.metadata.MLPrimaryKeyProperties": {
-              "description": null,
+              "description": "this is a description from source system",
               "dataType": "ORDINAL",
               "version": null,
               "sources": [
@@ -53,7 +53,7 @@
         "aspects": [
           {
             "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
-              "description": null,
+              "description": "this is a descrip from source system",
               "dataType": "CONTINUOUS",
               "version": null,
               "sources": [
@@ -1703,7 +1703,7 @@
                 }
               ],
               "onlineMetrics": null,
-              "mlFeatures": null,
+              "mlFeatures": ["urn:li:mlFeature:(test-2,some-feature-1)"],
               "tags": [],
               "deployments": [
                 "urn:li:mlModelDeployment:(urn:li:dataPlatform:sagemaker,arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-first-endpoint,PROD)"

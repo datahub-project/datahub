@@ -79,6 +79,7 @@ public class MLPrimaryKeyMapper implements ModelMapper<EntityResponse, MLPrimary
     private void mapMLPrimaryKeyProperties(MLPrimaryKey mlPrimaryKey, DataMap dataMap) {
         MLPrimaryKeyProperties primaryKeyProperties = new MLPrimaryKeyProperties(dataMap);
         mlPrimaryKey.setPrimaryKeyProperties(MLPrimaryKeyPropertiesMapper.map(primaryKeyProperties));
+        mlPrimaryKey.setProperties(MLPrimaryKeyPropertiesMapper.map(primaryKeyProperties));
         mlPrimaryKey.setDescription(primaryKeyProperties.getDescription());
         if (primaryKeyProperties.getDataType() != null) {
             mlPrimaryKey.setDataType(MLFeatureDataType.valueOf(primaryKeyProperties.getDataType().toString()));

@@ -82,6 +82,7 @@ public class MLFeatureMapper implements ModelMapper<EntityResponse, MLFeature> {
     private void mapMLFeatureProperties(@Nonnull MLFeature mlFeature, @Nonnull DataMap dataMap) {
         MLFeatureProperties featureProperties = new MLFeatureProperties(dataMap);
         mlFeature.setFeatureProperties(MLFeaturePropertiesMapper.map(featureProperties));
+        mlFeature.setProperties(MLFeaturePropertiesMapper.map(featureProperties));
         mlFeature.setDescription(featureProperties.getDescription());
         if (featureProperties.getDataType() != null) {
             mlFeature.setDataType(MLFeatureDataType.valueOf(featureProperties.getDataType().toString()));

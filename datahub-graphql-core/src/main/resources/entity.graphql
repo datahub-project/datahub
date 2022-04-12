@@ -6422,7 +6422,12 @@ type MLFeature implements EntityWithRelationships & Entity {
     """
     ModelProperties metadata of the MLFeature
     """
-    featureProperties: MLFeatureProperties
+    featureProperties: MLFeatureProperties @deprecated
+
+    """
+    ModelProperties metadata of the MLFeature
+    """
+    properties: MLFeatureProperties
 
     """
     References to internal resources related to the MLFeature

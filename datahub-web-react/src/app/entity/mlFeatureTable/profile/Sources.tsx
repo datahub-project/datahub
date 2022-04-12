@@ -20,29 +20,29 @@ export default function SourcesView() {
 
     const features = useMemo(
         () =>
-            featureTable?.featureTableProperties &&
-            (featureTable?.featureTableProperties?.mlFeatures || featureTable?.featureTableProperties?.mlPrimaryKeys)
+            featureTable?.properties &&
+            (featureTable?.properties?.mlFeatures || featureTable?.properties?.mlPrimaryKeys)
                 ? [
-                      ...(featureTable?.featureTableProperties?.mlPrimaryKeys || []),
-                      ...(featureTable?.featureTableProperties?.mlFeatures || []),
+                      ...(featureTable?.properties?.mlPrimaryKeys || []),
+                      ...(featureTable?.properties?.mlFeatures || []),
                   ].filter(notEmpty)
                 : [],
-        [featureTable?.featureTableProperties],
+        [featureTable?.properties],
     );
 
     const sources = useMemo(
         () =>
             features?.reduce((accumulator: Array<Dataset>, feature) => {
-                if (feature.__typename === 'MLFeature' && feature.featureProperties?.sources) {
+                if (feature.__typename === 'MLFeature' && feature.properties?.sources) {
                     // eslint-disable-next-line array-callback-return
-                    feature.featureProperties?.sources.map((source: Dataset | null) => {
+                    feature.properties?.sources.map((source: Dataset | null) => {
                         if (source && accumulator.findIndex((dataset) => dataset.urn === source?.urn) === -1) {
                             accumulator.push(source);
                         }
                     });
-                } else if (feature.__typename === 'MLPrimaryKey' && feature.primaryKeyProperties?.sources) {
+                } else if (feature.__typename === 'MLPrimaryKey' && feature.properties?.sources) {
                     // eslint-disable-next-line array-callback-return
-                    feature.primaryKeyProperties?.sources.map((source: Dataset | null) => {
+                    feature.properties?.sources.map((source: Dataset | null) => {
                         if (source && accumulator.findIndex((dataset) => dataset.urn === source?.urn) === -1) {
                             accumulator.push(source);
                         }

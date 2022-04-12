@@ -83,4 +83,16 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
             getOverrideProperties: (data) => data,
         });
     };
+
+    getLineageVizConfig = (entity: MlPrimaryKey) => {
+        return {
+            urn: entity.urn,
+            name: entity.name,
+            type: EntityType.MlprimaryKey,
+            // eslint-disable-next-line
+            icon: entity?.['featureTables']?.relationships?.[0]?.entity?.platform?.properties?.logoUrl || undefined,
+            // eslint-disable-next-line
+            platform: entity?.['featureTables']?.relationships?.[0]?.entity?.platform?.name,
+        };
+    };
 }

@@ -345,7 +345,7 @@ fragment nonRecursiveMLFeature on MLFeature {
     featureNamespace
     description
     dataType
-    featureProperties {
+    properties {
         description
         dataType
         version {
@@ -394,7 +394,7 @@ fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
     featureNamespace
     description
     dataType
-    primaryKeyProperties {
+    properties {
         description
         dataType
         version {
@@ -444,7 +444,7 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
         ...platformFields
     }
     description
-    featureTableProperties {
+    properties {
         description
         mlFeatures {
             ...nonRecursiveMLFeature

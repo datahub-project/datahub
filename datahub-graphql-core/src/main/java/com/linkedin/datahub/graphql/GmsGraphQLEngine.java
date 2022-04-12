@@ -1239,7 +1239,38 @@ public class GmsGraphQLEngine {
                             final MLModelGroup entity = env.getSource();
                             return entity.getDomain() != null ? entity.getDomain().getUrn() : null;
                         }))
-            );
+            )
+            .type("MLFeature", typeWiring -> typeWiring
+                .dataFetcher("relationships", new AuthenticatedResolver<>(
+                    new EntityRelationshipsResultResolver(graphClient)
+                ))
+                .dataFetcher("lineage", new AuthenticatedResolver<>(
+                    new EntityLineageResultResolver(graphClient)
+                ))
+                .dataFetcher("domain",
+                    new LoadableTypeResolver<>(
+                        domainType,
+                        (env) -> {
+                            final MLFeature entity = env.getSource();
+                            return entity.getDomain() != null ? entity.getDomain().getUrn() : null;
+                        }))
+            )
+            .type("MLPrimaryKey", typeWiring -> typeWiring
+                .dataFetcher("relationships", new AuthenticatedResolver<>(
+                    new EntityRelationshipsResultResolver(graphClient)
+                ))
+                .dataFetcher("lineage", new AuthenticatedResolver<>(
+                    new EntityLineageResultResolver(graphClient)
+                ))
+                .dataFetcher("domain",
+                    new LoadableTypeResolver<>(
+                        domainType,
+                        (env) -> {
+                            final MLPrimaryKey entity = env.getSource();
+                            return entity.getDomain() != null ? entity.getDomain().getUrn() : null;
+                        }))
+            )
+        ;
     }
 
     private void configureGlossaryRelationshipResolvers(final RuntimeWiring.Builder builder) {
