@@ -98,6 +98,7 @@ if TYPE_CHECKING:
 
 logger: logging.Logger = logging.getLogger(__name__)
 
+
 def _platform_alchemy_uri_tester_gen(
     platform: str, opt_starts_with: Optional[str] = None
 ) -> Tuple[str, Callable[[str], bool]]:
