@@ -1294,8 +1294,7 @@ public class GmsGraphQLEngine {
                             final MLPrimaryKey entity = env.getSource();
                             return entity.getDomain() != null ? entity.getDomain().getUrn() : null;
                         }))
-            )
-        ;
+            );
     }
 
     private void configureGlossaryRelationshipResolvers(final RuntimeWiring.Builder builder) {
