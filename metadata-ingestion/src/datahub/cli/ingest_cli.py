@@ -114,6 +114,12 @@ def run(
     try:
         pipeline.run()
     except Exception as e:
+        logger.info(
+            f"Source ({pipeline.config.source.type}) report:\n{pipeline.source.get_report().as_string()}"
+        )
+        logger.info(
+            f"Sink ({pipeline.config.sink.type}) report:\n{pipeline.sink.get_report().as_string()}"
+        )
         # We dont want to log sensitive information in variables if the pipeline fails due to
         # an unexpected error. Disable printing sensitive info to logs if ingestion is running
         # with `safe` flag.
@@ -121,11 +127,11 @@ def run(
             raise SensitiveError() from e
         else:
             raise e
-
-    logger.info("Finished metadata ingestion")
-    ret = pipeline.pretty_print_summary(warnings_as_failure=strict_warnings)
-    pipeline.log_ingestion_stats()
-    sys.exit(ret)
+    else:
+        logger.info("Finished metadata pipeline")
+        pipeline.log_ingestion_stats()
+        ret = pipeline.pretty_print_summary(warnings_as_failure=strict_warnings)
+        sys.exit(ret)
 
 
 def get_runs_url(gms_host: str) -> str:
