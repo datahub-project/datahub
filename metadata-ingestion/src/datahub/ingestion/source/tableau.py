@@ -272,11 +272,15 @@ class TableauSource(Source):
                     table.get("connectionType", ""), table.get("id", "")
                 )
             )
-            schema = self._get_schema(
-                schema, upstream_db, full_name
-            )
+            schema = self._get_schema(schema, upstream_db, full_name)
             # if the schema is included within the table name we omit it
-            if schema and table_name and full_name and table_name == full_name and schema in table_name:
+            if (
+                schema
+                and table_name
+                and full_name
+                and table_name == full_name
+                and schema in table_name
+            ):
                 schema = ""
             table_urn = make_table_urn(
                 self.config.env,
