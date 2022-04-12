@@ -221,8 +221,8 @@ def setup_mock_explore_with_joins(mocked_client):
                 view_label="My Labeled View",
                 relationship="one_to_one",
                 sql_on="1=1",
-            )
-        ]
+            ),
+        ],
     )
 
 
@@ -250,8 +250,9 @@ def setup_mock_explore_unaliased_with_joins(mocked_client):
                 relationship="one_to_one",
                 sql_on="1=1",
             )
-        ]
+        ],
     )
+
 
 def setup_mock_explore(mocked_client):
     mock_model = mock.MagicMock(project_name="lkml_samples")
@@ -270,7 +271,7 @@ def setup_mock_explore(mocked_client):
                 )
             ]
         ),
-        source_file="test_source_file.lkml"
+        source_file="test_source_file.lkml",
     )
 
 
