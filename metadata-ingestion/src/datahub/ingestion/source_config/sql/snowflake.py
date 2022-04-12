@@ -8,7 +8,7 @@ from snowflake.connector.network import (
     DEFAULT_AUTHENTICATOR,
     EXTERNAL_BROWSER_AUTHENTICATOR,
     KEY_PAIR_AUTHENTICATOR,
-    OAUTH_AUTHENTICATOR
+    OAUTH_AUTHENTICATOR,
 )
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
@@ -100,7 +100,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
             "DEFAULT_AUTHENTICATOR": DEFAULT_AUTHENTICATOR,
             "EXTERNAL_BROWSER_AUTHENTICATOR": EXTERNAL_BROWSER_AUTHENTICATOR,
             "KEY_PAIR_AUTHENTICATOR": KEY_PAIR_AUTHENTICATOR,
-            "OAUTH_AUTHENTICATOR": OAUTH_AUTHENTICATOR
+            "OAUTH_AUTHENTICATOR": OAUTH_AUTHENTICATOR,
         }
         if v not in valid_auth_types.keys():
             raise ValueError(
@@ -137,18 +137,18 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
                         f"but should be set when using {v} authentication"
                     )
                 if values.get("use_certificate") == True:
-                    if(values.get("base64_encoded_oauth_private_key")) is None:
+                    if values.get("base64_encoded_oauth_private_key") is None:
                         raise ValueError(
                             f"'base64_encoded_oauth_private_key' was none "
                             f"but should be set when using {v} authentication"
                         )
-                    if(values.get("base64_encoded_oauth_public_key")) is None:
+                    if values.get("base64_encoded_oauth_public_key") is None:
                         raise ValueError(
                             f"'base64_encoded_oauth_public_key' was none"
                             f"but should be set when using {v} authentication"
                         )
                 else:
-                    if(values.get("oauth_client_secret")) is None:
+                    if values.get("oauth_client_secret") is None:
                         raise ValueError(
                             f"'oauth_client_secret' was none "
                             f"but should be set when using {v} authentication"
@@ -165,21 +165,15 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
         return v
 
     def get_oauth_connection(self):
-        generator = OauthTokenGenerator(
-            self.oauth_client_id,
-            self.oauth_authority_url
-        )
-        if(self.use_certificate is True):
+        generator = OauthTokenGenerator(self.oauth_client_id,self.oauth_authority_url)
+        if self.use_certificate is True:
             response = generator.get_token_with_certificate(
                 private_key_content=self.base64_encoded_oauth_private_key,
                 public_key_content=self.base64_encoded_oauth_public_key,
-                scope=self.oauth_scope
+                scope=self.oauth_scope,
             )
         else:
-            response = generator.get_token_with_secret(
-                secret=self.oauth_client_secret,
-                scope=self.oauth_scope
-            )
+            response = generator.get_token_with_secret(secret=self.oauth_client_secret,scope=self.oauth_scope)
         token = response["access_token"]
 
         return snowflake.connector.connect(
@@ -190,8 +184,6 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
             warehouse=self.warehouse                    
         )    
     
-
-
     def get_sql_alchemy_url(
         self,
         database: Optional[str] = None,

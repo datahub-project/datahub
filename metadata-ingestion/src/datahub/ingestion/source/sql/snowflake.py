@@ -82,7 +82,7 @@ class SnowflakeSource(SQLAlchemySource):
         if self.authentication_type == OAUTH_AUTHENTICATOR:
             return create_engine(
                 url,
-                creator=self.config.get_oauth_connection
+                creator=self.config.get_oauth_connection,
                 **self.config.options,
             )
         else:
