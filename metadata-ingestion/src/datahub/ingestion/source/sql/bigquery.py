@@ -53,6 +53,7 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
+from datahub.utilities.sql_parser import DefaultSQLParser
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +70,11 @@ AND
         AND NOT
         protoPayload.serviceData.jobCompletedEvent.job.jobStatus.error.code:*
         AND
-        protoPayload.serviceData.jobCompletedEvent.job.jobStatistics.referencedTables:*
+        (
+            protoPayload.serviceData.jobCompletedEvent.job.jobStatistics.referencedTables:*
+            OR
+            protoPayload.serviceData.jobCompletedEvent.job.jobStatistics.referencedViews:*
+        )
     )
 )
 AND
@@ -91,7 +96,11 @@ AND
     AND
     protoPayload.metadata.jobChange.job.jobStatus.jobState="DONE"
     AND NOT protoPayload.metadata.jobChange.job.jobStatus.errorResult:*
-    AND protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables:*
+    AND (
+        protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables:*
+        OR
+        protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedViews:*
+    )
 )
 AND
 timestamp >= "{start_time}"
@@ -232,10 +241,6 @@ class BigQueryPartitionColumn:
 
 
 class BigQuerySource(SQLAlchemySource):
-    config: BigQueryConfig
-    maximum_shard_ids: Dict[str, str] = dict()
-    lineage_metadata: Optional[Dict[str, Set[str]]] = None
-
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "bigquery")
         self.config: BigQueryConfig = config
@@ -363,8 +368,6 @@ class BigQuerySource(SQLAlchemySource):
             end_time=end_time,
         )
 
-        assert self.config.log_page_size is not None
-
         logger.info(
             f"Start loading log entries from BigQuery start_time={start_time} and end_time={end_time}"
         )
@@ -384,6 +387,10 @@ class BigQuerySource(SQLAlchemySource):
         self, bigquery_client: BigQueryClient
     ) -> Iterable[BigQueryAuditMetadata]:
         if self.config.bigquery_audit_metadata_datasets is None:
+            self.error(
+                logger, "audit-metadata", "bigquery_audit_metadata_datasets not set"
+            )
+            self.report.bigquery_audit_metadata_datasets_missing = True
             return
 
         start_time: str = (
@@ -493,25 +500,57 @@ class BigQuerySource(SQLAlchemySource):
 
     def _create_lineage_map(self, entries: Iterable[QueryEvent]) -> Dict[str, Set[str]]:
         lineage_map: Dict[str, Set[str]] = collections.defaultdict(set)
-        num_entries: int = 0
-        num_skipped_entries: int = 0
+        self.report.num_total_lineage_entries = 0
+        self.report.num_skipped_lineage_entries_missing_data = 0
+        self.report.num_skipped_lineage_entries_not_allowed = 0
+        self.report.num_skipped_lineage_entries_other = 0
         for e in entries:
-            num_entries += 1
-            if e.destinationTable is None or not e.referencedTables:
-                num_skipped_entries += 1
+            self.report.num_total_lineage_entries += 1
+            if e.destinationTable is None or not (
+                e.referencedTables or e.referencedViews
+            ):
+                self.report.num_skipped_lineage_entries_missing_data += 1
                 continue
-            entry_consumed: bool = False
+            # Skip if schema/table pattern don't allow the destination table
+            destination_table_str = str(e.destinationTable.remove_extras())
+            destination_table_str_parts = destination_table_str.split("/")
+            if not self.config.schema_pattern.allowed(
+                destination_table_str_parts[3]
+            ) or not self.config.table_pattern.allowed(destination_table_str_parts[-1]):
+                self.report.num_skipped_lineage_entries_not_allowed += 1
+                continue
+            has_table = False
             for ref_table in e.referencedTables:
-                destination_table_str = str(e.destinationTable.remove_extras())
                 ref_table_str = str(ref_table.remove_extras())
                 if ref_table_str != destination_table_str:
                     lineage_map[destination_table_str].add(ref_table_str)
-                    entry_consumed = True
-            if not entry_consumed:
-                num_skipped_entries += 1
-        logger.info(
-            f"Creating lineage map: total number of entries={num_entries}, number skipped={num_skipped_entries}."
-        )
+                    has_table = True
+            has_view = False
+            for ref_view in e.referencedViews:
+                ref_view_str = str(ref_view.remove_extras())
+                if ref_view_str != destination_table_str:
+                    lineage_map[destination_table_str].add(ref_view_str)
+                    has_view = True
+            if has_table and has_view:
+                # If there is a view being referenced then bigquery sends both the view as well as underlying table
+                # in the references. There is no distinction between direct/base objects accessed. So doing sql parsing
+                # to ensure we only use direct objects accessed for lineage
+                parser = DefaultSQLParser(e.query)
+                referenced_objs = set(
+                    map(lambda x: x.split(".")[-1], parser.get_tables())
+                )
+                curr_lineage_str = lineage_map[destination_table_str]
+                new_lineage_str = set()
+                for lineage_str in curr_lineage_str:
+                    name = lineage_str.split("/")[-1]
+                    if name in referenced_objs:
+                        new_lineage_str.add(lineage_str)
+                lineage_map[destination_table_str] = new_lineage_str
+            if not (has_table or has_view):
+                self.report.num_skipped_lineage_entries_other += 1
+
+        if self.config.upstream_lineage_in_report:
+            self.report.upstream_lineage = lineage_map
         return lineage_map
 
     def get_latest_partition(
@@ -643,7 +682,11 @@ WHERE
     def add_config_to_report(self):
         self.report.start_time = self.config.start_time
         self.report.end_time = self.config.end_time
-
+        self.report.include_table_lineage = self.config.include_table_lineage
+        self.report.use_date_sharded_audit_log_tables = (
+            self.config.use_date_sharded_audit_log_tables
+        )
+        self.report.log_page_size = self.config.log_page_size
         self.report.use_exported_bigquery_audit_metadata = (
             self.config.use_exported_bigquery_audit_metadata
         )
@@ -688,7 +731,7 @@ WHERE
         for ref_table in self.lineage_metadata[str(bq_table)]:
             upstream_table = BigQueryTableRef.from_string_name(ref_table)
             if upstream_table.is_temporary_table():
-                # making sure we don't process a table twice and not get into a recurisve loop
+                # making sure we don't process a table twice and not get into a recursive loop
                 if ref_table in tables_seen:
                     logger.debug(
                         f"Skipping table {ref_table} because it was seen already"

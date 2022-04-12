@@ -24,6 +24,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.Constants.CORP_GROUP_ENTITY_NAME;
@@ -34,14 +35,27 @@ import static com.linkedin.metadata.Constants.POLICY_ENTITY_NAME;
 
 /**
  * The Authorizer is a singleton class responsible for authorizing
- * operations on the DataHub platform.
+ * operations on the DataHub platform via DataHub Policies.
  *
  * Currently, the authorizer is implemented as a spring-instantiated Singleton
  * which manages its own thread-pool used for resolving policy predicates.
  */
 // TODO: Decouple this from all Rest.li objects if possible.
 @Slf4j
-public class AuthorizationManager implements Authorizer {
+public class DataHubAuthorizer implements Authorizer {
+
+  public enum AuthorizationMode {
+    /**
+     * Default mode simply means that authorization is enforced, with a DENY result returned
+     */
+    DEFAULT,
+    /**
+     * Allow all means that the AuthorizationManager will allow all actions. This is used as an override to disable the
+     * policies feature.
+     */
+    ALLOW_ALL
+  }
+
 
   // Credentials used to make / authorize requests as the internal system actor.
   private final Authentication _systemAuthentication;
@@ -59,7 +73,7 @@ public class AuthorizationManager implements Authorizer {
 
   public static final String ALL = "ALL";
 
-  public AuthorizationManager(
+  public DataHubAuthorizer(
       final Authentication systemAuthentication,
       final EntityClient entityClient,
       final int delayIntervalSeconds,
@@ -73,11 +87,16 @@ public class AuthorizationManager implements Authorizer {
     _policyEngine = new PolicyEngine(systemAuthentication, entityClient);
   }
 
+  @Override
+  public void init(@Nonnull Map<String, Object> authorizerConfig) {
+    // Pass. No static config.
+  }
+
   public AuthorizationResult authorize(final AuthorizationRequest request) {
 
     // 0. Short circuit: If the action is being performed by the system (root), always allow it.
     if (isSystemRequest(request, this._systemAuthentication)) {
-      return new AuthorizationResult(request, Optional.empty(), AuthorizationResult.Type.ALLOW);
+      return new AuthorizationResult(request, AuthorizationResult.Type.ALLOW, null);
     }
 
     Optional<ResolvedResourceSpec> resolvedResourceSpec = request.getResourceSpec().map(_resourceSpecResolver::resolve);
@@ -89,10 +108,11 @@ public class AuthorizationManager implements Authorizer {
     for (DataHubPolicyInfo policy : policiesToEvaluate) {
       if (isRequestGranted(policy, request, resolvedResourceSpec)) {
         // Short circuit if policy has granted privileges to this actor.
-        return new AuthorizationResult(request, Optional.of(policy), AuthorizationResult.Type.ALLOW);
+        return new AuthorizationResult(request, AuthorizationResult.Type.ALLOW,
+            String.format("Granted by policy with type: %s", policy.getType()));
       }
     }
-    return new AuthorizationResult(request, Optional.empty(), AuthorizationResult.Type.DENY);
+    return new AuthorizationResult(request, AuthorizationResult.Type.DENY,  null);
   }
 
   public List<String> getGrantedPrivileges(final String actorUrn, final Optional<ResourceSpec> resourceSpec) {
@@ -154,7 +174,6 @@ public class AuthorizationManager implements Authorizer {
     _refreshExecutorService.execute(_policyRefreshRunnable);
   }
 
-  @Override
   public AuthorizationMode mode() {
     return _mode;
   }

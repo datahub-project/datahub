@@ -27,4 +27,6 @@ record SearchEntity {
   }] = []
 
   features: optional map[string, double]
+
+  score: optional double
 }

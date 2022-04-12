@@ -10,6 +10,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import lombok.SneakyThrows;
 import lombok.Value;
 
 
@@ -32,7 +33,12 @@ public abstract class SearchRanker<U extends Comparable<? super U>> {
    * Rank the input list of entities
    */
   public List<SearchEntity> rank(List<SearchEntity> originalList) {
-    return Streams.zip(originalList.stream(), fetchFeatures(originalList).stream(), this::updateFeatures)
+    List<SearchEntity> entitiesToRank = originalList;
+    if (!getFeatureExtractors().isEmpty()) {
+      entitiesToRank = Streams.zip(originalList.stream(), fetchFeatures(originalList).stream(), this::updateFeatures)
+          .collect(Collectors.toList());
+    }
+    return entitiesToRank.stream()
         .map(entity -> new ScoredEntity<>(entity, score(entity)))
         .sorted(Comparator.<ScoredEntity<U>, U>comparing(ScoredEntity::getScore).reversed())
         .map(ScoredEntity::getEntity)
@@ -52,9 +58,9 @@ public abstract class SearchRanker<U extends Comparable<? super U>> {
   /**
    * Add the extracted features into each search entity to return the features in the response
    */
+  @SneakyThrows
   private SearchEntity updateFeatures(SearchEntity originalEntity, Features features) {
-    return new SearchEntity().setEntity(originalEntity.getEntity())
-        .setMatchedFields(originalEntity.getMatchedFields())
+    return originalEntity.clone()
         .setFeatures(new DoubleMap(features.getNumericFeatures()
             .entrySet()
             .stream()

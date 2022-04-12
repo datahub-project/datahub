@@ -5,6 +5,7 @@ from unittest import mock
 import pytest
 from freezegun import freeze_time
 
+from datahub.ingestion.api.common import PipelineContext
 from src.datahub.ingestion.source.aws.s3_util import make_s3_urn
 
 FROZEN_TIME = "2020-04-14 07:00:00"
@@ -34,7 +35,6 @@ def test_athena_uri():
 def test_athena_get_table_properties():
     from pyathena.model import AthenaTableMetadata
 
-    from datahub.ingestion.api.common import PipelineContext
     from datahub.ingestion.source.sql.athena import AthenaConfig, AthenaSource
 
     config = AthenaConfig.parse_obj(

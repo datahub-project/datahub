@@ -23,6 +23,13 @@ fragment glossaryTerms on GlossaryTerms {
     }
 }
 
+fragment deprecationFields on Deprecation {
+    actor
+    deprecated
+    note
+    decommissionTime
+}
+
 fragment ownershipFields on Ownership {
     owners {
         owner {
@@ -171,12 +178,6 @@ fragment nonRecursiveDatasetFields on Dataset {
             }
         }
     }
-    deprecation {
-        actor
-        deprecated
-        note
-        decommissionTime
-    }
     globalTags {
         ...globalTagsFields
     }
@@ -191,6 +192,9 @@ fragment nonRecursiveDatasetFields on Dataset {
     }
     container {
         ...entityContainer
+    }
+    deprecation {
+        ...deprecationFields
     }
 }
 
@@ -222,6 +226,9 @@ fragment nonRecursiveDataFlowFields on DataFlow {
     domain {
         ...entityDomain
     }
+    deprecation {
+        ...deprecationFields
+    }
 }
 
 fragment nonRecursiveDataJobFields on DataJob {
@@ -240,6 +247,9 @@ fragment nonRecursiveDataJobFields on DataJob {
     }
     domain {
         ...entityDomain
+    }
+    deprecation {
+        ...deprecationFields
     }
 }
 
@@ -287,6 +297,9 @@ fragment dataJobFields on DataJob {
     }
     domain {
         ...entityDomain
+    }
+    deprecation {
+        ...deprecationFields
     }
 }
 
@@ -336,6 +349,9 @@ fragment dashboardFields on Dashboard {
     status {
         removed
     }
+    deprecation {
+        ...deprecationFields
+    }
 }
 
 fragment nonRecursiveMLFeature on MLFeature {
@@ -372,6 +388,9 @@ fragment nonRecursiveMLFeature on MLFeature {
     }
     status {
         removed
+    }
+    deprecation {
+        ...deprecationFields
     }
 }
 
@@ -410,6 +429,9 @@ fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
     status {
         removed
     }
+    deprecation {
+        ...deprecationFields
+    }
 }
 
 fragment nonRecursiveMLFeatureTable on MLFeatureTable {
@@ -437,6 +459,9 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
     }
     status {
         removed
+    }
+    deprecation {
+        ...deprecationFields
     }
 }
 
@@ -553,6 +578,9 @@ fragment nonRecursiveMLModel on MLModel {
     status {
         removed
     }
+    deprecation {
+        ...deprecationFields
+    }
 }
 
 fragment nonRecursiveMLModelGroupFields on MLModelGroup {
@@ -569,6 +597,9 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
     }
     status {
         removed
+    }
+    deprecation {
+        ...deprecationFields
     }
 }
 
@@ -619,6 +650,9 @@ fragment entityContainer on Container {
     }
     subTypes {
         typeNames
+    }
+    deprecation {
+        ...deprecationFields
     }
 }
 
