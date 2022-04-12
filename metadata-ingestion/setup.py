@@ -261,7 +261,7 @@ base_dev_requirements = {
             "okta",
             "oracle",
             "postgres",
-            "sagemake",
+            "sagemaker",
             "datahub-kafka",
             "datahub-rest",
             "redash",

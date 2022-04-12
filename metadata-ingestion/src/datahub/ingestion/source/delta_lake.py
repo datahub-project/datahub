@@ -313,11 +313,6 @@ class DeltaLakeSource(Source):
         )
         dataset_snapshot.aspects.append(dataset_properties)
 
-        # TODO: add documentation that ownership not implemented because not available in API
-
-        # TODO: add docu & message that stats are not implemented yet.
-        # this has to be collected from file object!
-
         # build schema
         # from md.schemaObject = struct(type, fields). N.B. ignore top-level struct (just container!)
         # from md.schemaObject  -> md.so.name, md.so.type (struct or atomic), md.so.nullable, md.so.metadata.comment (if exists)
@@ -394,14 +389,14 @@ class DeltaLakeSource(Source):
                     column_dict, datahubName
                 )
 
-                newfields = schema_util.avro_schema_to_mce_fields(
+                datahubField = schema_util.avro_schema_to_mce_fields(
                     json.dumps(avro_schema), default_nullable=True
                 )
 
                 # First field is the parent complex field
-                newfields[0].nullable = column["nullable"]
-                newfields[0].description = datahubDescription
-                newfields[0].nativeDataType = nativeType
+                datahubField[0].nullable = column["nullable"]
+                datahubField[0].description = datahubDescription
+                datahubField[0].nativeDataType = nativeType
 
             else:
                 # primitive type
@@ -531,44 +526,60 @@ class DeltaLakeSource(Source):
 
 # if __name__ == "__main__":
 
-# import delta_sharing
-# from delta_sharing.protocol import Format, Table
-# from delta_sharing.rest_client import Metadata, Protocol
+#     import delta_sharing
+#     from delta_sharing.protocol import Format, Table
+#     from delta_sharing.rest_client import Metadata, Protocol
 
-# testdata1 = QueryTableMetadataResponse_extended(
-#     protocol=Protocol(min_reader_version=1),
-#     metadata=Metadata(
-#         id="test2",
-#         name=None,
-#         description=None,
-#         format=Format(provider="parquet", options={}),
-#         schema_string='{"type":"struct","fields":[{"name":"a","type":"integer","nullable":false,"metadata":{"comment":"this is a comment"}},{"name":"b","type":{"type":"struct","fields":[{"name":"d","type":"integer","nullable":false,"metadata":{}}]},"nullable":true,"metadata":{}},{"name":"c","type":{"type":"array","elementType":"integer","containsNull":false},"nullable":true,"metadata":{}},{"name":"e","type":{"type":"array","elementType":{"type":"struct","fields":[{"name":"d","type":"integer","nullable":false,"metadata":{}}]},"containsNull":true},"nullable":true,"metadata":{}},{"name":"f","type":{"type":"map","keyType":"string","valueType":"string","valueContainsNull":true},"nullable":true,"metadata":{}}]}',
-#         partition_columns=[],
-#     ),
-#     table=Table(name="testdata2", share="delta_sharing", schema="default"),
-# )
-# source = DeltaLakeSource(
-#     ctx=PipelineContext(run_id="delta-lake-source-test2"),
-#     config=DeltaLakeSourceConfig(url="url", token="x"),
-# )
-# schema_fields = source._get_schema_fields(testdata1.metadata)
-# testdata2 = QueryTableMetadataResponse_extended(
-#     protocol=Protocol(min_reader_version=1),
-#     metadata=Metadata(
-#         id="test2",
-#         name=None,
-#         description=None,
-#         format=Format(provider="parquet", options={}),
-#         schema_string='{"type":"struct","fields":[{"name":"a","type":"integer","nullable":false,"metadata":{"comment":"this is a comment"}},{"name":"b","type":{"type":"struct","fields":[{"name":"d","type":"integer","nullable":false,"metadata":{}}]},"nullable":true,"metadata":{}},{"name":"c","type":{"type":"array","elementType":"integer","containsNull":false},"nullable":true,"metadata":{}},{"name":"e","type":{"type":"array","elementType":{"type":"struct","fields":[{"name":"d","type":"integer","nullable":false,"metadata":{}}]},"containsNull":true},"nullable":true,"metadata":{}},{"name":"f","type":{"type":"map","keyType":"string","valueType":"string","valueContainsNull":true},"nullable":true,"metadata":{}}]}',
-#         partition_columns=[],
-#     ),
-#     table=Table(name="testdata2", share="delta_sharing", schema="default"),
-# )
-# source = DeltaLakeSource(
-#     ctx=PipelineContext(run_id="delta-lake-source-test3"),
-#     config=DeltaLakeSourceConfig(url="url", token="x"),
-# )
-# schema_fields = source._get_schema_fields(testdata2.metadata)
+# # testdata1 = QueryTableMetadataResponse_extended(
+# #     protocol=Protocol(min_reader_version=1),
+# #     metadata=Metadata(
+# #         id="test2",
+# #         name=None,
+# #         description=None,
+# #         format=Format(provider="parquet", options={}),
+# #         schema_string='{"type":"struct","fields":[{"name":"a","type":"integer","nullable":false,"metadata":{"comment":"this is a comment"}},{"name":"b","type":{"type":"struct","fields":[{"name":"d","type":"integer","nullable":false,"metadata":{}}]},"nullable":true,"metadata":{}},{"name":"c","type":{"type":"array","elementType":"integer","containsNull":false},"nullable":true,"metadata":{}},{"name":"e","type":{"type":"array","elementType":{"type":"struct","fields":[{"name":"d","type":"integer","nullable":false,"metadata":{}}]},"containsNull":true},"nullable":true,"metadata":{}},{"name":"f","type":{"type":"map","keyType":"string","valueType":"string","valueContainsNull":true},"nullable":true,"metadata":{}}]}',
+# #         partition_columns=[],
+# #     ),
+# #     table=Table(name="testdata2", share="delta_sharing", schema="default"),
+# # )
+#     # source = DeltaLakeSource(
+#     #     ctx=PipelineContext(run_id="delta-lake-source-test2"),
+#     #     config=DeltaLakeSourceConfig(url="url", token="x"),
+#     # )
+#     # schema_fields = source._get_schema_fields(testdata1.metadata)
+#     testdata2 = QueryTableMetadataResponse_extended(
+#         protocol=Protocol(min_reader_version=1),
+#         metadata=Metadata(
+#             id="test2",
+#             name=None,
+#             description=None,
+#             format=Format(provider="parquet", options={}),
+#             schema_string='{"type":"struct","fields":[{"name":"a","type":"integer","nullable":false,"metadata":{"comment":"this is a comment"}},{"name":"b","type":{"type":"struct","fields":[{"name":"d","type":"integer","nullable":false,"metadata":{}}]},"nullable":true,"metadata":{}},{"name":"c","type":{"type":"array","elementType":"integer","containsNull":false},"nullable":true,"metadata":{}},{"name":"e","type":{"type":"array","elementType":{"type":"struct","fields":[{"name":"d","type":"integer","nullable":false,"metadata":{}}]},"containsNull":true},"nullable":true,"metadata":{}},{"name":"f","type":{"type":"map","keyType":"string","valueType":"string","valueContainsNull":true},"nullable":true,"metadata":{}}]}',
+#             partition_columns=[],
+#         ),
+#         table=Table(name="testdata2", share="delta_sharing", schema="default"),
+#     )
+#     source = DeltaLakeSource(
+#         ctx=PipelineContext(run_id="delta-lake-source-test3"),
+#         config=DeltaLakeSourceConfig(url="url", token="x"),
+#     )
+#     schema_fields = source._get_schema_fields(testdata2.metadata)
+    
+    
+#     from datahub.emitter.rest_emitter import DatahubRestEmitter
+
+#     # Create an emitter to DataHub over REST
+#     emitter = DatahubRestEmitter(gms_server='http://datahub-datahub-gms.datahub.svc.k8s-test.wrwks.at:8080', extra_headers={})
+
+#     # Test the connection
+#     emitter.test_connection()
+
+#     metadata_events = source._create_delta_workunit(testdata2)
+
+#     for metadata_event in metadata_events:
+#         # Emit metadata! This is a blocking call
+#         emitter.emit(metadata_event)
+
 # Get the access keys for delta-sharing & start the client
 # profile = delta_sharing.protocol.DeltaSharingProfile(
 #     share_credentials_version=1,
@@ -592,7 +603,7 @@ class DeltaLakeSource(Source):
 #     config=DeltaLakeSourceConfig(url="url", token="x"),
 # )
 # test2 = test._get_schema_fields(metadata_list[0].metadata)
-# from datahub.ingestion.run.pipeline import Pipeline
+#    from datahub.ingestion.run.pipeline import Pipeline
 
 # The pipeline configuration is similar to the recipe YAML files provided to the CLI tool.
 # pipeline = Pipeline.create(
