@@ -37,7 +37,12 @@ from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import (
+    Source,
+    SourceReport,
+    config_class,
+    platform_name,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.looker_common import (
     LookerCommonConfig,
@@ -263,6 +268,8 @@ class LookerDashboard:
         return f"dashboards.{self.id}"
 
 
+@platform_name("Looker")
+@config_class(LookerDashboardSourceConfig)
 class LookerDashboardSource(Source):
     source_config: LookerDashboardSourceConfig
     reporter: LookerDashboardSourceReport
@@ -884,11 +891,6 @@ class LookerDashboardSource(Source):
                 )
                 self.reporter.report_workunit(workunit)
                 yield workunit
-
-    @classmethod
-    def create(cls, config_dict, ctx):
-        config = LookerDashboardSourceConfig.parse_obj(config_dict)
-        return cls(config, ctx)
 
     def get_report(self) -> SourceReport:
         return self.reporter

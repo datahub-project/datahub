@@ -44,7 +44,12 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import (
+    Source,
+    SourceReport,
+    config_class,
+    platform_name,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.looker import LookerAPI, LookerAPIConfig
 from datahub.metadata.com.linkedin.pegasus2avro.common import BrowsePaths, Status
@@ -758,6 +763,8 @@ class LookerView:
         return None
 
 
+@platform_name("Looker")
+@config_class(LookMLSourceConfig)
 class LookMLSource(Source):
     source_config: LookMLSourceConfig
     reporter: LookMLSourceReport
@@ -776,11 +783,6 @@ class LookMLSource(Source):
                 raise ValueError(
                     "Failed to retrieve connections from looker client. Please check to ensure that you have manage_models permission enabled on this API key."
                 )
-
-    @classmethod
-    def create(cls, config_dict, ctx):
-        config = LookMLSourceConfig.parse_obj(config_dict)
-        return cls(config, ctx)
 
     def _load_model(self, path: str) -> LookerModel:
         with open(path, "r") as file:

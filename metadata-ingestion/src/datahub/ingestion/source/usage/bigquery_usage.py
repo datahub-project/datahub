@@ -7,7 +7,17 @@ import re
 import textwrap
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Union, cast
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    MutableMapping,
+    Optional,
+    Type,
+    Union,
+    cast,
+)
 
 import cachetools
 from google.cloud.bigquery import Client as BigQueryClient
@@ -15,10 +25,11 @@ from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from more_itertools import partition
 
 import datahub.emitter.mce_builder as builder
+from datahub.configuration.common import ConfigModel
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import Source
+from datahub.ingestion.api.source import Source, config_class, platform_name
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.usage.usage_common import GenericAggregatedDataset
 from datahub.ingestion.source_config.usage.bigquery_usage import BigQueryUsageConfig
@@ -598,7 +609,18 @@ class QueryEvent:
         return query_event
 
 
+@config_class(BigQueryUsageConfig)
+@platform_name("BigQuery")
 class BigQueryUsageSource(Source):
+    """
+    This plugin extracts the following:
+    * Statistics on queries issued and tables and columns accessed (excludes views)
+    * Aggregation of these statistics into buckets, by day or hour granularity
+    **__NOTE__**
+    This source only does usage statistics. To get the tables, views, and schemas in your BigQuery project, use the `bigquery` plugin.
+    Depending on the compliance policies setup for the bigquery instance, sometimes logging.read permission is not sufficient. In that case, use either admin or private log viewer permission.
+    """
+
     def __init__(self, config: BigQueryUsageConfig, ctx: PipelineContext):
         super().__init__(ctx)
         self.config: BigQueryUsageConfig = config
@@ -608,6 +630,10 @@ class BigQueryUsageSource(Source):
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "BigQueryUsageSource":
         config = BigQueryUsageConfig.parse_obj(config_dict)
         return cls(config, ctx)
+
+    # @staticmethod
+    # def get_config_class() -> Type[ConfigModel]:
+    #    return BigQueryUsageConfig
 
     def add_config_to_report(self):
         self.report.start_time = self.config.start_time

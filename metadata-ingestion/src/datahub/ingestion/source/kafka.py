@@ -5,6 +5,7 @@ from importlib import import_module
 from typing import Dict, Iterable, List, Optional, Tuple, Type, cast
 
 import confluent_kafka
+import pydantic
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
@@ -19,6 +20,7 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.source import config_class, platform_name
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.kafka_schema_registry_base import KafkaSchemaRegistryBase
 from datahub.ingestion.source.state.checkpoint import Checkpoint
@@ -59,7 +61,10 @@ class KafkaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigBase):
     # TODO: inline the connection config
     connection: KafkaConsumerConnectionConfig = KafkaConsumerConnectionConfig()
     topic_patterns: AllowDenyPattern = AllowDenyPattern(allow=[".*"], deny=["^_.*"])
-    domain: Dict[str, AllowDenyPattern] = dict()
+    domain: Dict[str, AllowDenyPattern] = pydantic.Field(
+        default_factory=dict(),
+        description="A map of domain names to allow deny patterns. Domains can be urn-based (`urn:li:domain:13ae4d85-d955-49fc-8474-9004c663a810`) or bare (`13ae4d85-d955-49fc-8474-9004c663a810`).",
+    )
     topic_subject_map: Dict[str, str] = dict()
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[KafkaSourceStatefulIngestionConfig] = None
@@ -84,8 +89,11 @@ class KafkaSourceReport(StatefulIngestionReport):
         self.soft_deleted_stale_entities.append(urn)
 
 
-@dataclass
+@platform_name("Kafka")
+@config_class(KafkaSourceConfig)
 class KafkaSource(StatefulIngestionSourceBase):
+    """A source that connects to Kafka and extracts topic names and schemas from it."""
+
     source_config: KafkaSourceConfig
     consumer: confluent_kafka.Consumer
     report: KafkaSourceReport
@@ -165,10 +173,10 @@ class KafkaSource(StatefulIngestionSourceBase):
         assert self.source_config.platform_instance is not None
         return self.source_config.platform_instance
 
-    @classmethod
-    def create(cls, config_dict: Dict, ctx: PipelineContext) -> "KafkaSource":
-        config: KafkaSourceConfig = KafkaSourceConfig.parse_obj(config_dict)
-        return cls(config, ctx)
+    # @classmethod
+    # def create(cls, config_dict: Dict, ctx: PipelineContext) -> "KafkaSource":
+    #    config: KafkaSourceConfig = KafkaSourceConfig.parse_obj(config_dict)
+    #    return cls(config, ctx)
 
     def gen_removed_entity_workunits(self) -> Iterable[MetadataWorkUnit]:
         last_checkpoint = self.get_last_checkpoint(

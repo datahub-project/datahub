@@ -7,7 +7,8 @@ from typing import Dict, Iterable, List, Optional, Tuple, Union
 from looker_sdk.error import SDKError
 from looker_sdk.rtl.transport import TransportOptions
 from looker_sdk.sdk.api31.methods import Looker31SDK
-from pydantic.class_validators import validator
+from pydantic import BaseModel
+from pydantic.class_validators import root_validator, validator
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration import ConfigModel
@@ -62,13 +63,13 @@ from datahub.metadata.schema_classes import (
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class NamingPattern:
+# @dataclass
+class NamingPattern(BaseModel):
     allowed_vars: List[str]
     pattern: str
     variables: Optional[List[str]] = None
 
-    def validate(self, at_least_one: bool) -> bool:
+    def validate_pattern(self, at_least_one: bool) -> bool:
         variables = re.findall("({[^}{]+})", self.pattern)
         self.variables = [v[1:-1] for v in variables]
         for v in variables:
@@ -115,7 +116,7 @@ class LookerExploreNamingConfig(ConfigModel):
     @validator("explore_naming_pattern", "explore_browse_pattern", always=True)
     def validate_naming_pattern(cls, v):
         assert isinstance(v, NamingPattern)
-        v.validate(at_least_one=True)
+        v.validate_pattern(at_least_one=True)
         return v
 
 
@@ -142,7 +143,7 @@ class LookerViewNamingConfig(ConfigModel):
     @validator("view_naming_pattern", "view_browse_pattern", always=True)
     def validate_naming_pattern(cls, v):
         assert isinstance(v, NamingPattern)
-        v.validate(at_least_one=True)
+        v.validate_pattern(at_least_one=True)
         return v
 
 
