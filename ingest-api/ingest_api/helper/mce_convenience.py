@@ -35,7 +35,7 @@ from datahub.metadata.schema_classes import (ArrayTypeClass, AuditStampClass,
                                              StringTypeClass,
                                              SystemMetadataClass,
                                              TimeTypeClass, UnionTypeClass,
-                                             UpstreamClass,
+                                             UnknownTypeClass, UpstreamClass,
                                              UpstreamLineageClass)
 
 from .models import FieldParamEdited
@@ -176,6 +176,7 @@ def update_field_param_class(field_inputs: List[FieldParamEdited]):
             "UNION": UnionTypeClass(),
             "MAP": MapTypeClass(),
             "FIXED": FixedTypeClass(),
+            "UNKNOWN": UnknownTypeClass(),
         }.get(temp["datahubType"])
         field_class = SchemaFieldClass(
             fieldPath=temp["fieldName"],
@@ -217,6 +218,7 @@ def create_field_param_class(inputs):
             "fixed": FixedTypeClass(),
             "double": NumberTypeClass(),
             "date-time": TimeTypeClass(),
+            "unknown": UnknownTypeClass(),
         }.get(field["field_type"])
         field_class = SchemaFieldClass(
             fieldPath=field["fieldPath"],

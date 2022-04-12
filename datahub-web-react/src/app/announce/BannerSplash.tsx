@@ -18,16 +18,14 @@ export const BannerSplash = () => {
     // for UI edit pages, the URL is complicated, need to find the root path.
     const mainPathLength = initialUrl.split('/', 3).join('/').length;
     const mainPath = `${initialUrl.substring(0, mainPathLength + 1)}`;
-    // const publishUrl = mainPath.includes(':3000') ? mainPath.replace(':3000/', ':8001/custom/announce') 
+    // const publishUrl = mainPath.includes(':3000') ? mainPath.replace(':3000/', ':8001/custom/announce')
     //   : `${mainPath}/custom/announce`;
-    let publishUrl = mainPath.includes(':3000')
-        ? mainPath.replace(':3000/', ':8001/custom/announce')
-        : mainPath;
+    let publishUrl = mainPath.includes(':3000') ? mainPath.replace(':3000/', ':8001/custom/announce') : mainPath;
     publishUrl = publishUrl.includes(':9002')
         ? publishUrl.replace(':9002/', ':8001/custom/announce')
         : `${publishUrl}/custom/announce`;
     console.log(`the final url is ${publishUrl}`);
-    
+
     // let url = adhocConfig;
     // const branch = url.lastIndexOf('/');
     // url = `${url.substring(0, branch)}/announce`;
@@ -59,7 +57,7 @@ export const BannerSplash = () => {
                 }); // todo: can we have error show a default msg
         };
         fetchData();
-    }, [url, closedTime]);
+    }, [publishUrl, closedTime]);
 
     const onClose = () => {
         console.log('Banner was closed.');
