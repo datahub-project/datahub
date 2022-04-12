@@ -15,6 +15,11 @@ Coming soon listEntity queries for listing all entities of a given type
 """
 type Query {
     """
+    Fetch a Data Platform by primary key (urn)
+    """
+    dataPlatform(urn: String!): DataPlatform
+
+    """
     Fetch a CorpUser, representing a DataHub platform user, by primary key (urn)
     """
     corpUser(urn: String!): CorpUser
@@ -799,7 +804,7 @@ type Dataset implements EntityWithRelationships & Entity {
     externalUrl: String @deprecated
 
     """
-    Deprecated,se the properties field instead
+    Deprecated, see the properties field instead
     Environment in which the dataset belongs to or where it was generated
     Note that this field will soon be deprecated in favor of a more standardized concept of Environment
     """
@@ -1295,6 +1300,12 @@ enum FabricType {
     Designates early integration fabrics
     """
     EI
+
+    """
+    Designates pre-production fabrics
+    """
+    PRE
+
     """
     Designates staging fabrics
     """
@@ -1381,7 +1392,7 @@ type Container implements Entity {
     domain: Domain
 
     """
-    The deprecation status of the dashboard
+    The deprecation status of the container
     """
     deprecation: Deprecation
 

@@ -11,6 +11,7 @@ class BigQueryUsageSourceReport(SourceReport):
     dropped_table: Counter[str] = dataclasses.field(default_factory=collections.Counter)
     total_log_entries: Optional[int] = None
     num_read_events: Optional[int] = None
+    num_filtered_events: Optional[int] = None
     num_query_events: Optional[int] = None
     use_v2_audit_metadata: Optional[bool] = None
     log_page_size: Optional[int] = None
@@ -21,6 +22,8 @@ class BigQueryUsageSourceReport(SourceReport):
     deny_pattern: Optional[str] = None
     log_entry_start_time: Optional[str] = None
     log_entry_end_time: Optional[str] = None
+    num_usage_workunits_emitted: Optional[int] = None
+    num_operational_stats_workunits_emitted: Optional[int] = None
 
     def report_dropped(self, key: str) -> None:
         self.dropped_table[key] += 1

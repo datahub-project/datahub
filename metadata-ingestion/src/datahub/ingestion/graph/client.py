@@ -1,6 +1,5 @@
 import json
 import logging
-import urllib.parse
 from json.decoder import JSONDecodeError
 from typing import Any, Dict, List, Optional, Type
 
@@ -18,6 +17,7 @@ from datahub.metadata.schema_classes import (
     GlossaryTermsClass,
     OwnershipClass,
 )
+from datahub.utilities.urns.urn import Urn
 
 logger = logging.getLogger(__name__)
 
@@ -126,7 +126,7 @@ class DataHubGraph(DatahubRestEmitter):
         :rtype: Optional[Aspect]
         :raises HttpError: if the HTTP response is not a 200 or a 404
         """
-        url = f"{self._gms_server}/aspects/{urllib.parse.quote(entity_urn)}?aspect={aspect}&version=0"
+        url: str = f"{self._gms_server}/aspects/{Urn.url_encode(entity_urn)}?aspect={aspect}&version=0"
         response = self._session.get(url)
         if response.status_code == 404:
             # not found

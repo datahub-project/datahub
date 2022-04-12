@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql;
 
 import com.datahub.authentication.token.TokenService;
+import com.datahub.authorization.AuthorizationConfiguration;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.analytics.resolver.AnalyticsChartTypeResolver;
 import com.linkedin.datahub.graphql.analytics.resolver.GetChartsResolver;
@@ -207,6 +208,7 @@ public class GmsGraphQLEngine {
     private final TimeseriesAspectService timeseriesAspectService;
 
     private final IngestionConfiguration ingestionConfiguration;
+    private final AuthorizationConfiguration authorizationConfiguration;
 
     private final DatasetType datasetType;
     private final CorpUserType corpUserType;
@@ -271,6 +273,7 @@ public class GmsGraphQLEngine {
             null,
             null,
             null,
+            null,
             false);
     }
 
@@ -286,6 +289,7 @@ public class GmsGraphQLEngine {
         final EntityRegistry entityRegistry,
         final SecretService secretService,
         final IngestionConfiguration ingestionConfiguration,
+        final AuthorizationConfiguration authorizationConfiguration,
         final GitVersion gitVersion,
         final boolean supportsImpactAnalysis
         ) {
@@ -305,6 +309,7 @@ public class GmsGraphQLEngine {
         this.timeseriesAspectService = timeseriesAspectService;
 
         this.ingestionConfiguration = Objects.requireNonNull(ingestionConfiguration);
+        this.authorizationConfiguration = Objects.requireNonNull(authorizationConfiguration);
 
         this.datasetType = new DatasetType(entityClient);
         this.corpUserType = new CorpUserType(entityClient);
@@ -537,7 +542,9 @@ public class GmsGraphQLEngine {
     private void configureQueryResolvers(final RuntimeWiring.Builder builder) {
         builder.type("Query", typeWiring -> typeWiring
             .dataFetcher("appConfig",
-                new AppConfigResolver(gitVersion, analyticsService != null, this.ingestionConfiguration,
+                new AppConfigResolver(gitVersion, analyticsService != null,
+                    this.ingestionConfiguration,
+                    this.authorizationConfiguration,
                     supportsImpactAnalysis))
             .dataFetcher("me", new AuthenticatedResolver<>(
                     new MeResolver(this.entityClient)))
@@ -587,6 +594,9 @@ public class GmsGraphQLEngine {
                             (env) -> env.getArgument(URN_FIELD_NAME))))
             .dataFetcher("domain",
                 new LoadableTypeResolver<>(domainType,
+                    (env) -> env.getArgument(URN_FIELD_NAME)))
+            .dataFetcher("dataPlatform",
+                new LoadableTypeResolver<>(dataPlatformType,
                     (env) -> env.getArgument(URN_FIELD_NAME)))
             .dataFetcher("mlFeatureTable", new AuthenticatedResolver<>(
                     new LoadableTypeResolver<>(mlFeatureTableType,

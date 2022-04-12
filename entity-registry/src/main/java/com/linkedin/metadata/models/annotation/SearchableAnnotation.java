@@ -52,7 +52,8 @@ public class SearchableAnnotation {
     URN,
     URN_PARTIAL,
     BOOLEAN,
-    COUNT
+    COUNT,
+    DATETIME
   }
 
   @Nonnull

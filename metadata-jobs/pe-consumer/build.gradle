@@ -1,0 +1,41 @@
+plugins {
+  id 'java'
+}
+apply plugin: 'pegasus'
+
+configurations {
+  avro
+}
+
+dependencies {
+  avro project(path: ':metadata-models', configuration: 'avroSchema')
+  compile project(':li-utils')
+  compile project(':metadata-events:mxe-avro-1.7')
+  compile project(':metadata-events:mxe-registration')
+  compile project(':metadata-events:mxe-utils-avro-1.7')
+  compile (project(':metadata-service:factories')) {
+    exclude group: 'org.neo4j.test'
+  }
+  compile externalDependency.springKafka
+  compile externalDependency.springActuator
+  compileOnly externalDependency.lombok
+  annotationProcessor externalDependency.lombok
+  runtime externalDependency.logbackClassic
+  testCompile externalDependency.mockito
+}
+
+task avroSchemaSources(type: Copy) {
+  dependsOn configurations.avro
+
+  from { // use of closure defers evaluation until execution time
+    configurations.avro.collect { zipTree(it) }
+  }
+  into("src/main/resources/")
+  include("avro/com/linkedin/mxe/")
+}
+
+compileJava.dependsOn avroSchemaSources
+
+clean {
+  project.delete("src/main/resources/avro")
+}

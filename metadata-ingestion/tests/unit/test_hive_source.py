@@ -1,13 +1,11 @@
 import deepdiff
-import pytest
 
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.sql.hive import HiveConfig, HiveSource
 from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_column
 
 
-@pytest.mark.integration
 def test_hive_configuration_get_identifier_with_database():
-    from datahub.ingestion.api.common import PipelineContext
-    from datahub.ingestion.source.sql.hive import HiveConfig, HiveSource
 
     test_db_name = "test_database"
     # test_table_name = "test_table"
@@ -26,7 +24,6 @@ def test_hive_configuration_get_identifier_with_database():
     assert output == [expected_output]
 
 
-@pytest.mark.integration
 def test_hive_configuration_get_avro_schema_from_native_data_type():
     # Test 3  - struct of struct
     datatype_string = "struct<type:string,provider:array<int>,abc:struct<t1:string>>"
