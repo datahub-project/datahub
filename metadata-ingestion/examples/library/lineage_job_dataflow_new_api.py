@@ -1,5 +1,4 @@
-from datahub.api.entities.datajob import DataFlow
-from datahub.api.entities.datajob import DataJob
+from datahub.api.entities.datajob import DataFlow, DataJob
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 # Create an emitter to the GMS REST API.

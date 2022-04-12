@@ -1,8 +1,7 @@
 import uuid
 from datetime import datetime
 
-from datahub.api.entities.datajob import DataFlow
-from datahub.api.entities.datajob import DataJob
+from datahub.api.entities.datajob import DataFlow, DataJob
 from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
     InstanceRunResult,
