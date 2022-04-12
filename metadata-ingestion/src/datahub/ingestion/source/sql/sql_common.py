@@ -254,7 +254,7 @@ class BasicSQLAlchemyConfig(SQLAlchemyConfig):
     database_alias: Optional[str] = None
     scheme: str
 
-    def get_sql_alchemy_url(self, uri_opts=None):
+    def get_sql_alchemy_url(self, uri_opts: Optional[Dict[str, Any]] = None) -> str:
         return make_sqlalchemy_uri(
             self.scheme,
             self.username,
