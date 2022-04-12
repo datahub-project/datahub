@@ -1569,5 +1569,66 @@
         "contentType": "application/json"
     },
     "systemMetadata": null
-}
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:c39d6e424c70a1b3e8982535c68b5b5888",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+      "value": "{\"customProperties\": {\"run_id\": \"manual__2022-03-30T11:35:08.970522+00:00\", \"duration\": \"None\", \"start_date\": \"2022-03-30 11:35:09.761704+00:00\", \"end_date\": \"None\", \"execution_date\": \"2022-03-30 11:35:08.970522+00:00\", \"try_number\": \"0\", \"hostname\": \"e4688afa8c61\", \"max_tries\": \"0\", \"external_executor_id\": \"None\", \"pid\": \"44744\", \"state\": \"running\", \"operator\": \"PythonOperator\", \"priority_weight\": \"1\", \"unixname\": \"airflow\", \"log_url\": \"http://localhost:8080/log?execution_date=2022-03-30T11%3A35%3A08.970522%2B00%3A00&task_id=ingest_airflow_dags&dag_id=datahub_airflow_ingest\"}, \"externalUrl\": \"http://localhost:8080/log?execution_date=2022-03-30T11%3A35%3A08.970522%2B00%3A00&task_id=ingest_airflow_dags&dag_id=datahub_airflow_ingest\", \"name\": \"manual__2022-03-30T11:35:08.970522+00:00\", \"type\": \"BATCH_AD_HOC\", \"created\": {\"time\": 1648630100320, \"actor\": \"urn:li:corpuser:datahub\"}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },{
+    "auditHeader": null,
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:c39d6e424c70a1b3e8982535c68b5b5888",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceInput",
+    "aspect": {
+      "value": "{\"inputs\": [\"urn:li:dataset:(urn:li:dataPlatform:hive,fct_cypress_users_created_no_tag,PROD)\"]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+    },{
+    "auditHeader": null,
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:c39d6e424c70a1b3e8982535c68b5b5888",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceOutput",
+    "aspect": {
+      "value": "{\"outputs\": [\"urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)\", \"urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)\"]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },{
+    "auditHeader": null,
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:c39d6e424c70a1b3e8982535c68b5b5888",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+      "value": "{\"parentTemplate\": \"urn:li:dataJob:(urn:li:dataFlow:(airflow,cypress_dag_abc,PROD),cypress_task_123)\", \"upstreamInstances\": []}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },{
+    "auditHeader": null,
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:c39d6e424c70a1b3e8982535c68b5b5888",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1648640109761, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"FAILURE\", \"nativeResultType\": \"failed\"}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  }
 ]
