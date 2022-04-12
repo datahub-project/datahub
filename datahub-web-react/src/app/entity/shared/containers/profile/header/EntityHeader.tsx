@@ -216,8 +216,8 @@ export const EntityHeader = () => {
     const lastEvaluatedAt = new Date();
     const lastEvaluatedTimeLocal =
         (lastEvaluatedAt &&
-            `Last evaluated on ${lastEvaluatedAt.toLocaleDateString()} at ${lastEvaluatedAt.toLocaleTimeString()} (${localeTimezone})`) ||
-        'No evaluations found';
+            `Scheduled to be decommissioned at ${lastEvaluatedAt.toLocaleDateString()} , ${lastEvaluatedAt.toLocaleTimeString()} (${localeTimezone})`) ||
+        'No decommissioned found';
     const lastEvaluatedTimeGMT = lastEvaluatedAt && lastEvaluatedAt.toUTCString();
 
     return (
@@ -268,9 +268,7 @@ export const EntityHeader = () => {
                             <Typography.Text type="secondary">
                                 {entityData?.deprecation?.decommissionTime === null ? (
                                     <Tooltip placement="right" title={lastEvaluatedTimeGMT}>
-                                        <LastEvaluatedAtLabel>
-                                            Scheduled to be decommissioned at {lastEvaluatedTimeLocal}
-                                        </LastEvaluatedAtLabel>
+                                        <LastEvaluatedAtLabel>{lastEvaluatedTimeLocal}</LastEvaluatedAtLabel>
                                     </Tooltip>
                                 ) : (
                                     'No Decommission Time'
