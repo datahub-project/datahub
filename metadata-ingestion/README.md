@@ -113,7 +113,7 @@ Sometimes, while running the ingestion pipeline, unexpected exceptions may occur
 
 ```shell
 # Running ingestion with safe option
-datahub ingest -c ./examples/recipes/example_to_datahub_rest.yml --safe
+datahub ingest -c ./examples/recipes/example_to_datahub_rest.yml --suppress-error-logs
 ```
 
 ## Transformations
