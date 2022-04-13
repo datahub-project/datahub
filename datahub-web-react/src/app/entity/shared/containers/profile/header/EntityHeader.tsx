@@ -3,6 +3,8 @@ import { CheckOutlined, CopyOutlined, FolderOpenOutlined, InfoCircleOutlined, Mo
 import { Typography, Image, Button, Tooltip, Menu, Dropdown, message, Popover } from 'antd';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+import moment from 'moment';
+
 import { EntityType } from '../../../../../../types.generated';
 import { capitalizeFirstLetterOnly } from '../../../../../shared/textUtil';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
@@ -14,6 +16,7 @@ import analytics, { EventType, EntityActionType } from '../../../../../analytics
 import { EntityHealthStatus } from './EntityHealthStatus';
 import { useUpdateDeprecationMutation } from '../../../../../../graphql/mutations.generated';
 import { getLocaleTimezone } from '../../../../../shared/time/timeUtils';
+import { AddDeprecatedDataModal } from './AddDeprecatedDataModal';
 
 const LogoContainer = styled.span`
     margin-right: 10px;
@@ -141,6 +144,7 @@ const LastEvaluatedAtLabel = styled.div`
 export const EntityHeader = () => {
     const { urn, entityType, entityData } = useEntityData();
     const [updateDeprecation] = useUpdateDeprecationMutation();
+    const [showAddDeprecatedDataModal, setShowAddDeprecatedDataModal] = useState(false);
     const refetch = useRefetch();
     const entityRegistry = useEntityRegistry();
     const [copiedUrn, setCopiedUrn] = useState(false);
@@ -168,23 +172,20 @@ export const EntityHeader = () => {
     const typeIcon = entityRegistry.getIcon(entityType, 12, IconStyleType.ACCENT);
     const container = entityData?.container;
 
-    // Update Deprecation
-    const UpdateDeprecationMutation = (deprecatedStatus: boolean) => {
-        return updateDeprecation({
-            variables: {
-                input: {
-                    urn,
-                    deprecated: deprecatedStatus,
-                },
-            },
-        });
-    };
-
     // Update the Deprecation
     const handleUpdateDeprecation = async (deprecatedStatus: boolean) => {
         message.loading({ content: 'Updating...' });
         try {
-            await UpdateDeprecationMutation(deprecatedStatus);
+            await updateDeprecation({
+                variables: {
+                    input: {
+                        urn,
+                        deprecated: deprecatedStatus,
+                        note: '',
+                        decommissionTime: null,
+                    },
+                },
+            });
             message.destroy();
             message.success({ content: 'Deprecation Updated', duration: 2 });
         } catch (e: unknown) {
@@ -200,7 +201,7 @@ export const EntityHeader = () => {
         <Menu>
             <Menu.Item key="0">
                 {!entityData?.deprecation?.deprecated ? (
-                    <MenuItem onClick={() => handleUpdateDeprecation(true)}>Mark as deprecated</MenuItem>
+                    <MenuItem onClick={() => setShowAddDeprecatedDataModal(true)}>Mark as deprecated</MenuItem>
                 ) : (
                     <MenuItem onClick={() => handleUpdateDeprecation(false)}>Mark as un-deprecated</MenuItem>
                 )}
@@ -211,104 +212,119 @@ export const EntityHeader = () => {
     /**
      * Deprecation Decommission Timestamp
      */
-    // const lastEvaluatedAt = new Date(entityData?.deprecation?.decommissionTime);
     const localeTimezone = getLocaleTimezone();
-    const lastEvaluatedAt = new Date();
-    const lastEvaluatedTimeLocal =
-        (lastEvaluatedAt &&
-            `Scheduled to be decommissioned at ${lastEvaluatedAt.toLocaleDateString()} , ${lastEvaluatedAt.toLocaleTimeString()} (${localeTimezone})`) ||
-        'No decommissioned found';
-    const lastEvaluatedTimeGMT = lastEvaluatedAt && lastEvaluatedAt.toUTCString();
+    const decommissionTimeLocal =
+        (entityData?.deprecation?.decommissionTime &&
+            `Scheduled to be decommissioned on ${moment
+                .unix(entityData?.deprecation?.decommissionTime)
+                .format('DD/MMM/YYYY')} at ${moment
+                .unix(entityData?.deprecation?.decommissionTime)
+                .format('HH:mm:ss')} (${localeTimezone})`) ||
+        undefined;
+    const decommissionTimeGMT =
+        entityData?.deprecation?.decommissionTime &&
+        moment.unix(entityData?.deprecation?.decommissionTime).utc().format('dddd, DD/MMM/YYYY HH:mm:ss z');
 
     return (
-        <HeaderContainer>
-            <MainHeaderContent>
-                <PlatformContent>
-                    {platformName && (
-                        <LogoContainer>
-                            {(!!platformLogoUrl && (
-                                <PreviewImage preview={false} src={platformLogoUrl} alt={platformName} />
-                            )) ||
-                                entityLogoComponent}
-                        </LogoContainer>
-                    )}
-                    <PlatformText>{platformName}</PlatformText>
-                    {(platformLogoUrl || platformName) && <PlatformDivider />}
-                    {typeIcon && <TypeIcon>{typeIcon}</TypeIcon>}
-                    <PlatformText>{entityData?.entityTypeOverride || entityTypeCased}</PlatformText>
-                    {container && (
-                        <Link to={entityRegistry.getEntityUrl(EntityType.Container, container?.urn)}>
-                            <PlatformDivider />
-                            <ContainerIcon
-                                style={{
-                                    color: ANTD_GRAY[9],
-                                }}
-                            />
-                            <ContainerText>
-                                {entityRegistry.getDisplayName(EntityType.Container, container)}
-                            </ContainerText>
+        <>
+            <HeaderContainer>
+                <MainHeaderContent>
+                    <PlatformContent>
+                        {platformName && (
+                            <LogoContainer>
+                                {(!!platformLogoUrl && (
+                                    <PreviewImage preview={false} src={platformLogoUrl} alt={platformName} />
+                                )) ||
+                                    entityLogoComponent}
+                            </LogoContainer>
+                        )}
+                        <PlatformText>{platformName}</PlatformText>
+                        {(platformLogoUrl || platformName) && <PlatformDivider />}
+                        {typeIcon && <TypeIcon>{typeIcon}</TypeIcon>}
+                        <PlatformText>{entityData?.entityTypeOverride || entityTypeCased}</PlatformText>
+                        {container && (
+                            <Link to={entityRegistry.getEntityUrl(EntityType.Container, container?.urn)}>
+                                <PlatformDivider />
+                                <ContainerIcon
+                                    style={{
+                                        color: ANTD_GRAY[9],
+                                    }}
+                                />
+                                <ContainerText>
+                                    {entityRegistry.getDisplayName(EntityType.Container, container)}
+                                </ContainerText>
+                            </Link>
+                        )}
+                        {entityCount && entityCount > 0 ? (
+                            <>
+                                <PlatformDivider />
+                                <EntityCountText>{entityCount.toLocaleString()} entities</EntityCountText>
+                            </>
+                        ) : null}
+                    </PlatformContent>
+                    <div style={{ display: 'flex', justifyContent: 'left', alignItems: 'center' }}>
+                        <Link to={entityPath}>
+                            <EntityTitle level={3}>{entityData?.name || ' '}</EntityTitle>
                         </Link>
-                    )}
-                    {entityCount && entityCount > 0 ? (
-                        <>
-                            <PlatformDivider />
-                            <EntityCountText>{entityCount.toLocaleString()} entities</EntityCountText>
-                        </>
-                    ) : null}
-                </PlatformContent>
-                <div style={{ display: 'flex', justifyContent: 'left', alignItems: 'center' }}>
-                    <Link to={entityPath}>
-                        <EntityTitle level={3}>{entityData?.name || ' '}</EntityTitle>
-                    </Link>
-                    <Popover
-                        overlayStyle={{ maxWidth: 600 }}
-                        placement="right"
-                        title={<Typography.Text strong>This entity is deprecated.</Typography.Text>}
-                        content={
-                            <Typography.Text type="secondary">
-                                {entityData?.deprecation?.decommissionTime === null ? (
-                                    <Tooltip placement="right" title={lastEvaluatedTimeGMT}>
-                                        <LastEvaluatedAtLabel>{lastEvaluatedTimeLocal}</LastEvaluatedAtLabel>
-                                    </Tooltip>
-                                ) : (
-                                    'No Decommission Time'
-                                )}
-                            </Typography.Text>
-                        }
-                    >
-                        {entityData?.deprecation?.deprecated && (
+                        {entityData?.deprecation?.deprecated && entityData?.deprecation?.decommissionTime !== null && (
+                            <Popover
+                                overlayStyle={{ maxWidth: 240 }}
+                                placement="right"
+                                title={entityData?.deprecation?.note}
+                                content={
+                                    <Typography.Text type="secondary">
+                                        <Tooltip placement="right" title={decommissionTimeGMT}>
+                                            <LastEvaluatedAtLabel>{decommissionTimeLocal}</LastEvaluatedAtLabel>
+                                        </Tooltip>
+                                    </Typography.Text>
+                                }
+                            >
+                                <DeprecatedContainer>
+                                    <InfoCircleOutlined />
+                                    <DeprecatedText>Deprecated</DeprecatedText>
+                                </DeprecatedContainer>
+                            </Popover>
+                        )}
+                        {entityData?.deprecation?.deprecated && entityData?.deprecation?.decommissionTime === null && (
                             <DeprecatedContainer>
                                 <InfoCircleOutlined />
                                 <DeprecatedText>Deprecated</DeprecatedText>
                             </DeprecatedContainer>
                         )}
-                    </Popover>
-
-                    {entityData?.health && (
-                        <EntityHealthStatus
-                            status={entityData?.health.status}
-                            message={entityData?.health?.message || undefined}
-                        />
-                    )}
-                </div>
-            </MainHeaderContent>
-            {hasExternalUrl && (
-                <ExternalLinkButton href={externalUrl} onClick={sendAnalytics}>
-                    View in {platformName}
-                </ExternalLinkButton>
-            )}
-            <Tooltip title="Copy URN. An URN uniquely identifies an entity on DataHub.">
-                <Button
-                    icon={copiedUrn ? <CheckOutlined /> : <CopyOutlined />}
-                    onClick={() => {
-                        navigator.clipboard.writeText(urn);
-                        setCopiedUrn(true);
-                    }}
-                />
-            </Tooltip>
-            <Dropdown overlay={menu} trigger={['click']}>
-                <MenuIcon />
-            </Dropdown>
-        </HeaderContainer>
+                        {entityData?.health && (
+                            <EntityHealthStatus
+                                status={entityData?.health.status}
+                                message={entityData?.health?.message || undefined}
+                            />
+                        )}
+                    </div>
+                </MainHeaderContent>
+                {hasExternalUrl && (
+                    <ExternalLinkButton href={externalUrl} onClick={sendAnalytics}>
+                        View in {platformName}
+                    </ExternalLinkButton>
+                )}
+                <Tooltip title="Copy URN. An URN uniquely identifies an entity on DataHub.">
+                    <Button
+                        icon={copiedUrn ? <CheckOutlined /> : <CopyOutlined />}
+                        onClick={() => {
+                            navigator.clipboard.writeText(urn);
+                            setCopiedUrn(true);
+                        }}
+                    />
+                </Tooltip>
+                <Dropdown overlay={menu} trigger={['click']}>
+                    <MenuIcon />
+                </Dropdown>
+            </HeaderContainer>
+            <AddDeprecatedDataModal
+                visible={showAddDeprecatedDataModal}
+                urn={urn}
+                onClose={() => {
+                    setShowAddDeprecatedDataModal(false);
+                }}
+                refetch={refetch}
+            />
+        </>
     );
 };
