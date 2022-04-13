@@ -275,15 +275,16 @@ class KafkaSource(StatefulIngestionSourceBase):
         dataset_snapshot.aspects.append(browse_path)
 
         # 4. Attach dataPlatformInstance aspect.
-        if self.source_config.platform_instance:
-            dataset_snapshot.aspects.append(
-                DataPlatformInstanceClass(
-                    platform=platform_urn,
-                    instance=make_dataplatform_instance_urn(
-                        self.platform, self.source_config.platform_instance
-                    ),
+        dataset_snapshot.aspects.append(
+            DataPlatformInstanceClass(
+                platform=platform_urn,
+                instance=make_dataplatform_instance_urn(
+                    self.platform, self.source_config.platform_instance
                 )
+                if self.source_config.platform_instance
+                else None,
             )
+        )
 
         # 5. Emit the datasetSnapshot MCE
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)

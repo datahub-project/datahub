@@ -26,7 +26,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:mysql\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:mysql\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:mysql,PROD)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -102,7 +102,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:mysql\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:mysql\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:mysql,PROD)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -554,7 +554,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:mysql\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:mysql\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:mysql,PROD)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1324,7 +1324,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:mysql\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:mysql\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:mysql,PROD)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1770,7 +1770,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:mysql\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:mysql\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:mysql,PROD)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {

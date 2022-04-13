@@ -116,6 +116,12 @@
                             "/prod/kafka/value_topic"
                         ]
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:kafka",
+                        "instance": null
+                    }
                 }
             ]
         }
@@ -230,6 +236,12 @@
                         "paths": [
                             "/prod/kafka/key_topic"
                         ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:kafka",
+                        "instance": null
                     }
                 }
             ]
@@ -396,6 +408,12 @@
                         "paths": [
                             "/prod/kafka/key_value_topic"
                         ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:kafka",
+                        "instance": null
                     }
                 }
             ]

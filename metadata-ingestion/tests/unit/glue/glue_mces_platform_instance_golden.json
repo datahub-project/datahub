@@ -20,7 +20,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-      "value": "{\"platform\": \"urn:li:dataPlatform:glue\"}",
+      "value": "{\"platform\": \"urn:li:dataPlatform:glue\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)\"}",
       "contentType": "application/json"
     },
     "systemMetadata": null
@@ -310,7 +310,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-      "value": "{\"platform\": \"urn:li:dataPlatform:glue\"}",
+      "value": "{\"platform\": \"urn:li:dataPlatform:glue\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)\"}",
       "contentType": "application/json"
     },
     "systemMetadata": null

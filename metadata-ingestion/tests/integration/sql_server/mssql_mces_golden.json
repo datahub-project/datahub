@@ -26,7 +26,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:mssql\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:mssql\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:mssql,PROD)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -83,7 +83,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:mssql\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:mssql\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:mssql,PROD)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -159,7 +159,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:mssql\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:mssql\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:mssql,PROD)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -235,7 +235,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:mssql\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:mssql\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:mssql,PROD)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -311,7 +311,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:mssql\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:mssql\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:mssql,PROD)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -387,7 +387,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:mssql\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:mssql\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:mssql,PROD)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -463,7 +463,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:mssql\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:mssql\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:mssql,PROD)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -539,7 +539,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:mssql\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:mssql\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:mssql,PROD)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -615,7 +615,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:mssql\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:mssql\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:mssql,PROD)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -691,7 +691,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:mssql\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:mssql\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:mssql,PROD)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -767,7 +767,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:mssql\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:mssql\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:mssql,PROD)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -980,7 +980,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:mssql\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:mssql\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:mssql,PROD)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1512,7 +1512,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:mssql\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:mssql\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:mssql,PROD)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1588,7 +1588,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:mssql\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:mssql\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:mssql,PROD)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1664,7 +1664,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:mssql\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:mssql\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:mssql,PROD)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {

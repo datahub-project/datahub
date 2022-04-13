@@ -26,7 +26,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:trino\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:trino\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,PROD)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -83,7 +83,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:trino\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:trino\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,PROD)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -172,7 +172,7 @@
                             "numrows": "1",
                             "rawdatasize": "32",
                             "totalsize": "33",
-                            "transient_lastddltime": "1648000508"
+                            "transient_lastddltime": "1649872578"
                         },
                         "externalUrl": null,
                         "name": "array_struct_test",
@@ -354,7 +354,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1648000512"
+                            "transient_lastddltime": "1649872582"
                         },
                         "externalUrl": null,
                         "name": "map_test",
@@ -501,7 +501,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1648000512"
+                            "transient_lastddltime": "1649872582"
                         },
                         "externalUrl": null,
                         "name": "nested_struct_test",
@@ -708,7 +708,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "transient_lastddltime": "1648000497"
+                            "transient_lastddltime": "1649872570"
                         },
                         "externalUrl": null,
                         "name": "pokes",
@@ -869,7 +869,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1648000501"
+                            "transient_lastddltime": "1649872574"
                         },
                         "externalUrl": null,
                         "name": "struct_test",
@@ -1046,7 +1046,7 @@
                         "customProperties": {
                             "numfiles": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1648000511"
+                            "transient_lastddltime": "1649872581"
                         },
                         "externalUrl": null,
                         "name": "struct_test_view_materialized",
@@ -1226,7 +1226,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1648000501"
+                            "transient_lastddltime": "1649872574"
                         },
                         "externalUrl": null,
                         "name": "_test_table_underscore",
@@ -1370,7 +1370,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1648000512"
+                            "transient_lastddltime": "1649872582"
                         },
                         "externalUrl": null,
                         "name": "union_test",
@@ -1613,7 +1613,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "transient_lastddltime": "1648000511",
+                            "transient_lastddltime": "1649872582",
                             "view_definition": "SELECT \"property_id\", \"service\"\nFROM \"db1\".\"array_struct_test\"",
                             "is_view": "True"
                         },

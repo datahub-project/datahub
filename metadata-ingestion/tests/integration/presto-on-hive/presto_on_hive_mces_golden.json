@@ -26,7 +26,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:presto-on-hive\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:presto-on-hive\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:presto-on-hive,PROD)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -83,7 +83,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:presto-on-hive\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:presto-on-hive\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:presto-on-hive,PROD)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -159,7 +159,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:presto-on-hive\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:presto-on-hive\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:presto-on-hive,PROD)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -235,7 +235,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:presto-on-hive\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:presto-on-hive\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:presto-on-hive,PROD)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -380,7 +380,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2022-04-11",
+                            "create_date": "2022-04-13",
                             "table_type": "MANAGED_TABLE",
                             "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/map_test"
                         },
@@ -592,7 +592,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2022-04-11",
+                            "create_date": "2022-04-13",
                             "table_type": "MANAGED_TABLE",
                             "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/union_test"
                         },
@@ -777,7 +777,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2022-04-11",
+                            "create_date": "2022-04-13",
                             "table_type": "MANAGED_TABLE",
                             "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/nested_struct_test"
                         },
@@ -932,7 +932,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2022-04-11",
+                            "create_date": "2022-04-13",
                             "table_type": "MANAGED_TABLE",
                             "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/array_struct_test"
                         },
@@ -1085,7 +1085,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2022-04-11",
+                            "create_date": "2022-04-13",
                             "table_type": "MANAGED_TABLE",
                             "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/struct_test"
                         },
@@ -1202,7 +1202,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2022-04-11",
+                            "create_date": "2022-04-13",
                             "table_type": "MANAGED_TABLE",
                             "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/_test_table_underscore"
                         },
@@ -1319,7 +1319,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2022-04-11",
+                            "create_date": "2022-04-13",
                             "table_type": "MANAGED_TABLE",
                             "table_location": "hdfs://namenode:8020/user/hive/warehouse/db2.db/pokes"
                         },
@@ -1394,23 +1394,6 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "[version=2.0].[type=string].baz",
-                                "jsonPath": null,
-                                "nullable": true,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "string",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
-                            },
-                            {
                                 "fieldPath": "[version=2.0].[type=int].foo",
                                 "jsonPath": null,
                                 "nullable": true,
@@ -1426,6 +1409,23 @@
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=string].baz",
+                                "jsonPath": null,
+                                "nullable": true,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].bar",
@@ -1453,7 +1453,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2022-04-11",
+                            "create_date": "2022-04-13",
                             "table_type": "MANAGED_TABLE",
                             "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/pokes",
                             "partitioned_columns": "baz"

@@ -613,7 +613,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:test-platform\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:test-platform\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:test-platform,test-platform-instance)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -670,7 +670,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:test-platform\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:test-platform\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:test-platform,test-platform-instance)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -746,7 +746,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:test-platform\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:test-platform\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:test-platform,test-platform-instance)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -822,7 +822,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:test-platform\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:test-platform\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:test-platform,test-platform-instance)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -898,7 +898,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:test-platform\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:test-platform\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:test-platform,test-platform-instance)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -974,7 +974,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:test-platform\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:test-platform\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:test-platform,test-platform-instance)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1050,7 +1050,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:test-platform\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:test-platform\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:test-platform,test-platform-instance)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1126,7 +1126,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:test-platform\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:test-platform\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:test-platform,test-platform-instance)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
