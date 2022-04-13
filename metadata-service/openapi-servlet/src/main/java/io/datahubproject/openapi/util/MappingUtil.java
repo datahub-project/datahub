@@ -120,6 +120,9 @@ public class MappingUtil {
 
   public static EnvelopedAspect mapEnvelopedAspect(com.linkedin.entity.EnvelopedAspect envelopedAspect,
       ObjectMapper objectMapper) {
+    // TODO: This shouldn't be necessary, but test out what triggers build failures in CI
+    EnvelopedAspect aspect = new EnvelopedAspect();
+    aspect.setName(envelopedAspect.getName());
     return new EnvelopedAspect().name(envelopedAspect.getName())
         .timestamp(envelopedAspect.getTimestamp())
         .version(envelopedAspect.getVersion())
