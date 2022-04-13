@@ -1361,7 +1361,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "owner": "bob@gmail.com",
+                            "owner": "@bob",
                             "model_maturity": "in prod",
                             "some_other_property": "test 2",
                             "node_type": "source",
@@ -1389,7 +1389,7 @@
                     "com.linkedin.pegasus2avro.common.Ownership": {
                         "owners": [
                             {
-                                "owner": "urn:li:corpuser:bob@gmail.com",
+                                "owner": "urn:li:corpuser:bob",
                                 "type": "DATAOWNER",
                                 "source": null
                             }
@@ -2027,7 +2027,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "owner": "charles",
+                            "owner": "@charles",
                             "model_maturity": "in prod",
                             "some_other_property": "test 3",
                             "an_array_property": "['alpha', 'beta', 'charlie']",

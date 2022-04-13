@@ -32,10 +32,10 @@ class DbtTestConfig:
         tmp_path: Union[str, PathLike],
         output_file: Union[str, PathLike],
         golden_file: Union[str, PathLike],
+        manifest_file: str = "dbt_manifest.json",
         source_config_modifiers: Optional[Dict[str, Any]] = None,
         sink_config_modifiers: Optional[Dict[str, Any]] = None,
     ):
-
         if source_config_modifiers is None:
             source_config_modifiers = {}
 
@@ -44,7 +44,7 @@ class DbtTestConfig:
 
         self.run_id = run_id
 
-        self.manifest_path = f"{dbt_metadata_uri_prefix}/dbt_manifest.json"
+        self.manifest_path = f"{dbt_metadata_uri_prefix}/{manifest_file}"
         self.catalog_path = f"{dbt_metadata_uri_prefix}/dbt_catalog.json"
         self.sources_path = f"{dbt_metadata_uri_prefix}/dbt_sources.json"
         self.target_platform = "postgres"
@@ -131,6 +131,7 @@ def test_dbt_ingest(pytestconfig, tmp_path, mock_time, **kwargs):
                 "load_schemas": True,
                 "disable_dbt_node_creation": True,
                 "enable_meta_mapping": True,
+                "owner_extraction_pattern": r"^@(?P<owner>(.*))",
             },
         ),
         DbtTestConfig(
@@ -143,6 +144,7 @@ def test_dbt_ingest(pytestconfig, tmp_path, mock_time, **kwargs):
             source_config_modifiers={
                 "load_schemas": True,
                 "disable_dbt_node_creation": True,
+                "owner_extraction_pattern": r"^@(?P<owner>(.*))",
             },
         ),
         DbtTestConfig(
@@ -155,6 +157,7 @@ def test_dbt_ingest(pytestconfig, tmp_path, mock_time, **kwargs):
             source_config_modifiers={
                 "load_schemas": False,
                 "disable_dbt_node_creation": True,
+                "owner_extraction_pattern": r"^@(?P<owner>(.*))",
             },
         ),
         DbtTestConfig(
@@ -170,6 +173,7 @@ def test_dbt_ingest(pytestconfig, tmp_path, mock_time, **kwargs):
                     "deny": ["source.sample_dbt.pagila.payment_p2020_06"]
                 },
                 "disable_dbt_node_creation": True,
+                "owner_extraction_pattern": r"^@(?P<owner>(.*))",
             },
         ),
         DbtTestConfig(
@@ -182,8 +186,7 @@ def test_dbt_ingest(pytestconfig, tmp_path, mock_time, **kwargs):
             source_config_modifiers={
                 "load_schemas": True,
                 "enable_meta_mapping": True,
-                "owner_naming_pattern": "(.*)(?P<owner>(?<=\\().*?(?=\\)))",
-                "strip_user_ids_from_email": True,
+                "owner_extraction_pattern": r"^@(?P<owner>(.*))",
             },
         ),
         DbtTestConfig(
@@ -193,7 +196,10 @@ def test_dbt_ingest(pytestconfig, tmp_path, mock_time, **kwargs):
             tmp_path,
             "dbt_enabled_without_schemas_mces.json",
             "dbt_enabled_without_schemas_mces_golden.json",
-            source_config_modifiers={"load_schemas": False},
+            source_config_modifiers={
+                "load_schemas": False,
+                "owner_extraction_pattern": r"^@(?P<owner>(.*))",
+            },
         ),
         DbtTestConfig(
             "dbt-test-without-schemas-with-filter-dbt-enabled",
@@ -207,8 +213,24 @@ def test_dbt_ingest(pytestconfig, tmp_path, mock_time, **kwargs):
                 "node_name_pattern": {
                     "deny": ["source.sample_dbt.pagila.payment_p2020_06"]
                 },
-                "owner_naming_pattern": "(.*)(?P<owner>(?<=\\().*?(?=\\)))",
-                "strip_user_ids_from_email": False,
+                "owner_extraction_pattern": r"^@(?P<owner>(.*))",
+            },
+        ),
+        DbtTestConfig(
+            "dbt-test-with-complex-owner-patterns",
+            test_resources_dir,
+            test_resources_dir,
+            tmp_path,
+            "dbt_test_with_complex_owner_patterns_mces.json",
+            "dbt_test_with_complex_owner_patterns_mces_golden.json",
+            manifest_file="dbt_manifest_complex_owner_patterns.json",
+            source_config_modifiers={
+                "load_schemas": False,
+                "node_name_pattern": {
+                    "deny": ["source.sample_dbt.pagila.payment_p2020_06"]
+                },
+                "owner_extraction_pattern": "(.*)(?P<owner>(?<=\\().*?(?=\\)))",
+                "strip_user_ids_from_email": True,
             },
         ),
     ]
@@ -283,6 +305,7 @@ def test_dbt_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         "load_schemas": True,
         # This will bypass check in get_workunits function of dbt.py
         "write_semantics": "OVERRIDE",
+        "owner_extraction_pattern": r"^@(?P<owner>(.*))",
         # enable stateful ingestion
         **stateful_config,
     }
@@ -294,6 +317,7 @@ def test_dbt_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         "target_platform": "postgres",
         "load_schemas": True,
         "write_semantics": "OVERRIDE",
+        "owner_extraction_pattern": r"^@(?P<owner>(.*))",
         # enable stateful ingestion
         **stateful_config,
     }

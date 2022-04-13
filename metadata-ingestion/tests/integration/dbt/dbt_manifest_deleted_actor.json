@@ -421,7 +421,7 @@
       "description": "",
       "columns": {},
       "meta": {
-        "owner": "bob@gmail.com",
+        "owner": "@bob",
         "model_maturity": "in prod",
         "some_other_property": "test 2"
       },
@@ -542,7 +542,7 @@
       "description": "",
       "columns": {},
       "meta": {
-        "owner": "charles",
+        "owner": "@charles",
         "model_maturity": "in prod",
         "some_other_property": "test 3",
         "an_array_property": ["alpha", "beta", "charlie"]
