@@ -1,7 +1,7 @@
 source:
   type: "vertica"
   config:
-    host_port: localhost:5433
+    host_port: vertica_ce:5433
     database: VMart
     username: dbadmin
     password: vertica

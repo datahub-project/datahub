@@ -1,0 +1,10 @@
+source: 
+  type: sqlalchemy
+  config: 
+    platform: "vertica"
+    connect_uri: "vertica+vertica_python://dbadmin:vertica@vertica_ce:5433/VMart"
+
+sink:
+  type: file
+  config:
+    filename: "./sqlalchemy.json"
