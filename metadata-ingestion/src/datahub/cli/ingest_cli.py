@@ -73,11 +73,11 @@ def ingest() -> None:
     help="If enabled, ingestion runs with warnings will yield a non-zero error code",
 )
 @click.option(
-    "--safe",
+    "--suppress-error-logs",
     type=bool,
     is_flag=True,
     default=False,
-    help="Supress display of credentials in logs by supressing elaborae stacktrace (stackprinter) during ingestion failures",
+    help="Supress display of variable values in logs by supressing elaborae stacktrace (stackprinter) during ingestion failures",
 )
 @click.pass_context
 @telemetry.with_telemetry
@@ -89,7 +89,7 @@ def run(
     preview: bool,
     strict_warnings: bool,
     preview_workunits: int,
-    safe: bool,
+    suppress_error_logs: bool,
 ) -> None:
     """Ingest metadata into DataHub."""
 
@@ -121,8 +121,8 @@ def run(
         )
         # We dont want to log sensitive information in variables if the pipeline fails due to
         # an unexpected error. Disable printing sensitive info to logs if ingestion is running
-        # with `safe` flag.
-        if safe:
+        # with `--suppress-error-logs` flag.
+        if suppress_error_logs:
             raise SensitiveError() from e
         else:
             raise e
