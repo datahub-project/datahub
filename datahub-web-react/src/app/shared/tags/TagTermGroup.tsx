@@ -18,6 +18,8 @@ import { EMPTY_MESSAGES } from '../../entity/shared/constants';
 import { useRemoveTagMutation, useRemoveTermMutation } from '../../../graphql/mutations.generated';
 import { DomainLink } from './DomainLink';
 import { TagProfileDrawer } from './TagProfileDrawer';
+import { useAcceptProposalMutation, useRejectProposalMutation } from '../../../graphql/actionRequest.generated';
+import ProposalModal from './ProposalModal';
 
 type Props = {
     uneditableTags?: GlobalTags | null;
@@ -89,6 +91,10 @@ export default function TagTermGroup({
     const entityRegistry = useEntityRegistry();
     const [showAddModal, setShowAddModal] = useState(false);
     const [addModalType, setAddModalType] = useState(EntityType.Tag);
+
+    const [acceptProposalMutation] = useAcceptProposalMutation();
+    const [rejectProposalMutation] = useRejectProposalMutation();
+    const [showProposalDecisionModal, setShowProposalDecisionModal] = useState(false);
 
     const tagsEmpty =
         !editableTags?.tags?.length &&
@@ -187,6 +193,40 @@ export default function TagTermGroup({
         setTagProfileDrawerVisible(false);
     };
 
+    const onCloseProposalDecisionModal = (e) => {
+        e.stopPropagation();
+        setShowProposalDecisionModal(false);
+        setTimeout(() => refetch?.(), 2000);
+    };
+
+    const onProposalAcceptance = (actionRequest: ActionRequest) => {
+        acceptProposalMutation({ variables: { urn: actionRequest.urn } })
+            .then(() => {
+                message.success('Successfully accepted the proposal!');
+            })
+            .then(refetch)
+            .catch((err) => {
+                console.log(err);
+                message.error('Failed to accept proposal. :(');
+            });
+    };
+
+    const onProposalRejection = (actionRequest: ActionRequest) => {
+        rejectProposalMutation({ variables: { urn: actionRequest.urn } })
+            .then(() => {
+                message.info('Proposal declined.');
+            })
+            .then(refetch)
+            .catch((err) => {
+                console.log(err);
+                message.error('Failed to reject proposal. :(');
+            });
+    };
+
+    const onActionRequestUpdate = () => {
+        refetch?.();
+    };
+
     return (
         <TagWrapper>
             {domain && (
@@ -215,23 +255,28 @@ export default function TagTermGroup({
                 </TermLink>
             ))}
             {proposedGlossaryTerms?.map((actionRequest) => (
-                <TermLink
-                    to={`/${entityRegistry.getPathName(EntityType.GlossaryTerm)}/${
-                        actionRequest.params?.glossaryTermProposal?.glossaryTerm.urn
-                    }`}
-                    key={actionRequest.params?.glossaryTermProposal?.glossaryTerm.urn}
-                >
-                    <Tooltip overlay="Pending approval from owners">
-                        <ProposedTerm
-                            closable={false}
-                            data-testid={`proposed-term-${actionRequest.params?.glossaryTermProposal?.glossaryTerm.name}`}
-                        >
-                            <BookOutlined style={{ marginRight: '3%' }} />
-                            {actionRequest.params?.glossaryTermProposal?.glossaryTerm.name}
-                            <ClockCircleOutlined style={{ color: 'orange', marginLeft: '3%' }} />
-                        </ProposedTerm>
-                    </Tooltip>
-                </TermLink>
+                <Tooltip overlay="Pending approval from owners">
+                    <ProposedTerm
+                        closable={false}
+                        data-testid={`proposed-term-${actionRequest.params?.glossaryTermProposal?.glossaryTerm.name}`}
+                        onClick={() => {
+                            setShowProposalDecisionModal(true);
+                        }}
+                    >
+                        <BookOutlined style={{ marginRight: '3%' }} />
+                        {actionRequest.params?.glossaryTermProposal?.glossaryTerm.name}
+                        <ProposalModal
+                            actionRequest={actionRequest}
+                            showProposalDecisionModal={showProposalDecisionModal}
+                            onCloseProposalDecisionModal={onCloseProposalDecisionModal}
+                            onProposalAcceptance={onProposalAcceptance}
+                            onProposalRejection={onProposalRejection}
+                            onActionRequestUpdate={onActionRequestUpdate}
+                            elementName={actionRequest.params?.glossaryTermProposal?.glossaryTerm.name}
+                        />
+                        <ClockCircleOutlined style={{ color: 'orange', marginLeft: '3%' }} />
+                    </ProposedTerm>
+                </Tooltip>
             ))}
             {/* uneditable tags are provided by ingestion pipelines exclusively */}
             {uneditableTags?.tags?.map((tag) => {
@@ -273,23 +318,28 @@ export default function TagTermGroup({
                 );
             })}
             {proposedTags?.map((actionRequest) => (
-                <TermLink
-                    to={`/${entityRegistry.getPathName(EntityType.Tag)}/${
-                        actionRequest?.params?.tagProposal?.tag?.urn
-                    }`}
-                    key={actionRequest?.params?.tagProposal?.tag?.urn}
-                >
-                    <Tooltip overlay="Pending approval from owners">
-                        <StyledTag
-                            data-testid={`proposed-tag-${actionRequest?.params?.tagProposal?.tag?.name}`}
-                            $colorHash={actionRequest?.params?.tagProposal?.tag?.urn}
-                            $color={actionRequest?.params?.tagProposal?.tag?.properties?.colorHex}
-                        >
-                            {actionRequest?.params?.tagProposal?.tag?.name}
-                            <ClockCircleOutlined style={{ color: 'orange', marginLeft: '3%' }} />
-                        </StyledTag>
-                    </Tooltip>
-                </TermLink>
+                <Tooltip overlay="Pending approval from owners">
+                    <StyledTag
+                        data-testid={`proposed-tag-${actionRequest?.params?.tagProposal?.tag?.name}`}
+                        $colorHash={actionRequest?.params?.tagProposal?.tag?.urn}
+                        $color={actionRequest?.params?.tagProposal?.tag?.properties?.colorHex}
+                        onClick={() => {
+                            setShowProposalDecisionModal(true);
+                        }}
+                    >
+                        {actionRequest?.params?.tagProposal?.tag?.name}
+                        <ProposalModal
+                            actionRequest={actionRequest}
+                            showProposalDecisionModal={showProposalDecisionModal}
+                            onCloseProposalDecisionModal={onCloseProposalDecisionModal}
+                            onProposalAcceptance={onProposalAcceptance}
+                            onProposalRejection={onProposalRejection}
+                            onActionRequestUpdate={onActionRequestUpdate}
+                            elementName={actionRequest?.params?.tagProposal?.tag?.name}
+                        />
+                        <ClockCircleOutlined style={{ color: 'orange', marginLeft: '3%' }} />
+                    </StyledTag>
+                </Tooltip>
             ))}
             {tagProfileDrawerVisible && (
                 <TagProfileDrawer

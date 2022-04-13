@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.resolvers.mutate;
 
-import com.datahub.authorization.DataHubAuthorizer;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -69,7 +68,7 @@ public class ProposeTagResolver implements DataFetcher<CompletableFuture<Boolean
             input.getSubResource(),
             input.getSubResourceType(),
             _entityService,
-            (DataHubAuthorizer) ((QueryContext) environment.getContext()).getAuthorizer()
+            ((QueryContext) environment.getContext()).getAuthorizer()
         );
         return true;
       } catch (Exception e) {

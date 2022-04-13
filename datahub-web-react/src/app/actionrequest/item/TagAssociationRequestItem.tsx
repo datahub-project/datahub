@@ -8,6 +8,7 @@ import MetadataAssociationRequestItem from './MetadataAssociationRequestItem';
 type Props = {
     actionRequest: ActionRequest;
     onUpdate: () => void;
+    showActionsButtons: boolean;
 };
 
 const REQUEST_TYPE_DISPLAY_NAME = 'Tag Proposal';
@@ -15,7 +16,7 @@ const REQUEST_TYPE_DISPLAY_NAME = 'Tag Proposal';
 /**
  * A list item representing a tag proposal request.
  */
-export default function TagAssociationRequestItem({ actionRequest, onUpdate }: Props) {
+export default function TagAssociationRequestItem({ actionRequest, onUpdate, showActionsButtons }: Props) {
     const entityRegistry = useEntityRegistry();
 
     const tag = actionRequest.params?.tagProposal?.tag;
@@ -37,6 +38,7 @@ export default function TagAssociationRequestItem({ actionRequest, onUpdate }: P
             requestMetadataView={tagView}
             actionRequest={actionRequest}
             onUpdate={onUpdate}
+            showActionsButtons={showActionsButtons}
         />
     );
 }

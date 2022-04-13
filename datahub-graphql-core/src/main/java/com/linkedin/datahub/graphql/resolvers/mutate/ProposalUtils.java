@@ -1,9 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.mutate;
 
-import com.datahub.authorization.AuthorizedActors;
-import com.datahub.authorization.DataHubAuthorizer;
-import com.datahub.authorization.ResourceSpec;
 import com.datahub.authentication.Authentication;
+import com.datahub.authorization.AuthorizedActors;
+import com.datahub.authorization.Authorizer;
+import com.datahub.authorization.ResourceSpec;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.actionrequest.ActionRequestInfo;
 import com.linkedin.actionrequest.ActionRequestParams;
@@ -16,10 +16,10 @@ import com.linkedin.common.GlossaryTermAssociationArray;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Proposals;
-import com.linkedin.container.Container;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.container.Container;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
@@ -175,23 +175,14 @@ public class ProposalUtils {
         orPrivilegeGroups);
   }
 
-  public static boolean proposeTag(
-      Urn creator,
-      Urn tagUrn,
-      Urn targetUrn,
-      String subResource,
-      SubResourceType subResourceType,
-      EntityService entityService,
-      DataHubAuthorizer dataHubAuthorizer
-  ) {
-    AuthorizedActors actors = null;
+  public static boolean proposeTag(Urn creator, Urn tagUrn, Urn targetUrn, String subResource,
+      SubResourceType subResourceType, EntityService entityService, Authorizer dataHubAuthorizer) {
+    AuthorizedActors actors;
 
     ResourceSpec spec = new ResourceSpec(targetUrn.getEntityType(), targetUrn.toString());
     if (subResource != null && subResource.length() > 0) {
-      actors = dataHubAuthorizer.authorizedActors(
-          PoliciesConfig.MANAGE_DATASET_COL_TAGS_PRIVILEGE.getType(),
-          Optional.of(spec)
-      );
+      actors = dataHubAuthorizer.authorizedActors(PoliciesConfig.MANAGE_DATASET_COL_TAGS_PRIVILEGE.getType(),
+          Optional.of(spec));
 
       addTagToSchemaProposalsAspect(creator, tagUrn, targetUrn, subResource, entityService);
     } else {
@@ -254,34 +245,21 @@ public class ProposalUtils {
         creator,
         assignedUsers,
         assignedGroups,
-        tagUrn,
-        targetUrn,
-        subResource,
-        subResourceType
-    )));
+        tagUrn, targetUrn, subResource, subResourceType)));
 
     result.setAspects(aspects);
 
     return result;
   }
 
-  public static boolean proposeTerm(
-      Urn creator,
-      Urn termUrn,
-      Urn targetUrn,
-      String subResource,
-      SubResourceType subResourceType,
-      EntityService entityService,
-      DataHubAuthorizer dataHubAuthorizer
-  ) {
-    AuthorizedActors actors = null;
+  public static boolean proposeTerm(Urn creator, Urn termUrn, Urn targetUrn, String subResource,
+      SubResourceType subResourceType, EntityService entityService, Authorizer dataHubAuthorizer) {
+    AuthorizedActors actors;
 
     if (subResource != null && subResource.length() > 0) {
       ResourceSpec spec = new ResourceSpec(targetUrn.getEntityType(), targetUrn.toString());
-      actors = dataHubAuthorizer.authorizedActors(
-          PoliciesConfig.MANAGE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE.getType(),
-          Optional.of(spec)
-      );
+      actors = dataHubAuthorizer.authorizedActors(PoliciesConfig.MANAGE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE.getType(),
+          Optional.of(spec));
 
       addTermToSchemaProposalsAspect(creator, termUrn, targetUrn, subResource, entityService);
     } else {

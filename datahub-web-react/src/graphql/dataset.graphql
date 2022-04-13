@@ -126,6 +126,40 @@ query getDataset($urn: String!) {
                     }
                 }
             }
+            created {
+                time
+                actor {
+                    urn
+                    type
+                    username
+                    info {
+                        displayName
+                        firstName
+                        lastName
+                        fullName
+                    }
+                    editableInfo {
+                        pictureLink
+                    }
+                }
+            }
+            lastModified {
+                time
+                actor {
+                    urn
+                    type
+                    username
+                    info {
+                        displayName
+                        firstName
+                        lastName
+                        fullName
+                    }
+                    editableInfo {
+                        pictureLink
+                    }
+                }
+            }
         }
         tagProposals: proposals(type: TAG_ASSOCIATION) {
             urn
@@ -140,6 +174,40 @@ query getDataset($urn: String!) {
                         urn
                         type
                         name
+                    }
+                }
+            }
+            created {
+                time
+                actor {
+                    urn
+                    type
+                    username
+                    info {
+                        displayName
+                        firstName
+                        lastName
+                        fullName
+                    }
+                    editableInfo {
+                        pictureLink
+                    }
+                }
+            }
+            lastModified {
+                time
+                actor {
+                    urn
+                    type
+                    username
+                    info {
+                        displayName
+                        firstName
+                        lastName
+                        fullName
+                    }
+                    editableInfo {
+                        pictureLink
                     }
                 }
             }

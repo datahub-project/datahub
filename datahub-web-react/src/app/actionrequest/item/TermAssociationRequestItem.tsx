@@ -9,6 +9,7 @@ import MetadataAssociationRequestItem from './MetadataAssociationRequestItem';
 type Props = {
     actionRequest: ActionRequest;
     onUpdate: () => void;
+    showActionsButtons: boolean;
 };
 
 const REQUEST_TYPE_DISPLAY_NAME = 'Glossary Term Proposal';
@@ -16,7 +17,7 @@ const REQUEST_TYPE_DISPLAY_NAME = 'Glossary Term Proposal';
 /**
  * A list item representing a glossary term proposal request.
  */
-export default function TermAssociationRequestItem({ actionRequest, onUpdate }: Props) {
+export default function TermAssociationRequestItem({ actionRequest, onUpdate, showActionsButtons }: Props) {
     const entityRegistry = useEntityRegistry();
 
     const term = actionRequest.params?.glossaryTermProposal?.glossaryTerm;
@@ -35,6 +36,7 @@ export default function TermAssociationRequestItem({ actionRequest, onUpdate }: 
             requestMetadataView={termView}
             actionRequest={actionRequest}
             onUpdate={onUpdate}
+            showActionsButtons={showActionsButtons}
         />
     );
 }

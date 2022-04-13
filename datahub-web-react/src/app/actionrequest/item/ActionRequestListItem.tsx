@@ -14,22 +14,35 @@ const ActionRequestItemContainer = styled.div`
 type Props = {
     actionRequest: ActionRequest;
     onUpdate: () => void;
+    showActionsButtons: boolean;
 };
 
 /**
  * Base Action Request List Item. Each specific action request type has it's own way
  * to render the item, which is handled inside this component.
  */
-export default function ActionRequestListItem({ actionRequest, onUpdate }: Props) {
+export default function ActionRequestListItem({ actionRequest, onUpdate, showActionsButtons }: Props) {
     const getActionRequestItemContent = (request: ActionRequest) => {
         const requestType = request.type;
         switch (requestType) {
             // Request to add a glossary term to an entity.
             case ActionRequestType.TermAssociation:
-                return <TermAssociationRequestItem actionRequest={request} onUpdate={onUpdate} />;
+                return (
+                    <TermAssociationRequestItem
+                        actionRequest={request}
+                        onUpdate={onUpdate}
+                        showActionsButtons={showActionsButtons}
+                    />
+                );
             // Request to add a tag to an entity.
             case ActionRequestType.TagAssociation:
-                return <TagAssociationRequestItem actionRequest={request} onUpdate={onUpdate} />;
+                return (
+                    <TagAssociationRequestItem
+                        actionRequest={request}
+                        onUpdate={onUpdate}
+                        showActionsButtons={showActionsButtons}
+                    />
+                );
             default:
                 throw new Error(`Unrecognized Action Request Type ${requestType} provided. Unable to render.`);
         }

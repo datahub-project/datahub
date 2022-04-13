@@ -87,7 +87,11 @@ export const ActionRequestsList = ({ title, status, assignee }: Props) => {
                     }}
                     dataSource={actionRequests}
                     renderItem={(item: unknown) => (
-                        <ActionRequestListItem actionRequest={item as ActionRequest} onUpdate={onActionRequestUpdate} />
+                        <ActionRequestListItem
+                            actionRequest={item as ActionRequest}
+                            onUpdate={onActionRequestUpdate}
+                            showActionsButtons
+                        />
                     )}
                 />
                 <ActionRequestsPaginationContainer>
