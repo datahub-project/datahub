@@ -5,7 +5,7 @@ from pydantic.class_validators import validator
 from sqlalchemy import sql, util
 from sqlalchemy.engine import reflection
 from sqlalchemy.sql import sqltypes
-from sqla_vertica_python.vertica_python import VerticaDialect
+from sqlalchemy_vertica.base import VerticaDialect
 
 from datahub.ingestion.source.sql.sql_common import (
     BasicSQLAlchemyConfig,
