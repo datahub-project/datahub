@@ -610,7 +610,7 @@ class DBTSource(StatefulIngestionSourceBase):
         self.config: DBTConfig = config
         self.platform: str = platform
         self.report: DBTSourceReport = DBTSourceReport()
-        self.compiled_owner_extraction_pattern: Optional[re.Pattern] = None
+        self.compiled_owner_extraction_pattern: Optional[Any] = None
         if self.config.owner_extraction_pattern:
             self.compiled_owner_extraction_pattern = re.compile(
                 self.config.owner_extraction_pattern
@@ -1025,7 +1025,7 @@ class DBTSource(StatefulIngestionSourceBase):
         if node.owner:
             owner: str = node.owner
             if self.compiled_owner_extraction_pattern:
-                match: Optional[re.Match] = re.match(
+                match: Optional[Any] = re.match(
                     self.compiled_owner_extraction_pattern, owner
                 )
                 if match:
