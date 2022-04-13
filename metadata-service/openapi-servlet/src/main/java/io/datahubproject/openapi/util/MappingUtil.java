@@ -218,8 +218,8 @@ public class MappingUtil {
     }
   }
 
-  public static String ingestProposal(MetadataChangeProposal metadataChangeProposal, EntityService _entityService,
-      ObjectMapper _objectMapper) {
+  public static String ingestProposal(MetadataChangeProposal metadataChangeProposal, EntityService entityService,
+      ObjectMapper objectMapper) {
     // TODO: Use the actor present in the IC.
     Timer.Context context = MetricUtils.timer("postEntity").time();
     final com.linkedin.common.AuditStamp auditStamp =
@@ -236,7 +236,7 @@ public class MappingUtil {
     }
     if (metadataChangeProposal.getSystemMetadata() != null) {
       serviceProposal.setSystemMetadata(
-          _objectMapper.convertValue(metadataChangeProposal.getSystemMetadata(), SystemMetadata.class));
+          objectMapper.convertValue(metadataChangeProposal.getSystemMetadata(), SystemMetadata.class));
     }
     if (metadataChangeProposal.getAspectName() != null) {
       serviceProposal.setAspectName(metadataChangeProposal.getAspectName());
@@ -266,21 +266,21 @@ public class MappingUtil {
 
     serviceProposal = metadataChangeProposal.getEntityKeyAspect() != null
         ? serviceProposal.setEntityKeyAspect(
-        MappingUtil.convertGenericAspect(metadataChangeProposal.getEntityKeyAspect(), _objectMapper))
+        MappingUtil.convertGenericAspect(metadataChangeProposal.getEntityKeyAspect(), objectMapper))
         : serviceProposal;
     serviceProposal = metadataChangeProposal.getAspect() != null
         ? serviceProposal.setAspect(
-        MappingUtil.convertGenericAspect(metadataChangeProposal.getAspect(), _objectMapper))
+        MappingUtil.convertGenericAspect(metadataChangeProposal.getAspect(), objectMapper))
         : serviceProposal;
 
     final List<com.linkedin.mxe.MetadataChangeProposal> additionalChanges =
-        AspectUtils.getAdditionalChanges(serviceProposal, _entityService);
+        AspectUtils.getAdditionalChanges(serviceProposal, entityService);
 
     log.info("Proposal: {}", serviceProposal);
     Throwable exceptionally = null;
     try {
-      Urn urn = _entityService.ingestProposal(serviceProposal, auditStamp).getUrn();
-      additionalChanges.forEach(proposal -> _entityService.ingestProposal(proposal, auditStamp));
+      Urn urn = entityService.ingestProposal(serviceProposal, auditStamp).getUrn();
+      additionalChanges.forEach(proposal -> entityService.ingestProposal(proposal, auditStamp));
       return urn.toString();
     } catch (ValidationException ve) {
       exceptionally = ve;
@@ -320,17 +320,17 @@ public class MappingUtil {
     return metadataChangeProposal;
   }
 
-  public static RollbackRunResultDto mapRollbackRunResult(RollbackRunResult rollbackRunResult, ObjectMapper _objectMapper) {
+  public static RollbackRunResultDto mapRollbackRunResult(RollbackRunResult rollbackRunResult, ObjectMapper objectMapper) {
     List<AspectRowSummary> aspectRowSummaries = rollbackRunResult.getRowsRolledBack().stream()
-        .map(aspectRowSummary -> _objectMapper.convertValue(aspectRowSummary.data(), AspectRowSummary.class))
+        .map(aspectRowSummary -> objectMapper.convertValue(aspectRowSummary.data(), AspectRowSummary.class))
         .collect(Collectors.toList());
     return RollbackRunResultDto.builder()
         .rowsRolledBack(aspectRowSummaries)
         .rowsDeletedFromEntityDeletion(rollbackRunResult.getRowsDeletedFromEntityDeletion()).build();
   }
 
-  public static UpsertAspectRequest createStatusRemoval(Urn urn, EntityService _entityService) {
-    if (!_entityService.getEntityRegistry().getEntitySpec(urn.getEntityType()).getAspectSpecMap().containsKey(STATUS_ASPECT_NAME)) {
+  public static UpsertAspectRequest createStatusRemoval(Urn urn, EntityService entityService) {
+    if (!entityService.getEntityRegistry().getEntitySpec(urn.getEntityType()).getAspectSpecMap().containsKey(STATUS_ASPECT_NAME)) {
       throw new IllegalArgumentException("Entity type is not valid for soft deletes: " + urn.getEntityType());
     }
     return UpsertAspectRequest.builder()

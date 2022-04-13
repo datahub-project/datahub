@@ -71,7 +71,7 @@ public class MockEntitySpec implements EntitySpec {
     return null;
   }
 
-  private static Map<String, RecordTemplate> ASPECT_TYPE_MAP;
+  private static final Map<String, RecordTemplate> ASPECT_TYPE_MAP;
 
   static {
     ASPECT_TYPE_MAP = new HashMap<>();
