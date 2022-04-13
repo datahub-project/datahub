@@ -302,6 +302,7 @@ class KafkaSource(StatefulIngestionSourceBase):
                 aspect=SubTypesClass(typeNames=["topic"]),
             ),
         )
+        self.report.report_workunit(subtype_wu)
         yield subtype_wu
 
         domain_urn: Optional[str] = None
