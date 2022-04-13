@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 from airflow.configuration import conf
 
@@ -7,6 +7,7 @@ from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
     InstanceRunResult,
 )
+from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import DataProcessTypeClass
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
@@ -344,7 +345,7 @@ class AirflowGenerator:
 
     @staticmethod
     def run_datajob(
-        emitter: DatahubRestEmitter,
+        emitter: Union[DatahubRestEmitter, DatahubKafkaEmitter],
         cluster: str,
         ti: "TaskInstance",
         dag: "DAG",
@@ -415,7 +416,7 @@ class AirflowGenerator:
 
     @staticmethod
     def complete_datajob(
-        emitter: DatahubRestEmitter,
+        emitter: Union[DatahubRestEmitter, DatahubKafkaEmitter],
         cluster: str,
         ti: "TaskInstance",
         dag: "DAG",
