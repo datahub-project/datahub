@@ -1,6 +1,6 @@
-package io.datahubproject.openapi.timeline.config;
+package io.datahubproject.openapi.config;
 
-import io.datahubproject.openapi.timeline.converter.StringToChangeCategoryConverter;
+import io.datahubproject.openapi.converter.StringToChangeCategoryConverter;
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.servers.Server;
 import java.util.List;

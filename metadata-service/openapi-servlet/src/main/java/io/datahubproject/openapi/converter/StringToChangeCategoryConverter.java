@@ -1,4 +1,4 @@
-package io.datahubproject.openapi.timeline.converter;
+package io.datahubproject.openapi.converter;
 
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import java.util.List;
