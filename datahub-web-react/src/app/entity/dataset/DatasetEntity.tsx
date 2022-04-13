@@ -112,7 +112,6 @@ export class DatasetEntity implements Entity<Dataset> {
                     display: {
                         visible: (_, _1) => true,
                         enabled: (_, dataset: GetDatasetQuery) => {
-                            console.log(dataset?.dataset?.upstream, dataset?.dataset?.downstream);
                             return (
                                 (dataset?.dataset?.upstream?.total || 0) > 0 ||
                                 (dataset?.dataset?.downstream?.total || 0) > 0

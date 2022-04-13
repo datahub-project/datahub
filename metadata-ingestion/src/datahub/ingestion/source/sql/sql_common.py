@@ -268,7 +268,7 @@ class BasicSQLAlchemyConfig(SQLAlchemyConfig):
     scheme: Optional[str] = None
     sqlalchemy_uri: Optional[str] = None
 
-    def get_sql_alchemy_url(self, uri_opts=None):
+    def get_sql_alchemy_url(self, uri_opts: Optional[Dict[str, Any]] = None) -> str:
         if not ((self.host_port and self.scheme) or self.sqlalchemy_uri):
             raise ValueError("host_port and schema or connect_uri required.")
 
@@ -893,6 +893,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 id=f"{self.platform}-{lineage_mcpw.entityUrn}-{lineage_mcpw.aspectName}",
                 mcp=lineage_mcpw,
             )
+            self.report.report_workunit(lineage_wu)
             yield lineage_wu
 
         pk_constraints: dict = inspector.get_pk_constraint(table, schema)
@@ -927,6 +928,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 aspect=SubTypesClass(typeNames=["table"]),
             ),
         )
+        self.report.report_workunit(subtypes_aspect)
         yield subtypes_aspect
 
         yield from self._get_domain_wu(
@@ -1182,13 +1184,14 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 aspect=SubTypesClass(typeNames=["view"]),
             ),
         )
+        self.report.report_workunit(subtypes_aspect)
         yield subtypes_aspect
         if "view_definition" in properties:
             view_definition_string = properties["view_definition"]
             view_properties_aspect = ViewPropertiesClass(
                 materialized=False, viewLanguage="SQL", viewLogic=view_definition_string
             )
-            yield MetadataWorkUnit(
+            view_properties_wu = MetadataWorkUnit(
                 id=f"{view}-viewProperties",
                 mcp=MetadataChangeProposalWrapper(
                     entityType="dataset",
@@ -1198,6 +1201,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                     aspect=view_properties_aspect,
                 ),
             )
+            self.report.report_workunit(view_properties_wu)
+            yield view_properties_wu
 
         yield from self._get_domain_wu(
             dataset_name=dataset_name,
