@@ -72,7 +72,6 @@ class DatahubRestSink(Sink):
         if isinstance(workunit, MetadataWorkUnit):
             mwu: MetadataWorkUnit = cast(MetadataWorkUnit, workunit)
             self.treat_errors_as_warnings = mwu.treat_errors_as_warnings
-        pass
 
     def handle_work_unit_end(self, workunit: WorkUnit) -> None:
         pass

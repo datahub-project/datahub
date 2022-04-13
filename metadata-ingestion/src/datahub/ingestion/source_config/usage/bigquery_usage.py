@@ -46,12 +46,18 @@ class BigQueryUsageConfig(DatasetSourceConfigBase, BaseUsageConfig):
     projects: Optional[List[str]] = None
     project_id: Optional[str] = None  # deprecated in favor of `projects`
     extra_client_options: dict = {}
+    use_v2_audit_metadata: Optional[bool] = False
+
+    bigquery_audit_metadata_datasets: Optional[List[str]] = None
+    use_exported_bigquery_audit_metadata: bool = False
+    use_date_sharded_audit_log_tables: bool = False
+
     table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     dataset_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     log_page_size: pydantic.PositiveInt = 1000
+
     query_log_delay: Optional[pydantic.PositiveInt] = None
     max_query_duration: timedelta = timedelta(minutes=15)
-    use_v2_audit_metadata: Optional[bool] = False
     credential: Optional[BigQueryCredential]
     _credentials_path: Optional[str] = pydantic.PrivateAttr(None)
 
@@ -81,6 +87,14 @@ class BigQueryUsageConfig(DatasetSourceConfigBase, BaseUsageConfig):
         raise ConfigurationError(
             "BigQuery project-ids are globally unique. You don't need to provide a platform_instance"
         )
+
+    @pydantic.validator("use_exported_bigquery_audit_metadata")
+    def use_exported_bigquery_audit_metadata_uses_v2(cls, v, values):
+        if v is True and not values["use_v2_audit_metadata"]:
+            raise ConfigurationError(
+                "To use exported BigQuery audit metadata, you must also use v2 audit metadata"
+            )
+        return v
 
     def get_allow_pattern_string(self) -> str:
         return "|".join(self.table_pattern.allow) if self.table_pattern else ""

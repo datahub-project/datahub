@@ -1,0 +1,15 @@
+namespace com.linkedin.ml.metadata
+
+/**
+ * Properties associated with a MLPrimaryKey editable from the UI
+ */
+@Aspect = {
+  "name": "editableMlPrimaryKeyProperties"
+}
+record EditableMLPrimaryKeyProperties {
+
+  /**
+   * Documentation of the MLPrimaryKey
+   */
+  description: optional string
+}
