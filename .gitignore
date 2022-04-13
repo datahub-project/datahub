@@ -60,3 +60,5 @@ metadata-ingestion/generated/**
 
 # docs
 docs/generated/
+tmp*
+temp*

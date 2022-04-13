@@ -7,6 +7,10 @@ query getContainer($urn: String!) {
         properties {
             name
             description
+            customProperties {
+                key
+                value
+            }
         }
         editableProperties {
             description
@@ -34,6 +38,9 @@ query getContainer($urn: String!) {
         }
         domain {
             ...entityDomain
+        }
+        deprecation {
+            ...deprecationFields
         }
     }
 }

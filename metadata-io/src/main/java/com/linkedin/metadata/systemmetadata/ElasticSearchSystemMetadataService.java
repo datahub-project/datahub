@@ -2,6 +2,7 @@ package com.linkedin.metadata.systemmetadata;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.IngestionRunSummary;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
@@ -30,6 +31,7 @@ import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.reindex.DeleteByQueryRequest;
 import org.elasticsearch.search.SearchHits;
+import org.elasticsearch.search.aggregations.bucket.filter.ParsedFilter;
 import org.elasticsearch.search.aggregations.bucket.terms.ParsedStringTerms;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.aggregations.metrics.ParsedMax;
@@ -65,6 +67,7 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
     document.put("lastUpdated", systemMetadata.getLastObserved());
     document.put("registryName", systemMetadata.getRegistryName());
     document.put("registryVersion", systemMetadata.getRegistryVersion());
+    document.put("removed", false);
     return document.toString();
   }
 
@@ -93,6 +96,21 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
   }
 
   @Override
+  public void setDocStatus(String urn, boolean removed) {
+    // searchBy findByParams
+    // If status.removed -> false (from removed to not removed) --> get soft deleted entities.
+    // If status.removed -> true (from not removed to removed) --> do not get soft deleted entities.
+    final List<AspectRowSummary> aspectList = findByParams(ImmutableMap.of("urn", urn), !removed);
+    // for each -> toDocId and set removed to true for all
+    aspectList.forEach(aspect -> {
+      final String docId = toDocId(aspect.getUrn(), aspect.getAspectName());
+      final ObjectNode document = JsonNodeFactory.instance.objectNode();
+      document.put("removed", removed);
+      _esDAO.upsertDocument(docId, document.toString());
+    });
+  }
+
+  @Override
   public void insert(@Nullable SystemMetadata systemMetadata, String urn, String aspect) {
     if (systemMetadata == null) {
       return;
@@ -105,12 +123,18 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
   }
 
   @Override
-  public List<AspectRowSummary> findByRunId(String runId) {
-    return findByParams(Collections.singletonMap(FIELD_RUNID, runId));
+  public List<AspectRowSummary> findByRunId(String runId, boolean includeSoftDeleted) {
+    return findByParams(Collections.singletonMap(FIELD_RUNID, runId), includeSoftDeleted);
   }
 
-  private List<AspectRowSummary> findByParams(Map<String, String> systemMetaParams) {
-    SearchResponse searchResponse = _esDAO.findByParams(systemMetaParams);
+  @Override
+  public List<AspectRowSummary> findByUrn(String urn, boolean includeSoftDeleted) {
+    return findByParams(Collections.singletonMap(FIELD_URN, urn), includeSoftDeleted);
+  }
+
+  @Override
+  public List<AspectRowSummary> findByParams(Map<String, String> systemMetaParams, boolean includeSoftDeleted) {
+    SearchResponse searchResponse = _esDAO.findByParams(systemMetaParams, includeSoftDeleted);
     if (searchResponse != null) {
       SearchHits hits = searchResponse.getHits();
       List<AspectRowSummary> summaries = Arrays.stream(hits.getHits()).map(hit -> {
@@ -135,17 +159,26 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
   }
 
   @Override
-  public List<AspectRowSummary> findByRegistry(String registryName, String registryVersion) {
+  public List<AspectRowSummary> findByRegistry(String registryName, String registryVersion, boolean includeSoftDeleted) {
     Map<String, String> registryParams = new HashMap<>();
     registryParams.put(FIELD_REGISTRY_NAME, registryName);
     registryParams.put(FIELD_REGISTRY_VERSION, registryVersion);
-    return findByParams(registryParams);
+    return findByParams(registryParams, includeSoftDeleted);
   }
 
   @Override
-  public List<IngestionRunSummary> listRuns(Integer pageOffset, Integer pageSize) {
+  public List<IngestionRunSummary> listRuns(Integer pageOffset, Integer pageSize, boolean includeSoftDeleted) {
     SearchResponse response = _esDAO.findRuns(pageOffset, pageSize);
     List<? extends Terms.Bucket> buckets = ((ParsedStringTerms) response.getAggregations().get("runId")).getBuckets();
+
+    if (!includeSoftDeleted) {
+      buckets.removeIf(bucket -> {
+        long totalDocs = bucket.getDocCount();
+        long softDeletedDocs = ((ParsedFilter) bucket.getAggregations().get("removed")).getDocCount();
+        return totalDocs == softDeletedDocs;
+      });
+    }
+
     // TODO(gabe-lyons): add sample urns
     return buckets.stream().map(bucket -> {
       IngestionRunSummary entry = new IngestionRunSummary();

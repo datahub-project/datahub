@@ -11,6 +11,9 @@ public class Constants {
   public static final String SYSTEM_ACTOR = "urn:li:corpuser:__datahub_system"; // DataHub internal service principal.
   public static final String UNKNOWN_ACTOR = "urn:li:corpuser:UNKNOWN"; // Unknown principal.
   public static final Long ASPECT_LATEST_VERSION = 0L;
+  public static final String UNKNOWN_DATA_PLATFORM = "urn:li:dataPlatform:unknown";
+
+  public static final String DEFAULT_RUN_ID = "no-run-id-provided";
 
   /**
    * Entities
@@ -37,6 +40,7 @@ public class Constants {
   public static final String INGESTION_SOURCE_ENTITY_NAME = "dataHubIngestionSource";
   public static final String SECRETS_ENTITY_NAME = "dataHubSecret";
   public static final String EXECUTION_REQUEST_ENTITY_NAME = "dataHubExecutionRequest";
+  public static final String NOTEBOOK_ENTITY_NAME = "notebook";
 
 
   /**
@@ -76,6 +80,7 @@ public class Constants {
   public static final String SCHEMA_METADATA_ASPECT_NAME = "schemaMetadata";
   public static final String EDITABLE_SCHEMA_METADATA_ASPECT_NAME = "editableSchemaMetadata";
   public static final String VIEW_PROPERTIES_ASPECT_NAME = "viewProperties";
+  public static final String DATASET_PROFILE_ASPECT_NAME = "datasetProfile";
 
   // Chart
   public static final String CHART_KEY_ASPECT_NAME = "chartKey";
@@ -87,6 +92,12 @@ public class Constants {
   public static final String DASHBOARD_KEY_ASPECT_NAME = "dashboardKey";
   public static final String DASHBOARD_INFO_ASPECT_NAME = "dashboardInfo";
   public static final String EDITABLE_DASHBOARD_PROPERTIES_ASPECT_NAME = "editableDashboardProperties";
+
+  // Notebook
+  public static final String NOTEBOOK_KEY_ASPECT_NAME = "notebookKey";
+  public static final String NOTEBOOK_INFO_ASPECT_NAME = "notebookInfo";
+  public static final String NOTEBOOK_CONTENT_ASPECT_NAME = "notebookContent";
+  public static final String EDITABLE_NOTEBOOK_PROPERTIES_ASPECT_NAME = "editableNotebookProperties";
 
   // DataFlow
   public static final String DATA_FLOW_KEY_ASPECT_NAME = "dataFlowKey";
@@ -106,14 +117,17 @@ public class Constants {
   // ML Feature
   public static final String ML_FEATURE_KEY_ASPECT_NAME = "mlFeatureKey";
   public static final String ML_FEATURE_PROPERTIES_ASPECT_NAME = "mlFeatureProperties";
+  public static final String ML_FEATURE_EDITABLE_PROPERTIES_ASPECT_NAME = "editableMlFeatureProperties";
 
   // ML Feature Table
   public static final String ML_FEATURE_TABLE_KEY_ASPECT_NAME = "mlFeatureTableKey";
   public static final String ML_FEATURE_TABLE_PROPERTIES_ASPECT_NAME = "mlFeatureTableProperties";
+  public static final String ML_FEATURE_TABLE_EDITABLE_PROPERTIES_ASPECT_NAME = "editableMlFeatureTableProperties";
 
   //ML Model
   public static final String ML_MODEL_KEY_ASPECT_NAME = "mlModelKey";
   public static final String ML_MODEL_PROPERTIES_ASPECT_NAME = "mlModelProperties";
+  public static final String ML_MODEL_EDITABLE_PROPERTIES_ASPECT_NAME = "editableMlModelProperties";
   public static final String INTENDED_USE_ASPECT_NAME = "intendedUse";
   public static final String ML_MODEL_FACTOR_PROMPTS_ASPECT_NAME = "mlModelFactorPrompts";
   public static final String METRICS_ASPECT_NAME = "metrics";
@@ -128,10 +142,12 @@ public class Constants {
   // ML Model Group
   public static final String ML_MODEL_GROUP_KEY_ASPECT_NAME = "mlModelGroupKey";
   public static final String ML_MODEL_GROUP_PROPERTIES_ASPECT_NAME = "mlModelGroupProperties";
+  public static final String ML_MODEL_GROUP_EDITABLE_PROPERTIES_ASPECT_NAME = "editableMlModelGroupProperties";
 
   // ML Primary Key
   public static final String ML_PRIMARY_KEY_KEY_ASPECT_NAME = "mlPrimaryKeyKey";
   public static final String ML_PRIMARY_KEY_PROPERTIES_ASPECT_NAME = "mlPrimaryKeyProperties";
+  public static final String ML_PRIMARY_KEY_EDITABLE_PROPERTIES_ASPECT_NAME = "editableMlPrimaryKeyProperties";
 
   // Policy
   public static final String DATAHUB_POLICY_INFO_ASPECT_NAME = "dataHubPolicyInfo";
@@ -177,6 +193,13 @@ public class Constants {
    * User Status
    */
   public static final String CORP_USER_STATUS_ACTIVE = "ACTIVE";
+
+  /**
+   * Task Runs
+   */
+  public static final String DATA_PROCESS_INSTANCE_ENTITY_NAME = "dataProcessInstance";
+  public static final String DATA_PROCESS_INSTANCE_PROPERTIES_ASPECT_NAME = "dataProcessInstanceProperties";
+  public static final String DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME = "dataProcessInstanceRunEvent";
 
   private Constants() {
   }

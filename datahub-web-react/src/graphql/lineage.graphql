@@ -6,6 +6,9 @@ fragment relationshipFields on EntityWithRelationships {
         editableProperties {
             description
         }
+        status {
+            removed
+        }
     }
     ... on DataFlow {
         orchestrator
@@ -34,6 +37,9 @@ fragment relationshipFields on EntityWithRelationships {
         domain {
             ...entityDomain
         }
+        status {
+            removed
+        }
     }
     ... on Dashboard {
         ...dashboardFields
@@ -42,6 +48,9 @@ fragment relationshipFields on EntityWithRelationships {
         }
         platform {
             ...platformFields
+        }
+        status {
+            removed
         }
     }
     ... on Chart {
@@ -63,11 +72,14 @@ fragment relationshipFields on EntityWithRelationships {
         domain {
             ...entityDomain
         }
+        status {
+            removed
+        }
     }
     ... on Dataset {
         name
         properties {
-            name 
+            name
             description
         }
         editableProperties {
@@ -82,6 +94,9 @@ fragment relationshipFields on EntityWithRelationships {
         subTypes {
             typeNames
         }
+        status {
+            removed
+        }
     }
     ... on MLModelGroup {
         urn
@@ -95,6 +110,9 @@ fragment relationshipFields on EntityWithRelationships {
         ownership {
             ...ownershipFields
         }
+        status {
+            removed
+        }
     }
     ... on MLModel {
         urn
@@ -107,6 +125,38 @@ fragment relationshipFields on EntityWithRelationships {
         }
         ownership {
             ...ownershipFields
+        }
+        status {
+            removed
+        }
+    }
+    ... on MLFeatureTable {
+        ...nonRecursiveMLFeatureTable
+    }
+    ... on MLFeature {
+        ...nonRecursiveMLFeature
+        featureTables: relationships(input: { types: ["Contains"], direction: INCOMING, start: 0, count: 100 }) {
+            relationships {
+                type
+                entity {
+                    ... on MLFeatureTable {
+                        ...nonRecursiveMLFeatureTable
+                    }
+                }
+            }
+        }
+    }
+    ... on MLPrimaryKey {
+        ...nonRecursiveMLPrimaryKey
+        featureTables: relationships(input: { types: ["KeyedBy"], direction: INCOMING, start: 0, count: 100 }) {
+            relationships {
+                type
+                entity {
+                    ... on MLFeatureTable {
+                        ...nonRecursiveMLFeatureTable
+                    }
+                }
+            }
         }
     }
     upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {

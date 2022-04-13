@@ -1,0 +1,22 @@
+namespace com.linkedin.metadata.key
+
+import com.linkedin.common.Urn
+import com.linkedin.common.FabricType
+
+/**
+ * Key for a Dataset
+ */
+@Aspect = {
+  "name": "dataPlatformInstanceKey"
+}
+record DataPlatformInstanceKey {
+  /**
+  * Data platform urn associated with the instance
+  */
+  platform: Urn
+
+  /**
+  * Unique instance id
+  */
+  instance: string
+}

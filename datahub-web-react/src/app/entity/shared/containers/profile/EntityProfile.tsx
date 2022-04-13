@@ -87,11 +87,11 @@ const TabContent = styled.div`
 `;
 
 const resizerStyles = {
-    background: '#E9E9E9',
-    width: '1px',
+    borderLeft: `1px solid #E9E9E9`,
+    width: '2px',
     cursor: 'col-resize',
     margin: '0 5px',
-    height: 'auto',
+    height: '100%',
 };
 
 const defaultTabDisplayConfig = {
@@ -231,6 +231,12 @@ export const EntityProfile = <T, U>({
         >
             <>
                 {showBrowseBar && <EntityProfileNavBar urn={urn} entityType={entityType} />}
+                {entityData?.status?.removed === true && (
+                    <Alert
+                        message="This entity has been soft deleted and is not discoverable via search or lineage graph"
+                        banner
+                    />
+                )}
                 {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
                 {!loading && error && (
                     <Alert type="error" message={error?.message || `Entity failed to load for urn ${urn}`} />
@@ -246,7 +252,8 @@ export const EntityProfile = <T, U>({
                             defaultSize={window.innerWidth - 400}
                             resizerStyle={resizerStyles}
                             style={{
-                                height: '100%',
+                                position: 'inherit',
+                                height: 'auto',
                                 overflow: 'auto',
                             }}
                         >

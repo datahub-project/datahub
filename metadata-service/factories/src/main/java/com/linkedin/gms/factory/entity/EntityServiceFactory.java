@@ -1,7 +1,7 @@
 package com.linkedin.gms.factory.entity;
 
 import com.linkedin.gms.factory.common.TopicConventionFactory;
-import com.linkedin.metadata.dao.producer.EntityKafkaMetadataEventProducer;
+import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanEntityService;
@@ -26,8 +26,9 @@ public class EntityServiceFactory {
   @Nonnull
   protected EntityService createInstance() {
 
-    final EntityKafkaMetadataEventProducer producer =
-        new EntityKafkaMetadataEventProducer(applicationContext.getBean(Producer.class),
+    final KafkaEventProducer producer =
+        new KafkaEventProducer(
+            applicationContext.getBean(Producer.class),
             applicationContext.getBean(TopicConvention.class));
 
     return new EbeanEntityService(applicationContext.getBean(EbeanAspectDao.class), producer,

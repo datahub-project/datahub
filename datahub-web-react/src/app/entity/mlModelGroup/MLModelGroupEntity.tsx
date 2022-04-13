@@ -1,11 +1,18 @@
 import * as React from 'react';
 import { CodeSandboxOutlined } from '@ant-design/icons';
-import { MlModelGroup, EntityType, SearchResult } from '../../../types.generated';
+import { MlModelGroup, EntityType, SearchResult, OwnershipType } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
-import { MLModelGroupProfile } from './profile/MLModelGroupProfile';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { EntityAndType } from '../../lineage/types';
+import { GenericEntityProperties } from '../shared/types';
+import { EntityProfile } from '../shared/containers/profile/EntityProfile';
+import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
+import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
+import { useGetMlModelGroupQuery } from '../../../graphql/mlModelGroup.generated';
+import ModelGroupModels from './profile/ModelGroupModels';
+import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 
 /**
  * Definition of the DataHub MlModelGroup entity.
@@ -46,7 +53,50 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
 
     getCollectionName = () => 'ML Groups';
 
-    renderProfile = (urn: string) => <MLModelGroupProfile urn={urn} />;
+    getOverridePropertiesFromEntity = (_?: MlModelGroup | null): GenericEntityProperties => {
+        return {};
+    };
+
+    renderProfile = (urn: string) => (
+        <EntityProfile
+            urn={urn}
+            key={urn}
+            entityType={EntityType.MlmodelGroup}
+            useEntityQuery={useGetMlModelGroupQuery}
+            getOverrideProperties={this.getOverridePropertiesFromEntity}
+            tabs={[
+                {
+                    name: 'Models',
+                    component: ModelGroupModels,
+                },
+                {
+                    name: 'Documentation',
+                    component: DocumentationTab,
+                },
+            ]}
+            sidebarSections={[
+                {
+                    component: SidebarAboutSection,
+                },
+                {
+                    component: SidebarTagsSection,
+                    properties: {
+                        hasTags: true,
+                        hasTerms: true,
+                    },
+                },
+                {
+                    component: SidebarOwnerSection,
+                    properties: {
+                        defaultOwnerType: OwnershipType.TechnicalOwner,
+                    },
+                },
+                {
+                    component: SidebarDomainSection,
+                },
+            ]}
+        />
+    );
 
     renderPreview = (_: PreviewType, data: MlModelGroup) => {
         return <Preview group={data} />;
@@ -62,14 +112,6 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
             urn: entity.urn,
             name: entity.name,
             type: EntityType.MlmodelGroup,
-            // eslint-disable-next-line @typescript-eslint/dot-notation
-            downstreamChildren: entity?.['downstream']?.relationships?.map(
-                (relationship) => ({ entity: relationship.entity, type: relationship.entity.type } as EntityAndType),
-            ),
-            // eslint-disable-next-line @typescript-eslint/dot-notation
-            upstreamChildren: entity?.['upstream']?.relationships?.map(
-                (relationship) => ({ entity: relationship.entity, type: relationship.entity.type } as EntityAndType),
-            ),
             icon: entity.platform?.properties?.logoUrl || undefined,
             platform: entity.platform?.name,
         };

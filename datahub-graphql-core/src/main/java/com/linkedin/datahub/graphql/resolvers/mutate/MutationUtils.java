@@ -6,7 +6,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.generated.SubResourceType;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaFieldInfoArray;
@@ -28,7 +28,7 @@ public class MutationUtils {
     proposal.setEntityUrn(urn);
     proposal.setEntityType(urn.getEntityType());
     proposal.setAspectName(aspectName);
-    proposal.setAspect(GenericAspectUtils.serializeAspect(aspect));
+    proposal.setAspect(GenericRecordUtils.serializeAspect(aspect));
     proposal.setChangeType(ChangeType.UPSERT);
     entityService.ingestProposal(proposal, getAuditStamp(actor));
   }

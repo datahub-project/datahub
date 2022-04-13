@@ -7,7 +7,7 @@ The dataset entity is one the most important entities in the metadata model. The
 Datasets are identified by three pieces of information:
 - The platform that they belong to: this is the specific data technology that hosts this dataset. Examples are `hive`, `bigquery`, `redshift` etc. See [dataplatform](./dataPlatform.md) for more details.
 - The name of the dataset in the specific platform. Each platform will have a unique way of naming assets within its system. Usually, names are composed by combining the structural elements of the name and separating them by `.`. e.g. relational datasets are usually named as `<db>.<schema>.<table>`, except for platforms like MySQL which do not have the concept of a `schema`; as a result MySQL datasets are named `<db>.<table>`. In cases where the specific platform can have multiple instances (e.g. there are multiple different instances of MySQL databases that have different data assets in them), names can also include instance ids, making the general pattern for a name `<platform_instance>.<db>.<schema>.<table>`. 
-- The environment or fabric in which the dataset belongs: this is an additional qualifier available on the identifier, to allow disambiguating datasets that live in Production environments from datasets that live in Non-production environments, such as Staging, QA, etc. The full list of supported environments / fabrics is available in [FabricType.pdl](https://raw.githubusercontent.com/linkedin/datahub/master/li-utils/src/main/pegasus/com/linkedin/common/FabricType.pdl).
+- The environment or fabric in which the dataset belongs: this is an additional qualifier available on the identifier, to allow disambiguating datasets that live in Production environments from datasets that live in Non-production environments, such as Staging, QA, etc. The full list of supported environments / fabrics is available in [FabricType.pdl](https://raw.githubusercontent.com/datahub-project/datahub/master/li-utils/src/main/pegasus/com/linkedin/common/FabricType.pdl).
 
 An example of a dataset identifier is `urn:li:dataset:(urn:li:dataPlatform:redshift,userdb.public.customer_table,PROD)`.
 
@@ -36,7 +36,7 @@ Taking a simple nested schema as described below:
 }
 ```
 - v1 field path: `address.zipcode`
-- v2 field path: `[version=2.0].[type=struct].address.[type=string].zipcode"`. More examples and a formal specification of a v2 fieldPath can be found [here](docs/advanced/field-path-spec-v2/). 
+- v2 field path: `[version=2.0].[type=struct].address.[type=string].zipcode"`. More examples and a formal specification of a v2 fieldPath can be found [here](docs/advanced/field-path-spec-v2.md).
 
 Understanding field paths is important, because they are the identifiers through which tags, terms, documentation on fields are expressed. Besides the type and name of the field, schemas also contain descriptions attached to the individual fields, as well as information about primary and foreign keys.
 
@@ -108,7 +108,7 @@ Similarly, here is an example of how you would add a term to a field in a datase
 
 ### Ownership
 
-Ownership is associated to a dataset using the `ownership` aspect. Owners can be of a few different types, `DATAOWNER`, `PRODUCER`, `DEVELOPER`, `CONSUMER`, etc. See [OwnershipType.pdl](https://raw.githubusercontent.com/linkedin/datahub/master/metadata-models/src/main/pegasus/com/linkedin/common/OwnershipType.pdl) for the full list of ownership types and their meanings. Ownership can be inherited from source systems, or additionally added in DataHub using the UI. Ingestion connectors for sources will automatically set owners when the source system supports it.
+Ownership is associated to a dataset using the `ownership` aspect. Owners can be of a few different types, `DATAOWNER`, `PRODUCER`, `DEVELOPER`, `CONSUMER`, etc. See [OwnershipType.pdl](https://raw.githubusercontent.com/datahub-project/datahub/master/metadata-models/src/main/pegasus/com/linkedin/common/OwnershipType.pdl) for the full list of ownership types and their meanings. Ownership can be inherited from source systems, or additionally added in DataHub using the UI. Ingestion connectors for sources will automatically set owners when the source system supports it.
 
 #### Adding Owners
 

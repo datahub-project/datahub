@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { DatabaseFilled, DatabaseOutlined } from '@ant-design/icons';
 import { Typography } from 'antd';
-import { Dataset, EntityType, SearchResult } from '../../../types.generated';
+import { Dataset, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
 import { FIELDS_TO_HIGHLIGHT } from './search/highlights';
@@ -23,9 +23,9 @@ import ViewDefinitionTab from '../shared/tabs/Dataset/View/ViewDefinitionTab';
 import { SidebarViewDefinitionSection } from '../shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection';
 import { SidebarRecommendationsSection } from '../shared/containers/profile/sidebar/Recommendations/SidebarRecommendationsSection';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { EntityAndType } from '../../lineage/types';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { ValidationsTab } from '../shared/tabs/Dataset/Validations/ValidationsTab';
+import { OperationsTab } from './profile/OperationsTab';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -111,9 +111,12 @@ export class DatasetEntity implements Entity<Dataset> {
                     component: LineageTab,
                     display: {
                         visible: (_, _1) => true,
-                        enabled: (_, dataset: GetDatasetQuery) =>
-                            (dataset?.dataset?.upstream?.count || 0) > 0 ||
-                            (dataset?.dataset?.downstream?.count || 0) > 0,
+                        enabled: (_, dataset: GetDatasetQuery) => {
+                            return (
+                                (dataset?.dataset?.upstream?.total || 0) > 0 ||
+                                (dataset?.dataset?.downstream?.total || 0) > 0
+                            );
+                        },
                     },
                 },
                 {
@@ -146,6 +149,22 @@ export class DatasetEntity implements Entity<Dataset> {
                         },
                     },
                 },
+                {
+                    name: 'Operations',
+                    component: OperationsTab,
+                    display: {
+                        visible: (_, dataset: GetDatasetQuery) => {
+                            return (
+                                (dataset?.dataset?.readRuns?.total || 0) + (dataset?.dataset?.writeRuns?.total || 0) > 0
+                            );
+                        },
+                        enabled: (_, dataset: GetDatasetQuery) => {
+                            return (
+                                (dataset?.dataset?.readRuns?.total || 0) + (dataset?.dataset?.writeRuns?.total || 0) > 0
+                            );
+                        },
+                    },
+                },
             ]}
             sidebarSections={[
                 {
@@ -175,6 +194,9 @@ export class DatasetEntity implements Entity<Dataset> {
                 },
                 {
                     component: SidebarOwnerSection,
+                    properties: {
+                        defaultOwnerType: OwnershipType.TechnicalOwner,
+                    },
                 },
                 {
                     component: SidebarDomainSection,
@@ -249,17 +271,10 @@ export class DatasetEntity implements Entity<Dataset> {
     getLineageVizConfig = (entity: Dataset) => {
         return {
             urn: entity?.urn,
-            name: entity.properties?.name || entity.name,
+            name: entity?.properties?.name || entity.name,
+            expandedName: entity?.properties?.qualifiedName || entity.name,
             type: EntityType.Dataset,
-            subtype: entity.subTypes?.typeNames?.[0] || undefined,
-            // eslint-disable-next-line @typescript-eslint/dot-notation
-            downstreamChildren: entity?.['downstream']?.relationships?.map(
-                (relationship) => ({ entity: relationship.entity, type: relationship.entity.type } as EntityAndType),
-            ),
-            // eslint-disable-next-line @typescript-eslint/dot-notation
-            upstreamChildren: entity?.['upstream']?.relationships?.map(
-                (relationship) => ({ entity: relationship.entity, type: relationship.entity.type } as EntityAndType),
-            ),
+            subtype: entity?.subTypes?.typeNames?.[0] || undefined,
             icon: entity?.platform?.properties?.logoUrl || undefined,
             platform: entity?.platform?.name,
         };

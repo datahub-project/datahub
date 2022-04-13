@@ -11,14 +11,14 @@ import org.apache.tools.ant.filters.ReplaceTokens
 
 jar.enabled = false // Since we only want to build shadow jars, disabling the regular jar creation
 
-//to rename artifacts for publish 
+//to rename artifacts for publish
 project.archivesBaseName = 'datahub-'+project.name
 
 //mark implementaion dependencies which needs to excluded along with transitive dependencies from shadowjar
-//functionality is exactly same as "implementation" 
+//functionality is exactly same as "implementation"
 configurations {
     provided
-    implementation.extendsFrom provided 
+    implementation.extendsFrom provided
 }
 
 def detailedVersionString = "0.0.0-unknown-SNAPSHOT"
@@ -64,7 +64,7 @@ if (project.hasProperty("releaseVersion")) {
           version = versionParts[0..versionParts.size()-1].join('.') + '-SNAPSHOT'
       }
     }
- 
+
     processResources {
       filter(ReplaceTokens, tokens:[fullVersion: detailedVersionString])
     }
@@ -78,16 +78,17 @@ dependencies {
 
   provided(externalDependency.hadoopCommon) {
     force = true
-  } // required for org.apache.hadoop.util.StopWatch  
+  } // required for org.apache.hadoop.util.StopWatch
 
   provided(externalDependency.commonsIo) {
     force = true
   } // required for org.apache.commons.io.Charsets that is used internally
-  
+
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
-  
+
   implementation externalDependency.typesafeConfig
+  implementation externalDependency.opentracingJdbc
 
   implementation project(path: ':metadata-integration:java:datahub-client', configuration: 'shadow')
 
@@ -98,33 +99,33 @@ dependencies {
   // Tests need a concrete log4j available. Providing it here
   testImplementation 'org.apache.logging.log4j:log4j-api:2.17.1'
   testImplementation 'org.apache.logging.log4j:log4j-core:2.17.1'
-  
-  
+
+
   testImplementation(externalDependency.postgresql){
     exclude group: "com.fasterxml.jackson.core"
   }
-  
+
   testImplementation externalDependency.mockito
-  
+
   testImplementation(externalDependency.mockServer){
     exclude group: "com.fasterxml.jackson.core"
   } // older version to allow older guava
   testImplementation(externalDependency.mockServerClient){
     exclude group: "com.fasterxml.jackson.core"
   } // older version to allow older guava
-  
+
   testImplementation(externalDependency.testContainersPostgresql)
 }
 
-task checkShadowJar(type: Exec) { 
+task checkShadowJar(type: Exec) {
    commandLine 'sh', '-c', 'scripts/check_jar.sh'
 }
 
 shadowJar {
-  zip64=true	
+  zip64=true
   classifier=''
   mergeServiceFiles()
-  
+
   def exclude_modules = project
             .configurations
             .provided
@@ -135,17 +136,19 @@ shadowJar {
                 it.name
             }
   dependencies {
-   
+
     exclude(dependency {
             exclude_modules.contains(it.name)
         })
-    
+
   }
-  
+
   relocate 'org.apache.http','datahub.spark2.shaded.http'
   relocate 'org.apache.commons.codec', 'datahub.spark2.shaded.o.a.c.codec'
+  relocate 'org.apache.commons.compress', 'datahub.spark2.shaded.o.a.c.compress'
   relocate 'mozilla', 'datahub.spark2.shaded.mozilla'
   relocate 'com.typesafe','datahub.spark2.shaded.typesafe'
+  relocate 'io.opentracing','datahub.spark2.shaded.io.opentracing'
   finalizedBy checkShadowJar
 }
 
@@ -194,9 +197,9 @@ publishing {
         artifacts = [ shadowJar, javadocJar, sourcesJar ]
 
         scm {
-          connection = 'scm:git:git://github.com/linkedin/datahub.git'
-          developerConnection = 'scm:git:ssh://github.com:linkedin/datahub.git'
-          url = 'https://github.com/linkedin/datahub.git'
+          connection = 'scm:git:git://github.com/datahub-project/datahub.git'
+          developerConnection = 'scm:git:ssh://github.com:datahub-project/datahub.git'
+          url = 'https://github.com/datahub-project/datahub.git'
         }
 
         licenses {
@@ -245,7 +248,3 @@ nexusStaging {
     username = System.getenv("NEXUS_USERNAME")
     password = System.getenv("NEXUS_PASSWORD")
 }
-
-
-
-

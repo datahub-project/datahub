@@ -53,6 +53,7 @@ As a SQL-based service, the Trino integration is also supported by our SQL profi
 | `password`                     |          |          | Trino password.                                                                                                                                                                         |
 | `host_port`                    | ✅        |          | Trino host URL.                                                                                                                                                                         |
 | `database`                     | ✅        |          | Trino database (catalog).                                                                                                                                                               |
+| `sqlalchemy_uri`               |          |          | URI of database to connect to. See https://docs.sqlalchemy.org/en/14/core/engines.html#database-urls. Takes precedence over other connection parameters.
 | `database_alias`               |          |          | Alias to apply to database when ingesting.                                                                                                                                              |
 | `env`                          |          | `"PROD"` | Environment to use in namespace when constructing URNs.                                                                                                                                 |
 | `options.<option>`             |          |          | Any options specified here will be passed to SQLAlchemy's `create_engine` as kwargs.<br />See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details. |
@@ -132,6 +133,7 @@ By default, we extract usage stats for the last day, with the recommendation tha
 | `user_email_pattern.allow`      |          | *                                                              | List of regex patterns for user emails to include in usage.     |
 | `user_email_pattern.deny`       |          |                                                                | List of regex patterns for user emails to exclude from usage.   |
 | `user_email_pattern.ignoreCase` |          | `True`                                                         | Whether to ignore case sensitivity during pattern matching.     |
+| `format_sql_queries`            |          | `False`                                                        | Whether to format sql queries                                   |
 
 ## Questions
 

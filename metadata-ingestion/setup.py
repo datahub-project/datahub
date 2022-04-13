@@ -51,7 +51,8 @@ framework_common = {
     # Markupsafe breaking change broke Jinja and some other libs
     # Pinning it to a version which works even though we are not using explicitly
     # https://github.com/aws/aws-sam-cli/issues/3661
-    "markupsafe==2.0.1",
+    # Airflow compatibility: https://github.com/apache/airflow/blob/2.2.2/setup.cfg#L125
+    "markupsafe>=1.1.1,<=2.0.1",
     "Deprecated",
     "types-Deprecated",
 }
@@ -70,7 +71,9 @@ sql_common = {
     # Required for all SQL sources.
     "sqlalchemy==1.3.24",
     # Required for SQL profiling.
-    "great-expectations>=0.13.40",
+    "great-expectations>=0.14.11",
+    # datahub does not depend on Jinja2 directly but great expectations does. With Jinja2 3.1.0 GE 0.14.11 is breaking
+    "Jinja2<3.1.0",
     "greenlet",
 }
 
@@ -101,9 +104,12 @@ snowflake_common = {
     "cryptography",
 }
 
-microsoft_common = {
-    "msal==1.16.0"
+trino = {
+    "trino>=0.308",
+    "trino[sqlalchemy]>=0.308",
 }
+
+microsoft_common = {"msal==1.16.0"}
 
 data_lake_base = {
     *aws_common,
@@ -120,6 +126,16 @@ data_lake_profiling = {
     "pyspark==3.0.3",
 }
 
+s3_base = {
+    *data_lake_base,
+    "moto[s3]",
+    "wcmatch",
+}
+
+usage_common = {
+    "sqlparse",
+}
+
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
@@ -129,18 +145,25 @@ plugins: Dict[str, Set[str]] = {
     "airflow": {
         "apache-airflow >= 1.10.2",
     },
-    "great-expectations": sql_common,
+    "great-expectations": sql_common | {"sqllineage==1.3.4"},
     # Source plugins
     # PyAthena is pinned with exact version because we use private method in PyAthena
     "athena": sql_common | {"PyAthena[SQLAlchemy]==2.4.1"},
     "azure-ad": set(),
-    "bigquery": sql_common | bigquery_common | {"pybigquery >= 0.6.0"},
-    "bigquery-usage": bigquery_common | {"cachetools"},
+    "bigquery": sql_common
+    | bigquery_common
+    | {"sqlalchemy-bigquery>=1.4.1", "sqllineage==1.3.4", "sqlparse"},
+    "bigquery-usage": bigquery_common | usage_common | {"cachetools"},
     "clickhouse": sql_common | {"clickhouse-sqlalchemy==0.1.8"},
-    "clickhouse-usage": sql_common | {"clickhouse-sqlalchemy==0.1.8"},
+    "clickhouse-usage": sql_common
+    | usage_common
+    | {
+        "clickhouse-sqlalchemy==0.1.8",
+    },
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
     "data-lake": {*data_lake_base, *data_lake_profiling},
+    "s3": {*s3_base, *data_lake_profiling},
     "dbt": {"requests"},
     "druid": sql_common | {"pydruid>=0.6.2"},
     # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
@@ -152,9 +175,11 @@ plugins: Dict[str, Set[str]] = {
     "glue": aws_common,
     "hive": sql_common
     | {
-        # Acryl Data maintains a fork of PyHive, which adds support for table comments
-        # and column comments, and also releases HTTP and HTTPS transport schemes.
-        "acryl-pyhive[hive]>=0.6.11"
+        # Acryl Data maintains a fork of PyHive
+        # - 0.6.11 adds support for table comments and column comments,
+        #   and also releases HTTP and HTTPS transport schemes
+        # - 0.6.12 adds support for Spark Thrift Server
+        "acryl-pyhive[hive]>=0.6.12"
     },
     "kafka": kafka_common,
     "kafka-connect": sql_common | {"requests", "JPype1"},
@@ -162,9 +187,9 @@ plugins: Dict[str, Set[str]] = {
     "looker": looker_common,
     # lkml>=1.1.2 is required to support the sql_preamble expression in LookML
     "lookml": looker_common
-    | {"lkml>=1.1.2", "sql-metadata==2.2.2", "sqllineage==1.3.3"},
-    "metabase": {"requests", "sqllineage==1.3.3"},
-    "mode": {"requests", "sqllineage==1.3.3", "tenacity>=8.0.1"},
+    | {"lkml>=1.1.2", "sql-metadata==2.2.2", "sqllineage==1.3.4"},
+    "metabase": {"requests", "sqllineage==1.3.4"},
+    "mode": {"requests", "sqllineage==1.3.4", "tenacity>=8.0.1"},
     "mongodb": {"pymongo>=3.11", "packaging"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
     "mssql-odbc": sql_common | {"pyodbc"},
@@ -174,21 +199,38 @@ plugins: Dict[str, Set[str]] = {
     "okta": {"okta~=1.7.0"},
     "oracle": sql_common | {"cx_Oracle"},
     "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
-    "redash": {"redash-toolbelt", "sql-metadata", "sqllineage==1.3.3"},
+    "presto-on-hive": sql_common | {"psycopg2-binary", "acryl-pyhive[hive]>=0.6.12", "pymysql>=1.0.2"},
+    "redash": {"redash-toolbelt", "sql-metadata", "sqllineage==1.3.4"},
     "redshift": sql_common
-    | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2", "sqllineage==1.3.3"},
+    | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2", "sqllineage==1.3.4"},
     "redshift-usage": sql_common
-    | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2", "sqllineage==1.3.3"},
+    | usage_common
+    | {
+        "sqlalchemy-redshift",
+        "psycopg2-binary",
+        "GeoAlchemy2",
+        "sqllineage==1.3.4",
+    },
     "sagemaker": aws_common,
     "snowflake": snowflake_common,
-    "snowflake-usage": snowflake_common | {"more-itertools>=8.12.0"},
+    "snowflake-usage": snowflake_common
+    | usage_common
+    | {
+        "more-itertools>=8.12.0",
+    },
     "sqlalchemy": sql_common,
-    "superset": {"requests", "sqlalchemy", "great_expectations", "greenlet"},
+    "superset": {
+        "requests",
+        "sqlalchemy",
+        "great_expectations",
+        "greenlet",
+        "Jinja2<3.1.0",
+    },
     "tableau": {"tableauserverclient>=0.17.0"},
-    "trino": sql_common | {"trino"},
-    "starburst-trino-usage": sql_common | {"trino"},
+    "trino": sql_common | trino,
+    "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging"},
-    "powerbi": {"orderedset"} | microsoft_common
+    "powerbi": {"orderedset"} | microsoft_common,
 }
 
 all_exclude_plugins: Set[str] = {
@@ -213,13 +255,15 @@ mypy_stubs = {
     "types-click==0.1.12",
     "boto3-stubs[s3,glue,sagemaker]",
     "types-tabulate",
+    # avrogen package requires this
+    "types-pytz",
 }
 
 base_dev_requirements = {
     *base_requirements,
     *framework_common,
     *mypy_stubs,
-    *data_lake_base,
+    *s3_base,
     "black>=21.12b0",
     "coverage>=5.1",
     "flake8>=3.8.3",
@@ -232,7 +276,7 @@ base_dev_requirements = {
     "pytest>=6.2.2",
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
-    "pytest-docker>=0.10.3",
+    "pytest-docker>=0.10.3,<0.12",
     "tox",
     "deepdiff",
     "requests-mock",
@@ -248,7 +292,9 @@ base_dev_requirements = {
             "bigquery-usage",
             "clickhouse",
             "clickhouse-usage",
+            "druid",
             "elasticsearch",
+            "ldap",
             "looker",
             "glue",
             "mariadb",
@@ -262,11 +308,12 @@ base_dev_requirements = {
             "redshift",
             "redshift-usage",
             "data-lake",
+            "s3",
             "tableau",
             "trino",
             "hive",
             "starburst-trino-usage",
-            "powerbi"
+            "powerbi",
             # airflow is added below
         ]
         for dependency in plugins[plugin]
@@ -330,6 +377,7 @@ entry_points = {
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
         "clickhouse-usage = datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource",
         "data-lake = datahub.ingestion.source.data_lake:DataLakeSource",
+        "s3 = datahub.ingestion.source.s3:S3Source",
         "dbt = datahub.ingestion.source.dbt:DBTSource",
         "druid = datahub.ingestion.source.sql.druid:DruidSource",
         "elasticsearch = datahub.ingestion.source.elastic_search:ElasticsearchSource",
@@ -365,6 +413,7 @@ entry_points = {
         "starburst-trino-usage = datahub.ingestion.source.usage.starburst_trino_usage:TrinoUsageSource",
         "nifi = datahub.ingestion.source.nifi:NifiSource",
         "powerbi = datahub.ingestion.source.powerbi:PowerBiDashboardSource",
+        "presto-on-hive = datahub.ingestion.source.sql.presto_on_hive:PrestoOnHiveSource",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",
@@ -389,8 +438,8 @@ setuptools.setup(
     url="https://datahubproject.io/",
     project_urls={
         "Documentation": "https://datahubproject.io/docs/",
-        "Source": "https://github.com/linkedin/datahub",
-        "Changelog": "https://github.com/linkedin/datahub/releases",
+        "Source": "https://github.com/datahub-project/datahub",
+        "Changelog": "https://github.com/datahub-project/datahub/releases",
     },
     license="Apache License 2.0",
     description="A CLI to work with DataHub metadata",

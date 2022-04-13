@@ -16,10 +16,11 @@ This plugin extracts the following:
 - database_alias (optional) can be used to change the name of database to be ingested
 - Table, row, and column statistics via optional [SQL profiling](./sql_profiles.md)
 
-| Capability      | Status | Details                       |
-| --------------- | ------ | ----------------------------- |
-| Data Containers | ✔️     |                               |
-| Data Domains    | ✔️     | [link](../../docs/domains.md) |
+| Capability        | Status | Details                                  | 
+|-------------------|--------|------------------------------------------|
+| Platform Instance | ✔️     | [link](../../docs/platform-instances.md) |
+| Data Containers   | ✔️     |                                          |
+| Data Domains      | ✔️     | [link](../../docs/domains.md)            |
 
 ## Quickstart recipe
 
@@ -58,8 +59,10 @@ As a SQL-based service, the Athena integration is also supported by our SQL prof
 | `password`                     |          |          | PostgreSQL password.                                                                                                                                                                    |
 | `host_port`                    | ✅       |          | PostgreSQL host URL.                                                                                                                                                                    |
 | `database`                     |          |          | PostgreSQL database.                                                                                                                                                                    |
+| `sqlalchemy_uri`               |          |          | URI of database to connect to. See https://docs.sqlalchemy.org/en/14/core/engines.html#database-urls. Takes precedence over other connection parameters. |
 | `database_alias`               |          |          | Alias to apply to database when ingesting.                                                                                                                                              |
 | `env`                          |          | `"PROD"` | Environment to use in namespace when constructing URNs.                                                                                                                                 |
+| `platform_instance`            |          | None     | The Platform instance to use while constructing URNs.                                                                                                                                   |
 | `options.<option>`             |          |          | Any options specified here will be passed to SQLAlchemy's `create_engine` as kwargs.<br />See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details. |
 | `table_pattern.allow`          |          |          | List of regex patterns for tables to include in ingestion.                                                                                                                              |
 | `table_pattern.deny`           |          |          | List of regex patterns for tables to exclude from ingestion.                                                                                                                            |

@@ -1,0 +1,145 @@
+syntax = "proto3";
+
+package meta;
+
+import "google/protobuf/descriptor.proto";
+
+/*
+   This is assigned to metadata fields. It describes how the metadata field should be represented
+   in DataHub. This enum must be used in the `meta` package. Multiple can be used for the same
+   metadata annotation. This allows a single piece of information to be captured in DataHub
+   as a property, tag and/or term.
+
+   Tags can be strings, enums, or booleans
+   Terms can be strings or enums
+   Properties should be strings
+
+*/
+enum DataHubMetadataType {
+    PROPERTY = 0; // Datahub Custom Property
+    TAG      = 1; // Datahub Tag
+    TAG_LIST = 2; //    comma delimited string
+    TERM     = 3; // Datahub Term
+    OWNER    = 4; // Datahub Owner
+    DOMAIN   = 5; // Datahub Domain
+}
+
+// Assuming Glossary Term defined from bootstrap example
+enum Classification {
+    HighlyConfidential = 0;
+    Confidential = 1;
+    Sensitive = 2;
+}
+
+message datahubField {
+      extend google.protobuf.FieldOptions {
+          // Required: Mark option field with how to export to DataHub in one or more places.
+          repeated DataHubMetadataType type = 5000;
+
+          // Set true if the field is a primary key. This works for any boolean with `primary_key` in it.
+          bool is_primary_key = 5010;
+      }
+}
+
+message securityField {
+    extend google.protobuf.FieldOptions {
+
+        // Extract classification field option as a Term, either works
+        string classification = 5100 [(datahubField.type) = TERM];
+        Classification classification_enum = 5101 [(datahubField.type) = TERM];
+    }
+}
+
+message field {
+    extend google.protobuf.FieldOptions {
+
+        string tags = 5150 [(datahubField.type) = TAG_LIST];
+    }
+}
+
+message ownership {
+    extend google.protobuf.MessageOptions {
+
+        repeated string team = 5200 [(datahubField.type) = OWNER, (datahubField.type) = PROPERTY];
+        string data_steward = 5201 [(datahubField.type) = OWNER];
+        string domain = 5202 [(datahubField.type) = DOMAIN, (datahubField.type) = PROPERTY];
+    }
+}
+
+message security {
+    extend google.protobuf.MessageOptions {
+
+        // Place the classification term at the Message/Dataset level, either string or enum is supported
+        string classification = 5300 [(datahubField.type) = TERM, (datahubField.type) = PROPERTY];
+        Classification classification_enum = 5301 [(datahubField.type) = TERM, (datahubField.type) = PROPERTY];
+    }
+}
+
+message kafka {
+    extend google.protobuf.MessageOptions {
+
+        repeated string topics = 5400 [(datahubField.type) = PROPERTY];
+    }
+}
+
+enum Frequency {
+    REALTIME = 0;
+    DAILY = 1;
+    WEEKLY = 2;
+    MONTHLY = 3;
+    YEARLY = 4;
+}
+
+message lifecycle {
+    extend google.protobuf.MessageOptions {
+
+        bool archived = 5500 [(datahubField.type) = TAG, (datahubField.type) = PROPERTY];
+        Frequency frequency = 5510 [(datahubField.type) = TAG, (datahubField.type) = PROPERTY];
+        string ttl = 5520 [(datahubField.type) = TAG];
+    }
+}
+
+enum MessageType {
+    ENTITY = 0;
+    EVENT = 1;
+    IMPRESSION = 2;
+}
+
+message message {
+    extend google.protobuf.MessageOptions {
+
+        string tags = 5600 [(datahubField.type) = TAG_LIST];
+        MessageType type = 5610 [(datahubField.type) = TAG, (datahubField.type) = PROPERTY];
+    }
+}
+
+message props {
+    extend google.protobuf.MessageOptions {
+
+        string prop1      = 5701 [(datahubField.type) = PROPERTY];
+        bool prop2        = 5702 [(datahubField.type) = PROPERTY];
+        MessageType prop3 = 5703 [(datahubField.type) = PROPERTY];
+
+        repeated string prop4      = 5704 [(datahubField.type) = PROPERTY];
+        repeated MessageType prop6 = 5706 [(datahubField.type) = PROPERTY];
+    }
+}
+
+message tags {
+    extend google.protobuf.MessageOptions {
+
+        string tag_str      = 5801 [(datahubField.type) = TAG];
+        bool tag_bool        = 5802 [(datahubField.type) = TAG];
+        MessageType tag_enum = 5803 [(datahubField.type) = TAG];
+
+        string tag_list      = 5804 [(datahubField.type) = TAG_LIST];
+    }
+}
+
+message fieldTags { extend google.protobuf.FieldOptions {
+    string tag_str                      = 5801 [(datahubField.type) = TAG];
+    bool tag_bool                     = 5802 [(datahubField.type) = TAG];
+    MessageType tag_enum = 5803 [(datahubField.type) = TAG];
+
+    string tag_list                      = 5804 [(datahubField.type) = TAG_LIST];
+}}

@@ -3,10 +3,13 @@ import os
 
 import pytest
 
+from datahub.configuration.common import ConfigurationError
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.sql.bigquery import BigQueryConfig, BigQuerySource
+from datahub.ingestion.source.usage.bigquery_usage import BigQueryTableRef
 
-@pytest.mark.integration
+
 def test_bigquery_uri():
-    from datahub.ingestion.source.sql.bigquery import BigQueryConfig
 
     config = BigQueryConfig.parse_obj(
         {
@@ -16,9 +19,7 @@ def test_bigquery_uri():
     assert config.get_sql_alchemy_url() == "bigquery://test-project"
 
 
-@pytest.mark.integration
 def test_bigquery_uri_with_credential():
-    from datahub.ingestion.source.sql.bigquery import BigQueryConfig
 
     expected_credential_json = {
         "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
@@ -49,9 +50,9 @@ def test_bigquery_uri_with_credential():
     try:
 
         assert config.get_sql_alchemy_url() == "bigquery://test-project"
-        assert config.credentials_path
+        assert config._credentials_path
 
-        with open(config.credentials_path) as jsonFile:
+        with open(config._credentials_path) as jsonFile:
             json_credential = json.load(jsonFile)
             jsonFile.close()
 
@@ -60,16 +61,12 @@ def test_bigquery_uri_with_credential():
         assert expected_credential == credential
 
     except AssertionError as e:
-        if config.credentials_path:
-            os.unlink(str(config.credentials_path))
+        if config._credentials_path:
+            os.unlink(str(config._credentials_path))
         raise e
 
 
-@pytest.mark.integration
 def test_simple_upstream_table_generation():
-    from datahub.ingestion.api.common import PipelineContext
-    from datahub.ingestion.source.sql.bigquery import BigQueryConfig, BigQuerySource
-    from datahub.ingestion.source.usage.bigquery_usage import BigQueryTableRef
 
     a: BigQueryTableRef = BigQueryTableRef(
         project="test-project", dataset="test-dataset", table="a"
@@ -89,11 +86,17 @@ def test_simple_upstream_table_generation():
     assert list(upstreams) == [b]
 
 
-@pytest.mark.integration
+def test_error_on_missing_config():
+    with pytest.raises(ConfigurationError):
+        BigQueryConfig.parse_obj(
+            {
+                "project_id": "test-project",
+                "use_exported_bigquery_audit_metadata": True,
+            }
+        )
+
+
 def test_upstream_table_generation_with_temporary_table_without_temp_upstream():
-    from datahub.ingestion.api.common import PipelineContext
-    from datahub.ingestion.source.sql.bigquery import BigQueryConfig, BigQuerySource
-    from datahub.ingestion.source.usage.bigquery_usage import BigQueryTableRef
 
     a: BigQueryTableRef = BigQueryTableRef(
         project="test-project", dataset="test-dataset", table="a"
@@ -113,7 +116,6 @@ def test_upstream_table_generation_with_temporary_table_without_temp_upstream():
     assert list(upstreams) == []
 
 
-@pytest.mark.integration
 def test_upstream_table_generation_with_temporary_table_with_temp_upstream():
     from datahub.ingestion.api.common import PipelineContext
     from datahub.ingestion.source.sql.bigquery import BigQueryConfig, BigQuerySource
@@ -140,11 +142,7 @@ def test_upstream_table_generation_with_temporary_table_with_temp_upstream():
     assert list(upstreams) == [c]
 
 
-@pytest.mark.integration
 def test_upstream_table_generation_with_temporary_table_with_multiple_temp_upstream():
-    from datahub.ingestion.api.common import PipelineContext
-    from datahub.ingestion.source.sql.bigquery import BigQueryConfig, BigQuerySource
-    from datahub.ingestion.source.usage.bigquery_usage import BigQueryTableRef
 
     a: BigQueryTableRef = BigQueryTableRef(
         project="test-project", dataset="test-dataset", table="a"

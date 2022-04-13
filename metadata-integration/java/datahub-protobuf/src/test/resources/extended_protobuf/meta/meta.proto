@@ -1,0 +1,95 @@
+syntax = "proto3";
+
+package meta;
+
+import "google/protobuf/descriptor.proto";
+
+/*
+   This is assigned to metadata fields. It describes how the metadata field should be represented
+   in DataHub. This enum must be used in the `meta` package. Multiple can be used for the same
+   metadata annotation. This allows a single piece of information to be captured in DataHub
+   as a property, tag and/or term.
+
+   Tags can be strings, enums, or booleans
+   Terms can be strings or enums
+   Properties should be strings
+
+*/
+enum DataHubMetadataType {
+  PROPERTY = 0; // Datahub Custom Property
+  TAG      = 1; // Datahub Tag
+  TAG_LIST = 2; //    comma delimited string
+  TERM     = 3; // Datahub Term
+  OWNER    = 4; // Datahub Owner
+  DOMAIN   = 5; // Datahub Domain
+}
+
+/*
+   Example below: The following is not required for annotation processing. This is an example
+   of creating an annotation using an enum.
+ */
+
+enum MetaEnumExample {
+  UNKNOWN = 0;
+  ENTITY = 1;
+  EVENT = 2;
+}
+
+// Assuming Glossary Term defined from bootstrap example
+enum Classification {
+  HighlyConfidential = 0;
+  Confidential = 1;
+  Sensitive = 2;
+}
+
+message fld {
+  extend google.protobuf.FieldOptions {
+    // Required: Mark option field with how to export to DataHub in one or more places.
+    repeated DataHubMetadataType type = 6000;
+
+    /*
+     Examples below: The following is not required for annotation processing.
+   */
+
+    // Set true if the field is a primary key. This works for any boolean with `primary_key` in it.
+    bool is_primary_key = 6010;
+
+    // Extract classification field option as a Term, either works
+    string classification              = 6001 [(fld.type) = TERM];
+    Classification classification_enum = 6002 [(fld.type) = TERM];
+
+    // Expose this option as a tag on the field.
+    string product_type               = 70004 [(fld.type) = TAG];
+    bool product_type_bool            = 70005 [(fld.type) = TAG];
+    MetaEnumExample product_type_enum = 70006 [(fld.type) = TAG];
+    string tag_list                   = 70007 [(fld.type) = TAG_LIST];
+  }
+}
+
+message msg {
+  extend google.protobuf.MessageOptions {
+    /*
+       Examples below: The following is not required for annotation processing.
+     */
+
+    // Place the classification term at the Message/Dataset level, either string or enum is supported
+    string classification              = 4000 [(fld.type) = TERM, (fld.type) = PROPERTY];
+    Classification classification_enum = 4001 [(fld.type) = TERM, (fld.type) = PROPERTY];
+
+    // Attach these Message/Dataset options as a tag and property.
+    string product                  = 5001 [(fld.type) = TAG, (fld.type) = PROPERTY];
+    string project                  = 5002 [(fld.type) = TAG, (fld.type) = PROPERTY];
+    repeated string team            = 5003 [(fld.type) = OWNER, (fld.type) = PROPERTY];
+    repeated string technical_owner = 5004 [(fld.type) = OWNER];
+    string data_steward             = 5005 [(fld.type) = OWNER];
+
+    string domain        = 60003 [(fld.type) = DOMAIN, (fld.type) = PROPERTY];
+    MetaEnumExample type = 60004 [(fld.type) = TAG, (fld.type) = PROPERTY];
+    bool bool_feature    = 60005 [(fld.type) = TAG];
+    string alert_channel = 60007 [(fld.type) = PROPERTY];
+    string tag_list      = 60008 [(fld.type) = TAG_LIST];
+
+    repeated string repeat_string        = 60010 [(fld.type) = TERM, (fld.type) = TAG, (fld.type) = PROPERTY];
+    repeated MetaEnumExample repeat_enum = 60012 [(fld.type) = TERM, (fld.type) = TAG, (fld.type) = PROPERTY];
+  }
+}

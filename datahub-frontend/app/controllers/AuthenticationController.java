@@ -34,6 +34,8 @@ import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 
 import static auth.AuthUtils.*;
+import static org.pac4j.core.client.IndirectClient.*;
+
 
 // TODO add logging.
 public class AuthenticationController extends Controller {
@@ -147,7 +149,14 @@ public class AuthenticationController extends Controller {
 
     private Result redirectToIdentityProvider() {
         final PlayWebContext playWebContext = new PlayWebContext(ctx(), _playSessionStore);
-        final Client client = _ssoManager.getSsoProvider().client();
+        final Client<?, ?> client = _ssoManager.getSsoProvider().client();
+
+        // This is to prevent previous login attempts from being cached.
+        // We replicate the logic here, which is buried in the Pac4j client.
+        if (_playSessionStore.get(playWebContext, client.getName() + ATTEMPTED_AUTHENTICATION_SUFFIX) != null) {
+            _logger.debug("Found previous login attempt. Removing it manually to prevent unexpected errors.");
+            _playSessionStore.set(playWebContext, client.getName() + ATTEMPTED_AUTHENTICATION_SUFFIX, "");
+        }
         final HttpAction action = client.redirect(playWebContext);
         return new PlayHttpActionAdapter().adapt(action.getCode(), playWebContext);
     }
