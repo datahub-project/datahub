@@ -475,7 +475,7 @@ def get_unique_custom_sql(custom_sql_list: List[dict]) -> List[dict]:
         for column in custom_sql.get("columns", []):
             for field in column.get("referencedByFields", []):
                 datasource = field.get("datasource")
-                if datasource not in datasource_for_csql:
+                if datasource not in datasource_for_csql and datasource is not None:
                     datasource_for_csql.append(datasource)
 
         unique_csql["datasources"] = datasource_for_csql
