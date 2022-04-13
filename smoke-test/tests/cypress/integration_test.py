@@ -15,7 +15,7 @@ def ingest_cleanup_data():
 
 
 def test_run_cypress(frontend_session, wait_for_healthchecks):
-    command = f"npx cypress run"
+    command = f"npx cypress run --record"
     print('starting?')
     proc = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd="tests/cypress")
     stdout = proc.stdout.read()
