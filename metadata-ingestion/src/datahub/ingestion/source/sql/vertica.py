@@ -5,7 +5,6 @@ from pydantic.class_validators import validator
 from sqlalchemy import sql, util
 from sqlalchemy.engine import reflection
 from sqlalchemy.sql import sqltypes
-from sqlalchemy.sql.sqltypes import TIME, TIMESTAMP
 from sqla_vertica_python.vertica_python import VerticaDialect
 
 from datahub.ingestion.source.sql.sql_common import (
@@ -15,18 +14,8 @@ from datahub.ingestion.source.sql.sql_common import (
 from datahub.utilities import config_clean
 
 
-def TIMESTAMP_WITH_TIMEZONE(*args, **kwargs):
-    kwargs['timezone'] = True
-    return TIMESTAMP(*args, **kwargs)
-
-
-def TIME_WITH_TIMEZONE(*args, **kwargs):
-    kwargs['timezone'] = True
-    return TIME(*args, **kwargs)
-
-
 @reflection.cache
-def get_view_definition(self: VerticaDialect, connection, view_name,
+def get_view_definition(self, connection, view_name,
                         schema=None, **kw):
     if schema is not None:
         schema_condition = "lower(table_schema) = '%(schema)s'" % {
@@ -54,7 +43,7 @@ def get_view_definition(self: VerticaDialect, connection, view_name,
 
 
 @reflection.cache
-def get_columns(self: VerticaDialect, connection, table_name, schema=None,
+def get_columns(self, connection, table_name, schema=None,
                 **kw):
     if schema is not None:
         schema_condition = "lower(table_schema) = '%(schema)s'" % {
@@ -114,12 +103,8 @@ def get_columns(self: VerticaDialect, connection, table_name, schema=None,
     return columns
 
 
-def _get_column_info(self: VerticaDialect, name, data_type, default,
+def _get_column_info(self, name, data_type, default,
                      is_nullable, schema=None):
-    self.ischema_names['TIMETZ'] = TIME_WITH_TIMEZONE
-    self.ischema_names['TIME WITH TIMEZONE'] = TIME_WITH_TIMEZONE
-    self.ischema_names['TIMESTAMPTZ'] = TIMESTAMP_WITH_TIMEZONE
-    self.ischema_names['TIMESTAMP WITH TIMEZONE'] = TIMESTAMP_WITH_TIMEZONE
 
     attype = re.sub(r"\(.*\)", "", data_type)
 
