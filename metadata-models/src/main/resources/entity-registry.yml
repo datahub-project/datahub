@@ -175,35 +175,35 @@ entities:
     aspects:
       - status
   - name: mlModel
-    category: internal
+    category: core
     keyAspect: mlModelKey
     aspects:
       - glossaryTerms
       - editableMlModelProperties
       - domains
   - name: mlModelGroup
-    category: internal
+    category: core
     keyAspect: mlModelGroupKey
     aspects:
       - glossaryTerms
       - editableMlModelGroupProperties
       - domains
   - name: mlFeatureTable
-    category: internal
+    category: core
     keyAspect: mlFeatureTableKey
     aspects:
       - glossaryTerms
       - editableMlFeatureTableProperties
       - domains
   - name: mlFeature
-    category: internal
+    category: core
     keyAspect: mlFeatureKey
     aspects:
       - glossaryTerms
       - editableMlFeatureProperties
       - domains
   - name: mlPrimaryKey
-    category: internal
+    category: core
     keyAspect: mlPrimaryKeyKey
     aspects:
       - glossaryTerms
