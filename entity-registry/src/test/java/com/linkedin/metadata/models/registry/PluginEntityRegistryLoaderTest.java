@@ -27,8 +27,12 @@ import javax.annotation.Nullable;
 import org.apache.maven.artifact.versioning.ComparableVersion;
 import org.testng.annotations.Test;
 
-import static com.linkedin.metadata.models.registry.TestConstants.*;
-import static org.testng.Assert.*;
+import static com.linkedin.metadata.models.registry.TestConstants.BASE_DIRECTORY;
+import static com.linkedin.metadata.models.registry.TestConstants.TEST_REGISTRY;
+import static com.linkedin.metadata.models.registry.TestConstants.TEST_VERSION;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
 
 public class PluginEntityRegistryLoaderTest {
@@ -73,8 +77,8 @@ public class PluginEntityRegistryLoaderTest {
 
   private EntityRegistry getBaseEntityRegistry() {
     final AspectSpec keyAspectSpec =
-        new AspectSpec(new AspectAnnotation("datasetKey", false, false, null), Collections.emptyList(), Collections.emptyList(),
-            Collections.emptyList(), Collections.emptyList(),
+        new AspectSpec(new AspectAnnotation("datasetKey", false, false, null), Collections.emptyList(),
+            Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), Collections.emptyList(),
             (RecordDataSchema) DataSchemaFactory.getInstance().getAspectSchema("datasetKey").get(),
             DataSchemaFactory.getInstance().getAspectClass("datasetKey").get());
 

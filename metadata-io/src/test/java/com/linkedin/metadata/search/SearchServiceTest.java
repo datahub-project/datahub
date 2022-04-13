@@ -60,6 +60,10 @@ public class SearchServiceTest {
     _elasticSearchService = buildEntitySearchService();
     _elasticSearchService.configure();
     _cacheManager = new ConcurrentMapCacheManager();
+    resetSearchService();
+  }
+
+  private void resetSearchService() {
     _searchService =
         new SearchService(_entityRegistry, _elasticSearchService, new SimpleRanker(), _cacheManager, 100, true);
   }
@@ -84,6 +88,7 @@ public class SearchServiceTest {
 
   private void clearCache() {
     _cacheManager.getCacheNames().forEach(cache -> _cacheManager.getCache(cache).clear());
+    resetSearchService();
   }
 
   @AfterTest
