@@ -592,23 +592,18 @@ class BigQuerySource(SQLAlchemySource):
                 # if yearly partitioned,
                 if len(partition.partition_id) == 4:
                     duration = relativedelta(years=1)
-                    upper_bound_partition_datetime = (
-                        partition_datetime.replace(month=1, day=1) + duration
-                    )
+                    partition_datetime = partition_datetime.replace(month=1, day=1)
                 # elif monthly partitioned,
                 elif len(partition.partition_id) == 6:
                     duration = relativedelta(months=1)
-                    upper_bound_partition_datetime = (
-                        partition_datetime.replace(day=1) + duration
-                    )
+                    partition_datetime = partition_datetime.replace(day=1)
                 # elif daily partitioned,
                 elif len(partition.partition_id) == 8:
                     duration = relativedelta(days=1)
-                    upper_bound_partition_datetime = partition_datetime + duration
                 # elif hourly partitioned,
                 elif len(partition.partition_id) == 10:
                     duration = relativedelta(hours=1)
-                    upper_bound_partition_datetime = partition_datetime + duration
+                upper_bound_partition_datetime = partition_datetime + duration
                 partition_where_clause = "{column_name} BETWEEN '{partition_id}' AND '{upper_bound_partition_id}'".format(
                     column_name=partition.column_name,
                     partition_id=partition_datetime,
