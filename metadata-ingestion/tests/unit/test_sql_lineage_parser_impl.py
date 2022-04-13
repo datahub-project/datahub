@@ -9,9 +9,9 @@ HERE IS A STANDARD COMMENT BLOCK
 THIS WILL NOT BREAK sqllineage
 */
 CREATE OR REPLACE TABLE `foo.bar.trg_tbl`AS
-#This, comment will break sqllineage
+#This, comment will not break sqllineage
 SELECT foo
--- this comment will not break sqllineage
+-- this comment will not break sqllineage either
 # this comment will not break sqllineage either
 FROM `foo.bar.src_tbl`
         """
