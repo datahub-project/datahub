@@ -112,7 +112,7 @@ datahub ingest -c ./examples/recipes/example_to_datahub_rest.yml -n --preview --
 Sometimes, while running the ingestion pipeline, unexpected exceptions may occur. This can cause `stackprinter` to print all variables the logs. This may lead to credentials being written to logfiles. To prevent this behavior, in case of unexpected errors, a `--suppress-error-logs` option can be added to ingest cli command. By default, this option is set to false. However, if enabled, prevents printing all variables to logs, mitigating the risk of writing credentials to logs. The `--suppress-error-logs` option is applied when the ingestion pipeline is actually running.
 
 ```shell
-# Running ingestion with safe option
+# Running ingestion with --suppress-error-logs option
 datahub ingest -c ./examples/recipes/example_to_datahub_rest.yml --suppress-error-logs
 ```
 
