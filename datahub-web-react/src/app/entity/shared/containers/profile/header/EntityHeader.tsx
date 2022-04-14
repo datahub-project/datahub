@@ -16,7 +16,7 @@ import analytics, { EventType, EntityActionType } from '../../../../../analytics
 import { EntityHealthStatus } from './EntityHealthStatus';
 import { useUpdateDeprecationMutation } from '../../../../../../graphql/mutations.generated';
 import { getLocaleTimezone } from '../../../../../shared/time/timeUtils';
-import { AddDeprecatedDataModal } from './AddDeprecatedDataModal';
+import { AddDeprecationDetailsModal } from './AddDeprecationDetailsModal';
 
 const LogoContainer = styled.span`
     margin-right: 10px;
@@ -144,7 +144,7 @@ const LastEvaluatedAtLabel = styled.div`
 export const EntityHeader = () => {
     const { urn, entityType, entityData } = useEntityData();
     const [updateDeprecation] = useUpdateDeprecationMutation();
-    const [showAddDeprecatedDataModal, setShowAddDeprecatedDataModal] = useState(false);
+    const [showAddDeprecationDetailsModal, setShowAddDeprecationDetailsModal] = useState(false);
     const refetch = useRefetch();
     const entityRegistry = useEntityRegistry();
     const [copiedUrn, setCopiedUrn] = useState(false);
@@ -201,7 +201,7 @@ export const EntityHeader = () => {
         <Menu>
             <Menu.Item key="0">
                 {!entityData?.deprecation?.deprecated ? (
-                    <MenuItem onClick={() => setShowAddDeprecatedDataModal(true)}>Mark as deprecated</MenuItem>
+                    <MenuItem onClick={() => setShowAddDeprecationDetailsModal(true)}>Mark as deprecated</MenuItem>
                 ) : (
                     <MenuItem onClick={() => handleUpdateDeprecation(false)}>Mark as un-deprecated</MenuItem>
                 )}
@@ -266,31 +266,48 @@ export const EntityHeader = () => {
                         <Link to={entityPath}>
                             <EntityTitle level={3}>{entityData?.name || ' '}</EntityTitle>
                         </Link>
-                        {entityData?.deprecation?.deprecated && entityData?.deprecation?.decommissionTime !== null && (
-                            <Popover
-                                overlayStyle={{ maxWidth: 240 }}
-                                placement="right"
-                                title={entityData?.deprecation?.note}
-                                content={
-                                    <Typography.Text type="secondary">
-                                        <Tooltip placement="right" title={decommissionTimeGMT}>
-                                            <LastEvaluatedAtLabel>{decommissionTimeLocal}</LastEvaluatedAtLabel>
-                                        </Tooltip>
-                                    </Typography.Text>
-                                }
-                            >
+                        {entityData?.deprecation?.deprecated &&
+                            (entityData?.deprecation?.note !== '' ||
+                                entityData?.deprecation?.decommissionTime !== null) && (
+                                <Popover
+                                    overlayStyle={{ maxWidth: 240 }}
+                                    placement="right"
+                                    content={
+                                        <>
+                                            {entityData?.deprecation?.note !== '' && (
+                                                <Typography.Text>{entityData?.deprecation?.note}</Typography.Text>
+                                            )}
+                                            {entityData?.deprecation?.decommissionTime !== null && (
+                                                <Typography.Text type="secondary">
+                                                    <Tooltip placement="right" title={decommissionTimeGMT}>
+                                                        <LastEvaluatedAtLabel
+                                                            style={{
+                                                                borderTop: '1px solid #f0f0f0',
+                                                                paddingTop: '5px',
+                                                            }}
+                                                        >
+                                                            {decommissionTimeLocal}
+                                                        </LastEvaluatedAtLabel>
+                                                    </Tooltip>
+                                                </Typography.Text>
+                                            )}
+                                        </>
+                                    }
+                                >
+                                    <DeprecatedContainer>
+                                        <InfoCircleOutlined />
+                                        <DeprecatedText>Deprecated</DeprecatedText>
+                                    </DeprecatedContainer>
+                                </Popover>
+                            )}
+                        {entityData?.deprecation?.deprecated &&
+                            entityData?.deprecation?.decommissionTime === null &&
+                            entityData?.deprecation?.note === '' && (
                                 <DeprecatedContainer>
                                     <InfoCircleOutlined />
                                     <DeprecatedText>Deprecated</DeprecatedText>
                                 </DeprecatedContainer>
-                            </Popover>
-                        )}
-                        {entityData?.deprecation?.deprecated && entityData?.deprecation?.decommissionTime === null && (
-                            <DeprecatedContainer>
-                                <InfoCircleOutlined />
-                                <DeprecatedText>Deprecated</DeprecatedText>
-                            </DeprecatedContainer>
-                        )}
+                            )}
                         {entityData?.health && (
                             <EntityHealthStatus
                                 status={entityData?.health.status}
@@ -317,11 +334,11 @@ export const EntityHeader = () => {
                     <MenuIcon />
                 </Dropdown>
             </HeaderContainer>
-            <AddDeprecatedDataModal
-                visible={showAddDeprecatedDataModal}
+            <AddDeprecationDetailsModal
+                visible={showAddDeprecationDetailsModal}
                 urn={urn}
                 onClose={() => {
-                    setShowAddDeprecatedDataModal(false);
+                    setShowAddDeprecationDetailsModal(false);
                 }}
                 refetch={refetch}
             />

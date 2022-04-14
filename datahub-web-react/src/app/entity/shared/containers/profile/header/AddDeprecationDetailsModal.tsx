@@ -9,7 +9,7 @@ type Props = {
     refetch?: () => Promise<any>;
 };
 
-export const AddDeprecatedDataModal = ({ urn, visible, onClose, refetch }: Props) => {
+export const AddDeprecationDetailsModal = ({ urn, visible, onClose, refetch }: Props) => {
     const [updateDeprecation] = useUpdateDeprecationMutation();
     const [form] = Form.useForm();
 
@@ -18,7 +18,7 @@ export const AddDeprecatedDataModal = ({ urn, visible, onClose, refetch }: Props
         onClose();
     };
 
-    const handleAdd = async (formData: any) => {
+    const handleOk = async (formData: any) => {
         message.loading({ content: 'Updating...' });
         try {
             await updateDeprecation({
@@ -45,7 +45,7 @@ export const AddDeprecatedDataModal = ({ urn, visible, onClose, refetch }: Props
 
     return (
         <Modal
-            title="Add Deprecation Data"
+            title="Add Deprecation Details"
             visible={visible}
             onCancel={handleClose}
             keyboard
@@ -55,17 +55,17 @@ export const AddDeprecatedDataModal = ({ urn, visible, onClose, refetch }: Props
                         Cancel
                     </Button>
                     <Button form="addDeprecationForm" key="submit" htmlType="submit">
-                        Add
+                        Ok
                     </Button>
                 </>
             }
         >
-            <Form form={form} name="addDeprecationForm" onFinish={handleAdd} layout="vertical">
+            <Form form={form} name="addDeprecationForm" onFinish={handleOk} layout="vertical">
                 <Form.Item name="note" label="Note">
                     <Input placeholder="Add Note" autoFocus />
                 </Form.Item>
-                <Form.Item name="decommissionTime" label="Decommission Time">
-                    <DatePicker showTime style={{ width: '100%' }} />
+                <Form.Item name="decommissionTime" label="Decommission Date">
+                    <DatePicker style={{ width: '100%' }} />
                 </Form.Item>
             </Form>
         </Modal>
