@@ -141,6 +141,11 @@ const LastEvaluatedAtLabel = styled.div`
     color: ${ANTD_GRAY[7]};
 `;
 
+const Divider = styled.div`
+    border-top: 1px solid #f0f0f0;
+    padding-top: 5px;
+`;
+
 export const EntityHeader = () => {
     const { urn, entityType, entityData } = useEntityData();
     const [updateDeprecation] = useUpdateDeprecationMutation();
@@ -225,6 +230,9 @@ export const EntityHeader = () => {
         entityData?.deprecation?.decommissionTime &&
         moment.unix(entityData?.deprecation?.decommissionTime).utc().format('dddd, DD/MMM/YYYY HH:mm:ss z');
 
+    const hasDetails = entityData?.deprecation?.note !== '' || entityData?.deprecation?.decommissionTime !== null;
+    const isDividerNeeded = entityData?.deprecation?.note !== '' && entityData?.deprecation?.decommissionTime !== null;
+
     return (
         <>
             <HeaderContainer>
@@ -266,48 +274,38 @@ export const EntityHeader = () => {
                         <Link to={entityPath}>
                             <EntityTitle level={3}>{entityData?.name || ' '}</EntityTitle>
                         </Link>
-                        {entityData?.deprecation?.deprecated &&
-                            (entityData?.deprecation?.note !== '' ||
-                                entityData?.deprecation?.decommissionTime !== null) && (
-                                <Popover
-                                    overlayStyle={{ maxWidth: 240 }}
-                                    placement="right"
-                                    content={
+                        {entityData?.deprecation?.deprecated && (
+                            <Popover
+                                overlayStyle={{ maxWidth: 240 }}
+                                placement="right"
+                                content={
+                                    hasDetails ? (
                                         <>
                                             {entityData?.deprecation?.note !== '' && (
                                                 <Typography.Text>{entityData?.deprecation?.note}</Typography.Text>
                                             )}
+                                            {isDividerNeeded && <Divider />}
                                             {entityData?.deprecation?.decommissionTime !== null && (
                                                 <Typography.Text type="secondary">
                                                     <Tooltip placement="right" title={decommissionTimeGMT}>
-                                                        <LastEvaluatedAtLabel
-                                                            style={{
-                                                                borderTop: '1px solid #f0f0f0',
-                                                                paddingTop: '5px',
-                                                            }}
-                                                        >
+                                                        <LastEvaluatedAtLabel>
                                                             {decommissionTimeLocal}
                                                         </LastEvaluatedAtLabel>
                                                     </Tooltip>
                                                 </Typography.Text>
                                             )}
                                         </>
-                                    }
-                                >
-                                    <DeprecatedContainer>
-                                        <InfoCircleOutlined />
-                                        <DeprecatedText>Deprecated</DeprecatedText>
-                                    </DeprecatedContainer>
-                                </Popover>
-                            )}
-                        {entityData?.deprecation?.deprecated &&
-                            entityData?.deprecation?.decommissionTime === null &&
-                            entityData?.deprecation?.note === '' && (
+                                    ) : (
+                                        'No additional details'
+                                    )
+                                }
+                            >
                                 <DeprecatedContainer>
                                     <InfoCircleOutlined />
                                     <DeprecatedText>Deprecated</DeprecatedText>
                                 </DeprecatedContainer>
-                            )}
+                            </Popover>
+                        )}
                         {entityData?.health && (
                             <EntityHealthStatus
                                 status={entityData?.health.status}
