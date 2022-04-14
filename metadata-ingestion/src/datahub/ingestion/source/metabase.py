@@ -771,9 +771,9 @@ class MetabaseSource(Source):
         )
 
         custom_properties = {
-            "Metrics": ", ".join(metrics),
-            "Filters": f"{filters}" if len(filters) else "",
-            "Dimensions": ", ".join(dimensions)
+            "metrics": ", ".join(metrics),
+            "filters": f"{filters}" if len(filters) else "",
+            "dimensions": ", ".join(dimensions)
         }
         if card_details.get("average_query_time"):
             custom_properties.update({
