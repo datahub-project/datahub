@@ -1,7 +1,7 @@
 package entities;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.linkedin.metadata.event.EntityEventProducer;
+import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import io.datahubproject.openapi.dto.UpsertAspectRequest;
 import io.datahubproject.openapi.entities.EntitiesController;
@@ -48,7 +48,7 @@ public class EntitiesControllerTest {
   public void setup()
       throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
     EntityRegistry mockEntityRegistry = new MockEntityRegistry();
-    EntityEventProducer mockEntityEventProducer = Mockito.mock(EntityEventProducer.class);
+    EventProducer mockEntityEventProducer = Mockito.mock(EventProducer.class);
     MockEntityService mockEntityService = new MockEntityService(mockEntityEventProducer, mockEntityRegistry);
     _entitiesController = new EntitiesController(mockEntityService, new ObjectMapper());
   }
@@ -58,22 +58,6 @@ public class EntitiesControllerTest {
   @Test
   public void testIngestDataset() {
     List<UpsertAspectRequest> datasetAspects = new ArrayList<>();
-//        - datasetUsageStatistics
-//        - operation
-//        - domains
-//        - status
-//        - container
-//        - deprecation
-//        DatasetProperties,
-//        EditableDatasetProperties,
-//        DatasetDeprecation,
-//        DatasetUpstreamLineage,
-//        InstitutionalMemory,
-//        Ownership,
-//        Status,
-//        GlobalTags,
-//        BrowsePaths,
-//        DataPlatformInstance,
     UpsertAspectRequest viewProperties = UpsertAspectRequest.builder()
         .aspect(new ViewProperties()
             .viewLogic(S)
@@ -165,8 +149,11 @@ public class EntitiesControllerTest {
     _entitiesController.postEntities(datasetAspects);
   }
 
-  @Test
-  public void testGetDataset() {
-    
-  }
+//  @Test
+//  public void testGetDataset() {
+//    _entitiesController.getEntities(new String[] {DATASET_URN},
+//        new String[] {
+//            SCHEMA_METADATA_ASPECT_NAME
+//    });
+//  }
 }
