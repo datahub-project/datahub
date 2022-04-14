@@ -1,23 +1,45 @@
 package mock;
 
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.GlobalTags;
+import com.linkedin.common.GlossaryTermAssociation;
+import com.linkedin.common.GlossaryTermAssociationArray;
+import com.linkedin.common.GlossaryTerms;
+import com.linkedin.common.TagAssociation;
+import com.linkedin.common.TagAssociationArray;
+import com.linkedin.common.UrnArray;
+import com.linkedin.common.urn.DatasetUrn;
+import com.linkedin.common.urn.GlossaryTermUrn;
+import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.entity.Aspect;
+import com.linkedin.entity.AspectType;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.RollbackRunResult;
-import com.linkedin.metadata.event.EntityEventProducer;
+import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.schema.ForeignKeyConstraint;
+import com.linkedin.schema.ForeignKeyConstraintArray;
+import com.linkedin.schema.MySqlDDL;
+import com.linkedin.schema.SchemaField;
+import com.linkedin.schema.SchemaFieldArray;
+import com.linkedin.schema.SchemaFieldDataType;
+import com.linkedin.schema.SchemaMetadata;
+import com.linkedin.schema.StringType;
 import com.linkedin.util.Pair;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -29,7 +51,7 @@ import static entities.EntitiesControllerTest.*;
 
 
 public class MockEntityService extends EntityService {
-  public MockEntityService(@Nonnull EntityEventProducer producer, @Nonnull EntityRegistry entityRegistry) {
+  public MockEntityService(@Nonnull EventProducer producer, @Nonnull EntityRegistry entityRegistry) {
     super(producer, entityRegistry);
   }
 
@@ -51,7 +73,46 @@ public class MockEntityService extends EntityService {
   @Override
   public Map<Urn, List<EnvelopedAspect>> getLatestEnvelopedAspects(@Nonnull String entityName, @Nonnull Set<Urn> urns,
       @Nonnull Set<String> aspectNames) throws URISyntaxException {
-    return null;
+    Urn urn = UrnUtils.getUrn(DATASET_URN);
+    Map<Urn, List<EnvelopedAspect>> envelopedAspectMap = new HashMap<>();
+    List<EnvelopedAspect> aspects = new ArrayList<>();
+    EnvelopedAspect schemaMetadata = new EnvelopedAspect();
+    SchemaMetadata pegasusSchemaMetadata = new SchemaMetadata();
+    pegasusSchemaMetadata.setDataset(DatasetUrn.createFromUrn(UrnUtils.getUrn(DATASET_URN)))
+        .setVersion(0L)
+        .setHash(S)
+        .setCluster(S)
+        .setPlatformSchema(SchemaMetadata.PlatformSchema.create(new MySqlDDL().setTableSchema(S)))
+        .setForeignKeys(new ForeignKeyConstraintArray(Collections.singletonList(
+            new ForeignKeyConstraint()
+                .setForeignDataset(urn)
+                .setName(S)
+                .setForeignFields(new UrnArray(Collections.singletonList(urn))))))
+        .setFields(new SchemaFieldArray(Collections.singletonList(
+            new SchemaField()
+                .setDescription(S)
+                .setFieldPath(S)
+                .setType(new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())))
+                .setGlobalTags(
+                    new GlobalTags()
+                        .setTags(new TagAssociationArray(Collections.singletonList(
+                            new TagAssociation().setTag(TagUrn.createFromUrn(UrnUtils.getUrn(TAG_URN)))
+                        ))))
+                .setGlossaryTerms(new GlossaryTerms().setTerms(
+                    new GlossaryTermAssociationArray(Collections.singletonList(
+                        new GlossaryTermAssociation()
+                            .setUrn(GlossaryTermUrn.createFromUrn(UrnUtils.getUrn(GLOSSARY_TERM_URN)))
+                    )))
+                )
+            ))
+        );
+    schemaMetadata
+        .setType(AspectType.VERSIONED)
+        .setName("schemaMetadata")
+        .setValue(new Aspect(pegasusSchemaMetadata.data()));
+    aspects.add(schemaMetadata);
+    envelopedAspectMap.put(UrnUtils.getUrn(DATASET_URN), aspects);
+    return envelopedAspectMap;
   }
 
   @Override
