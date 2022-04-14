@@ -4,23 +4,24 @@ import { Agent } from 'https';
 import { Alert } from 'antd';
 import axios from 'axios';
 import ReactHtmlParser from 'react-html-parser';
-import adhocConfig from '../../conf/Adhoc';
+import { WhereAmI } from '../home/whereAmI';
 
 export const BannerSplash = () => {
     interface AnnouncementData {
         message: string;
         timestamp: string;
     }
-    let url = adhocConfig;
-    const branch = url.lastIndexOf('/');
-    url = `${url.substring(0, branch)}/announce`;
+    const urlBase = WhereAmI();
+    const publishUrl = `${urlBase}custom/announce`;
+    console.log(`the final url is ${publishUrl}`);
+
     const closedTime = Number(localStorage.getItem('_banner_closed_time')) || 0;
     const [data, setData] = useState<AnnouncementData>();
     const [showData, setShowData] = useState(false);
     useEffect(() => {
         const fetchData = () => {
             return axios
-                .get(url, {
+                .get(publishUrl, {
                     httpsAgent: new Agent({
                         rejectUnauthorized: false,
                     }),
@@ -42,7 +43,7 @@ export const BannerSplash = () => {
                 }); // todo: can we have error show a default msg
         };
         fetchData();
-    }, [url, closedTime]);
+    }, [publishUrl, closedTime]);
 
     const onClose = () => {
         console.log('Banner was closed.');

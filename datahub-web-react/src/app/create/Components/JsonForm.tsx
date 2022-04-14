@@ -8,10 +8,12 @@ import { v4 as uuidv4 } from 'uuid';
 import axios from 'axios';
 import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
 import { CommonFields } from './CommonFields';
-import adhocConfig from '../../../conf/Adhoc';
 import { GetMyToken } from '../../entity/dataset/whoAmI';
+import { WhereAmI } from '../../home/whereAmI';
 
 export const JsonForm = () => {
+    const urlBase = WhereAmI();
+    const publishUrl = `${urlBase}custom/make_dataset`;
     const user = useGetAuthenticatedUser();
     const userUrn = user?.corpUser?.urn || '';
     const userToken = GetMyToken(userUrn);
@@ -109,7 +111,7 @@ export const JsonForm = () => {
         // console.log('Received data:', data);
         // POST request using axios with error handling
         axios
-            .post(adhocConfig, data)
+            .post(publishUrl, data)
             .then((response) => printSuccessMsg(response.status))
             .catch((error) => {
                 printErrorMsg(error.toString());

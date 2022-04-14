@@ -16,7 +16,6 @@ export function FindMyUrn() {
 
 export function FindMyGroups() {
     const currUserUrn = FindMyUrn();
-    console.log(`myurn is ${currUserUrn}`);
     const queryresult = gql`
         query test($urn: String!) {
             corpUser(urn: $urn) {
@@ -55,7 +54,7 @@ export function checkOwnership(data: GetDatasetQuery): boolean {
     // console.log(`userGroups is ${userGroups}`);
     const groupUrn = userGroups?.map((x) => x?.entity?.urn) || [];
     const intersection = groupUrn.filter((x) => groupOwnersArray.includes(x));
-    console.log(`groups intersection is ${intersection.length}`);
+    // console.log(`groups intersection is ${intersection.length}`);
     return individualOwnersArray.includes(currUserUrn) || intersection.length > 0;
 }
 

@@ -1713,6 +1713,11 @@ enum SchemaFieldDataType {
     An complex struct type
     """
     STRUCT
+
+    """
+    An unknown type
+    """
+    UNKNOWN
 }
 
 """

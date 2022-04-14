@@ -21,6 +21,7 @@ record SchemaFieldDataType {
     MapType,
     ArrayType,
     UnionType,
-    RecordType
+    RecordType,
+    UnknownType
   ]
 }

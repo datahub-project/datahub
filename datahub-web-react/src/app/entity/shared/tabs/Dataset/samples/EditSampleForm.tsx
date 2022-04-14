@@ -5,7 +5,8 @@ import { gql, useLazyQuery, useQuery } from '@apollo/client';
 import { useBaseEntity } from '../../../EntityContext';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { FindMyUrn, FindWhoAmI, GetMyToken } from '../../../../dataset/whoAmI';
-import adhocConfig from '../../../../../../conf/Adhoc';
+import { WhereAmI } from '../../../../../home/whereAmI';
+// import adhocConfig from '../../../../../../conf/Adhoc';
 
 function GetProfileTimestamps(datasetUrn) {
     const queryTimeStamps = gql`
@@ -35,10 +36,10 @@ function timeout(delay: number) {
 }
 
 export const EditSampleForm = () => {
-    const baseUrl = adhocConfig;
-    const branch = baseUrl.lastIndexOf('/');
-    const makeUrl = `${baseUrl.substring(0, branch)}/update_samples`;
-    const delUrl = `${baseUrl.substring(0, branch)}/delete_samples`;
+    const urlBase = WhereAmI();
+    const makeUrl = `${urlBase}custom/update_samples`;
+    const delUrl = `${urlBase}custom/delete_samples`;
+    console.log(`makeSample url: ${makeUrl}, delSample url: ${delUrl}`);
     const queryTimeStamps = gql`
         query getProfiles($urn: String!, $timestamp: Long!) {
             dataset(urn: $urn) {

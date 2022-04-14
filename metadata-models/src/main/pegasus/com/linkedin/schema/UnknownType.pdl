@@ -1,0 +1,6 @@
+namespace com.linkedin.schema
+
+/**
+ * Unknown field type.
+ */
+record UnknownType {}

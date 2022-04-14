@@ -3,19 +3,20 @@ import React, { useState } from 'react';
 import { Button, Divider, Form, Input, message, Table, Typography } from 'antd';
 import PropTypes from 'prop-types';
 import axios from 'axios';
-import adhocConfig from '../../../../../../conf/Adhoc';
+// import adhocConfig from '../../../../../../conf/Adhoc';
 import { useBaseEntity } from '../../../EntityContext';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 // import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
 import { FindMyUrn, FindWhoAmI, GetMyToken } from '../../../../dataset/whoAmI';
+import { WhereAmI } from '../../../../../home/whereAmI';
 // import { useBaseEntity } from '../../../EntityContext';
 // import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 // editable version
 
 export const EditPropertiesTableEditable = () => {
-    let url = adhocConfig;
-    const branch = url.lastIndexOf('/');
-    url = `${url.substring(0, branch)}/update_properties`;
+    const urlBase = WhereAmI();
+    const publishUrl = `${urlBase}custom/update_properties`;
+    console.log(`Submit url: ${publishUrl}`);
     const queryFields = useBaseEntity<GetDatasetQuery>()?.dataset?.properties?.customProperties;
     const datasetDescription = useBaseEntity<GetDatasetQuery>()?.dataset?.properties?.description || '';
 
@@ -201,7 +202,7 @@ export const EditPropertiesTableEditable = () => {
         };
         console.log(dataSubmission);
         axios
-            .post(url, dataSubmission)
+            .post(publishUrl, dataSubmission)
             .then((response) => printSuccessMsg(response.status))
             .catch((error) => {
                 printErrorMsg(error.toString());

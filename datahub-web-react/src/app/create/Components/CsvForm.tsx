@@ -5,11 +5,15 @@ import { Form, Input, Space, Select, Button, message, Divider, InputNumber } fro
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 // import { gql, useQuery } from '@apollo/client';
 import { CommonFields } from './CommonFields';
-import adhocConfig from '../../../conf/Adhoc';
+// import adhocConfig from '../../../conf/Adhoc';
 import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
 import { GetMyToken } from '../../entity/dataset/whoAmI';
+import { WhereAmI } from '../../home/whereAmI';
 
 export const CsvForm = () => {
+    const urlBase = WhereAmI();
+    const publishUrl = `${urlBase}custom/make_dataset`;
+    console.log(`the publish url is ${publishUrl}`);
     const user = useGetAuthenticatedUser();
     const userUrn = user?.corpUser?.urn || '';
     const userToken = GetMyToken(userUrn);
@@ -38,8 +42,9 @@ export const CsvForm = () => {
         const finalValue = { ...values, ...fileType, dataset_owner: user?.corpUser?.username, user_token: userToken };
         // console.log('Received finalValue:', finalValue);
         // POST request using axios with error handling
+        console.log(`publish is now ${publishUrl}`);
         axios
-            .post(adhocConfig, finalValue)
+            .post(publishUrl, finalValue)
             .then((response) => printSuccessMsg(response.status))
             .catch((error) => {
                 printErrorMsg(error.toString());
@@ -143,6 +148,7 @@ export const CsvForm = () => {
                                                 <Option value="date">Date</Option>
                                                 <Option value="time">Time</Option>
                                                 <Option value="bytes">Bytes</Option>
+                                                <Option value="unknown">Unknown</Option>
                                             </Select>
                                         </Form.Item>
                                         <Form.Item

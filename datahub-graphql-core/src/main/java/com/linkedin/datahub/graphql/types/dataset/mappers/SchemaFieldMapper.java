@@ -65,6 +65,8 @@ public class SchemaFieldMapper implements ModelMapper<com.linkedin.schema.Schema
             return SchemaFieldDataType.STRUCT;
         } else if (type.isUnionType()) {
             return SchemaFieldDataType.UNION;
+        } else if (type.isUnknownType()) {
+            return SchemaFieldDataType.UNKNOWN;
         } else {
             throw new RuntimeException(String.format("Unrecognized SchemaFieldDataType provided %s",
                     type.memberType().toString()));

@@ -8,7 +8,8 @@ import { useBaseEntity } from '../../../EntityContext';
 import { SpecifyBrowsePath } from '../../../../../create/Components/SpecifyBrowsePath';
 // import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
 import { FindMyUrn, FindWhoAmI, GetMyToken } from '../../../../dataset/whoAmI';
-import adhocConfig from '../../../../../../conf/Adhoc';
+import { WhereAmI } from '../../../../../home/whereAmI';
+// import adhocConfig from '../../../../../../conf/Adhoc';
 
 function computeFinal(input) {
     const dataPaths = input?.browsePaths.map((x) => {
@@ -28,10 +29,9 @@ function timeout(delay: number) {
 }
 
 export const EditBrowsePathTable = () => {
-    let url = adhocConfig;
-    const branch = url.lastIndexOf('/');
-    url = `${url.substring(0, branch)}/update_browsepath`;
-    console.log(`eventual url is ${url}`);
+    const urlBase = WhereAmI();
+    const publishUrl = `${urlBase}custom/update_browsepath`;
+    console.log(`the final url is ${publishUrl}`);
     const [originalData, setOriginalData] = useState();
     const [disabledSave, setDisabledSave] = useState(true);
     const layout = {
@@ -73,7 +73,7 @@ export const EditBrowsePathTable = () => {
     };
     const onFinish = async (values) => {
         axios
-            .post(url, {
+            .post(publishUrl, {
                 dataset_name: currUrn,
                 requestor: currUser,
                 browsePaths: values.browsepathList,

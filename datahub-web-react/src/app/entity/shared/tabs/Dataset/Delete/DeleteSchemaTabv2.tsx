@@ -7,7 +7,8 @@ import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 // import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
 import { useBaseEntity } from '../../../EntityContext';
 import { FindMyUrn, FindWhoAmI, GetMyToken } from '../../../../dataset/whoAmI';
-import adhocConfig from '../../../../../../conf/Adhoc';
+import { WhereAmI } from '../../../../../home/whereAmI';
+// import adhocConfig from '../../../../../../conf/Adhoc';
 
 // function CheckStatus(queryresult, currDataset) {
 //     const { data } = useQuery(queryresult, { skip: currDataset === undefined });
@@ -25,11 +26,9 @@ function CheckStatus(entity) {
 }
 
 export const DeleteSchemaTabv2 = () => {
-    // const entity = useBaseEntity<GetDatasetQuery>();
-    // const delay = (ms) => new Promise((res) => setTimeout(res, ms));
-    let url = adhocConfig;
-    const branch = url.lastIndexOf('/');
-    url = `${url.substring(0, branch)}/update_dataset_status`;
+    const urlBase = WhereAmI();
+    const publishUrl = `${urlBase}custom/update_dataset_status`;
+    console.log(`Submit url: ${publishUrl}`);
     const [visible, setVisible] = React.useState(false);
     const [confirmLoading, setConfirmLoading] = React.useState(false);
     const baseEntity = useBaseEntity<GetDatasetQuery>();
@@ -60,7 +59,7 @@ export const DeleteSchemaTabv2 = () => {
 
     const deleteDataset = async () => {
         axios
-            .post(url, {
+            .post(publishUrl, {
                 dataset_name: currDataset,
                 requestor: currUser,
                 desired_state: !CheckStatus(baseEntity),
