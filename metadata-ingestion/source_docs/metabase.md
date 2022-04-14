@@ -13,7 +13,7 @@ for more details on Metabase's login api.
 ## Capabilities
 
 This plugin extracts Charts, dashboards, and associated metadata. This plugin is in beta and has only been tested
-on PostgreSQL and H2 database.
+on PostgreSQL, BigQuery and H2 database.
 
 | Capability | Status | Details | 
 | -----------| ------ | ---- |
@@ -29,6 +29,15 @@ retrieve the following dashboard information.
 - Owner
 - Link to the dashboard in Metabase
 - Associated charts
+- Dashboard parameters
+
+The following properties for a Darshboard are ingested in DataHub.
+
+| Name          | Description                                     |
+| ------------- | ----------------------------------------------- |
+| `dashboard_parameters`  | Parameters declared in the Dashboard                                    |
+| `show_in_getting_started`     | Informs if the Dashboard is on the welcome page                |
+| `total_questions`     | Counts the number of questions/cards the Dashboard has |
 
 ### Chart
 
@@ -40,14 +49,16 @@ retrieve the following information.
 - Owner
 - Link to the chart in Metabase
 - Datasource and lineage
+- Query metadata
 
 The following properties for a chart are ingested in DataHub.
 
 | Name          | Description                                     |
 | ------------- | ----------------------------------------------- |
-| `Dimensions`  | Column names                                    |
-| `Filters`     | Any filters applied to the chart                |
-| `Metrics`     | All columns that are being used for aggregation |
+| `dimensions`  | Column names                                    |
+| `filters`     | Any filters applied to the chart                |
+| `metrics`     | All columns that are being used for aggregation |
+| `average_query_time(ms)`     | Average query time in milliseconds |
 
 
 ## Quickstart recipe
@@ -91,6 +102,8 @@ sink:
 | `engine_platform_map`|          |                    | Custom mappings between metabase database engines and DataHub platforms |
 | `default_schema`     |          | `public`           | Default schema name to use when schema is not provided in an SQL query |
 | `env`                |          | `"PROD"`           | Environment to use in namespace when constructing URNs.                |
+| `inherit_collection`                |          | `false`           | Indicates whether to use Metabase collections to build URNs, BrowserPaths and Containers.                |
+| `ignore_collection_patterns`                |          |           | List of regex patterns that will be used to bypass collections. Only used when `inherit_collection` is true.                |
 
 Metabase databases will be mapped to a DataHub platform based on the engine listed in the
 [api/database](https://www.metabase.com/docs/latest/api-documentation.html#database) response. This mapping can be
