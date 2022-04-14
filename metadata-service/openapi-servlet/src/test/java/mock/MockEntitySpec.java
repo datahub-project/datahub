@@ -7,7 +7,11 @@ import com.linkedin.data.schema.TyperefDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataset.DatasetProfile;
 import com.linkedin.dataset.ViewProperties;
+import com.linkedin.metadata.key.CorpUserKey;
+import com.linkedin.metadata.key.DataPlatformKey;
 import com.linkedin.metadata.key.DatasetKey;
+import com.linkedin.metadata.key.GlossaryTermKey;
+import com.linkedin.metadata.key.TagKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.AspectAnnotation;
@@ -46,8 +50,23 @@ public class MockEntitySpec implements EntitySpec {
 
   @Override
   public AspectSpec getKeyAspectSpec() {
-    DatasetKey datasetKey = new DatasetKey();
-    return createAspectSpec(datasetKey, DATASET_KEY_ASPECT_NAME);
+    if (DATASET_ENTITY_NAME.equals(_name)) {
+      DatasetKey datasetKey = new DatasetKey();
+      return createAspectSpec(datasetKey, DATASET_KEY_ASPECT_NAME);
+    } else if (DATA_PLATFORM_ENTITY_NAME.equals(_name)) {
+      DataPlatformKey dataPlatformKey = new DataPlatformKey();
+      return createAspectSpec(dataPlatformKey, DATA_PLATFORM_KEY_ASPECT_NAME);
+    } else if (TAG_ENTITY_NAME.equals(_name)) {
+      TagKey tagKey = new TagKey();
+      return createAspectSpec(tagKey, TAG_KEY_ASPECT_NAME);
+    } else if (GLOSSARY_TERM_ENTITY_NAME.equals(_name)) {
+      GlossaryTermKey glossaryTermKey = new GlossaryTermKey();
+      return createAspectSpec(glossaryTermKey, GLOSSARY_TERM_KEY_ASPECT_NAME);
+    } else if (CORP_USER_ENTITY_NAME.equals(_name)) {
+      CorpUserKey corpUserKey = new CorpUserKey();
+      return createAspectSpec(corpUserKey, CORP_USER_KEY_ASPECT_NAME);
+    }
+    return null;
   }
 
   private <T extends RecordTemplate> AspectSpec createAspectSpec(T type, String name) {
@@ -58,7 +77,7 @@ public class MockEntitySpec implements EntitySpec {
 
   @Override
   public List<AspectSpec> getAspectSpecs() {
-    return null;
+    return Collections.emptyList();
   }
 
   @Override
@@ -68,7 +87,7 @@ public class MockEntitySpec implements EntitySpec {
 
   @Override
   public Boolean hasAspect(String name) {
-    return null;
+    return false;
   }
 
   private static final Map<String, RecordTemplate> ASPECT_TYPE_MAP;

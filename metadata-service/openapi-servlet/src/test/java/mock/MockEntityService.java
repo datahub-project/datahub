@@ -80,6 +80,7 @@ public class MockEntityService extends EntityService {
     SchemaMetadata pegasusSchemaMetadata = new SchemaMetadata();
     pegasusSchemaMetadata.setDataset(DatasetUrn.createFromUrn(UrnUtils.getUrn(DATASET_URN)))
         .setVersion(0L)
+        .setCreated(new AuditStamp().setActor(UrnUtils.getUrn(CORPUSER_URN)).setTime(System.currentTimeMillis()))
         .setHash(S)
         .setCluster(S)
         .setPlatformSchema(SchemaMetadata.PlatformSchema.create(new MySqlDDL().setTableSchema(S)))
