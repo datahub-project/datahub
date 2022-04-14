@@ -11,8 +11,9 @@ source:
         connect_uri: # Your MongoDB connect URI, e.g. "mongodb://localhost"
 
         # Credentials
-        username: # Your MongoDB username, e.g. admin
-        password: # Your MongoDB password, e.g. password_01
+        # Add secret in Secrets Tab with relevant names for each variable
+        username: "\${MONGO_USERNAME}" # Your MongoDB username, e.g. admin
+        password: "\${MONGO_PASSWORD}" # Your MongoDB password, e.g. password_01
 
         # Options (recommended)
         enableSchemaInference: True
@@ -21,7 +22,9 @@ source:
 sink: 
     type: datahub-rest 
     config: 
-        server: "${baseUrl}/api/gms"`;
+        server: "${baseUrl}/api/gms"
+        # Add a secret in secrets Tab
+        token: "\${GMS_TOKEN}"`;
 
 const mongoConfig: SourceConfig = {
     type: 'mongodb',
