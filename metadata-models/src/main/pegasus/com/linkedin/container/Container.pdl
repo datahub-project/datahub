@@ -20,6 +20,7 @@ record Container {
     "fieldName": "container",
     "fieldType": "URN",
     "addToFilters": true,
+    "hasValuesFieldName": "hasContainer",
     "filterNameOverride": "Container"
   }
   container: Urn

@@ -32,10 +32,15 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.Ownership": {
                         "owners": [
                             {
-                                "owner": "urn:li:corpuser:@alice2",
+                                "owner": "urn:li:corpuser:alice2",
                                 "type": "DATAOWNER",
                                 "source": null
                             },
@@ -192,6 +197,11 @@
                         "description": null,
                         "uri": null,
                         "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
                     }
                 },
                 {
@@ -373,6 +383,11 @@
                         "description": null,
                         "uri": null,
                         "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
                     }
                 },
                 {
@@ -617,6 +632,11 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "model.sample_dbt.payments_by_customer_by_month",
                         "platform": "urn:li:dataPlatform:postgres",
@@ -755,10 +775,15 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.Ownership": {
                         "owners": [
                             {
-                                "owner": "urn:li:corpuser:@alice1",
+                                "owner": "urn:li:corpuser:alice1",
                                 "type": "DATAOWNER",
                                 "source": null
                             }
@@ -910,6 +935,11 @@
                         "description": "a user's address",
                         "uri": null,
                         "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
                     }
                 },
                 {
@@ -1117,6 +1147,11 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "source.sample_dbt.pagila.category",
                         "platform": "urn:li:dataPlatform:postgres",
@@ -1233,6 +1268,11 @@
                         "description": null,
                         "uri": null,
                         "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
                     }
                 },
                 {
@@ -1375,10 +1415,15 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.Ownership": {
                         "owners": [
                             {
-                                "owner": "urn:li:corpuser:@bob",
+                                "owner": "urn:li:corpuser:bob",
                                 "type": "DATAOWNER",
                                 "source": null
                             }
@@ -1507,6 +1552,11 @@
                         "description": "description for customer table from dbt",
                         "uri": null,
                         "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
                     }
                 },
                 {
@@ -1748,6 +1798,11 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "source.sample_dbt.pagila.payment_p2020_01",
                         "platform": "urn:li:dataPlatform:postgres",
@@ -1922,10 +1977,15 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.Ownership": {
                         "owners": [
                             {
-                                "owner": "urn:li:corpuser:@charles",
+                                "owner": "urn:li:corpuser:charles",
                                 "type": "DATAOWNER",
                                 "source": null
                             }
@@ -2108,6 +2168,11 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "source.sample_dbt.pagila.payment_p2020_03",
                         "platform": "urn:li:dataPlatform:postgres",
@@ -2275,6 +2340,11 @@
                         "description": null,
                         "uri": null,
                         "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
                     }
                 },
                 {
@@ -2448,6 +2518,11 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "source.sample_dbt.pagila.payment_p2020_05",
                         "platform": "urn:li:dataPlatform:postgres",
@@ -2615,6 +2690,11 @@
                         "description": null,
                         "uri": null,
                         "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
                     }
                 },
                 {

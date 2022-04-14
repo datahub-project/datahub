@@ -18,6 +18,7 @@ import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
@@ -33,6 +34,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.r2.RemoteInvocationException;
 import io.opentelemetry.extension.annotations.WithSpan;
@@ -43,7 +45,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -61,6 +62,7 @@ public class JavaEntityClient implements EntityClient {
     private final Clock _clock = Clock.systemUTC();
 
     private final EntityService _entityService;
+    private final EventProducer _eventProducer;
     private final EntitySearchService _entitySearchService;
     private final SearchService _searchService;
     private final TimeseriesAspectService _timeseriesAspectService;
@@ -312,15 +314,10 @@ public class JavaEntityClient implements EntityClient {
     }
 
     @Nonnull
-    public long getTotalEntityCount(@Nonnull String entityName, @Nonnull final Authentication authentication) throws RemoteInvocationException {
-        return _searchService.docCount(entityName);
-    }
-
-    @Nonnull
     public Map<String, Long> batchGetTotalEntityCount(
-        @Nonnull List<String> entityName,
+        @Nonnull List<String> entityNames,
         @Nonnull final Authentication authentication) throws RemoteInvocationException {
-        return entityName.stream().collect(Collectors.toMap(Function.identity(), _searchService::docCount));
+        return _searchService.docCountPerEntity(entityNames);
     }
 
     /**
@@ -433,5 +430,14 @@ public class JavaEntityClient implements EntityClient {
         }
 
         return null;
+    }
+
+    @Override
+    public void producePlatformEvent(
+        @Nonnull String name,
+        @Nullable String key,
+        @Nonnull PlatformEvent event,
+        @Nonnull Authentication authentication) throws Exception {
+        _eventProducer.producePlatformEvent(name, key, event);
     }
 }

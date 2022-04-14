@@ -65,6 +65,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `token` |     |       | Bearer token used for authentication.    |
 | `extra_headers` |     |       | Extra headers which will be added to the request.    |
 | `max_threads`   |          | `1` |  Experimental: Max parallelism for REST API calls     |
+| `ca_certificate_path` | | | Path to CA certificate for HTTPS communications |
 
 ## DataHub Kafka
 

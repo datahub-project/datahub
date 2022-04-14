@@ -17,20 +17,19 @@ class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
     scheme: str = "bigquery"
     project_id: Optional[str] = None
     lineage_client_project_id: Optional[str] = None
-
-    log_page_size: Optional[pydantic.PositiveInt] = 1000
+    log_page_size: pydantic.PositiveInt = 1000
     credential: Optional[BigQueryCredential]
     # extra_client_options, include_table_lineage and max_query_duration are relevant only when computing the lineage.
     extra_client_options: Dict[str, Any] = {}
     include_table_lineage: Optional[bool] = True
     max_query_duration: timedelta = timedelta(minutes=15)
-
     credentials_path: Optional[str] = None
     bigquery_audit_metadata_datasets: Optional[List[str]] = None
     use_exported_bigquery_audit_metadata: bool = False
     use_date_sharded_audit_log_tables: bool = False
     _credentials_path: Optional[str] = pydantic.PrivateAttr(None)
     use_v2_audit_metadata: Optional[bool] = False
+    upstream_lineage_in_report: bool = False
 
     def __init__(self, **data: Any):
         super().__init__(**data)
@@ -56,6 +55,21 @@ class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
             raise ConfigurationError(
                 "BigQuery project ids are globally unique. You do not need to specify a platform instance."
             )
+
+    @pydantic.root_validator()
+    def validate_that_bigquery_audit_metadata_datasets_is_correctly_configured(
+        cls, values: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        if (
+            values.get("use_exported_bigquery_audit_metadata")
+            and not values.get("use_v2_audit_metadata")
+            and not values.get("bigquery_audit_metadata_datasets")
+        ):
+            raise ConfigurationError(
+                "bigquery_audit_metadata_datasets must be specified if using exported audit metadata. Otherwise set use_v2_audit_metadata to True."
+            )
+            pass
+        return values
 
     @pydantic.validator("platform")
     def platform_is_always_bigquery(cls, v):

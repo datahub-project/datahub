@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.policy;
 
-import com.datahub.authorization.AuthorizationManager;
+import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
@@ -9,7 +9,7 @@ import com.linkedin.datahub.graphql.resolvers.policy.mappers.PolicyUpdateInputIn
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.key.DataHubPolicyKey;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.policy.DataHubPolicyInfo;
 import graphql.schema.DataFetcher;
@@ -55,22 +55,22 @@ public class UpsertPolicyResolver implements DataFetcher<CompletableFuture<Strin
         // Create the Policy key.
         final DataHubPolicyKey key = new DataHubPolicyKey();
         key.setId(uuidStr);
-        proposal.setEntityKeyAspect(GenericAspectUtils.serializeAspect(key));
+        proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(key));
       }
 
       // Create the policy info.
       final DataHubPolicyInfo info = PolicyUpdateInputInfoMapper.map(input);
       proposal.setEntityType(POLICY_ENTITY_NAME);
       proposal.setAspectName(POLICY_INFO_ASPECT_NAME);
-      proposal.setAspect(GenericAspectUtils.serializeAspect(info));
+      proposal.setAspect(GenericRecordUtils.serializeAspect(info));
       proposal.setChangeType(ChangeType.UPSERT);
 
       return CompletableFuture.supplyAsync(() -> {
         try {
           // TODO: We should also provide SystemMetadata.
           String urn = _entityClient.ingestProposal(proposal, context.getAuthentication());
-          if (context.getAuthorizer() instanceof AuthorizationManager) {
-            ((AuthorizationManager) context.getAuthorizer()).invalidateCache();
+          if (context.getAuthorizer() instanceof AuthorizerChain) {
+            ((AuthorizerChain) context.getAuthorizer()).getDefaultAuthorizer().invalidateCache();
           }
           return urn;
         } catch (Exception e) {
