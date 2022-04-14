@@ -61,7 +61,7 @@ export const AddDeprecationDetailsModal = ({ urn, visible, onClose, refetch }: P
             }
         >
             <Form form={form} name="addDeprecationForm" onFinish={handleOk} layout="vertical">
-                <Form.Item name="note" label="Note">
+                <Form.Item name="note" label="Note" rules={[{ whitespace: true }, { min: 0, max: 100 }]}>
                     <Input placeholder="Add Note" autoFocus />
                 </Form.Item>
                 <Form.Item name="decommissionTime" label="Decommission Date">
