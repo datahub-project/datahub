@@ -407,6 +407,16 @@
     }
   },
   {
+    "urn": "urn:li:dataPlatform:presto_on_hive",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "presto-on-hive",
+      "displayName": "Presto on Hive",
+      "type": "FILE_SYSTEM",
+      "logoUrl": "/assets/platforms/prestoonhivelogo.png"
+    }
+  },
+  {
     "urn": "urn:li:dataPlatform:unknown",
     "aspect": {
       "datasetNameDelimiter": ".",

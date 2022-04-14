@@ -100,7 +100,33 @@ class Urn:
     def _get_entity_id_from_str(entity_id: str) -> List[str]:
         if not (entity_id.startswith("(") and entity_id.endswith(")")):
             return [entity_id]
-        return [sub_id.strip() for sub_id in entity_id[1:-1].split(",")]
+
+        parts = []
+        start_paren_count = 1
+        part_start = 1
+        for i in range(1, len(entity_id)):
+            c = entity_id[i]
+            if c == "(":
+                start_paren_count += 1
+            elif c == ")":
+                start_paren_count -= 1
+                if start_paren_count < 0:
+                    raise InvalidUrnError(f"{entity_id}, mismatched paren nesting")
+            elif c == ",":
+                if start_paren_count != 1:
+                    continue
+
+                if i - part_start <= 0:
+                    raise InvalidUrnError(f"{entity_id}, empty part disallowed")
+                parts.append(entity_id[part_start:i])
+                part_start = i + 1
+
+        if start_paren_count != 0:
+            raise InvalidUrnError(f"{entity_id}, mismtached paren nesting")
+
+        parts.append(entity_id[part_start : len(entity_id) - 1])
+
+        return parts
 
     @staticmethod
     def _validate_entity_type(entity_type: str) -> None:
