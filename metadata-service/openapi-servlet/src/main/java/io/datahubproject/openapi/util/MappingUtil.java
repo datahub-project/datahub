@@ -123,12 +123,19 @@ public class MappingUtil {
     // TODO: This shouldn't be necessary, but test out what triggers build failures in CI
     EnvelopedAspect aspect = new EnvelopedAspect();
     aspect.setName(envelopedAspect.getName());
-    return new EnvelopedAspect().name(envelopedAspect.getName())
-        .timestamp(envelopedAspect.getTimestamp())
-        .version(envelopedAspect.getVersion())
-        .type(AspectType.fromValue(envelopedAspect.getType().name().toUpperCase(Locale.ROOT)))
-        .created(objectMapper.convertValue(envelopedAspect.getCreated().data(), AuditStamp.class))
-        .value(mapAspectValue(envelopedAspect.getName(), envelopedAspect.getValue(), objectMapper));
+    aspect.setTimestamp(envelopedAspect.getTimestamp());
+    aspect.setVersion(envelopedAspect.getVersion());
+    aspect.setCreated(objectMapper.convertValue(envelopedAspect.getCreated().data(), AuditStamp.class));
+    aspect.setType(AspectType.fromValue(envelopedAspect.getType().name().toUpperCase(Locale.ROOT)));
+    aspect.setValue(mapAspectValue(envelopedAspect.getName(), envelopedAspect.getValue(), objectMapper));
+    return aspect;
+//    return new EnvelopedAspect()
+//        .name(envelopedAspect.getName())
+//        .timestamp(envelopedAspect.getTimestamp())
+//        .version(envelopedAspect.getVersion())
+//        .type(AspectType.fromValue(envelopedAspect.getType().name().toUpperCase(Locale.ROOT)))
+//        .created(objectMapper.convertValue(envelopedAspect.getCreated().data(), AuditStamp.class))
+//        .value(mapAspectValue(envelopedAspect.getName(), envelopedAspect.getValue(), objectMapper));
   }
 
   public static OneOfEnvelopedAspectValue mapAspectValue(String aspectName, Aspect aspect, ObjectMapper objectMapper) {
