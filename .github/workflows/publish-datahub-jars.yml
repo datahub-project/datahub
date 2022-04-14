@@ -29,8 +29,8 @@ jobs:
 
   publish:
     runs-on: ubuntu-latest
-    needs: [check-secret]
-    if: ${{ needs.publish-enabled.outputs.publish == 'true' }}
+    needs: check-secret
+    if: ${{ needs.check-secret.outputs.publish-enabled == 'true' }}
     steps:
       - uses: actions/checkout@v2
         with:
