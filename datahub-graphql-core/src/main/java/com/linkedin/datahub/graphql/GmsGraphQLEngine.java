@@ -1186,15 +1186,15 @@ public class GmsGraphQLEngine {
             .type("MLFeatureTableProperties", typeWiring -> typeWiring
                 .dataFetcher("mlFeatures", new AuthenticatedResolver<>(
                                 new LoadableTypeBatchResolver<>(mlFeatureType,
-                                        (env) -> ((MLFeatureTableProperties) env.getSource()).getMlFeatures().stream()
+                                        (env) -> ((MLFeatureTableProperties) env.getSource()).getMlFeatures() != null ? ((MLFeatureTableProperties) env.getSource()).getMlFeatures().stream()
                                         .map(MLFeature::getUrn)
-                                        .collect(Collectors.toList())))
+                                        .collect(Collectors.toList()) : ImmutableList.of()))
                 )
                 .dataFetcher("mlPrimaryKeys", new AuthenticatedResolver<>(
                                 new LoadableTypeBatchResolver<>(mlPrimaryKeyType,
-                                        (env) -> ((MLFeatureTableProperties) env.getSource()).getMlPrimaryKeys().stream()
+                                        (env) ->  ((MLFeatureTableProperties) env.getSource()).getMlPrimaryKeys() != null ? ((MLFeatureTableProperties) env.getSource()).getMlPrimaryKeys().stream()
                                         .map(MLPrimaryKey::getUrn)
-                                        .collect(Collectors.toList())))
+                                        .collect(Collectors.toList()) : ImmutableList.of()))
                 )
             )
             .type("MLFeatureProperties", typeWiring -> typeWiring
