@@ -5,11 +5,6 @@ import { EmbeddedListSearch } from '../shared/components/styled/search/EmbeddedL
 const UserAssetsWrapper = styled.div`
     height: calc(100vh - 114px);
     overflow: auto;
-
-    && .embeddedListSearchClass {
-        height: calc(100vh - 209px);
-        overflow-y: auto;
-    }
 `;
 
 type Props = {
@@ -20,6 +15,7 @@ export const UserAssets = ({ urn }: Props) => {
     return (
         <UserAssetsWrapper>
             <EmbeddedListSearch
+                style={{ height: 'calc(100vh - 209px)' }}
                 fixedFilter={{ field: 'owners', value: urn }}
                 emptySearchQuery="*"
                 placeholderText="Filter entities..."

@@ -4,11 +4,6 @@ import { EmbeddedListSearch } from '../shared/components/styled/search/EmbeddedL
 
 const GroupAssetsWrapper = styled.div`
     height: calc(100vh - 114px);
-
-    && .embeddedListSearchClass {
-        height: calc(100vh - 208px);
-        overflow-y: auto;
-    }
 `;
 
 type Props = {
@@ -19,6 +14,7 @@ export const GroupAssets = ({ urn }: Props) => {
     return (
         <GroupAssetsWrapper>
             <EmbeddedListSearch
+                style={{ height: 'calc(100vh - 208px)' }}
                 fixedFilter={{ field: 'owners', value: urn }}
                 emptySearchQuery="*"
                 placeholderText="Filter entities..."
