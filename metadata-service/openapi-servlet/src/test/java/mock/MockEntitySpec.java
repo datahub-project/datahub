@@ -52,8 +52,8 @@ public class MockEntitySpec implements EntitySpec {
 
   private <T extends RecordTemplate> AspectSpec createAspectSpec(T type, String name) {
     return new MockAspectSpec(new AspectAnnotation(name, false, false, null),
-        Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), type.schema(),
-        (Class<RecordTemplate>) type.getClass().asSubclass(RecordTemplate.class));
+        Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), Collections.emptyList(),
+        Collections.emptyList(), type.schema(), (Class<RecordTemplate>) type.getClass().asSubclass(RecordTemplate.class));
   }
 
   @Override

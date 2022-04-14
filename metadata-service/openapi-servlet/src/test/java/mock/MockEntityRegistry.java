@@ -6,7 +6,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import java.util.Collections;
 import java.util.Map;
 import javax.annotation.Nonnull;
-import org.jetbrains.annotations.Nullable;
+import javax.annotation.Nullable;
 
 
 public class MockEntityRegistry implements EntityRegistry {
