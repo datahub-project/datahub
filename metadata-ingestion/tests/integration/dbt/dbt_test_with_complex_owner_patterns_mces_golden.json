@@ -1,9 +1,28 @@
 [
 {
     "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.customer_details,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"ephemeral\", \"view\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-complex-owner-patterns",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.dbt_postgres.customer_details,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.customer_details,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -24,7 +43,7 @@
                         "externalUrl": null,
                         "name": "customer_details",
                         "qualifiedName": null,
-                        "description": null,
+                        "description": "",
                         "uri": null,
                         "tags": [
                             "dbt:test_tag"
@@ -64,7 +83,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "model.sample_dbt.customer_details",
-                        "platform": "urn:li:dataPlatform:postgres",
+                        "platform": "urn:li:dataPlatform:dbt",
                         "version": 0,
                         "created": {
                             "time": 0,
@@ -124,6 +143,13 @@
                         ],
                         "fineGrainedLineages": null
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.ViewProperties": {
+                        "materialized": false,
+                        "viewLogic": "{{ config(\n    materialized = \"ephemeral\",\n) }}\n\nSELECT\n    c.customer_id,\n    c.first_name || ' ' || c.last_name as \"full_name\",\n    c.email,\n    a.address,\n    m.city,\n    a.postal_code,\n    a.phone\nFROM\n    {{ source('pagila', 'customer')}} c\n    left outer join {{ source('pagila', 'address')}} a on c.address_id = a.address_id\n    left outer join {{ source('pagila', 'city') }} m on a.city_id = m.city_id",
+                        "viewLanguage": "SQL"
+                    }
                 }
             ]
         }
@@ -131,7 +157,26 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "dbt-test-with-external-metadata-files",
+        "runId": "dbt-test-with-complex-owner-patterns",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-monthly-billing,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"table\", \"view\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-complex-owner-patterns",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -141,7 +186,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.dbt_postgres.an-aliased-view-for-monthly-billing,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-monthly-billing,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -163,7 +208,7 @@
                         "externalUrl": null,
                         "name": "an-aliased-view-for-monthly-billing",
                         "qualifiedName": null,
-                        "description": null,
+                        "description": "",
                         "uri": null,
                         "tags": []
                     }
@@ -176,7 +221,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "model.sample_dbt.monthly_billing_with_cust",
-                        "platform": "urn:li:dataPlatform:postgres",
+                        "platform": "urn:li:dataPlatform:dbt",
                         "version": 0,
                         "created": {
                             "time": 0,
@@ -290,11 +335,18 @@
                                     "actor": "urn:li:corpuser:unknown",
                                     "impersonator": null
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.dbt_postgres.customer_details,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.customer_details,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ],
                         "fineGrainedLineages": null
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.ViewProperties": {
+                        "materialized": true,
+                        "viewLogic": "{{ config(\n    materialized = \"table\",\n    alias='an-aliased-view-for-monthly-billing'\n) }}\n\nSELECT \n    pbc.billing_month,\n    pbc.customer_id,\n    pbc.amount,\n    cust.email\nFROM\n    {{ ref('payments_by_customer_by_month')}} pbc\n    left outer join {{ ref('customer_details')}} cust on pbc.customer_id = cust.customer_id\nORDER BY\n    pbc.billing_month",
+                        "viewLanguage": "SQL"
                     }
                 }
             ]
@@ -303,7 +355,26 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "dbt-test-with-external-metadata-files",
+        "runId": "dbt-test-with-complex-owner-patterns",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-payments,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"view\", \"view\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-complex-owner-patterns",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -313,7 +384,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.dbt_postgres.an-aliased-view-for-payments,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-payments,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -330,7 +401,7 @@
                         "externalUrl": null,
                         "name": "an-aliased-view-for-payments",
                         "qualifiedName": null,
-                        "description": null,
+                        "description": "",
                         "uri": null,
                         "tags": []
                     }
@@ -343,7 +414,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "model.sample_dbt.payments_base",
-                        "platform": "urn:li:dataPlatform:postgres",
+                        "platform": "urn:li:dataPlatform:dbt",
                         "version": 0,
                         "created": {
                             "time": 0,
@@ -542,6 +613,13 @@
                         ],
                         "fineGrainedLineages": null
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.ViewProperties": {
+                        "materialized": false,
+                        "viewLogic": "{{ config(\n    materialized=\"view\",\n    alias='an-aliased-view-for-payments'\n) }}\n\nwith payments as (\n\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_01')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_02')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_02')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_03')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_04')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_05')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_06')}}\n)\n\nselect *\nfrom payments",
+                        "viewLanguage": "SQL"
+                    }
                 }
             ]
         }
@@ -549,7 +627,26 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "dbt-test-with-external-metadata-files",
+        "runId": "dbt-test-with-complex-owner-patterns",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.payments_by_customer_by_month,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"table\", \"view\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-complex-owner-patterns",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -559,7 +656,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.dbt_postgres.payments_by_customer_by_month,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.payments_by_customer_by_month,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -576,7 +673,7 @@
                         "externalUrl": null,
                         "name": "payments_by_customer_by_month",
                         "qualifiedName": null,
-                        "description": null,
+                        "description": "",
                         "uri": null,
                         "tags": []
                     }
@@ -589,7 +686,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "model.sample_dbt.payments_by_customer_by_month",
-                        "platform": "urn:li:dataPlatform:postgres",
+                        "platform": "urn:li:dataPlatform:dbt",
                         "version": 0,
                         "created": {
                             "time": 0,
@@ -683,6 +780,13 @@
                         ],
                         "fineGrainedLineages": null
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.ViewProperties": {
+                        "materialized": true,
+                        "viewLogic": "{{ config(\n    materialized = \"table\",\n) }}\n\nSELECT\n    date_trunc('month', payment_date) as \"billing_month\",\n    customer_id,\n    sum(amount) as \"amount\"\nFROM\n    {{ ref('payments_base')}}\nGROUP BY\n    billing_month,\n    customer_id",
+                        "viewLanguage": "SQL"
+                    }
                 }
             ]
         }
@@ -690,7 +794,26 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "dbt-test-with-external-metadata-files",
+        "runId": "dbt-test-with-complex-owner-patterns",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.actor,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"source\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-complex-owner-patterns",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -700,14 +823,14 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.actor,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.actor,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "model_maturity": "in dev",
                             "some_other_property": "test 1",
-                            "owner": "@alice1",
+                            "owner": "ML User(alice1@gmail.com)",
                             "node_type": "source",
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE",
@@ -719,7 +842,7 @@
                         "externalUrl": null,
                         "name": "actor",
                         "qualifiedName": null,
-                        "description": "postgres comment: Actors table \u2013 from postgres\n\ndbt model description: description for actor table from dbt",
+                        "description": "description for actor table from dbt",
                         "uri": null,
                         "tags": []
                     }
@@ -748,7 +871,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "source.sample_dbt.pagila.actor",
-                        "platform": "urn:li:dataPlatform:postgres",
+                        "platform": "urn:li:dataPlatform:dbt",
                         "version": 0,
                         "created": {
                             "time": 0,
@@ -791,7 +914,7 @@
                                 "fieldPath": "first_name",
                                 "jsonPath": null,
                                 "nullable": false,
-                                "description": "postgres comment: Actors column \u2013 from postgres\n\ndbt model description: description for first_name from dbt",
+                                "description": "dbt comment: Actors column \u2013 from postgres\n\ndbt model description: description for first_name from dbt",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -849,6 +972,22 @@
                         "foreignKeysSpecs": null,
                         "foreignKeys": null
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown",
+                                    "impersonator": null
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.actor,PROD)",
+                                "type": "TRANSFORMED"
+                            }
+                        ],
+                        "fineGrainedLineages": null
+                    }
                 }
             ]
         }
@@ -856,7 +995,26 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "dbt-test-with-external-metadata-files",
+        "runId": "dbt-test-with-complex-owner-patterns",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.address,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"source\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-complex-owner-patterns",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -866,7 +1024,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.address,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.address,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -895,7 +1053,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "source.sample_dbt.pagila.address",
-                        "platform": "urn:li:dataPlatform:postgres",
+                        "platform": "urn:li:dataPlatform:dbt",
                         "version": 0,
                         "created": {
                             "time": 0,
@@ -1058,6 +1216,22 @@
                         "foreignKeysSpecs": null,
                         "foreignKeys": null
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown",
+                                    "impersonator": null
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.address,PROD)",
+                                "type": "TRANSFORMED"
+                            }
+                        ],
+                        "fineGrainedLineages": null
+                    }
                 }
             ]
         }
@@ -1065,7 +1239,26 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "dbt-test-with-external-metadata-files",
+        "runId": "dbt-test-with-complex-owner-patterns",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.category,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"source\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-complex-owner-patterns",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -1075,7 +1268,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.category,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.category,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -1104,7 +1297,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "source.sample_dbt.pagila.category",
-                        "platform": "urn:li:dataPlatform:postgres",
+                        "platform": "urn:li:dataPlatform:dbt",
                         "version": 0,
                         "created": {
                             "time": 0,
@@ -1182,6 +1375,22 @@
                         "foreignKeysSpecs": null,
                         "foreignKeys": null
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown",
+                                    "impersonator": null
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.category,PROD)",
+                                "type": "TRANSFORMED"
+                            }
+                        ],
+                        "fineGrainedLineages": null
+                    }
                 }
             ]
         }
@@ -1189,7 +1398,26 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "dbt-test-with-external-metadata-files",
+        "runId": "dbt-test-with-complex-owner-patterns",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.city,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"source\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-complex-owner-patterns",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -1199,7 +1427,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.city,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.city,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -1215,7 +1443,7 @@
                         "externalUrl": null,
                         "name": "city",
                         "qualifiedName": null,
-                        "description": null,
+                        "description": "",
                         "uri": null,
                         "tags": []
                     }
@@ -1228,7 +1456,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "source.sample_dbt.pagila.city",
-                        "platform": "urn:li:dataPlatform:postgres",
+                        "platform": "urn:li:dataPlatform:dbt",
                         "version": 0,
                         "created": {
                             "time": 0,
@@ -1323,6 +1551,22 @@
                         "foreignKeysSpecs": null,
                         "foreignKeys": null
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown",
+                                    "impersonator": null
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.city,PROD)",
+                                "type": "TRANSFORMED"
+                            }
+                        ],
+                        "fineGrainedLineages": null
+                    }
                 }
             ]
         }
@@ -1330,7 +1574,26 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "dbt-test-with-external-metadata-files",
+        "runId": "dbt-test-with-complex-owner-patterns",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.country,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"source\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-complex-owner-patterns",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -1340,13 +1603,13 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.country,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.country,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "model_maturity": "in prod",
-                            "owner": "@bob",
+                            "owner": "bob@gmail.com",
                             "some_other_property": "test 2",
                             "node_type": "source",
                             "dbt_file_path": "models/base.yml",
@@ -1359,7 +1622,7 @@
                         "externalUrl": null,
                         "name": "country",
                         "qualifiedName": null,
-                        "description": null,
+                        "description": "",
                         "uri": null,
                         "tags": []
                     }
@@ -1388,7 +1651,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "source.sample_dbt.pagila.country",
-                        "platform": "urn:li:dataPlatform:postgres",
+                        "platform": "urn:li:dataPlatform:dbt",
                         "version": 0,
                         "created": {
                             "time": 0,
@@ -1466,6 +1729,22 @@
                         "foreignKeysSpecs": null,
                         "foreignKeys": null
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown",
+                                    "impersonator": null
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.country,PROD)",
+                                "type": "TRANSFORMED"
+                            }
+                        ],
+                        "fineGrainedLineages": null
+                    }
                 }
             ]
         }
@@ -1473,7 +1752,26 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "dbt-test-with-external-metadata-files",
+        "runId": "dbt-test-with-complex-owner-patterns",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"source\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-complex-owner-patterns",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -1483,7 +1781,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.customer,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -1512,7 +1810,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "source.sample_dbt.pagila.customer",
-                        "platform": "urn:li:dataPlatform:postgres",
+                        "platform": "urn:li:dataPlatform:dbt",
                         "version": 0,
                         "created": {
                             "time": 0,
@@ -1709,6 +2007,22 @@
                         "foreignKeysSpecs": null,
                         "foreignKeys": null
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown",
+                                    "impersonator": null
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.customer,PROD)",
+                                "type": "TRANSFORMED"
+                            }
+                        ],
+                        "fineGrainedLineages": null
+                    }
                 }
             ]
         }
@@ -1716,7 +2030,26 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "dbt-test-with-external-metadata-files",
+        "runId": "dbt-test-with-complex-owner-patterns",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_01,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"source\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-complex-owner-patterns",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -1726,7 +2059,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_01,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_01,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -1742,7 +2075,7 @@
                         "externalUrl": null,
                         "name": "payment_p2020_01",
                         "qualifiedName": null,
-                        "description": null,
+                        "description": "",
                         "uri": null,
                         "tags": []
                     }
@@ -1755,7 +2088,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "source.sample_dbt.pagila.payment_p2020_01",
-                        "platform": "urn:li:dataPlatform:postgres",
+                        "platform": "urn:li:dataPlatform:dbt",
                         "version": 0,
                         "created": {
                             "time": 0,
@@ -1884,6 +2217,22 @@
                         "foreignKeysSpecs": null,
                         "foreignKeys": null
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown",
+                                    "impersonator": null
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_01,PROD)",
+                                "type": "TRANSFORMED"
+                            }
+                        ],
+                        "fineGrainedLineages": null
+                    }
                 }
             ]
         }
@@ -1891,7 +2240,26 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "dbt-test-with-external-metadata-files",
+        "runId": "dbt-test-with-complex-owner-patterns",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_02,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"source\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-complex-owner-patterns",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -1901,14 +2269,14 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_02,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_02,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "an_array_property": "['alpha', 'beta', 'charlie']",
                             "model_maturity": "in prod",
-                            "owner": "@charles",
+                            "owner": "Analytics User(charles@gmail.com)",
                             "some_other_property": "test 3",
                             "node_type": "source",
                             "dbt_file_path": "models/base.yml",
@@ -1921,7 +2289,7 @@
                         "externalUrl": null,
                         "name": "payment_p2020_02",
                         "qualifiedName": null,
-                        "description": null,
+                        "description": "",
                         "uri": null,
                         "tags": []
                     }
@@ -1950,7 +2318,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "source.sample_dbt.pagila.payment_p2020_02",
-                        "platform": "urn:li:dataPlatform:postgres",
+                        "platform": "urn:li:dataPlatform:dbt",
                         "version": 0,
                         "created": {
                             "time": 0,
@@ -2079,6 +2447,22 @@
                         "foreignKeysSpecs": null,
                         "foreignKeys": null
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown",
+                                    "impersonator": null
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_02,PROD)",
+                                "type": "TRANSFORMED"
+                            }
+                        ],
+                        "fineGrainedLineages": null
+                    }
                 }
             ]
         }
@@ -2086,7 +2470,26 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "dbt-test-with-external-metadata-files",
+        "runId": "dbt-test-with-complex-owner-patterns",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_03,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"source\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-complex-owner-patterns",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -2096,7 +2499,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_03,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_03,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -2112,7 +2515,7 @@
                         "externalUrl": null,
                         "name": "payment_p2020_03",
                         "qualifiedName": null,
-                        "description": null,
+                        "description": "",
                         "uri": null,
                         "tags": []
                     }
@@ -2125,7 +2528,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "source.sample_dbt.pagila.payment_p2020_03",
-                        "platform": "urn:li:dataPlatform:postgres",
+                        "platform": "urn:li:dataPlatform:dbt",
                         "version": 0,
                         "created": {
                             "time": 0,
@@ -2254,6 +2657,22 @@
                         "foreignKeysSpecs": null,
                         "foreignKeys": null
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown",
+                                    "impersonator": null
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_03,PROD)",
+                                "type": "TRANSFORMED"
+                            }
+                        ],
+                        "fineGrainedLineages": null
+                    }
                 }
             ]
         }
@@ -2261,7 +2680,26 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "dbt-test-with-external-metadata-files",
+        "runId": "dbt-test-with-complex-owner-patterns",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_04,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"source\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-complex-owner-patterns",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -2271,7 +2709,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_04,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_04,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -2287,7 +2725,7 @@
                         "externalUrl": null,
                         "name": "payment_p2020_04",
                         "qualifiedName": null,
-                        "description": null,
+                        "description": "",
                         "uri": null,
                         "tags": []
                     }
@@ -2300,7 +2738,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "source.sample_dbt.pagila.payment_p2020_04",
-                        "platform": "urn:li:dataPlatform:postgres",
+                        "platform": "urn:li:dataPlatform:dbt",
                         "version": 0,
                         "created": {
                             "time": 0,
@@ -2429,6 +2867,22 @@
                         "foreignKeysSpecs": null,
                         "foreignKeys": null
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown",
+                                    "impersonator": null
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_04,PROD)",
+                                "type": "TRANSFORMED"
+                            }
+                        ],
+                        "fineGrainedLineages": null
+                    }
                 }
             ]
         }
@@ -2436,7 +2890,26 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "dbt-test-with-external-metadata-files",
+        "runId": "dbt-test-with-complex-owner-patterns",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_05,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"source\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-complex-owner-patterns",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -2446,7 +2919,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_05,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_05,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -2475,7 +2948,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "source.sample_dbt.pagila.payment_p2020_05",
-                        "platform": "urn:li:dataPlatform:postgres",
+                        "platform": "urn:li:dataPlatform:dbt",
                         "version": 0,
                         "created": {
                             "time": 0,
@@ -2604,6 +3077,22 @@
                         "foreignKeysSpecs": null,
                         "foreignKeys": null
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown",
+                                    "impersonator": null
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_05,PROD)",
+                                "type": "TRANSFORMED"
+                            }
+                        ],
+                        "fineGrainedLineages": null
+                    }
                 }
             ]
         }
@@ -2611,7 +3100,7 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "dbt-test-with-external-metadata-files",
+        "runId": "dbt-test-with-complex-owner-patterns",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -2621,163 +3110,22 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_06,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.dbt_postgres.an-aliased-view-for-monthly-billing,PROD)",
             "aspects": [
                 {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {
-                            "node_type": "source",
-                            "dbt_file_path": "models/base.yml",
-                            "catalog_type": "BASE TABLE",
-                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
-                            "manifest_version": "0.19.1",
-                            "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
-                            "catalog_version": "0.19.1"
-                        },
-                        "externalUrl": null,
-                        "name": "payment_p2020_06",
-                        "qualifiedName": null,
-                        "description": null,
-                        "uri": null,
-                        "tags": []
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "source.sample_dbt.pagila.payment_p2020_06",
-                        "platform": "urn:li:dataPlatform:postgres",
-                        "version": 0,
-                        "created": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
-                        },
-                        "lastModified": {
-                            "time": -62135596800000,
-                            "actor": "urn:li:corpuser:dbt_executor",
-                            "impersonator": null
-                        },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
-                        "hash": "",
-                        "platformSchema": {
-                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
-                                "tableSchema": ""
-                            }
-                        },
-                        "fields": [
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
                             {
-                                "fieldPath": "amount",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown",
+                                    "impersonator": null
                                 },
-                                "nativeDataType": "numeric(5,2)",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            },
-                            {
-                                "fieldPath": "customer_id",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "integer",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            },
-                            {
-                                "fieldPath": "payment_date",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
-                                    }
-                                },
-                                "nativeDataType": "timestamp with time zone",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            },
-                            {
-                                "fieldPath": "payment_id",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "integer",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            },
-                            {
-                                "fieldPath": "rental_id",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "integer",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            },
-                            {
-                                "fieldPath": "staff_id",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "integer",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-monthly-billing,PROD)",
+                                "type": "TRANSFORMED"
                             }
                         ],
-                        "primaryKeys": null,
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
+                        "fineGrainedLineages": null
                     }
                 }
             ]
@@ -2786,7 +3134,75 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "dbt-test-with-external-metadata-files",
+        "runId": "dbt-test-with-complex-owner-patterns",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.dbt_postgres.an-aliased-view-for-payments,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown",
+                                    "impersonator": null
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-payments,PROD)",
+                                "type": "TRANSFORMED"
+                            }
+                        ],
+                        "fineGrainedLineages": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-complex-owner-patterns",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.dbt_postgres.payments_by_customer_by_month,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown",
+                                    "impersonator": null
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.payments_by_customer_by_month,PROD)",
+                                "type": "TRANSFORMED"
+                            }
+                        ],
+                        "fineGrainedLineages": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-complex-owner-patterns",
         "registryName": null,
         "registryVersion": null,
         "properties": null

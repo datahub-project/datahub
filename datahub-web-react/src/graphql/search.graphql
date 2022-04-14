@@ -38,6 +38,7 @@ fragment searchResultFields on Entity {
         properties {
             name
             description
+            qualifiedName
             customProperties {
                 key
                 value
