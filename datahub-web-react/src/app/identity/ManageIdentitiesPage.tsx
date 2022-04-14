@@ -23,6 +23,9 @@ const PageTitle = styled(Typography.Title)`
 `;
 
 const Content = styled.div`
+    &&& .ant-tabs-nav {
+        margin: 0;
+    }
     color: #262626;
     height: calc(100vh - 60px);
 
