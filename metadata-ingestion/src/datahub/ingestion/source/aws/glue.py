@@ -339,7 +339,7 @@ class GlueSource(Source):
                         flow_urn,
                         f"Unrecognized Glue data object type: {node_args}. Skipping.",
                     )
-
+                    return None
                 else:
 
                     raise ValueError(f"Unrecognized Glue data object type: {node_args}")
