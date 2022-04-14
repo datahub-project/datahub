@@ -12,13 +12,16 @@ source:
         database: # Your Hive database name, e.g. SampleDatabase (Optional, if not specified, ingests from all databases)
 
         # Credentials
-        username: # Your Hive username, e.g. admin
-        password: # Your Hive password, e.g. password_01
+        # Add secret in Secrets Tab with relevant names for each variable
+        username: "\${HIVE_USERNAME}" # Your Hive username, e.g. admin
+        password: "\${HIVE_PASSWORD}"# Your Hive password, e.g. password_01
 
 sink: 
     type: datahub-rest
     config: 
-        server: "${baseUrl}/api/gms"`;
+        server: "${baseUrl}/api/gms"
+        # Add a secret in secrets Tab
+        token: "\${GMS_TOKEN}"`;
 
 const hiveConfig: SourceConfig = {
     type: 'hive',
