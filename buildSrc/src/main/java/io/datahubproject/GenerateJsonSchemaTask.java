@@ -167,7 +167,7 @@ public class GenerateJsonSchemaTask extends DefaultTask {
       String prettySchema = JacksonUtils.prettyPrint(result);
       if (!filenames.add(file.getName())) {
         Path absolutePath = file.getAbsoluteFile().toPath();
-          if (absolutePath.endsWith(Paths.get("com/linkedin/metadata/aspect/EnvelopedAspect.avsc"))) {
+          if (absolutePath.endsWith(Paths.get("com", "linkedin", "metadata", "aspect", "EnvelopedAspect.avsc"))) {
             fileBaseName = "EnvelopedTimeseriesAspect";
             prettySchema = prettySchema.replaceAll("EnvelopedAspect", "EnvelopedTimeseriesAspect");
           } else {

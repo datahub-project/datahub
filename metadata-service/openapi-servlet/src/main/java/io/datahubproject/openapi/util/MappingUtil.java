@@ -25,6 +25,8 @@ import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.openapi.dto.RollbackRunResultDto;
 import io.datahubproject.openapi.dto.UpsertAspectRequest;
 import io.datahubproject.openapi.generated.AspectRowSummary;
+import io.datahubproject.openapi.generated.AspectType;
+import io.datahubproject.openapi.generated.AuditStamp;
 import io.datahubproject.openapi.generated.EntityResponse;
 import io.datahubproject.openapi.generated.EnvelopedAspect;
 import io.datahubproject.openapi.generated.MetadataChangeProposal;
@@ -33,6 +35,7 @@ import io.datahubproject.openapi.generated.Status;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -117,15 +120,13 @@ public class MappingUtil {
 
   public static EnvelopedAspect mapEnvelopedAspect(com.linkedin.entity.EnvelopedAspect envelopedAspect,
       ObjectMapper objectMapper) {
-    // TODO: This shouldn't be necessary, but test out what triggers build failures in CI
-    return new EnvelopedAspect();
-//    return new EnvelopedAspect()
-//        .name(envelopedAspect.getName())
-//        .timestamp(envelopedAspect.getTimestamp())
-//        .version(envelopedAspect.getVersion())
-//        .type(AspectType.fromValue(envelopedAspect.getType().name().toUpperCase(Locale.ROOT)))
-//        .created(objectMapper.convertValue(envelopedAspect.getCreated().data(), AuditStamp.class))
-//        .value(mapAspectValue(envelopedAspect.getName(), envelopedAspect.getValue(), objectMapper));
+    return new EnvelopedAspect()
+        .name(envelopedAspect.getName())
+        .timestamp(envelopedAspect.getTimestamp())
+        .version(envelopedAspect.getVersion())
+        .type(AspectType.fromValue(envelopedAspect.getType().name().toUpperCase(Locale.ROOT)))
+        .created(objectMapper.convertValue(envelopedAspect.getCreated().data(), AuditStamp.class))
+        .value(mapAspectValue(envelopedAspect.getName(), envelopedAspect.getValue(), objectMapper));
   }
 
   public static OneOfEnvelopedAspectValue mapAspectValue(String aspectName, Aspect aspect, ObjectMapper objectMapper) {
