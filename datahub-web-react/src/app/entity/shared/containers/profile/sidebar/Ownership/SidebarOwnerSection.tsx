@@ -18,12 +18,7 @@ export const SidebarOwnerSection = ({ properties }: { properties?: any }) => {
             <SidebarHeader title="Owners" />
             <div>
                 {entityData?.ownership?.owners?.map((owner) => (
-                    <ExpandedOwner
-                        key={owner.owner.editableProperties?.email || owner.owner.properties?.displayName}
-                        entityUrn={urn}
-                        owner={owner}
-                        refetch={refetch}
-                    />
+                    <ExpandedOwner key={owner.owner.urn} entityUrn={urn} owner={owner} refetch={refetch} />
                 ))}
                 {ownersEmpty && (
                     <Typography.Paragraph type="secondary">

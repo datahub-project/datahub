@@ -120,7 +120,7 @@ curl --location --request POST 'http://localhost:8080/aspects?action=ingestPropo
 Notice that you need to provide the target entity urn, the entity type, a change type (`UPSERT` + `DELETE` supported),
 the aspect name, and a JSON-serialized aspect, which corresponds to the PDL schema defined for the aspect.
 
-For more examples of serialized aspect payloads, see [bootstrap_mce.json](https://github.com/linkedin/datahub/blob/master/metadata-ingestion/examples/mce_files/bootstrap_mce.json).
+For more examples of serialized aspect payloads, see [bootstrap_mce.json](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/mce_files/bootstrap_mce.json).
 
 #### Ingesting Entities (Legacy)
 

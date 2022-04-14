@@ -10,7 +10,15 @@ source:
       - provider: env
         path_key: MYSQL_CONNECTION_URL
         value: jdbc:mysql://test_mysql:3306/librarydb
+      - provider: env
+        path_key: POSTGRES_CONNECTION_URL
+        value: jdbc:postgresql://test_postgres:5432/postgres
     construct_lineage_workunits: true
+    platform_instance_map:   # optional
+      mysql: mysql1      # optional
+    connect_to_platform_map: # optional
+      postgres_source:     # optional - Connector name
+        postgres: postgres1  # optional - Platform to instance map
 
 # see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:

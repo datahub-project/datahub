@@ -1,7 +1,6 @@
 package com.linkedin.metadata.resources.entity;
 
 import com.codahale.metrics.MetricRegistry;
-import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.entity.EntityService;
@@ -25,8 +24,8 @@ import javax.inject.Inject;
 import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.resources.restli.RestliConstants.*;
-import static com.linkedin.metadata.utils.PegasusUtils.*;
+import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_ASPECTS;
+import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 
 
 /**
@@ -54,14 +53,12 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
       final String entityName = urnToEntityName(urn);
       final Set<String> projectedAspects =
           aspectNames == null ? getAllAspectNames(entityName) : new HashSet<>(Arrays.asList(aspectNames));
-      Map<Urn, EntityResponse> entities;
       try {
-        entities = _entityService.getEntitiesV2(entityName, ImmutableSet.of(urn), projectedAspects);
+        return _entityService.getEntityV2(entityName, urn, projectedAspects);
       } catch (Exception e) {
         throw new RuntimeException(
             String.format("Failed to get entity with urn: %s, aspects: %s", urn, projectedAspects), e);
       }
-      return entities.get(urn);
     }, MetricRegistry.name(this.getClass(), "get"));
   }
 

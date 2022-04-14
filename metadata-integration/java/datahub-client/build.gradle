@@ -12,10 +12,10 @@ import org.apache.tools.ant.filters.ReplaceTokens
 jar.enabled = false // Since we only want to build shadow jars, disabling the regular jar creation
 
 dependencies {
-   
+
     implementation project(':metadata-models')
     shadow externalDependency.httpAsyncClient // we want our clients to provide this
-    implementation externalDependency.jacksonDataBind 
+    implementation externalDependency.jacksonDataBind
     compileOnly externalDependency.lombok
     annotationProcessor externalDependency.lombok
     testCompile externalDependency.httpAsyncClient // needed as shadow excludes it
@@ -72,7 +72,7 @@ if (project.hasProperty("releaseVersion")) {
           version = versionParts[0..versionParts.size()-1].join('.') + '-SNAPSHOT'
       }
     }
- 
+
     processResources {
       filter(ReplaceTokens, tokens:[fullVersion: detailedVersionString])
     }
@@ -82,7 +82,7 @@ test {
   finalizedBy jacocoTestReport
 }
 
-task checkShadowJar(type: Exec) { 
+task checkShadowJar(type: Exec) {
    commandLine 'sh', '-c', 'scripts/check_jar.sh'
 }
 
@@ -130,7 +130,7 @@ task sourcesJar(type: Jar) {
 }
 
 task javadocJar(type: Jar) {
-    archiveClassifier = 'javadoc'  
+    archiveClassifier = 'javadoc'
     from javadoc
 }
 
@@ -148,9 +148,9 @@ publishing {
         artifacts = [ shadowJar, javadocJar, sourcesJar ]
 
         scm {
-          connection = 'scm:git:git://github.com/linkedin/datahub.git'
-          developerConnection = 'scm:git:ssh://github.com:linkedin/datahub.git'
-          url = 'https://github.com/linkedin/datahub.git'
+          connection = 'scm:git:git://github.com/datahub-project/datahub.git'
+          developerConnection = 'scm:git:ssh://github.com:datahub-project/datahub.git'
+          url = 'https://github.com/datahub-project/datahub.git'
         }
 
         licenses {

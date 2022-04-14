@@ -43,7 +43,7 @@ jobs:
           python-version: "3.6"
       - name: checkout upstream repo
         run: |
-          git remote add upstream https://github.com/linkedin/datahub.git
+          git remote add upstream https://github.com/datahub-project/datahub.git
           git fetch upstream --tags --force
       - name: publish datahub-client jar
         env:

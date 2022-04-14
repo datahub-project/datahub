@@ -12,7 +12,7 @@ import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.EntityKeyUtils;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import javax.annotation.Nonnull;
 import javax.inject.Singleton;
@@ -109,7 +109,7 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
       log.error("Error while processing entity type {}: {}", event.getEntityType(), e.toString());
       throw new RuntimeException("Failed to get Ingestion Source info from MetadataChangeLog event. Skipping processing.", e);
     }
-    return (DataHubIngestionSourceInfo) GenericAspectUtils.deserializeAspect(
+    return (DataHubIngestionSourceInfo) GenericRecordUtils.deserializeAspect(
         event.getAspect().getValue(),
         event.getAspect().getContentType(),
         entitySpec.getAspectSpec(Constants.INGESTION_INFO_ASPECT_NAME));
