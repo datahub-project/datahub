@@ -174,4 +174,39 @@ entities:
     keyAspect: dataPlatformInstanceKey
     aspects:
       - status
+  - name: mlModel
+    category: core
+    keyAspect: mlModelKey
+    aspects:
+      - glossaryTerms
+      - editableMlModelProperties
+      - domains
+  - name: mlModelGroup
+    category: core
+    keyAspect: mlModelGroupKey
+    aspects:
+      - glossaryTerms
+      - editableMlModelGroupProperties
+      - domains
+  - name: mlFeatureTable
+    category: core
+    keyAspect: mlFeatureTableKey
+    aspects:
+      - glossaryTerms
+      - editableMlFeatureTableProperties
+      - domains
+  - name: mlFeature
+    category: core
+    keyAspect: mlFeatureKey
+    aspects:
+      - glossaryTerms
+      - editableMlFeatureProperties
+      - domains
+  - name: mlPrimaryKey
+    category: core
+    keyAspect: mlPrimaryKeyKey
+    aspects:
+      - glossaryTerms
+      - editableMlPrimaryKeyProperties
+      - domains
 events:
