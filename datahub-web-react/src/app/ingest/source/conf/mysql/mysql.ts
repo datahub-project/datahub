@@ -12,8 +12,9 @@ source:
         database: # Your MySQL database name, e.g. datahub
     
         # Credentials
-        username: # Your MySQL username, e.g. admin
-        password: # Your MySQL password, e.g. password_01
+        # Add secret in Secrets Tab with relevant names for each variable
+        username: "\${MYSQL_USERNAME}" # Your MySQL username, e.g. admin
+        password: "\${MYSQL_PASSWORD}" # Your MySQL password, e.g. password_01
 
         # Options
         include_tables: True
@@ -26,7 +27,8 @@ sink:
     type: datahub-rest 
     config: 
         server: "${baseUrl}/gms"
-        token: "<your-api-token-secret-here>"`;
+        # Add a secret in secrets Tab
+        token: "\${GMS_TOKEN}"`;
 
 const mysqlConfig: SourceConfig = {
     type: 'mysql',
