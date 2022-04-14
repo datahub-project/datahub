@@ -3,6 +3,14 @@ import { Route, Switch, useRouteMatch, useLocation } from 'react-router-dom';
 import { Redirect, useHistory } from 'react-router';
 import { Tabs } from 'antd';
 import { TabsProps } from 'antd/lib/tabs';
+import styled from 'styled-components';
+
+const StyledTabs = styled(Tabs)`
+    &&& .ant-tabs-nav {
+        margin-bottom: 0;
+        padding-left: 28px;
+    }
+`;
 
 const { TabPane } = Tabs;
 
@@ -34,7 +42,7 @@ export const RoutedTabs = ({ defaultPath, tabs, onTabChange, ...props }: Props) 
     const activePath = subRoutes.includes(providedPath) ? providedPath : defaultPath.replace('/', '');
     return (
         <div>
-            <Tabs
+            <StyledTabs
                 defaultActiveKey={activePath}
                 activeKey={activePath}
                 size="large"
@@ -47,7 +55,7 @@ export const RoutedTabs = ({ defaultPath, tabs, onTabChange, ...props }: Props) 
                         <TabPane tab={tab.name} key={tab.path.replace('/', '')} disabled={!tab.display?.enabled()} />
                     );
                 })}
-            </Tabs>
+            </StyledTabs>
             <Switch>
                 <Route exact path={path}>
                     <Redirect to={`${pathname}${pathname.endsWith('/') ? '' : '/'}${defaultPath}`} />
