@@ -155,6 +155,8 @@ def _get_column_info(self, name, data_type, default,
             kwargs["fields"] = field_match.group(1)
         attype = "interval"
         args = ()
+    elif attype == "date":
+        args = ()
     elif charlen:
         args = (int(charlen),)
 
