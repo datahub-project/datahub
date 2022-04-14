@@ -8,6 +8,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.github.fge.jackson.JacksonUtils;
 import com.github.fge.jackson.JsonLoader;
 import com.github.fge.jsonschema.core.exceptions.ProcessingException;
+import groovy.util.logging.Slf4j;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -31,6 +32,7 @@ import static org.apache.commons.io.FilenameUtils.*;
 
 
 @CacheableTask
+@Slf4j
 public class GenerateJsonSchemaTask extends DefaultTask {
   private String inputDirectory;
   private String outputDirectory;
@@ -167,6 +169,7 @@ public class GenerateJsonSchemaTask extends DefaultTask {
       String prettySchema = JacksonUtils.prettyPrint(result);
       if (!filenames.add(file.getName())) {
         Path absolutePath = file.getAbsoluteFile().toPath();
+        getLogger().info(absolutePath.toString());
           if (absolutePath.endsWith(Paths.get("com", "linkedin", "metadata", "aspect", "EnvelopedAspect.avsc"))) {
             fileBaseName = "EnvelopedTimeseriesAspect";
             prettySchema = prettySchema.replaceAll("EnvelopedAspect", "EnvelopedTimeseriesAspect");
