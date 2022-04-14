@@ -1,8 +1,14 @@
 name: Publish Datahub Client
 
 on:
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
   release:
-    types: [published, edited]
+    types: [published]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -11,7 +17,6 @@ jobs:
 
   check-secret:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     outputs:
       publish-enabled: ${{ steps.publish-enabled.outputs.publish }}
     steps:
