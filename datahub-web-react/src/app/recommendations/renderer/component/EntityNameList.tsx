@@ -41,6 +41,9 @@ const ThinDivider = styled(Divider)`
 type AdditionalProperties = {
     degree?: number;
 };
+type ListStyle = {
+    height: string;
+};
 
 type Props = {
     // additional data about the search result that is not part of the entity used to enrich the
@@ -49,9 +52,10 @@ type Props = {
     additionalPropertiesList?: Array<AdditionalProperties>;
     entities: Array<Entity>;
     onClick?: (index: number) => void;
+    style?: ListStyle | null;
 };
 
-export const EntityNameList = ({ additionalPropertiesList, entities, onClick }: Props) => {
+export const EntityNameList = ({ additionalPropertiesList, entities, onClick, style }: Props) => {
     const entityRegistry = useEntityRegistry();
     if (
         additionalPropertiesList?.length !== undefined &&
@@ -65,7 +69,7 @@ export const EntityNameList = ({ additionalPropertiesList, entities, onClick }: 
     }
     return (
         <StyledList
-            className="embeddedListSearchClass"
+            style={style ? { height: style.height, overflowY: 'auto' } : {}}
             bordered
             dataSource={entities}
             renderItem={(entity, index) => {

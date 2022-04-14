@@ -3,6 +3,9 @@ import { useEffect, useState } from 'react';
 import { FacetMetadata } from '../../types.generated';
 import { SearchFilter } from './SearchFilter';
 
+type ListStyle = {
+    height: string;
+};
 interface Props {
     facets: Array<FacetMetadata>;
     selectedFilters: Array<{
@@ -16,9 +19,10 @@ interface Props {
         }>,
     ) => void;
     loading: boolean;
+    style?: ListStyle | null;
 }
 
-export const SearchFilters = ({ facets, selectedFilters, onFilterSelect, loading }: Props) => {
+export const SearchFilters = ({ facets, selectedFilters, onFilterSelect, loading, style }: Props) => {
     const [cachedProps, setCachedProps] = useState<{
         facets: Array<FacetMetadata>;
         selectedFilters: Array<{
@@ -46,7 +50,7 @@ export const SearchFilters = ({ facets, selectedFilters, onFilterSelect, loading
     };
 
     return (
-        <>
+        <div style={style ? { height: style.height, overflowY: 'auto' } : {}}>
             {cachedProps.facets.map((facet) => (
                 <SearchFilter
                     key={`${facet.displayName}-${facet.field}`}
@@ -55,6 +59,6 @@ export const SearchFilters = ({ facets, selectedFilters, onFilterSelect, loading
                     onFilterSelect={onFilterSelectAndSetCache}
                 />
             ))}
-        </>
+        </div>
     );
 };

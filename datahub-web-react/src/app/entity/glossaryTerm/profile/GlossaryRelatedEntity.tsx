@@ -1,16 +1,8 @@
 import { Col, Row } from 'antd';
 import * as React from 'react';
-import styled from 'styled-components';
 import { EmbeddedListSearch } from '../../shared/components/styled/search/EmbeddedListSearch';
 
 import { useEntityData } from '../../shared/EntityContext';
-
-const GroupAssetsWrapper = styled(Row)`
-    && .embeddedListSearchClass {
-        height: calc(100vh - 336px);
-        overflow-y: auto;
-    }
-`;
 
 export default function GlossaryRelatedEntity() {
     const { entityData }: any = useEntityData();
@@ -18,14 +10,15 @@ export default function GlossaryRelatedEntity() {
     const fixedQueryString = `glossaryTerms:"${glossaryTermHierarchicalName}" OR fieldGlossaryTerms:"${glossaryTermHierarchicalName}" OR editedFieldGlossaryTerms:"${glossaryTermHierarchicalName}"`;
 
     return (
-        <GroupAssetsWrapper>
+        <Row>
             <Col md={24} lg={24} xl={24}>
                 <EmbeddedListSearch
+                    style={{ height: 'calc(100vh - 336px)' }}
                     fixedQuery={fixedQueryString}
                     emptySearchQuery="*"
                     placeholderText="Filter entities..."
                 />
             </Col>
-        </GroupAssetsWrapper>
+        </Row>
     );
 }

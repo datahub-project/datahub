@@ -50,6 +50,9 @@ export const addFixedQuery = (baseQuery: string, fixedQuery: string, emptyQuery:
 type SearchPageParams = {
     type?: string;
 };
+type ListStyle = {
+    height: string;
+};
 
 type Props = {
     emptySearchQuery?: string | null;
@@ -62,6 +65,7 @@ type Props = {
         error: ApolloError | undefined;
         refetch: (variables: GetSearchResultsParams['variables']) => Promise<SearchResultsInterface | undefined | null>;
     };
+    style?: ListStyle | null;
 };
 
 export const EmbeddedListSearch = ({
@@ -70,6 +74,7 @@ export const EmbeddedListSearch = ({
     fixedQuery,
     placeholderText,
     useGetSearchResults = useWrappedSearchResults,
+    style,
 }: Props) => {
     const history = useHistory();
     const location = useLocation();
@@ -181,6 +186,7 @@ export const EmbeddedListSearch = ({
                 onChangePage={onChangePage}
                 page={page}
                 showFilters={showFilters}
+                style={style}
             />
         </Container>
     );

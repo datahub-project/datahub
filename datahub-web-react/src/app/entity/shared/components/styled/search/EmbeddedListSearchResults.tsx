@@ -80,6 +80,10 @@ const LoadingContainer = styled.div`
     text-align: center;
 `;
 
+type ListStyle = {
+    height: string;
+};
+
 interface Props {
     page: number;
     searchResponse?: SearchResultType | null;
@@ -89,6 +93,7 @@ interface Props {
     showFilters?: boolean;
     onChangeFilters: (filters: Array<FacetFilterInput>) => void;
     onChangePage: (page: number) => void;
+    style?: ListStyle | null;
 }
 
 export const EmbeddedListSearchResults = ({
@@ -100,6 +105,7 @@ export const EmbeddedListSearchResults = ({
     showFilters,
     onChangeFilters,
     onChangePage,
+    style,
 }: Props) => {
     const pageStart = searchResponse?.start || 0;
     const pageSize = searchResponse?.count || 0;
@@ -118,6 +124,7 @@ export const EmbeddedListSearchResults = ({
                         <FiltersHeader>Filter</FiltersHeader>
                         <SearchFilterContainer>
                             <SearchFilters
+                                style={style}
                                 loading={loading}
                                 facets={filters || []}
                                 selectedFilters={selectedFilters}
@@ -136,6 +143,7 @@ export const EmbeddedListSearchResults = ({
                     {!loading && (
                         <>
                             <EntityNameList
+                                style={style}
                                 entities={
                                     searchResponse?.searchResults?.map((searchResult) => searchResult.entity) || []
                                 }
