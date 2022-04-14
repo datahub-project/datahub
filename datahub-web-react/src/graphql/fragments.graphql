@@ -361,7 +361,7 @@ fragment nonRecursiveMLFeature on MLFeature {
     featureNamespace
     description
     dataType
-    featureProperties {
+    properties {
         description
         dataType
         version {
@@ -388,6 +388,18 @@ fragment nonRecursiveMLFeature on MLFeature {
     }
     status {
         removed
+    }
+    glossaryTerms {
+        ...glossaryTerms
+    }
+    domain {
+        ...entityDomain
+    }
+    tags {
+        ...globalTagsFields
+    }
+    editableProperties {
+        description
     }
     deprecation {
         ...deprecationFields
@@ -401,7 +413,7 @@ fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
     featureNamespace
     description
     dataType
-    primaryKeyProperties {
+    properties {
         description
         dataType
         version {
@@ -428,6 +440,18 @@ fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
     }
     status {
         removed
+    }
+    glossaryTerms {
+        ...glossaryTerms
+    }
+    domain {
+        ...entityDomain
+    }
+    tags {
+        ...globalTagsFields
+    }
+    editableProperties {
+        description
     }
     deprecation {
         ...deprecationFields
@@ -442,7 +466,7 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
         ...platformFields
     }
     description
-    featureTableProperties {
+    properties {
         description
         mlFeatures {
             ...nonRecursiveMLFeature
@@ -459,6 +483,18 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
     }
     status {
         removed
+    }
+    glossaryTerms {
+        ...glossaryTerms
+    }
+    domain {
+        ...entityDomain
+    }
+    tags {
+        ...globalTagsFields
+    }
+    editableProperties {
+        description
     }
     deprecation {
         ...deprecationFields
@@ -578,6 +614,18 @@ fragment nonRecursiveMLModel on MLModel {
     status {
         removed
     }
+    glossaryTerms {
+        ...glossaryTerms
+    }
+    domain {
+        ...entityDomain
+    }
+    tags {
+        ...globalTagsFields
+    }
+    editableProperties {
+        description
+    }
     deprecation {
         ...deprecationFields
     }
@@ -598,8 +646,23 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
     status {
         removed
     }
+    glossaryTerms {
+        ...glossaryTerms
+    }
+    domain {
+        ...entityDomain
+    }
+    tags {
+        ...globalTagsFields
+    }
+    editableProperties {
+        description
+    }
     deprecation {
         ...deprecationFields
+    }
+    properties {
+        description
     }
 }
 
