@@ -1,6 +1,12 @@
 name: Publish Datahub Java Jars (Client, Spark Lineage, Protobuf, Auth API)
 
 on:
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
   release:
     types: [published]
 
