@@ -191,7 +191,8 @@ public class SchemaDiffer implements Differ {
         // Check for rename, if rename coincides with other modifications we assume drop/add.
         // Assumes that two different fields on the same schema would not have the same description, terms,
         // or tags and share the same type
-        SchemaField renamedField = findRenamedField(curBaseField, targetFields, renamedFields);
+        SchemaField renamedField = findRenamedField(curBaseField,
+            targetFields.subList(targetFieldIdx, targetFields.size()), renamedFields);
         if (renamedField == null) {
           processRemoval(changeCategory, changeEvents, datasetUrn, curBaseField);
           ++baseFieldIdx;
@@ -205,7 +206,8 @@ public class SchemaDiffer implements Differ {
         }
       } else {
         // The targetField got added or a rename occurred. Forward & backwards compatible change + minor version bump.
-        SchemaField renamedField = findRenamedField(curTargetField, baseFields, renamedFields);
+        SchemaField renamedField = findRenamedField(curTargetField,
+            baseFields.subList(baseFieldIdx, baseFields.size()), renamedFields);
         if (renamedField == null) {
           processAdd(changeCategory, changeEvents, datasetUrn, curTargetField);
           ++targetFieldIdx;
@@ -285,7 +287,8 @@ public class SchemaDiffer implements Differ {
       String schemaFieldParentPath = schemaField.getFieldPath().substring(0, schemaFieldIndex);
       return StringUtils.isNotBlank(curFieldParentPath) && curFieldParentPath.equals(schemaFieldParentPath);
     }
-    return false;
+    // No parent field
+    return curFieldIndex < 0 && schemaFieldIndex < 0;
   }
 
   private static boolean descriptionsMatch(SchemaField curField, SchemaField schemaField) {
