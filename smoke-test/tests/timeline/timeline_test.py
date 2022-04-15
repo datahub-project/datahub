@@ -54,9 +54,9 @@ def test_schema():
     assert len(res_data[0]["changeEvents"]) == 6
     assert res_data[1]["semVerChange"] == "MAJOR"
     assert len(res_data[1]["changeEvents"]) == 3
-    assert res_data[2]["semVerChange"] == "MAJOR"
+    assert res_data[2]["semVerChange"] == "MINOR"
     assert len(res_data[2]["changeEvents"]) == 3
-    assert res_data[2]["semVer"] == "2.0.0-computed"
+    assert res_data[2]["semVer"] == "1.1.0-computed"
 
 
 def test_glossary():
