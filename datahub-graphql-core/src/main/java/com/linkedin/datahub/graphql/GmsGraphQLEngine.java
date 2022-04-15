@@ -52,6 +52,7 @@ import com.linkedin.datahub.graphql.generated.SearchAcrossLineageResult;
 import com.linkedin.datahub.graphql.generated.SearchResult;
 import com.linkedin.datahub.graphql.generated.UsageQueryResult;
 import com.linkedin.datahub.graphql.generated.UserUsageCounts;
+import com.linkedin.datahub.graphql.generated.VisualConfiguration;
 import com.linkedin.datahub.graphql.resolvers.AuthenticatedResolver;
 import com.linkedin.datahub.graphql.resolvers.MeResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.AssertionRunEventResolver;
@@ -221,6 +222,7 @@ public class GmsGraphQLEngine {
 
     private final IngestionConfiguration ingestionConfiguration;
     private final AuthorizationConfiguration authorizationConfiguration;
+    private final VisualConfiguration visualConfiguration;
 
     private final DatasetType datasetType;
     private final CorpUserType corpUserType;
@@ -286,7 +288,8 @@ public class GmsGraphQLEngine {
             null,
             null,
             null,
-            false);
+            false,
+            null);
     }
 
     public GmsGraphQLEngine(
@@ -303,7 +306,8 @@ public class GmsGraphQLEngine {
         final IngestionConfiguration ingestionConfiguration,
         final AuthorizationConfiguration authorizationConfiguration,
         final GitVersion gitVersion,
-        final boolean supportsImpactAnalysis
+        final boolean supportsImpactAnalysis,
+        final VisualConfiguration visualConfiguration
         ) {
 
         this.entityClient = entityClient;
@@ -322,6 +326,7 @@ public class GmsGraphQLEngine {
 
         this.ingestionConfiguration = Objects.requireNonNull(ingestionConfiguration);
         this.authorizationConfiguration = Objects.requireNonNull(authorizationConfiguration);
+        this.visualConfiguration = visualConfiguration;
 
         this.datasetType = new DatasetType(entityClient);
         this.corpUserType = new CorpUserType(entityClient);
@@ -558,7 +563,7 @@ public class GmsGraphQLEngine {
                 new AppConfigResolver(gitVersion, analyticsService != null,
                     this.ingestionConfiguration,
                     this.authorizationConfiguration,
-                    supportsImpactAnalysis))
+                    supportsImpactAnalysis, this.visualConfiguration))
             .dataFetcher("me", new AuthenticatedResolver<>(
                     new MeResolver(this.entityClient)))
             .dataFetcher("search", new AuthenticatedResolver<>(
