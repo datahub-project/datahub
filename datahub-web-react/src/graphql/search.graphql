@@ -334,6 +334,12 @@ fragment searchResultFields on Entity {
             ...deprecationFields
         }
     }
+    ... on MLFeature {
+        ...nonRecursiveMLFeature
+    }
+    ... on MLPrimaryKey {
+        ...nonRecursiveMLPrimaryKey
+    }
     ... on MLModel {
         name
         description
