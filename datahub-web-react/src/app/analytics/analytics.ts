@@ -25,6 +25,7 @@ export default {
             date: new Date().toString(),
             userAgent: navigator.userAgent,
             browserId: getBrowserId(),
+            origin: window.location.origin,
         };
         if (NODE_ENV === 'test') {
             return null;
@@ -41,6 +42,7 @@ export default {
             date: new Date().toString(),
             userAgent: navigator.userAgent,
             browserId: getBrowserId(),
+            origin: window.location.origin,
         };
         if (NODE_ENV === 'test') {
             return Promise.resolve();
