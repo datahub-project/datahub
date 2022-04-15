@@ -1,6 +1,8 @@
 package com.datahub.authorization;
 
 import com.linkedin.common.urn.Urn;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -84,26 +86,26 @@ public class AuthorizerChain implements Authorizer {
       return original;
     }
 
+    boolean isAllUsers = original.isAllUsers() || other.isAllUsers();
     List<Urn> mergedUsers;
-    if (original.isAllUsers()) {
-      // If original enabled for all users, take the other's users
-      mergedUsers = other.getUsers();
-    } else if (other.isAllUsers()) {
-      mergedUsers = original.getUsers();
+    if (isAllUsers) {
+      // If enabled for all users, no need to check users
+      mergedUsers = Collections.emptyList();
     } else {
-      Set<Urn> otherUsers = new HashSet<>(other.getUsers());
-      mergedUsers = original.getUsers().stream().filter(otherUsers::contains).collect(Collectors.toList());
+      Set<Urn> users = new HashSet<>(original.getUsers());
+      users.addAll(other.getUsers());
+      mergedUsers = new ArrayList<>(users);
     }
 
+    boolean isAllGroups = original.isAllGroups() || other.isAllGroups();
     List<Urn> mergedGroups;
-    if (original.isAllGroups()) {
-      // If original enabled for all users, take the other's users
-      mergedGroups = other.getGroups();
-    } else if (other.isAllUsers()) {
-      mergedGroups = original.getGroups();
+    if (isAllGroups) {
+      // If enabled for all users, no need to check users
+      mergedGroups = Collections.emptyList();
     } else {
-      Set<Urn> otherGroups = new HashSet<>(other.getGroups());
-      mergedGroups = original.getGroups().stream().filter(otherGroups::contains).collect(Collectors.toList());
+      Set<Urn> groups = new HashSet<>(original.getGroups());
+      groups.addAll(other.getGroups());
+      mergedGroups = new ArrayList<>(groups);
     }
 
     return AuthorizedActors.builder()
