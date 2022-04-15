@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.mutate;
 
+import com.datahub.authorization.AuthorizedActors;
 import com.datahub.authorization.DataHubAuthorizer;
 import com.datahub.authorization.ResourceSpec;
 import com.datahub.authentication.Authentication;
@@ -183,8 +184,8 @@ public class ProposalUtils {
       SubResourceType subResourceType,
       EntityService entityService,
       DataHubAuthorizer dataHubAuthorizer
-  ) throws URISyntaxException {
-    DataHubAuthorizer.AuthorizedActors actors = null;
+  ) {
+    AuthorizedActors actors = null;
 
     ResourceSpec spec = new ResourceSpec(targetUrn.getEntityType(), targetUrn.toString());
     if (subResource != null && subResource.length() > 0) {
@@ -273,8 +274,8 @@ public class ProposalUtils {
       SubResourceType subResourceType,
       EntityService entityService,
       DataHubAuthorizer dataHubAuthorizer
-  ) throws URISyntaxException {
-    DataHubAuthorizer.AuthorizedActors actors = null;
+  ) {
+    AuthorizedActors actors = null;
 
     if (subResource != null && subResource.length() > 0) {
       ResourceSpec spec = new ResourceSpec(targetUrn.getEntityType(), targetUrn.toString());
