@@ -2,6 +2,7 @@ from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from typing import Dict, Generic, Iterable, Optional, Tuple, TypeVar
 
+from datahub.emitter.mce_builder import set_dataset_urn_to_lower
 from datahub.ingestion.api.committable import Committable
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 
@@ -56,6 +57,14 @@ class PipelineContext:
         self.preview_mode = preview_mode
         self.reporters: Dict[str, Committable] = dict()
         self.checkpointers: Dict[str, Committable] = dict()
+        self._set_dataset_urn_to_lower_if_needed()
+
+    def _set_dataset_urn_to_lower_if_needed(self) -> None:
+        # TODO: Get rid of this function once lower-casing is the standard.
+        if self.graph:
+            server_config = self.graph.get_config()
+            if server_config and server_config.get("datasetUrnNameCasing"):
+                set_dataset_urn_to_lower(True)
 
     def register_checkpointer(self, committable: Committable) -> None:
         if committable.name in self.checkpointers:

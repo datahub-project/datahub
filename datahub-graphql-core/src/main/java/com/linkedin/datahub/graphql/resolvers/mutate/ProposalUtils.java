@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.mutate;
 
+import com.datahub.authorization.AuthorizedActors;
 import com.datahub.authorization.DataHubAuthorizer;
 import com.datahub.authorization.ResourceSpec;
 import com.datahub.authentication.Authentication;
@@ -51,7 +52,6 @@ import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaProposal;
 import com.linkedin.schema.SchemaProposalArray;
 import com.linkedin.schema.SchemaProposals;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -183,8 +183,8 @@ public class ProposalUtils {
       SubResourceType subResourceType,
       EntityService entityService,
       DataHubAuthorizer dataHubAuthorizer
-  ) throws URISyntaxException {
-    DataHubAuthorizer.AuthorizedActors actors = null;
+  ) {
+    AuthorizedActors actors = null;
 
     ResourceSpec spec = new ResourceSpec(targetUrn.getEntityType(), targetUrn.toString());
     if (subResource != null && subResource.length() > 0) {
@@ -273,8 +273,8 @@ public class ProposalUtils {
       SubResourceType subResourceType,
       EntityService entityService,
       DataHubAuthorizer dataHubAuthorizer
-  ) throws URISyntaxException {
-    DataHubAuthorizer.AuthorizedActors actors = null;
+  ) {
+    AuthorizedActors actors = null;
 
     if (subResource != null && subResource.length() > 0) {
       ResourceSpec spec = new ResourceSpec(targetUrn.getEntityType(), targetUrn.toString());

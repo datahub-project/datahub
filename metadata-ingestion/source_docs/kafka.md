@@ -31,10 +31,9 @@ For general pointers on writing and running a recipe, see our [main recipe guide
 source:
   type: "kafka"
   config:
-    # Coordinates
+    platform_instance: "YOUR_CLUSTER_ID"
     connection:
       bootstrap: "broker:9092"
-
       schema_registry_url: http://localhost:8081
 
 sink:
@@ -57,16 +56,17 @@ Pattern Type = LITERAL
 source:
   type: "kafka"
   config:
+    platform_instance: "YOUR_CLUSTER_ID"
     connection:
       bootstrap: "abc-defg.eu-west-1.aws.confluent.cloud:9092"
       consumer_config:
         security.protocol: "SASL_SSL"
         sasl.mechanism: "PLAIN"
-        sasl.username: "CLUSTER_API_KEY_ID"
-        sasl.password: "CLUSTER_API_KEY_SECRET"
+        sasl.username: "${CLUSTER_API_KEY_ID}"
+        sasl.password: "${CLUSTER_API_KEY_SECRET}"
       schema_registry_url: "https://abc-defgh.us-east-2.aws.confluent.cloud"
       schema_registry_config:
-        basic.auth.user.info: "REGISTRY_API_KEY_ID:REGISTRY_API_KEY_SECRET"
+        basic.auth.user.info: "${REGISTRY_API_KEY_ID}:${REGISTRY_API_KEY_SECRET}"
 
 sink:
   # sink configs

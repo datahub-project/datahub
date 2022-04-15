@@ -9,6 +9,7 @@ import { AutoCompleteResultForEntity, EntityType } from '../../types.generated';
 import EntityRegistry from '../entity/EntityRegistry';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { AdminHeaderLinks } from '../shared/admin/AdminHeaderLinks';
+import { useAppConfig } from '../useAppConfig';
 
 const { Header } = Layout;
 
@@ -74,12 +75,16 @@ export const SearchHeader = ({
     entityRegistry,
 }: Props) => {
     const themeConfig = useTheme();
+    const appConfig = useAppConfig();
 
     return (
         <Header style={styles.header as any}>
             <LogoSearchContainer>
                 <Link to="/">
-                    <LogoImage src={themeConfig.assets.logoUrl} preview={false} />
+                    <LogoImage
+                        src={appConfig.config.visualConfig.logoUrl || themeConfig.assets.logoUrl}
+                        preview={false}
+                    />
                 </Link>
                 <SearchBar
                     initialQuery={initialQuery}

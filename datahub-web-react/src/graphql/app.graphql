@@ -34,6 +34,9 @@ query appConfig {
         managedIngestionConfig {
             enabled
         }
+        visualConfig {
+            logoUrl
+        }
     }
 }
 

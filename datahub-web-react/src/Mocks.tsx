@@ -491,6 +491,8 @@ export const dataset3 = {
     health: null,
     assertions: null,
     status: null,
+    readRuns: null,
+    writeRuns: null,
 } as Dataset;
 
 export const dataset4 = {

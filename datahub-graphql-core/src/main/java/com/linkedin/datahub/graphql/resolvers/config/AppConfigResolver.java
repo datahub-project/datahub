@@ -12,6 +12,7 @@ import com.linkedin.datahub.graphql.generated.ManagedIngestionConfig;
 import com.linkedin.datahub.graphql.generated.PoliciesConfig;
 import com.linkedin.datahub.graphql.generated.Privilege;
 import com.linkedin.datahub.graphql.generated.ResourcePrivileges;
+import com.linkedin.datahub.graphql.generated.VisualConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.version.GitVersion;
 import graphql.schema.DataFetcher;
@@ -30,18 +31,21 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
   private final IngestionConfiguration _ingestionConfiguration;
   private final AuthorizationConfiguration _authorizationConfiguration;
   private final boolean _supportsImpactAnalysis;
+  private final VisualConfiguration _visualConfiguration;
 
   public AppConfigResolver(
       final GitVersion gitVersion,
       final boolean isAnalyticsEnabled,
       final IngestionConfiguration ingestionConfiguration,
       final AuthorizationConfiguration authorizationConfiguration,
-      final boolean supportsImpactAnalysis) {
+      final boolean supportsImpactAnalysis,
+      final VisualConfiguration visualConfiguration) {
     _gitVersion = gitVersion;
     _isAnalyticsEnabled = isAnalyticsEnabled;
     _ingestionConfiguration = ingestionConfiguration;
     _authorizationConfiguration = authorizationConfiguration;
     _supportsImpactAnalysis = supportsImpactAnalysis;
+    _visualConfiguration = visualConfiguration;
   }
 
   @Override
@@ -90,6 +94,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     appConfig.setPoliciesConfig(policiesConfig);
     appConfig.setIdentityManagementConfig(identityManagementConfig);
     appConfig.setManagedIngestionConfig(ingestionConfig);
+
+    appConfig.setVisualConfig(_visualConfiguration);
 
     return CompletableFuture.completedFuture(appConfig);
   }
