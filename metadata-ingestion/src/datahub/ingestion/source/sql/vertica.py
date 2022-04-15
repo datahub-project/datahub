@@ -215,8 +215,6 @@ VerticaDialect._get_column_info = _get_column_info
 class VerticaConfig(BasicSQLAlchemyConfig):
     # defaults
     scheme = "vertica+vertica_python"
-    # The ingestion of views is set to false by default due to the beta version.
-    include_views = False
 
     @validator("host_port")
     def clean_host_port(cls, v):
