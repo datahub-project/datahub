@@ -273,10 +273,7 @@ public class SchemaDiffer implements Differ {
 
   private static boolean isRenamed(SchemaField curField, SchemaField schemaField) {
     return curField.getNativeDataType().equals(schemaField.getNativeDataType())
-        && (parentFieldsMatch(curField, schemaField)
-            || descriptionsMatch(curField, schemaField)
-            || tagsMatch(curField, schemaField)
-            || termsMatch(curField, schemaField));
+        && parentFieldsMatch(curField, schemaField) && descriptionsMatch(curField, schemaField);
   }
 
   private static boolean parentFieldsMatch(SchemaField curField, SchemaField schemaField) {
@@ -293,16 +290,6 @@ public class SchemaDiffer implements Differ {
 
   private static boolean descriptionsMatch(SchemaField curField, SchemaField schemaField) {
     return StringUtils.isNotBlank(curField.getDescription()) && curField.getDescription().equals(schemaField.getDescription());
-  }
-
-  private static boolean tagsMatch(SchemaField curField, SchemaField schemaField) {
-    return curField.getGlobalTags() != null && !CollectionUtils.isEmpty(curField.getGlobalTags().getTags())
-        && curField.getGlobalTags().equals(schemaField.getGlobalTags());
-  }
-
-  private static boolean termsMatch(SchemaField curField, SchemaField schemaField) {
-    return curField.getGlossaryTerms() != null && !CollectionUtils.isEmpty(curField.getGlossaryTerms().getTerms())
-        && curField.getGlossaryTerms().equals(schemaField.getGlossaryTerms());
   }
 
   private static void processRemoval(ChangeCategory changeCategory, List<ChangeEvent> changeEvents, Urn datasetUrn,
