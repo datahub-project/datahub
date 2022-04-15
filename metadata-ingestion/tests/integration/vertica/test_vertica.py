@@ -1,10 +1,14 @@
 import pytest
 
+from freezegun import freeze_time
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.docker_helpers import wait_for_port
 
+FROZEN_TIME = "2020-04-14 07:00:00"
 
+
+@freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_vertica_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/vertica"
