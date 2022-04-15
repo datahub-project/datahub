@@ -1,5 +1,5 @@
 describe('analytics', () => {
-  it('can go to a dataset and see analytics in Section Views', () => {
+  it.skip('can go to a dataset and see analytics in Section Views', () => {
     cy.login();
 
     cy.visit("/analytics");

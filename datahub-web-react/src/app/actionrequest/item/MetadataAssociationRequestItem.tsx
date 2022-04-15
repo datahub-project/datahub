@@ -14,6 +14,7 @@ type Props = {
     requestTypeDisplayName: string;
     requestMetadataView: React.ReactNode;
     onUpdate: () => void;
+    showActionsButtons: boolean;
 };
 
 const ContentContainer = styled.div`
@@ -63,6 +64,7 @@ export default function MetadataAssociationRequestItem({
     requestTypeDisplayName,
     requestMetadataView,
     onUpdate,
+    showActionsButtons,
 }: Props) {
     const entityRegistry = useEntityRegistry();
 
@@ -177,8 +179,8 @@ export default function MetadataAssociationRequestItem({
             {createdByView}
             <Typography.Text> requests to add </Typography.Text>
             {requestMetadataView}
-            <Typography.Text>{` to `}</Typography.Text>
-            {requestTargetEntityView}
+            {showActionsButtons && <Typography.Text>{` to `}</Typography.Text>}
+            {showActionsButtons && requestTargetEntityView}
         </RequestContentContainer>
     );
 
@@ -235,7 +237,7 @@ export default function MetadataAssociationRequestItem({
                 <LeftContentContainerItem>{requestTypeView}</LeftContentContainerItem>
                 <LeftContentContainerItem>{requestContentView}</LeftContentContainerItem>
             </LeftContentContainer>
-            <RightContentContainer>{actionResultView}</RightContentContainer>
+            {showActionsButtons && <RightContentContainer>{actionResultView}</RightContentContainer>}
         </ContentContainer>
     );
 }
