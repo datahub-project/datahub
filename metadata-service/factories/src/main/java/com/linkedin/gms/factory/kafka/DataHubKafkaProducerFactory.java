@@ -65,7 +65,12 @@ public class DataHubKafkaProducerFactory {
     Map<String, Object> props = properties.buildProducerProperties();
 
     props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, schemaRegistryConfig.getSerializer().getName());
-    props.putAll(schemaRegistryConfig.getProperties());
+
+    // Override KafkaProperties with SchemaRegistryConfig only for non-empty values
+    schemaRegistryConfig.getProperties().entrySet()
+      .stream()
+      .filter(entry -> entry.getValue() != null && !entry.getValue().toString().isEmpty())
+      .forEach(entry -> props.put(entry.getKey(), entry.getValue())); 
 
     return new KafkaProducer<>(props);
   }
