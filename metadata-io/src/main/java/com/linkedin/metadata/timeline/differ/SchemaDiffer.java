@@ -23,7 +23,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import org.apache.commons.lang.StringUtils;
-import org.springframework.util.CollectionUtils;
 
 
 public class SchemaDiffer implements Differ {
