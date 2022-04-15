@@ -4,7 +4,7 @@ services:
   mysql:
     container_name: mysql
     hostname: mysql
-    image: mysql:5.7
+    image: mysql:8
     env_file: mysql/env/docker.env
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin
     ports:
