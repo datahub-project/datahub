@@ -52,7 +52,6 @@ import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaProposal;
 import com.linkedin.schema.SchemaProposalArray;
 import com.linkedin.schema.SchemaProposals;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
