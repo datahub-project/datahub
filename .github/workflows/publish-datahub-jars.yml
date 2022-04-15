@@ -1,8 +1,14 @@
 name: Publish Datahub Client
 
 on:
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
   release:
-    types: [published, edited]
+    types: [published]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -11,7 +17,6 @@ jobs:
 
   check-secret:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     outputs:
       publish-enabled: ${{ steps.publish-enabled.outputs.publish }}
     steps:
@@ -24,8 +29,8 @@ jobs:
 
   publish:
     runs-on: ubuntu-latest
-    needs: [check-secret]
-    if: ${{ needs.publish-enabled.outputs.publish == 'true' }}
+    needs: check-secret
+    if: ${{ needs.check-secret.outputs.publish-enabled == 'true' }}
     steps:
       - uses: actions/checkout@v2
         with:
@@ -53,8 +58,18 @@ jobs:
           echo signingKey=$SIGNING_KEY >> gradle.properties
           ./gradlew :metadata-integration:java:datahub-client:printVersion
           ./gradlew :metadata-integration:java:datahub-client:publish
+      - name: release datahub-client jar
+        if: ${{ github.event_name == 'release' }}
+        env:
+          RELEASE_USERNAME: ${{ secrets.RELEASE_USERNAME }}
+          RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
+          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+        run: |
           ./gradlew :metadata-integration:java:datahub-client:closeAndReleaseRepository --info
-      - name: publish datahub-spark jar
+      - name: publish datahub-spark-lineage jar
         env:
           RELEASE_USERNAME: ${{ secrets.RELEASE_USERNAME }}
           RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
@@ -66,4 +81,14 @@ jobs:
           echo signingKey=$SIGNING_KEY >> gradle.properties
           ./gradlew :metadata-integration:java:spark-lineage:printVersion
           ./gradlew :metadata-integration:java:spark-lineage:publish
-          ./gradlew :metadata-integration:java:datahub-client:closeAndReleaseRepository --info
+      - name: release datahub-spark-lineage jar
+        if: ${{ github.event_name == 'release' }}
+        env:
+          RELEASE_USERNAME: ${{ secrets.RELEASE_USERNAME }}
+          RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
+          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+        run: |
+          ./gradlew :metadata-integration:java:spark-lineage:closeAndReleaseRepository --info
