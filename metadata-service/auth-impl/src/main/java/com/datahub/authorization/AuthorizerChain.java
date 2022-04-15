@@ -1,11 +1,17 @@
 package com.datahub.authorization;
 
+import com.linkedin.common.urn.Urn;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.List;
-import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
+
 
 /**
  * A configurable chain of {@link Authorizer}s executed in series to attempt to authenticate an inbound request.
@@ -43,16 +49,69 @@ public class AuthorizerChain implements Authorizer {
           // Authorization was successful - Short circuit
           return result;
         } else {
-          log.debug("Received DENY result from Authorizer with class name {}. message: {}", authorizer.getClass().getCanonicalName(), result.getMessage());
+          log.debug("Received DENY result from Authorizer with class name {}. message: {}",
+              authorizer.getClass().getCanonicalName(), result.getMessage());
         }
       } catch (Exception e) {
-        log.error(
-            "Caught exception while attempting to authorize request using Authorizer {}. Skipping authorizer.",
+        log.error("Caught exception while attempting to authorize request using Authorizer {}. Skipping authorizer.",
             authorizer.getClass().getCanonicalName(), e);
       }
     }
     // Return failed Authorization result.
     return new AuthorizationResult(request, AuthorizationResult.Type.DENY, null);
+  }
+
+  @Override
+  public AuthorizedActors authorizedActors(String privilege, Optional<ResourceSpec> resourceSpec) {
+    if (this.authorizers.isEmpty()) {
+      return null;
+    }
+
+    AuthorizedActors finalAuthorizedActors = this.authorizers.get(0).authorizedActors(privilege, resourceSpec);
+    for (int i = 1; i < this.authorizers.size(); i++) {
+      finalAuthorizedActors = mergeAuthorizedActors(finalAuthorizedActors,
+          this.authorizers.get(i).authorizedActors(privilege, resourceSpec));
+    }
+    return finalAuthorizedActors;
+  }
+
+  private AuthorizedActors mergeAuthorizedActors(@Nullable AuthorizedActors original,
+      @Nullable AuthorizedActors other) {
+    if (original == null) {
+      return other;
+    }
+    if (other == null) {
+      return original;
+    }
+
+    List<Urn> mergedUsers;
+    if (original.isAllUsers()) {
+      // If original enabled for all users, take the other's users
+      mergedUsers = other.getUsers();
+    } else if (other.isAllUsers()) {
+      mergedUsers = original.getUsers();
+    } else {
+      Set<Urn> otherUsers = new HashSet<>(other.getUsers());
+      mergedUsers = original.getUsers().stream().filter(otherUsers::contains).collect(Collectors.toList());
+    }
+
+    List<Urn> mergedGroups;
+    if (original.isAllGroups()) {
+      // If original enabled for all users, take the other's users
+      mergedGroups = other.getGroups();
+    } else if (other.isAllUsers()) {
+      mergedGroups = original.getGroups();
+    } else {
+      Set<Urn> otherGroups = new HashSet<>(other.getGroups());
+      mergedGroups = original.getGroups().stream().filter(otherGroups::contains).collect(Collectors.toList());
+    }
+
+    return AuthorizedActors.builder()
+        .allUsers(original.isAllUsers() || other.isAllUsers())
+        .allGroups(original.isAllGroups() || other.isAllGroups())
+        .users(mergedUsers)
+        .groups(mergedGroups)
+        .build();
   }
 
   /**
