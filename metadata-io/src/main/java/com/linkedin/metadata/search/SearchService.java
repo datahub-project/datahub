@@ -45,7 +45,7 @@ public class SearchService {
   public Map<String, Long> docCountPerEntity(@Nonnull List<String> entityNames) {
     return entityNames.stream()
         .collect(Collectors.toMap(Function.identity(),
-            entityName -> _entityDocCountCache.getEntityDocCount().getOrDefault(entityName, 0L)));
+            entityName -> _entityDocCountCache.getEntityDocCount().getOrDefault(entityName.toLowerCase(), 0L)));
   }
 
   /**

@@ -80,14 +80,6 @@ jobs:
           registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
-      - 
-        name: Set env DOCKER_CACHE_TO
-        run: |
-          if [[ ${{ needs.setup.outputs.publish }} == 'true' ]]; then
-            echo "DOCKER_CACHE_TO=type=registry,ref=${{ steps.docker_meta.outputs.tags }}-buildcache,mode=max" >> "$GITHUB_ENV"
-          else
-            echo "DOCKER_CACHE_TO=type=inline" >> "$GITHUB_ENV"
-          fi
       - name: Build and Push image
         uses: docker/build-push-action@v2
         with:
@@ -98,4 +90,3 @@ jobs:
           push: ${{ needs.setup.outputs.publish == 'true' }}
           build-args: |
             RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}
-

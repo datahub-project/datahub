@@ -3,6 +3,7 @@ package com.datahub.gms.servlet;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.PluginEntityRegistryLoader;
@@ -20,7 +21,6 @@ import javax.servlet.http.HttpServletResponse;
 import org.apache.maven.artifact.versioning.ComparableVersion;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
-import com.linkedin.gms.factory.config.ConfigurationProvider;
 
 // Return a 200 for health checks
 
@@ -59,6 +59,10 @@ public class Config extends HttpServlet {
     return (GitVersion) ctx.getBean("gitVersion");
   }
 
+  private Boolean getDatasetUrnNameCasing(WebApplicationContext ctx) {
+    return (Boolean) ctx.getBean("datasetUrnNameCasing");
+  }
+
   private boolean checkImpactAnalysisSupport(WebApplicationContext ctx) {
     return ((GraphService) ctx.getBean("graphService")).supportsMultiHop();
   }
@@ -92,6 +96,9 @@ public class Config extends HttpServlet {
 
     resp.setContentType("application/json");
     PrintWriter out = resp.getWriter();
+
+    Boolean datasetUrnNameCasing = getDatasetUrnNameCasing(ctx);
+    config.put("datasetUrnNameCasing", datasetUrnNameCasing);
 
     try {
       Map<String, Object> config = new HashMap<>(this.config);

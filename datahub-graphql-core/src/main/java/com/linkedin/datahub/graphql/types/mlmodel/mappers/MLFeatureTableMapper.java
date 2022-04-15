@@ -1,23 +1,32 @@
 package com.linkedin.datahub.graphql.types.mlmodel.mappers;
 
 import com.linkedin.common.Deprecation;
+
+import com.linkedin.common.GlobalTags;
+import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
+import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.MLFeatureTable;
+import com.linkedin.datahub.graphql.generated.MLFeatureTableEditableProperties;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
+import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
+import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.MLFeatureTableKey;
+import com.linkedin.ml.metadata.EditableMLFeatureTableProperties;
 import com.linkedin.ml.metadata.MLFeatureTableProperties;
 import javax.annotation.Nonnull;
 
@@ -54,6 +63,12 @@ public class MLFeatureTableMapper implements ModelMapper<EntityResponse, MLFeatu
         mappingHelper.mapToResult(DEPRECATION_ASPECT_NAME, (mlFeatureTable, dataMap) ->
             mlFeatureTable.setDeprecation(DeprecationMapper.map(new Deprecation(dataMap))));
 
+        mappingHelper.mapToResult(GLOBAL_TAGS_ASPECT_NAME, this::mapGlobalTags);
+        mappingHelper.mapToResult(GLOSSARY_TERMS_ASPECT_NAME, (entity, dataMap) ->
+            entity.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(dataMap))));
+        mappingHelper.mapToResult(DOMAINS_ASPECT_NAME, this::mapDomains);
+        mappingHelper.mapToResult(ML_FEATURE_TABLE_EDITABLE_PROPERTIES_ASPECT_NAME, this::mapEditableProperties);
+
         return mappingHelper.getResult();
     }
 
@@ -68,6 +83,32 @@ public class MLFeatureTableMapper implements ModelMapper<EntityResponse, MLFeatu
     private void mapMLFeatureTableProperties(@Nonnull MLFeatureTable mlFeatureTable, @Nonnull DataMap dataMap) {
         MLFeatureTableProperties featureTableProperties = new MLFeatureTableProperties(dataMap);
         mlFeatureTable.setFeatureTableProperties(MLFeatureTablePropertiesMapper.map(featureTableProperties));
+        mlFeatureTable.setProperties(MLFeatureTablePropertiesMapper.map(featureTableProperties));
         mlFeatureTable.setDescription(featureTableProperties.getDescription());
+    }
+
+    private void mapGlobalTags(MLFeatureTable entity, DataMap dataMap) {
+        GlobalTags globalTags = new GlobalTags(dataMap);
+        com.linkedin.datahub.graphql.generated.GlobalTags graphQlGlobalTags = GlobalTagsMapper.map(globalTags);
+        entity.setTags(graphQlGlobalTags);
+    }
+
+    private void mapDomains(@Nonnull MLFeatureTable entity, @Nonnull DataMap dataMap) {
+        final Domains domains = new Domains(dataMap);
+        // Currently we only take the first domain if it exists.
+        if (domains.getDomains().size() > 0) {
+            entity.setDomain(Domain.builder()
+                .setType(EntityType.DOMAIN)
+                .setUrn(domains.getDomains().get(0).toString()).build());
+        }
+    }
+
+    private void mapEditableProperties(MLFeatureTable entity, DataMap dataMap) {
+        EditableMLFeatureTableProperties input = new EditableMLFeatureTableProperties(dataMap);
+        MLFeatureTableEditableProperties editableProperties = new MLFeatureTableEditableProperties();
+        if (input.hasDescription()) {
+            editableProperties.setDescription(input.getDescription());
+        }
+        entity.setEditableProperties(editableProperties);
     }
 }

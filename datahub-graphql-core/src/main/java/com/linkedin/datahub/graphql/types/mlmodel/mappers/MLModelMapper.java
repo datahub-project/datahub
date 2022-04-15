@@ -3,27 +3,33 @@ package com.linkedin.datahub.graphql.types.mlmodel.mappers;
 import com.linkedin.common.Cost;
 import com.linkedin.common.Deprecation;
 import com.linkedin.common.GlobalTags;
+import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
+import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FabricType;
 import com.linkedin.datahub.graphql.generated.MLModel;
+import com.linkedin.datahub.graphql.generated.MLModelEditableProperties;
 import com.linkedin.datahub.graphql.types.common.mappers.CostMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
+import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
+import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.MLModelKey;
 import com.linkedin.ml.metadata.CaveatsAndRecommendations;
+import com.linkedin.ml.metadata.EditableMLModelProperties;
 import com.linkedin.ml.metadata.EthicalConsiderations;
 import com.linkedin.ml.metadata.EvaluationData;
 import com.linkedin.ml.metadata.IntendedUse;
@@ -92,6 +98,10 @@ public class MLModelMapper implements ModelMapper<EntityResponse, MLModel> {
             mlModel.setCost(CostMapper.map(new Cost(dataMap))));
         mappingHelper.mapToResult(DEPRECATION_ASPECT_NAME, (mlModel, dataMap) ->
             mlModel.setDeprecation(DeprecationMapper.map(new Deprecation(dataMap))));
+        mappingHelper.mapToResult(GLOSSARY_TERMS_ASPECT_NAME, (entity, dataMap) ->
+            entity.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(dataMap))));
+        mappingHelper.mapToResult(DOMAINS_ASPECT_NAME, this::mapDomains);
+        mappingHelper.mapToResult(ML_MODEL_EDITABLE_PROPERTIES_ASPECT_NAME, this::mapEditableProperties);
 
         return mappingHelper.getResult();
     }
@@ -127,5 +137,25 @@ public class MLModelMapper implements ModelMapper<EntityResponse, MLModel> {
         graphQlSourceCode.setSourceCode(sourceCode.getSourceCode().stream()
             .map(SourceCodeUrlMapper::map).collect(Collectors.toList()));
         mlModel.setSourceCode(graphQlSourceCode);
+    }
+
+
+    private void mapDomains(@Nonnull MLModel entity, @Nonnull DataMap dataMap) {
+        final Domains domains = new Domains(dataMap);
+        // Currently we only take the first domain if it exists.
+        if (domains.getDomains().size() > 0) {
+            entity.setDomain(Domain.builder()
+                .setType(EntityType.DOMAIN)
+                .setUrn(domains.getDomains().get(0).toString()).build());
+        }
+    }
+
+    private void mapEditableProperties(MLModel entity, DataMap dataMap) {
+        EditableMLModelProperties input = new EditableMLModelProperties(dataMap);
+        MLModelEditableProperties editableProperties = new MLModelEditableProperties();
+        if (input.hasDescription()) {
+            editableProperties.setDescription(input.getDescription());
+        }
+        entity.setEditableProperties(editableProperties);
     }
 }
