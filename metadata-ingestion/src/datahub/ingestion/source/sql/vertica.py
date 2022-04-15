@@ -5,7 +5,7 @@ from pydantic.class_validators import validator
 from sqlalchemy import sql, util
 from sqlalchemy.engine import reflection
 from sqlalchemy.sql import sqltypes
-from sqlalchemy.sql.sqltypes import TIMESTAMP, TIME
+from sqlalchemy.sql.sqltypes import TIMESTAMP, TIME, String
 from sqlalchemy_vertica.base import VerticaDialect
 
 from datahub.ingestion.source.sql.sql_common import (
@@ -13,6 +13,12 @@ from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
 )
 from datahub.utilities import config_clean
+
+
+class UUID(String):
+    """The SQL UUID type."""
+
+    __visit_name__ = "UUID"
 
 
 def TIMESTAMP_WITH_TIMEZONE(*args, **kwargs):
@@ -168,6 +174,7 @@ def _get_column_info(self, name, data_type, default,
             coltype = None
             break
 
+    self.ischema_names['UUID'] = UUID
     self.ischema_names['TIMESTAMPTZ'] = TIMESTAMP_WITH_TIMEZONE
     self.ischema_names['TIMETZ'] = TIME_WITH_TIMEZONE
 
