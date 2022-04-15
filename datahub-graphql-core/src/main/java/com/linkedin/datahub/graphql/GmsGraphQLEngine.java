@@ -205,14 +205,7 @@ import org.dataloader.BatchLoaderContextProvider;
 import org.dataloader.DataLoader;
 import org.dataloader.DataLoaderOptions;
 
-import static com.linkedin.datahub.graphql.Constants.ANALYTICS_SCHEMA_FILE;
-import static com.linkedin.datahub.graphql.Constants.APP_SCHEMA_FILE;
-import static com.linkedin.datahub.graphql.Constants.AUTH_SCHEMA_FILE;
-import static com.linkedin.datahub.graphql.Constants.GMS_SCHEMA_FILE;
-import static com.linkedin.datahub.graphql.Constants.INGESTION_SCHEMA_FILE;
-import static com.linkedin.datahub.graphql.Constants.RECOMMENDATIONS_SCHEMA_FILE;
-import static com.linkedin.datahub.graphql.Constants.SEARCH_SCHEMA_FILE;
-import static com.linkedin.datahub.graphql.Constants.URN_FIELD_NAME;
+import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.metadata.Constants.*;
 import static graphql.Scalars.GraphQLLong;
 
