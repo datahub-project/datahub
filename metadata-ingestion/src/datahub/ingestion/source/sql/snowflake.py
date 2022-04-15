@@ -8,6 +8,7 @@ import pydantic
 # This import verifies that the dependencies are available.
 import snowflake.sqlalchemy  # noqa: F401
 import sqlalchemy.engine
+from snowflake.connector.network import OAUTH_AUTHENTICATOR
 from snowflake.sqlalchemy import custom_types, snowdialect
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
@@ -25,7 +26,6 @@ from datahub.ingestion.source.sql.sql_common import (
     TimeTypeClass,
     register_custom_type,
 )
-from snowflake.connector.network import OAUTH_AUTHENTICATOR
 from datahub.ingestion.source_config.sql.snowflake import SnowflakeConfig
 from datahub.ingestion.source_report.sql.snowflake import SnowflakeReport
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
@@ -79,7 +79,7 @@ class SnowflakeSource(SQLAlchemySource):
             database=database, username=username, password=password, role=role
         )
         logger.debug(f"sql_alchemy_url={url}")
-        if self.authentication_type == OAUTH_AUTHENTICATOR:
+        if self.config.authentication_type == OAUTH_AUTHENTICATOR:
             return create_engine(
                 url,
                 creator=self.config.get_oauth_connection,

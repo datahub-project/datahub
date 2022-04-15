@@ -2,6 +2,7 @@ import logging
 from typing import Dict, Optional
 
 import pydantic
+import snowflake.connector
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from snowflake.connector.network import (
@@ -125,12 +126,12 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
                         f"'oauth_scope' was none "
                         f"but should be set when using {v} authentication"
                     )
-                if values.get(oauth_authority_url) is None:
+                if values.get("oauth_authority_url") is None:
                     raise ValueError(
                         f"'oauth_authority_url' was none "
                         f"but should be set when using {v} authentication"
                     )
-                if values.get("use_certificate") == True:
+                if values.get("use_certificate") is True:
                     if values.get("base64_encoded_oauth_private_key") is None:
                         raise ValueError(
                             f"'base64_encoded_oauth_private_key' was none "
@@ -159,25 +160,27 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
         return v
 
     def get_oauth_connection(self):
-        generator = OauthTokenGenerator(self.oauth_client_id,self.oauth_authority_url)
+        generator = OauthTokenGenerator(self.oauth_client_id, self.oauth_authority_url)
         if self.use_certificate is True:
             response = generator.get_token_with_certificate(
-                private_key_content=self.base64_encoded_oauth_private_key,
-                public_key_content=self.base64_encoded_oauth_public_key,
-                scope=self.oauth_scope,
+                private_key_content=str(self.base64_encoded_oauth_private_key),
+                public_key_content=str(self.base64_encoded_oauth_public_key),
+                scope=str(self.oauth_scope),
             )
         else:
-            response = generator.get_token_with_secret(secret=self.oauth_client_secret,scope=self.oauth_scope)
+            response = generator.get_token_with_secret(
+                secret=str(self.oauth_client_secret), scope=str(self.oauth_scope)
+            )
         token = response["access_token"]
 
         return snowflake.connector.connect(
             user=self.username,
             account=self.host_port,
-            authenticator="oauth",                          
+            authenticator="oauth",
             token=token,
-            warehouse=self.warehouse                    
-        )    
-    
+            warehouse=self.warehouse,
+        )
+
     def get_sql_alchemy_url(
         self,
         database: Optional[str] = None,
