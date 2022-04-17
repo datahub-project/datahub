@@ -9,8 +9,11 @@
                     "com.linkedin.pegasus2avro.identity.CorpGroupInfo": {
                         "displayName": null,
                         "email": "simpons-group",
-                        "admins": ["urn:li:corpuser:bsimpson"],
-                        "members": [],
+                        "admins": [],
+                        "members": [
+                            "urn:li:corpuser:hsimpson",
+                            "urn:li:corpuser:lsimpson"
+                        ],
                         "groups": [],
                         "description": null
                     }

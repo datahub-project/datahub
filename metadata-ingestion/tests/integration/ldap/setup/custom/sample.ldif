@@ -33,9 +33,10 @@ version: 1
 dn: cn=simpons-group,dc=example,dc=org
 cn: simpons-group
 gidnumber: 500
-managedBy: cn=Bart Simpson,ou=people,dc=example,dc=org
 objectclass: posixGroup
 objectclass: top
+memberUid: hsimpson
+memberUid: lsimpson
 
 # Entry 4: ou=people,dc=example,dc=org
 dn: ou=people,dc=example,dc=org

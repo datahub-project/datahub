@@ -17,6 +17,24 @@ from datahub.metadata.schema_classes import (
     CorpUserSnapshotClass,
 )
 
+# default mapping for attrs
+attrs_mapping: Dict[str, Any] = {}
+attrs_mapping["sAMAccountName"] = "sAMAccountName"
+attrs_mapping["uid"] = "uid"
+attrs_mapping["objectClass"] = "objectClass"
+attrs_mapping["manager"] = "manager"
+attrs_mapping["givenName"] = "givenName"
+attrs_mapping["sn"] = "sn"
+attrs_mapping["cn"] = "cn"
+attrs_mapping["mail"] = "mail"
+attrs_mapping["displayName"] = "displayName"
+attrs_mapping["departmentNumber"] = "departmentNumber"
+attrs_mapping["title"] = "title"
+attrs_mapping["owner"] = "owner"
+attrs_mapping["managedBy"] = "managedBy"
+attrs_mapping["uniqueMember"] = "uniqueMember"
+attrs_mapping["member"] = "member"
+
 
 def create_controls(pagesize: int) -> SimplePagedResultsControl:
     """
@@ -68,21 +86,6 @@ class LDAPSourceConfig(ConfigModel):
 
     # default mapping for attrs
     attrs_mapping: Dict[str, Any] = {}
-    attrs_mapping["sAMAccountName"] = "sAMAccountName"
-    attrs_mapping["uid"] = "uid"
-    attrs_mapping["objectClass"] = "objectClass"
-    attrs_mapping["manager"] = "manager"
-    attrs_mapping["givenName"] = "givenName"
-    attrs_mapping["sn"] = "sn"
-    attrs_mapping["cn"] = "cn"
-    attrs_mapping["mail"] = "mail"
-    attrs_mapping["displayName"] = "displayName"
-    attrs_mapping["departmentNumber"] = "departmentNumber"
-    attrs_mapping["title"] = "title"
-    attrs_mapping["owner"] = "owner"
-    attrs_mapping["managedBy"] = "managedBy"
-    attrs_mapping["uniqueMember"] = "uniqueMember"
-    attrs_mapping["member"] = "member"
 
 
 def guess_person_ldap(attrs: Dict[str, Any], config: LDAPSourceConfig) -> Optional[str]:
@@ -113,6 +116,11 @@ class LDAPSource(Source):
         """Constructor."""
         super().__init__(ctx)
         self.config = config
+        # ensure prior defaults are in place
+        for k in attrs_mapping:
+            if not k in self.config.attrs_mapping:
+                self.config.attrs_mapping[k] = attrs_mapping[k]
+
         self.report = LDAPSourceReport()
 
         ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_ALLOW)
