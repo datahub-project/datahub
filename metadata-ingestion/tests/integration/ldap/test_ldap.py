@@ -30,7 +30,7 @@ def test_ldap_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
                         "ldap_password": "admin",
                         "base_dn": "dc=example,dc=org",
                         "attrs_mapping": {
-                            "owner": "managedBy",
+                            "uniqueMember": "memberUid",
                         },
                     },
                 },
