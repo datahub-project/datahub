@@ -7,17 +7,7 @@ import re
 import textwrap
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import (
-    Any,
-    Dict,
-    Iterable,
-    List,
-    MutableMapping,
-    Optional,
-    Type,
-    Union,
-    cast,
-)
+from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Union, cast
 
 import cachetools
 from google.cloud.bigquery import Client as BigQueryClient
@@ -25,7 +15,6 @@ from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from more_itertools import partition
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import ConfigModel
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext

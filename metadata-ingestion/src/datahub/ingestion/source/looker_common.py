@@ -8,7 +8,7 @@ from looker_sdk.error import SDKError
 from looker_sdk.rtl.transport import TransportOptions
 from looker_sdk.sdk.api31.methods import Looker31SDK
 from pydantic import BaseModel
-from pydantic.class_validators import root_validator, validator
+from pydantic.class_validators import validator
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration import ConfigModel
