@@ -118,7 +118,7 @@ class LDAPSource(Source):
         self.config = config
         # ensure prior defaults are in place
         for k in attrs_mapping:
-            if not k in self.config.attrs_mapping:
+            if k not in self.config.attrs_mapping:
                 self.config.attrs_mapping[k] = attrs_mapping[k]
 
         self.report = LDAPSourceReport()
