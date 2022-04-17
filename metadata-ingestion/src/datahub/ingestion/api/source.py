@@ -2,7 +2,7 @@ import platform
 import sys
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Generic, Iterable, List, Set, Type, TypeVar
+from typing import Callable, Dict, Generic, Iterable, List, Type, TypeVar
 
 import datahub
 from datahub.ingestion.api.closeable import Closeable
@@ -79,6 +79,7 @@ def config_class(config_cls: Type) -> Callable[[Type], Type]:
     def wrapper(cls: Type) -> Type:
         # add a get_config_class method
         setattr(cls, "get_config_class", lambda: config_cls)
+        # add the create method
         setattr(cls, "create", classmethod(default_create))
         return cls
 
