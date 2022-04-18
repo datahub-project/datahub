@@ -26,7 +26,6 @@ const FiltersContainer = styled.div`
 
 const ResultContainer = styled.div`
     flex: 1;
-    // margin-bottom: 20px;
 `;
 
 const PaginationInfoContainer = styled.div`
@@ -81,7 +80,7 @@ const LoadingContainer = styled.div`
 `;
 
 type ListStyle = {
-    height: string;
+    height: number;
 };
 
 interface Props {

@@ -18,7 +18,7 @@ export const DomainEntitiesTab = () => {
     return (
         <>
             <EmbeddedListSearch
-                style={{ height: 'calc(100vh - 290px)' }}
+                style={{ height: 290 }}
                 fixedFilter={fixedFilter}
                 emptySearchQuery="*"
                 placeholderText="Filter domain entities..."

@@ -24,6 +24,16 @@ const StyledList = styled(List)`
         padding-bottom: 0px;
         padding-top: 15px;
     }
+    &::-webkit-scrollbar {
+        height: 12px;
+        width: 5px;
+        background: #f2f2f2;
+    }
+    &::-webkit-scrollbar-thumb {
+        background: #cccccc;
+        -webkit-border-radius: 1ex;
+        -webkit-box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.75);
+    }
 ` as typeof List;
 
 const ListItem = styled.div`
@@ -42,7 +52,7 @@ type AdditionalProperties = {
     degree?: number;
 };
 type ListStyle = {
-    height: string;
+    height: number;
 };
 
 type Props = {
@@ -69,7 +79,7 @@ export const EntityNameList = ({ additionalPropertiesList, entities, onClick, st
     }
     return (
         <StyledList
-            style={style ? { height: style.height, overflowY: 'auto' } : {}}
+            style={style ? { height: `calc(100vh - ${style.height}px)`, overflowY: 'auto' } : {}}
             bordered
             dataSource={entities}
             renderItem={(entity, index) => {

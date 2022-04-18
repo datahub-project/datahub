@@ -67,6 +67,19 @@ const HeaderAndTabsFlex = styled.div`
     max-height: 100%;
     overflow: hidden;
     min-height: 0;
+    height: calc(100vh - 60px);
+    overflow-y: auto;
+
+    &::-webkit-scrollbar {
+        height: 12px;
+        width: 2px;
+        background: #f2f2f2;
+    }
+    &::-webkit-scrollbar-thumb {
+        background: #cccccc;
+        -webkit-border-radius: 1ex;
+        -webkit-box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.75);
+    }
 `;
 const Sidebar = styled.div`
     overflow: auto;
@@ -83,7 +96,7 @@ const Header = styled.div`
 
 const TabContent = styled.div`
     flex: 1;
-    overflow: auto;
+    // overflow: auto;
 `;
 
 const resizerStyles = {

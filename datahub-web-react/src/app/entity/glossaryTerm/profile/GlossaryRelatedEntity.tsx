@@ -13,7 +13,7 @@ export default function GlossaryRelatedEntity() {
         <Row>
             <Col md={24} lg={24} xl={24}>
                 <EmbeddedListSearch
-                    style={{ height: 'calc(100vh - 336px)' }}
+                    style={{ height: 336 }}
                     fixedQuery={fixedQueryString}
                     emptySearchQuery="*"
                     placeholderText="Filter entities..."

@@ -17,7 +17,6 @@ import { useGetSearchResultsForMultipleQuery } from '../../../../../../graphql/s
 import { GetSearchResultsParams, SearchResultsInterface } from './types';
 
 const Container = styled.div`
-    // overflow: scroll;
     height: 120;
 `;
 
@@ -51,7 +50,7 @@ type SearchPageParams = {
     type?: string;
 };
 type ListStyle = {
-    height: string;
+    height: number;
 };
 
 type Props = {

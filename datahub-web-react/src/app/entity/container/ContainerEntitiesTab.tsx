@@ -13,7 +13,7 @@ export const ContainerEntitiesTab = () => {
     return (
         <>
             <EmbeddedListSearch
-                style={{ height: 'calc(100vh - 292px)' }}
+                style={{ height: 292 }}
                 fixedFilter={fixedFilter}
                 emptySearchQuery="*"
                 placeholderText="Filter container entities..."

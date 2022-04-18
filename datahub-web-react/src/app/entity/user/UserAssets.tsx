@@ -15,7 +15,7 @@ export const UserAssets = ({ urn }: Props) => {
     return (
         <UserAssetsWrapper>
             <EmbeddedListSearch
-                style={{ height: 'calc(100vh - 209px)' }}
+                style={{ height: 209 }}
                 fixedFilter={{ field: 'owners', value: urn }}
                 emptySearchQuery="*"
                 placeholderText="Filter entities..."

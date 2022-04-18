@@ -14,7 +14,7 @@ export const GroupAssets = ({ urn }: Props) => {
     return (
         <GroupAssetsWrapper>
             <EmbeddedListSearch
-                style={{ height: 'calc(100vh - 208px)' }}
+                style={{ height: 208 }}
                 fixedFilter={{ field: 'owners', value: urn }}
                 emptySearchQuery="*"
                 placeholderText="Filter entities..."
