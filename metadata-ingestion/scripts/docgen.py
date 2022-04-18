@@ -10,6 +10,7 @@ from pydantic import Field
 from pydantic.dataclasses import dataclass
 
 from datahub.configuration.common import ConfigModel
+from datahub.ingestion.api.decorators import SupportStatus
 from datahub.ingestion.api.registry import PluginRegistry
 from datahub.ingestion.api.source import Source
 
@@ -41,7 +42,7 @@ class FieldHeader(FieldRow):
         return "\n".join(
             [
                 "| Field | Required | Type | Description | Default |",
-                "| --- | --- | --- | --- |",
+                "| ---   | ---      | ---  | --- | -- |",
                 "",
             ]
         )
@@ -80,7 +81,7 @@ def gen_md_table_from_struct(schema_dict: Dict[str, Any]) -> List[str]:
     # table_md_str = [
     #    "<table>\n<tr>\n<td>\nField\n</td>Type<td>Default</td><td>Description</td></tr>\n"
     # ]
-    gen_md_table(schema_dict, schema_dict["definitions"], md_str=table_md_str)
+    gen_md_table(schema_dict, schema_dict.get("definitions", {}), md_str=table_md_str)
     # table_md_str.append("\n</table>\n")
     table_md_str.sort(key=lambda x: "z" if len(x.inner_fields) else "" + x.path)
     return (
@@ -196,7 +197,7 @@ def gen_md_table(
                     )
             elif "type" in value and value["type"] == "array":
                 # array
-                items_type = value["items"]["type"]
+                items_type = value["items"].get("type", "object")
                 md_str.append(
                     FieldRow(
                         path=get_prefixed_name(field_prefix, field_name),
@@ -268,6 +269,17 @@ def get_snippet(long_string: str, max_length=100) -> str:
     return snippet
 
 
+def get_support_status_badge(support_status: SupportStatus) -> str:
+    if support_status == SupportStatus.CERTIFIED:
+        return "![Certified](https://img.shields.io/badge/support%20status-certified-brightgreen)"
+    if support_status == SupportStatus.INCUBATING:
+        return "![Incubating](https://img.shields.io/badge/support%20status-incubating-blue)"
+    if support_status == SupportStatus.TESTING:
+        return "![Testing](https://img.shields.io/badge/support%20status-testing-lightgrey)"
+
+    return ""
+
+
 @click.command()
 @click.option("--out-dir", type=str, required=True)
 @click.option("--extra-docs", type=str, required=False)
@@ -304,6 +316,7 @@ def generate(out_dir: str, extra_docs: Optional[str] = None) -> None:
         if source_type and hasattr(source_type, "get_config_class"):
             try:
                 source_config_class: ConfigModel = source_type.get_config_class()
+                support_status = SupportStatus.UNKNOWN
                 if hasattr(source_type, "__doc__"):
                     source_doc = textwrap.dedent(source_type.__doc__ or "")
                 if hasattr(source_type, "get_platform_name"):
@@ -315,6 +328,10 @@ def generate(out_dir: str, extra_docs: Optional[str] = None) -> None:
                 source_documentation[platform_name.lower()] = (
                     source_documentation.get(platform_name.lower()) or {}
                 )
+
+                if hasattr(source_type, "get_support_status"):
+                    support_status = source_type.get_support_status()
+
                 if "plugins" not in source_documentation[platform_name.lower()]:
                     source_documentation[platform_name.lower()]["plugins"] = {}
 
@@ -332,6 +349,7 @@ def generate(out_dir: str, extra_docs: Optional[str] = None) -> None:
                         plugin_name: {
                             "source_doc": source_doc or "",
                             "config": table_md,
+                            "support_status": support_status,
                         },
                     }
                 )
@@ -360,6 +378,10 @@ def generate(out_dir: str, extra_docs: Optional[str] = None) -> None:
                 f.write("\n")
             for plugin, plugin_docs in platform_docs["plugins"].items():
                 f.write(f"## Module `{plugin}`\n")
+                if "support_status" in plugin_docs:
+                    f.write(
+                        get_support_status_badge(plugin_docs["support_status"]) + "\n"
+                    )
                 f.write(f"{plugin_docs['source_doc'] or ''}\n")
                 f.write("### Setup\n")
                 f.write("```shell\n")

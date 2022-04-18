@@ -21,6 +21,12 @@ from pydantic.fields import Field
 
 from datahub.configuration.source_common import EnvBasedSourceConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.decorators import (
+    SupportStatus,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.source.looker_common import (
     LookerCommonConfig,
     LookerUtil,
@@ -44,12 +50,7 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import (
-    Source,
-    SourceReport,
-    config_class,
-    platform_name,
-)
+from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.looker import LookerAPI, LookerAPIConfig
 from datahub.metadata.com.linkedin.pegasus2avro.common import BrowsePaths, Status
@@ -767,6 +768,7 @@ class LookerView:
 
 @platform_name("Looker")
 @config_class(LookMLSourceConfig)
+@support_status(SupportStatus.CERTIFIED)
 class LookMLSource(Source):
     """
     This plugin extracts the following:

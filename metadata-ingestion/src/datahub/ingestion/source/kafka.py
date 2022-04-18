@@ -20,7 +20,12 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import config_class, platform_name
+from datahub.ingestion.api.decorators import (
+    SupportStatus,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.kafka_schema_registry_base import KafkaSchemaRegistryBase
 from datahub.ingestion.source.state.checkpoint import Checkpoint
@@ -94,8 +99,13 @@ class KafkaSourceReport(StatefulIngestionReport):
 
 @platform_name("Kafka")
 @config_class(KafkaSourceConfig)
+@support_status(SupportStatus.CERTIFIED)
 class KafkaSource(StatefulIngestionSourceBase):
-    """A source that connects to Kafka and extracts topic names and schemas from it."""
+    """
+    This plugin extracts the following:
+    - Topics from the Kafka broker
+    - Schemas associated with each topic from the schema registry (only Avro schemas are currently supported)
+    """
 
     source_config: KafkaSourceConfig
     consumer: confluent_kafka.Consumer

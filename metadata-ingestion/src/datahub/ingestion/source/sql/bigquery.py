@@ -25,7 +25,12 @@ from datahub.emitter.mcp_builder import (
     ProjectIdKey,
     gen_containers,
 )
-from datahub.ingestion.api.source import config_class, platform_name
+from datahub.ingestion.api.decorators import (
+    SupportStatus,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemyConfig,
@@ -243,6 +248,7 @@ class BigQueryPartitionColumn:
 
 @config_class(BigQueryConfig)
 @platform_name("BigQuery")
+@support_status(SupportStatus.CERTIFIED)
 class BigQuerySource(SQLAlchemySource):
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "bigquery")

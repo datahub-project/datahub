@@ -37,12 +37,13 @@ from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import (
-    Source,
-    SourceReport,
+from datahub.ingestion.api.decorators import (
+    SupportStatus,
     config_class,
     platform_name,
+    support_status,
 )
+from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.looker_common import (
     LookerCommonConfig,
@@ -269,6 +270,7 @@ class LookerDashboard:
 
 
 @platform_name("Looker")
+@support_status(SupportStatus.CERTIFIED)
 @config_class(LookerDashboardSourceConfig)
 class LookerDashboardSource(Source):
     """

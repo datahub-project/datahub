@@ -18,7 +18,13 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import Source, config_class, platform_name
+from datahub.ingestion.api.decorators import (
+    SupportStatus,
+    config_class,
+    platform_name,
+    support_status,
+)
+from datahub.ingestion.api.source import Source
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.usage.usage_common import GenericAggregatedDataset
 from datahub.ingestion.source_config.usage.bigquery_usage import BigQueryUsageConfig
@@ -600,6 +606,7 @@ class QueryEvent:
 
 @config_class(BigQueryUsageConfig)
 @platform_name("BigQuery")
+@support_status(SupportStatus.CERTIFIED)
 class BigQueryUsageSource(Source):
     """
     This plugin extracts the following:

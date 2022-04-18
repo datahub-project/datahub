@@ -22,6 +22,12 @@ from datahub.emitter.mcp_builder import (
     gen_containers,
 )
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SupportStatus,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.tableau_common import (
@@ -88,7 +94,7 @@ class TableauConfig(ConfigModel):
     token_value: Optional[str] = None
 
     site: str = ""
-    projects: Optional[List] = ["default"]
+    projects: Optional[List[str]] = ["default"]
     default_schema_map: dict = {}
     ingest_tags: Optional[bool] = False
     ingest_owner: Optional[bool] = False
@@ -105,6 +111,9 @@ class WorkbookKey(PlatformKey):
     workbook_id: str
 
 
+@platform_name("Tableau")
+@config_class(TableauConfig)
+@support_status(SupportStatus.INCUBATING)
 class TableauSource(Source):
     config: TableauConfig
     report: SourceReport
