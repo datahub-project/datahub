@@ -3,7 +3,7 @@ import * as QueryString from 'query-string';
 import { Input, Button, Form, message, Image } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { useReactiveVar } from '@apollo/client';
-import { useTheme } from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 import { Redirect, useLocation } from 'react-router';
 import styles from './login.module.css';
 import { Message } from '../shared/Message';
@@ -15,6 +15,28 @@ type FormValues = {
     username: string;
     password: string;
 };
+
+const FormInput = styled(Input)`
+    &&& {
+        height: 32px;
+        font-size: 12px;
+        border: 1px solid white;
+        border-radius: 5px;
+        background-color: transparent;
+        color: white;
+        line-height: 1.5715;
+    }
+    > .ant-input {
+        color: white;
+        font-size: 14px;
+        background-color: transparent;
+    }
+    > .ant-input:hover {
+        color: white;
+        font-size: 14px;
+        background-color: transparent;
+    }
+`;
 
 export type LogInProps = Record<string, never>;
 
@@ -64,22 +86,34 @@ export const LogIn: React.VFC<LogInProps> = () => {
     return (
         <div className={styles.login_page}>
             <div className={styles.login_box}>
-                <Image wrapperClassName={styles.logo_image} src={themeConfig.assets?.logoUrl} preview={false} />
-                {loading && <Message type="loading" content="Logging in..." />}
-                <h3 className={styles.title}>Connecting you to the data that matters</h3>
-                <Form onFinish={handleLogin}>
-                    <Form.Item name="username" rules={[{ required: true, message: 'Please input your username!' }]}>
-                        <Input prefix={<UserOutlined />} placeholder="Username" />
-                    </Form.Item>
-                    <Form.Item name="password">
-                        <Input prefix={<LockOutlined />} type="password" placeholder="Password" />
-                    </Form.Item>
-                    <Form.Item>
-                        <Button type="primary" block htmlType="submit" className={styles.login_button}>
-                            Log in
-                        </Button>
-                    </Form.Item>
-                </Form>
+                <div className={styles.login_logo_box}>
+                    <Image wrapperClassName={styles.logo_image} src={themeConfig.assets?.logoUrl} preview={false} />
+                </div>
+                <div className={styles.login_form_box}>
+                    {loading && <Message type="loading" content="Logging in..." />}
+                    <Form onFinish={handleLogin} layout="vertical">
+                        <Form.Item
+                            name="username"
+                            // eslint-disable-next-line jsx-a11y/label-has-associated-control
+                            label={<label style={{ color: 'white' }}>Username</label>}
+                            rules={[{ required: true, message: 'Please input your username!' }]}
+                        >
+                            <FormInput prefix={<UserOutlined />} />
+                        </Form.Item>
+                        <Form.Item
+                            name="password"
+                            // eslint-disable-next-line jsx-a11y/label-has-associated-control
+                            label={<label style={{ color: 'white' }}>Password</label>}
+                        >
+                            <FormInput prefix={<LockOutlined />} type="password" />
+                        </Form.Item>
+                        <Form.Item style={{ marginBottom: '0px' }}>
+                            <Button type="primary" block htmlType="submit" className={styles.login_button}>
+                                Sign In
+                            </Button>
+                        </Form.Item>
+                    </Form>
+                </div>
             </div>
         </div>
     );
