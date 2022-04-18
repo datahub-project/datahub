@@ -142,7 +142,9 @@ class LookerConnectionDefinition(ConfigModel):
 
 
 class LookMLSourceConfig(LookerCommonConfig):
-    base_folder: pydantic.DirectoryPath
+    base_folder: pydantic.DirectoryPath = Field(
+        description="Where the `*.model.lkml` and `*.view.lkml` files are stored."
+    )
     connection_to_platform_map: Optional[Dict[str, LookerConnectionDefinition]]
     model_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     view_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
@@ -766,6 +768,15 @@ class LookerView:
 @platform_name("Looker")
 @config_class(LookMLSourceConfig)
 class LookMLSource(Source):
+    """
+    This plugin extracts the following:
+    - LookML views from model files in a project
+    - Name, upstream table names, metadata for dimensions, measures, and dimension groups attached as tags
+    - If API integration is enabled (recommended), resolves table and view names by calling the Looker API, otherwise supports offline resolution of these names.
+
+    **_NOTE_**: To get complete Looker metadata integration (including Looker dashboards and charts and lineage to the underlying Looker views, you must ALSO use the `looker` source module.
+    """
+
     source_config: LookMLSourceConfig
     reporter: LookMLSourceReport
     looker_client: Optional[Looker31SDK] = None

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, Iterable, List, Optional, Tuple, Union
 
+import pydantic
 from looker_sdk.error import SDKError
 from looker_sdk.rtl.transport import TransportOptions
 from looker_sdk.sdk.api31.methods import Looker31SDK
@@ -94,8 +95,11 @@ naming_pattern_variables: List[str] = [
 
 
 class LookerExploreNamingConfig(ConfigModel):
-    explore_naming_pattern: NamingPattern = NamingPattern(
-        allowed_vars=naming_pattern_variables, pattern="{model}.explore.{name}"
+    explore_naming_pattern: NamingPattern = pydantic.Field(
+        description="Pattern for providing dataset names to explores. Allowed variables are {project}, {model}, {name}. Default is `{model}.explore.{name}`",
+        default=NamingPattern(
+            allowed_vars=naming_pattern_variables, pattern="{model}.explore.{name}"
+        ),
     )
     explore_browse_pattern: NamingPattern = NamingPattern(
         allowed_vars=naming_pattern_variables,

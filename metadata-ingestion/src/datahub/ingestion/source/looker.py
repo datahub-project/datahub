@@ -271,6 +271,16 @@ class LookerDashboard:
 @platform_name("Looker")
 @config_class(LookerDashboardSourceConfig)
 class LookerDashboardSource(Source):
+    """
+    This plugin extracts the following:
+    - Looker dashboards, dashboard elements (charts) and explores
+    - Names, descriptions, URLs, chart types, input explores for the charts
+    - Schemas and input views for explores
+    - Owners of dashboards
+
+    **_NOTE:_** To get complete Looker metadata integration (including Looker views and lineage to the underlying warehouse tables), you must ALSO use the `lookml` module.
+    """
+
     source_config: LookerDashboardSourceConfig
     reporter: LookerDashboardSourceReport
     client: Looker31SDK
