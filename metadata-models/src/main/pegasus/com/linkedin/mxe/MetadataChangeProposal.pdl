@@ -41,6 +41,9 @@ record MetadataChangeProposal {
    **/
   aspectName: optional string
 
+  /**
+   * The value of the new aspect.
+   */
   aspect: optional GenericAspect
 
   /**

@@ -63,6 +63,8 @@ public class PlatformEventProcessor {
       return;
     }
 
+    log.info(event.toString());
+
     log.debug("Invoking PE hooks for event name {}", event.getName());
 
     for (PlatformEventHook hook : this.hooks) {
