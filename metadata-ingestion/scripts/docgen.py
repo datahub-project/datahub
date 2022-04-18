@@ -288,13 +288,33 @@ def generate(out_dir: str, extra_docs: Optional[str] = None) -> None:
 
     if extra_docs:
         for path in glob.glob(f"{extra_docs}/**/*.md", recursive=True):
-            m = re.search("/docs/sources/(.*).md", path)
+            # breakpoint()
+            m = re.search("/docs/sources/(.*)/(.*).md", path)
             if m:
                 platform_name = m.group(1).lower()
+                file_name = m.group(2)
                 with open(path, "r") as doc_file:
                     file_contents = doc_file.read()
                     # final_markdown = preprocess_markdown(file_contents)
-                    source_documentation[platform_name] = {"custom_docs": file_contents}
+                    if platform_name not in source_documentation:
+                        source_documentation[platform_name] = {}
+
+                    if file_name == "README":
+                        # README goes as platform level docs
+                        # all other docs are assumed to be plugin level
+                        source_documentation[platform_name][
+                            "custom_docs"
+                        ] = file_contents
+                    else:
+                        if "plugins" not in source_documentation[platform_name]:
+                            source_documentation[platform_name]["plugins"] = {}
+                        if (
+                            file_name
+                            not in source_documentation[platform_name]["plugins"]
+                        ):
+                            source_documentation[platform_name]["plugins"][
+                                file_name
+                            ] = {"custom_docs": file_contents}
 
     source_registry = PluginRegistry[Source]()
     source_registry.register_from_entrypoint("datahub.ingestion.source.plugins")
@@ -344,20 +364,26 @@ def generate(out_dir: str, extra_docs: Optional[str] = None) -> None:
                     f.write(source_config_class.schema_json(indent=2))
 
                 table_md = gen_md_table_from_struct(source_config_class.schema())
-                source_documentation[platform_name.lower()]["plugins"].update(
+                if (
+                    plugin_name
+                    not in source_documentation[platform_name.lower()]["plugins"]
+                ):
+                    source_documentation[platform_name.lower()]["plugins"][
+                        plugin_name
+                    ] = {}
+                source_documentation[platform_name.lower()]["plugins"][
+                    plugin_name
+                ].update(
                     {
-                        plugin_name: {
-                            "source_doc": source_doc or "",
-                            "config": table_md,
-                            "support_status": support_status,
-                        },
+                        "source_doc": source_doc or "",
+                        "config": table_md,
+                        "support_status": support_status,
                     }
                 )
             except Exception as e:
                 raise e
 
     for platform, platform_docs in source_documentation.items():
-        # breakpoint()
         sources_dir = f"{out_dir}/sources"
         os.makedirs(sources_dir, exist_ok=True)
         platform_doc_file = f"{sources_dir}/{platform}.md"
@@ -376,6 +402,8 @@ def generate(out_dir: str, extra_docs: Optional[str] = None) -> None:
                         f"| `{plugin}` | {get_snippet(platform_docs['plugins'][plugin]['source_doc'])}[Read more...](#module-{plugin}) |\n"
                     )
                 f.write("\n")
+            # insert platform level custom docs before plugin section
+            f.write(platform_docs.get("custom_docs") or "")
             for plugin, plugin_docs in platform_docs["plugins"].items():
                 f.write(f"## Module `{plugin}`\n")
                 if "support_status" in plugin_docs:
@@ -387,14 +415,15 @@ def generate(out_dir: str, extra_docs: Optional[str] = None) -> None:
                 f.write("```shell\n")
                 f.write(f"pip install 'acryl-datahub[{plugin}]'\n")
                 f.write("```\n")
-                f.write("### Config Details\n")
+                # insert custom plugin docs before config details
+                f.write(plugin_docs.get("custom_docs", ""))
+                f.write("\n### Config Details\n")
                 f.write(
                     "Note that a `.` is used to denote nested fields in the YAML recipe.\n\n"
                 )
                 for doc in plugin_docs["config"]:
                     f.write(doc)
 
-            f.write(platform_docs.get("custom_docs") or "")
             f.write("## Questions\n")
             f.write(
                 "If you've got any questions on configuring this source, feel free to ping us on [our Slack](https://slack.datahubproject.io)\n"

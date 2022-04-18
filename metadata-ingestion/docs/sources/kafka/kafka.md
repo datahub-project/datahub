@@ -1,10 +1,5 @@
 ## Capabilities
 
-This plugin extracts the following:
-
-- Topics from the Kafka broker
-- Schemas associated with each topic from the schema registry
-
 | Capability        | Status | Details                                  | 
 |-------------------|--------|------------------------------------------|
 | Platform Instance | ✔️ | [link](../../../platform-instances.md) |
@@ -133,4 +128,3 @@ source:
 sink:
   # sink configs
 ```
-
