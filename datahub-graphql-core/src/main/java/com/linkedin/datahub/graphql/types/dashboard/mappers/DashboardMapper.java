@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.dashboard.mappers;
 
+import com.linkedin.common.Deprecation;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
@@ -18,15 +19,18 @@ import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.DashboardKey;
 import com.linkedin.metadata.key.DataPlatformKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
@@ -49,64 +53,49 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
         final Dashboard result = new Dashboard();
         result.setUrn(entityResponse.getUrn().toString());
         result.setType(EntityType.DASHBOARD);
+        EnvelopedAspectMap aspectMap = entityResponse.getAspects();
+        MappingHelper<Dashboard> mappingHelper = new MappingHelper<>(aspectMap, result);
+        mappingHelper.mapToResult(DASHBOARD_KEY_ASPECT_NAME, this::mapDashboardKey);
+        mappingHelper.mapToResult(DASHBOARD_INFO_ASPECT_NAME, this::mapDashboardInfo);
+        mappingHelper.mapToResult(EDITABLE_DASHBOARD_PROPERTIES_ASPECT_NAME, this::mapEditableDashboardProperties);
+        mappingHelper.mapToResult(OWNERSHIP_ASPECT_NAME, (dashboard, dataMap) ->
+            dashboard.setOwnership(OwnershipMapper.map(new Ownership(dataMap))));
+        mappingHelper.mapToResult(STATUS_ASPECT_NAME, (dashboard, dataMap) ->
+            dashboard.setStatus(StatusMapper.map(new Status(dataMap))));
+        mappingHelper.mapToResult(INSTITUTIONAL_MEMORY_ASPECT_NAME, (dashboard, dataMap) ->
+            dashboard.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap))));
+        mappingHelper.mapToResult(GLOSSARY_TERMS_ASPECT_NAME, (dashboard, dataMap) ->
+            dashboard.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(dataMap))));
+        mappingHelper.mapToResult(CONTAINER_ASPECT_NAME, this::mapContainers);
+        mappingHelper.mapToResult(DOMAINS_ASPECT_NAME, this::mapDomains);
+        mappingHelper.mapToResult(DEPRECATION_ASPECT_NAME, (dashboard, dataMap) ->
+            dashboard.setDeprecation(DeprecationMapper.map(new Deprecation(dataMap))));
+        mappingHelper.mapToResult(GLOBAL_TAGS_ASPECT_NAME, this::mapGlobalTags);
 
-        entityResponse.getAspects().forEach((name, aspect) -> {
-            DataMap data = aspect.getValue().data();
-            if (DASHBOARD_KEY_ASPECT_NAME.equals(name)) {
-                final DashboardKey gmsKey = new DashboardKey(data);
-                result.setDashboardId(gmsKey.getDashboardId());
-                result.setTool(gmsKey.getDashboardTool());
-                result.setPlatform(DataPlatform.builder()
-                    .setType(EntityType.DATA_PLATFORM)
-                    .setUrn(EntityKeyUtils
-                        .convertEntityKeyToUrn(new DataPlatformKey()
-                            .setPlatformName(gmsKey.getDashboardTool()), DATA_PLATFORM_ENTITY_NAME).toString()).build());
-            } else if (DASHBOARD_INFO_ASPECT_NAME.equals(name)) {
-                final com.linkedin.dashboard.DashboardInfo gmsDashboardInfo = new com.linkedin.dashboard.DashboardInfo(data);
-                result.setInfo(mapDashboardInfo(gmsDashboardInfo));
-                result.setProperties(mapDashboardInfoToProperties(gmsDashboardInfo));
-            } else if (EDITABLE_DASHBOARD_PROPERTIES_ASPECT_NAME.equals(name)) {
-                final EditableDashboardProperties editableDashboardProperties = new EditableDashboardProperties(data);
-                final DashboardEditableProperties dashboardEditableProperties = new DashboardEditableProperties();
-                dashboardEditableProperties.setDescription(editableDashboardProperties.getDescription());
-                result.setEditableProperties(dashboardEditableProperties);
-            } else if (OWNERSHIP_ASPECT_NAME.equals(name)) {
-                result.setOwnership(OwnershipMapper.map(new Ownership(data)));
-            } else if (STATUS_ASPECT_NAME.equals(name)) {
-                result.setStatus(StatusMapper.map(new Status(data)));
-            } else if (GLOBAL_TAGS_ASPECT_NAME.equals(name)) {
-                com.linkedin.datahub.graphql.generated.GlobalTags globalTags = GlobalTagsMapper.map(new GlobalTags(data));
-                result.setGlobalTags(globalTags);
-                result.setTags(globalTags);
-            } else if (INSTITUTIONAL_MEMORY_ASPECT_NAME.equals(name)) {
-                result.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(data)));
-            } else if (GLOSSARY_TERMS_ASPECT_NAME.equals(name)) {
-                result.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(data)));
-            } else if (CONTAINER_ASPECT_NAME.equals(name)) {
-                final com.linkedin.container.Container gmsContainer = new com.linkedin.container.Container(data);
-                result.setContainer(Container
-                    .builder()
-                    .setType(EntityType.CONTAINER)
-                    .setUrn(gmsContainer.getContainer().toString())
-                    .build());
-            } else if (DOMAINS_ASPECT_NAME.equals(name)) {
-                final Domains domains = new Domains(data);
-                // Currently we only take the first domain if it exists.
-                if (domains.getDomains().size() > 0) {
-                    result.setDomain(Domain.builder()
-                        .setType(EntityType.DOMAIN)
-                        .setUrn(domains.getDomains().get(0).toString()).build());
-                }
-            }
-        });
+        return mappingHelper.getResult();
+    }
 
-        return result;
+    private void mapDashboardKey(@Nonnull Dashboard dashboard, @Nonnull DataMap dataMap) {
+        final DashboardKey gmsKey = new DashboardKey(dataMap);
+        dashboard.setDashboardId(gmsKey.getDashboardId());
+        dashboard.setTool(gmsKey.getDashboardTool());
+        dashboard.setPlatform(DataPlatform.builder()
+            .setType(EntityType.DATA_PLATFORM)
+            .setUrn(EntityKeyUtils
+                .convertEntityKeyToUrn(new DataPlatformKey()
+                    .setPlatformName(gmsKey.getDashboardTool()), DATA_PLATFORM_ENTITY_NAME).toString()).build());
+    }
+
+    private void mapDashboardInfo(@Nonnull Dashboard dashboard, @Nonnull DataMap dataMap) {
+        final com.linkedin.dashboard.DashboardInfo gmsDashboardInfo = new com.linkedin.dashboard.DashboardInfo(dataMap);
+        dashboard.setInfo(mapInfo(gmsDashboardInfo));
+        dashboard.setProperties(mapDashboardInfoToProperties(gmsDashboardInfo));
     }
 
     /**
      * Maps GMS {@link com.linkedin.dashboard.DashboardInfo} to deprecated GraphQL {@link DashboardInfo}
      */
-    private DashboardInfo mapDashboardInfo(final com.linkedin.dashboard.DashboardInfo info) {
+    private DashboardInfo mapInfo(final com.linkedin.dashboard.DashboardInfo info) {
         final DashboardInfo result = new DashboardInfo();
         result.setDescription(info.getDescription());
         result.setName(info.getTitle());
@@ -163,5 +152,37 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
             result.setDeleted(AuditStampMapper.map(info.getLastModified().getDeleted()));
         }
         return result;
+    }
+
+    private void mapEditableDashboardProperties(@Nonnull Dashboard dashboard, @Nonnull DataMap dataMap) {
+        final EditableDashboardProperties editableDashboardProperties = new EditableDashboardProperties(dataMap);
+        final DashboardEditableProperties dashboardEditableProperties = new DashboardEditableProperties();
+        dashboardEditableProperties.setDescription(editableDashboardProperties.getDescription());
+        dashboard.setEditableProperties(dashboardEditableProperties);
+    }
+
+    private void mapGlobalTags(@Nonnull Dashboard dashboard, @Nonnull DataMap dataMap) {
+        com.linkedin.datahub.graphql.generated.GlobalTags globalTags = GlobalTagsMapper.map(new GlobalTags(dataMap));
+        dashboard.setGlobalTags(globalTags);
+        dashboard.setTags(globalTags);
+    }
+
+    private void mapContainers(@Nonnull Dashboard dashboard, @Nonnull DataMap dataMap) {
+        final com.linkedin.container.Container gmsContainer = new com.linkedin.container.Container(dataMap);
+        dashboard.setContainer(Container
+            .builder()
+            .setType(EntityType.CONTAINER)
+            .setUrn(gmsContainer.getContainer().toString())
+            .build());
+    }
+
+    private void mapDomains(@Nonnull Dashboard dashboard, @Nonnull DataMap dataMap) {
+        final Domains domains = new Domains(dataMap);
+        // Currently we only take the first domain if it exists.
+        if (domains.getDomains().size() > 0) {
+            dashboard.setDomain(Domain.builder()
+                .setType(EntityType.DOMAIN)
+                .setUrn(domains.getDomains().get(0).toString()).build());
+        }
     }
 }

@@ -1,13 +1,18 @@
+import glob
 import json
 import logging
+import re
 import unittest.mock
 from dataclasses import Field, dataclass, field
+from enum import Enum, auto
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import avro.schema
 import click
+from pydantic import validator
 
+from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import make_data_platform_urn, make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
@@ -36,8 +41,15 @@ from datahub.metadata.schema_classes import (
 logger = logging.getLogger(__name__)
 
 
+# TODO: Support generating docs for each event type in entity registry.
+
 def capitalize_first(something: str) -> str:
     return something[0:1].upper() + something[1:]
+
+
+class EntityCategory(Enum):
+    CORE = auto()
+    INTERNAL = auto()
 
 
 @dataclass
@@ -48,12 +60,22 @@ class EntityDefinition:
     aspect_map: Optional[Dict[str, Any]] = None
     relationship_map: Optional[Dict[str, str]] = None
     doc: Optional[str] = None
+    doc_file_contents: Optional[str] = None
+    # entities are by default in the CORE category unless specified otherwise
+    category: EntityCategory = EntityCategory.CORE
+    priority: Optional[int] = None
     # schema: Optional[avro.schema.Schema] = None
     # logical_schema: Optional[avro.schema.Schema] = None
 
     # @validator("name")
     # def lower_everything(cls, v: str) -> str:
     #    return v.lower()
+
+    @validator("category", pre=True)
+    def find_match(cls, v: str) -> EntityCategory:
+        if isinstance(v, str) and v.upper() == "INTERNAL":
+            return EntityCategory.INTERNAL
+        return EntityCategory.CORE
 
     @property
     def display_name(self):
@@ -67,6 +89,9 @@ class AspectDefinition:
     schema: Optional[avro.schema.Schema] = None
     type: Optional[str] = None
 
+@dataclass
+class EventDefinition:
+    name: str
 
 entity_registry: Dict[str, EntityDefinition] = {}
 
@@ -88,6 +113,9 @@ def get_aspects_from_snapshot(
 
 
 aspect_registry: Dict[str, AspectDefinition] = {}
+
+# A holder for generated docs
+generated_documentation: Dict[str, str] = {}
 
 
 # Patch add_name method to NOT complain about duplicate names
@@ -221,17 +249,55 @@ def make_entity_docs(entity_display_name: str, graph: RelationshipGraph) -> str:
     entity_name = entity_display_name[0:1].lower() + entity_display_name[1:]
     entity_def: Optional[EntityDefinition] = entity_registry.get(entity_name, None)
     if entity_def:
-        import pdb
+        doc = entity_def.doc_file_contents or (
+            f"# {entity_def.display_name}\n{entity_def.doc}"
+            if entity_def.doc
+            else f"# {entity_def.display_name}"
+        )
+        # create aspects section
+        aspects_section = "\n## Aspects\n" if entity_def.aspects else ""
 
-        # breakpoint()
-        doc = entity_def.doc or f"This is the {entity_def.display_name} entity."
+        deprecated_aspects_section = ""
+        timeseries_aspects_section = ""
+
+        for aspect in entity_def.aspects or []:
+            aspect_definition: AspectDefinition = aspect_registry.get(aspect)
+            assert aspect_definition
+            deprecated_message = (
+                " (Deprecated)"
+                if aspect_definition.schema.get_prop("Deprecated")
+                else ""
+            )
+            timeseries_qualifier = (
+                " (Timeseries)" if aspect_definition.type == "timeseries" else ""
+            )
+            this_aspect_doc = ""
+            this_aspect_doc += (
+                f"\n### {aspect}{deprecated_message}{timeseries_qualifier}\n"
+            )
+            this_aspect_doc += f"{aspect_definition.schema.get_prop('doc')}\n"
+            this_aspect_doc += f"<details>\n<summary>Schema</summary>\n\n"
+            # breakpoint()
+            this_aspect_doc += f"```javascript\n{json.dumps(aspect_definition.schema.to_json(), indent=2)}\n```\n</details>\n"
+
+            if deprecated_message:
+                deprecated_aspects_section += this_aspect_doc
+            elif timeseries_qualifier:
+                timeseries_aspects_section += this_aspect_doc
+            else:
+                aspects_section += this_aspect_doc
+
+        aspects_section += timeseries_aspects_section + deprecated_aspects_section
+
         # create relationships section
-        relationships_section = f"\n## Relationships\n"
+        relationships_section = "\n## Relationships\n"
         adjacency = graph.get_adjacency(entity_def.display_name)
         if adjacency.self_loop:
             relationships_section += f"\n### Self\nThese are the relationships to itself, stored in this entity's aspects"
         for relnship in adjacency.self_loop:
-            relationships_section += f"\n- {relnship.name} ({relnship.doc[1:] if relnship.doc else ''})"
+            relationships_section += (
+                f"\n- {relnship.name} ({relnship.doc[1:] if relnship.doc else ''})"
+            )
 
         if adjacency.outgoing:
             relationships_section += f"\n### Outgoing\nThese are the relationships stored in this entity's aspects"
@@ -246,19 +312,20 @@ def make_entity_docs(entity_display_name: str, graph: RelationshipGraph) -> str:
             )
 
         # create global metadata graph
-        global_graph_url = "https://github.com/linkedin/datahub/raw/master/docs/imgs/datahub-metadata-model.png"
+        global_graph_url = "https://github.com/datahub-project/datahub/raw/master/docs/imgs/datahub-metadata-model.png"
         global_graph_section = (
             f"\n## [Global Metadata Model]({global_graph_url})"
             + f"\n![Global Graph]({global_graph_url})"
         )
-        return doc + relationships_section + global_graph_section
+        final_doc = doc + aspects_section + relationships_section + global_graph_section
+        generated_documentation[entity_name] = final_doc
+        return final_doc
     else:
         raise Exception(f"Failed to find information for entity: {entity_name}")
 
 
 def generate_stitched_record(relnships_graph: RelationshipGraph) -> List[Any]:
     def strip_types(field_path: str) -> str:
-        import re
 
         final_path = field_path
         final_path = re.sub(r"(\[type=[a-zA-Z]+\]\.)", "", final_path)
@@ -274,9 +341,7 @@ def generate_stitched_record(relnships_graph: RelationshipGraph) -> List[Any]:
             if aspect_name not in aspect_registry:
                 print(f"Did not find aspect name: {aspect_name} in aspect_registry")
                 continue
-            import pdb
 
-            # breakpoint()
             # all aspects should have a schema
             aspect_schema = aspect_registry[aspect_name].schema
             assert aspect_schema
@@ -292,7 +357,7 @@ def generate_stitched_record(relnships_graph: RelationshipGraph) -> List[Any]:
             field_objects = []
             for f in entity_fields:
                 field = avro.schema.Field(
-                    type_=f["type"],
+                    type=f["type"],
                     name=f["name"],
                     has_default=False,
                 )
@@ -326,8 +391,6 @@ def generate_stitched_record(relnships_graph: RelationshipGraph) -> List[Any]:
             )
             for f_field in schema_fields:
                 if f_field.jsonProps:
-                    import pdb
-                    #breakpoint()
                     json_dict = json.loads(f_field.jsonProps)
                     if "Aspect" in json_dict:
                         aspect_info = json_dict["Aspect"]
@@ -454,11 +517,9 @@ def generate_stitched_record(relnships_graph: RelationshipGraph) -> List[Any]:
     return events
 
 
-from datahub.configuration.common import ConfigModel
-
-
 class EntityRegistry(ConfigModel):
     entities: List[EntityDefinition]
+    events: Optional[List[EventDefinition]]
 
 
 def load_registry_file(registry_file: str) -> Dict[str, EntityDefinition]:
@@ -466,29 +527,106 @@ def load_registry_file(registry_file: str) -> Dict[str, EntityDefinition]:
 
     with open(registry_file, "r") as f:
         registry = EntityRegistry.parse_obj(yaml.safe_load(f))
+        index: int = 0
         for entity_def in registry.entities:
+            index += 1
+            entity_def.priority = index
             entity_registry[entity_def.name] = entity_def
-
     return entity_registry
+
+
+def get_sorted_entity_names(
+    entity_names: List[Tuple[str, EntityDefinition]]
+) -> List[Tuple[str, List[str]]]:
+    core_entities = [
+        (x, y) for (x, y) in entity_names if y.category == EntityCategory.CORE
+    ]
+    priority_bearing_core_entities = [(x, y) for (x, y) in core_entities if y.priority]
+    priority_bearing_core_entities.sort(key=lambda x: x[1].priority)
+    priority_bearing_core_entities = [x for (x, y) in priority_bearing_core_entities]
+
+    non_priority_core_entities = [x for (x, y) in core_entities if not y.priority]
+    non_priority_core_entities.sort()
+
+    internal_entities = [
+        (x, y) for (x, y) in entity_names if y.category == EntityCategory.INTERNAL
+    ]
+    priority_bearing_internal_entities = [
+        x for (x, y) in internal_entities if y.priority
+    ]
+
+    non_priority_internal_entities = [
+        x for (x, y) in internal_entities if not y.priority
+    ]
+
+    sorted_entities = [
+        (
+            EntityCategory.CORE,
+            priority_bearing_core_entities + non_priority_core_entities,
+        ),
+        (
+            EntityCategory.INTERNAL,
+            priority_bearing_internal_entities + non_priority_internal_entities,
+        ),
+    ]
+
+    return sorted_entities
+
+
+def preprocess_markdown(markdown_contents: str) -> str:
+    inline_pattern = re.compile(r"{{ inline (.*) }}")
+    pos = 0
+    content_swap_register = {}
+    while inline_pattern.search(markdown_contents, pos=pos):
+        match = inline_pattern.search(markdown_contents, pos=pos)
+        file_name = match.group(1)
+        with open(file_name, "r") as fp:
+            inline_content = fp.read()
+            content_swap_register[match.span()] = inline_content
+        pos = match.span()[1]
+    processed_markdown = ""
+    cursor = 0
+    for (start, end) in content_swap_register:
+        processed_markdown += (
+            markdown_contents[cursor:start] + content_swap_register[(start, end)]
+        )
+        cursor = end
+    processed_markdown += markdown_contents[cursor:]
+    return processed_markdown
 
 
 @click.command()
 @click.argument("schema_files", type=click.Path(exists=True), nargs=-1, required=True)
 @click.option("--server", type=str, required=False)
 @click.option("--file", type=str, required=False)
-@click.option("--dot", type=str, required=False)
+@click.option(
+    "--dot", type=str, required=False, help="generate a dot file representing the graph"
+)
 @click.option("--png", type=str, required=False)
+@click.option("--extra-docs", type=str, required=False)
 def generate(
     schema_files: List[str],
     server: Optional[str],
     file: Optional[str],
     dot: Optional[str],
-    png: Optional[str]
+    png: Optional[str],
+    extra_docs: Optional[str],
 ) -> None:
     logger.info(f"server = {server}")
     logger.info(f"file = {file}")
     logger.info(f"dot = {dot}")
     logger.info(f"png = {png}")
+
+    entity_extra_docs = {}
+    if extra_docs:
+        for path in glob.glob(f"{extra_docs}/**/*.md", recursive=True):
+            m = re.search("/docs/entities/(.*)/*.md", path)
+            if m:
+                entity_name = m.group(1)
+                with open(path, "r") as doc_file:
+                    file_contents = doc_file.read()
+                    final_markdown = preprocess_markdown(file_contents)
+                    entity_extra_docs[entity_name] = final_markdown
 
     for schema_file in schema_files:
         if schema_file.endswith(".yml") or schema_file.endswith(".yaml"):
@@ -497,9 +635,42 @@ def generate(
         else:
             # schema file
             load_schema_file(schema_file)
-            
+
+    if entity_extra_docs:
+        for entity_name in entity_extra_docs:
+
+            entity_registry.get(entity_name).doc_file_contents = entity_extra_docs[
+                entity_name
+            ]
+
     relationship_graph = RelationshipGraph()
     events = generate_stitched_record(relationship_graph)
+
+    generated_docs_dir = "../docs/generated/metamodel"
+    import shutil
+
+    shutil.rmtree(f"{generated_docs_dir}/entities", ignore_errors=True)
+    entity_names = [(x, entity_registry.get(x)) for x in generated_documentation]
+
+    sorted_entity_names = get_sorted_entity_names(entity_names)
+
+    index = 0
+    for category, sorted_entities in sorted_entity_names:
+        for entity_name in sorted_entities:
+            entity_def = entity_registry.get(entity_name)
+
+            entity_category = entity_def.category
+            entity_dir = f"{generated_docs_dir}/entities/"
+            import os
+
+            os.makedirs(entity_dir, exist_ok=True)
+
+            with open(f"{entity_dir}/{entity_name}.md", "w") as fp:
+                fp.write("---\n")
+                fp.write(f"sidebar_position: {index}\n")
+                fp.write("---\n")
+                fp.write(generated_documentation[entity_name])
+                index += 1
 
     if file:
         logger.info(f"Will write events to {file}")
@@ -573,8 +744,11 @@ def generate(
             try:
                 graph.write_png(png)
             except Exception as e:
-                logger.error("Failed to create png file. Do you have graphviz installed?")
+                logger.error(
+                    "Failed to create png file. Do you have graphviz installed?"
+                )
                 raise e
+
 
 if __name__ == "__main__":
     logger.setLevel("INFO")

@@ -19,11 +19,14 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.elasticsearch.ElasticsearchStatusException;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.client.core.CountRequest;
+
+import static com.linkedin.metadata.search.utils.SearchUtils.EMPTY_SEARCH_RESULT;
 
 
 /**
@@ -58,6 +61,14 @@ public class ESSearchDAO {
       // extract results, validated against document model as well
       return SearchRequestHandler.getBuilder(entitySpec).extractResult(searchResponse, from, size);
     } catch (Exception e) {
+      if (e instanceof ElasticsearchStatusException) {
+        final ElasticsearchStatusException statusException = (ElasticsearchStatusException) e;
+        if (statusException.status().getStatus() == 400) {
+          // Malformed query -- Could indicate bad search syntax. Return empty response.
+          log.warn("Received 400 from Elasticsearch. Returning empty search response", e);
+          return EMPTY_SEARCH_RESULT;
+        }
+      }
       log.error("Search query failed", e);
       throw new ESQueryException("Search query failed:", e);
     }

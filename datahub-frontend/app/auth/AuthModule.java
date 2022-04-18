@@ -11,7 +11,10 @@ import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
 import com.linkedin.util.Configuration;
 import com.datahub.authentication.Authentication;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.Collections;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.pac4j.core.client.Client;
 import org.pac4j.core.client.Clients;
 import org.pac4j.core.config.Config;
@@ -20,6 +23,7 @@ import org.pac4j.play.LogoutController;
 import org.pac4j.play.http.PlayHttpActionAdapter;
 import org.pac4j.play.store.PlayCookieSessionStore;
 import org.pac4j.play.store.PlaySessionStore;
+import org.pac4j.play.store.ShiroAesDataEncrypter;
 import play.Environment;
 
 import java.util.ArrayList;
@@ -41,6 +45,13 @@ import static utils.ConfigUtil.*;
  */
 public class AuthModule extends AbstractModule {
 
+    /**
+     * Pac4j Stores Session State in a browser-side cookie in encrypted fashion. This configuration
+     * value provides a stable encryption base from which to derive the encryption key.
+     *
+     * We hash this value (SHA1), then take the first 16 bytes as the AES key.
+     */
+    private static final String PAC4J_AES_KEY_BASE_CONF = "play.http.secret.key";
     private final com.typesafe.config.Config _configs;
 
     public AuthModule(final Environment environment, final com.typesafe.config.Config configs) {
@@ -49,7 +60,20 @@ public class AuthModule extends AbstractModule {
 
     @Override
     protected void configure() {
-        final PlayCookieSessionStore playCacheCookieStore = new PlayCookieSessionStore();
+        PlayCookieSessionStore playCacheCookieStore;
+        try {
+            // To generate a valid encryption key from an input value, we first
+            // hash the input to generate a fixed-length string. Then, we convert
+            // it to hex and slice the first 16 bytes, because AES key length must strictly
+            // have a specific length.
+            final String aesKeyBase = _configs.getString(PAC4J_AES_KEY_BASE_CONF);
+            final String aesKeyHash = DigestUtils.sha1Hex(aesKeyBase.getBytes(StandardCharsets.UTF_8));
+            final String aesEncryptionKey = aesKeyHash.substring(0, 16);
+            playCacheCookieStore = new PlayCookieSessionStore(
+                new ShiroAesDataEncrypter(aesEncryptionKey));
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to instantiate Pac4j cookie session store!", e);
+        }
         bind(SessionStore.class).toInstance(playCacheCookieStore);
         bind(PlaySessionStore.class).toInstance(playCacheCookieStore);
 

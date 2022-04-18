@@ -21,6 +21,7 @@ from typing import (
 
 import looker_sdk
 from looker_sdk.error import SDKError
+from looker_sdk.rtl.transport import TransportOptions
 from looker_sdk.sdk.api31.methods import Looker31SDK
 from looker_sdk.sdk.api31.models import (
     Dashboard,
@@ -66,6 +67,7 @@ class LookerAPIConfig(ConfigModel):
     client_id: str
     client_secret: str
     base_url: str
+    transport_options: Optional[TransportOptions]
 
 
 class LookerAPI:
@@ -82,7 +84,7 @@ class LookerAPI:
         # try authenticating current user to check connectivity
         # (since it's possible to initialize an invalid client without any complaints)
         try:
-            self.client.me()
+            self.client.me(transport_options=config.transport_options)
         except SDKError as e:
             raise ConfigurationError(
                 "Failed to initialize Looker client. Please check your configuration."
@@ -215,13 +217,19 @@ class LookerUserRegistry:
         self.client = client
         self.user_map = {}
 
-    def get_by_id(self, id: int) -> Optional[LookerUser]:
+    def get_by_id(
+        self, id: int, transport_options: Optional[TransportOptions]
+    ) -> Optional[LookerUser]:
         logger.debug("Will get user {}".format(id))
         if id in self.user_map:
             return self.user_map[id]
         else:
             try:
-                raw_user: User = self.client.user(id, fields=self.fields)
+                raw_user: User = self.client.user(
+                    id,
+                    fields=self.fields,
+                    transport_options=transport_options,
+                )
                 looker_user = LookerUser._from_user(raw_user)
                 self.user_map[id] = looker_user
                 return looker_user
@@ -408,7 +416,7 @@ class LookerDashboardSource(Source):
                 fields = self._get_fields_from_query(element.look.query)
                 if element.look.query.view is not None:
                     explores = [element.look.query.view]
-                logger.info(
+                logger.debug(
                     "Element {}: Explores added: {}".format(element.title, explores)
                 )
                 for exp in explores:
@@ -576,8 +584,8 @@ class LookerDashboardSource(Source):
                 events, explore_id, start_time, end_time = future.result()
                 explore_events.extend(events)
                 self.reporter.report_upstream_latency(start_time, end_time)
-                logger.info(
-                    f"Running time of fetch_one_explore for {explore_id}: {(end_time-start_time).total_seconds()}"
+                logger.debug(
+                    f"Running time of fetch_one_explore for {explore_id}: {(end_time - start_time).total_seconds()}"
                 )
 
         return explore_events
@@ -593,7 +601,11 @@ class LookerDashboardSource(Source):
         start_time = datetime.datetime.now()
         events: List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]] = []
         looker_explore = LookerExplore.from_api(
-            model, explore, self.client, self.reporter
+            model,
+            explore,
+            self.client,
+            self.reporter,
+            self.source_config.transport_options,
         )
         if looker_explore is not None:
             events = (
@@ -673,7 +685,11 @@ class LookerDashboardSource(Source):
         if not self.folder_path_cache.get(folder.id):
             ancestors = [
                 ancestor.name
-                for ancestor in client.folder_ancestors(folder.id, fields="name")
+                for ancestor in client.folder_ancestors(
+                    folder.id,
+                    fields="name",
+                    transport_options=self.source_config.transport_options,
+                )
             ]
             self.folder_path_cache[folder.id] = "/".join(ancestors + [folder.name])
         return self.folder_path_cache[folder.id]
@@ -709,7 +725,9 @@ class LookerDashboardSource(Source):
             raise ValueError("Both dashboard ID and title are None")
 
         dashboard_owner = (
-            self.user_registry.get_by_id(dashboard.user_id)
+            self.user_registry.get_by_id(
+                dashboard.user_id, self.source_config.transport_options
+            )
             if self.source_config.extract_owners and dashboard.user_id is not None
             else None
         )
@@ -755,7 +773,9 @@ class LookerDashboardSource(Source):
                 "user_id",
             ]
             dashboard_object = self.client.dashboard(
-                dashboard_id=dashboard_id, fields=",".join(fields)
+                dashboard_id=dashboard_id,
+                fields=",".join(fields),
+                transport_options=self.source_config.transport_options,
             )
         except SDKError:
             # A looker dashboard could be deleted in between the list and the get
@@ -786,9 +806,15 @@ class LookerDashboardSource(Source):
         return workunits, dashboard_id, start_time, datetime.datetime.now()
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        dashboards = self.client.all_dashboards(fields="id")
+        dashboards = self.client.all_dashboards(
+            fields="id", transport_options=self.source_config.transport_options
+        )
         deleted_dashboards = (
-            self.client.search_dashboards(fields="id", deleted="true")
+            self.client.search_dashboards(
+                fields="id",
+                deleted="true",
+                transport_options=self.source_config.transport_options,
+            )
             if self.source_config.include_deleted
             else []
         )
@@ -809,8 +835,8 @@ class LookerDashboardSource(Source):
             ]
             for async_workunit in concurrent.futures.as_completed(async_workunits):
                 work_units, dashboard_id, start_time, end_time = async_workunit.result()
-                logger.info(
-                    f"Running time of process_dashboard for {dashboard_id} = {(end_time-start_time).total_seconds()}"
+                logger.debug(
+                    f"Running time of process_dashboard for {dashboard_id} = {(end_time - start_time).total_seconds()}"
                 )
                 self.reporter.report_upstream_latency(start_time, end_time)
                 for mwu in work_units:

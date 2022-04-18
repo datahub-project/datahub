@@ -1,0 +1,173 @@
+fragment relationshipFields on EntityWithRelationships {
+    urn
+    type
+    ... on DataJob {
+        ...dataJobFields
+        editableProperties {
+            description
+        }
+        status {
+            removed
+        }
+    }
+    ... on DataFlow {
+        orchestrator
+        flowId
+        cluster
+        properties {
+            name
+            description
+            project
+        }
+        ownership {
+            ...ownershipFields
+        }
+        globalTags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        editableProperties {
+            description
+        }
+        platform {
+            ...platformFields
+        }
+        domain {
+            ...entityDomain
+        }
+        status {
+            removed
+        }
+    }
+    ... on Dashboard {
+        ...dashboardFields
+        editableProperties {
+            description
+        }
+        platform {
+            ...platformFields
+        }
+        status {
+            removed
+        }
+    }
+    ... on Chart {
+        tool
+        chartId
+        properties {
+            name
+            description
+        }
+        editableProperties {
+            description
+        }
+        ownership {
+            ...ownershipFields
+        }
+        platform {
+            ...platformFields
+        }
+        domain {
+            ...entityDomain
+        }
+        status {
+            removed
+        }
+    }
+    ... on Dataset {
+        name
+        properties {
+            name
+            description
+        }
+        editableProperties {
+            description
+        }
+        platform {
+            ...platformFields
+        }
+        ownership {
+            ...ownershipFields
+        }
+        subTypes {
+            typeNames
+        }
+        status {
+            removed
+        }
+    }
+    ... on MLModelGroup {
+        urn
+        type
+        name
+        description
+        origin
+        platform {
+            ...platformFields
+        }
+        ownership {
+            ...ownershipFields
+        }
+        status {
+            removed
+        }
+    }
+    ... on MLModel {
+        urn
+        type
+        name
+        description
+        origin
+        platform {
+            ...platformFields
+        }
+        ownership {
+            ...ownershipFields
+        }
+        status {
+            removed
+        }
+    }
+    ... on MLFeatureTable {
+        ...nonRecursiveMLFeatureTable
+    }
+    ... on MLFeature {
+        ...nonRecursiveMLFeature
+    }
+    ... on MLPrimaryKey {
+        ...nonRecursiveMLPrimaryKey
+    }
+    upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
+        ...leafLineageResults
+    }
+    downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
+        ...leafLineageResults
+    }
+}
+
+fragment fullLineageResults on EntityLineageResult {
+    start
+    count
+    total
+    relationships {
+        type
+        entity {
+            ...relationshipFields
+        }
+    }
+}
+
+fragment leafLineageResults on EntityLineageResult {
+    start
+    count
+    total
+    relationships {
+        type
+        entity {
+            urn
+            type
+        }
+    }
+}

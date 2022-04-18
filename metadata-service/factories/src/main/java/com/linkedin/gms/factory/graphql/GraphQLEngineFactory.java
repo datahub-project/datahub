@@ -4,6 +4,7 @@ import com.datahub.authentication.token.TokenService;
 import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
+import com.linkedin.datahub.graphql.generated.VisualConfiguration;
 import com.linkedin.entity.client.JavaEntityClient;
 import com.linkedin.gms.factory.auth.DataHubTokenServiceFactory;
 import com.linkedin.gms.factory.common.GitVersionFactory;
@@ -15,9 +16,11 @@ import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.recommendation.RecommendationServiceFactory;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
+import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.secret.SecretService;
+import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.usage.UsageClient;
@@ -61,6 +64,14 @@ public class GraphQLEngineFactory {
   private EntityService _entityService;
 
   @Autowired
+  @Qualifier("graphService")
+  private GraphService _graphService;
+
+  @Autowired
+  @Qualifier("timeseriesAspectService")
+  private TimeseriesAspectService _timeseriesAspectService;
+
+  @Autowired
   private RecommendationsService _recommendationsService;
 
   @Autowired
@@ -82,6 +93,10 @@ public class GraphQLEngineFactory {
   @Qualifier("gitVersion")
   private GitVersion _gitVersion;
 
+  @Autowired
+  @Qualifier("visualConfig")
+  private VisualConfiguration _visualConfiguration;
+
   @Value("${platformAnalytics.enabled}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
   private Boolean isAnalyticsEnabled;
 
@@ -93,14 +108,18 @@ public class GraphQLEngineFactory {
           _entityClient,
           _graphClient,
           _usageClient,
-          new AnalyticsService(elasticClient, indexConvention.getPrefix()),
+          new AnalyticsService(elasticClient, indexConvention),
           _entityService,
           _recommendationsService,
           _tokenService,
+          _timeseriesAspectService,
           _entityRegistry,
           _secretService,
           _configProvider.getIngestion(),
-          _gitVersion
+          _configProvider.getAuthorization(),
+          _gitVersion,
+          _graphService.supportsMultiHop(),
+          _visualConfiguration
           ).builder().build();
     }
     return new GmsGraphQLEngine(
@@ -111,10 +130,14 @@ public class GraphQLEngineFactory {
         _entityService,
         _recommendationsService,
         _tokenService,
+        _timeseriesAspectService,
         _entityRegistry,
         _secretService,
         _configProvider.getIngestion(),
-        _gitVersion
-        ).builder().build();
+        _configProvider.getAuthorization(),
+        _gitVersion,
+        _graphService.supportsMultiHop(),
+        _visualConfiguration
+    ).builder().build();
   }
 }

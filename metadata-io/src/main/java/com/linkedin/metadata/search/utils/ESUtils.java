@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.utils;
 
 import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -16,7 +17,7 @@ import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.ScoreSortBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 
-import static com.linkedin.metadata.search.utils.SearchUtils.*;
+import static com.linkedin.metadata.search.utils.SearchUtils.isUrn;
 
 
 @Slf4j
@@ -25,6 +26,7 @@ public class ESUtils {
   private static final String DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD = "urn";
 
   public static final String KEYWORD_SUFFIX = ".keyword";
+  public static final int MAX_RESULT_SIZE = 10000;
 
   /*
    * Refer to https://www.elastic.co/guide/en/elasticsearch/reference/current/regexp-syntax.html for list of reserved
@@ -46,62 +48,36 @@ public class ESUtils {
    */
   @Nonnull
   public static BoolQueryBuilder buildFilterQuery(@Nullable Filter filter) {
-    BoolQueryBuilder orQueryBuilder = new BoolQueryBuilder();
+    BoolQueryBuilder finalQueryBuilder = QueryBuilders.boolQuery();
     if (filter == null) {
-      return orQueryBuilder;
+      return finalQueryBuilder;
     }
     if (filter.getOr() != null) {
       // If caller is using the new Filters API, build boolean query from that.
-      filter.getOr().forEach(or -> {
-        final BoolQueryBuilder andQueryBuilder = new BoolQueryBuilder();
-        or.getAnd().forEach(criterion -> {
-          if (!criterion.getValue().trim().isEmpty()) {
-            andQueryBuilder.must(getQueryBuilderFromCriterionForSearch(criterion));
-          }
-        });
-        orQueryBuilder.should(andQueryBuilder);
-      });
+      filter.getOr().forEach(or -> finalQueryBuilder.should(ESUtils.buildConjunctiveFilterQuery(or)));
     } else if (filter.getCriteria() != null) {
       // Otherwise, build boolean query from the deprecated "criteria" field.
       log.warn("Received query Filter with a deprecated field 'criteria'. Use 'or' instead.");
       final BoolQueryBuilder andQueryBuilder = new BoolQueryBuilder();
       filter.getCriteria().forEach(criterion -> {
-        if (!criterion.getValue().trim().isEmpty()) {
-          andQueryBuilder.must(getQueryBuilderFromCriterionForSearch(criterion));
+        if (!criterion.getValue().trim().isEmpty() || criterion.hasValues()) {
+          andQueryBuilder.must(getQueryBuilderFromCriterion(criterion));
         }
       });
-      orQueryBuilder.should(andQueryBuilder);
+      finalQueryBuilder.should(andQueryBuilder);
     }
-    return orQueryBuilder;
+    return finalQueryBuilder;
   }
 
-  /**
-   * Builds search query using criterion.
-   * This method is similar to SearchUtils.getQueryBuilderFromCriterion().
-   * The only difference is this method use match query instead of term query for EQUAL.
-   *
-   * @param criterion {@link Criterion} single criterion which contains field, value and a comparison operator
-   * @return QueryBuilder
-   */
   @Nonnull
-  public static QueryBuilder getQueryBuilderFromCriterionForSearch(@Nonnull Criterion criterion) {
-    final Condition condition = criterion.getCondition();
-    if (condition == Condition.EQUAL) {
-      BoolQueryBuilder filters = new BoolQueryBuilder();
-
-      // TODO(https://github.com/linkedin/datahub-gma/issues/51): support multiple values a field can take without using
-      // delimiters like comma. This is a hack to support equals with URN that has a comma in it.
-      if (SearchUtils.isUrn(criterion.getValue())) {
-        filters.should(QueryBuilders.matchQuery(criterion.getField(), criterion.getValue().trim()));
-        return filters;
+  public static BoolQueryBuilder buildConjunctiveFilterQuery(@Nonnull ConjunctiveCriterion conjunctiveCriterion) {
+    final BoolQueryBuilder andQueryBuilder = new BoolQueryBuilder();
+    conjunctiveCriterion.getAnd().forEach(criterion -> {
+      if (!criterion.getValue().trim().isEmpty() || criterion.hasValues()) {
+        andQueryBuilder.must(getQueryBuilderFromCriterion(criterion));
       }
-
-      Arrays.stream(criterion.getValue().trim().split("\\s*,\\s*"))
-          .forEach(elem -> filters.should(QueryBuilders.matchQuery(criterion.getField(), elem)));
-      return filters;
-    } else {
-      return getQueryBuilderFromCriterion(criterion);
-    }
+    });
+    return andQueryBuilder;
   }
 
   /**
@@ -115,7 +91,7 @@ public class ESUtils {
    * <p>This approach of supporting multiple values using comma as delimiter, prevents us from specifying a value that has comma
    * as one of it's characters. This is particularly true when one of the values is an urn e.g. "urn:li:example:(1,2,3)".
    * Hence we do not split the value (using comma as delimiter) if the value starts with "urn:li:".
-   * TODO(https://github.com/linkedin/datahub-gma/issues/51): support multiple values a field can take without using
+   * TODO(https://github.com/datahub-project/datahub-gma/issues/51): support multiple values a field can take without using
    * delimiters like comma.
    *
    * <p>If the condition between a field and value is not the same as EQUAL, a Range query is constructed. This
@@ -131,12 +107,19 @@ public class ESUtils {
   public static QueryBuilder getQueryBuilderFromCriterion(@Nonnull Criterion criterion) {
     final Condition condition = criterion.getCondition();
     if (condition == Condition.EQUAL) {
-      // TODO(https://github.com/linkedin/datahub-gma/issues/51): support multiple values a field can take without using
+      // If values is set, use terms query to match one of the values
+      if (!criterion.getValues().isEmpty()) {
+        return QueryBuilders.termsQuery(criterion.getField(), criterion.getValues());
+      }
+      // TODO(https://github.com/datahub-project/datahub-gma/issues/51): support multiple values a field can take without using
       // delimiters like comma. This is a hack to support equals with URN that has a comma in it.
       if (isUrn(criterion.getValue())) {
-        return QueryBuilders.termsQuery(criterion.getField(), criterion.getValue().trim());
+        return QueryBuilders.matchQuery(criterion.getField(), criterion.getValue().trim());
       }
-      return QueryBuilders.termsQuery(criterion.getField(), criterion.getValue().trim().split("\\s*,\\s*"));
+      BoolQueryBuilder filters = new BoolQueryBuilder();
+      Arrays.stream(criterion.getValue().trim().split("\\s*,\\s*"))
+          .forEach(elem -> filters.should(QueryBuilders.matchQuery(criterion.getField(), elem)));
+      return filters;
     } else if (condition == Condition.GREATER_THAN) {
       return QueryBuilders.rangeQuery(criterion.getField()).gt(criterion.getValue().trim());
     } else if (condition == Condition.GREATER_THAN_OR_EQUAL_TO) {

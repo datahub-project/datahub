@@ -33,6 +33,29 @@
         "type" : "string"
       } ]
     } ],
+    "actions" : [ {
+      "name" : "getLineage",
+      "parameters" : [ {
+        "name" : "urn",
+        "type" : "string"
+      }, {
+        "name" : "direction",
+        "type" : "string"
+      }, {
+        "name" : "start",
+        "type" : "int",
+        "optional" : true
+      }, {
+        "name" : "count",
+        "type" : "int",
+        "optional" : true
+      }, {
+        "name" : "maxHops",
+        "type" : "int",
+        "optional" : true
+      } ],
+      "returns" : "com.linkedin.metadata.graph.EntityLineageResult"
+    } ],
     "entity" : {
       "path" : "/relationships"
     }

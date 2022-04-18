@@ -1,13 +1,18 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
 import com.google.common.collect.ImmutableList;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.query.AutoCompleteEntity;
+import com.linkedin.metadata.query.AutoCompleteEntityArray;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.utils.ESUtils;
+import java.net.URISyntaxException;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -101,18 +106,26 @@ public class AutocompleteRequestHandler {
 
   public AutoCompleteResult extractResult(@Nonnull SearchResponse searchResponse, @Nonnull String input) {
     Set<String> results = new LinkedHashSet<>();
+    Set<AutoCompleteEntity> entityResults = new HashSet<>();
     for (SearchHit hit : searchResponse.getHits()) {
       Optional<String> matchedFieldValue = hit.getHighlightFields()
           .entrySet()
           .stream()
           .findFirst()
           .map(entry -> entry.getValue().getFragments()[0].string());
-      if (matchedFieldValue.isPresent()) {
-        results.add(matchedFieldValue.get());
-      } else {
-        log.info("No highlighted field for query {}, hit {}", input, hit);
+      Optional<String> matchedUrn = Optional.ofNullable((String) hit.getSourceAsMap().get("urn"));
+      try {
+        if (matchedUrn.isPresent()) {
+          entityResults.add(new AutoCompleteEntity().setUrn(Urn.createFromString(matchedUrn.get())));
+        }
+      } catch (URISyntaxException e) {
+        throw new RuntimeException(String.format("Failed to create urn %s", matchedUrn.get()), e);
       }
+      matchedFieldValue.ifPresent(results::add);
     }
-    return new AutoCompleteResult().setQuery(input).setSuggestions(new StringArray(results));
+    return new AutoCompleteResult()
+        .setQuery(input)
+        .setSuggestions(new StringArray(results))
+        .setEntities(new AutoCompleteEntityArray(entityResults));
   }
 }

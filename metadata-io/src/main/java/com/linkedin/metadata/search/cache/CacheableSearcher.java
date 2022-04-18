@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.cache;
 
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
@@ -7,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import org.springframework.cache.Cache;
@@ -24,6 +26,9 @@ public class CacheableSearcher<K> {
   private final Function<QueryPagination, SearchResult> searcher;
   // Function that generates the cache key given the query batch (from, size)
   private final Function<QueryPagination, K> cacheKeyGenerator;
+  @Nullable
+  private final SearchFlags searchFlags;
+  private final boolean enableCache;
 
   @Value
   public static class QueryPagination {
@@ -76,12 +81,21 @@ public class CacheableSearcher<K> {
 
   private SearchResult getBatch(int batchId) {
     QueryPagination batch = getBatchQuerySize(batchId);
-    K cacheKey = cacheKeyGenerator.apply(batch);
-    SearchResult result = cache.get(cacheKey, SearchResult.class);
-    if (result == null) {
+    SearchResult result;
+    if (enableCache()) {
+      K cacheKey = cacheKeyGenerator.apply(batch);
+      result = cache.get(cacheKey, SearchResult.class);
+      if (result == null) {
+        result = searcher.apply(batch);
+        cache.put(cacheKey, result);
+      }
+    } else {
       result = searcher.apply(batch);
-      cache.put(cacheKey, result);
     }
     return result;
+  }
+
+  private boolean enableCache() {
+    return enableCache && (searchFlags == null || !searchFlags.isSkipCache());
   }
 }

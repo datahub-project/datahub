@@ -1,0 +1,22 @@
+namespace com.linkedin.dataset
+
+/**
+ * The type of upstream entity in a fine-grained lineage
+*/
+
+enum FineGrainedLineageUpstreamType {
+  /**
+  *  Indicates that this lineage is originating from upstream field(s)
+  */
+  FIELD_SET
+
+  /**
+  *  Indicates that this lineage is originating from upstream dataset(s)
+  */
+  DATASET
+
+  /**
+  *  Indicates that there is no upstream lineage i.e. the downstream field is not a derived field
+  */
+  NONE
+}

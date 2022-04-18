@@ -1,48 +1,71 @@
-<svg id="e2d48uIsWUR1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+<svg id="datahub-logo-color-loading_pendulum" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
     viewBox="0 0 180 180" shape-rendering="geometricPrecision" text-rendering="geometricPrecision">
     <defs>
-        <linearGradient id="e2d48uIsWUR3-stroke" x1="0.5" y1="0" x2="0.5" y2="1" spreadMethod="pad"
-            gradientUnits="objectBoundingBox" gradientTransform="translate(0 0)">
-            <stop id="e2d48uIsWUR3-stroke-0" offset="0%" stop-color="#f84e63" />
-            <stop id="e2d48uIsWUR3-stroke-1" offset="100%" stop-color="#dd3163" />
+        <linearGradient id="red_gradient" x1="83.06" y1="68.88" x2="98.74" y2="40.67" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#dd3163"/>
+            <stop offset="1" stop-color="#ff5663"/>
         </linearGradient>
-        <linearGradient id="e2d48uIsWUR5-stroke" x1="0.5" y1="0" x2="0.5" y2="1" spreadMethod="pad"
-            gradientUnits="objectBoundingBox" gradientTransform="translate(0 0)">
-            <stop id="e2d48uIsWUR5-stroke-0" offset="0%" stop-color="#1890ff" />
-            <stop id="e2d48uIsWUR5-stroke-1" offset="100%" stop-color="#18b5ff" />
+        <linearGradient id="yellow_gradient" x1="91.08" y1="126.64" x2="35.79" y2="50.66" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#efab00"/>
+            <stop offset="1" stop-color="#efb700"/>
         </linearGradient>
-        <linearGradient id="e2d48uIsWUR9-stroke" x1="0.5" y1="0" x2="0.5" y2="1" spreadMethod="pad"
-            gradientUnits="objectBoundingBox" gradientTransform="translate(0 0)">
-            <stop id="e2d48uIsWUR9-stroke-0" offset="0%" stop-color="#efb700" />
-            <stop id="e2d48uIsWUR9-stroke-1" offset="100%" stop-color="#efb200" />
+        <linearGradient id="blue_gradient" x1="50.22" y1="96.82" x2="144.42" y2="17.17" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#1890ff"/>
+            <stop offset="1" stop-color="#18b5ff"/>
         </linearGradient>
+
+        <mask id="red_mask">
+            <circle r="34" fill="white"/>
+            <circle r="26" fill="black"/>
+            <rect y="-34" width="34" height="34" transform="rotate(170)" fill="black"/>
+            <rect y="-34" width="34" height="34" transform="rotate(280)" fill="black"/>
+            <rect y="-34" width="34" height="34" transform="rotate(225)" fill="black"/>
+            <g id="red_mask_cap">
+                <circle cy="-30" r="4" transform="rotate(10)" fill="white"/>
+                <circle cy="-30" r="4" transform="rotate(170)" fill="white"/>
+            </g>
+        </mask>
+        <mask id="yellow_mask">
+            <circle r="49" fill="white"/>
+            <circle r="41" fill="black"/>
+            <rect y="-49" width="49" height="49" transform="rotate(20)" fill="black"/>
+            <rect y="-49" width="49" height="49" transform="rotate(70)" fill="black"/>
+            <circle cy="-45" r="4" transform="rotate(20)" fill="white"/>
+            <circle cy="-45" r="4" transform="rotate(160)" fill="white"/>
+        </mask>
+        <mask id="blue_mask">
+            <circle r="64" fill="white"/>
+            <circle r="56" fill="black"/>
+            <rect y="-64" width="64" height="64" transform="rotate(275)" fill="black"/>
+            <rect y="-64" width="64" height="64" transform="rotate(220)" fill="black"/>
+            <circle cy="-60" r="4" transform="rotate(5)" fill="white"/>
+            <circle cy="-60" r="4" transform="rotate(220)" fill="white"/>
+        </mask>
     </defs>
-    <g>
-        <ellipse rx="60" ry="60" transform="matrix(0-1 1 0 90 90)" fill="none" stroke="url(#e2d48uIsWUR5-stroke)"
-            stroke-width="8" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="226.2" />
-        <ellipse rx="10" ry="10" transform="translate(160 50)" fill="#18b4ff" stroke-width="0" />
-        <line x1="-70" y1="40" x2="70" y2="-40" transform="translate(90 90)" fill="none" stroke="#18b4ff"
-            stroke-width="8" stroke-linecap="round" stroke-linejoin="round" stroke-dashoffset="180"
-            stroke-dasharray="161" />
-        <animateTransform attributeName="transform" type="rotate" values="0 90 90; -30 90 90; 0 90 90" keyTimes="0; 0.1; 1" dur="6s"
-            repeatCount="indefinite" />
-    </g>
-    <g>
-        <ellipse rx="30" ry="30" transform="translate(90 90)" fill="none" stroke="url(#e2d48uIsWUR3-stroke)"
-            stroke-width="8" stroke-linecap="round" stroke-linejoin="round" stroke-dashoffset="47.13"
-            stroke-dasharray="94.25" />
-        <animateTransform attributeName="transform" type="rotate" from="360 90 90" to="0 90 90" dur="1s"
-            repeatCount="indefinite" />
-    </g>
-    <g>
-        <ellipse rx="45" ry="45" transform="matrix(0-1 1 0 90 90),rotate(160)" fill="none"
-            stroke="url(#e2d48uIsWUR9-stroke)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"
-            stroke-dasharray="169.65" />
-        <ellipse rx="10" ry="10" transform="translate(20 130)" fill="#efb400" stroke-width="0" />
-        <line x1="-70" y1="40" x2="70" y2="-40" transform="translate(90 90)" fill="none" stroke="#efb200"
-            stroke-width="8" stroke-linecap="round" stroke-linejoin="round" stroke-dashoffset="130"
-            stroke-dasharray="161" />
-        <animateTransform attributeName="transform" type="rotate" values="-10 90 90; 80 90 90; -10 90 90" calcMode="spline" keySplines="0.25 0.1 0.25 1.0; 0.25 0.1 0.25 1.0" dur="2s"
-            repeatCount="indefinite" />
+
+    <g id="logo" transform="translate(90,90)">
+        <g id="red" fill="url(#red_gradient)">
+            <circle id="red_arc" r="34" mask="url(#red_mask)"/>
+            <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="1s"
+                repeatCount="indefinite" />
+        </g>
+
+        <g id="yellow" fill="url(#yellow_gradient)">
+            <rect id="yellow_joint" x="-4" y="45" width="8" height="35" transform="rotate(57)"/>
+            <circle id="yellow_arc" r="49" mask="url(#yellow_mask)"/>
+            <circle cy="80" r="4" transform="rotate(57)"/>
+            <circle id="yellow_satellite" cy="80" r="10" transform="rotate(57)"/>
+            <animateTransform attributeName="transform" type="rotate" values="-5; 80; -5" calcMode="spline" keySplines="0.25 0.1 0.25 1.0; 0.25 0.1 0.25 1.0" dur="2s"
+                              repeatCount="indefinite" />
+        </g>
+
+        <g id="blue" fill="url(#blue_gradient)">
+            <rect id="blue_joint" x="-4" y="-80" width="8" height="20" transform="rotate(57)"/>
+            <circle id="blue_arc" r="64" mask="url(#blue_mask)"/>
+            <circle cy="-80" r="4" transform="rotate(57)"/>
+            <circle id="blue_satellite" cy="-80" r="10" transform="rotate(57)"/>
+            <animateTransform attributeName="transform" type="rotate" values="0; -35; 0" keyTimes="0; 0.1; 1" dur="6s"
+                              repeatCount="indefinite" />
+        </g>
     </g>
 </svg>

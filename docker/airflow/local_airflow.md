@@ -22,11 +22,11 @@ docker info | grep Memory
 mkdir -p airflow_install
 cd airflow_install
 # Download docker-compose file
-curl -L 'https://raw.githubusercontent.com/linkedin/datahub/master/docker/airflow/docker-compose.yaml' -o docker-compose.yaml
+curl -L 'https://raw.githubusercontent.com/datahub-project/datahub/master/docker/airflow/docker-compose.yaml' -o docker-compose.yaml
 # Create dags directory
 mkdir -p dags
 # Download a sample DAG
-curl -L 'https://raw.githubusercontent.com/linkedin/datahub/master/metadata-ingestion/src/datahub_provider/example_dags/lineage_backend_demo.py' -o dags/lineage_backend_demo.py
+curl -L 'https://raw.githubusercontent.com/datahub-project/datahub/master/metadata-ingestion/src/datahub_provider/example_dags/lineage_backend_demo.py' -o dags/lineage_backend_demo.py
 ```
 
 ### What is different between this docker-compose file and the official Apache Airflow docker compose file? 
@@ -38,6 +38,21 @@ curl -L 'https://raw.githubusercontent.com/linkedin/datahub/master/metadata-inge
 - This docker-compose file also sets up the ENV variables to configure Airflow's Lineage Backend to talk to DataHub. (Look for the `AIRFLOW__LINEAGE__BACKEND` and `AIRFLOW__LINEAGE__DATAHUB_KWARGS` variables) 
 
 ## Step 2: Bring up Airflow
+
+First you need to initialize airflow in order to create initial database tables and the initial airflow user.
+```
+docker-compose up airflow-init
+```
+You should see the following final initialization message
+
+```
+airflow-init_1       | Admin user airflow created
+airflow-init_1       | 2.1.3
+airflow_install_airflow-init_1 exited with code 0
+
+```
+Afterwards you need to start the airflow docker-compose
+
 ```
 docker-compose up
 ```
@@ -79,18 +94,8 @@ flower_1             | DB_PORT=6379
 flower_1             | 
 ```
 
-Finally, Airflow should be healthy and up on port 58080. 
-
-```
-airflow-webserver_1  | 172.22.0.1 - - [31/Aug/2021:20:30:52 +0000] "GET /static/appbuilder/fonts/fontawesome-webfont.woff2?v=4.7.0 HTTP/1.1" 304 0 "http://localhost:58080/static/appbuilder/css/font-awesome.min.css" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36"
-airflow-init_1       | Admin user airflow created
-airflow-init_1       | 2.1.3
-airflow_install_airflow-init_1 exited with code 0
-
-```
-
-Navigate to http://localhost:58080 to confirm and find your Airflow webserver. 
-Default username and password is:
+Finally, Airflow should be healthy and up on port 58080. Navigate to http://localhost:58080 to confirm and find your Airflow webserver. 
+The default username and password is:
 ```
 airflow:airflow
 ```

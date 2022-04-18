@@ -78,6 +78,8 @@ jobs:
         run: ./gradlew build -x check -x docs-website:build
       - name: Smoke test
         run: ./smoke-test/smoke.sh
+        env:
+          CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY}}
       - uses: actions/upload-artifact@v2
         if: always()
         with:

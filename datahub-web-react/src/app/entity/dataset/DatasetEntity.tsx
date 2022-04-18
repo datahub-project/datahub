@@ -1,11 +1,10 @@
 import * as React from 'react';
 import { DatabaseFilled, DatabaseOutlined } from '@ant-design/icons';
 import { Typography } from 'antd';
-import { Dataset, EntityType, RelationshipDirection, SearchResult } from '../../../types.generated';
+import { Dataset, DatasetProperties, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
 import { FIELDS_TO_HIGHLIGHT } from './search/highlights';
-import { getChildrenFromRelationships } from '../../lineage/utils/getChildren';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { GetDatasetQuery, useGetDatasetQuery, useUpdateDatasetMutation } from '../../../graphql/dataset.generated';
 import { GenericEntityProperties } from '../shared/types';
@@ -30,6 +29,8 @@ import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { checkOwnership } from './whoAmI';
 import { EditSampleTab } from '../shared/tabs/Dataset/Schema/EditSampleTab';
+import { ValidationsTab } from '../shared/tabs/Dataset/Validations/ValidationsTab';
+import { OperationsTab } from './profile/OperationsTab';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -114,12 +115,18 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Lineage',
                     component: LineageTab,
                     display: {
-                        visible: (_, dataset: GetDatasetQuery) =>
-                            (dataset?.dataset?.incoming?.count || 0) > 0 ||
-                            (dataset?.dataset?.outgoing?.count || 0) > 0,
-                        enabled: (_, dataset: GetDatasetQuery) =>
-                            (dataset?.dataset?.incoming?.count || 0) > 0 ||
-                            (dataset?.dataset?.outgoing?.count || 0) > 0,
+                        visible: (_, dataset: GetDatasetQuery) => {
+                            return (
+                                (dataset?.dataset?.upstream?.total || 0) > 0 ||
+                                (dataset?.dataset?.downstream?.total || 0) > 0
+                            );
+                        },
+                        enabled: (_, dataset: GetDatasetQuery) => {
+                            return (
+                                (dataset?.dataset?.upstream?.total || 0) > 0 ||
+                                (dataset?.dataset?.downstream?.total || 0) > 0
+                            );
+                        },
                     },
                 },
                 {
@@ -144,6 +151,31 @@ export class DatasetEntity implements Entity<Dataset> {
                     },
                 },
                 {
+                    name: 'Validation',
+                    component: ValidationsTab,
+                    display: {
+                        visible: (_, _1) => true,
+                        enabled: (_, dataset: GetDatasetQuery) => {
+                            return (dataset?.dataset?.assertions?.total || 0) > 0;
+                        },
+                },
+                {
+                    name: 'Operations',
+                    component: OperationsTab,
+                    display: {
+                        visible: (_, dataset: GetDatasetQuery) => {
+                            return (
+                                (dataset?.dataset?.readRuns?.total || 0) + (dataset?.dataset?.writeRuns?.total || 0) > 0
+                            );
+                        },
+                        enabled: (_, dataset: GetDatasetQuery) => {
+                            return (
+                                (dataset?.dataset?.readRuns?.total || 0) + (dataset?.dataset?.writeRuns?.total || 0) > 0
+                            );
+                        },
+                    }
+                },
+                {
                     name: 'Edit Schema',
                     component: EditSchemaTab,
                     display: {
@@ -165,7 +197,6 @@ export class DatasetEntity implements Entity<Dataset> {
                         enabled: (_, _dataset: GetDatasetQuery) => {
                             return true;
                         },
-                    },
                 },
                 {
                     name: 'Edit Samples',
@@ -220,6 +251,9 @@ export class DatasetEntity implements Entity<Dataset> {
                 },
                 {
                     component: SidebarOwnerSection,
+                    properties: {
+                        defaultOwnerType: OwnershipType.TechnicalOwner,
+                    },
                 },
                 {
                     component: SidebarDomainSection,
@@ -234,9 +268,15 @@ export class DatasetEntity implements Entity<Dataset> {
     getOverridePropertiesFromEntity = (dataset?: Dataset | null): GenericEntityProperties => {
         // if dataset has subTypes filled out, pick the most specific subtype and return it
         const subTypes = dataset?.subTypes;
+        const extendedProperties: DatasetProperties | undefined | null = dataset?.properties && {
+            ...dataset?.properties,
+            qualifiedName: dataset?.properties?.qualifiedName || dataset?.name,
+        };
         return {
+            name: dataset?.properties?.name || dataset?.name,
             externalUrl: dataset?.properties?.externalUrl,
             entityTypeOverride: subTypes ? capitalizeFirstLetter(subTypes.typeNames?.[0]) : '',
+            properties: extendedProperties,
         };
     };
 
@@ -244,7 +284,7 @@ export class DatasetEntity implements Entity<Dataset> {
         return (
             <Preview
                 urn={data.urn}
-                name={data.name}
+                name={data.properties?.name || data.name}
                 origin={data.origin}
                 subtype={data.subTypes?.typeNames?.[0]}
                 description={data.editableProperties?.description || data.properties?.description}
@@ -264,7 +304,7 @@ export class DatasetEntity implements Entity<Dataset> {
         return (
             <Preview
                 urn={data.urn}
-                name={data.name}
+                name={data.properties?.name || data.name}
                 origin={data.origin}
                 description={data.editableProperties?.description || data.properties?.description}
                 platformName={data.platform.properties?.displayName || data.platform.name}
@@ -293,30 +333,17 @@ export class DatasetEntity implements Entity<Dataset> {
     getLineageVizConfig = (entity: Dataset) => {
         return {
             urn: entity?.urn,
-            name: entity?.name,
+            name: entity?.properties?.name || entity.name,
+            expandedName: entity?.properties?.qualifiedName || entity.name,
             type: EntityType.Dataset,
-            subtype: entity.subTypes?.typeNames?.[0] || undefined,
-            downstreamChildren: getChildrenFromRelationships({
-                // eslint-disable-next-line @typescript-eslint/dot-notation
-                incomingRelationships: entity?.['incoming'],
-                // eslint-disable-next-line @typescript-eslint/dot-notation
-                outgoingRelationships: entity?.['outgoing'],
-                direction: RelationshipDirection.Incoming,
-            }),
-            upstreamChildren: getChildrenFromRelationships({
-                // eslint-disable-next-line @typescript-eslint/dot-notation
-                incomingRelationships: entity?.['incoming'],
-                // eslint-disable-next-line @typescript-eslint/dot-notation
-                outgoingRelationships: entity?.['outgoing'],
-                direction: RelationshipDirection.Outgoing,
-            }),
+            subtype: entity?.subTypes?.typeNames?.[0] || undefined,
             icon: entity?.platform?.properties?.logoUrl || undefined,
             platform: entity?.platform?.name,
         };
     };
 
     displayName = (data: Dataset) => {
-        return data?.name;
+        return data?.properties?.name || data.name;
     };
 
     platformLogoUrl = (data: Dataset) => {

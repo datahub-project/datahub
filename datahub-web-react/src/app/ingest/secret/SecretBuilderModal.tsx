@@ -1,5 +1,6 @@
 import { Button, Form, Input, Modal, Typography } from 'antd';
 import React, { useState } from 'react';
+import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
 import { SecretBuilderState } from './types';
 
 type Props = {
@@ -11,6 +12,8 @@ type Props = {
 
 export const SecretBuilderModal = ({ initialState, visible, onSubmit, onCancel }: Props) => {
     const [secretBuilderState, setSecretBuilderState] = useState<SecretBuilderState>(initialState || {});
+    const [createButtonEnabled, setCreateButtonEnabled] = useState(true);
+    const [form] = Form.useForm();
 
     const setName = (name: string) => {
         setSecretBuilderState({
@@ -33,6 +36,11 @@ export const SecretBuilderModal = ({ initialState, visible, onSubmit, onCancel }
         });
     };
 
+    // Handle the Enter press
+    useEnterKeyListener({
+        querySelectorToExecuteClick: '#createSecretButton',
+    });
+
     return (
         <Modal
             width={540}
@@ -45,49 +53,80 @@ export const SecretBuilderModal = ({ initialState, visible, onSubmit, onCancel }
                         Cancel
                     </Button>
                     <Button
+                        id="createSecretButton"
                         onClick={() => onSubmit?.(secretBuilderState, () => setSecretBuilderState({}))}
-                        disabled={
-                            !secretBuilderState.name ||
-                            secretBuilderState.name === '' ||
-                            !secretBuilderState.value ||
-                            secretBuilderState.value === ''
-                        }
+                        disabled={createButtonEnabled}
                     >
                         Create
                     </Button>
                 </>
             }
         >
-            <Form layout="vertical">
-                <Form.Item name="name" label={<Typography.Text strong>Name</Typography.Text>}>
+            <Form
+                form={form}
+                initialValues={{}}
+                layout="vertical"
+                onFieldsChange={() =>
+                    setCreateButtonEnabled(form.getFieldsError().some((field) => field.errors.length > 0))
+                }
+            >
+                <Form.Item label={<Typography.Text strong>Name</Typography.Text>}>
                     <Typography.Paragraph>
                         Give your secret a name. This is what you&apos;ll use to reference the secret from your recipes.
                     </Typography.Paragraph>
-                    <Input
-                        placeholder="A name for your secret"
-                        value={secretBuilderState.name}
-                        onChange={(event) => setName(event.target.value)}
-                    />
+                    <Form.Item
+                        name="name"
+                        rules={[
+                            {
+                                required: true,
+                                message: 'Enter a name.',
+                            },
+                            { whitespace: true },
+                            { min: 1, max: 50 },
+                        ]}
+                        hasFeedback
+                    >
+                        <Input
+                            placeholder="A name for your secret"
+                            value={secretBuilderState.name}
+                            onChange={(event) => setName(event.target.value)}
+                        />
+                    </Form.Item>
                 </Form.Item>
-                <Form.Item name="value" label={<Typography.Text strong>Value</Typography.Text>}>
+                <Form.Item label={<Typography.Text strong>Value</Typography.Text>}>
                     <Typography.Paragraph>
                         The value of your secret, which will be encrypted and stored securely within DataHub.
                     </Typography.Paragraph>
-                    <Input
-                        placeholder="The value of your secret"
-                        value={secretBuilderState.value}
-                        onChange={(event) => setValue(event.target.value)}
-                    />
+                    <Form.Item
+                        name="value"
+                        rules={[
+                            {
+                                required: true,
+                                message: 'Enter a value.',
+                            },
+                            // { whitespace: true },
+                            { min: 1 },
+                        ]}
+                        hasFeedback
+                    >
+                        <Input
+                            placeholder="The value of your secret"
+                            value={secretBuilderState.value}
+                            onChange={(event) => setValue(event.target.value)}
+                        />
+                    </Form.Item>
                 </Form.Item>
-                <Form.Item name="value" label={<Typography.Text strong>Description</Typography.Text>}>
+                <Form.Item label={<Typography.Text strong>Description</Typography.Text>}>
                     <Typography.Paragraph>
                         An optional description to help keep track of your secret.
                     </Typography.Paragraph>
-                    <Input
-                        placeholder="The value of your secret"
-                        value={secretBuilderState.description}
-                        onChange={(event) => setDescription(event.target.value)}
-                    />
+                    <Form.Item name="description" rules={[{ whitespace: true }, { min: 1, max: 500 }]} hasFeedback>
+                        <Input
+                            placeholder="The value of your secret"
+                            value={secretBuilderState.description}
+                            onChange={(event) => setDescription(event.target.value)}
+                        />
+                    </Form.Item>
                 </Form.Item>
             </Form>
         </Modal>

@@ -41,5 +41,9 @@ public class SearchQueryBuilderTest {
     assertFalse(textFields.containsKey("textFieldOverride.ngram"));
     assertEquals(textFields.get("textArrayField.delimited").floatValue(), 0.4f);
     assertEquals(textFields.get("textArrayField.ngram").floatValue(), 0.1f);
+
+    // Validate scorer
+    FunctionScoreQueryBuilder.FilterFunctionBuilder[] scoringFunctions = result.filterFunctionBuilders();
+    assertEquals(scoringFunctions.length, 3);
   }
 }

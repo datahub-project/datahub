@@ -7,8 +7,8 @@ import { useEntityData, useRefetch } from '../../../../EntityContext';
 import { SidebarHeader } from '../SidebarHeader';
 import { AddOwnerModal } from './AddOwnerModal';
 
-export const SidebarOwnerSection = () => {
-    const { urn, entityData } = useEntityData();
+export const SidebarOwnerSection = ({ properties }: { properties?: any }) => {
+    const { urn, entityType, entityData } = useEntityData();
     const refetch = useRefetch();
     const [showAddModal, setShowAddModal] = useState(false);
     const ownersEmpty = !entityData?.ownership?.owners?.length;
@@ -18,7 +18,7 @@ export const SidebarOwnerSection = () => {
             <SidebarHeader title="Owners" />
             <div>
                 {entityData?.ownership?.owners?.map((owner) => (
-                    <ExpandedOwner entityUrn={urn} owner={owner} refetch={refetch} />
+                    <ExpandedOwner key={owner.owner.urn} entityUrn={urn} owner={owner} refetch={refetch} />
                 ))}
                 {ownersEmpty && (
                     <Typography.Paragraph type="secondary">
@@ -31,6 +31,10 @@ export const SidebarOwnerSection = () => {
                 </Button>
             </div>
             <AddOwnerModal
+                urn={urn}
+                defaultOwnerType={properties?.defaultOwnerType}
+                hideOwnerType={properties?.hideOwnerType || false}
+                type={entityType}
                 visible={showAddModal}
                 refetch={refetch}
                 onClose={() => {

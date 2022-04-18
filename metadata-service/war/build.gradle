@@ -8,8 +8,10 @@ dependencies {
   runtime project(':metadata-service:servlet')
   runtime project(':metadata-service:auth-servlet-impl')
   runtime project(':metadata-service:graphql-servlet-impl')
+  runtime project(':metadata-service:openapi-servlet')
   runtime project(':metadata-jobs:mce-consumer')
   runtime project(':metadata-jobs:mae-consumer')
+  runtime project(':metadata-jobs:pe-consumer')
 
   runtime externalDependency.h2
   runtime externalDependency.logbackClassic

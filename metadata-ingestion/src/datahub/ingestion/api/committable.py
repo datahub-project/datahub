@@ -5,9 +5,9 @@ from typing import Generic, List, Optional, TypeVar
 
 
 class CommitPolicy(Enum):
-    ALWAYS = auto
-    ON_NO_ERRORS = auto
-    ON_NO_ERRORS_AND_NO_WARNINGS = auto
+    ALWAYS = auto()
+    ON_NO_ERRORS = auto()
+    ON_NO_ERRORS_AND_NO_WARNINGS = auto()
 
 
 @dataclass
@@ -34,9 +34,9 @@ StateType = TypeVar("StateType")
 FilterType = TypeVar("FilterType")
 
 
-@dataclass
 class _StatefulCommittableConcrete(Generic[StateType]):
-    state_to_commit: StateType
+    def __init__(self, state_to_commit: StateType):
+        self.state_to_commit: StateType = state_to_commit
 
 
 class StatefulCommittable(

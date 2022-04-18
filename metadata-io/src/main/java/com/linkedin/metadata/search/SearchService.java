@@ -1,17 +1,23 @@
 package com.linkedin.metadata.search;
 
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.aggregator.AllEntitiesSearchAggregator;
-import com.linkedin.metadata.search.ranker.SearchRanker;
 import com.linkedin.metadata.search.cache.AllEntitiesSearchAggregatorCache;
+import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.cache.EntitySearchServiceCache;
+import com.linkedin.metadata.search.ranker.SearchRanker;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.CacheManager;
+
 
 @Slf4j
 public class SearchService {
@@ -19,26 +25,27 @@ public class SearchService {
   private final AllEntitiesSearchAggregator _aggregator;
   private final SearchRanker _searchRanker;
 
+  private final EntityDocCountCache _entityDocCountCache;
   private final EntitySearchServiceCache _entitySearchServiceCache;
   private final AllEntitiesSearchAggregatorCache _allEntitiesSearchAggregatorCache;
 
   public SearchService(EntityRegistry entityRegistry, EntitySearchService entitySearchService,
-      SearchRanker searchRanker, CacheManager cacheManager, int batchSize) {
+      SearchRanker searchRanker, CacheManager cacheManager, int batchSize, boolean enableCache) {
     _entitySearchService = entitySearchService;
     _searchRanker = searchRanker;
     _aggregator =
-        new AllEntitiesSearchAggregator(entityRegistry, entitySearchService, searchRanker, cacheManager, batchSize);
-    _entitySearchServiceCache = new EntitySearchServiceCache(cacheManager, entitySearchService, batchSize);
-    _allEntitiesSearchAggregatorCache = new AllEntitiesSearchAggregatorCache(cacheManager, _aggregator, batchSize);
+        new AllEntitiesSearchAggregator(entityRegistry, entitySearchService, searchRanker, cacheManager, batchSize,
+            enableCache);
+    _entityDocCountCache = new EntityDocCountCache(entityRegistry, entitySearchService);
+    _entitySearchServiceCache = new EntitySearchServiceCache(cacheManager, entitySearchService, batchSize, enableCache);
+    _allEntitiesSearchAggregatorCache =
+        new AllEntitiesSearchAggregatorCache(cacheManager, _aggregator, batchSize, enableCache);
   }
 
-  /**
-   * Get the number of documents corresponding to the entity
-   *
-   * @param entityName name of the entity
-   */
-  public long docCount(@Nonnull String entityName) {
-    return _entitySearchService.docCount(entityName);
+  public Map<String, Long> docCountPerEntity(@Nonnull List<String> entityNames) {
+    return entityNames.stream()
+        .collect(Collectors.toMap(Function.identity(),
+            entityName -> _entityDocCountCache.getEntityDocCount().getOrDefault(entityName.toLowerCase(), 0L)));
   }
 
   /**
@@ -51,13 +58,15 @@ public class SearchService {
    * @param sortCriterion {@link SortCriterion} to be applied to search results
    * @param from index to start the search from
    * @param size the number of search hits to return
+   * @param searchFlags optional set of flags to control search behavior
    * @return a {@link com.linkedin.metadata.dao.SearchResult} that contains a list of matched documents and related search result metadata
    */
   @Nonnull
   public SearchResult search(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
-      @Nullable SortCriterion sortCriterion, int from, int size) {
-    SearchResult result = _entitySearchServiceCache.getSearcher(entityName, input, postFilters, sortCriterion)
-        .getSearchResults(from, size);
+      @Nullable SortCriterion sortCriterion, int from, int size, @Nullable SearchFlags searchFlags) {
+    SearchResult result =
+        _entitySearchServiceCache.getSearcher(entityName, input, postFilters, sortCriterion, searchFlags)
+            .getSearchResults(from, size);
     try {
       return result.copy().setEntities(new SearchEntityArray(_searchRanker.rank(result.getEntities())));
     } catch (Exception e) {
@@ -76,15 +85,17 @@ public class SearchService {
    * @param sortCriterion {@link SortCriterion} to be applied to search results
    * @param from index to start the search from
    * @param size the number of search hits to return
+   * @param searchFlags optional set of flags to control search behavior
    * @return a {@link com.linkedin.metadata.dao.SearchResult} that contains a list of matched documents and related search result metadata
    */
   @Nonnull
   public SearchResult searchAcrossEntities(@Nonnull List<String> entities, @Nonnull String input,
-      @Nullable Filter postFilters, @Nullable SortCriterion sortCriterion, int from, int size) {
+      @Nullable Filter postFilters, @Nullable SortCriterion sortCriterion, int from, int size,
+      @Nullable SearchFlags searchFlags) {
     log.debug(String.format(
         "Searching Search documents entities: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
         entities, input, postFilters, sortCriterion, from, size));
-    return _allEntitiesSearchAggregatorCache.getSearcher(entities, input, postFilters, sortCriterion)
+    return _allEntitiesSearchAggregatorCache.getSearcher(entities, input, postFilters, sortCriterion, searchFlags)
         .getSearchResults(from, size);
   }
 }

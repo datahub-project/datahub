@@ -9,6 +9,8 @@ import {
     MlFeature,
     MlModel,
     MlModelGroup,
+    Maybe,
+    Status,
 } from '../../types.generated';
 
 export type EntitySelectParams = {
@@ -25,6 +27,8 @@ export type LineageExpandParams = {
 export type FetchedEntity = {
     urn: string;
     name: string;
+    // name to be shown on expansion if available
+    expandedName?: string;
     type: EntityType;
     subtype?: string;
     icon?: string;
@@ -33,11 +37,14 @@ export type FetchedEntity = {
     downstreamChildren?: Array<EntityAndType>;
     fullyFetched?: boolean;
     platform?: string;
+    status?: Maybe<Status>;
 };
 
 export type NodeData = {
     urn?: string;
     name: string;
+    // name to be shown on expansion if available
+    expandedName?: string;
     type?: EntityType;
     subtype?: string;
     children?: Array<NodeData>;
@@ -47,6 +54,7 @@ export type NodeData = {
     // Currently our visualization does not support expanding in two directions
     countercurrentChildrenUrns?: string[];
     platform?: string;
+    status?: Maybe<Status>;
 };
 
 export type VizNode = {

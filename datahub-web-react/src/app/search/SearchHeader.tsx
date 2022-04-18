@@ -12,6 +12,7 @@ import HelpLink from '../shared/admin/HelpLink';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { AdminHeaderLinks } from '../shared/admin/AdminHeaderLinks';
 import ContactLink from '../shared/admin/ContactLink';
+import { useAppConfig } from '../useAppConfig';
 
 const { Header } = Layout;
 
@@ -77,12 +78,16 @@ export const SearchHeader = ({
     entityRegistry,
 }: Props) => {
     const themeConfig = useTheme();
+    const appConfig = useAppConfig();
 
     return (
         <Header style={styles.header as any}>
             <LogoSearchContainer>
                 <Link to="/">
-                    <LogoImage src={themeConfig.assets.logoUrl} preview={false} />
+                    <LogoImage
+                        src={appConfig.config.visualConfig.logoUrl || themeConfig.assets.logoUrl}
+                        preview={false}
+                    />
                 </Link>
                 <SearchBar
                     initialQuery={initialQuery}
@@ -91,6 +96,7 @@ export const SearchHeader = ({
                     onSearch={onSearch}
                     onQueryChange={onQueryChange}
                     entityRegistry={entityRegistry}
+                    fixAutoComplete
                 />
             </LogoSearchContainer>
             <NavGroup>

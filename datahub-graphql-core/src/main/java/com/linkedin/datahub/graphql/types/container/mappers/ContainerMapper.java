@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.container.mappers;
 
 import com.linkedin.common.DataPlatformInstance;
+import com.linkedin.common.Deprecation;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
@@ -13,6 +14,7 @@ import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
@@ -24,6 +26,8 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
 import javax.annotation.Nullable;
+
+import static com.linkedin.metadata.Constants.*;
 
 
 public class ContainerMapper {
@@ -41,8 +45,9 @@ public class ContainerMapper {
     if (envelopedPlatformInstance != null) {
       result.setPlatform(mapPlatform(new DataPlatformInstance(envelopedPlatformInstance.getValue().data())));
     } else {
-      // Containers must have DPI to be rendered.
-      return null;
+      final DataPlatform unknownPlatform = new DataPlatform();
+      unknownPlatform.setUrn(UNKNOWN_DATA_PLATFORM);
+      result.setPlatform(unknownPlatform);
     }
 
     final EnvelopedAspect envelopedContainerProperties = aspects.get(Constants.CONTAINER_PROPERTIES_ASPECT_NAME);
@@ -100,6 +105,11 @@ public class ContainerMapper {
             .setType(EntityType.DOMAIN)
             .setUrn(domains.getDomains().get(0).toString()).build());
       }
+    }
+
+    final EnvelopedAspect envelopedDeprecation = aspects.get(Constants.DEPRECATION_ASPECT_NAME);
+    if (envelopedDeprecation != null) {
+      result.setDeprecation(DeprecationMapper.map(new Deprecation(envelopedDeprecation.getValue().data())));
     }
 
     return result;

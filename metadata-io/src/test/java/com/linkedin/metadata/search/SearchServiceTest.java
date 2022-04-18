@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.TestEntityUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.ElasticTestUtils;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
@@ -20,10 +21,6 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import java.util.Collections;
 import javax.annotation.Nonnull;
-import org.apache.http.HttpHost;
-import org.apache.http.impl.nio.reactor.IOReactorConfig;
-import org.elasticsearch.client.RestClient;
-import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
@@ -49,42 +46,32 @@ public class SearchServiceTest {
   private CacheManager _cacheManager;
   private SearchService _searchService;
 
-  private static final String IMAGE_NAME = "docker.elastic.co/elasticsearch/elasticsearch:7.9.3";
-  private static final int HTTP_PORT = 9200;
   private static final String ENTITY_NAME = "testEntity";
 
   @BeforeTest
   public void setup() {
     _entityRegistry = new SnapshotEntityRegistry(new Snapshot());
     _indexConvention = new IndexConventionImpl(null);
-    _elasticsearchContainer = new ElasticsearchContainer(IMAGE_NAME);
-    _settingsBuilder = new SettingsBuilder(Collections.emptyList());
+    _elasticsearchContainer = ElasticTestUtils.getNewElasticsearchContainer();
+    _settingsBuilder = new SettingsBuilder(Collections.emptyList(), null);
     checkContainerEngine(_elasticsearchContainer.getDockerClient());
     _elasticsearchContainer.start();
-    _searchClient = buildRestClient();
+    _searchClient = ElasticTestUtils.buildRestClient(_elasticsearchContainer);
     _elasticSearchService = buildEntitySearchService();
     _elasticSearchService.configure();
     _cacheManager = new ConcurrentMapCacheManager();
-    _searchService = new SearchService(_entityRegistry, _elasticSearchService, new SimpleRanker(), _cacheManager, 100);
+    resetSearchService();
+  }
+
+  private void resetSearchService() {
+    _searchService =
+        new SearchService(_entityRegistry, _elasticSearchService, new SimpleRanker(), _cacheManager, 100, true);
   }
 
   @BeforeMethod
   public void wipe() throws Exception {
     _elasticSearchService.clear();
     syncAfterWrite(_searchClient);
-  }
-
-  @Nonnull
-  private RestHighLevelClient buildRestClient() {
-    final RestClientBuilder builder =
-        RestClient.builder(new HttpHost("localhost", _elasticsearchContainer.getMappedPort(HTTP_PORT), "http"))
-            .setHttpClientConfigCallback(httpAsyncClientBuilder -> httpAsyncClientBuilder.setDefaultIOReactorConfig(
-                IOReactorConfig.custom().setIoThreadCount(1).build()));
-
-    builder.setRequestConfigCallback(requestConfigBuilder -> requestConfigBuilder.
-        setConnectionRequestTimeout(3000));
-
-    return new RestHighLevelClient(builder);
   }
 
   @Nonnull
@@ -101,6 +88,7 @@ public class SearchServiceTest {
 
   private void clearCache() {
     _cacheManager.getCacheNames().forEach(cache -> _cacheManager.getCache(cache).clear());
+    resetSearchService();
   }
 
   @AfterTest
@@ -111,9 +99,9 @@ public class SearchServiceTest {
   @Test
   public void testSearchService() throws Exception {
     SearchResult searchResult =
-        _searchService.searchAcrossEntities(ImmutableList.of(ENTITY_NAME), "test", null, null, 0, 10);
+        _searchService.searchAcrossEntities(ImmutableList.of(ENTITY_NAME), "test", null, null, 0, 10, null);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
-    searchResult = _searchService.searchAcrossEntities(ImmutableList.of(), "test", null, null, 0, 10);
+    searchResult = _searchService.searchAcrossEntities(ImmutableList.of(), "test", null, null, 0, 10, null);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     clearCache();
 
@@ -126,7 +114,7 @@ public class SearchServiceTest {
     _elasticSearchService.upsertDocument(ENTITY_NAME, document.toString(), urn.toString());
     syncAfterWrite(_searchClient);
 
-    searchResult = _searchService.searchAcrossEntities(ImmutableList.of(), "test", null, null, 0, 10);
+    searchResult = _searchService.searchAcrossEntities(ImmutableList.of(), "test", null, null, 0, 10, null);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
     clearCache();
@@ -140,7 +128,7 @@ public class SearchServiceTest {
     _elasticSearchService.upsertDocument(ENTITY_NAME, document2.toString(), urn2.toString());
     syncAfterWrite(_searchClient);
 
-    searchResult = _searchService.searchAcrossEntities(ImmutableList.of(), "test", null, null, 0, 10);
+    searchResult = _searchService.searchAcrossEntities(ImmutableList.of(), "test", null, null, 0, 10, null);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
     clearCache();
@@ -148,7 +136,7 @@ public class SearchServiceTest {
     _elasticSearchService.deleteDocument(ENTITY_NAME, urn.toString());
     _elasticSearchService.deleteDocument(ENTITY_NAME, urn2.toString());
     syncAfterWrite(_searchClient);
-    searchResult = _searchService.searchAcrossEntities(ImmutableList.of(), "test", null, null, 0, 10);
+    searchResult = _searchService.searchAcrossEntities(ImmutableList.of(), "test", null, null, 0, 10, null);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
   }
 }

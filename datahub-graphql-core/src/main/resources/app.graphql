@@ -97,6 +97,36 @@ type AppConfig {
   Configurations related to UI-based ingestion
   """
   managedIngestionConfig: ManagedIngestionConfig!
+
+  """
+  Configurations related to Lineage
+  """
+  lineageConfig: LineageConfig!
+
+  """
+  Configurations related to visual appearance, allows styling the UI without rebuilding the bundle
+  """
+  visualConfig: VisualConfiguration!
+}
+
+"""
+Configurations related to visual appearance of the app
+"""
+type VisualConfiguration {
+  """
+  Custom logo url for the homepage & top banner
+  """
+  logoUrl: String
+}
+
+"""
+Configurations related to Lineage
+"""
+type LineageConfig {
+  """
+  Whether the backend support impact analysis feature
+  """
+  supportsImpactAnalysis: Boolean!
 }
 
 """

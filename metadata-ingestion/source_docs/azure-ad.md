@@ -66,7 +66,7 @@ was created outside of the connector. That means if you've used the DataHub REST
 when the Azure AD Source is executed. If you intend to *always* pull users, groups, and their relationships from your Identity Provider, then
 this should not matter. 
 
-This is a known limitation in our data model that is being tracked by [this ticket](https://github.com/linkedin/datahub/issues/3065).
+This is a known limitation in our data model that is being tracked by [this ticket](https://github.com/datahub-project/datahub/issues/3065).
 
 
 ## Quickstart recipe
@@ -119,7 +119,7 @@ Note that a `.` is used to denote nested fields in the YAML configuration block.
 | `client_secret`                     | string   | ✅           |       | Client secret. Found in your app registration on Azure AD Portal       |                                  
 | `redirect`                     | string   | ✅          |       | Redirect URI.  Found in your app registration on Azure AD Portal       |                                  
 | `authority`                     | string   | ✅          |       | The [authority](https://docs.microsoft.com/en-us/azure/active-directory/develop/msal-client-application-configuration) is a URL that indicates a directory that MSAL can request tokens from. |
-| `token_url`                     | string   | ✅          |       | The token URL that acquires a token from Azure AD for authorizing requests |
+| `token_url`                     | string   | ✅          |       | The token URL that acquires a token from Azure AD for authorizing requests.  This source will only work with v1.0 endpoint. |
 | `graph_url`                     | string   | ✅          |       | [Microsoft Graph API endpoint](https://docs.microsoft.com/en-us/graph/use-the-api)
 | `ingest_users`                     | bool   |          | `True`      | Whether users should be ingested into DataHub.                                                                  |
 | `ingest_groups`                    | bool   |          | `True`      | Whether groups should be ingested into DataHub.                                                                 |

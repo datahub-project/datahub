@@ -16,6 +16,12 @@ export const DEFAULT_APP_CONFIG = {
     managedIngestionConfig: {
         enabled: false,
     },
+    lineageConfig: {
+        supportsImpactAnalysis: false,
+    },
+    visualConfig: {
+        logoUrl: undefined,
+    },
 };
 
 export const AppConfigContext = React.createContext<{

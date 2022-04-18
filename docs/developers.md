@@ -4,6 +4,12 @@ title: "Local Development"
 
 # DataHub Developer's Guide
 
+## Pre-requirements
+ - [Java 1.8 SDK](https://adoptopenjdk.net/?variant=openjdk8&jvmVariant=hotspot)
+ - [Docker](https://www.docker.com/)
+ - [Docker Compose](https://docs.docker.com/compose/)
+ - Docker engine with at least 8GB of memory to run tests.
+
 ## Building the Project
 
 Fork and clone the repository if haven't done so already
@@ -21,6 +27,56 @@ Use [gradle wrapper](https://docs.gradle.org/current/userguide/gradle_wrapper.ht
 ./gradlew build
 ```
 
+Note that the above will also run run tests and a number of validations which makes the process considerably slower.
+
+We suggest partially compiling DataHub according to your needs:
+
+ - Build Datahub's backend GMS (Generalized metadata service):
+```
+./gradlew :metadata-service:war:build
+```
+ - Build Datahub's frontend:
+```
+./gradlew :datahub-frontend:build -x yarnTest -x yarnLint
+```
+ - Build DataHub's command line tool:
+```
+./gradlew :metadata-ingestion:installDev
+```
+ - Build DataHub's documentation:
+```
+./gradlew :docs-website:yarnLintFix :docs-website:build -x :metadata-ingestion:runPreFlightScript
+# To preview the documentation
+./gradlew :docs-website:serve
+```
+
+## Deploying local versions
+
+Run just once to have the local `datahub` cli tool installed in your $PATH
+```
+cd smoke-test/
+python3 -m venv venv
+source venv/bin/activate
+pip install --upgrade pip wheel setuptools
+pip install -r requirements.txt
+cd ../
+```
+
+Once you have compiled & packaged the project or appropriate module you can deploy the entire system via docker-compose by running:
+```
+datahub docker quickstart --build-locally
+```
+
+Replace whatever container you want in the existing deployment.
+I.e, replacing datahub's backend (GMS):
+```
+(cd docker && COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker-compose -p datahub -f docker-compose-without-neo4j.yml -f docker-compose-without-neo4j.override.yml -f docker-compose.dev.yml up -d --no-deps --force-recreate datahub-gms)
+```
+
+Running the local version of the frontend
+```
+(cd docker && COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker-compose -p datahub -f docker-compose-without-neo4j.yml -f docker-compose-without-neo4j.override.yml -f docker-compose.dev.yml up -d --no-deps --force-recreate datahub-frontend-react)
+```
 ## IDE Support
 The recommended IDE for DataHub development is [IntelliJ IDEA](https://www.jetbrains.com/idea/). 
 You can run the following command to generate or update the IntelliJ project file
@@ -39,7 +95,7 @@ You're probably using a Java version that's too new for gradle. Run the followin
 ```
 java --version
 ```
-While it may be possible to build and run DataHub using newer versions of Java, we currently only support [Java 1.8](https://www.oracle.com/java/technologies/javase/javase-jdk8-downloads.html) (aka Java 8). Plan for Java 11 migration is being discussed in [this issue](https://github.com/linkedin/datahub/issues/1699).
+While it may be possible to build and run DataHub using newer versions of Java, we currently only support [Java 1.8](https://www.oracle.com/java/technologies/javase/javase-jdk8-downloads.html) (aka Java 8). Plan for Java 11 migration is being discussed in [this issue](https://github.com/datahub-project/datahub/issues/1699).
 
 ### Getting `cannot find symbol` error for `javax.annotation.Generated`
 
@@ -54,11 +110,11 @@ This is a [known issue](https://github.com/linkedin/rest.li/issues/287) when bui
 
 As we generate quite a few files from the models, it is possible that old generated files may conflict with new model changes. When this happens, a simple `./gradlew clean` should reosolve the issue. 
 
-### `Execution failed for task ':gms:impl:checkRestModel'`
+### `Execution failed for task ':metadata-service:restli-servlet-impl:checkRestModel'`
 
 This generally means that an [incompatible change](https://linkedin.github.io/rest.li/modeling/compatibility_check) was introduced to the rest.li API in GMS. You'll need to rebuild the snapshots/IDL by running the following command once
 ```
-./gradlew :gms:impl:build -Prest.model.compatibility=ignore
+./gradlew :metadata-service:restli-servlet-impl:build -Prest.model.compatibility=ignore
 ```
 
 ### `java.io.IOException: No space left on device`

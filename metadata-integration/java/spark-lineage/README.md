@@ -5,7 +5,7 @@ To integrate Spark with DataHub, we provide a lightweight Java agent that listen
 The Spark agent can be configured using a config file or while creating a spark Session.
 
 ## Before you begin: Versions and Release Notes
-Versioning of the jar artifact will follow the semantic versioning of the main [DataHub repo](https://github.com/linkedin/datahub) and release notes will be available [here](https://github.com/linkedin/datahub/releases).
+Versioning of the jar artifact will follow the semantic versioning of the main [DataHub repo](https://github.com/datahub-project/datahub) and release notes will be available [here](https://github.com/datahub-project/datahub/releases).
 Always check [the Maven central repository](https://search.maven.org/search?q=a:datahub-spark-lineage) for the latest released version.
 
 ### Configuration Instructions: spark-submit
@@ -47,6 +47,19 @@ spark = SparkSession.builder()
         .enableHiveSupport()
         .getOrCreate();
  ```
+
+### Configuration details
+
+| Field                                           | Required | Default | Description                                                             |
+|-------------------------------------------------|----------|---------|-------------------------------------------------------------------------|
+| spark.jars.packages                              | ✅        |         | Set with latest/required version  io.acryl:datahub-spark-lineage:0.8.23 |
+| spark.extraListeners                             | ✅        |         | datahub.spark.DatahubSparkListener                                      |
+| spark.datahub.rest.server                        | ✅        |         | Datahub server url  eg:http://localhost:8080                            |
+| spark.datahub.rest.token                         |          |         | Authentication token.                         |
+| spark.datahub.metadata.pipeline.platformInstance|          |         | Pipeline level platform instance                                        |
+| spark.datahub.metadata.dataset.platformInstance|          |         | dataset level platform instance                                        |
+| spark.datahub.metadata.dataset.env              |          | PROD    | [Supported values](https://datahubproject.io/docs/graphql/enums#fabrictype). In all other cases, will fallback to PROD           |
+
 
 ## What to Expect: The Metadata Model
 
@@ -99,6 +112,37 @@ Effectively, these support data sources/sinks corresponding to Hive, HDFS and JD
 - If multiple apps with the same appName run concurrently, dataset-lineage will be captured correctly but the custom-properties e.g. app-id, SQLQueryId would be unreliable. We expect this to be quite rare.
 - If spark execution fails, then an empty pipeline would still get created, but it may not have any tasks.
 - For HDFS sources, the folder (name) is regarded as the dataset (name) to align with typical storage of parquet/csv formats.
+
+### Debugging
+
+- Following info logs are generated
+
+On Spark context startup
+```
+YY/MM/DD HH:mm:ss INFO DatahubSparkListener: DatahubSparkListener initialised.
+YY/MM/DD HH:mm:ss INFO SparkContext: Registered listener datahub.spark.DatahubSparkListener
+```
+On application start
+```
+YY/MM/DD HH:mm:ss INFO DatahubSparkListener: Application started: SparkListenerApplicationStart(AppName,Some(local-1644489736794),1644489735772,user,None,None)
+YY/MM/DD HH:mm:ss INFO McpEmitter: REST Emitter Configuration: GMS url <rest.server>
+YY/MM/DD HH:mm:ss INFO McpEmitter: REST Emitter Configuration: Token XXXXX
+```
+On pushing data to server
+```
+YY/MM/DD HH:mm:ss INFO McpEmitter: MetadataWriteResponse(success=true, responseContent={"value":"<URN>"}, underlyingResponse=HTTP/1.1 200 OK [Date: day, DD month year HH:mm:ss GMT, Content-Type: application/json, X-RestLi-Protocol-Version: 2.0.0, Content-Length: 97, Server: Jetty(9.4.20.v20190813)] [Content-Length: 97,Chunked: false])
+```
+On application end
+```
+YY/MM/DD HH:mm:ss INFO DatahubSparkListener: Application ended : AppName AppID
+```
+
+- To enable debugging logs, add below configuration in log4j.properties file
+
+```
+log4j.logger.datahub.spark=DEBUG
+log4j.logger.datahub.client.rest=DEBUG
+```
 
 ## Known limitations
 - Only postgres supported for JDBC sources in this initial release. Support for other driver URL formats will be added in future.

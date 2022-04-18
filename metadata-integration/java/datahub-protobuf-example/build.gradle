@@ -1,0 +1,85 @@
+plugins {
+    id 'java'
+    id "com.google.protobuf" version "0.8.18"
+}
+
+repositories {
+    mavenCentral()
+}
+
+ext {
+    protobuf_version = '3.19.3'
+}
+
+configurations {
+    datahub
+}
+
+dependencies {
+    // compilation
+    implementation "com.google.protobuf:protobuf-java:$protobuf_version"
+
+    datahub files('libs/datahub-protobuf.jar')
+
+    // transitive deps
+    datahub 'io.acryl:datahub-client:0.8.+'
+    datahub "com.google.protobuf:protobuf-java:$protobuf_version"
+    datahub 'org.jgrapht:jgrapht-core:1.5.1'
+    datahub 'com.google.guava:guava:27.0.1-jre'
+    datahub 'com.google.code.gson:gson:2.8.6'
+}
+
+sourceSets {
+    main {
+        proto {
+            srcDir 'schema'
+        }
+    }
+}
+
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:$protobuf_version"
+    }
+    generateProtoTasks {
+        all().each { task ->
+            // If true, will generate a descriptor_set.desc file under
+            // $generatedFilesBaseDir/$sourceSet. Default is false.
+            // See --descriptor_set_out in protoc documentation about what it is.
+            task.generateDescriptorSet = true
+
+            // Allows to override the default for the descriptor set location
+            task.descriptorSetOptions.path =
+                    "${projectDir}/build/descriptors/${task.sourceSet.name}.dsc"
+
+            // If true, the descriptor set will contain line number information
+            // and comments. Default is false.
+            task.descriptorSetOptions.includeSourceInfo = true
+
+            // If true, the descriptor set will contain all transitive imports and
+            // is therefore self-contained. Default is false.
+            task.descriptorSetOptions.includeImports = true
+        }
+    }
+}
+
+task publishSchema(dependsOn: build) {
+    description "Publishes protobuf schema in the `main` sourceSet to DataHub"
+
+    def javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(11)
+    }
+
+    fileTree("schema").matching {
+        exclude "protobuf/meta/**"
+    }.each {f ->
+        doLast {
+            javaexec {
+                executable = javaLauncher.get().getExecutablePath().getAsFile().getAbsolutePath()
+                classpath = configurations.datahub
+                main = "datahub.protobuf.App"
+                args = ["${projectDir}/build/descriptors/main.dsc", file(f).getAbsoluteFile()]
+            }
+        }
+    }
+}

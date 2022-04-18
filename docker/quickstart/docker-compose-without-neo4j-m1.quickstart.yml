@@ -33,7 +33,8 @@ services:
       - DATAHUB_SYSTEM_CLIENT_SECRET=JohnSnowKnowsNothing
       - KAFKA_PROPERTIES_SECURITY_PROTOCOL=PLAINTEXT
     hostname: actions
-    image: public.ecr.aws/datahub/acryl-datahub-actions:${ACTIONS_VERSION:-head}
+    image: acryldata/acryl-datahub-actions:${ACTIONS_VERSION:-head}
+    restart: on-failure:5
   datahub-frontend-react:
     container_name: datahub-frontend-react
     depends_on:
@@ -55,6 +56,8 @@ services:
     image: linkedin/datahub-frontend-react:${DATAHUB_VERSION:-head}
     ports:
     - 9002:9002
+    volumes:
+      - ${HOME}/.datahub/plugins:/etc/datahub/plugins
   datahub-gms:
     container_name: datahub-gms
     depends_on:
@@ -75,6 +78,7 @@ services:
     - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-gms/resources/entity-registry.yml
     - MAE_CONSUMER_ENABLED=true
     - MCE_CONSUMER_ENABLED=true
+    - PE_CONSUMER_ENABLED=true
     hostname: datahub-gms
     image: linkedin/datahub-gms:${DATAHUB_VERSION:-head}
     ports:

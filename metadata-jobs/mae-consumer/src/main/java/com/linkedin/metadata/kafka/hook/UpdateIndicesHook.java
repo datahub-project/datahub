@@ -2,6 +2,7 @@ package com.linkedin.metadata.kafka.hook;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
@@ -11,7 +12,8 @@ import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
 import com.linkedin.gms.factory.search.SearchDocumentTransformerFactory;
 import com.linkedin.gms.factory.timeseries.TimeseriesAspectServiceFactory;
-import com.linkedin.metadata.extractor.FieldExtractor;
+import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.models.extractor.FieldExtractor;
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.AspectSpec;
@@ -27,7 +29,7 @@ import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
 import com.linkedin.metadata.utils.EntityKeyUtils;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
@@ -106,7 +108,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
       }
 
       RecordTemplate aspect =
-          GenericAspectUtils.deserializeAspect(event.getAspect().getValue(), event.getAspect().getContentType(),
+          GenericRecordUtils.deserializeAspect(event.getAspect().getValue(), event.getAspect().getContentType(),
               aspectSpec);
       if (aspectSpec.isTimeseries()) {
         updateTimeseriesFields(event.getEntityType(), event.getAspectName(), urn, aspect, aspectSpec,
@@ -114,7 +116,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
       } else {
         updateSearchService(entitySpec.getName(), urn, aspectSpec, aspect);
         updateGraphService(urn, aspectSpec, aspect);
-        updateSystemMetadata(event.getSystemMetadata(), urn, aspectSpec);
+        updateSystemMetadata(event.getSystemMetadata(), urn, aspectSpec, aspect);
       }
     } else if (event.getChangeType() == ChangeType.DELETE) {
       if (!event.hasAspectName() || !event.hasAspect()) {
@@ -129,7 +131,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
       }
 
       RecordTemplate aspect =
-          GenericAspectUtils.deserializeAspect(event.getAspect().getValue(), event.getAspect().getContentType(),
+          GenericRecordUtils.deserializeAspect(event.getAspect().getValue(), event.getAspect().getContentType(),
               aspectSpec);
       Boolean isDeletingKey = event.getAspectName().equals(entitySpec.getKeyAspectName());
 
@@ -224,8 +226,13 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
     });
   }
 
-  private void updateSystemMetadata(SystemMetadata systemMetadata, Urn urn, AspectSpec aspectSpec) {
+  private void updateSystemMetadata(SystemMetadata systemMetadata, Urn urn, AspectSpec aspectSpec, RecordTemplate aspect) {
     _systemMetadataService.insert(systemMetadata, urn.toString(), aspectSpec.getName());
+
+    // If processing status aspect update all aspects for this urn to removed
+    if (aspectSpec.getName().equals(Constants.STATUS_ASPECT_NAME)) {
+      _systemMetadataService.setDocStatus(urn.toString(), ((Status) aspect).isRemoved());
+    }
   }
 
   private void deleteSystemMetadata(Urn urn, AspectSpec aspectSpec, Boolean isKeyAspect) {

@@ -1,6 +1,7 @@
 package com.linkedin.metadata.models.registry;
 
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.EventSpec;
 import java.util.Map;
 import org.apache.maven.artifact.versioning.ComparableVersion;
 import org.testng.annotations.Test;
@@ -22,6 +23,14 @@ public class PatchEntityRegistryTest {
     assertNotNull(datasetSpec);
     assertNull(datasetSpec.getKeyAspectSpec());
     assertNotNull(datasetSpec.getAspectSpec(TestConstants.TEST_ASPECT_NAME));
+
+    Map<String, EventSpec> eventSpecs = patchEntityRegistry.getEventSpecs();
+    for (EventSpec spec : eventSpecs.values()) {
+      System.out.println(spec.getName());
+    }
+    assertEquals(eventSpecs.values().size(), 1);
+    EventSpec dataQualityEvent = patchEntityRegistry.getEventSpec("dataQualityEvent");
+    assertNotNull(dataQualityEvent);
   }
 
   /**

@@ -1,0 +1,736 @@
+{
+    "data": {
+        "customSQLTablesConnection": {
+            "nodes": [
+                {
+                    "id": "22b0b4c3-6b85-713d-a161-5a87fdd78f40",
+                    "name": "Custom SQL Query",
+                    "query": "SELECT\n\tcustomer.customer_id,\n\tfirst_name,\n\tlast_name,\n\tamount,\n\tpayment_date,\n\trental_id\nFROM\n\tcustomer\nINNER JOIN payment \n    ON payment.customer_id = customer.customer_id\nwhere customer.customer_id = <[Parameters].[Parameter 1]>\nORDER BY payment_date",
+                    "columns": [
+                        {
+                            "id": "057278d1-6f0c-7878-be76-92ad45bed60a",
+                            "name": "amount",
+                            "remoteType": "NUMERIC",
+                            "description": null,
+                            "referencedByFields": [
+                                {
+                                    "datasource": {
+                                        "__typename": "EmbeddedDatasource",
+                                        "id": "4644ccb1-2adc-cf26-c654-04ed1dcc7090",
+                                        "name": "Customer Payment Query",
+                                        "upstreamDatabases": [
+                                            {
+                                                "id": "a7825692-7de9-113d-5377-ae113331a9ec",
+                                                "name": "dvdrental"
+                                            }
+                                        ],
+                                        "upstreamTables": [
+                                            {
+                                                "id": "39657832-0769-6372-60c3-687a51e2a772",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
+                                                "name": "customer",
+                                                "schema": "",
+                                                "fullName": "customer",
+                                                "connectionType": "postgres"
+                                            },
+                                            {
+                                                "id": "3cdd0522-44ef-62eb-ba52-71545c258344",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
+                                                "name": "payment",
+                                                "schema": "",
+                                                "fullName": "payment",
+                                                "connectionType": "postgres"
+                                            }
+                                        ],
+                                        "workbook": {
+                                            "name": "Dvdrental Workbook",
+                                            "projectName": "default"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "id": "4403618a-e709-d785-b632-6b4c89f1c725",
+                            "name": "last_name",
+                            "remoteType": "STR",
+                            "description": null,
+                            "referencedByFields": [
+                                {
+                                    "datasource": {
+                                        "__typename": "EmbeddedDatasource",
+                                        "id": "4644ccb1-2adc-cf26-c654-04ed1dcc7090",
+                                        "name": "Customer Payment Query",
+                                        "upstreamDatabases": [
+                                            {
+                                                "id": "a7825692-7de9-113d-5377-ae113331a9ec",
+                                                "name": "dvdrental"
+                                            }
+                                        ],
+                                        "upstreamTables": [
+                                            {
+                                                "id": "39657832-0769-6372-60c3-687a51e2a772",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
+                                                "name": "customer",
+                                                "schema": "",
+                                                "fullName": "customer",
+                                                "connectionType": "postgres"
+                                            },
+                                            {
+                                                "id": "3cdd0522-44ef-62eb-ba52-71545c258344",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
+                                                "name": "payment",
+                                                "schema": "",
+                                                "fullName": "payment",
+                                                "connectionType": "postgres"
+                                            }
+                                        ],
+                                        "workbook": {
+                                            "name": "Dvdrental Workbook",
+                                            "projectName": "default"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "id": "aca52535-1b69-d44d-0159-70a0407cb54b",
+                            "name": "rental_id",
+                            "remoteType": "I4",
+                            "description": null,
+                            "referencedByFields": [
+                                {
+                                    "datasource": {
+                                        "__typename": "EmbeddedDatasource",
+                                        "id": "4644ccb1-2adc-cf26-c654-04ed1dcc7090",
+                                        "name": "Customer Payment Query",
+                                        "upstreamDatabases": [
+                                            {
+                                                "id": "a7825692-7de9-113d-5377-ae113331a9ec",
+                                                "name": "dvdrental"
+                                            }
+                                        ],
+                                        "upstreamTables": [
+                                            {
+                                                "id": "39657832-0769-6372-60c3-687a51e2a772",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
+                                                "name": "customer",
+                                                "schema": "",
+                                                "fullName": "customer",
+                                                "connectionType": "postgres"
+                                            },
+                                            {
+                                                "id": "3cdd0522-44ef-62eb-ba52-71545c258344",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
+                                                "name": "payment",
+                                                "schema": "",
+                                                "fullName": "payment",
+                                                "connectionType": "postgres"
+                                            }
+                                        ],
+                                        "workbook": {
+                                            "name": "Dvdrental Workbook",
+                                            "projectName": "default"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "id": "b8e9cae2-804b-7ea8-f354-34765d8d21d5",
+                            "name": "first_name",
+                            "remoteType": "STR",
+                            "description": null,
+                            "referencedByFields": [
+                                {
+                                    "datasource": {
+                                        "__typename": "EmbeddedDatasource",
+                                        "id": "4644ccb1-2adc-cf26-c654-04ed1dcc7090",
+                                        "name": "Customer Payment Query",
+                                        "upstreamDatabases": [
+                                            {
+                                                "id": "a7825692-7de9-113d-5377-ae113331a9ec",
+                                                "name": "dvdrental"
+                                            }
+                                        ],
+                                        "upstreamTables": [
+                                            {
+                                                "id": "39657832-0769-6372-60c3-687a51e2a772",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
+                                                "name": "customer",
+                                                "schema": "",
+                                                "fullName": "customer",
+                                                "connectionType": "postgres"
+                                            },
+                                            {
+                                                "id": "3cdd0522-44ef-62eb-ba52-71545c258344",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
+                                                "name": "payment",
+                                                "schema": "",
+                                                "fullName": "payment",
+                                                "connectionType": "postgres"
+                                            }
+                                        ],
+                                        "workbook": {
+                                            "name": "Dvdrental Workbook",
+                                            "projectName": "default"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "id": "c433a28a-da02-9507-f405-f50bea4dafc2",
+                            "name": "payment_date",
+                            "remoteType": "DBTIMESTAMP",
+                            "description": null,
+                            "referencedByFields": [
+                                {
+                                    "datasource": {
+                                        "__typename": "EmbeddedDatasource",
+                                        "id": "4644ccb1-2adc-cf26-c654-04ed1dcc7090",
+                                        "name": "Customer Payment Query",
+                                        "upstreamDatabases": [
+                                            {
+                                                "id": "a7825692-7de9-113d-5377-ae113331a9ec",
+                                                "name": "dvdrental"
+                                            }
+                                        ],
+                                        "upstreamTables": [
+                                            {
+                                                "id": "39657832-0769-6372-60c3-687a51e2a772",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
+                                                "name": "customer",
+                                                "schema": "",
+                                                "fullName": "customer",
+                                                "connectionType": "postgres"
+                                            },
+                                            {
+                                                "id": "3cdd0522-44ef-62eb-ba52-71545c258344",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
+                                                "name": "payment",
+                                                "schema": "",
+                                                "fullName": "payment",
+                                                "connectionType": "postgres"
+                                            }
+                                        ],
+                                        "workbook": {
+                                            "name": "Dvdrental Workbook",
+                                            "projectName": "default"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "id": "cc8e6565-f669-1928-4182-49d9b2b50982",
+                            "name": "customer_id",
+                            "remoteType": "I4",
+                            "description": null,
+                            "referencedByFields": [
+                                {
+                                    "datasource": {
+                                        "__typename": "EmbeddedDatasource",
+                                        "id": "4644ccb1-2adc-cf26-c654-04ed1dcc7090",
+                                        "name": "Customer Payment Query",
+                                        "upstreamDatabases": [
+                                            {
+                                                "id": "a7825692-7de9-113d-5377-ae113331a9ec",
+                                                "name": "dvdrental"
+                                            }
+                                        ],
+                                        "upstreamTables": [
+                                            {
+                                                "id": "39657832-0769-6372-60c3-687a51e2a772",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
+                                                "name": "customer",
+                                                "schema": "",
+                                                "fullName": "customer",
+                                                "connectionType": "postgres"
+                                            },
+                                            {
+                                                "id": "3cdd0522-44ef-62eb-ba52-71545c258344",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
+                                                "name": "payment",
+                                                "schema": "",
+                                                "fullName": "payment",
+                                                "connectionType": "postgres"
+                                            }
+                                        ],
+                                        "workbook": {
+                                            "name": "Dvdrental Workbook",
+                                            "projectName": "default"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    ],
+                    "tables": [
+                        {
+                            "name": "customer",
+                            "schema": "",
+                            "fullName": "customer",
+                            "database":{
+                                "name":"dvdrental"
+                            },
+                            "connectionType": "postgres"
+                        },
+                        {
+                            "name": "payment",
+                            "schema": "",
+                            "fullName": "payment",
+                            "database":{
+                                "name":"dvdrental"
+                            },
+                            "connectionType": "postgres"
+                        }
+                    ]
+                },
+                {
+                    "id": "4fb670d5-3e19-9656-e684-74aa9729cf18",
+                    "name": "Custom SQL Query",
+                    "query": "SELECT\n\tc.customer_id,\n\tc.first_name customer_first_name,\n\tc.last_name customer_last_name,\n\ts.first_name staff_first_name,\n\ts.last_name staff_last_name,\n\tamount,\n\tpayment_date\nFROM\n\tcustomer c\nINNER JOIN payment p \n    ON p.customer_id = c.customer_id\nINNER JOIN staff s \n    ON p.staff_id = s.staff_id\nORDER BY payment_date",
+                    "columns": [
+                        {
+                            "id": "08db1a2f-963a-629f-1680-591f0e07deb1",
+                            "name": "customer_id",
+                            "remoteType": "I4",
+                            "description": null,
+                            "referencedByFields": [
+                                {
+                                    "datasource": {
+                                        "__typename": "PublishedDatasource",
+                                        "id": "00cce29f-b561-bb41-3557-8e19660bb5dd",
+                                        "name": "test publish datasource",
+                                        "upstreamDatabases": [
+                                            {
+                                                "id": "a7825692-7de9-113d-5377-ae113331a9ec",
+                                                "name": "dvdrental"
+                                            }
+                                        ],
+                                        "upstreamTables": [
+                                            {
+                                                "id": "39657832-0769-6372-60c3-687a51e2a772",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
+                                                "name": "customer",
+                                                "schema": "",
+                                                "fullName": "customer",
+                                                "connectionType": "postgres"
+                                            },
+                                            {
+                                                "id": "3cdd0522-44ef-62eb-ba52-71545c258344",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
+                                                "name": "payment",
+                                                "schema": "",
+                                                "fullName": "payment",
+                                                "connectionType": "postgres"
+                                            },
+                                            {
+                                                "id": "7df39af9-6767-4c9c-4120-155a024de062",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
+                                                "name": "staff",
+                                                "schema": "",
+                                                "fullName": "staff",
+                                                "connectionType": "postgres"
+                                            }
+                                        ],
+                                        "projectName": "default"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "id": "2621ed26-db7e-6691-de1a-ea4a9fda111c",
+                            "name": "staff_first_name",
+                            "remoteType": "STR",
+                            "description": null,
+                            "referencedByFields": [
+                                {
+                                    "datasource": {
+                                        "__typename": "PublishedDatasource",
+                                        "id": "00cce29f-b561-bb41-3557-8e19660bb5dd",
+                                        "name": "test publish datasource",
+                                        "upstreamDatabases": [
+                                            {
+                                                "id": "a7825692-7de9-113d-5377-ae113331a9ec",
+                                                "name": "dvdrental"
+                                            }
+                                        ],
+                                        "upstreamTables": [
+                                            {
+                                                "id": "39657832-0769-6372-60c3-687a51e2a772",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
+                                                "name": "customer",
+                                                "schema": "",
+                                                "fullName": "customer",
+                                                "connectionType": "postgres"
+                                            },
+                                            {
+                                                "id": "3cdd0522-44ef-62eb-ba52-71545c258344",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
+                                                "name": "payment",
+                                                "schema": "",
+                                                "fullName": "payment",
+                                                "connectionType": "postgres"
+                                            },
+                                            {
+                                                "id": "7df39af9-6767-4c9c-4120-155a024de062",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
+                                                "name": "staff",
+                                                "schema": "",
+                                                "fullName": "staff",
+                                                "connectionType": "postgres"
+                                            }
+                                        ],
+                                        "projectName": "default"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "id": "39d0972d-82e0-0a19-7c86-31d67abc4023",
+                            "name": "amount",
+                            "remoteType": "NUMERIC",
+                            "description": null,
+                            "referencedByFields": [
+                                {
+                                    "datasource": {
+                                        "__typename": "PublishedDatasource",
+                                        "id": "00cce29f-b561-bb41-3557-8e19660bb5dd",
+                                        "name": "test publish datasource",
+                                        "upstreamDatabases": [
+                                            {
+                                                "id": "a7825692-7de9-113d-5377-ae113331a9ec",
+                                                "name": "dvdrental"
+                                            }
+                                        ],
+                                        "upstreamTables": [
+                                            {
+                                                "id": "39657832-0769-6372-60c3-687a51e2a772",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
+                                                "name": "customer",
+                                                "schema": "",
+                                                "fullName": "customer",
+                                                "connectionType": "postgres"
+                                            },
+                                            {
+                                                "id": "3cdd0522-44ef-62eb-ba52-71545c258344",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
+                                                "name": "payment",
+                                                "schema": "",
+                                                "fullName": "payment",
+                                                "connectionType": "postgres"
+                                            },
+                                            {
+                                                "id": "7df39af9-6767-4c9c-4120-155a024de062",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
+                                                "name": "staff",
+                                                "schema": "",
+                                                "fullName": "staff",
+                                                "connectionType": "postgres"
+                                            }
+                                        ],
+                                        "projectName": "default"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "id": "4dfe1403-de3b-2b13-8154-cbd6da91d2cd",
+                            "name": "customer_first_name",
+                            "remoteType": "STR",
+                            "description": null,
+                            "referencedByFields": [
+                                {
+                                    "datasource": {
+                                        "__typename": "PublishedDatasource",
+                                        "id": "00cce29f-b561-bb41-3557-8e19660bb5dd",
+                                        "name": "test publish datasource",
+                                        "upstreamDatabases": [
+                                            {
+                                                "id": "a7825692-7de9-113d-5377-ae113331a9ec",
+                                                "name": "dvdrental"
+                                            }
+                                        ],
+                                        "upstreamTables": [
+                                            {
+                                                "id": "39657832-0769-6372-60c3-687a51e2a772",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
+                                                "name": "customer",
+                                                "schema": "",
+                                                "fullName": "customer",
+                                                "connectionType": "postgres"
+                                            },
+                                            {
+                                                "id": "3cdd0522-44ef-62eb-ba52-71545c258344",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
+                                                "name": "payment",
+                                                "schema": "",
+                                                "fullName": "payment",
+                                                "connectionType": "postgres"
+                                            },
+                                            {
+                                                "id": "7df39af9-6767-4c9c-4120-155a024de062",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
+                                                "name": "staff",
+                                                "schema": "",
+                                                "fullName": "staff",
+                                                "connectionType": "postgres"
+                                            }
+                                        ],
+                                        "projectName": "default"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "id": "c47ec35b-e84f-c9fc-37f8-bd0377f83313",
+                            "name": "payment_date",
+                            "remoteType": "DBTIMESTAMP",
+                            "description": null,
+                            "referencedByFields": [
+                                {
+                                    "datasource": {
+                                        "__typename": "PublishedDatasource",
+                                        "id": "00cce29f-b561-bb41-3557-8e19660bb5dd",
+                                        "name": "test publish datasource",
+                                        "upstreamDatabases": [
+                                            {
+                                                "id": "a7825692-7de9-113d-5377-ae113331a9ec",
+                                                "name": "dvdrental"
+                                            }
+                                        ],
+                                        "upstreamTables": [
+                                            {
+                                                "id": "39657832-0769-6372-60c3-687a51e2a772",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
+                                                "name": "customer",
+                                                "schema": "",
+                                                "fullName": "customer",
+                                                "connectionType": "postgres"
+                                            },
+                                            {
+                                                "id": "3cdd0522-44ef-62eb-ba52-71545c258344",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
+                                                "name": "payment",
+                                                "schema": "",
+                                                "fullName": "payment",
+                                                "connectionType": "postgres"
+                                            },
+                                            {
+                                                "id": "7df39af9-6767-4c9c-4120-155a024de062",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
+                                                "name": "staff",
+                                                "schema": "",
+                                                "fullName": "staff",
+                                                "connectionType": "postgres"
+                                            }
+                                        ],
+                                        "projectName": "default"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "id": "c9fc6bfa-ee15-0ddf-2242-7aca5451bdf1",
+                            "name": "staff_last_name",
+                            "remoteType": "STR",
+                            "description": null,
+                            "referencedByFields": [
+                                {
+                                    "datasource": {
+                                        "__typename": "PublishedDatasource",
+                                        "id": "00cce29f-b561-bb41-3557-8e19660bb5dd",
+                                        "name": "test publish datasource",
+                                        "upstreamDatabases": [
+                                            {
+                                                "id": "a7825692-7de9-113d-5377-ae113331a9ec",
+                                                "name": "dvdrental"
+                                            }
+                                        ],
+                                        "upstreamTables": [
+                                            {
+                                                "id": "39657832-0769-6372-60c3-687a51e2a772",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
+                                                "name": "customer",
+                                                "schema": "",
+                                                "fullName": "customer",
+                                                "connectionType": "postgres"
+                                            },
+                                            {
+                                                "id": "3cdd0522-44ef-62eb-ba52-71545c258344",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
+                                                "name": "payment",
+                                                "schema": "",
+                                                "fullName": "payment",
+                                                "connectionType": "postgres"
+                                            },
+                                            {
+                                                "id": "7df39af9-6767-4c9c-4120-155a024de062",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
+                                                "name": "staff",
+                                                "schema": "",
+                                                "fullName": "staff",
+                                                "connectionType": "postgres"
+                                            }
+                                        ],
+                                        "projectName": "default"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "id": "e988afb0-22cc-4820-d216-8b5824009c9a",
+                            "name": "customer_last_name",
+                            "remoteType": "STR",
+                            "description": null,
+                            "referencedByFields": [
+                                {
+                                    "datasource": {
+                                        "__typename": "PublishedDatasource",
+                                        "id": "00cce29f-b561-bb41-3557-8e19660bb5dd",
+                                        "name": "test publish datasource",
+                                        "upstreamDatabases": [
+                                            {
+                                                "id": "a7825692-7de9-113d-5377-ae113331a9ec",
+                                                "name": "dvdrental"
+                                            }
+                                        ],
+                                        "upstreamTables": [
+                                            {
+                                                "id": "39657832-0769-6372-60c3-687a51e2a772",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
+                                                "name": "customer",
+                                                "schema": "",
+                                                "fullName": "customer",
+                                                "connectionType": "postgres"
+                                            },
+                                            {
+                                                "id": "3cdd0522-44ef-62eb-ba52-71545c258344",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
+                                                "name": "payment",
+                                                "schema": "",
+                                                "fullName": "payment",
+                                                "connectionType": "postgres"
+                                            },
+                                            {
+                                                "id": "7df39af9-6767-4c9c-4120-155a024de062",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
+                                                "name": "staff",
+                                                "schema": "",
+                                                "fullName": "staff",
+                                                "connectionType": "postgres"
+                                            }
+                                        ],
+                                        "projectName": "default"
+                                    }
+                                }
+                            ]
+                        }
+                    ],
+                    "tables": [
+                        {
+                            "name": "customer",
+                            "schema": "",
+                            "fullName": "customer",
+                            "database":{
+                                "name":"dvdrental"
+                            },
+                            "connectionType": "postgres"
+                        },
+                        {
+                            "name": "payment",
+                            "schema": "",
+                            "fullName": "payment",
+                            "database":{
+                                "name":"dvdrental"
+                            },
+                            "connectionType": "postgres"
+                        },
+                        {
+                            "name": "staff",
+                            "schema": "",
+                            "fullName": "staff",
+                            "database":{
+                                "name":"dvdrental"
+                            },
+                            "connectionType": "postgres"
+                        }
+                    ]
+                }
+            ],
+            "pageInfo": {
+                "hasNextPage": false,
+                "endCursor": null
+            },
+            "totalCount": 2
+        }
+    }
+}

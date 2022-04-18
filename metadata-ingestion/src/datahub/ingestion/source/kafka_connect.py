@@ -1,5 +1,6 @@
 import logging
 import re
+import sys
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Tuple
 
@@ -16,6 +17,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.sql.sql_common import get_platform_from_sqlalchemy_uri
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +38,7 @@ class KafkaConnectSourceConfig(DatasetLineageProviderConfigBase):
     construct_lineage_workunits: bool = True
     connector_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
     provided_configs: Optional[List[ProvidedConfig]] = None
+    connect_to_platform_map: Optional[dict] = None
 
 
 @dataclass
@@ -92,15 +95,60 @@ def unquote(string: str, leading_quote: str = '"', trailing_quote: str = None) -
     return string
 
 
+def get_dataset_name(
+    database_name: Optional[str],
+    instance_name: Optional[str],
+    source_table: str,
+) -> str:
+    if database_name and instance_name:
+        dataset_name = instance_name + "." + database_name + "." + source_table
+    elif database_name:
+        dataset_name = database_name + "." + source_table
+    else:
+        dataset_name = source_table
+
+    return dataset_name
+
+
+def get_instance_name(
+    config: KafkaConnectSourceConfig, kafka_connector_name: str, source_platform: str
+) -> Optional[str]:
+    instance_name = None
+    if config.connect_to_platform_map:
+        for connector_name in config.connect_to_platform_map:
+            if connector_name == kafka_connector_name:
+                instance_name = config.connect_to_platform_map[connector_name][
+                    source_platform
+                ]
+                if config.platform_instance_map and config.platform_instance_map.get(
+                    source_platform
+                ):
+                    logger.error(
+                        f"Same source platform {source_platform} configured in both platform_instance_map and connect_to_platform_map"
+                    )
+                    sys.exit(
+                        "Config Error: Same source platform configured in both platform_instance_map and connect_to_platform_map. Fix the config and re-run again."
+                    )
+                logger.info(
+                    f"Instance name assigned is: {instance_name} for Connector Name {connector_name} and source platform {source_platform}"
+                )
+                break
+    return instance_name
+
+
 @dataclass
 class ConfluentJDBCSourceConnector:
     connector_manifest: ConnectorManifest
     report: KafkaConnectSourceReport
 
     def __init__(
-        self, connector_manifest: ConnectorManifest, report: KafkaConnectSourceReport
+        self,
+        connector_manifest: ConnectorManifest,
+        config: KafkaConnectSourceConfig,
+        report: KafkaConnectSourceReport,
     ) -> None:
         self.connector_manifest = connector_manifest
+        self.config = config
         self.report = report
         self._extract_lineages()
 
@@ -188,7 +236,7 @@ class ConfluentJDBCSourceConnector:
             str(connector_manifest.config.get("connection.url")), "jdbc:"
         )
         url_instance = make_url(url)
-        source_platform = url_instance.drivername
+        source_platform = get_platform_from_sqlalchemy_uri(str(url_instance))
         database_name = url_instance.database
         db_connection_url = f"{url_instance.drivername}://{url_instance.host}:{url_instance.port}/{url_instance.database}"
 
@@ -223,24 +271,38 @@ class ConfluentJDBCSourceConnector:
 
     def default_get_lineages(
         self,
-        topic_prefix,
-        database_name,
-        source_platform,
-        topic_names=None,
-        include_source_dataset=True,
-    ):
-        lineages: List[KafkaConnectLineage] = list()
+        topic_prefix: str,
+        database_name: str,
+        source_platform: str,
+        topic_names: Optional[Iterable[str]] = None,
+        include_source_dataset: bool = True,
+        instance_name: Optional[str] = None,
+    ) -> List[KafkaConnectLineage]:
+        lineages: List[KafkaConnectLineage] = []
         if not topic_names:
             topic_names = self.connector_manifest.topic_names
+        table_name_tuples: List[Tuple] = self.get_table_names()
         for topic in topic_names:
             # All good for NO_TRANSFORM or (SINGLE_TRANSFORM and KNOWN_NONTOPICROUTING_TRANSFORM) or (not SINGLE_TRANSFORM and all(KNOWN_NONTOPICROUTING_TRANSFORM))
-            # default method - as per earlier implementation
-            if topic_prefix:
-                source_table = remove_prefix(topic, topic_prefix)
-            else:
-                source_table = topic
-            dataset_name = (
-                database_name + "." + source_table if database_name else source_table
+            source_table: str = (
+                remove_prefix(topic, topic_prefix) if topic_prefix else topic
+            )
+            # include schema name for three-level hierarchies
+            if has_three_level_hierarchy(source_platform):
+                table_name_tuple: Tuple = next(
+                    iter([t for t in table_name_tuples if t and t[-1] == source_table]),
+                    (),
+                )
+                if len(table_name_tuple) > 1:
+                    source_table = f"{table_name_tuple[-2]}.{source_table}"
+                else:
+                    include_source_dataset = False
+                    self.report_warning(
+                        self.connector_manifest.name,
+                        f"could not find schema for table {source_table}",
+                    )
+            dataset_name: str = get_dataset_name(
+                database_name, instance_name, source_table
             )
             lineage = KafkaConnectLineage(
                 source_dataset=dataset_name if include_source_dataset else None,
@@ -251,32 +313,51 @@ class ConfluentJDBCSourceConnector:
             lineages.append(lineage)
         return lineages
 
-    def get_table_names(self):
-        if self.connector_manifest.config.get("table.whitelist"):
-            return self.connector_manifest.config.get("table.whitelist").split(",")  # type: ignore
+    def get_table_names(self) -> List[Tuple]:
+        sep: str = "."
+        leading_quote_char: str = '"'
+        trailing_quote_char: str = leading_quote_char
 
+        table_ids: List[str] = []
         if self.connector_manifest.tasks:
-            sep = "."
-            leading_quote_char = trailing_quote_char = '"'
+            table_ids = (
+                ",".join(
+                    [
+                        task["config"].get("tables")
+                        for task in self.connector_manifest.tasks
+                    ]
+                )
+            ).split(",")
             quote_method = self.connector_manifest.config.get(
                 "quote.sql.identifiers", "always"
             )
-
-            tableIds = ",".join(
-                [task["config"].get("tables") for task in self.connector_manifest.tasks]
-            )
-            if quote_method == "always":
-                leading_quote_char = tableIds[0]
-                trailing_quote_char = tableIds[-1]
+            if (
+                quote_method == "always"
+                and table_ids
+                and table_ids[0]
+                and table_ids[-1]
+            ):
+                leading_quote_char = table_ids[0][0]
+                trailing_quote_char = table_ids[-1][-1]
                 # This will only work for single character quotes
+        elif self.connector_manifest.config.get("table.whitelist"):
+            table_ids = self.connector_manifest.config.get("table.whitelist").split(",")  # type: ignore
 
-            tables = [
-                unquote(tableId.split(sep)[-1], leading_quote_char, trailing_quote_char)
-                for tableId in tableIds.split(",")
-            ]
-            return tables
-
-        return []
+        # List of Tuple containing (schema, table)
+        tables: List[Tuple] = [
+            (
+                unquote(
+                    table_id.split(sep)[-2], leading_quote_char, trailing_quote_char
+                )
+                if len(table_id.split(sep)) > 1
+                else "",
+                unquote(
+                    table_id.split(sep)[-1], leading_quote_char, trailing_quote_char
+                ),
+            )
+            for table_id in table_ids
+        ]
+        return tables
 
     def _extract_lineages(self):
         lineages: List[KafkaConnectLineage] = list()
@@ -287,6 +368,9 @@ class ConfluentJDBCSourceConnector:
         topic_prefix = parser.topic_prefix
         transforms = parser.transforms
         self.connector_manifest.flow_property_bag = self.connector_manifest.config
+        instance_name = get_instance_name(
+            self.config, self.connector_manifest.name, source_platform
+        )
 
         # Mask/Remove properties that may reveal credentials
         self.connector_manifest.flow_property_bag[
@@ -307,16 +391,14 @@ class ConfluentJDBCSourceConnector:
 
         if query:
             # Lineage source_table can be extracted by parsing query
-            # For now, we use source table as topic (expected to be same as topic prefix)
             for topic in self.connector_manifest.topic_names:
                 # default method - as per earlier implementation
-                source_table = topic
-                dataset_name = (
-                    database_name + "." + source_table
-                    if database_name
-                    else source_table
+                dataset_name: str = get_dataset_name(
+                    database_name, instance_name, topic
                 )
+
                 lineage = KafkaConnectLineage(
+                    source_dataset=None,
                     source_platform=source_platform,
                     target_dataset=topic,
                     target_platform="kafka",
@@ -351,6 +433,7 @@ class ConfluentJDBCSourceConnector:
                 database_name=database_name,
                 source_platform=source_platform,
                 topic_prefix=topic_prefix,
+                instance_name=instance_name,
             )
             return
 
@@ -361,7 +444,8 @@ class ConfluentJDBCSourceConnector:
 
             from java.util.regex import Pattern
 
-            for source_table in tables:
+            for table in tables:
+                source_table: str = table[-1]
                 topic = topic_prefix + source_table if topic_prefix else source_table
 
                 transform_regex = Pattern.compile(transforms[0]["regex"])
@@ -375,10 +459,12 @@ class ConfluentJDBCSourceConnector:
                 # in connector topics
 
                 if topic in self.connector_manifest.topic_names:
-                    dataset_name = (
-                        database_name + "." + source_table
-                        if database_name
-                        else source_table
+                    # include schema name for three-level hierarchies
+                    if has_three_level_hierarchy(source_platform) and len(table) > 1:
+                        source_table = f"{table[-2]}.{table[-1]}"
+
+                    dataset_name = get_dataset_name(
+                        database_name, instance_name, source_table
                     )
 
                     lineage = KafkaConnectLineage(
@@ -425,6 +511,7 @@ class ConfluentJDBCSourceConnector:
                 source_platform=source_platform,
                 topic_prefix=topic_prefix,
                 include_source_dataset=include_source_dataset,
+                instance_name=instance_name,
             )
             self.connector_manifest.lineages = lineages
             return
@@ -434,8 +521,11 @@ class ConfluentJDBCSourceConnector:
 class DebeziumSourceConnector:
     connector_manifest: ConnectorManifest
 
-    def __init__(self, connector_manifest: ConnectorManifest) -> None:
+    def __init__(
+        self, connector_manifest: ConnectorManifest, config: KafkaConnectSourceConfig
+    ) -> None:
         self.connector_manifest = connector_manifest
+        self.config = config
         self._extract_lineages()
 
     @dataclass
@@ -516,18 +606,20 @@ class DebeziumSourceConnector:
         server_name = parser.server_name
         database_name = parser.database_name
         topic_naming_pattern = r"({0})\.(\w+\.\w+)".format(server_name)
+        instance_name = get_instance_name(
+            self.config, self.connector_manifest.name, source_platform
+        )
 
         if not self.connector_manifest.topic_names:
             return lineages
+        # Get the platform/platform_instance mapping for every database_server from connect_to_platform_map
 
         for topic in self.connector_manifest.topic_names:
             found = re.search(re.compile(topic_naming_pattern), topic)
 
             if found:
-                table_name = (
-                    database_name + "." + found.group(2)
-                    if database_name
-                    else found.group(2)
+                table_name = get_dataset_name(
+                    database_name, instance_name, found.group(2)
                 )
 
                 lineage = KafkaConnectLineage(
@@ -725,10 +817,15 @@ class KafkaConnectSource(Source):
         )
 
         # Test the connection
+        if self.config.username is not None and self.config.password is not None:
+            logger.info(
+                f"Connecting to {self.config.connect_uri} with Authentication..."
+            )
+            self.session.auth = (self.config.username, self.config.password)
+
         test_response = self.session.get(f"{self.config.connect_uri}")
         test_response.raise_for_status()
         logger.info(f"Connection to {self.config.connect_uri} is ok")
-
         if not jpype.isJVMStarted():
             jpype.startJVM()
 
@@ -784,13 +881,15 @@ class KafkaConnectSource(Source):
                     "io.confluent.connect.jdbc.JdbcSourceConnector"
                 ):
                     connector_manifest = ConfluentJDBCSourceConnector(
-                        connector_manifest=connector_manifest, report=self.report
+                        connector_manifest=connector_manifest,
+                        config=self.config,
+                        report=self.report,
                     ).connector_manifest
                 else:
                     # Debezium Source Connector lineages
                     try:
                         connector_manifest = DebeziumSourceConnector(
-                            connector_manifest=connector_manifest
+                            connector_manifest=connector_manifest, config=self.config
                         ).connector_manifest
 
                     except ValueError as err:
@@ -891,6 +990,7 @@ class KafkaConnectSource(Source):
                             source_platform,
                             source_dataset,
                             platform_instance=source_platform_instance,
+                            env=self.config.env,
                         )
                     ]
                     if source_dataset
@@ -901,6 +1001,7 @@ class KafkaConnectSource(Source):
                         target_platform,
                         target_dataset,
                         platform_instance=target_platform_instance,
+                        env=self.config.env,
                     )
                 ]
 
@@ -1030,3 +1131,8 @@ class KafkaConnectSource(Source):
 
     def get_report(self) -> KafkaConnectSourceReport:
         return self.report
+
+
+# TODO: Find a more automated way to discover new platforms with 3 level naming hierarchy.
+def has_three_level_hierarchy(platform: str) -> bool:
+    return platform in ["postgres", "trino", "redshift", "snowflake"]
