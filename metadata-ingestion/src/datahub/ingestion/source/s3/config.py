@@ -140,6 +140,11 @@ class DataLakeSourceConfig(ConfigModel):
 
     aws_config: Optional[AwsSourceConfig] = None
 
+    # Whether or not to create in datahub from the s3 bucket
+    use_s3_bucket_tags: Optional[bool] = None
+    # Whether or not to create in datahub from the s3 object
+    use_s3_object_tags: Optional[bool] = None
+
     profile_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
     profiling: DataLakeProfilerConfig = DataLakeProfilerConfig()
 
@@ -158,6 +163,13 @@ class DataLakeSourceConfig(ConfigModel):
             if values["path_spec"].is_s3():
                 values["platform"] = "s3"
             else:
+                if (
+                    values["us3_s3_object_tags"] is not None
+                    or values["us3_s3_bucket_tags"] is not None
+                ):
+                    raise ValueError(
+                        "cannot grab s3 tags for platform=file. Remove the flag or use s3."
+                    )
                 values["platform"] = "file"
             logger.debug(f'Setting config "platform": {values.get("platform")}')
             return values

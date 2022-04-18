@@ -80,6 +80,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DatasetPropertiesClass,
+    GlobalTagsClass,
     MapTypeClass,
     OtherSchemaClass,
 )
@@ -316,7 +317,7 @@ class S3Source(Source):
             df = self.spark.read.json(file)
         elif ext.endswith(".avro"):
             try:
-                df = self.spark.read.format("avro").load(file)
+                df = self.sparkeread.format("avro").load(file)
             except AnalysisException:
                 self.report.report_warning(
                     file,
@@ -569,6 +570,19 @@ class S3Source(Source):
         if self.source_config.profiling.enabled:
             yield from self.get_table_profile(table_data, dataset_urn)
 
+        if (
+            self.source_config.use_s3_bucket_tags
+            or self.source_config.use_s3_object_tags
+        ) and self.ctx.graph is not None:
+            current_tags: Optional[GlobalTagsClass] = self.ctx.graph.get_aspect_v2(
+                entity_urn=dataset_urn,
+                aspect="globalTags",
+                aspect_type=GlobalTagsClass,
+            )
+            tags_to_add = [make_tag_urn(tag) for tag in current_tag]
+
+            pass
+
     def gen_bucket_key(self, name):
         return S3BucketKey(
             platform="s3",
@@ -577,6 +591,16 @@ class S3Source(Source):
             else self.source_config.platform_instance,
             bucket_name=name,
         )
+
+    def create_new_tags(self, tags: set[str], dataset_urn: str):
+        pass
+
+    def get_bucket_tags(self, name: str) -> set[str]:
+        if self.source_config.aws_config is None:
+            raise ValueError("aws_config not set. Cannot browse s3")
+        s3 = self.source_config.aws_config.get_s3_resource()
+        bucket = s3.Bucket(name)
+        return {f"""{tag["Key"]}:{tag["Value"]}""" for tag in bucket.Tagging().tag_set}
 
     def gen_folder_key(self, abs_path):
         return FolderKey(
