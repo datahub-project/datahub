@@ -250,6 +250,14 @@ class BigQueryPartitionColumn:
 @platform_name("BigQuery")
 @support_status(SupportStatus.CERTIFIED)
 class BigQuerySource(SQLAlchemySource):
+    """
+    This plugin extracts the following:
+    - Metadata for databases, schemas, and tables
+    - Column types associated with each table
+    - Table, row, and column statistics via optional SQL profiling
+    - Table level lineage.
+    """
+
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "bigquery")
         self.config: BigQueryConfig = config

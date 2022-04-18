@@ -432,7 +432,7 @@ def generate(out_dir: str, extra_docs: Optional[str] = None) -> None:
             # insert platform level custom docs before plugin section
             f.write(platform_docs.get("custom_docs") or "")
             for plugin, plugin_docs in platform_docs["plugins"].items():
-                f.write(f"## Module `{plugin}`\n")
+                f.write(f"\n## Module `{plugin}`\n")
                 if "support_status" in plugin_docs:
                     f.write(
                         get_support_status_badge(plugin_docs["support_status"]) + "\n"
@@ -468,7 +468,7 @@ def generate(out_dir: str, extra_docs: Optional[str] = None) -> None:
 
             f.write("\n## Questions\n")
             f.write(
-                "If you've got any questions on configuring this source, feel free to ping us on [our Slack](https://slack.datahubproject.io)\n"
+                f"If you've got any questions on configuring ingestion for {platform_docs['name']}, feel free to ping us on [our Slack](https://slack.datahubproject.io)\n"
             )
 
 

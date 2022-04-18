@@ -612,9 +612,11 @@ class BigQueryUsageSource(Source):
     This plugin extracts the following:
     * Statistics on queries issued and tables and columns accessed (excludes views)
     * Aggregation of these statistics into buckets, by day or hour granularity
-    **__NOTE__**
-    This source only does usage statistics. To get the tables, views, and schemas in your BigQuery project, use the `bigquery` plugin.
-    Depending on the compliance policies setup for the bigquery instance, sometimes logging.read permission is not sufficient. In that case, use either admin or private log viewer permission.
+
+    :::note
+    1. This source only does usage statistics. To get the tables, views, and schemas in your BigQuery project, use the `bigquery` plugin.
+    2. Depending on the compliance policies setup for the bigquery instance, sometimes logging.read permission is not sufficient. In that case, use either admin or private log viewer permission.
+    :::
     """
 
     def __init__(self, config: BigQueryUsageConfig, ctx: PipelineContext):
