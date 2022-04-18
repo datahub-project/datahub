@@ -54,17 +54,18 @@ public class EditableSchemaMetadataDiffer implements AspectDiffer<EditableSchema
       EditableSchemaFieldInfo targetFieldInfo, String entityUrn, ChangeCategory changeCategory,
       AuditStamp auditStamp) {
     List<ChangeEvent> changeEvents = new ArrayList<>();
+    Urn datasetFieldUrn = getDatasetFieldUrn(baseFieldInfo, targetFieldInfo, entityUrn);
     if (changeCategory == ChangeCategory.DOCUMENTATION) {
-      ChangeEvent documentationChangeEvent = getDocumentationChangeEvent(baseFieldInfo, targetFieldInfo, entityUrn, auditStamp);
+      ChangeEvent documentationChangeEvent = getDocumentationChangeEvent(baseFieldInfo, targetFieldInfo, datasetFieldUrn, auditStamp);
       if (documentationChangeEvent != null) {
         changeEvents.add(documentationChangeEvent);
       }
     }
     if (changeCategory == ChangeCategory.TAG) {
-      changeEvents.addAll(getTagChangeEvents(baseFieldInfo, targetFieldInfo, entityUrn, auditStamp));
+      changeEvents.addAll(getTagChangeEvents(baseFieldInfo, targetFieldInfo, datasetFieldUrn, auditStamp));
     }
     if (changeCategory == ChangeCategory.GLOSSARY_TERM) {
-      changeEvents.addAll(getGlossaryTermChangeEvents(baseFieldInfo, targetFieldInfo, entityUrn, auditStamp));
+      changeEvents.addAll(getGlossaryTermChangeEvents(baseFieldInfo, targetFieldInfo, datasetFieldUrn, auditStamp));
     }
     return changeEvents;
   }
@@ -122,18 +123,18 @@ public class EditableSchemaMetadataDiffer implements AspectDiffer<EditableSchema
   }
 
   private static ChangeEvent getDocumentationChangeEvent(EditableSchemaFieldInfo baseFieldInfo,
-      EditableSchemaFieldInfo targetFieldInfo, String entityUrn, AuditStamp auditStamp) {
+      EditableSchemaFieldInfo targetFieldInfo, Urn datasetFieldUrn, AuditStamp auditStamp) {
     String baseFieldDescription = (baseFieldInfo != null) ? baseFieldInfo.getDescription() : null;
     String targetFieldDescription = (targetFieldInfo != null) ? targetFieldInfo.getDescription() : null;
 
     if (baseFieldDescription == null && targetFieldDescription != null) {
       return ChangeEvent.builder()
           .modifier(targetFieldInfo.getFieldPath())
-          .entityUrn(entityUrn)
+          .entityUrn(datasetFieldUrn.toString())
           .category(ChangeCategory.DOCUMENTATION)
           .operation(ChangeOperation.ADD)
           .semVerChange(SemanticChangeType.MINOR)
-          .description(String.format(FIELD_DOCUMENTATION_ADDED_FORMAT, targetFieldInfo.getFieldPath(), entityUrn,
+          .description(String.format(FIELD_DOCUMENTATION_ADDED_FORMAT, targetFieldInfo.getFieldPath(), datasetFieldUrn,
               targetFieldDescription))
           .auditStamp(auditStamp)
           .build();
@@ -142,11 +143,11 @@ public class EditableSchemaMetadataDiffer implements AspectDiffer<EditableSchema
     if (baseFieldDescription != null && targetFieldDescription == null) {
       return ChangeEvent.builder()
           .modifier(baseFieldInfo.getFieldPath())
-          .entityUrn(entityUrn)
+          .entityUrn(datasetFieldUrn.toString())
           .category(ChangeCategory.DOCUMENTATION)
           .operation(ChangeOperation.REMOVE)
           .semVerChange(SemanticChangeType.MINOR)
-          .description(String.format(FIELD_DOCUMENTATION_REMOVED_FORMAT, targetFieldInfo.getFieldPath(), entityUrn,
+          .description(String.format(FIELD_DOCUMENTATION_REMOVED_FORMAT, targetFieldInfo.getFieldPath(), datasetFieldUrn,
               baseFieldDescription))
           .auditStamp(auditStamp)
           .build();
@@ -156,11 +157,11 @@ public class EditableSchemaMetadataDiffer implements AspectDiffer<EditableSchema
         targetFieldDescription)) {
       return ChangeEvent.builder()
           .modifier(targetFieldInfo.getFieldPath())
-          .entityUrn(entityUrn)
+          .entityUrn(datasetFieldUrn.toString())
           .category(ChangeCategory.DOCUMENTATION)
           .operation(ChangeOperation.MODIFY)
           .semVerChange(SemanticChangeType.PATCH)
-          .description(String.format(FIELD_DOCUMENTATION_UPDATED_FORMAT, targetFieldInfo.getFieldPath(), entityUrn,
+          .description(String.format(FIELD_DOCUMENTATION_UPDATED_FORMAT, targetFieldInfo.getFieldPath(), datasetFieldUrn,
               baseFieldDescription, targetFieldDescription))
           .auditStamp(auditStamp)
           .build();
@@ -170,7 +171,7 @@ public class EditableSchemaMetadataDiffer implements AspectDiffer<EditableSchema
   }
 
   private static List<ChangeEvent> getGlossaryTermChangeEvents(EditableSchemaFieldInfo baseFieldInfo,
-      EditableSchemaFieldInfo targetFieldInfo, String entityUrn, AuditStamp auditStamp) {
+      EditableSchemaFieldInfo targetFieldInfo, Urn datasetFieldUrn, AuditStamp auditStamp) {
     GlossaryTerms baseGlossaryTerms = (baseFieldInfo != null) ? baseFieldInfo.getGlossaryTerms() : null;
     GlossaryTerms targetGlossaryTerms = (targetFieldInfo != null) ? targetFieldInfo.getGlossaryTerms() : null;
 
@@ -178,7 +179,7 @@ public class EditableSchemaMetadataDiffer implements AspectDiffer<EditableSchema
     List<ChangeEvent> entityGlossaryTermsChangeEvents = GlossaryTermsDiffer.computeDiffs(
         baseGlossaryTerms,
         targetGlossaryTerms,
-        entityUrn,
+        datasetFieldUrn.toString(),
         auditStamp);
 
     if (targetFieldInfo != null || baseFieldInfo != null) {
@@ -186,7 +187,7 @@ public class EditableSchemaMetadataDiffer implements AspectDiffer<EditableSchema
       // 2. Convert EntityGlossaryTermChangeEvent into a SchemaFieldGlossaryTermChangeEvent.
       return convertEntityGlossaryTermChangeEvents(
           fieldPath,
-          UrnUtils.getUrn(entityUrn),
+          datasetFieldUrn,
           entityGlossaryTermsChangeEvents);
     }
 
@@ -194,19 +195,19 @@ public class EditableSchemaMetadataDiffer implements AspectDiffer<EditableSchema
   }
 
   private static List<ChangeEvent> getTagChangeEvents(EditableSchemaFieldInfo baseFieldInfo,
-      EditableSchemaFieldInfo targetFieldInfo, String entityUrn, AuditStamp auditStamp) {
+      EditableSchemaFieldInfo targetFieldInfo, Urn datasetFieldUrn, AuditStamp auditStamp) {
     GlobalTags baseGlobalTags = (baseFieldInfo != null) ? baseFieldInfo.getGlobalTags() : null;
     GlobalTags targetGlobalTags = (targetFieldInfo != null) ? targetFieldInfo.getGlobalTags() : null;
 
     // 1. Get EntityTagChangeEvent, then rebind into a SchemaFieldTagChangeEvent.
-    List<ChangeEvent> entityTagChangeEvents = GlobalTagsDiffer.computeDiffs(baseGlobalTags, targetGlobalTags, entityUrn, auditStamp);
+    List<ChangeEvent> entityTagChangeEvents = GlobalTagsDiffer.computeDiffs(baseGlobalTags, targetGlobalTags, datasetFieldUrn.toString(), auditStamp);
 
     if (targetFieldInfo != null || baseFieldInfo != null) {
       String fieldPath = targetFieldInfo != null ? targetFieldInfo.getFieldPath() : baseFieldInfo.getFieldPath();
       // 2. Convert EntityTagChangeEvent into a SchemaFieldTagChangeEvent.
       return convertEntityTagChangeEvents(
           fieldPath,
-          UrnUtils.getUrn(entityUrn),
+          datasetFieldUrn,
           entityTagChangeEvents);
     }
 
@@ -260,5 +261,11 @@ public class EditableSchemaMetadataDiffer implements AspectDiffer<EditableSchema
     changeEvents.addAll(computeDiffs(from.getValue(), to.getValue(), urn.toString(), ChangeCategory.TECHNICAL_SCHEMA, auditStamp));
     changeEvents.addAll(computeDiffs(from.getValue(), to.getValue(), urn.toString(), ChangeCategory.GLOSSARY_TERM, auditStamp));
     return changeEvents;
+  }
+
+  private static Urn getDatasetFieldUrn(final EditableSchemaFieldInfo previous, final EditableSchemaFieldInfo latest, String entityUrn) {
+    return previous != null
+        ? getSchemaFieldUrn(UrnUtils.getUrn(entityUrn), previous.getFieldPath())
+        : getSchemaFieldUrn(UrnUtils.getUrn(entityUrn), latest.getFieldPath());
   }
 }

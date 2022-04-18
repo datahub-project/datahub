@@ -37,6 +37,8 @@ public class AspectDifferRegistryFactory {
     registry.register(INSTITUTIONAL_MEMORY_ASPECT_NAME, new InstitutionalMemoryDiffer());
     registry.register(DATASET_PROPERTIES_ASPECT_NAME, new DatasetPropertiesDiffer());
     registry.register(DOMAINS_ASPECT_NAME, new SingleDomainDiffer());
+    registry.register(DATASET_PROPERTIES_ASPECT_NAME, new DatasetPropertiesDiffer());
+    registry.register(EDITABLE_DATASET_PROPERTIES_ASPECT_NAME, new EditableDatasetPropertiesDiffer());
 
     // Entity Lifecycle Differs
     registry.register(DATASET_KEY_ASPECT_NAME, new EntityKeyDiffer<>());
