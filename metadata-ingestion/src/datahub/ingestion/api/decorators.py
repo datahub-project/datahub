@@ -2,7 +2,6 @@ from enum import Enum, auto
 from typing import Callable, Dict, Type
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import Source
 
 
 def config_class(config_cls: Type) -> Callable[[Type], Type]:
@@ -41,10 +40,10 @@ class SupportStatus(Enum):
 
 def support_status(
     support_status: SupportStatus,
-) -> Callable[[Type[Source]], Type[Source]]:
+) -> Callable[[Type], Type]:
     """Adds a get_support_status method to the decorated class"""
 
-    def wrapper(cls: Type[Source]) -> Type[Source]:
+    def wrapper(cls: Type) -> Type:
         setattr(cls, "get_support_status", lambda: support_status)
         return cls
 

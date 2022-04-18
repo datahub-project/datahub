@@ -604,9 +604,9 @@ class QueryEvent:
         return query_event
 
 
-@config_class(BigQueryUsageConfig)
 @platform_name("BigQuery")
 @support_status(SupportStatus.CERTIFIED)
+@config_class(BigQueryUsageConfig)
 class BigQueryUsageSource(Source):
     """
     This plugin extracts the following:
