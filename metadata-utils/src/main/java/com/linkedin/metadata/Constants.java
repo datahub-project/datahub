@@ -189,6 +189,9 @@ public class Constants {
   public static final String EXECUTION_REQUEST_SIGNAL_ASPECT_NAME = "dataHubExecutionRequestSignal";
   public static final String EXECUTION_REQUEST_RESULT_ASPECT_NAME = "dataHubExecutionRequestResult";
 
+  // acryl-main only
+  public static final String CHANGE_EVENT_PLATFORM_EVENT_NAME = "entityChangeEvent";
+
   /**
    * User Status
    */
