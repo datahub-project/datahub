@@ -29,7 +29,7 @@ Some sources use the default `SourceReport` class, but others inherit and extend
 
 ### 3. Implement the source itself
 
-The core for the source is the `get_workunits` method, which produces a stream of MCE objects.
+The core for the source is the `get_workunits` method, which produces a stream of metadata events (typically MCP objects) wrapped up in a MetadataWorkUnit.
 The [file source](./src/datahub/ingestion/source/file.py) is a good and simple example.
 
 The MetadataChangeEventClass is defined in the metadata models which are generated
@@ -51,16 +51,44 @@ Tests go in the `tests` directory. We use the [pytest framework](https://pytest.
 
 ### 7. Write docs
 
-Create a copy of [`source-docs-template.md`](./source-docs-template.md) and edit all relevant components. 
+#### 7.1 Set up the source class for automatic documentation
 
-Add the plugin to the table under [CLI Sources List](../docs/cli.md#sources), and add the source's documentation underneath the [sources folder](https://github.com/datahub-project/datahub/tree/master/metadata-ingestion/source_docs).
+- Indicate the platform name that this source class produces metadata for using the `@platform_name` decorator. We prefer using the human-readable platform name, so e.g. BigQuery (not bigquery).
+- Indicate the config class being used by the source by using the `@config_class` decorator.
+- Indicate the support status of the connector by using the `@support_status` decorator.
+
+See below a simple example of how to do this for any source.
+
+```python
+
+from datahub.ingestion.api.decorators import (
+    SupportStatus,
+    config_class,
+    platform_name,
+    support_status,
+)
+
+
+@platform_name("File")
+@support_status(SupportStatus.CERTIFIED)
+@config_class(FileSourceConfig)
+class FileSource(Source):
+   ... source code goes here
+
+```
+
+
+#### 7.2 Write custom documentation
+
+- Create a copy of [`source-docs-template.md`](./source-docs-template.md) and edit all relevant components. 
+- Name the document as `<plugin.md>` and move it to `metadata-ingestion/docs/sources/<platform>/<plugin>.md`. For example for the Kafka platform, under the `kafka` plugin, move the document to `metadata-ingestion/docs/sources/kafka/kafka.md`.
+- To write platform-specific documentation (that is cross-plugin), write the documentation under `metadata-ingestion/docs/sources/<platform>/README.md`. For example, cross-plugin documentation for the BigQuery platform is located under `metadata-ingestion/docs/sources/bigquery/README.md`.
 
 ### 8. Add SQL Alchemy mapping (if applicable)
 
 Add the source in `get_platform_from_sqlalchemy_uri` function
 in [sql_common.py](./src/datahub/ingestion/source/sql/sql_common.py) if the source has an sqlalchemy source
 
-### 9. Add logo
+### 9. Add logo for the platform
 
-Add logo image in [images folder](../datahub-web-react/src/images) and add it to be ingested
-in [boot](../metadata-service/war/src/main/resources/boot/data_platforms.json)
+Add the logo image in [images folder](../datahub-web-react/src/images) and add it to be ingested at [startup](../metadata-service/war/src/main/resources/boot/data_platforms.json)

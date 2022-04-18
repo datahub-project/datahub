@@ -280,7 +280,9 @@ class LookerDashboardSource(Source):
     - Schemas and input views for explores
     - Owners of dashboards
 
-    **_NOTE:_** To get complete Looker metadata integration (including Looker views and lineage to the underlying warehouse tables), you must ALSO use the `lookml` module.
+    :::note
+    To get complete Looker metadata integration (including Looker views and lineage to the underlying warehouse tables), you must ALSO use the `lookml` module.
+    :::
     """
 
     source_config: LookerDashboardSourceConfig

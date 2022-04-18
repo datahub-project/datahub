@@ -83,7 +83,12 @@ def gen_md_table_from_struct(schema_dict: Dict[str, Any]) -> List[str]:
     # ]
     gen_md_table(schema_dict, schema_dict.get("definitions", {}), md_str=table_md_str)
     # table_md_str.append("\n</table>\n")
-    table_md_str.sort(key=lambda x: "z" if len(x.inner_fields) else "" + x.path)
+
+    table_md_str = [field for field in table_md_str if len(field.inner_fields) == 0] + [
+        field for field in table_md_str if len(field.inner_fields) > 0
+    ]
+
+    # table_md_str.sort(key=lambda x: "z" if len(x.inner_fields) else "" + x.path)
     return (
         [FieldHeader().to_md_line()]
         + [row.to_md_line() for row in table_md_str]

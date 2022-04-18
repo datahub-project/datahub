@@ -776,7 +776,9 @@ class LookMLSource(Source):
     - Name, upstream table names, metadata for dimensions, measures, and dimension groups attached as tags
     - If API integration is enabled (recommended), resolves table and view names by calling the Looker API, otherwise supports offline resolution of these names.
 
-    **_NOTE_**: To get complete Looker metadata integration (including Looker dashboards and charts and lineage to the underlying Looker views, you must ALSO use the `looker` source module.
+    :::note
+    To get complete Looker metadata integration (including Looker dashboards and charts and lineage to the underlying Looker views, you must ALSO use the `looker` source module.
+    :::
     """
 
     source_config: LookMLSourceConfig
