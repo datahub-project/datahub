@@ -35,7 +35,7 @@ public class DatasetPropertiesDiffer implements AspectDiffer<DatasetProperties> 
           .category(ChangeCategory.DOCUMENTATION)
           .operation(ChangeOperation.ADD)
           .semVerChange(SemanticChangeType.MINOR)
-          .description(String.format(DESCRIPTION_ADDED, targetDescription, entityUrn))
+          .description(String.format(DESCRIPTION_ADDED, entityUrn, targetDescription))
           .auditStamp(auditStamp)
           .build());
     } else if (baseDescription != null && targetDescription == null) {
@@ -45,7 +45,7 @@ public class DatasetPropertiesDiffer implements AspectDiffer<DatasetProperties> 
           .category(ChangeCategory.DOCUMENTATION)
           .operation(ChangeOperation.REMOVE)
           .semVerChange(SemanticChangeType.MINOR)
-          .description(String.format(DESCRIPTION_REMOVED, baseDescription, entityUrn))
+          .description(String.format(DESCRIPTION_REMOVED, entityUrn, baseDescription))
           .auditStamp(auditStamp)
           .build());
     } else if (baseDescription != null && targetDescription != null && !baseDescription.equals(targetDescription)) {

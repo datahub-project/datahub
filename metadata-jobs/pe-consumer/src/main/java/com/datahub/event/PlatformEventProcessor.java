@@ -4,11 +4,14 @@ import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
 import com.datahub.event.hook.PlatformEventHook;
+import com.datahub.util.RecordUtils;
 import com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory;
 import com.linkedin.metadata.EventUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.Topics;
+import com.linkedin.platform.event.v1.EntityChangeEvent;
 import java.util.Collections;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
@@ -62,8 +65,6 @@ public class PlatformEventProcessor {
       log.error("Message: {}", record.toString());
       return;
     }
-
-    log.info(event.toString());
 
     log.debug("Invoking PE hooks for event name {}", event.getName());
 
