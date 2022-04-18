@@ -124,7 +124,11 @@ class TableauSource(Source):
     def __hash__(self):
         return id(self)
 
-    def __init__(self, ctx: PipelineContext, config: TableauConfig):
+    def __init__(
+        self,
+        config: TableauConfig,
+        ctx: PipelineContext,
+    ):
         super().__init__(ctx)
 
         self.config = config
@@ -995,7 +999,7 @@ class TableauSource(Source):
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
         config = TableauConfig.parse_obj(config_dict)
-        return cls(ctx, config)
+        return cls(config, ctx)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         if self.server is None or not self.server.is_signed_in():
