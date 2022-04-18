@@ -11,12 +11,19 @@ from urllib.parse import urljoin
 import requests
 from dateutil import parser
 from packaging import version
+from pydantic.fields import Field
 from requests.adapters import HTTPAdapter
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SupportStatus,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
@@ -56,31 +63,61 @@ class NifiAuthType(Enum):
 
 
 class NifiSourceConfig(ConfigModel):
-    site_url: str
+    site_url: str = Field(description="URI to connect")
 
-    auth: NifiAuthType = NifiAuthType.NO_AUTH
+    auth: NifiAuthType = Field(
+        default=NifiAuthType.NO_AUTH,
+        description="Nifi authentication. must be one of : NO_AUTH, SINGLE_USER, CLIENT_CERT",
+    )
 
-    provenance_days: int = 7  # Fetch provenance events for past 1 week
-    process_group_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    provenance_days: int = Field(
+        default=7,
+        description="time window to analyze provenance events for external datasets",
+    )  # Fetch provenance events for past 1 week
+    process_group_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for filtering process groups",
+    )
 
     # Required for nifi deployments using Remote Process Groups
-    site_name: str = "default"
-    site_url_to_site_name: Dict[str, str] = {}
+    site_name: str = Field(
+        default="default",
+        description="Site name to identify this site with, useful when using input and output ports receiving remote connections",
+    )
+    site_url_to_site_name: Dict[str, str] = Field(
+        default={},
+        description="Lookup to find site_name for site_url, required if using remote process groups in nifi flow",
+    )
 
     # Required to be set if auth is of type SINGLE_USER
-    username: Optional[str]
-    password: Optional[str]
+    username: Optional[str] = Field(
+        description='Nifi username, must be set for auth = "SINGLE_USER"'
+    )
+    password: Optional[str] = Field(
+        description='Nifi password, must be set for auth = "SINGLE_USER"'
+    )
 
     # Required to be set if auth is of type CLIENT_CERT
-    client_cert_file: Optional[str]
-    client_key_file: Optional[str]
-    client_key_password: Optional[str]
+    client_cert_file: Optional[str] = Field(
+        description='Path to PEM file containing the public certificates for the user/client identity, must be set for auth = "CLIENT_CERT"'
+    )
+    client_key_file: Optional[str] = Field(
+        description="Path to PEM file containing the client’s secret key"
+    )
+    client_key_password: Optional[str] = Field(
+        description="The password to decrypt the client_key_file"
+    )
 
     # Required to be set if nifi server certificate is not signed by
     # root CA trusted by client system, e.g. self-signed certificates
-    ca_file: Optional[str]
+    ca_file: Optional[str] = Field(
+        description="Path to PEM file containing certs for the root CA(s) for the NiFi"
+    )
 
-    env: str = builder.DEFAULT_ENV
+    env: str = Field(
+        default=builder.DEFAULT_ENV,
+        description="Environment to use in namespace when constructing URNs.",
+    )
 
 
 TOKEN_ENDPOINT = "/nifi-api/access/token"
@@ -268,7 +305,26 @@ class NifiSourceReport(SourceReport):
 
 
 # allowRemoteAccess
+@platform_name("Nifi")
+@config_class(NifiSourceConfig)
+@support_status(SupportStatus.CERTIFIED)
 class NifiSource(Source):
+    """
+    This plugin extracts the following:
+
+    - Nifi flow as `DataFlow` entity
+    - Ingress, egress processors, remote input and output ports as `DataJob` entity
+    - Input and output ports receiving remote connections as `Dataset` entity
+    - Lineage information between external datasets and ingress/egress processors by analyzing provenance events
+
+    Current limitations:
+
+    - Limited ingress/egress processors are supported
+      - S3: `ListS3`, `FetchS3Object`, `PutS3Object`
+      - SFTP: `ListSFTP`, `FetchSFTP`, `GetSFTP`, `PutSFTP`
+
+    """
+
     config: NifiSourceConfig
     report: NifiSourceReport
 
