@@ -1,4 +1,4 @@
-## Capabilities
+### Capabilities
 
 | Capability        | Status | Details                                  | 
 |-------------------|--------|------------------------------------------|
@@ -7,25 +7,6 @@
 | Stateful Ingestion | ✔️ | [link](../../../../metadata-ingestion/source_docs/stateful_ingestion.md)
 
 Stateful Ingestion is available only when a Platform Instance is assigned to this source.
-
-## Quickstart recipe
-
-Check out the following recipe to get started with ingestion! See [config details](#config-details) for full configuration options.
-
-For general pointers on writing and running a recipe, see our [main recipe guide](../../../../metadata-ingestion/README.md#recipes).
-
-```yml
-source:
-  type: "kafka"
-  config:
-    platform_instance: "YOUR_CLUSTER_ID"
-    connection:
-      bootstrap: "broker:9092"
-      schema_registry_url: http://localhost:8081
-
-sink:
-  # sink configs
-```
 
 ### Connecting to Confluent Cloud
 
@@ -94,7 +75,7 @@ source:
       "my_topic_2-value": "io.acryl.Schema3"
 ```
 
-## Custom Schema Registry
+### Custom Schema Registry
 
 The Kafka Source uses the schema registry to figure out the schema associated with both `key` and `value` for the topic. 
 By default it uses the [Confluent's Kafka Schema registry](https://docs.confluent.io/platform/current/schema-registry/index.html) 

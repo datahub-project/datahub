@@ -285,6 +285,19 @@ def get_support_status_badge(support_status: SupportStatus) -> str:
     return ""
 
 
+def create_or_update(
+    something: Dict[Any, Any], path: List[str], value: Any
+) -> Dict[Any, Any]:
+    dict_under_operation = something
+    for p in path[:-1]:
+        if p not in dict_under_operation:
+            dict_under_operation[p] = {}
+        dict_under_operation = dict_under_operation[p]
+
+    dict_under_operation[path[-1]] = value
+    return something
+
+
 @click.command()
 @click.option("--out-dir", type=str, required=True)
 @click.option("--extra-docs", type=str, required=False)
@@ -292,8 +305,9 @@ def generate(out_dir: str, extra_docs: Optional[str] = None) -> None:
     source_documentation: Dict[str, Any] = {}
 
     if extra_docs:
-        for path in glob.glob(f"{extra_docs}/**/*.md", recursive=True):
+        for path in glob.glob(f"{extra_docs}/**/*[.md|.yaml|.yml]", recursive=True):
             # breakpoint()
+
             m = re.search("/docs/sources/(.*)/(.*).md", path)
             if m:
                 platform_name = m.group(1).lower()
@@ -301,25 +315,33 @@ def generate(out_dir: str, extra_docs: Optional[str] = None) -> None:
                 with open(path, "r") as doc_file:
                     file_contents = doc_file.read()
                     # final_markdown = preprocess_markdown(file_contents)
-                    if platform_name not in source_documentation:
-                        source_documentation[platform_name] = {}
 
                     if file_name == "README":
                         # README goes as platform level docs
                         # all other docs are assumed to be plugin level
-                        source_documentation[platform_name][
-                            "custom_docs"
-                        ] = file_contents
+                        create_or_update(
+                            source_documentation,
+                            [platform_name, "custom_docs"],
+                            file_contents,
+                        )
                     else:
-                        if "plugins" not in source_documentation[platform_name]:
-                            source_documentation[platform_name]["plugins"] = {}
-                        if (
-                            file_name
-                            not in source_documentation[platform_name]["plugins"]
-                        ):
-                            source_documentation[platform_name]["plugins"][
-                                file_name
-                            ] = {"custom_docs": file_contents}
+                        create_or_update(
+                            source_documentation,
+                            [platform_name, "plugins", file_name, "custom_docs"],
+                            file_contents,
+                        )
+            else:
+                yml_match = re.search("/docs/sources/(.*)/(.*)_recipe.yml", path)
+                if yml_match:
+                    platform_name = yml_match.group(1).lower()
+                    plugin_name = yml_match.group(2)
+                    with open(path, "r") as doc_file:
+                        file_contents = doc_file.read()
+                        create_or_update(
+                            source_documentation,
+                            [platform_name, "plugins", plugin_name, "recipe"],
+                            file_contents,
+                        )
 
     source_registry = PluginRegistry[Source]()
     source_registry.register_from_entrypoint("datahub.ingestion.source.plugins")
@@ -416,20 +438,35 @@ def generate(out_dir: str, extra_docs: Optional[str] = None) -> None:
                         get_support_status_badge(plugin_docs["support_status"]) + "\n"
                     )
                 f.write(f"{plugin_docs['source_doc'] or ''}\n")
-                f.write("### Setup\n")
+                f.write("### Install the Plugin\n")
                 f.write("```shell\n")
                 f.write(f"pip install 'acryl-datahub[{plugin}]'\n")
                 f.write("```\n")
-                # insert custom plugin docs before config details
-                f.write(plugin_docs.get("custom_docs", ""))
+                if "recipe" in plugin_docs:
+                    f.write("\n### Quickstart Recipe\n")
+                    f.write(
+                        "Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.\n\n\n"
+                    )
+                    f.write(
+                        "For general pointers on writing and running a recipe, see our [main recipe guide](../../../../metadata-ingestion/README.md#recipes)\n"
+                    )
+                    f.write("```yaml\n")
+                    f.write(plugin_docs["recipe"])
+                    f.write("\n```\n")
                 f.write("\n### Config Details\n")
                 f.write(
                     "Note that a `.` is used to denote nested fields in the YAML recipe.\n\n"
                 )
+                f.write(
+                    "\n<details>\n<summary>View All Configuration Options</summary>\n\n"
+                )
                 for doc in plugin_docs["config"]:
                     f.write(doc)
+                f.write("\n</details>\n\n")
+                # insert custom plugin docs after config details
+                f.write(plugin_docs.get("custom_docs", ""))
 
-            f.write("## Questions\n")
+            f.write("\n## Questions\n")
             f.write(
                 "If you've got any questions on configuring this source, feel free to ping us on [our Slack](https://slack.datahubproject.io)\n"
             )
