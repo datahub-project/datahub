@@ -203,6 +203,7 @@ module.exports = {
       "docs/policies",
       "docs/domains",
       "docs/ui-ingestion",
+      "docs/tags",
       "docs/how/search",
       "docs/how/auth/add-users",
       "docs/how/ui-tabs-guide",
