@@ -9,17 +9,14 @@ import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.timeline.data.SemanticChangeType;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import lombok.Value;
 
 
 @EqualsAndHashCode(callSuper = true)
 @Value
+@Getter
 public class DomainChangeEvent extends ChangeEvent {
-  /**
-   * The domain urn which was involved in the change event.
-   */
-  Urn domainUrn;
-
   @Builder(builderMethodName = "entityDomainChangeEventBuilder")
   public DomainChangeEvent(
       String entityUrn,
@@ -43,6 +40,5 @@ public class DomainChangeEvent extends ChangeEvent {
         semVerChange,
         description
     );
-    this.domainUrn = domainUrn;
   }
 }
