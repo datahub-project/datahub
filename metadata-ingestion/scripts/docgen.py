@@ -301,6 +301,7 @@ def get_capability_text(src_capability: SourceCapability) -> str:
     capability_docs_mapping: Dict[SourceCapability, str] = {
         SourceCapability.DELETION_DETECTION: "../../../../metadata-ingestion/source_docs/stateful_ingestion.md#removal-of-stale-tables-and-views",
         SourceCapability.DOMAINS: "../../../domains.md",
+        SourceCapability.PLATFORM_INSTANCE: "../../../platform-instances.md",
     }
 
     capability_doc = capability_docs_mapping.get(src_capability)
