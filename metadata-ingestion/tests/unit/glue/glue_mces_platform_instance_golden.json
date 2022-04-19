@@ -269,6 +269,15 @@
               "platform": "urn:li:dataPlatform:glue",
               "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)"
             }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.GlobalTags": {
+                "tags": [
+                    {
+                        "tag": "urn:li:tag:foo:bar"
+                    }
+                ]
+            }
           }
         ]
       }
@@ -496,6 +505,15 @@
               "platform": "urn:li:dataPlatform:glue",
               "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)"
             }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.GlobalTags": {
+                "tags": [
+                    {
+                        "tag": "urn:li:tag:foo:bar"
+                    }
+                ]
+            }
           }
         ]
       }
@@ -694,6 +712,15 @@
             "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
               "platform": "urn:li:dataPlatform:glue",
               "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)"
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.GlobalTags": {
+                "tags": [
+                    {
+                        "tag": "urn:li:tag:foo:bar"
+                    }
+                ]
             }
           }
         ]
