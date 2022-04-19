@@ -794,8 +794,6 @@ class GlueSource(Source):
             )
 
         def get_s3_bucket_tags() -> GlobalTagsClass:
-            print(dataset_urn)
-            print("in get s3 bucket tags")
             bucket_name = s3_util.get_bucket_name(
                 table["StorageDescriptor"]["Location"]
             )

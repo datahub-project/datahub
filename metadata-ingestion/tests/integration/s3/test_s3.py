@@ -34,6 +34,7 @@ def s3_populate(pytestconfig, s3_client, bucket_name):
     logging.info("Populating s3 bucket")
     s3_client.create_bucket(Bucket=bucket_name)
     bkt = s3_client.Bucket(bucket_name)
+    bkt.Tagging().put(Tagging={"TagSet": [{"Key": "foo", "Value": "bar"}]})
     test_resources_dir = (
         pytestconfig.rootpath / "tests/integration/s3/test_data/local_system/"
     )
@@ -94,6 +95,7 @@ def test_data_lake_local_ingest(pytestconfig, source_file, tmp_path, mock_time):
     ].replace("s3://my-test-bucket/", "tests/integration/s3/test_data/local_system/")
     source["config"]["profiling"]["enabled"] = True
     source["config"].pop("aws_config")
+    source["config"].pop("use_s3_bucket_tags")
     config_dict["source"] = source
     config_dict["sink"] = {
         "type": "file",

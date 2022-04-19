@@ -11,6 +11,7 @@
     },
     "profiling": {
       "enabled": false
-    }
+    },
+    "use_s3_bucket_tags": true
   }
 }
