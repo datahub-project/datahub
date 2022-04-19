@@ -124,7 +124,7 @@ project.ext.externalDependency = [
     'springBeans': "org.springframework:spring-beans:$springVersion",
     'springContext': "org.springframework:spring-context:$springVersion",
     'springCore': "org.springframework:spring-core:$springVersion",
-    'springDocUI': 'org.springdoc:springdoc-openapi-ui:1.6.6',
+    'springDocUI': 'org.springdoc:springdoc-openapi-ui:1.6.7',
     'springJdbc': "org.springframework:spring-jdbc:$springVersion",
     'springWeb': "org.springframework:spring-web:$springVersion",
     'springWebMVC': "org.springframework:spring-webmvc:$springVersion",
