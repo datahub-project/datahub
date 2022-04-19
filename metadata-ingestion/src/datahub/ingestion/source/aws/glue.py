@@ -402,6 +402,11 @@ class GlueSource(Source):
             # Source and Target for some edges is not available
             # in nodes. this may lead to broken edge in lineage.
             if source_node is None or target_node is None:
+                logger.warning(
+                    flow_urn,
+                    f"Unrecognized source or target node in edge: {edge}. Skipping.\
+                        This may lead to broken edge in lineage",
+                )
                 continue
 
             source_node_type = source_node["NodeType"]
