@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Tuple, Union
 from urllib.parse import urlparse
-from datahub.ingestion.source.aws import s3_util
 
 import yaml
 from pydantic import validator
@@ -30,6 +29,7 @@ from datahub.emitter.mcp_builder import (
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.aws import s3_util
 from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status

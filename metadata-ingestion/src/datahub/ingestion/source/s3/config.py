@@ -163,9 +163,9 @@ class DataLakeSourceConfig(ConfigModel):
             if values["path_spec"].is_s3():
                 values["platform"] = "s3"
             else:
-                if values["us3_s3_object_tags"] or values["us3_s3_bucket_tags"]:
+                if values.get("us3_s3_object_tags") or values.get("us3_s3_bucket_tags"):
                     raise ValueError(
-                        "cannot grab s3 tags for platform=file. Remove the flag or use s3."
+                        "cannot grab s3 tags for platform != s3. Remove the flag or use s3."
                     )
                 values["platform"] = "file"
             logger.debug(f'Setting config "platform": {values.get("platform")}')
