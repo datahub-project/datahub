@@ -318,7 +318,7 @@ class S3Source(Source):
             df = self.spark.read.json(file)
         elif ext.endswith(".avro"):
             try:
-                df = self.sparkeread.format("avro").load(file)
+                df = self.spark.read.format("avro").load(file)
             except AnalysisException:
                 self.report.report_warning(
                     file,
