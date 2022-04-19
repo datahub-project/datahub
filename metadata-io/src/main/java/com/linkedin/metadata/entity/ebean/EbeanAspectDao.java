@@ -498,15 +498,19 @@ public class EbeanAspectDao {
     if (exp == null) {
       return result;
     }
+    // Ensure Ordering of Aspect version
+    exp.orderBy("version");
     List<EbeanAspectV2.PrimaryKey> dbResults = exp.endOr().findIds();
 
     for (EbeanAspectV2.PrimaryKey key: dbResults) {
+      log.debug("Reading from DB - Urn: {}, Aspect: {}, currVersion: {}", urn, key.getAspect(), key.getVersion());
       result.put(key.getAspect(), key.getVersion());
     }
     for (String aspectName: aspectNames) {
       long nextVal = 0L;
       if (result.containsKey(aspectName)) {
         nextVal = result.get(aspectName) + 1L;
+        log.debug("Setting nextVersion - Urn: {}, Aspect: {}, nextVersion: {}", urn, aspectName, nextVal);
       }
       result.put(aspectName, nextVal);
     }
