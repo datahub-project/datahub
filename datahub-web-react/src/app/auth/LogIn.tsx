@@ -20,7 +20,7 @@ const FormInput = styled(Input)`
     &&& {
         height: 32px;
         font-size: 12px;
-        border: 1px solid white;
+        border: 1px solid #555555;
         border-radius: 5px;
         background-color: transparent;
         color: white;
@@ -96,7 +96,6 @@ export const LogIn: React.VFC<LogInProps> = () => {
                             name="username"
                             // eslint-disable-next-line jsx-a11y/label-has-associated-control
                             label={<label style={{ color: 'white' }}>Username</label>}
-                            rules={[{ required: true, message: 'Please input your username!' }]}
                         >
                             <FormInput prefix={<UserOutlined />} />
                         </Form.Item>
@@ -107,10 +106,22 @@ export const LogIn: React.VFC<LogInProps> = () => {
                         >
                             <FormInput prefix={<LockOutlined />} type="password" />
                         </Form.Item>
-                        <Form.Item style={{ marginBottom: '0px' }}>
-                            <Button type="primary" block htmlType="submit" className={styles.login_button}>
-                                Sign In
-                            </Button>
+                        <Form.Item style={{ marginBottom: '0px' }} shouldUpdate>
+                            {({ getFieldsValue }) => {
+                                const { username, password } = getFieldsValue();
+                                const formIsComplete = !!username && !!password;
+                                return (
+                                    <Button
+                                        type="primary"
+                                        block
+                                        htmlType="submit"
+                                        className={styles.login_button}
+                                        disabled={!formIsComplete}
+                                    >
+                                        Sign In
+                                    </Button>
+                                );
+                            }}
                         </Form.Item>
                     </Form>
                 </div>

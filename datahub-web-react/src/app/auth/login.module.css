@@ -1,5 +1,5 @@
 .login_page {
-    background-color: rgb(51 62 76);
+    background-color: #171717;
     min-height: 100vh;
 }
 
@@ -21,22 +21,23 @@
 
 .logo_image {
     margin: auto auto;
-    width: 100px;
-    height: 100px;
+    width: 92px;
+    height: 92px;
     display: block;
 }
 
 .login_form_box {
     width: 100%;
-    border: 1px solid #8C8C8C;
+    background-color: #1C1C1C;
+    border: 1px solid #555555;
     border-radius: 5px;
     padding: 2em;
 }
 
 .login_button {
-    color: rgb(51 62 76);
-    background-color: white;
-    border: 1px solid white;
+    color: #171717;
+    background-color: #EEEEEE;
+    border: 1px solid  #555555;
     height: 40px;
     font-size: 14px;
 }
@@ -44,5 +45,5 @@
 .login_button:hover {
     color: white;
     background-color: transparent;
-    border: 1px solid white;
+    border: 1px solid  #555555;
 }
