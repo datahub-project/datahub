@@ -29,7 +29,7 @@ def test_all():
     assert res_data[1]["semVerChange"] == "MAJOR"
     assert len(res_data[1]["changeEvents"]) == 9
     assert res_data[2]["semVerChange"] == "MAJOR"
-    assert len(res_data[2]["changeEvents"]) == 7
+    assert len(res_data[2]["changeEvents"]) == 6
     assert res_data[2]["semVer"] == "2.0.0-computed"
 
 
@@ -53,9 +53,9 @@ def test_schema():
     assert res_data[0]["semVerChange"] == "MINOR"
     assert len(res_data[0]["changeEvents"]) == 6
     assert res_data[1]["semVerChange"] == "MAJOR"
-    assert len(res_data[1]["changeEvents"]) == 2
+    assert len(res_data[1]["changeEvents"]) == 3
     assert res_data[2]["semVerChange"] == "MAJOR"
-    assert len(res_data[2]["changeEvents"]) == 2
+    assert len(res_data[2]["changeEvents"]) == 3
     assert res_data[2]["semVer"] == "2.0.0-computed"
 
 

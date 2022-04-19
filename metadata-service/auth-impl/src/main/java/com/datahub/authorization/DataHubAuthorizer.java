@@ -131,7 +131,7 @@ public class DataHubAuthorizer implements Authorizer {
    */
   public AuthorizedActors authorizedActors(
       final String privilege,
-      final Optional<ResourceSpec> resourceSpec) throws RuntimeException {
+      final Optional<ResourceSpec> resourceSpec) {
     // Step 1: Find policies granting the privilege.
     final List<DataHubPolicyInfo> policiesToEvaluate = _policyCache.getOrDefault(privilege, new ArrayList<>());
 
@@ -309,44 +309,4 @@ public class DataHubAuthorizer implements Authorizer {
         .map(Owner::getOwner)
         .collect(Collectors.toList());
   }
-
-  /**
-   * Class used to represent all users authorized to perform a particular privilege.
-   */
-  public static class AuthorizedActors {
-    final String _privilege;
-    final List<Urn> _users;
-    final List<Urn> _groups;
-    final Boolean _allUsers;
-    final Boolean _allGroups;
-
-    public AuthorizedActors(final String privilege, final List<Urn> users, final List<Urn> groups, final Boolean allUsers, final Boolean allGroups) {
-      _privilege = privilege;
-      _users = users;
-      _groups = groups;
-      _allUsers = allUsers;
-      _allGroups = allGroups;
-    }
-
-    public String getPrivilege() {
-      return _privilege;
-    }
-
-    public List<Urn> getUsers() {
-      return _users;
-    }
-
-    public List<Urn> getGroups() {
-      return _groups;
-    }
-
-    public Boolean allUsers() {
-      return _allUsers;
-    }
-
-    public Boolean allGroups() {
-      return _allGroups;
-    }
-  }
-
 }

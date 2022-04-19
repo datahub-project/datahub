@@ -209,12 +209,12 @@ public class DataHubAuthorizerTest {
 
   @Test
   public void testAuthorizedActorsActivePolicy() throws Exception {
-    final DataHubAuthorizer.AuthorizedActors actors =
+    final AuthorizedActors actors =
         _dataHubAuthorizer.authorizedActors("EDIT_ENTITY_TAGS", // Should be inside the active policy.
             Optional.of(new ResourceSpec("dataset", "urn:li:dataset:1")));
 
-    assertTrue(actors.allUsers());
-    assertTrue(actors.allGroups());
+    assertTrue(actors.isAllUsers());
+    assertTrue(actors.isAllGroups());
 
     assertEquals(new HashSet<>(actors.getUsers()), ImmutableSet.of(
         Urn.createFromString("urn:li:corpuser:user1"),
