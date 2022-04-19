@@ -163,7 +163,6 @@ class WorkbookKey(PlatformKey):
     supported=False,
 )
 @capability(SourceCapability.DELETION_DETECTION, "", supported=False)
-@capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.OWNERSHIP, "Requires recipe configuration")
 @capability(SourceCapability.TAGS, "Requires recipe configuration")
 @capability(

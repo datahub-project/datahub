@@ -63,7 +63,6 @@ class SourceCapability(Enum):
     OWNERSHIP = "Extract Ownership"
     DELETION_DETECTION = "Detect Deleted Entities"
     TAGS = "Extract Tags"
-    CONTAINERS = "Data Containers"
 
 
 @dataclass
