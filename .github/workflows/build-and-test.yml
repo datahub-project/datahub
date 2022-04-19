@@ -17,7 +17,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v2
@@ -28,13 +28,24 @@ jobs:
       - uses: actions/setup-python@v2
         with:
           python-version: "3.6"
+      - name: Install and start docker
+        # https://github.com/docker/for-mac/issues/2359#issuecomment-943131345
+        run: |
+          brew update
+          brew install --cask docker
+          sudo /Applications/Docker.app/Contents/MacOS/Docker --unattended --install-privileged-components
+          open -a /Applications/Docker.app --args --unattended --accept-license
+          while ! /Applications/Docker.app/Contents/Resources/bin/docker info &>/dev/null; do sleep 1; done
+      - name: Test docker
+        run: |
+          docker version
+          docker info
       - name: Gradle build (and test)
         # there is some race condition in gradle build, which makes gradle never terminate in ~30% of the runs
         # running build first without datahub-web-react:yarnBuild and then with it is 100% stable
         # datahub-frontend:unzipAssets depends on datahub-web-react:yarnBuild but gradle does not know about it
         run: |
-          ./gradlew build -x :metadata-ingestion:build -x :metadata-ingestion:check -x docs-website:build -x datahub-web-react:yarnBuild -x datahub-frontend:unzipAssets
-          ./gradlew build -x :metadata-ingestion:build -x :metadata-ingestion:check -x docs-website:build -x :metadata-integration:java:spark-lineage:test
+          ./gradlew --no-daemon :metadata-io:test
       - uses: actions/upload-artifact@v2
         if: always()
         with:
