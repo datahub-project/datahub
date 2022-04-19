@@ -1,0 +1,18 @@
+namespace com.linkedin.ml.metadata
+
+/**
+ * Properties associated with an ML Model Group editable from the UI
+ */
+@Aspect = {
+  "name": "editableMlModelGroupProperties"
+}
+record EditableMLModelGroupProperties {
+  /**
+   * Documentation of the ml model group
+   */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "fieldName": "editedDescription",
+  }
+  description: optional string
+}

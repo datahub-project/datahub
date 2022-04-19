@@ -157,7 +157,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
           edgesToAdd.add(
               new Edge(urn, Urn.createFromString(fieldValue.toString()), entry.getKey().getRelationshipName()));
         } catch (URISyntaxException e) {
-          log.info("Invalid destination urn: {}", e.getLocalizedMessage());
+          log.error("Invalid destination urn: {}", fieldValue.toString(), e);
         }
       }
     }
@@ -174,7 +174,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
     final List<Edge> edgesToAdd = edgeAndRelationTypes.getFirst();
     final Set<String> relationshipTypesBeingAdded = edgeAndRelationTypes.getSecond();
 
-    log.info(String.format("Here's the relationship types found %s", relationshipTypesBeingAdded));
+    log.debug("Here's the relationship types found {}", relationshipTypesBeingAdded);
     if (relationshipTypesBeingAdded.size() > 0) {
       _graphService.removeEdgesFromNode(urn, new ArrayList<>(relationshipTypesBeingAdded),
           newRelationshipFilter(new Filter().setOr(new ConjunctiveCriterionArray()), RelationshipDirection.OUTGOING));

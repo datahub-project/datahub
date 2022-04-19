@@ -36,6 +36,8 @@ class SqlLineageSQLParserImpl:
             r"(\bdate\b)", rf"{self._DATE_SWAP_TOKEN}", sql_query, flags=re.IGNORECASE
         )
 
+        sql_query = re.sub(r"#([^ ])", r"# \1", sql_query)
+
         # SqlLineageParser lowercarese tablenames and we need to replace Looker specific token which should be uppercased
         sql_query = re.sub(
             rf"(\${{{self._MYVIEW_LOOKER_TOKEN}}})",

@@ -12,15 +12,18 @@ source:
         database: # Your Oracle database name, e.g. sample_db
 
         # Credentials
-        username: # Your Oracle username, e.g. admin
-        password: # Your Oracle password, e.g. password_01
+        # Add secret in Secrets Tab with relevant names for each variable
+        username: "\${ORACLE_USERNAME}" # Your Oracle username, e.g. admin
+        password: "\${ORACLE_PASSWORD}" # Your Oracle password, e.g. password_01
 
         # Optional service name
         # service_name: # Your service name, e.g. svc # omit database if using this option
 sink: 
     type: datahub-rest
     config: 
-        server: "${baseUrl}/api/gms"`;
+        server: "${baseUrl}/api/gms"
+        # Add a secret in secrets Tab
+        token: "\${GMS_TOKEN}"`;
 
 const oracleConfig: SourceConfig = {
     type: 'oracle',

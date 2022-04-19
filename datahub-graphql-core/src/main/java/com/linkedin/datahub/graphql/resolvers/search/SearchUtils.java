@@ -20,6 +20,8 @@ public class SearchUtils {
           EntityType.MLMODEL,
           EntityType.MLMODEL_GROUP,
           EntityType.MLFEATURE_TABLE,
+          EntityType.MLFEATURE,
+          EntityType.MLPRIMARY_KEY,
           EntityType.DATA_FLOW,
           EntityType.DATA_JOB,
           EntityType.GLOSSARY_TERM,
