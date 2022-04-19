@@ -38,9 +38,3 @@ record DatasetKey {
   }
   origin: FabricType
 }
-
-urn:li:<entity-type>
-urn:li:dataset:<serializedkey>
-urn:li:dataset:(platform,name,origin)
-
-urn:li:dataset:(urn:li:dataPlatform:kafka,MySampleDataset,PROD)
