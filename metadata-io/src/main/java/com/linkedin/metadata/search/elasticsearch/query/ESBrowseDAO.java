@@ -63,7 +63,7 @@ public class ESBrowseDAO {
   private static final String ALL_PATHS = "allPaths";
 
   // Set explicit max size for grouping
-  private static final int AGGREGATION_MAX_SIZE = 10000;
+  private static final int AGGREGATION_MAX_SIZE = 2000;
 
   @Value
   private class BrowseGroupsResult {

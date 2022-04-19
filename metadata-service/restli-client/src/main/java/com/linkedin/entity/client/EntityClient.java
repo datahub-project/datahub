@@ -204,10 +204,6 @@ public interface EntityClient {
   public void setWritable(boolean canWrite, @Nonnull Authentication authentication) throws RemoteInvocationException;
 
   @Nonnull
-  public long getTotalEntityCount(@Nonnull String entityName, @Nonnull Authentication authentication)
-      throws RemoteInvocationException;
-
-  @Nonnull
   public Map<String, Long> batchGetTotalEntityCount(@Nonnull List<String> entityName,
       @Nonnull Authentication authentication) throws RemoteInvocationException;
 

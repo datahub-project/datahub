@@ -109,7 +109,7 @@ class TableauSource(Source):
     config: TableauConfig
     report: SourceReport
     platform = "tableau"
-    server: Server
+    server: Optional[Server]
     upstream_tables: Dict[str, Tuple[Any, str]] = {}
 
     def __hash__(self):
@@ -136,7 +136,7 @@ class TableauSource(Source):
 
     def _authenticate(self):
         # https://tableau.github.io/server-client-python/docs/api-ref#authentication
-        authentication = None
+        authentication: Optional[Union[TableauAuth, PersonalAccessTokenAuth]] = None
         if self.config.username and self.config.password:
             authentication = TableauAuth(
                 username=self.config.username,
@@ -263,21 +263,31 @@ class TableauSource(Source):
             elif table["name"] is None:
                 continue
 
+            schema = table.get("schema", "")
+            table_name = table.get("name", "")
+            full_name = table.get("fullName", "")
             upstream_db = table.get("database", {}).get("name", "")
             logger.debug(
                 "Processing Table with Connection Type: {0} and id {1}".format(
                     table.get("connectionType", ""), table.get("id", "")
                 )
             )
-            schema = self._get_schema(
-                table.get("schema", ""), upstream_db, table.get("fullName", "")
-            )
+            schema = self._get_schema(schema, upstream_db, full_name)
+            # if the schema is included within the table name we omit it
+            if (
+                schema
+                and table_name
+                and full_name
+                and table_name == full_name
+                and schema in table_name
+            ):
+                schema = ""
             table_urn = make_table_urn(
                 self.config.env,
                 upstream_db,
                 table.get("connectionType", ""),
                 schema,
-                table.get("name", ""),
+                table_name,
             )
 
             upstream_table = UpstreamClass(
@@ -285,7 +295,7 @@ class TableauSource(Source):
                 type=DatasetLineageTypeClass.TRANSFORMED,
             )
             upstream_tables.append(upstream_table)
-            table_path = f"{project.replace('/', REPLACE_SLASH_CHAR)}/{datasource.get('name', '')}/{table.get('name', '')}"
+            table_path = f"{project.replace('/', REPLACE_SLASH_CHAR)}/{datasource.get('name', '')}/{table_name}"
             self.upstream_tables[table_urn] = (
                 table.get("columns", []),
                 table_path,

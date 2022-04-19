@@ -1,9 +1,7 @@
-import pytest
+from datahub.ingestion.source.sql.clickhouse import ClickHouseConfig
 
 
-@pytest.mark.integration
 def test_clickhouse_uri_https():
-    from datahub.ingestion.source.sql.clickhouse import ClickHouseConfig
 
     config = ClickHouseConfig.parse_obj(
         {
@@ -20,9 +18,7 @@ def test_clickhouse_uri_https():
     )
 
 
-@pytest.mark.integration
 def test_clickhouse_uri_native():
-    from datahub.ingestion.source.sql.clickhouse import ClickHouseConfig
 
     config = ClickHouseConfig.parse_obj(
         {
@@ -35,9 +31,7 @@ def test_clickhouse_uri_native():
     assert config.get_sql_alchemy_url() == "clickhouse+native://user:password@host:1111"
 
 
-@pytest.mark.integration
 def test_clickhouse_uri_native_secure():
-    from datahub.ingestion.source.sql.clickhouse import ClickHouseConfig
 
     config = ClickHouseConfig.parse_obj(
         {

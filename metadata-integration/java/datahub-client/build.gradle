@@ -78,6 +78,8 @@ if (project.hasProperty("releaseVersion")) {
     }
 
 test {
+  // to avoid simultaneous executions of tests when complete build is run
+  mustRunAfter(":metadata-io:test")
   useJUnit()
   finalizedBy jacocoTestReport
 }

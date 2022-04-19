@@ -5,10 +5,10 @@ Users can log into DataHub in 2 ways:
 1. Static credentials (Simplest)
 2. Single Sign-On via [OpenID Connect](https://www.google.com/search?q=openid+connect&oq=openid+connect&aqs=chrome.0.0i131i433i512j0i512l4j69i60l2j69i61.1468j0j7&sourceid=chrome&ie=UTF-8) (For Production Use)
 
-Option 1 is useful for running proof-of-concept exercises, or just getting DataHub up & running quickly. Option 2 is highly recommended for deploying DataHub in production.
+which can be both enabled simultaneously. Option 1 is useful for running proof-of-concept exercises, or just getting DataHub up & running quickly. Option 2 is highly recommended for deploying DataHub in production.
 
 
-# Configuring static credentials
+# Method 1: Configuring static credentials
 
 ## Create a user.props file
 
@@ -101,16 +101,41 @@ urn:li:corpuser:{username}
 
 ## Caveats
 
+### Adding User Details
+
 If you add a new username / password to the `user.props` file, no other information about the user will exist
 about the user in DataHub (full name, email, bio, etc). This means that you will not be able to search to find the user.
 
-In order to add information about the user in DataHub, you can use our Python Emitter SDK to produce aspects for the CorpUser,
-where the URN will be computed as `urn:li:corpuser:{username}`, where `username` is the identifier defined in the user.props file.
+In order for the user to become searchable, simply navigate to the new user's profile page (top-right corner) and click
+**Edit Profile**. Add some details like a display name, an email, and more. Then click **Save**. Now you should be able
+to find the user via search.
+
+> You can also use our Python Emitter SDK to produce custom information about the new user via the CorpUser metadata entity.
 
 For a more comprehensive overview of how users & groups are managed within DataHub, check out [this video](https://www.youtube.com/watch?v=8Osw6p9vDYY).
 
+### Changing the default 'datahub' user
 
-# Configuring SSO via OpenID Connect
+The 'datahub' admin user is created for you by default. There is no way to override the default password for this account following
+the steps outlined above to add a custom user.props file. This is due to the way the authentication setup is working - we support a "default" user.props
+containing the root datahub user and a separate custom file, which does not overwrite the first. 
+
+However, it's still possible to change the password for the default `datahub user`. To change it, follow these steps:
+
+1. Update the `docker-compose.yaml` to mount your default user.props file to the following location inside the `datahub-frontend-react` container using a volume:
+`/datahub-frontend/conf/user.props`
+   
+2. Restart the datahub containers to pick up the new configs 
+   
+If you're deploying using the CLI quickstart, you can simply download a copy of the [docker-compose file used in quickstart](https://github.com/datahub-project/datahub/blob/master/docker/quickstart/docker-compose.quickstart.yml),
+and modify the `datahub-frontend-react` block to contain the extra volume mount. Then simply run
+
+```
+datahub docker quickstart —quickstart-compose-file <your-modified-compose>.yml
+```
+
+
+# Method 2: Configuring SSO via OpenID Connect
 
 Setting up SSO via OpenID Connect means that users will be able to login to DataHub via a central Identity Provider such as
 
@@ -136,6 +161,13 @@ urn:li:corpuser:<extracted-username>
 
 For information about configuring which OIDC claim should be used as the username for Datahub, check out the [OIDC Authentication](./sso/configure-oidc-react.md) doc.
 
+
+## FAQ
+
+1. Can I enable OIDC and username / password (JaaS) authentication at the same time? 
+
+YES! If you have not explicitly disabled JaaS via an environment variable on the datahub-frontend container (AUTH_JAAS_ENABLED),
+then you can _always_ access the standard login flow at `http://your-datahub-url.com/login`. 
 
 ## Feedback / Questions / Concerns
 
