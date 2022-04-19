@@ -1,6 +1,7 @@
 package com.linkedin.metadata.timeline.differ;
 
 import com.github.fge.jsonpatch.JsonPatch;
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Deprecation;
 import com.linkedin.common.urn.Urn;
@@ -49,10 +50,11 @@ public class DeprecationDiffer implements AspectDiffer<Deprecation> {
     if (!isDeprecated(baseDeprecation) && isDeprecated(targetDeprecation)) {
       return Collections.singletonList(
           ChangeEvent.builder()
-            .category(ChangeCategory.LIFECYCLE)
-            .operation(ChangeOperation.DEPRECATE)
+            .category(ChangeCategory.DEPRECATION)
+            .operation(ChangeOperation.MODIFY)
             .entityUrn(entityUrn)
             .auditStamp(auditStamp)
+            .parameters(ImmutableMap.of("status", "DEPRECATED"))
             .build());
     }
 
@@ -60,10 +62,11 @@ public class DeprecationDiffer implements AspectDiffer<Deprecation> {
     if (isDeprecated(baseDeprecation) && !isDeprecated(targetDeprecation)) {
       return Collections.singletonList(
           ChangeEvent.builder()
-              .category(ChangeCategory.LIFECYCLE)
-              .operation(ChangeOperation.UN_DEPRECATE)
+              .category(ChangeCategory.DEPRECATION)
+              .operation(ChangeOperation.MODIFY)
               .entityUrn(entityUrn)
               .auditStamp(auditStamp)
+              .parameters(ImmutableMap.of("status", "ACTIVE"))
               .build());
     }
 
