@@ -29,12 +29,4 @@ public enum ChangeOperation {
    * Entity is reinstated after being soft-deleted.
    */
   REINSTATE,
-  /**
-   * Entity is deprecated.
-   */
-  DEPRECATE,
-  /**
-   * Entity is un-deprecated.
-   */
-  UN_DEPRECATE,
 }
