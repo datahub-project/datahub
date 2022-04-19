@@ -1,12 +1,10 @@
 import json
 import os
 
-import pytest
+from datahub.ingestion.source.usage.bigquery_usage import BigQueryUsageConfig
 
 
-@pytest.mark.integration
 def test_bigquery_uri_with_credential():
-    from datahub.ingestion.source.usage.bigquery_usage import BigQueryUsageConfig
 
     expected_credential_json = {
         "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",

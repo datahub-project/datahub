@@ -446,6 +446,11 @@ enum EntityType {
     A DataHub Assertion
     """
     ASSERTION
+
+    """
+    An instance of an individual run of a data job or data flow
+    """
+    DATA_PROCESS_INSTANCE
 }
 
 """
@@ -804,7 +809,7 @@ type Dataset implements EntityWithRelationships & Entity {
     externalUrl: String @deprecated
 
     """
-    Deprecated,se the properties field instead
+    Deprecated, see the properties field instead
     Environment in which the dataset belongs to or where it was generated
     Note that this field will soon be deprecated in favor of a more standardized concept of Environment
     """
@@ -850,6 +855,36 @@ type Dataset implements EntityWithRelationships & Entity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    History of datajob runs that either produced or consumed this dataset
+    """
+    runs(start: Int, count: Int, direction: RelationshipDirection!): DataProcessInstanceResult
+}
+
+"""
+Data Process instances that match the provided query
+"""
+type DataProcessInstanceResult {
+    """
+    The number of entities to include in result set
+    """
+    count: Int
+
+    """
+    The offset of the result set
+    """
+    start: Int
+
+    """
+    The total number of run events returned
+    """
+    total: Int
+
+    """
+    The data process instances that produced or consumed the entity
+    """
+    runs: [DataProcessInstance]
 }
 
 
@@ -1300,6 +1335,12 @@ enum FabricType {
     Designates early integration fabrics
     """
     EI
+
+    """
+    Designates pre-production fabrics
+    """
+    PRE
+
     """
     Designates staging fabrics
     """
@@ -1386,7 +1427,7 @@ type Container implements Entity {
     domain: Domain
 
     """
-    The deprecation status of the dashboard
+    The deprecation status of the container
     """
     deprecation: Deprecation
 
@@ -4355,7 +4396,135 @@ type DataJob implements EntityWithRelationships & Entity {
     The structured tags associated with the DataJob
     """
     globalTags: GlobalTags @deprecated
+
+    """
+    History of runs of this task
+    """
+    runs(start: Int, count: Int): DataProcessInstanceResult
 }
+
+"""
+A DataProcessInstance Metadata Entity, representing an individual run of
+a task or datajob.
+"""
+type DataProcessInstance implements EntityWithRelationships & Entity {
+    """
+    The primary key of the DataProcessInstance
+    """
+    urn: String!
+
+    """
+    The standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    The history of state changes for the run
+    """
+    state(startTimeMillis: Long, endTimeMillis: Long, limit: Int): [DataProcessRunEvent]
+
+    """
+    When the run was kicked off
+    """
+    created: AuditStamp
+
+    """
+    The name of the data process
+    """
+    name: String
+
+    """
+    Edges extending from this entity.
+    In the UI, used for inputs, outputs and parentTemplate
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Edges extending from this entity grouped by direction in the lineage graph
+    """
+    lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    The link to view the task run in the source system
+    """
+    externalUrl: String
+}
+
+"""
+A state change event in the data process instance lifecycle
+"""
+type DataProcessRunEvent implements TimeSeriesAspect {
+    """
+    The status of the data process instance
+    """
+    status: DataProcessRunStatus
+
+    """
+    The try number that this instance run is in
+    """
+    attempt: Int
+
+    """
+    The result of a run
+    """
+    result: DataProcessInstanceRunResult
+
+    """
+    The timestamp associated with the run event in milliseconds
+    """
+    timestampMillis: Long!
+}
+
+"""
+The status of the data process instance
+"""
+enum DataProcessRunStatus {
+    """
+    The data process instance has started but not completed
+    """
+    STARTED
+
+    """
+    The data process instance has completed
+    """
+    COMPLETE
+}
+
+"""
+the result of a run, part of the run state
+"""
+type DataProcessInstanceRunResult {
+    """
+    The outcome of the run
+    """
+    resultType: DataProcessInstanceRunResultType
+
+    """
+    The outcome of the run in the data platforms native language
+    """
+    nativeResultType: String
+}
+
+"""
+The result of the data process run
+"""
+enum DataProcessInstanceRunResultType {
+    """
+    The run finished successfully
+    """
+    SUCCESS
+
+    """
+    The run finished in failure
+    """
+    FAILURE
+
+    """
+    The run was skipped
+    """
+    SKIPPED
+}
+
 
 """
 Deprecated, use DataJobProperties instead
@@ -6273,6 +6442,21 @@ type MLModel implements EntityWithRelationships & Entity {
     Edges extending from this entity grouped by direction in the lineage graph
     """
     lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    The structured glossary terms associated with the entity
+    """
+    glossaryTerms: GlossaryTerms
+
+    """
+    The Domain associated with the entity
+    """
+    domain: Domain
+
+    """
+    An additional set of of read write properties
+    """
+    editableProperties: MLModelEditableProperties
 }
 
 """
@@ -6339,11 +6523,31 @@ type MLModelGroup implements EntityWithRelationships & Entity {
     Edges extending from this entity grouped by direction in the lineage graph
     """
     lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    Tags applied to entity
+    """
+    tags: GlobalTags
+
+    """
+    The structured glossary terms associated with the entity
+    """
+    glossaryTerms: GlossaryTerms
+
+    """
+    The Domain associated with the entity
+    """
+    domain: Domain
+
+    """
+    An additional set of of read write properties
+    """
+    editableProperties: MLModelGroupEditableProperties
 }
 
 type MLModelGroupProperties {
 
-    description: String
+description: String
 
     createdAt: Long
 
@@ -6353,7 +6557,7 @@ type MLModelGroupProperties {
 """
 An ML Feature Metadata Entity Note that this entity is incubating
 """
-type MLFeature implements Entity {
+type MLFeature implements EntityWithRelationships & Entity {
     """
     The primary key of the ML Feature
     """
@@ -6392,7 +6596,12 @@ type MLFeature implements Entity {
     """
     ModelProperties metadata of the MLFeature
     """
-    featureProperties: MLFeatureProperties
+    featureProperties: MLFeatureProperties @deprecated
+
+    """
+    ModelProperties metadata of the MLFeature
+    """
+    properties: MLFeatureProperties
 
     """
     References to internal resources related to the MLFeature
@@ -6418,12 +6627,32 @@ type MLFeature implements Entity {
     Edges extending from this entity grouped by direction in the lineage graph
     """
     lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    Tags applied to entity
+    """
+    tags: GlobalTags
+
+    """
+    The structured glossary terms associated with the entity
+    """
+    glossaryTerms: GlossaryTerms
+
+    """
+    The Domain associated with the entity
+    """
+    domain: Domain
+
+    """
+    An additional set of of read write properties
+    """
+    editableProperties: MLFeatureEditableProperties
 }
 
 type MLHyperParam {
-    name: String
+name: String
 
-    description: String
+description: String
 
     value: String
 
@@ -6479,7 +6708,7 @@ type MLFeatureProperties {
 """
 An ML Primary Key Entity Note that this entity is incubating
 """
-type MLPrimaryKey implements Entity {
+type MLPrimaryKey implements EntityWithRelationships & Entity {
     """
     The primary key of the ML Primary Key
     """
@@ -6550,11 +6779,31 @@ type MLPrimaryKey implements Entity {
     Edges extending from this entity grouped by direction in the lineage graph
     """
     lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    Tags applied to entity
+    """
+    tags: GlobalTags
+
+    """
+    The structured glossary terms associated with the entity
+    """
+    glossaryTerms: GlossaryTerms
+
+    """
+    The Domain associated with the entity
+    """
+    domain: Domain
+
+    """
+    An additional set of of read write properties
+    """
+    editableProperties: MLPrimaryKeyEditableProperties
 }
 
 type MLPrimaryKeyProperties {
 
-    description: String
+description: String
 
     dataType: MLFeatureDataType
 
@@ -6566,7 +6815,7 @@ type MLPrimaryKeyProperties {
 """
 An ML Feature Table Entity Note that this entity is incubating
 """
-type MLFeatureTable implements Entity {
+type MLFeatureTable implements EntityWithRelationships & Entity {
     """
     The primary key of the ML Feature Table
     """
@@ -6632,11 +6881,66 @@ type MLFeatureTable implements Entity {
     Edges extending from this entity grouped by direction in the lineage graph
     """
     lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    Tags applied to entity
+    """
+    tags: GlobalTags
+
+    """
+    The structured glossary terms associated with the entity
+    """
+    glossaryTerms: GlossaryTerms
+
+    """
+    The Domain associated with the entity
+    """
+    domain: Domain
+
+    """
+    An additional set of of read write properties
+    """
+    editableProperties: MLFeatureTableEditableProperties
+}
+
+type MLFeatureTableEditableProperties {
+    """
+    The edited description
+    """
+    description: String
+}
+
+type MLFeatureEditableProperties {
+    """
+    The edited description
+    """
+    description: String
+}
+
+type MLPrimaryKeyEditableProperties {
+    """
+    The edited description
+    """
+    description: String
+}
+
+type MLModelEditableProperties {
+    """
+    The edited description
+    """
+    description: String
+}
+
+type MLModelGroupEditableProperties {
+    """
+    The edited description
+    """
+    description: String
 }
 
 type MLFeatureTableProperties {
 
-    description: String
+description: String
 
     mlFeatures: [MLFeature]
 

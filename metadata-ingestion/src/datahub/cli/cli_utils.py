@@ -1,9 +1,9 @@
 import json
 import logging
+import os
 import os.path
 import sys
 import typing
-import urllib.parse
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, Union
 
@@ -55,6 +55,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
+from datahub.utilities.urns.urn import Urn
 
 log = logging.getLogger(__name__)
 
@@ -66,6 +67,8 @@ ENV_SKIP_CONFIG = "DATAHUB_SKIP_CONFIG"
 ENV_METADATA_HOST = "DATAHUB_GMS_HOST"
 ENV_METADATA_TOKEN = "DATAHUB_GMS_TOKEN"
 
+config_override: Dict = {}
+
 
 class GmsConfig(BaseModel):
     server: str
@@ -74,6 +77,13 @@ class GmsConfig(BaseModel):
 
 class DatahubConfig(BaseModel):
     gms: GmsConfig
+
+
+def set_env_variables_override_config(host: str, token: Optional[str]) -> None:
+    """Should be used to override the config when using rest emitter"""
+    config_override[ENV_METADATA_HOST] = host
+    if token is not None:
+        config_override[ENV_METADATA_TOKEN] = token
 
 
 def write_datahub_config(host: str, token: Optional[str]) -> None:
@@ -137,22 +147,12 @@ def guess_entity_type(urn: str) -> str:
     return urn.split(":")[2]
 
 
-def get_token():
-    _, gms_token_env = get_details_from_env()
-    if should_skip_config():
-        gms_token = gms_token_env
-    else:
-        ensure_datahub_config()
-        _, gms_token_conf = get_details_from_config()
-        gms_token = first_non_null([gms_token_env, gms_token_conf])
-    return gms_token
-
-
-def get_session_and_host():
-    session = requests.Session()
-
+def get_host_and_token():
     gms_host_env, gms_token_env = get_details_from_env()
-    if should_skip_config():
+    if len(config_override.keys()) > 0:
+        gms_host = config_override.get(ENV_METADATA_HOST)
+        gms_token = config_override.get(ENV_METADATA_TOKEN)
+    elif should_skip_config():
         gms_host = gms_host_env
         gms_token = gms_token_env
     else:
@@ -160,6 +160,17 @@ def get_session_and_host():
         gms_host_conf, gms_token_conf = get_details_from_config()
         gms_host = first_non_null([gms_host_env, gms_host_conf])
         gms_token = first_non_null([gms_token_env, gms_token_conf])
+    return gms_host, gms_token
+
+
+def get_token():
+    return get_host_and_token()[1]
+
+
+def get_session_and_host():
+    session = requests.Session()
+
+    gms_host, gms_token = get_host_and_token()
 
     if gms_host is None or gms_host.strip() == "":
         log.error(
@@ -448,7 +459,7 @@ def batch_get_ids(
     url = gms_host + endpoint
     ids_to_get = []
     for id in ids:
-        ids_to_get.append(urllib.parse.quote(id))
+        ids_to_get.append(Urn.url_encode(id))
 
     response = session.get(
         f"{url}?ids=List({','.join(ids_to_get)})",
@@ -482,7 +493,7 @@ def get_outgoing_relationships(urn: str, types: List[str]) -> Iterable[Dict]:
 
 def get_relationships(urn: str, types: List[str], direction: str) -> Iterable[Dict]:
     session, gms_host = get_session_and_host()
-    encoded_urn = urllib.parse.quote(urn, safe="")
+    encoded_urn: str = Urn.url_encode(urn)
     types_param_string = "List(" + ",".join(types) + ")"
     endpoint: str = f"{gms_host}/relationships?urn={encoded_urn}&direction={direction}&types={types_param_string}"
     response: Response = session.get(endpoint)
@@ -515,7 +526,7 @@ def get_entity(
         # we assume the urn is already encoded
         encoded_urn: str = urn
     elif urn.startswith("urn:"):
-        encoded_urn = urllib.parse.quote(urn)
+        encoded_urn = Urn.url_encode(urn)
     else:
         raise Exception(
             f"urn {urn} does not seem to be a valid raw (starts with urn:) or encoded urn (starts with urn%3A)"

@@ -24,6 +24,7 @@ import {
     Container,
     Health,
     Status,
+    Deprecation,
 } from '../../../types.generated';
 import { FetchedEntity } from '../../lineage/types';
 
@@ -48,9 +49,10 @@ export type EntitySidebarSection = {
 export type GenericEntityProperties = {
     urn?: string;
     name?: Maybe<string>;
-    properties?: {
-        description?: string;
-    };
+    properties?: Maybe<{
+        description?: Maybe<string>;
+        qualifiedName?: Maybe<string>;
+    }>;
     globalTags?: Maybe<GlobalTags>;
     glossaryTerms?: Maybe<GlossaryTerms>;
     ownership?: Maybe<Ownership>;
@@ -73,6 +75,7 @@ export type GenericEntityProperties = {
     container?: Maybe<Container>;
     health?: Maybe<Health>;
     status?: Maybe<Status>;
+    deprecation?: Maybe<Deprecation>;
 };
 
 export type GenericEntityUpdate = {
