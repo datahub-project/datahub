@@ -507,14 +507,19 @@ class LookerExplore:
                 model, explore_name, transport_options=transport_options
             )
             views = set()
-            if explore.joins is not None and explore.joins != []:
-                if explore.view_name is not None and explore.view_name != explore.name:
-                    # explore is renaming the view name, we will need to swap references to explore.name with explore.view_name
-                    aliased_explore = True
-                    views.add(explore.view_name)
-                else:
-                    aliased_explore = False
 
+            if explore.view_name is not None and explore.view_name != explore.name:
+                # explore is not named after a view and is instead using a from field, which is modeled as view_name.
+                aliased_explore = True
+                views.add(explore.view_name)
+            else:
+                # otherwise, the explore name is a view, so add it to the set.
+                aliased_explore = False
+                if explore.name is not None:
+                    views.add(explore.name)
+
+            if explore.joins is not None and explore.joins != []:
+                potential_views = [e.name for e in explore.joins if e.name is not None]
                 for e_join in [
                     e for e in explore.joins if e.dependent_fields is not None
                 ]:
@@ -522,19 +527,21 @@ class LookerExplore:
                     for field_name in e_join.dependent_fields:
                         try:
                             view_name = LookerUtil._extract_view_from_field(field_name)
-                            if (view_name == explore.name) and aliased_explore:
-                                assert explore.view_name is not None
-                                view_name = explore.view_name
-                            views.add(view_name)
+                            potential_views.append(view_name)
                         except AssertionError:
                             reporter.report_warning(
                                 key=f"chart-field-{field_name}",
                                 reason="The field was not prefixed by a view name. This can happen when the field references another dynamic field.",
                             )
                             continue
-            else:
-                assert explore.view_name is not None
-                views.add(explore.view_name)
+
+                for view_name in potential_views:
+                    if (view_name == explore.name) and aliased_explore:
+                        # if the explore is aliased, then the joins could be referring to views using the aliased name.
+                        # this needs to be corrected by switching to the actual view name of the explore
+                        assert explore.view_name is not None
+                        view_name = explore.view_name
+                    views.add(view_name)
 
             view_fields: List[ViewField] = []
             if explore.fields is not None:

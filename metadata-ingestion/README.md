@@ -2,7 +2,7 @@
 
 ![Python version 3.6+](https://img.shields.io/badge/python-3.6%2B-blue)
 
-## Metadata Ingestion Sources
+### Metadata Ingestion Source Status
 
 We apply a Support Status to each Metadata Source to help you understand the integration reliability at a glance.
 
@@ -11,24 +11,6 @@ We apply a Support Status to each Metadata Source to help you understand the int
 ![Incubating](https://img.shields.io/badge/support%20status-incubating-blue): Incubating Sources are ready for DataHub Community adoption but have not been tested for a wide variety of edge-cases. We eagerly solicit feedback from the Community to streghten the connector; minor version changes may arise in future releases.
 
 ![Testing](https://img.shields.io/badge/support%20status-testing-lightgrey): Testing Sources are available for experiementation by DataHub Community members, but may change without notice. 
-
-### Supported Metadata Ingestion Sources
-
-#### Dataset Sources/SQL Sources
-
-| Support Status | Dataset Sources/SQL Sources |
-| --- | --- |
-| ![Certified](https://img.shields.io/badge/support%20status-certified-brightgreen) | <img src="/docs-website/static/img/logos/platforms/athena.svg" alt="Athena" width="30"/> |
-| ![Incubating](https://img.shields.io/badge/support%20status-incubating-blue) | <img src="/docs-website/static/img/logos/platforms/elasticsearch.svg" alt="Elastic Search" width="30"/> |
-| ![Testing](https://img.shields.io/badge/support%20status-testing-lightgrey) | |
-
-#### BI Tools
-
-| Support Status | BI Tools |
-| --- | --- |
-| ![Certified](https://img.shields.io/badge/support%20status-certified-brightgreen) | <img src="/docs-website/static/img/logos/platforms/looker.svg" alt="Looker" width="30"/> <img src="/docs-website/static/img/logos/platforms/superset.svg" alt="Superset" width="30"/> |
-| ![Incubating](https://img.shields.io/badge/support%20status-incubating-blue) | <img src="/docs-website/static/img/logos/platforms/metabase.svg" alt="Metabase" width="30"/> |
-| ![Testing](https://img.shields.io/badge/support%20status-testing-lightgrey) | <img src="/docs-website/static/img/logos/platforms/tableau.png" alt="Tableau" width="30"/> |
 
 ## Getting Started
 

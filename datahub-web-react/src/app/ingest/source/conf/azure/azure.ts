@@ -9,7 +9,8 @@ source:
     config:
         client_id: # Your Azure Client ID, e.g. "00000000-0000-0000-0000-000000000000"
         tenant_id: # Your Azure Tenant ID, e.g. "00000000-0000-0000-0000-000000000000"
-        client_secret: # Your Azure Client Secret, e.g. "xxxxx"
+        # Add secret in Secrets Tab with this name
+        client_secret: "\${AZURE_AD_CLIENT_SECRET}"
         redirect: # Your Redirect URL, e.g. "https://login.microsoftonline.com/common/oauth2/nativeclient"
         authority: # Your Authority URL, e.g. "https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000"
         token_url: # Your Token URL, e.g. "https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000/oauth2/token"
@@ -31,7 +32,9 @@ source:
 sink: 
     type: datahub-rest
     config: 
-        server: "${baseUrl}/api/gms"`;
+        server: "${baseUrl}/api/gms"
+        # Add a secret in secrets Tab
+        token: "\${GMS_TOKEN}"`;
 
 const azureAdConfig: SourceConfig = {
     type: 'azure-ad',
