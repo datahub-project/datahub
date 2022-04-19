@@ -97,9 +97,11 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `ignore_unsupported_connectors` |          | `True`       | Whether to ignore unsupported connectors. If disabled, an error will be raised.                                                                              |
 | `emit_s3_lineage`               |          | `True`       | Whether to emit S3-to-Glue lineage.                                                                                                                          |
 | `glue_s3_lineage_direction`     |          | `upstream`   | If `upstream`, S3 is upstream to Glue. If `downstream` S3 is downstream to Glue.                                                                             |
+| `use_s3_bucket_tags`            |          | None         | If an S3 Buckets Tags should be created for the Tables ingested by Glue. |
+| `use_s3_object_tags`            |          | None         | If an S3 Objects Tags should be created for the Tables ingested by Glue. |
 | `extract_owners`                |          | `True`       | When enabled, extracts ownership from Glue directly and overwrites existing owners. When disabled, ownership is left empty for datasets.                     |
 | `domain.domain_key.allow`       |          |              | List of regex patterns for tables to set domain_key domain key (domain_key can be any string like `sales`. There can be multiple domain key specified. |
-| `domain.domain_key.deny`        |          |              | List of regex patterns for tables to not assign domain_key. There can be multiple domain key specified.                                               |
+| `domain.domain_key.deny`        |          |              | List of regex patterns for tables to nothttps://github.com/datahub-project/datahub/pull/4689/files assign domain_key. There can be multiple domain key specified.                                               |
 | `domain.domain_key.ignoreCase`  |          | `True`       | Whether to ignore case sensitivity during pattern matching.There can be multiple domain key specified.                                                       |
 | `catalog_id`  |          |              | The aws account id where the target glue catalog lives. If None, datahub will ingest glue in aws caller's account.                                                       |
 
