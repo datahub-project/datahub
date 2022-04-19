@@ -51,7 +51,7 @@ import org.springframework.stereotype.Component;
     RestliEntityClientFactory.class,
     SystemAuthenticationFactory.class
 })
-public class EntityChangeEventHook implements MetadataChangeLogHook {
+public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
 
   /**
    * The list of aspects that are supported for generating semantic change events.
@@ -63,6 +63,10 @@ public class EntityChangeEventHook implements MetadataChangeLogHook {
       Constants.DOMAINS_ASPECT_NAME,
       Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
       Constants.SCHEMA_METADATA_ASPECT_NAME,
+      Constants.DEPRECATION_ASPECT_NAME,
+      Constants.DATASET_PROPERTIES_ASPECT_NAME,
+      Constants.EDITABLE_DATASET_PROPERTIES_ASPECT_NAME,
+
       // Entity Lifecycle Event
       Constants.DATASET_KEY_ASPECT_NAME,
       Constants.DASHBOARD_KEY_ASPECT_NAME,
@@ -71,9 +75,9 @@ public class EntityChangeEventHook implements MetadataChangeLogHook {
       Constants.DATA_FLOW_KEY_ASPECT_NAME,
       Constants.DATA_JOB_KEY_ASPECT_NAME,
       Constants.GLOSSARY_TERM_KEY_ASPECT_NAME,
+      Constants.DOMAIN_KEY_ASPECT_NAME,
       Constants.TAG_KEY_ASPECT_NAME,
-      Constants.STATUS_ASPECT_NAME,
-      Constants.DEPRECATION_ASPECT_NAME
+      Constants.STATUS_ASPECT_NAME
   );
   private final AspectDifferRegistry _aspectDifferRegistry;
   private final EntityClient _entityClient;
@@ -81,7 +85,7 @@ public class EntityChangeEventHook implements MetadataChangeLogHook {
   private final EntityRegistry _entityRegistry;
 
   @Autowired
-  public EntityChangeEventHook(
+  public EntityChangeEventGeneratorHook(
       @Nonnull final AspectDifferRegistry aspectDifferRegistry,
       @Nonnull final RestliEntityClient entityClient,
       @Nonnull final Authentication systemAuthentication,
@@ -93,7 +97,7 @@ public class EntityChangeEventHook implements MetadataChangeLogHook {
   }
 
   @Override
-  public void invoke(@Nonnull final MetadataChangeLog logEvent) {
+  public void invoke(@Nonnull final MetadataChangeLog logEvent) throws Exception {
     if (isEligibleForProcessing(logEvent)) {
       // Steps:
       // 1. Parse the old and new aspect.
@@ -130,18 +134,15 @@ public class EntityChangeEventHook implements MetadataChangeLogHook {
 
       // Iterate through each transaction, emit change events as platform events.
       for (final ChangeEvent event : changeEvents) {
-        try {
-          PlatformEvent platformEvent = buildPlatformEvent(event);
-          emitPlatformEvent(platformEvent);
-          log.info("Successfully emitted change event. category: {}, operation: {}, entity urn: {}",
-              event.getCategory(),
-              event.getOperation(),
-              event.getEntityUrn());
-        } catch (Exception e) {
-          // TODO: Implement a dead letter queue in the case that an event cannot be sinked.
-          // For now, simply log the entire payload as a debug log.
-          log.error(String.format("Caught exception while attempting to emit semantic Change Event! event: %s", event.toString()), e);
-        }
+        PlatformEvent platformEvent = buildPlatformEvent(event);
+        emitPlatformEvent(
+            platformEvent,
+            String.format("%s-%s", Constants.CHANGE_EVENT_PLATFORM_EVENT_NAME, event.getEntityUrn())
+        );
+        log.info("Successfully emitted change event. category: {}, operation: {}, entity urn: {}",
+            event.getCategory(),
+            event.getOperation(),
+            event.getEntityUrn());
       }
     }
   }
@@ -169,11 +170,10 @@ public class EntityChangeEventHook implements MetadataChangeLogHook {
     return SUPPORTED_ASPECT_NAMES.contains(log.getAspectName());
   }
 
-  // TODO: Partition either by URN or by type of change event.
-  private void emitPlatformEvent(@Nonnull final PlatformEvent event) throws Exception {
+  private void emitPlatformEvent(@Nonnull final PlatformEvent event, @Nonnull final String partitioningKey) throws Exception {
     _entityClient.producePlatformEvent(
         Constants.CHANGE_EVENT_PLATFORM_EVENT_NAME,
-        null,
+        partitioningKey,
         event,
         _systemAuthentication
     );
@@ -185,7 +185,7 @@ public class EntityChangeEventHook implements MetadataChangeLogHook {
     // 2. Build platform event
     PlatformEvent platformEvent = new PlatformEvent();
     platformEvent.setName(Constants.CHANGE_EVENT_PLATFORM_EVENT_NAME);
-    platformEvent.setHeader(new PlatformEventHeader().setTimestampMillis(System.currentTimeMillis()));
+    platformEvent.setHeader(new PlatformEventHeader().setTimestampMillis(rawChangeEvent.getAuditStamp().getTime()));
     platformEvent.setPayload(GenericRecordUtils.serializePayload(changeEvent));
     return platformEvent;
   }
@@ -199,19 +199,20 @@ public class EntityChangeEventHook implements MetadataChangeLogHook {
     log.info(String.format("Attempting to convert %s", rawChangeEvent));
     try {
       Urn entityUrn = Urn.createFromString(rawChangeEvent.getEntityUrn());
-      changeEvent.setCategory(rawChangeEvent.getCategory().name());
-      changeEvent.setOperation(rawChangeEvent.getOperation().name());
       changeEvent.setEntityType(entityUrn.getEntityType());
       changeEvent.setEntityUrn(entityUrn);
+      changeEvent.setCategory(rawChangeEvent.getCategory().name());
+      changeEvent.setOperation(rawChangeEvent.getOperation().name());
       changeEvent.setModifier(rawChangeEvent.getModifier(), SetMode.IGNORE_NULL);
       changeEvent.setAuditStamp(rawChangeEvent.getAuditStamp());
       changeEvent.setVersion(0);
-      if (changeEvent.hasParameters()) {
+      if (rawChangeEvent.getParameters() != null) {
         changeEvent.setParameters(
             // This map should ideally contain only primitives at the leaves - integers, floats, booleans, strings.
             new Parameters(new DataMap(rawChangeEvent.getParameters()))
         );
       }
+      System.out.println(changeEvent.toString());
       return changeEvent;
     } catch (Exception e) {
       throw new RuntimeException("Failed to convert raw change event into PDL change", e);
