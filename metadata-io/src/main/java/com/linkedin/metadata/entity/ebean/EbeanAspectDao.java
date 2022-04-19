@@ -498,6 +498,8 @@ public class EbeanAspectDao {
     if (exp == null) {
       return result;
     }
+    // Ensure Ordering of Aspect version
+    exp.orderBy("version");
     List<EbeanAspectV2.PrimaryKey> dbResults = exp.endOr().findIds();
 
     for (EbeanAspectV2.PrimaryKey key: dbResults) {
