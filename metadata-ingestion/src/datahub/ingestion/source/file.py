@@ -10,6 +10,14 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeProposal,
 )
 from datahub.metadata.schema_classes import UsageAggregationClass
+from datahub.ingestion.api.decorators import (
+    SupportStatus,
+    config_class,
+    platform_name,
+    support_status,
+)
+
+from pydantic.fields import Field
 
 
 def _iterate_file(path: str) -> list:
@@ -45,11 +53,17 @@ def iterate_generic_file(
 
 
 class FileSourceConfig(ConfigModel):
-    filename: str
+    filename: str = Field(description="Path to file to ingest.")
 
 
+@platform_name("File")
+@config_class(FileSourceConfig)
+@support_status(SupportStatus.CERTIFIED)
 @dataclass
 class GenericFileSource(Source):
+    """
+    This plugin pulls metadata from a previously generated file. The [file sink](../../../../metadata-ingestion/sink_docs/file.md) can produce such files, and a number of samples are included in the [examples/mce_files](../../../../metadata-ingestion/examples/mce_files) directory.
+    """
     config: FileSourceConfig
     report: SourceReport = field(default_factory=SourceReport)
 

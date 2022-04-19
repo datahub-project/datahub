@@ -23,11 +23,14 @@ from datahub.emitter.mcp_builder import (
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    SourceCapability,
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
 )
+from pydantic.fields import Field
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.tableau_common import (
@@ -87,20 +90,20 @@ REPLACE_SLASH_CHAR = "|"
 
 
 class TableauConfig(ConfigModel):
-    connect_uri: str
-    username: Optional[str] = None
-    password: Optional[str] = None
-    token_name: Optional[str] = None
-    token_value: Optional[str] = None
+    connect_uri: str = Field(description="Tableau host URL.")
+    username: Optional[str] = Field(default=None,description="Tableau username, must be set if authenticating using username/password.")
+    password: Optional[str] = Field(default=None,description="Tableau password, must be set if authenticating using username/password.")
+    token_name: Optional[str] = Field(default=None,description="Tableau token name, must be set if authenticating using a personal access token.")
+    token_value: Optional[str] = Field(default=None,description="Tableau token value, must be set if authenticating using a personal access token.")
 
-    site: str = ""
-    projects: Optional[List[str]] = ["default"]
-    default_schema_map: dict = {}
-    ingest_tags: Optional[bool] = False
-    ingest_owner: Optional[bool] = False
+    site: str = Field(default="",description="Tableau Site. Always required for Tableau Online. Use emptystring "" to connect with Default site on Tableau Server.")
+    projects: Optional[List[str]] = Field(default=["default"],description="List of projects")
+    default_schema_map: dict = Field(default={},description="Default schema to use when schema is not found.")
+    ingest_tags: Optional[bool] = Field(default=False,description="Ingest Tags from source. This will override Tags entered from UI")
+    ingest_owner: Optional[bool] = Field(default=False,description="Ingest Owner from source. This will override Owner info entered from UI")
 
-    workbooks_page_size: int = 10
-    env: str = builder.DEFAULT_ENV
+    workbooks_page_size: int = Field(default=10,description="Number of workbooks to query at a time using Tableau api.")
+    env: str = Field(default=builder.DEFAULT_ENV,description="Environment to use in namespace when constructing URNs.")
 
     @validator("connect_uri")
     def remove_trailing_slash(cls, v):
@@ -114,6 +117,24 @@ class WorkbookKey(PlatformKey):
 @platform_name("Tableau")
 @config_class(TableauConfig)
 @support_status(SupportStatus.INCUBATING)
+@capability(
+    SourceCapability.PLATFORM_INSTANCE,
+    "Not applicable to source",
+    supported=False,
+)
+@capability(SourceCapability.DOMAINS, "Requires transformer", supported=False)
+@capability(SourceCapability.DATA_PROFILING, "",supported=False)
+@capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
+@capability(
+    SourceCapability.USAGE_STATS,"",
+    supported=False,
+)
+@capability(SourceCapability.DELETION_DETECTION, "", supported=False)
+@capability(SourceCapability.CONTAINERS,"Enabled by default")
+@capability(SourceCapability.OWNERSHIP,"Requires recipe configuration")
+@capability(SourceCapability.TAGS, "Requires recipe configuration")
+@capability(SourceCapability.PARTITION_SUPPORT, "Not applicable to source", supported=False)
+@capability(SourceCapability.LINEAGE_COARSE,"Enabled by default")
 class TableauSource(Source):
     config: TableauConfig
     report: SourceReport

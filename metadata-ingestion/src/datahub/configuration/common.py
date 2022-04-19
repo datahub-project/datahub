@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from typing import IO, Any, Dict, List, Optional, Pattern, cast
 
 from pydantic import BaseModel
+from pydantic.fields import Field
 
 
 class ConfigModel(BaseModel):
@@ -72,12 +73,15 @@ class ConfigurationMechanism(ABC):
 class AllowDenyPattern(ConfigModel):
     """A class to store allow deny regexes"""
 
-    allow: List[str] = [".*"]
-    deny: List[str] = []
+    allow: List[str] = Field(default=[".*"],
+                                      description="List of regex patterns for process groups to include in ingestion")
+    deny: List[str] = Field(default=[],
+                                     description="List of regex patterns for process groups to exclude from ingestion.")
     ignoreCase: Optional[
         bool
-    ] = True  # Name comparisons should default to ignoring case
-    alphabet: str = "[A-Za-z0-9 _.-]"
+    ] = Field(default=True,
+                       description="Whether to ignore case sensitivity during pattern matching.")  # Name comparisons should default to ignoring case
+    alphabet: str = Field(default="[A-Za-z0-9 _.-]", description="Allowed alphabets pattern")
 
     @property
     def alphabet_pattern(self) -> Pattern:
