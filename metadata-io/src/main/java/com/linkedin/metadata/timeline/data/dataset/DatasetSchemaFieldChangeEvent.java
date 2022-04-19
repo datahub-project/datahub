@@ -9,26 +9,13 @@ import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.timeline.data.SemanticChangeType;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import lombok.Value;
 
 @EqualsAndHashCode(callSuper = true)
 @Value
+@Getter
 public class DatasetSchemaFieldChangeEvent extends ChangeEvent {
-  /**
-   * The field path that was involved in the change event.
-   */
-  String fieldPath;
-
-  /**
-   * The field urn that was involved in the change event.
-   */
-  Urn fieldUrn;
-
-  /**
-   * Whether the field is nullable
-   */
-  boolean nullable;
-
   @Builder(builderMethodName = "schemaFieldChangeEventBuilder")
   public DatasetSchemaFieldChangeEvent(
       String entityUrn,
@@ -56,9 +43,6 @@ public class DatasetSchemaFieldChangeEvent extends ChangeEvent {
         semVerChange,
         description
     );
-    this.fieldPath = fieldPath;
-    this.fieldUrn = fieldUrn;
-    this.nullable = nullable;
   }
 }
 

@@ -9,16 +9,13 @@ import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.timeline.data.SemanticChangeType;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import lombok.Value;
 
 @EqualsAndHashCode(callSuper = true)
 @Value
+@Getter
 public class OwnerChangeEvent extends ChangeEvent {
-  /**
-   * The owner urn which was involved in the change event.
-   */
-  Urn ownerUrn;
-
   @Builder(builderMethodName = "entityOwnerChangeEventBuilder")
   public OwnerChangeEvent(
       String entityUrn,
@@ -42,6 +39,5 @@ public class OwnerChangeEvent extends ChangeEvent {
         semVerChange,
         description
     );
-    this.ownerUrn = ownerUrn;
   }
 }

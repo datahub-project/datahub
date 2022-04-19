@@ -9,6 +9,7 @@ import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.timeline.data.SemanticChangeType;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import lombok.Value;
 import lombok.experimental.NonFinal;
 
@@ -16,12 +17,8 @@ import lombok.experimental.NonFinal;
 @EqualsAndHashCode(callSuper = true)
 @Value
 @NonFinal
+@Getter
 public class TagChangeEvent extends ChangeEvent {
-  /**
-   * The tag urn which was involved in the change event.
-   */
-  Urn tagUrn;
-
   @Builder(builderMethodName = "entityTagChangeEventBuilder")
   public TagChangeEvent(
       String entityUrn,
@@ -45,6 +42,5 @@ public class TagChangeEvent extends ChangeEvent {
         semVerChange,
         description
     );
-    this.tagUrn = tagUrn;
   }
 }
