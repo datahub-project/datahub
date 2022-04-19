@@ -158,6 +158,7 @@ export class DatasetEntity implements Entity<Dataset> {
                         enabled: (_, dataset: GetDatasetQuery) => {
                             return (dataset?.dataset?.assertions?.total || 0) > 0;
                         },
+                    },
                 },
                 {
                     name: 'Operations',
@@ -173,7 +174,7 @@ export class DatasetEntity implements Entity<Dataset> {
                                 (dataset?.dataset?.readRuns?.total || 0) + (dataset?.dataset?.writeRuns?.total || 0) > 0
                             );
                         },
-                    }
+                    },
                 },
                 {
                     name: 'Edit Schema',
@@ -197,6 +198,7 @@ export class DatasetEntity implements Entity<Dataset> {
                         enabled: (_, _dataset: GetDatasetQuery) => {
                             return true;
                         },
+                    },
                 },
                 {
                     name: 'Edit Samples',
