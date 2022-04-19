@@ -26,7 +26,9 @@ from datahub.emitter.mcp_builder import (
     gen_containers,
 )
 from datahub.ingestion.api.decorators import (
+    SourceCapability,
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
@@ -249,6 +251,21 @@ class BigQueryPartitionColumn:
 @config_class(BigQueryConfig)
 @platform_name("BigQuery")
 @support_status(SupportStatus.CERTIFIED)
+@capability(
+    SourceCapability.PLATFORM_INSTANCE,
+    "BigQuery doesn't need platform instances because project ids in BigQuery are globally unique.",
+    supported=False,
+)
+@capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
+@capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
+@capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
+@capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
+@capability(
+    SourceCapability.USAGE_STATS,
+    "Not provided by this module, use `bigquery-usage` for that.",
+    supported=False,
+)
+@capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 class BigQuerySource(SQLAlchemySource):
     """
     This plugin extracts the following:

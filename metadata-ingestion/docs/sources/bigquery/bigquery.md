@@ -58,23 +58,6 @@ and assign the previously created role to this service account.
        client_id: "123456678890"
 ```
 
-### Capabilities
-
-| Capability        | Status | Details                                                                                                                                  | 
-|-------------------|--------|------------------------------------------------------------------------------------------------------------------------------------------|
-| Platform Instance | 🛑     | BigQuery doesn't need platform instances because `project ids` in BigQuery are globally unique. [link](../../../platform-instances.md) |
-| Data Containers   | ✔️     |                             |
-| Data Domains      | ✔️     | [link](../../../domains.md) |
-| Stateful Ingestion | ✔️ | [link](../../../../metadata-ingestion/source_docs/stateful_ingestion.md)
-
-
-
-:::tip
-
-You can also get fine-grained usage statistics for BigQuery using the `bigquery-usage` source described [below](#plugin-bigquery-usage).
-
-:::
-
 ### Lineage Computation Details
 
 When `use_exported_bigquery_audit_metadata` is set to `true`, lineage information will be computed using exported bigquery logs. On how to setup exported bigquery audit logs, refer to the following [docs](https://cloud.google.com/bigquery/docs/reference/auditlogs#defining_a_bigquery_log_sink_using_gcloud) on BigQuery audit logs. Note that only protoPayloads with "type.googleapis.com/google.cloud.audit.BigQueryAuditMetadata" are supported by the current ingestion version. The `bigquery_audit_metadata_datasets` parameter will be used only if `use_exported_bigquery_audit_metadat` is set to `true`.

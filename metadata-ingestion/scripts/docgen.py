@@ -10,7 +10,12 @@ from pydantic import Field
 from pydantic.dataclasses import dataclass
 
 from datahub.configuration.common import ConfigModel
-from datahub.ingestion.api.decorators import SupportStatus
+from datahub.ingestion.api.decorators import (
+    CapabilitySetting,
+    SourceCapability,
+    SupportStatus,
+    capability,
+)
 from datahub.ingestion.api.registry import PluginRegistry
 from datahub.ingestion.api.source import Source
 
@@ -285,6 +290,27 @@ def get_support_status_badge(support_status: SupportStatus) -> str:
     return ""
 
 
+def get_capability_supported_badge(supported: bool) -> str:
+    return "✅" if supported else "❌"
+
+
+def get_capability_text(src_capability: SourceCapability) -> str:
+    """
+    Returns markdown format cell text for a capability, hyperlinked to capability feature page if known
+    """
+    capability_docs_mapping: Dict[SourceCapability, str] = {
+        SourceCapability.DELETION_DETECTION: "../../../../metadata-ingestion/source_docs/stateful_ingestion.md#removal-of-stale-tables-and-views",
+        SourceCapability.DOMAINS: "../../../domains.md",
+    }
+
+    capability_doc = capability_docs_mapping.get(src_capability)
+    return (
+        src_capability.value
+        if not capability_doc
+        else f"[{src_capability.value}]({capability_doc})"
+    )
+
+
 def create_or_update(
     something: Dict[Any, Any], path: List[str], value: Any
 ) -> Dict[Any, Any]:
@@ -364,6 +390,7 @@ def generate(out_dir: str, extra_docs: Optional[str] = None) -> None:
             try:
                 source_config_class: ConfigModel = source_type.get_config_class()
                 support_status = SupportStatus.UNKNOWN
+                capabilities = []
                 if hasattr(source_type, "__doc__"):
                     source_doc = textwrap.dedent(source_type.__doc__ or "")
                 if hasattr(source_type, "get_platform_name"):
@@ -379,11 +406,19 @@ def generate(out_dir: str, extra_docs: Optional[str] = None) -> None:
                 if hasattr(source_type, "get_support_status"):
                     support_status = source_type.get_support_status()
 
-                if "plugins" not in source_documentation[platform_name.lower()]:
-                    source_documentation[platform_name.lower()]["plugins"] = {}
+                if hasattr(source_type, "get_capabilities"):
+                    capabilities = list(source_type.get_capabilities())
+                    capabilities.sort(key=lambda x: x.capability.value)
 
-                if "name" not in source_documentation[platform_name.lower()]:
-                    source_documentation[platform_name.lower()]["name"] = platform_name
+                create_or_update(
+                    source_documentation,
+                    [platform_name.lower(), "plugins", plugin_name, "capabilities"],
+                    capabilities,
+                )
+
+                create_or_update(
+                    source_documentation, [platform_name.lower(), "name"], platform_name
+                )
 
                 config_dir = f"{out_dir}/config_schemas"
                 os.makedirs(config_dir, exist_ok=True)
@@ -391,22 +426,23 @@ def generate(out_dir: str, extra_docs: Optional[str] = None) -> None:
                     f.write(source_config_class.schema_json(indent=2))
 
                 table_md = gen_md_table_from_struct(source_config_class.schema())
-                if (
-                    plugin_name
-                    not in source_documentation[platform_name.lower()]["plugins"]
-                ):
-                    source_documentation[platform_name.lower()]["plugins"][
-                        plugin_name
-                    ] = {}
-                source_documentation[platform_name.lower()]["plugins"][
-                    plugin_name
-                ].update(
-                    {
-                        "source_doc": source_doc or "",
-                        "config": table_md,
-                        "support_status": support_status,
-                    }
+
+                create_or_update(
+                    source_documentation,
+                    [platform_name.lower(), "plugins", plugin_name, "source_doc"],
+                    source_doc or "",
                 )
+                create_or_update(
+                    source_documentation,
+                    [platform_name.lower(), "plugins", plugin_name, "config"],
+                    table_md,
+                )
+                create_or_update(
+                    source_documentation,
+                    [platform_name.lower(), "plugins", plugin_name, "support_status"],
+                    support_status,
+                )
+
             except Exception as e:
                 raise e
 
@@ -437,6 +473,18 @@ def generate(out_dir: str, extra_docs: Optional[str] = None) -> None:
                     f.write(
                         get_support_status_badge(plugin_docs["support_status"]) + "\n"
                     )
+                if "capabilities" in plugin_docs and len(plugin_docs["capabilities"]):
+                    f.write("\n### Supported Capabilities\n")
+                    f.write("| Capability | Status | Notes |\n")
+                    f.write("| ---------- | ------ | ----- |\n")
+                    plugin_capabilities: List[CapabilitySetting] = plugin_docs[
+                        "capabilities"
+                    ]
+                    for cap_setting in plugin_capabilities:
+                        f.write(
+                            f"| {get_capability_text(cap_setting.capability)} | {get_capability_supported_badge(cap_setting.supported)} | {cap_setting.description} |\n"
+                        )
+                    f.write("\n")
                 f.write(f"{plugin_docs['source_doc'] or ''}\n")
                 f.write("### Install the Plugin\n")
                 f.write("```shell\n")

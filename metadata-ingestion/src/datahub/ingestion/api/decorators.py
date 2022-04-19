@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Callable, Dict, Type
 
@@ -45,6 +46,47 @@ def support_status(
 
     def wrapper(cls: Type) -> Type:
         setattr(cls, "get_support_status", lambda: support_status)
+        return cls
+
+    return wrapper
+
+
+class SourceCapability(Enum):
+    PLATFORM_INSTANCE = "Platform Instance"
+    DOMAINS = "Domains"
+    DATA_PROFILING = "Data Profiling"
+    USAGE_STATS = "Dataset Usage"
+    PARTITION_SUPPORT = "Partition Support"
+    DESCRIPTIONS = "Descriptions"
+    LINEAGE_COARSE = "Table-Level Lineage"
+    LINEAGE_FINE = "Column-level Lineage"
+    OWNERSHIP = "Extract Ownership"
+    DELETION_DETECTION = "Detect Deleted Entities"
+    TAGS = "Extract Tags"
+
+
+@dataclass
+class CapabilitySetting:
+    capability: SourceCapability
+    description: str
+    supported: bool
+
+
+def capability(
+    capability_name: SourceCapability, description: str, supported: bool = True
+) -> Callable[[Type], Type]:
+    """
+    A decorator to mark a source as having a certain capability
+    """
+
+    def wrapper(cls: Type) -> Type:
+        if not hasattr(cls, "__capabilities"):
+            setattr(cls, "__capabilities", {})
+            setattr(cls, "get_capabilities", lambda: cls.__capabilities.values())
+
+        cls.__capabilities[capability_name] = CapabilitySetting(
+            capability=capability_name, description=description, supported=supported
+        )
         return cls
 
     return wrapper
