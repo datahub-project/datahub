@@ -205,6 +205,7 @@ const dataset1 = {
     downstream: null,
     health: null,
     assertions: null,
+    deprecation: null,
 };
 
 const dataset2 = {
@@ -283,6 +284,7 @@ const dataset2 = {
     health: null,
     assertions: null,
     status: null,
+    deprecation: null,
 };
 
 export const dataset3 = {
@@ -486,6 +488,8 @@ export const dataset3 = {
     health: null,
     assertions: null,
     status: null,
+    readRuns: null,
+    writeRuns: null,
 } as Dataset;
 
 export const dataset4 = {
@@ -519,7 +523,8 @@ export const dataset6 = {
     name: 'Sixth Test Dataset',
     urn: 'urn:li:dataset:6',
     properties: {
-        name: 'Sixth Test Dataset',
+        name: 'Display Name of Sixth',
+        qualifiedName: 'Fully Qualified Name of Sixth Test Dataset',
         description: 'This and here we have yet another Dataset (YAN). Are there more?',
         origin: 'PROD',
         customProperties: [{ key: 'propertyAKey', value: 'propertyAValue' }],
@@ -788,6 +793,7 @@ const glossaryTerm1 = {
         sourceRef: 'sourceRef',
         sourceURI: 'sourceURI',
     },
+    deprecation: null,
 } as GlossaryTerm;
 
 const glossaryTerm2 = {
@@ -830,6 +836,7 @@ const glossaryTerm2 = {
         ],
         __typename: 'GlossaryTermProperties',
     },
+    deprecation: null,
     isRealtedTerms: {
         start: 0,
         count: 0,
@@ -921,6 +928,7 @@ const glossaryTerm3 = {
         ],
         __typename: 'GlossaryRelatedTerms',
     },
+    deprecation: null,
     __typename: 'GlossaryTerm',
 } as GlossaryTerm;
 
@@ -1009,6 +1017,7 @@ export const dataFlow1 = {
         ...dataPlatform,
     },
     domain: null,
+    deprecation: null,
 } as DataFlow;
 
 export const dataJob1 = {
@@ -1085,6 +1094,7 @@ export const dataJob1 = {
     },
     domain: null,
     status: null,
+    deprecation: null,
 } as DataJob;
 
 export const dataJob2 = {
@@ -1146,6 +1156,7 @@ export const dataJob2 = {
     domain: null,
     upstream: null,
     downstream: null,
+    deprecation: null,
 } as DataJob;
 
 export const dataJob3 = {
@@ -1208,6 +1219,7 @@ export const dataJob3 = {
     upstream: null,
     downstream: null,
     status: null,
+    deprecation: null,
 } as DataJob;
 
 export const mlModel = {
@@ -1283,6 +1295,7 @@ export const mlModel = {
     upstream: null,
     downstream: null,
     status: null,
+    deprecation: null,
 } as MlModel;
 
 export const mlModelGroup = {
@@ -1346,6 +1359,7 @@ export const mlModelGroup = {
     upstream: null,
     downstream: null,
     status: null,
+    deprecation: null,
 } as MlModelGroup;
 
 export const recommendationModules = [

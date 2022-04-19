@@ -34,7 +34,7 @@ M1_QUICKSTART_COMPOSE_FILE = (
 
 BOOTSTRAP_MCES_FILE = "metadata-ingestion/examples/mce_files/bootstrap_mce.json"
 
-GITHUB_BASE_URL = "https://raw.githubusercontent.com/linkedin/datahub/master"
+GITHUB_BASE_URL = "https://raw.githubusercontent.com/datahub-project/datahub/master"
 GITHUB_NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL = (
     f"{GITHUB_BASE_URL}/{NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_FILE}"
 )

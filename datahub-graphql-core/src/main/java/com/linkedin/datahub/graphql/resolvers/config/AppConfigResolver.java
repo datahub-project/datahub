@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.config;
 
-import com.datahub.authorization.Authorizer;
+import com.datahub.authorization.AuthorizationConfiguration;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AnalyticsConfig;
 import com.linkedin.datahub.graphql.generated.AppConfig;
@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.generated.ManagedIngestionConfig;
 import com.linkedin.datahub.graphql.generated.PoliciesConfig;
 import com.linkedin.datahub.graphql.generated.Privilege;
 import com.linkedin.datahub.graphql.generated.ResourcePrivileges;
+import com.linkedin.datahub.graphql.generated.VisualConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.version.GitVersion;
 import graphql.schema.DataFetcher;
@@ -27,17 +28,23 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
   private final GitVersion _gitVersion;
   private final boolean _isAnalyticsEnabled;
   private final IngestionConfiguration _ingestionConfiguration;
+  private final AuthorizationConfiguration _authorizationConfiguration;
   private final boolean _supportsImpactAnalysis;
+  private final VisualConfiguration _visualConfiguration;
 
   public AppConfigResolver(
       final GitVersion gitVersion,
       final boolean isAnalyticsEnabled,
       final IngestionConfiguration ingestionConfiguration,
-      final boolean supportsImpactAnalysis) {
+      final AuthorizationConfiguration authorizationConfiguration,
+      final boolean supportsImpactAnalysis,
+      final VisualConfiguration visualConfiguration) {
     _gitVersion = gitVersion;
     _isAnalyticsEnabled = isAnalyticsEnabled;
     _ingestionConfiguration = ingestionConfiguration;
+    _authorizationConfiguration = authorizationConfiguration;
     _supportsImpactAnalysis = supportsImpactAnalysis;
+    _visualConfiguration = visualConfiguration;
   }
 
   @Override
@@ -57,9 +64,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     analyticsConfig.setEnabled(_isAnalyticsEnabled);
 
     final PoliciesConfig policiesConfig = new PoliciesConfig();
-
-    boolean policiesEnabled = Authorizer.AuthorizationMode.DEFAULT.equals(context.getAuthorizer().mode());
-    policiesConfig.setEnabled(policiesEnabled);
+    policiesConfig.setEnabled(_authorizationConfiguration.getDefaultAuthorizer().isEnabled());
 
     policiesConfig.setPlatformPrivileges(com.linkedin.metadata.authorization.PoliciesConfig.PLATFORM_PRIVILEGES
         .stream()
@@ -81,6 +86,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     appConfig.setPoliciesConfig(policiesConfig);
     appConfig.setIdentityManagementConfig(identityManagementConfig);
     appConfig.setManagedIngestionConfig(ingestionConfig);
+
+    appConfig.setVisualConfig(_visualConfiguration);
 
     return CompletableFuture.completedFuture(appConfig);
   }

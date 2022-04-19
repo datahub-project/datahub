@@ -47,6 +47,9 @@ query getChart($urn: String!) {
         domain {
             ...entityDomain
         }
+        deprecation {
+            ...deprecationFields
+        }
         inputs: relationships(input: { types: ["Consumes"], direction: OUTGOING, start: 0, count: 100 }) {
             ...fullRelationshipResults
         }

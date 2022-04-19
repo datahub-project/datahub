@@ -101,6 +101,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `domain.domain_key.allow`       |          |              | List of regex patterns for tables to set domain_key domain key (domain_key can be any string like `sales`. There can be multiple domain key specified. |
 | `domain.domain_key.deny`        |          |              | List of regex patterns for tables to not assign domain_key. There can be multiple domain key specified.                                               |
 | `domain.domain_key.ignoreCase`  |          | `True`       | Whether to ignore case sensitivity during pattern matching.There can be multiple domain key specified.                                                       |
+| `catalog_id`  |          |              | The aws account id where the target glue catalog lives. If None, datahub will ingest glue in aws caller's account.                                                       |
 
 ## Compatibility
 

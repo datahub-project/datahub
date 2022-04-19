@@ -157,6 +157,10 @@ export default function useGetEntityQuery(urn: string, entityType?: EntityType) 
         allResults[EntityType.Mlmodel],
         // eslint-disable-next-line react-hooks/exhaustive-deps
         allResults[EntityType.MlmodelGroup],
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        allResults[EntityType.Mlfeature],
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        allResults[EntityType.MlprimaryKey],
     ]);
 
     const returnObject = useMemo(() => {
@@ -192,6 +196,10 @@ export default function useGetEntityQuery(urn: string, entityType?: EntityType) 
         allResults[EntityType.Mlmodel],
         // eslint-disable-next-line react-hooks/exhaustive-deps
         allResults[EntityType.MlmodelGroup],
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        allResults[EntityType.Mlfeature],
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        allResults[EntityType.MlprimaryKey],
     ]);
 
     return returnObject;

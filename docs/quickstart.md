@@ -23,8 +23,12 @@ To deploy a new instance of DataHub, perform the following steps.
    datahub version
    ```
 
-   If you see "command not found", try running cli commands with the prefix 'python3 -m'
-   instead: `python3 -m datahub version`
+:::note
+
+   If you see "command not found", try running cli commands with the prefix 'python3 -m' instead like `python3 -m datahub version`
+   Note that DataHub CLI does not support Python 2.x.
+
+:::
 
 4. To deploy DataHub, run the following CLI command from your terminal
 

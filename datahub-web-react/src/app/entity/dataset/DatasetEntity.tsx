@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { DatabaseFilled, DatabaseOutlined } from '@ant-design/icons';
 import { Typography } from 'antd';
-import { Dataset, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
+import { Dataset, DatasetProperties, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
 import { FIELDS_TO_HIGHLIGHT } from './search/highlights';
@@ -25,6 +25,7 @@ import { SidebarRecommendationsSection } from '../shared/containers/profile/side
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { ValidationsTab } from '../shared/tabs/Dataset/Validations/ValidationsTab';
+import { OperationsTab } from './profile/OperationsTab';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -111,7 +112,6 @@ export class DatasetEntity implements Entity<Dataset> {
                     display: {
                         visible: (_, _1) => true,
                         enabled: (_, dataset: GetDatasetQuery) => {
-                            console.log(dataset?.dataset?.upstream, dataset?.dataset?.downstream);
                             return (
                                 (dataset?.dataset?.upstream?.total || 0) > 0 ||
                                 (dataset?.dataset?.downstream?.total || 0) > 0
@@ -146,6 +146,22 @@ export class DatasetEntity implements Entity<Dataset> {
                         visible: (_, _1) => true,
                         enabled: (_, dataset: GetDatasetQuery) => {
                             return (dataset?.dataset?.assertions?.total || 0) > 0;
+                        },
+                    },
+                },
+                {
+                    name: 'Operations',
+                    component: OperationsTab,
+                    display: {
+                        visible: (_, dataset: GetDatasetQuery) => {
+                            return (
+                                (dataset?.dataset?.readRuns?.total || 0) + (dataset?.dataset?.writeRuns?.total || 0) > 0
+                            );
+                        },
+                        enabled: (_, dataset: GetDatasetQuery) => {
+                            return (
+                                (dataset?.dataset?.readRuns?.total || 0) + (dataset?.dataset?.writeRuns?.total || 0) > 0
+                            );
                         },
                     },
                 },
@@ -195,10 +211,15 @@ export class DatasetEntity implements Entity<Dataset> {
     getOverridePropertiesFromEntity = (dataset?: Dataset | null): GenericEntityProperties => {
         // if dataset has subTypes filled out, pick the most specific subtype and return it
         const subTypes = dataset?.subTypes;
+        const extendedProperties: DatasetProperties | undefined | null = dataset?.properties && {
+            ...dataset?.properties,
+            qualifiedName: dataset?.properties?.qualifiedName || dataset?.name,
+        };
         return {
             name: dataset?.properties?.name || dataset?.name,
             externalUrl: dataset?.properties?.externalUrl,
             entityTypeOverride: subTypes ? capitalizeFirstLetter(subTypes.typeNames?.[0]) : '',
+            properties: extendedProperties,
         };
     };
 
@@ -255,9 +276,10 @@ export class DatasetEntity implements Entity<Dataset> {
     getLineageVizConfig = (entity: Dataset) => {
         return {
             urn: entity?.urn,
-            name: entity.properties?.name || entity.name,
+            name: entity?.properties?.name || entity.name,
+            expandedName: entity?.properties?.qualifiedName || entity.name,
             type: EntityType.Dataset,
-            subtype: entity.subTypes?.typeNames?.[0] || undefined,
+            subtype: entity?.subTypes?.typeNames?.[0] || undefined,
             icon: entity?.platform?.properties?.logoUrl || undefined,
             platform: entity?.platform?.name,
         };

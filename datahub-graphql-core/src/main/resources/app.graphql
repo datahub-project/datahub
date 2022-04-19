@@ -102,6 +102,21 @@ type AppConfig {
   Configurations related to Lineage
   """
   lineageConfig: LineageConfig!
+
+  """
+  Configurations related to visual appearance, allows styling the UI without rebuilding the bundle
+  """
+  visualConfig: VisualConfiguration!
+}
+
+"""
+Configurations related to visual appearance of the app
+"""
+type VisualConfiguration {
+  """
+  Custom logo url for the homepage & top banner
+  """
+  logoUrl: String
 }
 
 """
