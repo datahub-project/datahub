@@ -329,7 +329,7 @@ def create_or_update(
 
 def does_extra_exist(extra_name: str) -> bool:
     for key, value in metadata("acryl-datahub").items():
-        if key == "Provides-Extra" and value == "extra_name":
+        if key == "Provides-Extra" and value == extra_name:
             return True
     return False
 
@@ -337,7 +337,7 @@ def does_extra_exist(extra_name: str) -> bool:
 def get_additional_deps_for_extra(extra_name: str) -> List[str]:
     all_requirements = requires("acryl-datahub") or []
     # filter for base dependencies
-    base_deps = set([x for x in all_requirements if "extra ==" not in x])
+    base_deps = set([x.split(";")[0] for x in all_requirements if "extra ==" not in x])
     # filter for dependencies for this extra
     extra_deps = set(
         [x.split(";")[0] for x in all_requirements if f'extra == "{extra_name}"' in x]
@@ -428,8 +428,12 @@ def generate(out_dir: str, extra_docs: Optional[str] = None) -> None:  # noqa: C
                     platform_name = (
                         plugin_name.title()
                     )  # we like platform names to be human readable
-                source_documentation[platform_name.lower()] = (
-                    source_documentation.get(platform_name.lower()) or {}
+
+                if hasattr(source_type, "get_platform_id"):
+                    platform_id = source_type.get_platform_id()
+
+                source_documentation[platform_id] = (
+                    source_documentation.get(platform_id) or {}
                 )
 
                 if hasattr(source_type, "get_support_status"):
@@ -441,12 +445,18 @@ def generate(out_dir: str, extra_docs: Optional[str] = None) -> None:  # noqa: C
 
                 create_or_update(
                     source_documentation,
-                    [platform_name.lower(), "plugins", plugin_name, "capabilities"],
+                    [platform_id, "plugins", plugin_name, "capabilities"],
                     capabilities,
                 )
 
                 create_or_update(
-                    source_documentation, [platform_name.lower(), "name"], platform_name
+                    source_documentation, [platform_id, "name"], platform_name
+                )
+
+                create_or_update(
+                    source_documentation,
+                    [platform_id, "plugins", plugin_name, "extra_deps"],
+                    extra_deps,
                 )
 
                 config_dir = f"{out_dir}/config_schemas"
@@ -455,30 +465,29 @@ def generate(out_dir: str, extra_docs: Optional[str] = None) -> None:  # noqa: C
                     f.write(source_config_class.schema_json(indent=2))
 
                 table_md = gen_md_table_from_struct(source_config_class.schema())
-
                 create_or_update(
                     source_documentation,
-                    [platform_name.lower(), "plugins", plugin_name, "source_doc"],
+                    [platform_id, "plugins", plugin_name, "source_doc"],
                     source_doc or "",
                 )
                 create_or_update(
                     source_documentation,
-                    [platform_name.lower(), "plugins", plugin_name, "config"],
+                    [platform_id, "plugins", plugin_name, "config"],
                     table_md,
                 )
                 create_or_update(
                     source_documentation,
-                    [platform_name.lower(), "plugins", plugin_name, "support_status"],
+                    [platform_id, "plugins", plugin_name, "support_status"],
                     support_status,
                 )
 
             except Exception as e:
                 raise e
 
-    for platform, platform_docs in source_documentation.items():
+    for platform_id, platform_docs in source_documentation.items():
         sources_dir = f"{out_dir}/sources"
         os.makedirs(sources_dir, exist_ok=True)
-        platform_doc_file = f"{sources_dir}/{platform}.md"
+        platform_doc_file = f"{sources_dir}/{platform_id}.md"
         with open(platform_doc_file, "w") as f:
             f.write(f"# {platform_docs['name']}\n")
             if len(platform_docs["plugins"].keys()) > 1:
@@ -514,9 +523,10 @@ def generate(out_dir: str, extra_docs: Optional[str] = None) -> None:  # noqa: C
                             f"| {get_capability_text(cap_setting.capability)} | {get_capability_supported_badge(cap_setting.supported)} | {cap_setting.description} |\n"
                         )
                     f.write("\n")
+
                 f.write(f"{plugin_docs['source_doc'] or ''}\n")
                 f.write("### Install the Plugin\n")
-                if extra_plugin and extra_deps:
+                if plugin_docs["extra_deps"]:
                     f.write("```shell\n")
                     f.write(f"pip install 'acryl-datahub[{plugin}]`\n")
                     f.write("```\n")

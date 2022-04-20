@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Callable, Dict, Type
+from platform import platform
+from typing import Callable, Dict, Optional, Type
 
 from datahub.ingestion.api.common import PipelineContext
 
@@ -22,12 +23,24 @@ def config_class(config_cls: Type) -> Callable[[Type], Type]:
     return wrapper
 
 
-def platform_name(platform_name: str) -> Callable[[Type], Type]:
+def platform_name(
+    platform_name: str, id: Optional[str] = None
+) -> Callable[[Type], Type]:
     """Adds a get_platform_name method to the decorated class"""
 
     def wrapper(cls: Type) -> Type:
         setattr(cls, "get_platform_name", lambda: platform_name)
+        setattr(
+            cls,
+            "get_platform_id",
+            lambda: id if id else platform_name.lower().replace(" ", "-"),
+        )
         return cls
+
+    if id and " " in id:
+        raise Exception(
+            f'Platform id "{id}" contains white-space, please use a platform id without spaces.'
+        )
 
     return wrapper
 

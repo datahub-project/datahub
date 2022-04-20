@@ -1,0 +1,4 @@
+source:
+  type: datahub-lineage-file
+  config:
+    x: foo
