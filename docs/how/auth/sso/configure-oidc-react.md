@@ -75,7 +75,7 @@ the authenticated profile as the DataHub CorpUser identity.
 
 In kubernetes, you can add the above env variables in the values.yaml as follows.
 
-```
+```yaml
 datahub-frontend:
   ...
   extraEnvs:
@@ -86,9 +86,9 @@ datahub-frontend:
     - name: AUTH_OIDC_CLIENT_SECRET
       value: your-client-secret
     - name: AUTH_OIDC_DISCOVERY_URI
-      value: your-provider-discovery-url  
+      value: your-provider-discovery-url
     - name: AUTH_OIDC_BASE_URL
-      value: your-datahub-url      
+      value: your-datahub-url
 ```
 
 You can also package OIDC client secrets into a k8s secret by running
@@ -97,7 +97,7 @@ You can also package OIDC client secrets into a k8s secret by running
 
 Then set the secret env as follows.
 
-```
+```yaml
     - name: AUTH_OIDC_CLIENT_SECRET
       valueFrom:
         secretKeyRef:
@@ -185,4 +185,8 @@ A brief summary of the steps that occur when the user navigates to the React app
 
 ### Root user
 
-Even if OIDC is configured the root user can still login without OIDC by going to `/login` URL endpoint. It is recommended that you don't use the default credentials by mounting a different file in the front end container. To do this please see (jaas)[../jaas.md] - "Mount a custom user.props file".
+Even if OIDC is configured the root user can still login without OIDC by going
+to `/login` URL endpoint. It is recommended that you don't use the default
+credentials by mounting a different file in the front end container. To do this
+please see [jaas](https://datahubproject.io/docs/how/auth/jaas/#mount-a-custom-userprops-file-docker-compose) -
+"Mount a custom user.props file".
