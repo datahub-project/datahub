@@ -97,14 +97,14 @@ export const LogIn: React.VFC<LogInProps> = () => {
                             // eslint-disable-next-line jsx-a11y/label-has-associated-control
                             label={<label style={{ color: 'white' }}>Username</label>}
                         >
-                            <FormInput prefix={<UserOutlined />} />
+                            <FormInput prefix={<UserOutlined />} data-testid="username" />
                         </Form.Item>
                         <Form.Item
                             name="password"
                             // eslint-disable-next-line jsx-a11y/label-has-associated-control
                             label={<label style={{ color: 'white' }}>Password</label>}
                         >
-                            <FormInput prefix={<LockOutlined />} type="password" />
+                            <FormInput prefix={<LockOutlined />} type="password" data-testid="password" />
                         </Form.Item>
                         <Form.Item style={{ marginBottom: '0px' }} shouldUpdate>
                             {({ getFieldsValue }) => {
