@@ -22,6 +22,7 @@ from typing import (
 from urllib.parse import quote_plus
 
 import pydantic
+from pydantic.fields import Field
 from sqlalchemy import create_engine, dialects, inspect
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import ProgrammingError
@@ -89,7 +90,6 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.telemetry import telemetry
 from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombinerReport
-from pydantic.fields import Field
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.ge_data_profiler import (
@@ -231,20 +231,33 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase):
     # having another option to allow/deny on schema level is an optimization for the case when there is a large number
     # of schemas that one wants to skip and you want to avoid the time to needlessly fetch those tables only to filter
     # them out afterwards via the table_pattern.
-    schema_pattern: AllowDenyPattern = Field(default=AllowDenyPattern.allow_all(),
-                                             description="regex patterns for schemas to filter in ingestion.")
-    table_pattern: AllowDenyPattern = Field(default=AllowDenyPattern.allow_all(),
-                                            description="egex patterns for tables to filter in ingestion.")
-    view_pattern: AllowDenyPattern = Field(default=AllowDenyPattern.allow_all(),
-                                           description="regex patterns for views to filter in ingestion.")
-    profile_pattern: AllowDenyPattern = Field(default=AllowDenyPattern.allow_all(),
-                                              description="regex patterns for profiles to filter in ingestion.")
-    domain: Dict[str, AllowDenyPattern] = Field(default=dict(),
-                                                description=" regex patterns for tables/schemas to descide domain_key domain key (domain_key can be any string like \"sales\".) There can be multiple domain key specified.")
+    schema_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for schemas to filter in ingestion.",
+    )
+    table_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="egex patterns for tables to filter in ingestion.",
+    )
+    view_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for views to filter in ingestion.",
+    )
+    profile_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for profiles to filter in ingestion.",
+    )
+    domain: Dict[str, AllowDenyPattern] = Field(
+        default=dict(),
+        description=' regex patterns for tables/schemas to descide domain_key domain key (domain_key can be any string like "sales".) There can be multiple domain key specified.',
+    )
 
-    include_views: Optional[bool] = Field(default=True, description="Whether views should be ingested.")
-    include_tables: Optional[bool] = Field(default=True, description="Whether tables should be ingested.")
-
+    include_views: Optional[bool] = Field(
+        default=True, description="Whether views should be ingested."
+    )
+    include_tables: Optional[bool] = Field(
+        default=True, description="Whether tables should be ingested."
+    )
 
     from datahub.ingestion.source.ge_data_profiler import GEProfilingConfig
 
