@@ -498,8 +498,9 @@ public class EbeanAspectDao {
     if (exp == null) {
       return result;
     }
-    // Ensure Ordering of Aspect version
-    exp.orderBy("version");
+    // Order by ascending version so that the results are correctly populated.
+    // TODO: Improve the below logic to be more explicit.
+    exp.orderBy().asc(EbeanAspectV2.VERSION_COLUMN);
     List<EbeanAspectV2.PrimaryKey> dbResults = exp.endOr().findIds();
 
     for (EbeanAspectV2.PrimaryKey key: dbResults) {
