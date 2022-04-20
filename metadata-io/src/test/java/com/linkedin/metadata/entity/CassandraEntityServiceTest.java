@@ -27,9 +27,9 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testcontainers.containers.CassandraContainer;
 import org.testcontainers.utility.DockerImageName;
-import org.testng.annotations.AfterTest;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 import javax.net.ssl.SSLContext;
@@ -101,7 +101,7 @@ public class CassandraEntityServiceTest extends EntityServiceTestBase<CassandraA
     }};
   }
 
-  @BeforeTest
+  @BeforeClass
   public void setupContainer() {
     final DockerImageName imageName = DockerImageName
             .parse("cassandra:3.11")
@@ -140,7 +140,7 @@ public class CassandraEntityServiceTest extends EntityServiceTestBase<CassandraA
     }
   }
 
-  @AfterTest
+  @AfterClass
   public void tearDown() {
     _cassandraContainer.stop();
   }
