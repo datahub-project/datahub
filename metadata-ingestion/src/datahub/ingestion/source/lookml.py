@@ -1018,7 +1018,7 @@ class LookMLSource(Source):
                 model_name,
                 "project_name",
                 transport_options=self.source_config.transport_options.get_transport_options()
-                if self.source_config.transport_options
+                if self.source_config.transport_options is not None
                 else None,
             )
             assert (

@@ -618,7 +618,7 @@ class LookerDashboardSource(Source):
             self.client,
             self.reporter,
             transport_options=self.source_config.transport_options.get_transport_options()
-            if self.source_config.transport_options
+            if self.source_config.transport_options is not None
             else None,
         )
         if looker_explore is not None:
@@ -703,7 +703,7 @@ class LookerDashboardSource(Source):
                     folder.id,
                     fields="name",
                     transport_options=self.source_config.transport_options.get_transport_options()
-                    if self.source_config.transport_options
+                    if self.source_config.transport_options is not None
                     else None,
                 )
             ]
@@ -742,7 +742,10 @@ class LookerDashboardSource(Source):
 
         dashboard_owner = (
             self.user_registry.get_by_id(
-                dashboard.user_id, self.source_config.transport_options
+                dashboard.user_id,
+                self.source_config.transport_options.get_transport_options()
+                if self.source_config.transport_options is not None
+                else None,
             )
             if self.source_config.extract_owners and dashboard.user_id is not None
             else None
@@ -792,7 +795,7 @@ class LookerDashboardSource(Source):
                 dashboard_id=dashboard_id,
                 fields=",".join(fields),
                 transport_options=self.source_config.transport_options.get_transport_options()
-                if self.source_config.transport_options
+                if self.source_config.transport_options is not None
                 else None,
             )
         except SDKError:
@@ -827,7 +830,7 @@ class LookerDashboardSource(Source):
         dashboards = self.client.all_dashboards(
             fields="id",
             transport_options=self.source_config.transport_options.get_transport_options()
-            if self.source_config.transport_options
+            if self.source_config.transport_options is not None
             else None,
         )
         deleted_dashboards = (
@@ -835,7 +838,7 @@ class LookerDashboardSource(Source):
                 fields="id",
                 deleted="true",
                 transport_options=self.source_config.transport_options.get_transport_options()
-                if self.source_config.transport_options
+                if self.source_config.transport_options is not None
                 else None,
             )
             if self.source_config.include_deleted
