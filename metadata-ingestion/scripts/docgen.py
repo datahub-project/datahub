@@ -3,6 +3,7 @@ import logging
 import os
 import re
 import textwrap
+from importlib.metadata import metadata, requires
 from typing import Any, Dict, List, Optional
 
 import click
@@ -14,7 +15,6 @@ from datahub.ingestion.api.decorators import (
     CapabilitySetting,
     SourceCapability,
     SupportStatus,
-    capability,
 )
 from datahub.ingestion.api.registry import PluginRegistry
 from datahub.ingestion.api.source import Source
@@ -66,6 +66,8 @@ def get_definition_dict_from_definition(
         definition_term: str = m.group(1)
         definition_dict = definitions_dict[definition_term]
         return definition_dict
+
+    raise Exception("Failed to find a definition for " + definition_name)
 
 
 def get_prefixed_name(field_prefix: Optional[str], field_name: Optional[str]) -> str:
@@ -267,7 +269,7 @@ def gen_md_table(
                 )
 
 
-def get_snippet(long_string: str, max_length=100) -> str:
+def get_snippet(long_string: str, max_length: int = 100) -> str:
     snippet = ""
     if len(long_string) > max_length:
         snippet = long_string[:max_length].strip() + "... "
@@ -325,10 +327,30 @@ def create_or_update(
     return something
 
 
+def does_extra_exist(extra_name: str) -> bool:
+    for key, value in metadata("acryl-datahub").items():
+        if key == "Provides-Extra" and value == "extra_name":
+            return True
+    return False
+
+
+def get_additional_deps_for_extra(extra_name: str) -> List[str]:
+    all_requirements = requires("acryl-datahub") or []
+    # filter for base dependencies
+    base_deps = set([x for x in all_requirements if "extra ==" not in x])
+    # filter for dependencies for this extra
+    extra_deps = set(
+        [x.split(";")[0] for x in all_requirements if f'extra == "{extra_name}"' in x]
+    )
+    # calculate additional deps that this extra adds
+    delta_deps = extra_deps - base_deps
+    return list(delta_deps)
+
+
 @click.command()
 @click.option("--out-dir", type=str, required=True)
 @click.option("--extra-docs", type=str, required=False)
-def generate(out_dir: str, extra_docs: Optional[str] = None) -> None:
+def generate(out_dir: str, extra_docs: Optional[str] = None) -> None:  # noqa: C901
     source_documentation: Dict[str, Any] = {}
 
     if extra_docs:
@@ -381,10 +403,16 @@ def generate(out_dir: str, extra_docs: Optional[str] = None) -> None:
             # output = subprocess.check_output(
             #    ["/bin/bash", "-c", f"pip install -e '.[{key}]'"]
             # )
+
             source_registry._ensure_not_lazy(plugin_name)
             print(plugin_name)
             source_type = source_registry.get(plugin_name)
             print(source_type)
+            extra_plugin = plugin_name if does_extra_exist(plugin_name) else None
+            extra_deps = (
+                get_additional_deps_for_extra(extra_plugin) if extra_plugin else []
+            )
+
         except Exception as e:
             print(f"Failed to process {plugin_name} due to {e}")
         if source_type and hasattr(source_type, "get_config_class"):
@@ -459,8 +487,8 @@ def generate(out_dir: str, extra_docs: Optional[str] = None) -> None:
                     f"There are {len(platform_docs['plugins'].keys())} sources that provide integration with {platform_docs['name']}\n"
                 )
                 f.write("\n")
-                f.write(f"| Source Module | Documentation |\n")
-                f.write(f"| ------ | ---- |\n")
+                f.write("| Source Module | Documentation |\n")
+                f.write("| ------ | ---- |\n")
                 for plugin in platform_docs["plugins"]:
                     f.write(
                         f"| `{plugin}` | {get_snippet(platform_docs['plugins'][plugin]['source_doc'])}[Read more...](#module-{plugin}) |\n"
@@ -472,10 +500,10 @@ def generate(out_dir: str, extra_docs: Optional[str] = None) -> None:
                 f.write(f"\n## Module `{plugin}`\n")
                 if "support_status" in plugin_docs:
                     f.write(
-                        get_support_status_badge(plugin_docs["support_status"]) + "\n"
+                        get_support_status_badge(plugin_docs["support_status"]) + "\n\n"
                     )
                 if "capabilities" in plugin_docs and len(plugin_docs["capabilities"]):
-                    f.write("\n### Supported Capabilities\n")
+                    f.write("\n### Important Capabilities\n")
                     f.write("| Capability | Status | Notes |\n")
                     f.write("| ---------- | ------ | ----- |\n")
                     plugin_capabilities: List[CapabilitySetting] = plugin_docs[
@@ -488,9 +516,14 @@ def generate(out_dir: str, extra_docs: Optional[str] = None) -> None:
                     f.write("\n")
                 f.write(f"{plugin_docs['source_doc'] or ''}\n")
                 f.write("### Install the Plugin\n")
-                f.write("```shell\n")
-                f.write(f"pip install 'acryl-datahub[{plugin}]'\n")
-                f.write("```\n")
+                if extra_plugin and extra_deps:
+                    f.write("```shell\n")
+                    f.write(f"pip install 'acryl-datahub[{plugin}]`\n")
+                    f.write("```\n")
+                else:
+                    f.write(
+                        f"The `{plugin}` source works out of the box with `acryl-datahub`.\n"
+                    )
                 if "recipe" in plugin_docs:
                     f.write("\n### Quickstart Recipe\n")
                     f.write(
