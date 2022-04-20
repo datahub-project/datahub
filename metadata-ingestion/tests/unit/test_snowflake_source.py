@@ -1,5 +1,34 @@
+import pytest
+
+from datahub.configuration.common import ConfigurationError
+from datahub.ingestion.source.sql.snowflake import SnowflakeConfig
+
+
+def test_snowflake_source_throws_error_on_account_id_missing():
+    with pytest.raises(ConfigurationError):
+        SnowflakeConfig.parse_obj(
+            {
+                "username": "user",
+                "password": "password",
+            }
+        )
+
+
+def test_account_id_is_added_when_host_port_is_present():
+    config = SnowflakeConfig.parse_obj(
+        {
+            "username": "user",
+            "password": "password",
+            "host_port": "acctname",
+            "database_pattern": {"allow": {"^demo$"}},
+            "warehouse": "COMPUTE_WH",
+            "role": "sysadmin",
+        }
+    )
+    assert config.account_id == "acctname"
+
+
 def test_snowflake_uri_default_authentication():
-    from datahub.ingestion.source.sql.snowflake import SnowflakeConfig
 
     config = SnowflakeConfig.parse_obj(
         {
@@ -20,7 +49,6 @@ def test_snowflake_uri_default_authentication():
 
 
 def test_snowflake_uri_external_browser_authentication():
-    from datahub.ingestion.source.sql.snowflake import SnowflakeConfig
 
     config = SnowflakeConfig.parse_obj(
         {
@@ -41,7 +69,6 @@ def test_snowflake_uri_external_browser_authentication():
 
 
 def test_snowflake_uri_key_pair_authentication():
-    from datahub.ingestion.source.sql.snowflake import SnowflakeConfig
 
     config = SnowflakeConfig.parse_obj(
         {

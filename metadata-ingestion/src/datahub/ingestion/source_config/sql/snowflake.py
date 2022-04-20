@@ -108,7 +108,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
             logger.warning(
                 "snowflake's `host_port` option has been deprecated; use account_id instead"
             )
-            host_port = cls._clean_account(v=host_port)
+            host_port = cls._clean_account(cls=cls, v=host_port)
             values["host_port"] = host_port
         account_id = values.get("account_id")
         if account_id is None:
