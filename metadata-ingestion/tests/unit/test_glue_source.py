@@ -29,9 +29,9 @@ from tests.unit.test_glue_source_stubs import (
     get_object_body_2,
     get_object_response_1,
     get_object_response_2,
+    get_object_tagging,
     get_tables_response_1,
     get_tables_response_2,
-    get_object_tagging,
 )
 
 FROZEN_TIME = "2020-04-14 07:00:00"

@@ -57,7 +57,6 @@ def s3_populate(pytestconfig, s3_resource, s3_client, bucket_name):
             full_path = os.path.join(root, file)
             rel_path = os.path.relpath(full_path, test_resources_dir)
             bkt.upload_file(full_path, rel_path)
-            object = s3_resource.Object(bucket_name, rel_path)
             s3_client.put_object_tagging(
                 Bucket=bucket_name,
                 Key=rel_path,
