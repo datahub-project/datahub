@@ -80,6 +80,7 @@ class GlueSourceConfig(AwsSourceConfig, PlatformSourceConfigBase):
     catalog_id: Optional[str] = None
 
     use_s3_bucket_tags: Optional[bool] = False
+    use_s3_object_tags: Optional[bool] = False
 
     @property
     def glue_client(self):
@@ -819,6 +820,34 @@ class GlueSource(Source):
                             new_tags.tags.append(tag_to_add)
             return new_tags
 
+        def get_s3_object_tags() -> GlobalTagsClass:
+            bucket_name = s3_util.get_bucket_name(
+                table["StorageDescriptor"]["Location"]
+            )
+            key_prefix = s3_util.get_key_prefix(table["StorageDescriptor"]["Location"])
+            s3_tags = self.s3_client.get_object_tagging(
+                Bucket=bucket_name, Key=key_prefix
+            )
+            tags_to_add = [
+                make_tag_urn(f"""{tag["Key"]}:{tag["Value"]}""")
+                for tag in s3_tags["TagSet"]
+            ]
+            new_tags = GlobalTagsClass(
+                tags=[TagAssociationClass(tag_to_add) for tag_to_add in tags_to_add]
+            )
+            if self.ctx.graph is not None:
+                current_tags: Optional[GlobalTagsClass] = self.ctx.graph.get_aspect_v2(
+                    entity_urn=dataset_urn,
+                    aspect="globalTags",
+                    aspect_type=GlobalTagsClass,
+                )
+                if current_tags:
+                    for tag_to_add in current_tags.tags:
+                        if tag_to_add not in [x.tag for x in new_tags.tags]:
+                            # any current tag not in new tags
+                            new_tags.tags.append(tag_to_add)
+            return new_tags
+
         def get_schema_metadata(glue_source: GlueSource) -> SchemaMetadata:
             schema = table["StorageDescriptor"]["Columns"]
             fields: List[SchemaField] = []
@@ -884,6 +913,8 @@ class GlueSource(Source):
         dataset_snapshot.aspects.append(get_data_platform_instance())
         if self.source_config.use_s3_bucket_tags:
             dataset_snapshot.aspects.append(get_s3_bucket_tags())
+        if self.source_config.use_s3_object_tags:
+            dataset_snapshot.aspects.append(get_s3_object_tags())
 
         metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         return metadata_record

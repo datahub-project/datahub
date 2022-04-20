@@ -53,6 +53,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import (
     get_bucket_name,
     get_bucket_relative_path,
+    get_key_prefix,
     strip_s3_prefix,
 )
 from datahub.ingestion.source.s3.config import DataLakeSourceConfig
@@ -566,6 +567,12 @@ class S3Source(Source):
                     get_bucket_name(table_data.table_path), dataset_urn
                 )
             )
+        if self.source_config.use_s3_object_tags:
+            bucket = get_bucket_name(table_data.table_path)
+            key_prefix = get_key_prefix(table_data.table_path)
+            dataset_snapshot.aspects.append(
+                self.get_object_tags(bucket, key_prefix, dataset_urn)
+            )
 
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         wu = MetadataWorkUnit(id=table_data.table_path, mce=mce)
@@ -593,6 +600,32 @@ class S3Source(Source):
         bucket = s3.Bucket(name)
         tags_to_add = [
             f"""{tag["Key"]}:{tag["Value"]}""" for tag in bucket.Tagging().tag_set
+        ]
+        new_tags = GlobalTagsClass(
+            tags=[TagAssociationClass(tag_to_add) for tag_to_add in tags_to_add]
+        )
+        if self.ctx.graph is not None:
+            current_tags: Optional[GlobalTagsClass] = self.ctx.graph.get_aspect_v2(
+                entity_urn=dataset_urn,
+                aspect="globalTags",
+                aspect_type=GlobalTagsClass,
+            )
+            if current_tags:
+                for tag_to_add in current_tags.tags:
+                    if tag_to_add not in [x.tag for x in new_tags.tags]:
+                        # any current tag not in new tags
+                        new_tags.tags.append(tag_to_add)
+        return new_tags
+
+    def get_object_tags(
+        self, bucket_name: str, key_name: str, dataset_urn: str
+    ) -> GlobalTagsClass:
+        if self.source_config.aws_config is None:
+            raise ValueError("aws_config not set. Cannot browse s3")
+        s3 = self.source_config.aws_config.get_s3_client()
+        object_tagging = s3.get_object_tagging(Bucket=bucket_name, Key=key_name)
+        tags_to_add = [
+            f"""{tag["Key"]}:{tag["Value"]}""" for tag in object_tagging["TagSet"]
         ]
         new_tags = GlobalTagsClass(
             tags=[TagAssociationClass(tag_to_add) for tag_to_add in tags_to_add]
