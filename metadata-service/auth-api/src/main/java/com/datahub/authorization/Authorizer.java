@@ -1,6 +1,7 @@
 package com.datahub.authorization;
 
 import java.util.Map;
+import java.util.Optional;
 import javax.annotation.Nonnull;
 
 
@@ -20,4 +21,12 @@ public interface Authorizer {
    * Authorizes an action based on the actor, the resource, & required privileges.
    */
   AuthorizationResult authorize(AuthorizationRequest request);
+
+  /**
+   * Retrieves the current list of actors authorized to for a particular privilege against
+   * an optional resource
+   */
+  AuthorizedActors authorizedActors(
+      final String privilege,
+      final Optional<ResourceSpec> resourceSpec);
 }

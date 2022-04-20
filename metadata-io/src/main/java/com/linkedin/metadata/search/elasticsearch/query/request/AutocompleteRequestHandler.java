@@ -121,11 +121,7 @@ public class AutocompleteRequestHandler {
       } catch (URISyntaxException e) {
         throw new RuntimeException(String.format("Failed to create urn %s", matchedUrn.get()), e);
       }
-      if (matchedFieldValue.isPresent()) {
-        results.add(matchedFieldValue.get());
-      } else {
-        log.info("No highlighted field for query {}, hit {}", input, hit);
-      }
+      matchedFieldValue.ifPresent(results::add);
     }
     return new AutoCompleteResult()
         .setQuery(input)
