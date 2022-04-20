@@ -12,11 +12,17 @@ public enum ChangeCategory {
   //(field or top level) add term, remove term, etc.
   GLOSSARY_TERM,
   //add new owner, remove owner, change ownership type etc.
-  OWNERSHIP,
+  OWNER,
   //new field, remove field, field type change,
   TECHNICAL_SCHEMA,
   //(field or top level) add tag, remove tag,
-  TAG;
+  TAG,
+  // Update the domain for an entity
+  DOMAIN,
+  // Update the deprecation for an entity
+  DEPRECATION,
+  // Entity Lifecycle events (create, soft delete, hard delete)
+  LIFECYCLE;
 
   public static final Map<List<String>, ChangeCategory> COMPOUND_CATEGORIES;
 
