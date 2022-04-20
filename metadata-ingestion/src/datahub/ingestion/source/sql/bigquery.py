@@ -1,3 +1,4 @@
+import atexit
 import collections
 import datetime
 import functools
@@ -8,7 +9,6 @@ import textwrap
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 from unittest.mock import patch
-import atexit
 
 # This import verifies that the dependencies are available.
 import sqlalchemy_bigquery
