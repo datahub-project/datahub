@@ -79,14 +79,12 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
         default=None, exclude=True
     )
     authentication_type: str = "DEFAULT_AUTHENTICATOR"
-    host_port: Optional[str] = None  # Deprecated
-    account_id: Optional[
-        str
-    ] = None  # Once host_port is removed this will be made mandatory
+    host_port: Optional[str]  # Deprecated
+    account_id: Optional[str]  # Once host_port is removed this will be made mandatory
     warehouse: Optional[str]
     role: Optional[str]
-    include_table_lineage: Optional[bool] = True
-    include_view_lineage: Optional[bool] = True
+    include_table_lineage: bool = True
+    include_view_lineage: bool = True
     connect_args: Optional[Dict] = pydantic.Field(default=None, exclude=True)
 
     def get_account(self) -> str:
@@ -111,7 +109,6 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
                     "One of account_id (recommended) or host_port (deprecated) is required"
                 )
             else:
-                account_id = host_port
                 values["account_id"] = host_port
         return values
 
