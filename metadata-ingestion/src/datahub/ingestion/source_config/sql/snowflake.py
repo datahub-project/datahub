@@ -90,16 +90,8 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
     connect_args: Optional[Dict] = pydantic.Field(default=None, exclude=True)
 
     def get_account(self) -> str:
-        if self.account_id is not None:
-            return self.account_id
-        # This is handled in root validator but needed to do this due to linting
-        raise ConfigurationError("account_id missing")
-
-    def _clean_account(cls, v: str) -> str:
-        v = remove_protocol(v)
-        v = remove_trailing_slashes(v)
-        v = remove_suffix(v, ".snowflakecomputing.com")
-        return v
+        assert self.account_id
+        return self.account_id
 
     @pydantic.root_validator
     def one_of_host_port_or_account_id_is_required(cls, values):
@@ -108,7 +100,9 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
             logger.warning(
                 "snowflake's `host_port` option has been deprecated; use account_id instead"
             )
-            host_port = cls._clean_account(cls=cls, v=host_port)
+            host_port = remove_protocol(host_port)
+            host_port = remove_trailing_slashes(host_port)
+            host_port = remove_suffix(host_port, ".snowflakecomputing.com")
             values["host_port"] = host_port
         account_id = values.get("account_id")
         if account_id is None:
