@@ -66,7 +66,7 @@ public class CustomOidcAuthenticator implements Authenticator<OidcCredentials> {
     final ClientAuthenticationMethod chosenMethod;
     if (CommonHelper.isNotEmpty(metadataMethods)) {
       if (preferredMethod != null) {
-        if (metadataMethods.contains(preferredMethod)) {
+        if (ClientAuthenticationMethod.NONE.equals(preferredMethod) || metadataMethods.contains(preferredMethod)) {
           chosenMethod = preferredMethod;
         } else {
           throw new TechnicalException(
@@ -83,15 +83,13 @@ public class CustomOidcAuthenticator implements Authenticator<OidcCredentials> {
     }
 
     final ClientID _clientID = new ClientID(configuration.getClientId());
-    if (ClientAuthenticationMethod.NONE.equals(chosenMethod)) {
-      clientAuthentication = new EmptyAuthentication(_clientID);
-    } else if (ClientAuthenticationMethod.CLIENT_SECRET_POST.equals(chosenMethod)) {
+    if (ClientAuthenticationMethod.CLIENT_SECRET_POST.equals(chosenMethod)) {
       final Secret _secret = new Secret(configuration.getSecret());
       clientAuthentication = new ClientSecretPost(_clientID, _secret);
     } else if (ClientAuthenticationMethod.CLIENT_SECRET_BASIC.equals(chosenMethod)) {
       final Secret _secret = new Secret(configuration.getSecret());
       clientAuthentication = new ClientSecretBasic(_clientID, _secret);
-    } else {
+    } else if (!ClientAuthenticationMethod.NONE.equals(chosenMethod)) {
       throw new TechnicalException("Unsupported client authentication method: " + chosenMethod);
     }
   }
@@ -132,6 +130,16 @@ public class CustomOidcAuthenticator implements Authenticator<OidcCredentials> {
     }
   }
 
+  private TokenRequest createTokenRequest(final AuthorizationGrant grant) {
+    if (clientAuthentication != null) {
+      return new TokenRequest(configuration.findProviderMetadata().getTokenEndpointURI(),
+          this.clientAuthentication, grant);
+    } else {
+      return new TokenRequest(configuration.findProviderMetadata().getTokenEndpointURI(),
+          new ClientID(configuration.getClientId()), grant);
+    }
+  }
+
   @Override
   public void validate(final OidcCredentials credentials, final WebContext context) {
     final AuthorizationCode code = credentials.getCode();
@@ -140,8 +148,7 @@ public class CustomOidcAuthenticator implements Authenticator<OidcCredentials> {
       try {
         final String computedCallbackUrl = client.computeFinalCallbackUrl(context);
         // Token request
-        final TokenRequest request = new TokenRequest(configuration.findProviderMetadata().getTokenEndpointURI(),
-            this.clientAuthentication, new AuthorizationCodeGrant(code, new URI(computedCallbackUrl)));
+        final TokenRequest request = createTokenRequest(new AuthorizationCodeGrant(code, new URI(computedCallbackUrl)));
         HTTPRequest tokenHttpRequest = request.toHTTPRequest();
         tokenHttpRequest.setConnectTimeout(configuration.getConnectTimeout());
         tokenHttpRequest.setReadTimeout(configuration.getReadTimeout());
@@ -167,13 +174,5 @@ public class CustomOidcAuthenticator implements Authenticator<OidcCredentials> {
         throw new TechnicalException(e);
       }
     }
-  }
-
-  public ClientAuthentication getClientAuthentication() {
-    return clientAuthentication;
-  }
-
-  public void setClientAuthentication(final ClientAuthentication clientAuthentication) {
-    this.clientAuthentication = clientAuthentication;
   }
 }
