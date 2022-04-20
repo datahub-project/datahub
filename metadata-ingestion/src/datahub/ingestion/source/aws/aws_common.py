@@ -1,8 +1,10 @@
 from functools import reduce
-from typing import TYPE_CHECKING, List, Optional, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 import boto3
 from boto3.session import Session
+from botocore.config import Config
+from botocore.utils import fix_s3_host
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
@@ -53,6 +55,8 @@ class AwsSourceConfig(ConfigModel):
     aws_role: Optional[Union[str, List[str]]] = None
     aws_profile: Optional[str] = None
     aws_region: str
+    aws_endpoint_url: Optional[str] = None
+    aws_proxy: Optional[Dict[str, str]] = None
 
     def get_session(self) -> Session:
         if (
@@ -93,10 +97,20 @@ class AwsSourceConfig(ConfigModel):
             return Session(region_name=self.aws_region, profile_name=self.aws_profile)
 
     def get_s3_client(self) -> "S3Client":
-        return self.get_session().client("s3")
+        return self.get_session().client(
+            "s3",
+            endpoint_url=self.aws_endpoint_url,
+            config=Config(proxies=self.aws_proxy),
+        )
 
     def get_s3_resource(self) -> "S3ServiceResource":
-        return self.get_session().resource("s3")
+        resource = self.get_session().resource(
+            "s3",
+            endpoint_url=self.aws_endpoint_url,
+            config=Config(proxies=self.aws_proxy),
+        )
+        resource.meta.client.meta.events.unregister("before-sign.s3", fix_s3_host)
+        return resource
 
     def get_glue_client(self) -> "GlueClient":
         return self.get_session().client("glue")
