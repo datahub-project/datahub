@@ -2,20 +2,23 @@ package com.linkedin.metadata.timeline.differ;
 
 import com.datahub.util.RecordUtils;
 import com.github.fge.jsonpatch.JsonPatch;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import com.linkedin.metadata.timeline.data.SemanticChangeType;
+import com.linkedin.metadata.timeline.data.dataset.DatasetSchemaFieldChangeEvent;
 import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaFieldArray;
 import com.linkedin.schema.SchemaMetadata;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -24,8 +27,10 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import org.apache.commons.lang.StringUtils;
 
+import static com.linkedin.metadata.timeline.differ.DifferUtils.*;
 
-public class SchemaDiffer implements Differ {
+
+public class SchemaMetadataDiffer implements AspectDiffer<SchemaMetadata> {
   private static final String SCHEMA_METADATA_ASPECT_NAME = "schemaMetadata";
   private static final String BACKWARDS_INCOMPATIBLE_DESC = "A backwards incompatible change due to";
   private static final String FORWARDS_COMPATIBLE_DESC = "A forwards compatible change due to ";
@@ -37,84 +42,102 @@ public class SchemaDiffer implements Differ {
   private static final String FIELD_DESCRIPTION_MODIFIED_FORMAT =
       "The description for the field '%s' has been changed from '%s' to '%s'.";
 
-  private static String getFieldPathV1(@Nonnull SchemaField field) {
-    String[] v1PathTokens = Arrays.stream(field.getFieldPath().split("\\."))
-        .filter(x -> !(x.startsWith("[") || x.endsWith("]")))
-        .toArray(String[]::new);
-    return String.join(".", v1PathTokens);
-  }
-
-  private static String getSchemaFieldUrn(@Nonnull Urn datasetUrn, @Nonnull SchemaField schemaField) {
-    return String.format("urn:li:schemaField:(%s,%s)", datasetUrn, getFieldPathV1(schemaField));
-  }
-
-  private static String getSchemaFieldUrn(@Nonnull Urn datasetUrn, @Nonnull String schemaFieldPath) {
-    return String.format("urn:li:schemaField:(%s,%s)", datasetUrn, schemaFieldPath);
-  }
-
   private static ChangeEvent getDescriptionChange(SchemaField baseField, SchemaField targetField,
-      String datasetFieldUrn) {
+      String datasetFieldUrn, AuditStamp auditStamp) {
     String baseDesciption = (baseField != null) ? baseField.getDescription() : null;
     String targetDescription = (targetField != null) ? targetField.getDescription() : null;
     if (baseDesciption == null && targetDescription != null) {
       // Description got added.
       return ChangeEvent.builder()
-          .changeType(ChangeOperation.ADD)
+          .operation(ChangeOperation.ADD)
           .semVerChange(SemanticChangeType.MINOR)
           .category(ChangeCategory.DOCUMENTATION)
-          .target(datasetFieldUrn)
+          .entityUrn(datasetFieldUrn)
           .description(String.format(FIELD_DESCRIPTION_ADDED_FORMAT, targetDescription, targetField.getFieldPath()))
+          .auditStamp(auditStamp)
           .build();
     }
     if (baseDesciption != null && targetDescription == null) {
       // Description removed.
       return ChangeEvent.builder()
-          .changeType(ChangeOperation.REMOVE)
+          .operation(ChangeOperation.REMOVE)
           .semVerChange(SemanticChangeType.MINOR)
           .category(ChangeCategory.DOCUMENTATION)
-          .target(datasetFieldUrn)
+          .entityUrn(datasetFieldUrn)
           .description(String.format(FIELD_DESCRIPTION_REMOVED_FORMAT, baseDesciption, baseField.getFieldPath()))
+          .auditStamp(auditStamp)
           .build();
     }
     if (baseDesciption != null && !baseDesciption.equals(targetDescription)) {
       // Description Change
       return ChangeEvent.builder()
-          .changeType(ChangeOperation.MODIFY)
+          .operation(ChangeOperation.MODIFY)
           .semVerChange(SemanticChangeType.PATCH)
           .category(ChangeCategory.DOCUMENTATION)
-          .target(datasetFieldUrn)
+          .entityUrn(datasetFieldUrn)
           .description(String.format(FIELD_DESCRIPTION_MODIFIED_FORMAT, baseField.getFieldPath(), baseDesciption,
               targetDescription))
+          .auditStamp(auditStamp)
           .build();
     }
     return null;
   }
 
   private static List<ChangeEvent> getGlobalTagChangeEvents(SchemaField baseField, SchemaField targetField,
-      String datasetFieldUrn) {
-    return GlobalTagsDiffer.computeDiffs(baseField != null ? baseField.getGlobalTags() : null,
-        targetField != null ? targetField.getGlobalTags() : null, datasetFieldUrn);
+      String parentUrn,
+      String datasetFieldUrn,
+      AuditStamp auditStamp) {
+
+    // 1. Get EntityTagChangeEvent, then rebind into a SchemaFieldTagChangeEvent.
+    List<ChangeEvent> entityTagChangeEvents = GlobalTagsDiffer.computeDiffs(baseField != null ? baseField.getGlobalTags() : null,
+        targetField != null ? targetField.getGlobalTags() : null, datasetFieldUrn, auditStamp);
+
+    if (baseField != null || targetField != null) {
+      String fieldPath = targetField != null ? targetField.getFieldPath() : baseField.getFieldPath();
+      // 2. Convert EntityTagChangeEvent into a SchemaFieldTagChangeEvent.
+      return convertEntityTagChangeEvents(
+          fieldPath,
+          UrnUtils.getUrn(parentUrn),
+          entityTagChangeEvents);
+    }
+
+    return Collections.emptyList();
   }
 
   private static List<ChangeEvent> getGlossaryTermsChangeEvents(SchemaField baseField, SchemaField targetField,
-      String datasetFieldUrn) {
-    return GlossaryTermsDiffer.computeDiffs(baseField != null ? baseField.getGlossaryTerms() : null,
-        targetField != null ? targetField.getGlossaryTerms() : null, datasetFieldUrn);
+      String parentUrn,
+      String datasetFieldUrn,
+      AuditStamp auditStamp) {
+
+    // 1. Get EntityGlossaryTermChangeEvent, then rebind into a SchemaFieldGlossaryTermChangeEvent.
+    List<ChangeEvent> entityGlossaryTermsChangeEvents = GlossaryTermsDiffer.computeDiffs(baseField != null ? baseField.getGlossaryTerms() : null,
+        targetField != null ? targetField.getGlossaryTerms() : null, datasetFieldUrn, auditStamp);
+
+    if (targetField != null || baseField != null) {
+      String fieldPath = targetField != null ? targetField.getFieldPath() : baseField.getFieldPath();
+      // 2. Convert EntityGlossaryTermChangeEvent into a SchemaFieldGlossaryTermChangeEvent.
+      return convertEntityGlossaryTermChangeEvents(
+          fieldPath,
+          UrnUtils.getUrn(parentUrn),
+          entityGlossaryTermsChangeEvents);
+    }
+
+    return Collections.emptyList();
   }
 
   private static List<ChangeEvent> getFieldPropertyChangeEvents(SchemaField baseField, SchemaField targetField,
-      Urn datasetUrn, ChangeCategory changeCategory) {
+      Urn datasetUrn, ChangeCategory changeCategory, AuditStamp auditStamp) {
     List<ChangeEvent> propChangeEvents = new ArrayList<>();
     String datasetFieldUrn;
     if (targetField != null) {
-      datasetFieldUrn = getSchemaFieldUrn(datasetUrn, targetField);
+      datasetFieldUrn = getSchemaFieldUrn(datasetUrn, targetField).toString();
     } else {
-      datasetFieldUrn = getSchemaFieldUrn(datasetUrn, baseField);
+      datasetFieldUrn = getSchemaFieldUrn(datasetUrn, baseField).toString();
     }
 
     // Description Change.
     if (ChangeCategory.DOCUMENTATION.equals(changeCategory)) {
-      ChangeEvent descriptionChangeEvent = getDescriptionChange(baseField, targetField, datasetFieldUrn);
+      ChangeEvent descriptionChangeEvent = getDescriptionChange(baseField, targetField, datasetFieldUrn, auditStamp);
       if (descriptionChangeEvent != null) {
         propChangeEvents.add(descriptionChangeEvent);
       }
@@ -122,12 +145,12 @@ public class SchemaDiffer implements Differ {
 
     // Global Tags
     if (ChangeCategory.TAG.equals(changeCategory)) {
-      propChangeEvents.addAll(getGlobalTagChangeEvents(baseField, targetField, datasetFieldUrn));
+      propChangeEvents.addAll(getGlobalTagChangeEvents(baseField, targetField, datasetUrn.toString(), datasetFieldUrn, auditStamp));
     }
 
     // Glossary terms.
     if (ChangeCategory.GLOSSARY_TERM.equals(changeCategory)) {
-      propChangeEvents.addAll(getGlossaryTermsChangeEvents(baseField, targetField, datasetFieldUrn));
+      propChangeEvents.addAll(getGlossaryTermsChangeEvents(baseField, targetField, datasetUrn.toString(), datasetFieldUrn, auditStamp));
     }
 
     return propChangeEvents;
@@ -135,7 +158,7 @@ public class SchemaDiffer implements Differ {
 
   // TODO: This could use some cleanup, lots of repeated logic and tenuous conditionals
   private static List<ChangeEvent> computeDiffs(SchemaMetadata baseSchema, SchemaMetadata targetSchema,
-      Urn datasetUrn, ChangeCategory changeCategory) {
+      Urn datasetUrn, ChangeCategory changeCategory, AuditStamp auditStamp) {
     // Sort the fields by their field path.
     if (baseSchema != null) {
       sortFieldsByPath(baseSchema);
@@ -163,25 +186,29 @@ public class SchemaDiffer implements Differ {
         if (!curBaseField.getNativeDataType().equals(curTargetField.getNativeDataType())) {
           // Non-backward compatible change + Major version bump
           if (ChangeCategory.TECHNICAL_SCHEMA.equals(changeCategory)) {
-            changeEvents.add(ChangeEvent.builder()
+            changeEvents.add(DatasetSchemaFieldChangeEvent.schemaFieldChangeEventBuilder()
                 .category(ChangeCategory.TECHNICAL_SCHEMA)
-                .elementId(getSchemaFieldUrn(datasetUrn, curBaseField))
-                .target(datasetUrn.toString())
-                .changeType(ChangeOperation.MODIFY)
+                .modifier(getSchemaFieldUrn(datasetUrn, curBaseField).toString())
+                .entityUrn(datasetUrn.toString())
+                .operation(ChangeOperation.MODIFY)
                 .semVerChange(SemanticChangeType.MAJOR)
                 .description(String.format("%s native datatype of the field '%s' changed from '%s' to '%s'.",
                     BACKWARDS_INCOMPATIBLE_DESC, getFieldPathV1(curTargetField), curBaseField.getNativeDataType(),
                     curTargetField.getNativeDataType()))
+                .fieldPath(curBaseField.getFieldPath())
+                .fieldUrn(getSchemaFieldUrn(datasetUrn, curBaseField))
+                .nullable(curBaseField.isNullable())
+                .auditStamp(auditStamp)
                 .build());
           }
           List<ChangeEvent> propChangeEvents = getFieldPropertyChangeEvents(curBaseField, curTargetField, datasetUrn,
-              changeCategory);
+              changeCategory, auditStamp);
           changeEvents.addAll(propChangeEvents);
           ++baseFieldIdx;
           ++targetFieldIdx;
         }
         List<ChangeEvent> propChangeEvents =
-            getFieldPropertyChangeEvents(curBaseField, curTargetField, datasetUrn, changeCategory);
+            getFieldPropertyChangeEvents(curBaseField, curTargetField, datasetUrn, changeCategory, auditStamp);
         changeEvents.addAll(propChangeEvents);
         ++baseFieldIdx;
         ++targetFieldIdx;
@@ -193,12 +220,12 @@ public class SchemaDiffer implements Differ {
         SchemaField renamedField = findRenamedField(curBaseField,
             targetFields.subList(targetFieldIdx, targetFields.size()), renamedFields);
         if (renamedField == null) {
-          processRemoval(changeCategory, changeEvents, datasetUrn, curBaseField);
+          processRemoval(changeCategory, changeEvents, datasetUrn, curBaseField, auditStamp);
           ++baseFieldIdx;
         } else {
-          changeEvents.add(generateRenameEvent(datasetUrn, curBaseField, renamedField));
+          changeEvents.add(generateRenameEvent(datasetUrn, curBaseField, renamedField, auditStamp));
           List<ChangeEvent> propChangeEvents = getFieldPropertyChangeEvents(curBaseField, curTargetField, datasetUrn,
-              changeCategory);
+              changeCategory, auditStamp);
           changeEvents.addAll(propChangeEvents);
           ++baseFieldIdx;
           renamedFields.add(renamedField);
@@ -208,12 +235,12 @@ public class SchemaDiffer implements Differ {
         SchemaField renamedField = findRenamedField(curTargetField,
             baseFields.subList(baseFieldIdx, baseFields.size()), renamedFields);
         if (renamedField == null) {
-          processAdd(changeCategory, changeEvents, datasetUrn, curTargetField);
+          processAdd(changeCategory, changeEvents, datasetUrn, curTargetField, auditStamp);
           ++targetFieldIdx;
         } else {
-          changeEvents.add(generateRenameEvent(datasetUrn, renamedField, curTargetField));
+          changeEvents.add(generateRenameEvent(datasetUrn, renamedField, curTargetField, auditStamp));
           List<ChangeEvent> propChangeEvents = getFieldPropertyChangeEvents(curBaseField, curTargetField, datasetUrn,
-              changeCategory);
+              changeCategory, auditStamp);
           changeEvents.addAll(propChangeEvents);
           ++targetFieldIdx;
           renamedFields.add(renamedField);
@@ -224,7 +251,7 @@ public class SchemaDiffer implements Differ {
       // Handle removed fields. Non-backward compatible change + major version bump
       SchemaField baseField = baseFields.get(baseFieldIdx);
       if (!renamedFields.contains(baseField)) {
-        processRemoval(changeCategory, changeEvents, datasetUrn, baseField);
+        processRemoval(changeCategory, changeEvents, datasetUrn, baseField, auditStamp);
       }
       ++baseFieldIdx;
     }
@@ -232,13 +259,13 @@ public class SchemaDiffer implements Differ {
       // Newly added fields. Forwards & backwards compatible change + minor version bump.
       SchemaField targetField = targetFields.get(targetFieldIdx);
       if (!renamedFields.contains(targetField)) {
-        processAdd(changeCategory, changeEvents, datasetUrn, targetField);
+        processAdd(changeCategory, changeEvents, datasetUrn, targetField, auditStamp);
       }
       targetFieldIdx++;
     }
 
     // Handle primary key constraint change events.
-    List<ChangeEvent> primaryKeyChangeEvents = getPrimaryKeyChangeEvents(baseSchema, targetSchema, datasetUrn);
+    List<ChangeEvent> primaryKeyChangeEvents = getPrimaryKeyChangeEvents(baseSchema, targetSchema, datasetUrn, auditStamp);
     changeEvents.addAll(primaryKeyChangeEvents);
 
     // Handle foreign key constraint change events.
@@ -246,14 +273,6 @@ public class SchemaDiffer implements Differ {
     changeEvents.addAll(foreignKeyChangeEvents);
 
     return changeEvents;
-  }
-
-  private static boolean isSchemaOrdinalBased(SchemaMetadata schemaMetadata) {
-    if (schemaMetadata == null) {
-      return false;
-    }
-    SchemaMetadata.PlatformSchema platformSchema = schemaMetadata.getPlatformSchema();
-    return platformSchema.isOracleDDL() || platformSchema.isMySqlDDL() || platformSchema.isPrestoDDL();
   }
 
   private static void sortFieldsByPath(SchemaMetadata schemaMetadata) {
@@ -292,100 +311,72 @@ public class SchemaDiffer implements Differ {
   }
 
   private static void processRemoval(ChangeCategory changeCategory, List<ChangeEvent> changeEvents, Urn datasetUrn,
-      SchemaField baseField) {
+      SchemaField baseField, AuditStamp auditStamp) {
     if (ChangeCategory.TECHNICAL_SCHEMA.equals(changeCategory)) {
-      changeEvents.add(ChangeEvent.builder()
-          .elementId(getSchemaFieldUrn(datasetUrn, baseField))
-          .target(datasetUrn.toString())
+      changeEvents.add(DatasetSchemaFieldChangeEvent.schemaFieldChangeEventBuilder()
+          .modifier(getSchemaFieldUrn(datasetUrn, baseField).toString())
+          .entityUrn(datasetUrn.toString())
           .category(ChangeCategory.TECHNICAL_SCHEMA)
-          .changeType(ChangeOperation.REMOVE)
+          .operation(ChangeOperation.REMOVE)
           .semVerChange(SemanticChangeType.MAJOR)
           .description(BACKWARDS_INCOMPATIBLE_DESC + " removal of field: '" + getFieldPathV1(baseField) + "'.")
+          .fieldPath(baseField.getFieldPath())
+          .fieldUrn(getSchemaFieldUrn(datasetUrn, baseField))
+          .nullable(baseField.isNullable())
+          .auditStamp(auditStamp)
           .build());
     }
     List<ChangeEvent> propChangeEvents = getFieldPropertyChangeEvents(baseField, null, datasetUrn,
-        changeCategory);
+        changeCategory, auditStamp);
     changeEvents.addAll(propChangeEvents);
   }
 
   private static void processAdd(ChangeCategory changeCategory, List<ChangeEvent> changeEvents, Urn datasetUrn,
-      SchemaField targetField) {
+      SchemaField targetField, AuditStamp auditStamp) {
     if (ChangeCategory.TECHNICAL_SCHEMA.equals(changeCategory)) {
-      changeEvents.add(ChangeEvent.builder()
-          .elementId(getSchemaFieldUrn(datasetUrn, targetField))
-          .target(datasetUrn.toString())
+      changeEvents.add(DatasetSchemaFieldChangeEvent.schemaFieldChangeEventBuilder()
+          .modifier(getSchemaFieldUrn(datasetUrn, targetField).toString())
+          .entityUrn(datasetUrn.toString())
           .category(ChangeCategory.TECHNICAL_SCHEMA)
-          .changeType(ChangeOperation.ADD)
+          .operation(ChangeOperation.ADD)
           .semVerChange(SemanticChangeType.MINOR)
           .description(BACK_AND_FORWARD_COMPATIBLE_DESC + "the newly added field '" + getFieldPathV1(targetField) + "'.")
+          .fieldPath(targetField.getFieldPath())
+          .fieldUrn(getSchemaFieldUrn(datasetUrn, targetField))
+          .nullable(targetField.isNullable())
+          .auditStamp(auditStamp)
           .build());
     }
     List<ChangeEvent> propChangeEvents = getFieldPropertyChangeEvents(null, targetField, datasetUrn,
-        changeCategory);
+        changeCategory, auditStamp);
     changeEvents.addAll(propChangeEvents);
   }
 
-  private static ChangeEvent generateRenameEvent(Urn datasetUrn, SchemaField curBaseField, SchemaField curTargetField) {
-      return ChangeEvent.builder()
+  private static ChangeEvent generateRenameEvent(Urn datasetUrn, SchemaField curBaseField, SchemaField curTargetField,
+      AuditStamp auditStamp) {
+      return DatasetSchemaFieldChangeEvent.schemaFieldChangeEventBuilder()
           .category(ChangeCategory.TECHNICAL_SCHEMA)
-          .elementId(getSchemaFieldUrn(datasetUrn, curBaseField))
-          .target(datasetUrn.toString())
-          .changeType(ChangeOperation.MODIFY)
+          .modifier(getSchemaFieldUrn(datasetUrn, curBaseField).toString())
+          .entityUrn(datasetUrn.toString())
+          .operation(ChangeOperation.MODIFY)
           .semVerChange(SemanticChangeType.MINOR)
           .description(BACK_AND_FORWARD_COMPATIBLE_DESC + "renaming of the field '" + getFieldPathV1(curBaseField)
               + " to " + getFieldPathV1(curTargetField) +  "'.")
+          .fieldPath(curBaseField.getFieldPath())
+          .fieldUrn(getSchemaFieldUrn(datasetUrn, curBaseField))
+          .nullable(curBaseField.isNullable())
+          .auditStamp(auditStamp)
           .build();
   }
 
-  private static void processOrdinalSchemaFields(SchemaField curBaseField, SchemaField curTargetField,
-      ChangeCategory changeCategory, List<ChangeEvent> changeEvents, Urn datasetUrn, int baseFieldIdx, int targetFieldIdx) {
-    if (!curBaseField.getNativeDataType().equals(curTargetField.getNativeDataType())) {
-      // Non-backward compatible change + Major version bump
-      if (ChangeCategory.TECHNICAL_SCHEMA.equals(changeCategory)) {
-        changeEvents.add(ChangeEvent.builder()
-            .category(ChangeCategory.TECHNICAL_SCHEMA)
-            .elementId(getSchemaFieldUrn(datasetUrn, curBaseField))
-            .target(datasetUrn.toString())
-            .changeType(ChangeOperation.MODIFY)
-            .semVerChange(SemanticChangeType.MAJOR)
-            .description(String.format("%s native datatype of the field '%s' changed from '%s' to '%s'.",
-                BACKWARDS_INCOMPATIBLE_DESC, getFieldPathV1(curTargetField), curBaseField.getNativeDataType(),
-                curTargetField.getNativeDataType()))
-            .build());
-      }
-      List<ChangeEvent> propChangeEvents = getFieldPropertyChangeEvents(curBaseField, curTargetField, datasetUrn,
-          changeCategory);
-      changeEvents.addAll(propChangeEvents);
-      ++baseFieldIdx;
-      ++targetFieldIdx;
-    } else if (baseFieldIdx == targetFieldIdx && !curBaseField.getFieldPath().equals(curTargetField.getFieldPath())
-        && ChangeCategory.TECHNICAL_SCHEMA.equals(changeCategory)) {
-      // The field got renamed. Forward compatible + Minor version bump.
-      changeEvents.add(ChangeEvent.builder()
-          .category(ChangeCategory.TECHNICAL_SCHEMA)
-          .elementId(getSchemaFieldUrn(datasetUrn, curBaseField))
-          .target(datasetUrn.toString())
-          .changeType(ChangeOperation.MODIFY)
-          .semVerChange(SemanticChangeType.MINOR)
-          .description(
-              FORWARDS_COMPATIBLE_DESC + "field name changed from '" + getFieldPathV1(curBaseField) + "' to '"
-                  + getFieldPathV1(curTargetField) + "'")
-          .build());
-    }
-    // Generate change events from property changes
-    List<ChangeEvent> propChangeEvents = getFieldPropertyChangeEvents(curBaseField, curTargetField, datasetUrn,
-        changeCategory);
-    changeEvents.addAll(propChangeEvents);
-    ++baseFieldIdx;
-    ++targetFieldIdx;
-  }
-
-  private static ChangeEvent getIncompatibleChangeEvent(SchemaMetadata baseSchema, SchemaMetadata targetSchema) {
+  private static ChangeEvent getIncompatibleChangeEvent(SchemaMetadata baseSchema, SchemaMetadata targetSchema,
+      AuditStamp auditStamp) {
     if (baseSchema != null && targetSchema != null) {
       if (!baseSchema.getPlatform().equals(targetSchema.getPlatform())) {
         return ChangeEvent.builder()
             .semVerChange(SemanticChangeType.EXCEPTIONAL)
             .description("Incompatible schema types," + baseSchema.getPlatform() + ", " + targetSchema.getPlatform())
+            .auditStamp(auditStamp)
             .build();
       }
       if (!baseSchema.getSchemaName().equals(targetSchema.getSchemaName())) {
@@ -393,6 +384,7 @@ public class SchemaDiffer implements Differ {
             .semVerChange(SemanticChangeType.EXCEPTIONAL)
             .description(
                 "Schema names are not same," + baseSchema.getSchemaName() + ", " + targetSchema.getSchemaName())
+            .auditStamp(auditStamp)
             .build();
       }
     }
@@ -415,7 +407,7 @@ public class SchemaDiffer implements Differ {
   }
 
   private static List<ChangeEvent> getPrimaryKeyChangeEvents(SchemaMetadata baseSchema, SchemaMetadata targetSchema,
-      Urn datasetUrn) {
+      Urn datasetUrn, AuditStamp auditStamp) {
     List<ChangeEvent> primaryKeyChangeEvents = new ArrayList<>();
     Set<String> basePrimaryKeys =
         (baseSchema != null && baseSchema.getPrimaryKeys() != null) ? new HashSet<>(baseSchema.getPrimaryKeys())
@@ -427,11 +419,12 @@ public class SchemaDiffer implements Differ {
     for (String removedBaseKeyField : removedBaseKeys) {
       primaryKeyChangeEvents.add(ChangeEvent.builder()
           .category(ChangeCategory.TECHNICAL_SCHEMA)
-          .elementId(getSchemaFieldUrn(datasetUrn, removedBaseKeyField))
-          .target(datasetUrn.toString())
-          .changeType(ChangeOperation.MODIFY)
+          .modifier(getSchemaFieldUrn(datasetUrn.toString(), removedBaseKeyField).toString())
+          .entityUrn(datasetUrn.toString())
+          .operation(ChangeOperation.MODIFY)
           .semVerChange(SemanticChangeType.MAJOR)
           .description(BACKWARDS_INCOMPATIBLE_DESC + " removal of the primary key field '" + removedBaseKeyField + "'")
+          .auditStamp(auditStamp)
           .build());
     }
 
@@ -440,11 +433,12 @@ public class SchemaDiffer implements Differ {
     for (String addedTargetKeyField : addedTargetKeys) {
       primaryKeyChangeEvents.add(ChangeEvent.builder()
           .category(ChangeCategory.TECHNICAL_SCHEMA)
-          .elementId(getSchemaFieldUrn(datasetUrn, addedTargetKeyField))
-          .target(datasetUrn.toString())
-          .changeType(ChangeOperation.MODIFY)
+          .modifier(getSchemaFieldUrn(datasetUrn, addedTargetKeyField).toString())
+          .entityUrn(datasetUrn.toString())
+          .operation(ChangeOperation.MODIFY)
           .semVerChange(SemanticChangeType.MAJOR)
           .description(BACKWARDS_INCOMPATIBLE_DESC + " addition of the primary key field '" + addedTargetKeyField + "'")
+          .auditStamp(auditStamp)
           .build());
     }
     return primaryKeyChangeEvents;
@@ -462,13 +456,13 @@ public class SchemaDiffer implements Differ {
     SchemaMetadata targetSchema = getSchemaMetadataFromAspect(currentValue);
     assert (targetSchema != null);
     List<ChangeEvent> changeEvents = new ArrayList<>();
-    ChangeEvent incompatibleChangeEvent = getIncompatibleChangeEvent(baseSchema, targetSchema);
+    ChangeEvent incompatibleChangeEvent = getIncompatibleChangeEvent(baseSchema, targetSchema, null);
     if (incompatibleChangeEvent != null) {
       changeEvents.add(incompatibleChangeEvent);
     } else {
       try {
         changeEvents.addAll(
-            computeDiffs(baseSchema, targetSchema, DatasetUrn.createFromString(currentValue.getUrn()), changeCategory));
+            computeDiffs(baseSchema, targetSchema, DatasetUrn.createFromString(currentValue.getUrn()), changeCategory, null));
       } catch (URISyntaxException e) {
         throw new IllegalArgumentException("Malformed DatasetUrn " + currentValue.getUrn());
       }
@@ -491,4 +485,21 @@ public class SchemaDiffer implements Differ {
         .actor(currentValue.getCreatedBy())
         .build();
   }
+
+  @Override
+  public List<ChangeEvent> getChangeEvents(
+      @Nonnull Urn urn,
+      @Nonnull String entity,
+      @Nonnull String aspect,
+      @Nonnull Aspect<SchemaMetadata> from,
+      @Nonnull Aspect<SchemaMetadata> to,
+      @Nonnull AuditStamp auditStamp) {
+    final List<ChangeEvent> changeEvents = new ArrayList<>();
+    changeEvents.addAll(computeDiffs(from.getValue(), to.getValue(), urn, ChangeCategory.DOCUMENTATION, auditStamp));
+    changeEvents.addAll(computeDiffs(from.getValue(), to.getValue(), urn, ChangeCategory.TAG, auditStamp));
+    changeEvents.addAll(computeDiffs(from.getValue(), to.getValue(), urn, ChangeCategory.TECHNICAL_SCHEMA, auditStamp));
+    changeEvents.addAll(computeDiffs(from.getValue(), to.getValue(), urn, ChangeCategory.GLOSSARY_TERM, auditStamp));
+    return changeEvents;
+  }
+
 }

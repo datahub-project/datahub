@@ -2,13 +2,15 @@ buildscript {
   ext.junitJupiterVersion = '5.6.1'
   ext.pegasusVersion = '29.22.16'
   ext.mavenVersion = '3.6.3'
+  ext.springVersion = '5.3.18'
+  ext.springBootVersion = '2.5.12'
   apply from: './repositories.gradle'
   buildscript.repositories.addAll(project.repositories)
   dependencies {
     classpath 'com.linkedin.pegasus:gradle-plugins:' + pegasusVersion
     classpath 'com.github.node-gradle:gradle-node-plugin:2.2.4'
     classpath 'com.commercehub.gradle.plugin:gradle-avro-plugin:0.8.1'
-    classpath 'org.springframework.boot:spring-boot-gradle-plugin:2.1.4.RELEASE'
+    classpath 'org.springframework.boot:spring-boot-gradle-plugin:' + springBootVersion
     classpath('com.github.jengelman.gradle.plugins:shadow:5.2.0') {
       exclude group: 'org.apache.logging.log4j', module: 'log4j-core'
     }
@@ -119,20 +121,20 @@ project.ext.externalDependency = [
     'shiroCore': 'org.apache.shiro:shiro-core:1.8.0',
     'sparkSql' : 'org.apache.spark:spark-sql_2.11:2.4.8',
     'sparkHive' : 'org.apache.spark:spark-hive_2.11:2.4.8',
-    'springBeans': 'org.springframework:spring-beans:5.2.3.RELEASE',
-    'springContext': 'org.springframework:spring-context:5.2.3.RELEASE',
-    'springCore': 'org.springframework:spring-core:5.2.3.RELEASE',
-    'springDocUI': 'org.springdoc:springdoc-openapi-ui:1.6.6',
-    'springJdbc': 'org.springframework:spring-jdbc:5.2.3.RELEASE',
-    'springWeb': 'org.springframework:spring-web:5.2.3.RELEASE',
-    'springWebMVC': 'org.springframework:spring-webmvc:5.2.3.RELEASE',
-    'springBoot': 'org.springframework.boot:spring-boot:2.1.14.RELEASE',
-    'springBootAutoconfigure': 'org.springframework.boot:spring-boot-autoconfigure:2.1.4.RELEASE',
-    'springBootStarterWeb': 'org.springframework.boot:spring-boot-starter-web:2.1.4.RELEASE',
-    'springBootStarterJetty': 'org.springframework.boot:spring-boot-starter-jetty:2.1.4.RELEASE',
-    'springBootStarterCache': 'org.springframework.boot:spring-boot-starter-cache:2.1.4.RELEASE',
-    'springKafka': 'org.springframework.kafka:spring-kafka:2.2.14.RELEASE',
-    'springActuator': 'org.springframework.boot:spring-boot-starter-actuator:2.1.4.RELEASE',
+    'springBeans': "org.springframework:spring-beans:$springVersion",
+    'springContext': "org.springframework:spring-context:$springVersion",
+    'springCore': "org.springframework:spring-core:$springVersion",
+    'springDocUI': 'org.springdoc:springdoc-openapi-ui:1.6.7',
+    'springJdbc': "org.springframework:spring-jdbc:$springVersion",
+    'springWeb': "org.springframework:spring-web:$springVersion",
+    'springWebMVC': "org.springframework:spring-webmvc:$springVersion",
+    'springBoot': "org.springframework.boot:spring-boot:$springBootVersion",
+    'springBootAutoconfigure': "org.springframework.boot:spring-boot-autoconfigure:$springBootVersion",
+    'springBootStarterWeb': "org.springframework.boot:spring-boot-starter-web:$springBootVersion",
+    'springBootStarterJetty': "org.springframework.boot:spring-boot-starter-jetty:$springBootVersion",
+    'springBootStarterCache': "org.springframework.boot:spring-boot-starter-cache:$springBootVersion",
+    'springKafka': 'org.springframework.kafka:spring-kafka:2.7.12',
+    'springActuator': "org.springframework.boot:spring-boot-starter-actuator:$springBootVersion",
     'swaggerAnnotations': 'io.swagger.core.v3:swagger-annotations:2.1.12',
     'testng': 'org.testng:testng:7.3.0',
     'testContainers': 'org.testcontainers:testcontainers:1.15.3',
