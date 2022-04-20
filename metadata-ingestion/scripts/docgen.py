@@ -103,6 +103,21 @@ def gen_md_table_from_struct(schema_dict: Dict[str, Any]) -> List[str]:
     )
 
 
+def get_enum_description(
+    authored_description: Optional[str], enum_symbols: List[str]
+) -> str:
+    description = authored_description or ""
+    missed_symbols = [symbol for symbol in enum_symbols if symbol not in description]
+    if missed_symbols:
+        description = (
+            description + "."
+            if description
+            else "" + " Allowed symbols are " + ",".join(enum_symbols)
+        )
+
+    return description
+
+
 def gen_md_table(
     field_dict: Dict[str, Any],
     definitions_dict: Dict[str, Any],
@@ -125,7 +140,6 @@ def gen_md_table(
 
     elif "properties" in field_dict:
         for field_name, value in field_dict["properties"].items():
-            # breakpoint()
             required_field: bool = field_name in field_dict.get("required", [])
 
             if "allOf" in value:
@@ -134,23 +148,37 @@ def gen_md_table(
                     def_dict = get_definition_dict_from_definition(
                         definitions_dict, reference
                     )
-                    row = FieldRow(
-                        path=get_prefixed_name(field_prefix, field_name),
-                        type_name=f"{reference.split('/')[-1]} (see below for fields)",
-                        description=value.get("description") or "",
-                        default=str(value.get("default")) or "",
-                        required=required_field,
-                    )
-                    md_str.append(row)
-                    # md_str.append(
-                    #    f"| {get_prefixed_name(field_prefix, field_name)} | {reference.split('/')[-1]} (see below for fields) | {value.get('description') or ''} | {value.get('default') or ''} | \n"
-                    # )
-                    gen_md_table(
-                        def_dict,
-                        definitions_dict,
-                        field_prefix=get_prefixed_name(field_prefix, field_name),
-                        md_str=row.inner_fields,
-                    )
+                    # special case for enum reference, we don't split up the rows
+                    if "enum" in def_dict:
+                        row = FieldRow(
+                            path=get_prefixed_name(field_prefix, field_name),
+                            type_name=f"enum({reference.split('/')[-1]})",
+                            description=get_enum_description(
+                                value.get("description"), def_dict["enum"]
+                            ),
+                            default=str(value.get("default")) or "",
+                            required=required_field,
+                        )
+                        md_str.append(row)
+                    else:
+                        # object reference
+                        row = FieldRow(
+                            path=get_prefixed_name(field_prefix, field_name),
+                            type_name=f"{reference.split('/')[-1]} (see below for fields)",
+                            description=value.get("description") or "",
+                            default=str(value.get("default")) or "",
+                            required=required_field,
+                        )
+                        md_str.append(row)
+                        # md_str.append(
+                        #    f"| {get_prefixed_name(field_prefix, field_name)} | {reference.split('/')[-1]} (see below for fields) | {value.get('description') or ''} | {value.get('default') or ''} | \n"
+                        # )
+                        gen_md_table(
+                            def_dict,
+                            definitions_dict,
+                            field_prefix=get_prefixed_name(field_prefix, field_name),
+                            md_str=row.inner_fields,
+                        )
             elif "type" in value and value["type"] == "enum":
                 # enum
                 enum_definition = value["allOf"][0]["$ref"]
