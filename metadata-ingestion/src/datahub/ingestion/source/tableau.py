@@ -92,6 +92,7 @@ class TableauConfig(ConfigModel):
     default_schema_map: dict = {}
     ingest_tags: Optional[bool] = False
     ingest_owner: Optional[bool] = False
+    ingest_tables_external: bool = False
 
     workbooks_page_size: int = 10
     env: str = builder.DEFAULT_ENV
@@ -110,7 +111,7 @@ class TableauSource(Source):
     report: SourceReport
     platform = "tableau"
     server: Optional[Server]
-    upstream_tables: Dict[str, Tuple[Any, str]] = {}
+    upstream_tables: Dict[str, Tuple[Any, Optional[str], bool]] = {}
 
     def __hash__(self):
         return id(self)
@@ -295,15 +296,20 @@ class TableauSource(Source):
                 type=DatasetLineageTypeClass.TRANSFORMED,
             )
             upstream_tables.append(upstream_table)
-            table_path = f"{project.replace('/', REPLACE_SLASH_CHAR)}/{datasource.get('name', '')}/{table_name}"
+
+            table_path = None
+            if project and datasource.get("name") and table.get("name"):
+                table_path = f"{project.replace('/', REPLACE_SLASH_CHAR)}/{datasource['name']}/{table['name']}"
+
             self.upstream_tables[table_urn] = (
                 table.get("columns", []),
                 table_path,
+                table.get("isEmbedded") if table.get("isEmbedded") else False,
             )
 
-        for datasource in datasource.get("upstreamDatasources", []):
+        for ds in datasource.get("upstreamDatasources", []):
             datasource_urn = builder.make_dataset_urn(
-                self.platform, datasource["id"], self.config.env
+                self.platform, ds["id"], self.config.env
             )
             upstream_table = UpstreamClass(
                 dataset=datasource_urn,
@@ -674,39 +680,45 @@ class TableauSource(Source):
                 yield from self.emit_datasource(datasource)
 
     def emit_upstream_tables(self) -> Iterable[MetadataWorkUnit]:
-        for (table_urn, (columns, path)) in self.upstream_tables.items():
+        for (table_urn, (columns, path, is_embedded)) in self.upstream_tables.items():
+            if not is_embedded and not self.config.ingest_tables_external:
+                continue
+
             dataset_snapshot = DatasetSnapshot(
                 urn=table_urn,
                 aspects=[],
             )
-            # Browse path
-            browse_paths = BrowsePathsClass(
-                paths=[f"/{self.config.env.lower()}/{self.platform}/{path}"]
-            )
-            dataset_snapshot.aspects.append(browse_paths)
-
-            fields = []
-            for field in columns:
-                nativeDataType = field.get("remoteType", "UNKNOWN")
-                TypeClass = FIELD_TYPE_MAPPING.get(nativeDataType, NullTypeClass)
-
-                schema_field = SchemaField(
-                    fieldPath=field["name"],
-                    type=SchemaFieldDataType(type=TypeClass()),
-                    description="",
-                    nativeDataType=nativeDataType,
+            if path:
+                # Browse path
+                browse_paths = BrowsePathsClass(
+                    paths=[f"/{self.config.env.lower()}/{self.platform}/{path}"]
                 )
+                dataset_snapshot.aspects.append(browse_paths)
 
-                fields.append(schema_field)
+            schema_metadata = None
+            if columns:
+                fields = []
+                for field in columns:
+                    nativeDataType = field.get("remoteType", "UNKNOWN")
+                    TypeClass = FIELD_TYPE_MAPPING.get(nativeDataType, NullTypeClass)
 
-            schema_metadata = SchemaMetadata(
-                schemaName="test",
-                platform=f"urn:li:dataPlatform:{self.platform}",
-                version=0,
-                fields=fields,
-                hash="",
-                platformSchema=OtherSchema(rawSchema=""),
-            )
+                    schema_field = SchemaField(
+                        fieldPath=field["name"],
+                        type=SchemaFieldDataType(type=TypeClass()),
+                        description="",
+                        nativeDataType=nativeDataType,
+                    )
+
+                    fields.append(schema_field)
+
+                schema_metadata = SchemaMetadata(
+                    schemaName="test",
+                    platform=f"urn:li:dataPlatform:{self.platform}",
+                    version=0,
+                    fields=fields,
+                    hash="",
+                    platformSchema=OtherSchema(rawSchema=""),
+                )
             if schema_metadata is not None:
                 dataset_snapshot.aspects.append(schema_metadata)
 
