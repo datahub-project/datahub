@@ -12,7 +12,6 @@ from unittest.mock import patch
 # This import verifies that the dependencies are available.
 import sqlalchemy_bigquery
 from dateutil import parser
-from dateutil.relativedelta import relativedelta
 from google.cloud.bigquery import Client as BigQueryClient
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from sqlalchemy import create_engine, inspect
@@ -53,6 +52,9 @@ from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     UpstreamClass,
     UpstreamLineageClass,
+)
+from datahub.utilities.parsing_partition_util import (
+    get_partition_range_from_partition_id,
 )
 from datahub.utilities.sql_parser import DefaultSQLParser
 
@@ -627,22 +629,12 @@ class BigQuerySource(SQLAlchemySource):
                 partition_datetime = parser.parse(partition.partition_id)
             logger.debug(f"{table} is partitioned and partition column is {partition}")
             if partition.data_type in ("TIMESTAMP", "DATETIME"):
-                duration: relativedelta
-                # if yearly partitioned,
-                if len(partition.partition_id) == 4:
-                    duration = relativedelta(years=1)
-                    partition_datetime = partition_datetime.replace(month=1, day=1)
-                # elif monthly partitioned,
-                elif len(partition.partition_id) == 6:
-                    duration = relativedelta(months=1)
-                    partition_datetime = partition_datetime.replace(day=1)
-                # elif daily partitioned,
-                elif len(partition.partition_id) == 8:
-                    duration = relativedelta(days=1)
-                # elif hourly partitioned,
-                elif len(partition.partition_id) == 10:
-                    duration = relativedelta(hours=1)
-                upper_bound_partition_datetime = partition_datetime + duration
+                (
+                    partition_datetime,
+                    upper_bound_partition_datetime,
+                ) = get_partition_range_from_partition_id(
+                    partition.partition_id, partition_datetime
+                )
                 partition_where_clause = "{column_name} BETWEEN '{partition_id}' AND '{upper_bound_partition_id}'".format(
                     column_name=partition.column_name,
                     partition_id=partition_datetime,
