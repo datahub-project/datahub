@@ -36,7 +36,7 @@ Taking a simple nested schema as described below:
 }
 ```
 - v1 field path: `address.zipcode`
-- v2 field path: `[version=2.0].[type=struct].address.[type=string].zipcode"`. More examples and a formal specification of a v2 fieldPath can be found [here](docs/advanced/field-path-spec-v2.md).
+- v2 field path: `[version=2.0].[type=struct].address.[type=string].zipcode"`. More examples and a formal specification of a v2 fieldPath can be found [here](docs/advanced/field-path-spec-v2/). 
 
 Understanding field paths is important, because they are the identifiers through which tags, terms, documentation on fields are expressed. Besides the type and name of the field, schemas also contain descriptions attached to the individual fields, as well as information about primary and foreign keys.
 

@@ -506,6 +506,7 @@ public class EbeanAspectDao {
     for (EbeanAspectV2.PrimaryKey key: dbResults) {
       result.put(key.getAspect(), key.getVersion());
     }
+
     for (String aspectName: aspectNames) {
       long nextVal = 0L;
       if (result.containsKey(aspectName)) {
