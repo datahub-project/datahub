@@ -94,7 +94,7 @@ class LookerAPI:
         try:
             self.client.me(
                 transport_options=config.transport_options.get_transport_options()
-                if config.transport_options
+                if config.transport_options is not None
                 else None
             )
         except SDKError as e:
