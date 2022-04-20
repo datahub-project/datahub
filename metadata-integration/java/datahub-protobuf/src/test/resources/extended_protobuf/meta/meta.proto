@@ -22,7 +22,7 @@ enum DataHubMetadataType {
   TERM        = 3; // Datahub Term
   OWNER       = 4; // Datahub Owner
   DOMAIN      = 5; // Datahub Domain
-  DEPRECATION = 6; //Datahub Deprecation
+  DEPRECATION = 6; // Datahub Deprecation
 }
 
 /*

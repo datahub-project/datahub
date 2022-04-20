@@ -495,7 +495,9 @@ Set the domain id for the dataset. The domain should exist already. Note that th
 
 ##### DEPRECATION
 
-Deprecation of fields and messages are natively supported by protobuf options, however field level deprecation is limited to adding a tag in DataHub.
+Deprecation of fields and messages are natively supported by protobuf options.
+The standard "Deprecation" aspect is used for a dataset generated from a protobuf `message`.
+Field deprecation adds a tag with the following urn `urn:li:tag:deprecated` (red, #FF000).
 
 ```protobuf
    message msg {
