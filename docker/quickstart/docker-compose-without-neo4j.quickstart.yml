@@ -137,6 +137,7 @@ services:
     - MYSQL_ROOT_PASSWORD=datahub
     hostname: mysql
     image: mysql:5.7
+    platform: linux/x86_64
     ports:
     - 3306:3306
     volumes:
