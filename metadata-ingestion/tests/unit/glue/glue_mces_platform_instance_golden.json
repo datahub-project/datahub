@@ -278,6 +278,13 @@
                     }
                 ]
             }
+          },
+          {
+              "com.linkedin.pegasus2avro.common.GlobalTags": {
+                  "tags": [
+                      {"tag": "urn:li:tag:baz:bob"}
+                  ]
+              }
           }
         ]
       }
@@ -514,6 +521,13 @@
                     }
                 ]
             }
+          },
+          {
+              "com.linkedin.pegasus2avro.common.GlobalTags": {
+                  "tags": [
+                      {"tag": "urn:li:tag:baz:bob"}
+                  ]
+              }
           }
         ]
       }
@@ -722,6 +736,13 @@
                     }
                 ]
             }
+          },
+          {
+              "com.linkedin.pegasus2avro.common.GlobalTags": {
+                  "tags": [
+                      {"tag": "urn:li:tag:baz:bob"}
+                  ]
+              }
           }
         ]
       }

@@ -769,3 +769,7 @@ def get_object_response_2() -> Dict[str, Any]:
 
 def get_bucket_tagging() -> Dict[str, Any]:
     return {"TagSet": [{"Key": "foo", "Value": "bar"}]}
+
+
+def get_object_tagging() -> Dict[str, Any]:
+    return {"TagSet": [{"Key": "baz", "Value": "bob"}]}

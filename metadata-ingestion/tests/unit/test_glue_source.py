@@ -31,6 +31,7 @@ from tests.unit.test_glue_source_stubs import (
     get_object_response_2,
     get_tables_response_1,
     get_tables_response_2,
+    get_object_tagging,
 )
 
 FROZEN_TIME = "2020-04-14 07:00:00"
@@ -44,6 +45,7 @@ def glue_source(platform_instance: Optional[str] = None) -> GlueSource:
             extract_transforms=True,
             platform_instance=platform_instance,
             use_s3_bucket_tags=True,
+            use_s3_object_tags=True,
         ),
     )
 
@@ -126,6 +128,10 @@ def test_glue_ingest(
                 s3_stubber.add_response(
                     "get_bucket_tagging",
                     get_bucket_tagging(),
+                )
+                s3_stubber.add_response(
+                    "get_object_tagging",
+                    get_object_tagging(),
                 )
 
             s3_stubber.add_response(

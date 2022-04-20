@@ -423,8 +423,14 @@
                             {"tag": "foo:bar"}
                         ]
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": [
+                            {"tag": "baz:bob"}
+                        ]
+                    }
                 }
-
             ]
         }
     },
