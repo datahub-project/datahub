@@ -84,7 +84,7 @@ class LineageConfig(VersionedConfig):
 @dataclass
 class LineageFileSource(Source):
     """
-    This plugin pulls lineage metadata from a yaml-formatted file. An example of one such file is located in the examples directory here(../examples/bootstrap_data/file_lineage.yml).
+    This plugin pulls lineage metadata from a yaml-formatted file. An example of one such file is located in the examples directory [here](../../../../metadata-ingestion/examples/bootstrap_data/file_lineage.yml).
     """
 
     config: LineageFileSourceConfig
