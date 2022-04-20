@@ -67,7 +67,6 @@ const HeaderAndTabsFlex = styled.div`
     max-height: 100%;
     overflow: hidden;
     min-height: 0;
-    height: calc(100vh - 60px);
     overflow-y: auto;
 
     &::-webkit-scrollbar {
@@ -271,7 +270,9 @@ export const EntityProfile = <T, U>({
                             }}
                         >
                             <HeaderAndTabs>
-                                <HeaderAndTabsFlex>
+                                <HeaderAndTabsFlex
+                                    style={{ height: `calc(100vh - ${showBrowseBar ? '106px' : '61px'})` }}
+                                >
                                     <Header>
                                         <EntityHeader />
                                         <EntityTabs
@@ -285,7 +286,10 @@ export const EntityProfile = <T, U>({
                                 </HeaderAndTabsFlex>
                             </HeaderAndTabs>
                             <Sidebar>
-                                <EntitySidebar sidebarSections={sideBarSectionsWithDefaults} />
+                                <EntitySidebar
+                                    showBrowseBar={showBrowseBar}
+                                    sidebarSections={sideBarSectionsWithDefaults}
+                                />
                             </Sidebar>
                         </SplitPane>
                     )}

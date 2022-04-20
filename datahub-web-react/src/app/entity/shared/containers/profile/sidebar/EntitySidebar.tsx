@@ -6,7 +6,6 @@ import { useBaseEntity, useEntityData } from '../../../EntityContext';
 import { EntitySidebarSection } from '../../../types';
 
 const ContentContainer = styled.div`
-    height: calc(100vh - 61px);
     overflow-y: auto;
     & > div {
         &:not(:first-child) {
@@ -29,13 +28,15 @@ const ContentContainer = styled.div`
 
 type Props = {
     sidebarSections: EntitySidebarSection[];
+    showBrowseBar?: boolean;
 };
 
-export const EntitySidebar = <T,>({ sidebarSections }: Props) => {
+export const EntitySidebar = <T,>({ sidebarSections, showBrowseBar }: Props) => {
     const { entityData } = useEntityData();
     const baseEntity = useBaseEntity<T>();
+
     return (
-        <ContentContainer>
+        <ContentContainer style={{ height: `calc(100vh - ${showBrowseBar ? '111px' : '66px'})` }}>
             {sidebarSections?.map((section) => {
                 if (section.display?.visible(entityData, baseEntity) !== true) {
                     return null;
