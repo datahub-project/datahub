@@ -42,7 +42,9 @@ public class MLFeatureTablePropertiesMapper implements ModelMapper<com.linkedin.
                 .collect(Collectors.toList()));
         }
 
-        result.setCustomProperties(StringMapMapper.map(mlFeatureTableProperties.getCustomProperties()));
+        if (mlFeatureTableProperties.hasCustomProperties()){
+            result.setCustomProperties(StringMapMapper.map(mlFeatureTableProperties.getCustomProperties()));
+        }
 
         return result;
     }
