@@ -95,7 +95,9 @@ def test_data_lake_local_ingest(pytestconfig, source_file, tmp_path, mock_time):
     ].replace("s3://my-test-bucket/", "tests/integration/s3/test_data/local_system/")
     source["config"]["profiling"]["enabled"] = True
     source["config"].pop("aws_config")
-    source["config"].pop("use_s3_bucket_tags")
+    # Only pop the key/value for configs that contain the key
+    if "use_s3_bucket_tags" in source["config"]:
+        source["config"].pop("use_s3_bucket_tags")
     config_dict["source"] = source
     config_dict["sink"] = {
         "type": "file",

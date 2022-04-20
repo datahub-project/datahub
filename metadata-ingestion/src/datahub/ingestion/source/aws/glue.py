@@ -763,6 +763,7 @@ class GlueSource(Source):
                 self.report.report_workunit(dataset_wu)
                 yield dataset_wu
 
+    # flake8: noqa: C901
     def _extract_record(self, table: Dict, table_name: str) -> MetadataChangeEvent:
         def get_owner() -> Optional[OwnershipClass]:
             owner = table.get("Owner")
