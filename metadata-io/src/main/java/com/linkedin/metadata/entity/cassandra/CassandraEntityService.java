@@ -299,13 +299,28 @@ public class CassandraEntityService extends EntityService {
       @Nonnull final String entityName,
       @Nonnull final String aspectName,
       @Nonnull final AspectSpec aspectSpec,
-      @Nonnull final RecordTemplate value,
+      @Nonnull final RecordTemplate newValue,
       @Nonnull final AuditStamp auditStamp,
       @Nonnull final long version,
       @Nonnull final boolean emitMae) {
     log.debug(
         "Invoked updateAspect with urn: {}, aspectName: {}, newValue: {}, version: {}, emitMae: {}", urn,
-        aspectName, value, version, emitMae);
+        aspectName, newValue, version, emitMae);
+    return updateAspect(urn, entityName, aspectName, aspectSpec, newValue, auditStamp, version, emitMae,
+        DEFAULT_MAX_TRANSACTION_RETRY);
+  }
+
+  @Nonnull
+  private RecordTemplate updateAspect(
+      @Nonnull final Urn urn,
+      @Nonnull final String entityName,
+      @Nonnull final String aspectName,
+      @Nonnull final AspectSpec aspectSpec,
+      @Nonnull final RecordTemplate value,
+      @Nonnull final AuditStamp auditStamp,
+      @Nonnull final long version,
+      @Nonnull final boolean emitMae,
+      final int maxTransactionRetry) {
     final UpdateAspectResult result = _aspectDao.runInTransactionWithRetry(() -> {
 
       final CassandraAspect oldAspect = _aspectDao.getAspect(urn.toString(), aspectName, version);
@@ -325,8 +340,8 @@ public class CassandraEntityService extends EntityService {
           new Timestamp(auditStamp.getTime()), EntityUtils.toJsonAspect(newSystemMetadata), version, oldAspect == null);
 
       return new UpdateAspectResult(urn, oldValue, value, oldSystemMetadata, newSystemMetadata,
-          MetadataAuditOperation.UPDATE, version);
-    }, DEFAULT_MAX_TRANSACTION_RETRY);
+          MetadataAuditOperation.UPDATE, auditStamp, version);
+    }, maxTransactionRetry);
 
     final RecordTemplate oldValue = result.getOldValue();
     final RecordTemplate newValue = result.getNewValue();
@@ -334,7 +349,7 @@ public class CassandraEntityService extends EntityService {
     if (emitMae) {
       log.debug("Producing MetadataAuditEvent for updated aspect {}, urn {}", aspectName, urn);
       produceMetadataChangeLog(urn, entityName, aspectName, aspectSpec, oldValue, newValue,
-          result.getOldSystemMetadata(), result.getNewSystemMetadata(), ChangeType.UPSERT);
+          result.getOldSystemMetadata(), result.getNewSystemMetadata(), auditStamp, ChangeType.UPSERT);
     } else {
       log.debug("Skipped producing MetadataAuditEvent for updated aspect {}, urn {}. emitMAE is false.",
           aspectName, urn);
@@ -395,6 +410,8 @@ public class CassandraEntityService extends EntityService {
         removedAspects.add(aspectToRemove);
         produceMetadataChangeLog(result.getUrn(), result.getEntityName(), result.getAspectName(), aspectSpec.get(),
             result.getOldValue(), result.getNewValue(), result.getOldSystemMetadata(), result.getNewSystemMetadata(),
+            // TODO: use properly attributed audit stamp.
+            createSystemAuditStamp(),
             result.getChangeType());
       }
     });
@@ -431,6 +448,8 @@ public class CassandraEntityService extends EntityService {
       removedAspects.add(summary);
       produceMetadataChangeLog(result.getUrn(), result.getEntityName(), result.getAspectName(), keySpec,
           result.getOldValue(), result.getNewValue(), result.getOldSystemMetadata(), result.getNewSystemMetadata(),
+          // TODO: Use a proper inferred audit stamp
+          createSystemAuditStamp(),
           result.getChangeType());
     }
 
@@ -670,7 +689,7 @@ public class CassandraEntityService extends EntityService {
 
       return new UpdateAspectResult(urn, oldValue, oldValue,
           EntityUtils.parseSystemMetadata(latest.getSystemMetadata()), latestSystemMetadata,
-          MetadataAuditOperation.UPDATE, 0);
+          MetadataAuditOperation.UPDATE, auditStamp, 0);
     }
 
     // 4. Save the newValue as the latest version
@@ -692,7 +711,7 @@ public class CassandraEntityService extends EntityService {
 
     return new UpdateAspectResult(urn, oldValue, newValue,
         latest == null ? null : EntityUtils.parseSystemMetadata(latest.getSystemMetadata()), providedSystemMetadata,
-        MetadataAuditOperation.UPDATE, versionOfOld);
+        MetadataAuditOperation.UPDATE, auditStamp, versionOfOld);
   }
 
   @Nonnull

@@ -10,6 +10,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.BrowsePaths;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.TyperefDataSchema;
 import com.linkedin.data.template.RecordTemplate;
@@ -56,6 +57,7 @@ import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
+import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
 import static com.linkedin.metadata.utils.PegasusUtils.getDataTemplateClassFromSchema;
 import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 
@@ -84,7 +86,7 @@ import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
  *
  * Note that currently, implementations of this interface are responsible for producing Metadata Audit Events on
  * ingestion using {@link #produceMetadataChangeLog(Urn, String, String, AspectSpec, RecordTemplate, RecordTemplate,
- * SystemMetadata, SystemMetadata, ChangeType)}.
+ * SystemMetadata, SystemMetadata, AuditStamp, ChangeType)}.
  *
  * TODO: Consider whether we can abstract away virtual versioning semantics to subclasses of this class.
  * TODO: Extract out a nested 'AspectService'.
@@ -376,7 +378,7 @@ public abstract class EntityService {
               Optional.of(new RetentionService.RetentionContext(Optional.of(result.maxVersion))));
     }
 
-    // Produce MAE after a successful update
+    // Produce MCL after a successful update
     if (oldValue != updatedValue || _alwaysEmitAuditEvent) {
       log.debug(String.format("Producing MetadataChangeLog for ingested aspect %s, urn %s", aspectName, urn));
       String entityName = urnToEntityName(urn);
@@ -388,7 +390,7 @@ public abstract class EntityService {
 
       Timer.Context produceMCLTimer = MetricUtils.timer(this.getClass(), "produceMCL").time();
       produceMetadataChangeLog(urn, entityName, aspectName, aspectSpec, oldValue, updatedValue, oldSystemMetadata,
-          updatedSystemMetadata, ChangeType.UPSERT);
+          updatedSystemMetadata, result.getAuditStamp(), ChangeType.UPSERT);
       produceMCLTimer.stop();
 
       // For legacy reasons, keep producing to the MAE event stream without blocking ingest
@@ -473,6 +475,7 @@ public abstract class EntityService {
 
       final MetadataChangeLog metadataChangeLog = new MetadataChangeLog(metadataChangeProposal.data());
       metadataChangeLog.setEntityUrn(entityUrn);
+      metadataChangeLog.setCreated(auditStamp);
 
       if (oldAspect != null) {
         metadataChangeLog.setPreviousAspectValue(GenericRecordUtils.serializeAspect(oldAspect));
@@ -537,12 +540,15 @@ public abstract class EntityService {
   }
 
   /**
+   * Deprecated! Use getEntitiesV2 instead.
+   *
    * Retrieves multiple entities.
    *
    * @param urns set of urns to fetch
    * @param aspectNames set of aspects to fetch
    * @return a map of {@link Urn} to {@link Entity} object
    */
+  @Deprecated
   public Map<Urn, Entity> getEntities(@Nonnull final Set<Urn> urns, @Nonnull Set<String> aspectNames) {
     log.debug("Invoked getEntities with urns {}, aspects {}", urns, aspectNames);
     if (urns.isEmpty()) {
@@ -600,12 +606,13 @@ public abstract class EntityService {
   public void produceMetadataChangeLog(@Nonnull final Urn urn, @Nonnull String entityName, @Nonnull String aspectName,
       @Nonnull final AspectSpec aspectSpec, @Nullable final RecordTemplate oldAspectValue,
       @Nullable final RecordTemplate newAspectValue, @Nullable final SystemMetadata oldSystemMetadata,
-      @Nullable final SystemMetadata newSystemMetadata, @Nonnull final ChangeType changeType) {
+      @Nullable final SystemMetadata newSystemMetadata, @Nonnull AuditStamp auditStamp, @Nonnull final ChangeType changeType) {
     final MetadataChangeLog metadataChangeLog = new MetadataChangeLog();
     metadataChangeLog.setEntityType(entityName);
     metadataChangeLog.setEntityUrn(urn);
     metadataChangeLog.setChangeType(changeType);
     metadataChangeLog.setAspectName(aspectName);
+    metadataChangeLog.setCreated(auditStamp);
     if (newAspectValue != null) {
       metadataChangeLog.setAspect(GenericRecordUtils.serializeAspect(newAspectValue));
     }
@@ -892,6 +899,7 @@ public abstract class EntityService {
     SystemMetadata oldSystemMetadata;
     SystemMetadata newSystemMetadata;
     MetadataAuditOperation operation;
+    AuditStamp auditStamp;
     long maxVersion;
   }
 
@@ -921,5 +929,11 @@ public abstract class EntityService {
       }
     }
     return true;
+  }
+
+  protected AuditStamp createSystemAuditStamp() {
+    return new AuditStamp()
+        .setActor(UrnUtils.getUrn(SYSTEM_ACTOR))
+        .setTime(System.currentTimeMillis());
   }
 }

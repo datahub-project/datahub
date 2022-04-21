@@ -1,6 +1,8 @@
 package com.linkedin.datahub.upgrade.restoreindices;
 
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
@@ -21,6 +23,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+
+import static com.linkedin.metadata.Constants.*;
 
 
 public class SendMAEStep implements UpgradeStep {
@@ -108,7 +112,9 @@ public class SendMAEStep implements UpgradeStep {
 
           // 5. Produce MAE events for the aspect record
           _entityService.produceMetadataChangeLog(urn, entityName, aspectName, aspectSpec, null, aspectRecord, null,
-              latestSystemMetadata, ChangeType.UPSERT);
+              latestSystemMetadata,
+              new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(System.currentTimeMillis()),
+              ChangeType.UPSERT);
 
           totalRowsMigrated++;
         }
