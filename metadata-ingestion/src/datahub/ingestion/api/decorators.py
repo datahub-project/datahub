@@ -3,6 +3,7 @@ from enum import Enum, auto
 from typing import Callable, Dict, Optional, Type
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.source import Source
 
 
 def config_class(config_cls: Type) -> Callable[[Type], Type]:
@@ -10,13 +11,17 @@ def config_class(config_cls: Type) -> Callable[[Type], Type]:
 
     def default_create(cls: Type, config_dict: Dict, ctx: PipelineContext) -> Type:
         config = config_cls.parse_obj(config_dict)
-        return cls(config, ctx)
+        return cls(config=config, ctx=ctx)
 
     def wrapper(cls: Type) -> Type:
         # add a get_config_class method
         setattr(cls, "get_config_class", lambda: config_cls)
-        # add the create method
-        setattr(cls, "create", classmethod(default_create))
+        if not hasattr(cls, "create") or (
+            getattr(cls, "create").__func__ == getattr(Source, "create").__func__
+        ):
+            # add the create method only if it has not been overridden from the base Source.create method
+            setattr(cls, "create", classmethod(default_create))
+
         return cls
 
     return wrapper
