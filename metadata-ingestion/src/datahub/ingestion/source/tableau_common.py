@@ -55,7 +55,8 @@ workbook_graphql_query = """
           id
           name
           description
-          upstreamColumns {
+          datasource {
+            id
             name
           }
           ... on ColumnField {

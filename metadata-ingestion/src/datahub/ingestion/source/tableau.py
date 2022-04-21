@@ -251,9 +251,37 @@ class TableauSource(Source):
                     self.custom_sql_ids_being_used.append(table_id)
 
     def _create_upstream_table_lineage(
-        self, datasource: dict, project: str, is_custom_sql: bool = False
+        self,
+        datasource: dict,
+        project: str,
+        is_custom_sql: bool = False,
+        is_embedded_ds=False,
     ) -> List[UpstreamClass]:
         upstream_tables = []
+
+        for ds in datasource.get("upstreamDatasources", []):
+            if ds["id"] not in self.datasource_ids_being_used:
+                self.datasource_ids_being_used.append(ds["id"])
+
+            datasource_urn = builder.make_dataset_urn(
+                self.platform, ds["id"], self.config.env
+            )
+            upstream_table = UpstreamClass(
+                dataset=datasource_urn,
+                type=DatasetLineageTypeClass.TRANSFORMED,
+            )
+            upstream_tables.append(upstream_table)
+
+        # When tableau workbook connects to published datasource, it creates an embedded
+        # datasource inside workbook that connects to published datasource. Both embedded
+        # and published datasource have same upstreamTables in this case.
+        if upstream_tables and is_embedded_ds:
+            logger.debug(
+                f"Embedded datasource {datasource.get('id')} has upstreamDatasources.\
+                Setting only upstreamDatasources lineage. The upstreamTables lineage \
+                    will be set via upstream published datasource."
+            )
+            return upstream_tables
 
         for table in datasource.get("upstreamTables", []):
             # skip upstream tables when there is no column info when retrieving embedded datasource
@@ -306,16 +334,6 @@ class TableauSource(Source):
                 table_path,
                 table.get("isEmbedded") if table.get("isEmbedded") else False,
             )
-
-        for ds in datasource.get("upstreamDatasources", []):
-            datasource_urn = builder.make_dataset_urn(
-                self.platform, ds["id"], self.config.env
-            )
-            upstream_table = UpstreamClass(
-                dataset=datasource_urn,
-                type=DatasetLineageTypeClass.TRANSFORMED,
-            )
-            upstream_tables.append(upstream_table)
 
         return upstream_tables
 
@@ -447,6 +465,13 @@ class TableauSource(Source):
                 datasource_urn, aspect_name="upstreamLineage", aspect=upstream_lineage
             )
 
+    def _get_project(self, node):
+        if node.get("__typename") == "EmbeddedDatasource" and node.get("workbook"):
+            return node["workbook"].get("projectName")
+        elif node.get("__typename") == "PublishedDatasource":
+            return node.get("projectName")
+        return None
+
     def _create_lineage_to_upstream_tables(
         self, csql_urn: str, columns: List[dict]
     ) -> Iterable[MetadataWorkUnit]:
@@ -464,9 +489,7 @@ class TableauSource(Source):
                     continue
                 used_datasources.append(datasource.get("id", ""))
                 upstream_tables = self._create_upstream_table_lineage(
-                    datasource,
-                    datasource.get("workbook", {}).get("projectName", ""),
-                    True,
+                    datasource, self._get_project(datasource), is_custom_sql=True
                 )
                 if upstream_tables:
                     upstream_lineage = UpstreamLineage(upstreams=upstream_tables)
@@ -476,7 +499,7 @@ class TableauSource(Source):
                         aspect=upstream_lineage,
                     )
 
-    def _get_schema_metadata_for_embedded_datasource(
+    def _get_schema_metadata_for_datasource(
         self, datasource_fields: List[dict]
     ) -> Optional[SchemaMetadata]:
         fields = []
@@ -549,10 +572,10 @@ class TableauSource(Source):
         return mcp_workunit
 
     def emit_datasource(
-        self, datasource: dict, workbook: dict = None
+        self, datasource: dict, workbook: dict = None, is_embedded_ds: bool = False
     ) -> Iterable[MetadataWorkUnit]:
         datasource_info = workbook
-        if workbook is None:
+        if not is_embedded_ds:
             datasource_info = datasource
 
         project = (
@@ -610,9 +633,11 @@ class TableauSource(Source):
         dataset_snapshot.aspects.append(dataset_props)
 
         # Upstream Tables
-        if datasource.get("upstreamTables") is not None:
+        if datasource.get("upstreamTables") or datasource.get("upstreamDatasources"):
             # datasource -> db table relations
-            upstream_tables = self._create_upstream_table_lineage(datasource, project)
+            upstream_tables = self._create_upstream_table_lineage(
+                datasource, project, is_embedded_ds=is_embedded_ds
+            )
 
             if upstream_tables:
                 upstream_lineage = UpstreamLineage(upstreams=upstream_tables)
@@ -623,7 +648,7 @@ class TableauSource(Source):
                 )
 
         # Datasource Fields
-        schema_metadata = self._get_schema_metadata_for_embedded_datasource(
+        schema_metadata = self._get_schema_metadata_for_datasource(
             datasource.get("fields", [])
         )
         if schema_metadata is not None:
@@ -633,7 +658,13 @@ class TableauSource(Source):
         yield self.get_metadata_change_proposal(
             dataset_snapshot.urn,
             aspect_name="subTypes",
-            aspect=SubTypesClass(typeNames=["Data Source"]),
+            aspect=SubTypesClass(
+                typeNames=(
+                    ["Embedded Data Source"]
+                    if is_embedded_ds
+                    else ["Published Data Source"]
+                )
+            ),
         )
 
         if datasource.get("__typename") == "EmbeddedDatasource":
@@ -682,6 +713,9 @@ class TableauSource(Source):
     def emit_upstream_tables(self) -> Iterable[MetadataWorkUnit]:
         for (table_urn, (columns, path, is_embedded)) in self.upstream_tables.items():
             if not is_embedded and not self.config.ingest_tables_external:
+                logger.error(
+                    f"Skipping external table {table_urn} as ingest_tables_external is set to False"
+                )
                 continue
 
             dataset_snapshot = DatasetSnapshot(
@@ -724,26 +758,16 @@ class TableauSource(Source):
 
             yield self.get_metadata_change_event(dataset_snapshot)
 
-    # Older tableau versions do not support fetching sheet's upstreamDatasources,
-    # This achieves the same effect by using datasource's downstreamSheets
-    def get_sheetwise_upstream_datasources(self, workbook: dict) -> dict:
-        sheet_upstream_datasources: dict = {}
+    def get_sheetwise_upstream_datasources(self, sheet: dict) -> dict:
+        sheet_upstream_datasources = set()
 
-        for embedded_ds in workbook.get("embeddedDatasources", []):
-            for sheet in embedded_ds.get("downstreamSheets", []):
-                if sheet.get("id") not in sheet_upstream_datasources:
-                    sheet_upstream_datasources[sheet.get("id")] = set()
-                sheet_upstream_datasources[sheet.get("id")].add(embedded_ds.get("id"))
+        for field in sheet.get("datasourceFields", ""):
+            if field and field.get("datasource"):
+                sheet_upstream_datasources.add(field["datasource"]["id"])
 
-        for published_ds in workbook.get("upstreamDatasources", []):
-            for sheet in published_ds.get("downstreamSheets", []):
-                if sheet.get("id") not in sheet_upstream_datasources:
-                    sheet_upstream_datasources[sheet.get("id")] = set()
-                sheet_upstream_datasources[sheet.get("id")].add(published_ds.get("id"))
         return sheet_upstream_datasources
 
     def emit_sheets_as_charts(self, workbook: Dict) -> Iterable[MetadataWorkUnit]:
-        sheet_upstream_datasources = self.get_sheetwise_upstream_datasources(workbook)
         for sheet in workbook.get("sheets", []):
             chart_snapshot = ChartSnapshot(
                 urn=builder.make_chart_urn(self.platform, sheet.get("id")),
@@ -778,7 +802,7 @@ class TableauSource(Source):
 
             # datasource urn
             datasource_urn = []
-            data_sources = sheet_upstream_datasources.get(sheet.get("id"), set())
+            data_sources = self.get_sheetwise_upstream_datasources(sheet)
 
             for ds_id in data_sources:
                 if ds_id is None or not ds_id:
@@ -932,7 +956,7 @@ class TableauSource(Source):
 
     def emit_embedded_datasource(self, workbook: Dict) -> Iterable[MetadataWorkUnit]:
         for datasource in workbook.get("embeddedDatasources", []):
-            yield from self.emit_datasource(datasource, workbook)
+            yield from self.emit_datasource(datasource, workbook, is_embedded_ds=True)
 
     @lru_cache(maxsize=None)
     def _get_schema(self, schema_provided: str, database: str, fullName: str) -> str:
