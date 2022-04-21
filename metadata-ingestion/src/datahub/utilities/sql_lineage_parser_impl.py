@@ -2,7 +2,7 @@ import logging
 import re
 import unittest
 import unittest.mock
-from typing import List, Set
+from typing import Dict, List, Set
 
 from sqllineage.core.holders import Column, SQLLineageHolder
 
@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 class SqlLineageSQLParserImpl:
     _DATE_SWAP_TOKEN = "__d_a_t_e"
     _TIMESTAMP_SWAP_TOKEN = "__t_i_m_e_s_t_a_m_p"
+    _DATA_SWAP_TOKEN = "__d_a_t_a"
     _MYVIEW_SQL_TABLE_NAME_TOKEN = "__my_view__.__sql_table_name__"
     _MYVIEW_LOOKER_TOKEN = "my_view.SQL_TABLE_NAME"
 
@@ -31,10 +32,15 @@ class SqlLineageSQLParserImpl:
         if "lateral flatten" in sql_query:
             sql_query = sql_query[: sql_query.find("lateral flatten")]
 
-        # SqlLineageParser makes mistakes on columns called "date", rename them
-        sql_query = re.sub(
-            r"(\bdate\b)", rf"{self._DATE_SWAP_TOKEN}", sql_query, flags=re.IGNORECASE
-        )
+        self.token_to_original: Dict[str, str] = {
+            self._DATE_SWAP_TOKEN: "date",
+            self._TIMESTAMP_SWAP_TOKEN: "timestamp",
+            self._DATA_SWAP_TOKEN: "data",
+        }
+        for replacement, original in self.token_to_original.items():
+            sql_query = re.sub(
+                rf"(\b{original}\b)", rf"{replacement}", sql_query, flags=re.IGNORECASE
+            )
 
         sql_query = re.sub(r"#([^ ])", r"# \1", sql_query)
 
@@ -43,14 +49,6 @@ class SqlLineageSQLParserImpl:
             rf"(\${{{self._MYVIEW_LOOKER_TOKEN}}})",
             rf"{self._MYVIEW_SQL_TABLE_NAME_TOKEN}",
             sql_query,
-        )
-
-        # SqlLineageParser makes mistakes on columns called "timestamp", rename them
-        sql_query = re.sub(
-            r"(\btimestamp\b)",
-            rf"{self._TIMESTAMP_SWAP_TOKEN}",
-            sql_query,
-            flags=re.IGNORECASE,
         )
 
         # SqlLineageParser does not handle "encode" directives well. Remove them
@@ -97,10 +95,8 @@ class SqlLineageSQLParserImpl:
             result.append(str(table_normalized))
 
         # We need to revert TOKEN replacements
-        result = ["date" if c == self._DATE_SWAP_TOKEN else c for c in result]
-        result = [
-            "timestamp" if c == self._TIMESTAMP_SWAP_TOKEN else c for c in list(result)
-        ]
+        for token, replacement in self.token_to_original.items():
+            result = [replacement if c == token else c for c in result]
         result = [
             self._MYVIEW_LOOKER_TOKEN if c == self._MYVIEW_SQL_TABLE_NAME_TOKEN else c
             for c in result
