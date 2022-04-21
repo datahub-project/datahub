@@ -221,6 +221,7 @@ public class Constants {
    */
   public static final String GROUP_MEMBERSHIP_RELATIONSHIP_NAME = "IsMemberOfGroup";
 
+  public static final String CHANGE_EVENT_PLATFORM_EVENT_NAME = "entityChangeEvent";
 
   /**
    * User Status

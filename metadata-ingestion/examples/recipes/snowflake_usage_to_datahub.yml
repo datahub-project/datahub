@@ -5,7 +5,7 @@ source:
   config:
     env: PROD
     # Coordinates
-    host_port: account_name
+    account_id: account_name
     warehouse: "COMPUTE_WH"
 
     # Credentials

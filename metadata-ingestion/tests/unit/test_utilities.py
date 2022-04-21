@@ -382,3 +382,19 @@ FROM `foo.bar.src_tbl`
     )
 
     assert parser.get_tables() == ["foo.bar.src_tbl"]
+
+
+def test_with_keyword_data():
+    parser = SqlLineageSQLParser(
+        sql_query="""
+            WITH data AS (
+                SELECT
+                    *,
+                    'foo' AS bar
+                FROM `project.example_dataset.another_example_table_vw`
+            )
+            SELECT * FROM data
+        """
+    )
+
+    assert parser.get_tables() == ["project.example_dataset.another_example_table_vw"]

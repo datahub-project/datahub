@@ -10,7 +10,7 @@ record PlatformEvent {
    header: PlatformEventHeader
 
   /**
-   * The name of the event, e.g. the type of event. For example, 'notificationRequestEvent'.
+   * The name of the event, e.g. the type of event. For example, 'notificationRequestEvent', 'entityChangeEvent'
    */
   name: string
 
