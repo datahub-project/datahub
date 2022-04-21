@@ -103,6 +103,11 @@ module.exports = {
         ],
       },
       {
+        "Reporting Telemetry": [
+          "metadata-ingestion/telemetry/reporting_telemetry",
+        ],
+      },
+      {
         Guides: [
           "metadata-ingestion/adding-source",
           //"metadata-ingestion/source-docs-template",
