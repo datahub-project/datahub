@@ -368,7 +368,7 @@ class DeltaLakeSource(Source):
         )
         return schema_metadata
 
-    def _get_schema_fields(self, metadata: Metadata) -> List[SchemaField]:
+    def _get_schema_fields(self, metadata: Metadata) -> List:
         canonical_schema = []
 
         # get schema strings
@@ -413,7 +413,7 @@ class DeltaLakeSource(Source):
                     nativeDataType=nativeType,
                     nullable=column["nullable"],
                     description=datahubDescription,
-                )
+                )  # type: ignore
 
             canonical_schema.append(datahubField)
         return canonical_schema
