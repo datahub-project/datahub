@@ -499,11 +499,15 @@ public class EbeanAspectDao implements AspectDao {
     if (exp == null) {
       return result;
     }
+    // Order by ascending version so that the results are correctly populated.
+    // TODO: Improve the below logic to be more explicit.
+    exp.orderBy().asc(EbeanAspectV2.VERSION_COLUMN);
     List<EbeanAspectV2.PrimaryKey> dbResults = exp.endOr().findIds();
 
     for (EbeanAspectV2.PrimaryKey key: dbResults) {
       result.put(key.getAspect(), key.getVersion());
     }
+
     for (String aspectName: aspectNames) {
       long nextVal = ASPECT_LATEST_VERSION;
       if (result.containsKey(aspectName)) {

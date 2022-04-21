@@ -362,7 +362,7 @@ public class EbeanEntityService extends EntityService {
 
       return new UpdateAspectResult(urn, oldValue, oldValue,
               EntityUtils.parseSystemMetadata(latest.getSystemMetadata()), latestSystemMetadata,
-              MetadataAuditOperation.UPDATE, 0);
+              MetadataAuditOperation.UPDATE, auditStamp, 0);
     }
 
     // 4. Save the newValue as the latest version
@@ -376,7 +376,7 @@ public class EbeanEntityService extends EntityService {
 
     return new UpdateAspectResult(urn, oldValue, newValue,
             latest == null ? null : EntityUtils.parseSystemMetadata(latest.getSystemMetadata()), providedSystemMetadata,
-            MetadataAuditOperation.UPDATE, versionOfOld);
+            MetadataAuditOperation.UPDATE, auditStamp, versionOfOld);
   }
 
   @Override
@@ -416,7 +416,7 @@ public class EbeanEntityService extends EntityService {
           new Timestamp(auditStamp.getTime()), EntityUtils.toJsonAspect(newSystemMetadata), version, oldAspect == null);
 
       return new UpdateAspectResult(urn, oldValue, value, oldSystemMetadata, newSystemMetadata,
-          MetadataAuditOperation.UPDATE, version);
+          MetadataAuditOperation.UPDATE, auditStamp, version);
     }, maxTransactionRetry);
 
     final RecordTemplate oldValue = result.getOldValue();
@@ -425,7 +425,7 @@ public class EbeanEntityService extends EntityService {
     if (emitMae) {
       log.debug("Producing MetadataAuditEvent for updated aspect {}, urn {}", aspectName, urn);
       produceMetadataChangeLog(urn, entityName, aspectName, aspectSpec, oldValue, newValue,
-          result.getOldSystemMetadata(), result.getNewSystemMetadata(), ChangeType.UPSERT);
+          result.getOldSystemMetadata(), result.getNewSystemMetadata(), auditStamp, ChangeType.UPSERT);
     } else {
       log.debug("Skipped producing MetadataAuditEvent for updated aspect {}, urn {}. emitMAE is false.",
           aspectName, urn);
@@ -551,7 +551,7 @@ public class EbeanEntityService extends EntityService {
           return null;
         }
         return new RollbackResult(urnObj, urnObj.getEntityType(), latest.getAspect(), latestValue,
-            previousValue == null ? latestValue : previousValue, latestSystemMetadata,
+            previousValue, latestSystemMetadata,
             previousValue == null ? null : EntityUtils.parseSystemMetadata(survivingAspect.getSystemMetadata()),
             survivingAspect == null ? ChangeType.DELETE : ChangeType.UPSERT, isKeyAspect, additionalRowsDeleted);
       } catch (URISyntaxException e) {
@@ -582,6 +582,8 @@ public class EbeanEntityService extends EntityService {
         removedAspects.add(aspectToRemove);
         produceMetadataChangeLog(result.getUrn(), result.getEntityName(), result.getAspectName(), aspectSpec.get(),
             result.getOldValue(), result.getNewValue(), result.getOldSystemMetadata(), result.getNewSystemMetadata(),
+            // TODO: use properly attributed audit stamp.
+            createSystemAuditStamp(),
             result.getChangeType());
       }
     });
@@ -618,6 +620,8 @@ public class EbeanEntityService extends EntityService {
       removedAspects.add(summary);
       produceMetadataChangeLog(result.getUrn(), result.getEntityName(), result.getAspectName(), keySpec,
           result.getOldValue(), result.getNewValue(), result.getOldSystemMetadata(), result.getNewSystemMetadata(),
+          // TODO: Use a proper inferred audit stamp
+          createSystemAuditStamp(),
           result.getChangeType());
     }
 

@@ -1,3 +1,4 @@
+import atexit
 import collections
 import heapq
 import json
@@ -598,11 +599,21 @@ class QueryEvent:
         return query_event
 
 
+# We can't use close as it is not called if the ingestion is not successful
+def cleanup(config: BigQueryUsageConfig) -> None:
+    if config._credentials_path is not None:
+        logger.debug(
+            f"Deleting temporary credential file at {config._credentials_path}"
+        )
+        os.unlink(config._credentials_path)
+
+
 class BigQueryUsageSource(Source):
     def __init__(self, config: BigQueryUsageConfig, ctx: PipelineContext):
         super().__init__(ctx)
         self.config: BigQueryUsageConfig = config
         self.report: BigQueryUsageSourceReport = BigQueryUsageSourceReport()
+        atexit.register(cleanup, config)
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "BigQueryUsageSource":
@@ -1139,11 +1150,3 @@ class BigQueryUsageSource(Source):
 
     def get_report(self) -> BigQueryUsageSourceReport:
         return self.report
-
-    # We can't use close as it is not called if the ingestion is not successful
-    def __del__(self):
-        if self.config._credentials_path is not None:
-            logger.debug(
-                f"Deleting temporary credential file at {self.config._credentials_path}"
-            )
-            os.unlink(self.config._credentials_path)
