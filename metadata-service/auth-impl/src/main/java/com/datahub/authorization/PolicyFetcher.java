@@ -13,9 +13,10 @@ import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.r2.RemoteInvocationException;
 import java.net.URISyntaxException;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
@@ -42,7 +43,7 @@ public class PolicyFetcher {
     // First fetch all policy urns from start - start + count
     SearchResult result =
         _entityClient.search(POLICY_ENTITY_NAME, "*", null, POLICY_SORT_CRITERION, start, count, authentication);
-    Set<Urn> policyUrns = result.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toSet());
+    List<Urn> policyUrns = result.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList());
 
     if (policyUrns.isEmpty()) {
       return new PolicyFetchResult(Collections.emptyList(), 0);
@@ -50,17 +51,21 @@ public class PolicyFetcher {
 
     // Fetch DataHubPolicyInfo aspects for each urn
     final Map<Urn, EntityResponse> policyEntities =
-        _entityClient.batchGetV2(POLICY_ENTITY_NAME, policyUrns, null, authentication);
-    return new PolicyFetchResult(
-        policyEntities.values().stream().map(this::extractPolicy).collect(Collectors.toList()),
-        result.getNumEntities());
+        _entityClient.batchGetV2(POLICY_ENTITY_NAME, new HashSet<>(policyUrns), null, authentication);
+    return new PolicyFetchResult(policyUrns.stream()
+        .map(policyEntities::get)
+        .filter(Objects::nonNull)
+        .map(this::extractPolicy)
+        .filter(Objects::nonNull)
+        .collect(Collectors.toList()), result.getNumEntities());
   }
 
   private Policy extractPolicy(EntityResponse entityResponse) {
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
     if (!aspectMap.containsKey(DATAHUB_POLICY_INFO_ASPECT_NAME)) {
-      throw new IllegalArgumentException(
-          String.format("Failed to find DataHubPolicyInfo aspect in DataHubPolicy data %s. Invalid state.", aspectMap));
+      // Right after deleting the policy, there could be a small time frame where search and local db is not consistent.
+      // Simply return null in that case
+      return null;
     }
     return new Policy(entityResponse.getUrn(),
         new DataHubPolicyInfo(aspectMap.get(DATAHUB_POLICY_INFO_ASPECT_NAME).getValue().data()));

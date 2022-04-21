@@ -6,18 +6,11 @@ import com.linkedin.common.Owner;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
-import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.policy.DataHubPolicyInfo;
-import com.linkedin.r2.RemoteInvocationException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -31,8 +24,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.Constants.CORP_GROUP_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATAHUB_POLICY_INFO_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.POLICY_ENTITY_NAME;
 
 
 /**
