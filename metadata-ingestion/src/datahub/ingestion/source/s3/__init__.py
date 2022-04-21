@@ -627,7 +627,8 @@ class S3Source(Source):
         s3 = self.source_config.aws_config.get_s3_client()
         object_tagging = s3.get_object_tagging(Bucket=bucket_name, Key=key_name)
         tags_to_add = [
-            f"""{tag["Key"]}:{tag["Value"]}""" for tag in object_tagging["TagSet"]
+            make_tag_urn(f"""{tag["Key"]}:{tag["Value"]}""")
+            for tag in object_tagging["TagSet"]
         ]
         new_tags = GlobalTagsClass(
             tags=[TagAssociationClass(tag_to_add) for tag_to_add in tags_to_add]
