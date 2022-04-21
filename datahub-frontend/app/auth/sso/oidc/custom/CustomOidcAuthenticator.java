@@ -89,7 +89,9 @@ public class CustomOidcAuthenticator implements Authenticator<OidcCredentials> {
     } else if (ClientAuthenticationMethod.CLIENT_SECRET_BASIC.equals(chosenMethod)) {
       final Secret _secret = new Secret(configuration.getSecret());
       clientAuthentication = new ClientSecretBasic(_clientID, _secret);
-    } else if (!ClientAuthenticationMethod.NONE.equals(chosenMethod)) {
+    } else if (ClientAuthenticationMethod.NONE.equals(chosenMethod)) {
+      clientAuthentication = null; // No client authentication in none mode
+    } else {
       throw new TechnicalException("Unsupported client authentication method: " + chosenMethod);
     }
   }
@@ -130,16 +132,6 @@ public class CustomOidcAuthenticator implements Authenticator<OidcCredentials> {
     }
   }
 
-  private TokenRequest createTokenRequest(final AuthorizationGrant grant) {
-    if (clientAuthentication != null) {
-      return new TokenRequest(configuration.findProviderMetadata().getTokenEndpointURI(),
-          this.clientAuthentication, grant);
-    } else {
-      return new TokenRequest(configuration.findProviderMetadata().getTokenEndpointURI(),
-          new ClientID(configuration.getClientId()), grant);
-    }
-  }
-
   @Override
   public void validate(final OidcCredentials credentials, final WebContext context) {
     final AuthorizationCode code = credentials.getCode();
@@ -173,6 +165,16 @@ public class CustomOidcAuthenticator implements Authenticator<OidcCredentials> {
       } catch (final URISyntaxException | IOException | ParseException e) {
         throw new TechnicalException(e);
       }
+    }
+  }
+
+  private TokenRequest createTokenRequest(final AuthorizationGrant grant) {
+    if (clientAuthentication != null) {
+      return new TokenRequest(configuration.findProviderMetadata().getTokenEndpointURI(),
+          this.clientAuthentication, grant);
+    } else {
+      return new TokenRequest(configuration.findProviderMetadata().getTokenEndpointURI(),
+          new ClientID(configuration.getClientId()), grant);
     }
   }
 }
