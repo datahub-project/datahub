@@ -156,22 +156,14 @@ class GlueSource(Source):
 
     def get_all_jobs(self):
         """
-        List all jobs in Glue.
+        List all jobs in Glue. boto3 get_jobs api call doesn't support cross account access.
         """
 
         jobs = []
 
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue.html#Glue.Client.get_jobs
         paginator = self.glue_client.get_paginator("get_jobs")
-
-        if self.source_config.catalog_id:
-            paginator_response = paginator.paginate(
-                CatalogId=self.source_config.catalog_id
-            )
-        else:
-            paginator_response = paginator.paginate()
-
-        for page in paginator_response:
+        for page in paginator.paginate():
             jobs += page["Jobs"]
 
         return jobs
