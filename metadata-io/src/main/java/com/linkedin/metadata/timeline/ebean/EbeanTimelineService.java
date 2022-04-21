@@ -179,7 +179,6 @@ public class EbeanTimelineService implements TimelineService {
     Map<String, Long> nextVersions = _entityDao.getNextVersions(urn.toString(), fullAspectNames);
 
     for (Map.Entry<String, TreeSet<EbeanAspectV2>> aspectMinVersion : aspectRowSetMap.entrySet()) {
-      //TODO: If empty, ignore this, but still do lookback
       TreeSet<EbeanAspectV2> aspectSet = aspectMinVersion.getValue();
 
       EbeanAspectV2 oldestAspect = null;

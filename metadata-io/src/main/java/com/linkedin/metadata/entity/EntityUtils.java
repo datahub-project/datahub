@@ -5,7 +5,9 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EnvelopedAspect;
 import java.util.HashMap;
 import java.util.Map;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang.StringUtils;
 
 
 @Slf4j
@@ -32,8 +34,11 @@ public class EntityUtils {
   }
 
   public static Map<String, Long> convertVersionStamp(String versionStamp) {
-    String[] aspectNameVersionPairs = versionStamp.split(";");
     Map <String, Long> aspectVersionMap = new HashMap<>();
+    if (StringUtils.isBlank(versionStamp)) {
+      return aspectVersionMap;
+    }
+    String[] aspectNameVersionPairs = versionStamp.split(";");
     for (String pair : aspectNameVersionPairs) {
       String[] tokens = pair.split(":");
       if (tokens.length != 2) {

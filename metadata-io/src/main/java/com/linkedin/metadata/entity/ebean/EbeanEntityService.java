@@ -232,7 +232,8 @@ public class EbeanEntityService extends EntityService {
 
     final Set<EbeanAspectV2.PrimaryKey> dbKeys = urnAspectVersionMap.entrySet().stream()
         .map(entry -> aspectNames.stream()
-            .map(aspectName -> new EbeanAspectV2.PrimaryKey(entry.getKey(), aspectName, entry.getValue().get(aspectName)))
+            .map(aspectName -> new EbeanAspectV2.PrimaryKey(entry.getKey(), aspectName, 
+                entry.getValue().getOrDefault(aspectName, 0L)))
             .collect(Collectors.toList()))
         .flatMap(List::stream)
         .collect(Collectors.toSet());
