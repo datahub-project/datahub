@@ -14,6 +14,7 @@ import { SidebarTagsSection } from '../shared/containers/profile/sidebar/Sidebar
 import MlFeatureTableFeatures from './profile/features/MlFeatureTableFeatures';
 import Sources from './profile/Sources';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
+import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 
 /**
  * Definition of the DataHub MLFeatureTable entity.
@@ -74,6 +75,10 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
                 {
                     name: 'Sources',
                     component: Sources,
+                },
+                {
+                    name: 'Properties',
+                    component: PropertiesTab,
                 },
                 {
                     name: 'Documentation',
