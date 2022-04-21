@@ -12,10 +12,16 @@ class ConfigModel(BaseModel):
 
 
 class DynamicTypedConfig(ConfigModel):
-    type: str
+    type: str = Field(
+        default=None,
+        description="The type of the ingestion state provider registered with datahub",
+    )
     # This config type is declared Optional[Any] here. The eventual parser for the
     # specified type is responsible for further validation.
-    config: Optional[Any]
+    config: Optional[Any] = Field(
+        default=None,
+        description="The configuration required for initializing the state provider. Default: The datahub_api config if set at pipeline level. Otherwise, the default DatahubClientConfig. See the defaults (https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/graph/client.py#L19).",
+    )
 
 
 class MetaError(Exception):

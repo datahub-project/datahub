@@ -6,6 +6,7 @@ from typing import Any, Dict, Optional, Type, cast
 
 import psutil
 import pydantic
+from pydantic.fields import Field
 
 from datahub.configuration.common import (
     ConfigModel,
@@ -40,13 +41,25 @@ class StatefulIngestionConfig(ConfigModel):
     Basic Stateful Ingestion Specific Configuration for any source.
     """
 
-    enabled: bool = False
+    enabled: bool = Field(
+        default=False,
+        description="The type of the ingestion state provider registered with datahub.",
+    )
     # fmt: off
-    max_checkpoint_state_size: pydantic.PositiveInt = 2**24  # 16MB
+    # 16MB
+    max_checkpoint_state_size: pydantic.PositiveInt = Field(default=2**24, description="The maximum size of the checkpoint state in bytes. Default is 16MB")  # 16MB
     # fmt: on
-    state_provider: Optional[DynamicTypedConfig] = None
-    ignore_old_state: bool = False
-    ignore_new_state: bool = False
+    state_provider: Optional[DynamicTypedConfig] = Field(
+        default=None, description="The ingestion state provider configuration."
+    )
+    ignore_old_state: bool = Field(
+        default=False,
+        description="If set to True, ignores the previous checkpoint state.",
+    )
+    ignore_new_state: bool = Field(
+        default=False,
+        description="If set to True, ignores the current checkpoint state.",
+    )
 
     @pydantic.root_validator()
     def validate_config(cls, values: Dict[str, Any]) -> Dict[str, Any]:

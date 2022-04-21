@@ -222,7 +222,10 @@ class SQLAlchemyStatefulIngestionConfig(StatefulIngestionConfig):
     in the SQLAlchemyConfig.
     """
 
-    remove_stale_metadata: bool = True
+    remove_stale_metadata: bool = Field(
+        default=True,
+        description="Soft-deletes the tables and views that were found in the last successful run but missing in the current run with stateful_ingestion enabled.",
+    )
 
 
 class SQLAlchemyConfig(StatefulIngestionConfigBase):
@@ -280,13 +283,18 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase):
 
 
 class BasicSQLAlchemyConfig(SQLAlchemyConfig):
-    username: Optional[str] = None
-    password: Optional[pydantic.SecretStr] = None
-    host_port: Optional[str] = None
-    database: Optional[str] = None
-    database_alias: Optional[str] = None
-    scheme: Optional[str] = None
-    sqlalchemy_uri: Optional[str] = None
+    username: Optional[str] = Field(default=None, description="username")
+    password: Optional[pydantic.SecretStr] = Field(default=None, description="password")
+    host_port: str = Field(description="host URL")
+    database: Optional[str] = Field(default=None, description="database (catalog)")
+    database_alias: Optional[str] = Field(
+        default=None, description="Alias to apply to database when ingesting."
+    )
+    scheme: str = Field(description="scheme")
+    sqlalchemy_uri: Optional[str] = Field(
+        default=None,
+        description="URI of database to connect to. See https://docs.sqlalchemy.org/en/14/core/engines.html#database-urls. Takes precedence over other connection parameters.",
+    )
 
     def get_sql_alchemy_url(self, uri_opts: Optional[Dict[str, Any]] = None) -> str:
         if not ((self.host_port and self.scheme) or self.sqlalchemy_uri):
