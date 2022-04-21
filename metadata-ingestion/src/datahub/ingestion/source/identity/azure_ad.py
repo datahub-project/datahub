@@ -63,6 +63,10 @@ class AzureADConfig(ConfigModel):
     # If enabled, report will contain names of filtered users and groups.
     filtered_tracking: bool = True
 
+    # Optional: Whether to mask sensitive information from workunit ID's. On by default.
+    mask_group_id: bool = True
+    mask_user_id: bool = True
+
 
 @dataclass
 class AzureADSourceReport(SourceReport):
@@ -134,11 +138,18 @@ class AzureADSource(Source):
                 datahub_corp_group_snapshots = self._map_azure_ad_groups(
                     azure_ad_groups
                 )
-                for datahub_corp_group_snapshot in datahub_corp_group_snapshots:
+                for group_count, datahub_corp_group_snapshot in enumerate(
+                    datahub_corp_group_snapshots
+                ):
                     mce = MetadataChangeEvent(
                         proposedSnapshot=datahub_corp_group_snapshot
                     )
-                    wu = MetadataWorkUnit(id=datahub_corp_group_snapshot.urn, mce=mce)
+                    wu_id = (
+                        f"group-{group_count + 1}"
+                        if self.config.mask_group_id
+                        else datahub_corp_group_snapshot.urn
+                    )
+                    wu = MetadataWorkUnit(id=wu_id, mce=mce)
                     self.report.report_workunit(wu)
                     yield wu
 
@@ -241,7 +252,9 @@ class AzureADSource(Source):
         datahub_corp_user_snapshots: Generator[CorpUserSnapshot, Any, None],
         datahub_corp_user_urn_to_group_membership: dict,
     ) -> Generator[MetadataWorkUnit, Any, None]:
-        for datahub_corp_user_snapshot in datahub_corp_user_snapshots:
+        for user_count, datahub_corp_user_snapshot in enumerate(
+            datahub_corp_user_snapshots
+        ):
             # Add GroupMembership if applicable
             if (
                 datahub_corp_user_snapshot.urn
@@ -255,7 +268,12 @@ class AzureADSource(Source):
                 assert datahub_group_membership
                 datahub_corp_user_snapshot.aspects.append(datahub_group_membership)
             mce = MetadataChangeEvent(proposedSnapshot=datahub_corp_user_snapshot)
-            wu = MetadataWorkUnit(id=datahub_corp_user_snapshot.urn, mce=mce)
+            wu_id = (
+                f"user-{user_count + 1}"
+                if self.config.mask_user_id
+                else datahub_corp_user_snapshot.urn
+            )
+            wu = MetadataWorkUnit(id=wu_id, mce=mce)
             self.report.report_workunit(wu)
             yield wu
 

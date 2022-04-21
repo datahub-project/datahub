@@ -10,7 +10,11 @@ from snowflake.connector.network import (
     KEY_PAIR_AUTHENTICATOR,
 )
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    ConfigurationError,
+)
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemyConfig,
@@ -75,19 +79,38 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
         default=None, exclude=True
     )
     authentication_type: str = "DEFAULT_AUTHENTICATOR"
-    host_port: str
+    host_port: Optional[str]  # Deprecated
+    account_id: Optional[str]  # Once host_port is removed this will be made mandatory
     warehouse: Optional[str]
     role: Optional[str]
-    include_table_lineage: Optional[bool] = True
-    include_view_lineage: Optional[bool] = True
+    include_table_lineage: bool = True
+    include_view_lineage: bool = True
     connect_args: Optional[Dict] = pydantic.Field(default=None, exclude=True)
 
-    @pydantic.validator("host_port", always=True)
-    def host_port_is_valid(cls, v, values, **kwargs):
-        v = remove_protocol(v)
-        v = remove_trailing_slashes(v)
-        v = remove_suffix(v, ".snowflakecomputing.com")
-        return v
+    def get_account(self) -> str:
+        assert self.account_id
+        return self.account_id
+
+    @pydantic.root_validator
+    def one_of_host_port_or_account_id_is_required(cls, values):
+        host_port = values.get("host_port")
+        if host_port is not None:
+            logger.warning(
+                "snowflake's `host_port` option has been deprecated; use account_id instead"
+            )
+            host_port = remove_protocol(host_port)
+            host_port = remove_trailing_slashes(host_port)
+            host_port = remove_suffix(host_port, ".snowflakecomputing.com")
+            values["host_port"] = host_port
+        account_id = values.get("account_id")
+        if account_id is None:
+            if host_port is None:
+                raise ConfigurationError(
+                    "One of account_id (recommended) or host_port (deprecated) is required"
+                )
+            else:
+                values["account_id"] = host_port
+        return values
 
     @pydantic.validator("authentication_type", always=True)
     def authenticator_type_is_valid(cls, v, values, **kwargs):
@@ -132,7 +155,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
             self.scheme,
             username,
             password.get_secret_value() if password else None,
-            self.host_port,
+            self.account_id,
             f'"{database}"' if database is not None else database,
             uri_opts={
                 # Drop the options if value is None.
@@ -176,19 +199,9 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
         deny=[r"^UTIL_DB$", r"^SNOWFLAKE$", r"^SNOWFLAKE_SAMPLE_DATA$"]
     )
 
-    database: Optional[str]  # deprecated
-
     provision_role: Optional[SnowflakeProvisionRoleConfig] = None
     ignore_start_time_lineage: bool = False
     upstream_lineage_in_report: bool = False
-
-    @pydantic.validator("database")
-    def note_database_opt_deprecation(cls, v, values, **kwargs):
-        logger.warning(
-            "snowflake's `database` option has been deprecated; use database_pattern instead"
-        )
-        values["database_pattern"].allow = f"^{v}$"
-        return None
 
     def get_sql_alchemy_url(
         self,
