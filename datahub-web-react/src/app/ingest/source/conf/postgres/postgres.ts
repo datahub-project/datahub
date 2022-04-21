@@ -12,8 +12,9 @@ source:
         database: # Your Postgres Database, e.g. sample_db
 
         # Credentials
-        username: # Your Postgres username, e.g. admin
-        password: # Your Postgres password, e.g. password_01
+        # Add secret in Secrets Tab with relevant names for each variable
+        username: "\${POSTGRES_USERNAME}" # Your Postgres username, e.g. admin
+        password: "\${POSTGRES_PASSWORD}" # Your Postgres password, e.g. password_01
 
         # Options
         include_tables: True
@@ -26,7 +27,8 @@ sink:
     type: datahub-rest 
     config: 
         server: "${baseUrl}/gms"
-        token: "<your-api-token-secret-here>"`;
+        # Add a secret in secrets Tab
+        token: "\${GMS_TOKEN}"`;
 
 const postgresConfig: SourceConfig = {
     type: 'postgres',
