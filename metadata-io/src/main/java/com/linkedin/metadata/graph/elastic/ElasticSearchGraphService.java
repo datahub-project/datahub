@@ -73,13 +73,8 @@ public class ElasticSearchGraphService implements GraphService {
     destinationObject.put("urn", edge.getDestination().toString());
     destinationObject.put("entityType", edge.getDestination().getEntityType());
 
-    final ObjectNode metadataObject = JsonNodeFactory.instance.objectNode();
-    metadataObject.put("pathSpec", edge.getMetadata().getPathSpec().toString());
-    metadataObject.put("aspectName", edge.getMetadata().getAspectName());
-
     searchDocument.set("source", sourceObject);
     searchDocument.set("destination", destinationObject);
-    searchDocument.put("metadata", metadataObject);
     searchDocument.put("relationshipType", edge.getRelationshipType());
 
     return searchDocument.toString();
@@ -149,12 +144,12 @@ public class ElasticSearchGraphService implements GraphService {
           if (urnStr == null || relationshipType == null) {
             log.error(String.format(
                 "Found null urn string, relationship type, aspect name or path spec in Elastic index. "
-                    + "urnStr: %s, relationshipType: %s",g
+                    + "urnStr: %s, relationshipType: %s",
                 urnStr, relationshipType));
             return null;
           }
 
-          return new RelatedEntity(relationshipType, urnStr); //, aspectName, pathSpec);
+          return new RelatedEntity(relationshipType, urnStr);
         })
         .filter(Objects::nonNull)
         .collect(Collectors.toList());
