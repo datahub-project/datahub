@@ -37,6 +37,7 @@ from smart_open import open as smart_open
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
+    make_tag_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
@@ -599,7 +600,8 @@ class S3Source(Source):
         s3 = self.source_config.aws_config.get_s3_resource()
         bucket = s3.Bucket(name)
         tags_to_add = [
-            f"""{tag["Key"]}:{tag["Value"]}""" for tag in bucket.Tagging().tag_set
+            make_tag_urn(f"""{tag["Key"]}:{tag["Value"]}""")
+            for tag in bucket.Tagging().tag_set
         ]
         new_tags = GlobalTagsClass(
             tags=[TagAssociationClass(tag_to_add) for tag_to_add in tags_to_add]
