@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 from airflow.configuration import conf
 
@@ -7,7 +7,6 @@ from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
     InstanceRunResult,
 )
-from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import DataProcessTypeClass
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
@@ -16,6 +15,9 @@ from datahub_provider.hooks.datahub import AIRFLOW_1
 if TYPE_CHECKING:
     from airflow import DAG
     from airflow.models import BaseOperator, DagRun, TaskInstance
+
+    from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
+    from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 
 class AirflowGenerator:
@@ -252,7 +254,7 @@ class AirflowGenerator:
 
     @staticmethod
     def run_dataflow(
-        emitter: DatahubRestEmitter,
+        emitter: Union["DatahubRestEmitter", "DatahubKafkaEmitter"],
         cluster: str,
         dag_run: "DagRun",
         start_timestamp_millis: Optional[int] = None,
@@ -299,7 +301,7 @@ class AirflowGenerator:
 
     @staticmethod
     def complete_dataflow(
-        emitter: DatahubRestEmitter,
+        emitter: Union["DatahubRestEmitter", "DatahubKafkaEmitter"],
         cluster: str,
         dag_run: "DagRun",
         end_timestamp_millis: Optional[int] = None,
@@ -344,7 +346,7 @@ class AirflowGenerator:
 
     @staticmethod
     def run_datajob(
-        emitter: DatahubRestEmitter,
+        emitter: Union["DatahubRestEmitter", "DatahubKafkaEmitter"],
         cluster: str,
         ti: "TaskInstance",
         dag: "DAG",
@@ -415,7 +417,7 @@ class AirflowGenerator:
 
     @staticmethod
     def complete_datajob(
-        emitter: DatahubRestEmitter,
+        emitter: Union["DatahubRestEmitter", "DatahubKafkaEmitter"],
         cluster: str,
         ti: "TaskInstance",
         dag: "DAG",

@@ -17,6 +17,8 @@ import { EntityType } from '../../types.generated';
 import { capitalizeFirstLetter } from '../shared/textUtil';
 import { ANTD_GRAY } from '../entity/shared/constants';
 
+const DEFAULT_DISTANCE_FROM_TOP = 106;
+
 const LoadingMessage = styled(Message)`
     margin-top: 10%;
 `;
@@ -26,10 +28,10 @@ const FooterButtonGroup = styled.div`
     margin: 12px 0;
 `;
 
-const EntityDrawer = styled(Drawer)`
-    top: 106px;
+const EntityDrawer = styled(Drawer)<{ distanceFromTop: number }>`
+    top: ${(props) => props.distanceFromTop}px;
     z-index: 1;
-    height: calc(100vh - 106px);
+    height: calc(100vh - ${(props) => props.distanceFromTop}px);
     .ant-drawer-content-wrapper {
         border-right: 1px solid ${ANTD_GRAY[4.5]};
         box-shadow: none !important;
@@ -61,6 +63,8 @@ export default function LineageExplorer({ urn, type }: Props) {
     const [isDrawerVisible, setIsDrawVisible] = useState(false);
     const [selectedEntity, setSelectedEntity] = useState<EntitySelectParams | undefined>(undefined);
     const [asyncEntities, setAsyncEntities] = useState<FetchedEntities>({});
+
+    const drawerRef: React.MutableRefObject<HTMLDivElement | null> = useRef(null);
 
     const maybeAddAsyncLoadedEntity = useCallback(
         (entityAndType: EntityAndType) => {
@@ -99,6 +103,9 @@ export default function LineageExplorer({ urn, type }: Props) {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
     }
 
+    const drawerDistanceFromTop =
+        drawerRef && drawerRef.current ? drawerRef.current.offsetTop : DEFAULT_DISTANCE_FROM_TOP;
+
     return (
         <>
             {loading && <LoadingMessage type="loading" content="Loading..." />}
@@ -123,7 +130,9 @@ export default function LineageExplorer({ urn, type }: Props) {
                     />
                 </div>
             )}
+            <div ref={drawerRef} />
             <EntityDrawer
+                distanceFromTop={drawerDistanceFromTop}
                 placement="left"
                 closable={false}
                 onClose={handleClose}
