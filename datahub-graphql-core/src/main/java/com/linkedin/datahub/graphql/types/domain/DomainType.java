@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
 
-public class DomainType implements com.linkedin.datahub.graphql.types.EntityType<Domain> {
+public class DomainType implements com.linkedin.datahub.graphql.types.EntityType<Domain, String> {
 
   static final Set<String> ASPECTS_TO_FETCH = ImmutableSet.of(
     Constants.DOMAIN_KEY_ASPECT_NAME,

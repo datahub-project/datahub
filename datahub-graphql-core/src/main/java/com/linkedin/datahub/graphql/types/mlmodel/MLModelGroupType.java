@@ -38,7 +38,8 @@ import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.metadata.Constants.*;
 
 
-public class MLModelGroupType implements SearchableEntityType<MLModelGroup>, BrowsableEntityType<MLModelGroup> {
+public class MLModelGroupType implements SearchableEntityType<MLModelGroup, String>,
+                                         BrowsableEntityType<MLModelGroup, String> {
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("origin", "platform");
     private final EntityClient _entityClient;

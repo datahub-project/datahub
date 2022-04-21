@@ -30,7 +30,7 @@ import javax.annotation.Nullable;
 import static com.linkedin.metadata.Constants.*;
 
 
-public class MLPrimaryKeyType implements SearchableEntityType<MLPrimaryKey> {
+public class MLPrimaryKeyType implements SearchableEntityType<MLPrimaryKey, String> {
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("");
     private final EntityClient _entityClient;

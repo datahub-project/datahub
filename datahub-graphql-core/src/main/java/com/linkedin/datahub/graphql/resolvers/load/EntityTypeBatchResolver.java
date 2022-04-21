@@ -22,11 +22,11 @@ import org.dataloader.DataLoader;
  */
 public class EntityTypeBatchResolver implements DataFetcher<CompletableFuture<List<Entity>>> {
 
-    private final List<com.linkedin.datahub.graphql.types.EntityType<?>> _entityTypes;
+    private final List<com.linkedin.datahub.graphql.types.EntityType<?, ?>> _entityTypes;
     private final Function<DataFetchingEnvironment, List<Entity>> _entitiesProvider;
 
     public EntityTypeBatchResolver(
-        final List<com.linkedin.datahub.graphql.types.EntityType<?>> entityTypes,
+        final List<com.linkedin.datahub.graphql.types.EntityType<?, ?>> entityTypes,
         final Function<DataFetchingEnvironment, List<Entity>> entitiesProvider
     ) {
         _entityTypes = entityTypes;
@@ -40,7 +40,7 @@ public class EntityTypeBatchResolver implements DataFetcher<CompletableFuture<Li
             return CompletableFuture.completedFuture(Collections.emptyList());
         }
         // Assume all entities are of the same type
-        final com.linkedin.datahub.graphql.types.EntityType<?> filteredEntity =
+        final com.linkedin.datahub.graphql.types.EntityType<?, ?> filteredEntity =
             Iterables.getOnlyElement(_entityTypes.stream()
                 .filter(entity -> entities.get(0).getClass().isAssignableFrom(entity.objectClass()))
                 .collect(Collectors.toList()));

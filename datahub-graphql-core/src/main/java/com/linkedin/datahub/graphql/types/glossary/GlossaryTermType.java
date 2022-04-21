@@ -38,7 +38,8 @@ import javax.annotation.Nullable;
 import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.metadata.Constants.*;
 
-public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, BrowsableEntityType<GlossaryTerm> {
+public class GlossaryTermType implements SearchableEntityType<GlossaryTerm, String>,
+                                         BrowsableEntityType<GlossaryTerm, String> {
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("");
 

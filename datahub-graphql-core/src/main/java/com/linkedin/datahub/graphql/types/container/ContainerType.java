@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
 
-public class ContainerType implements com.linkedin.datahub.graphql.types.EntityType<Container> {
+public class ContainerType implements com.linkedin.datahub.graphql.types.EntityType<Container, String> {
 
   static final Set<String> ASPECTS_TO_FETCH = ImmutableSet.of(
       Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME,

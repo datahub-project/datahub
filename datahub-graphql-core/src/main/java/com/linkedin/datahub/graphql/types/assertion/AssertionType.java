@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
 
-public class AssertionType implements com.linkedin.datahub.graphql.types.EntityType<Assertion> {
+public class AssertionType implements com.linkedin.datahub.graphql.types.EntityType<Assertion, String> {
 
     static final Set<String> ASPECTS_TO_FETCH = ImmutableSet.of(
         Constants.ASSERTION_KEY_ASPECT_NAME,

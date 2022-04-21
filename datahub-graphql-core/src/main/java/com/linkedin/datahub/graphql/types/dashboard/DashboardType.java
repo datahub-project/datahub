@@ -55,7 +55,7 @@ import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.metadata.Constants.*;
 
 
-public class DashboardType implements SearchableEntityType<Dashboard>, BrowsableEntityType<Dashboard>,
+public class DashboardType implements SearchableEntityType<Dashboard, String>, BrowsableEntityType<Dashboard, String>,
                                       MutableType<DashboardUpdateInput, Dashboard> {
 
     private static final Set<String> ASPECTS_TO_RESOLVE = ImmutableSet.of(

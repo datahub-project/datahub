@@ -37,6 +37,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.r2.RemoteInvocationException;
+import com.linkedin.util.Pair;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.time.Clock;
@@ -96,6 +97,18 @@ public class JavaEntityClient implements EntityClient {
             ? _entityService.getEntityAspectNames(entityName)
             : aspectNames;
         return _entityService.getEntitiesV2(entityName, urns, projectedAspects);
+    }
+
+    @Nonnull
+    public Map<Urn, EntityResponse> batchGetVersionedV2(
+        @Nonnull String entityName,
+        @Nonnull final Set<Pair<String, String>> versionedUrns,
+        @Nullable final Set<String> aspectNames,
+        @Nonnull final Authentication authentication) throws RemoteInvocationException, URISyntaxException {
+        final Set<String> projectedAspects = aspectNames == null
+            ? _entityService.getEntityAspectNames(entityName)
+            : aspectNames;
+        return _entityService.getEntitiesVersionedV2(versionedUrns, projectedAspects);
     }
 
     @Nonnull

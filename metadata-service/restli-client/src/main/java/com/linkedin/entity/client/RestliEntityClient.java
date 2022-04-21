@@ -30,6 +30,8 @@ import com.linkedin.entity.EntitiesRequestBuilders;
 import com.linkedin.entity.EntitiesV2BatchGetRequestBuilder;
 import com.linkedin.entity.EntitiesV2GetRequestBuilder;
 import com.linkedin.entity.EntitiesV2RequestBuilders;
+import com.linkedin.entity.EntitiesVersionedV2BatchGetRequestBuilder;
+import com.linkedin.entity.EntitiesVersionedV2RequestBuilders;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityArray;
 import com.linkedin.entity.EntityResponse;
@@ -53,6 +55,8 @@ import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.Client;
 import com.linkedin.restli.client.RestLiResponseException;
 import com.linkedin.restli.common.HttpStatus;
+import com.linkedin.util.Pair;
+import com.linkedin.util.PairCoercer;
 import java.net.URISyntaxException;
 import java.util.Collection;
 import java.util.HashMap;
@@ -76,6 +80,8 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
 
   private static final EntitiesRequestBuilders ENTITIES_REQUEST_BUILDERS = new EntitiesRequestBuilders();
   private static final EntitiesV2RequestBuilders ENTITIES_V2_REQUEST_BUILDERS = new EntitiesV2RequestBuilders();
+  private static final EntitiesVersionedV2RequestBuilders ENTITIES_VERSIONED_V2_REQUEST_BUILDERS =
+      new EntitiesVersionedV2RequestBuilders();
   private static final AspectsRequestBuilders ASPECTS_REQUEST_BUILDERS = new AspectsRequestBuilders();
   private static final PlatformRequestBuilders PLATFORM_REQUEST_BUILDERS = new PlatformRequestBuilders();
 
@@ -164,6 +170,44 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
         .collect(Collectors.toMap(entry -> {
           try {
             return Urn.createFromString(entry.getKey());
+          } catch (URISyntaxException e) {
+            throw new RuntimeException(
+                String.format("Failed to bind urn string with value %s into urn", entry.getKey()));
+          }
+        }, entry -> entry.getValue().getEntity()));
+  }
+
+  /**
+   * Batch get a set of versioned aspects for a single entity.
+   *
+   * @param entityName the entity type to fetch
+   * @param versionedUrns the urns of the entities to batch get
+   * @param aspectNames the aspect names to batch get
+   * @param authentication the authentication to include in the request to the Metadata Service
+   * @throws RemoteInvocationException
+   */
+  @Nonnull
+  public Map<Urn, EntityResponse> batchGetVersionedV2(
+      @Nonnull String entityName,
+      @Nonnull final Set<Pair<String, String>> versionedUrns,
+      @Nullable final Set<String> aspectNames,
+      @Nonnull final Authentication authentication) throws RemoteInvocationException, URISyntaxException {
+
+    final EntitiesVersionedV2BatchGetRequestBuilder requestBuilder = ENTITIES_VERSIONED_V2_REQUEST_BUILDERS.batchGet()
+        .aspectsParam(aspectNames)
+        .entityTypeParam(entityName)
+        .ids(versionedUrns.stream()
+            .map(Pair::toString)
+            .map(string -> new PairCoercer().coerceOutput(string)).collect(
+            Collectors.toSet()));
+
+    return sendClientRequest(requestBuilder, authentication).getEntity()
+        .getResults()
+        .entrySet()
+        .stream()
+        .collect(Collectors.toMap(entry -> {
+          try {
+            return Urn.createFromString((String) entry.getKey().getFirst());
           } catch (URISyntaxException e) {
             throw new RuntimeException(
                 String.format("Failed to bind urn string with value %s into urn", entry.getKey()));

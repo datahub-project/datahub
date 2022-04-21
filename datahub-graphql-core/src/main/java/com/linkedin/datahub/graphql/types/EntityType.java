@@ -7,7 +7,7 @@ import com.linkedin.datahub.graphql.generated.Entity;
  *
  * @param <T>: The GraphQL object type corresponding to the entity, must be of type {@link Entity}
  */
-public interface EntityType<T extends Entity> extends LoadableType<T> {
+public interface EntityType<T extends Entity, K> extends LoadableType<T, K> {
 
     /**
      * Retrieves the {@link com.linkedin.datahub.graphql.generated.EntityType} associated with the Graph type, eg. 'DATASET'

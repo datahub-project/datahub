@@ -42,7 +42,7 @@ import javax.annotation.Nullable;
 
 import static com.linkedin.metadata.Constants.*;
 
-public class CorpGroupType implements SearchableEntityType<CorpGroup>, MutableType<CorpGroupUpdateInput, CorpGroup> {
+public class CorpGroupType implements SearchableEntityType<CorpGroup, String>, MutableType<CorpGroupUpdateInput, CorpGroup> {
 
     private final EntityClient _entityClient;
 

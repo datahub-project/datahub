@@ -43,7 +43,8 @@ import javax.annotation.Nullable;
 import static com.linkedin.metadata.Constants.*;
 
 
-public class TagType implements com.linkedin.datahub.graphql.types.SearchableEntityType<Tag>, MutableType<TagUpdateInput, Tag> {
+public class TagType implements com.linkedin.datahub.graphql.types.SearchableEntityType<Tag, String>,
+                                MutableType<TagUpdateInput, Tag> {
 
     private static final Set<String> FACET_FIELDS = Collections.emptySet();
 

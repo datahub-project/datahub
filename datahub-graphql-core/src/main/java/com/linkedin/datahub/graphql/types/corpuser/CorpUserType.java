@@ -46,7 +46,7 @@ import javax.annotation.Nullable;
 import static com.linkedin.metadata.Constants.*;
 
 
-public class CorpUserType implements SearchableEntityType<CorpUser>, MutableType<CorpUserUpdateInput, CorpUser> {
+public class CorpUserType implements SearchableEntityType<CorpUser, String>, MutableType<CorpUserUpdateInput, CorpUser> {
 
     private final EntityClient _entityClient;
 

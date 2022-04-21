@@ -22,6 +22,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.r2.RemoteInvocationException;
+import com.linkedin.util.Pair;
 import java.net.URISyntaxException;
 import java.util.Collection;
 import java.util.List;
@@ -51,6 +52,13 @@ public interface EntityClient {
   public Map<Urn, EntityResponse> batchGetV2(
       @Nonnull String entityName,
       @Nonnull final Set<Urn> urns,
+      @Nullable final Set<String> aspectNames,
+      @Nonnull final Authentication authentication) throws RemoteInvocationException, URISyntaxException;
+
+  @Nonnull
+  Map<Urn, EntityResponse> batchGetVersionedV2(
+      @Nonnull String entityName,
+      @Nonnull final Set<Pair<String, String>> versionedUrns,
       @Nullable final Set<String> aspectNames,
       @Nonnull final Authentication authentication) throws RemoteInvocationException, URISyntaxException;
 

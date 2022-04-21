@@ -20,12 +20,12 @@ import java.util.function.Function;
  *
  * @param <T> the generated GraphQL POJO corresponding to the resolved type.
  */
-public class LoadableTypeBatchResolver<T> implements DataFetcher<CompletableFuture<List<T>>> {
+public class LoadableTypeBatchResolver<T, K> implements DataFetcher<CompletableFuture<List<T>>> {
 
-    private final LoadableType<T> _loadableType;
+    private final LoadableType<T, K> _loadableType;
     private final Function<DataFetchingEnvironment, List<String>> _urnProvider;
 
-    public LoadableTypeBatchResolver(final LoadableType<T> loadableType, final Function<DataFetchingEnvironment, List<String>> urnProvider) {
+    public LoadableTypeBatchResolver(final LoadableType<T, K> loadableType, final Function<DataFetchingEnvironment, List<String>> urnProvider) {
         _loadableType = loadableType;
         _urnProvider = urnProvider;
     }

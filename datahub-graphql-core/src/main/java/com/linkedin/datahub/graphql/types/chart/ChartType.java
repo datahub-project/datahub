@@ -54,7 +54,7 @@ import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.metadata.Constants.*;
 
 
-public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityType<Chart>, MutableType<ChartUpdateInput, Chart> {
+public class ChartType implements SearchableEntityType<Chart, String>, BrowsableEntityType<Chart, String>, MutableType<ChartUpdateInput, Chart> {
 
     private static final Set<String> ASPECTS_TO_RESOLVE = ImmutableSet.of(
         CHART_KEY_ASPECT_NAME,

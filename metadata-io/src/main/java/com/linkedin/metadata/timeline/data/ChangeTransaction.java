@@ -20,6 +20,7 @@ public class ChangeTransaction {
   List<ChangeEvent> changeEvents;
   @ArraySchema(schema = @Schema(implementation = PatchOperation.class))
   JsonPatch rawDiff;
+  String versionStamp;
 
   public void setSemanticVersion(String semanticVersion) {
     this.semVer = semanticVersion;

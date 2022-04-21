@@ -54,7 +54,7 @@ import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.metadata.Constants.*;
 
 
-public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEntityType<DataFlow>,
+public class DataFlowType implements SearchableEntityType<DataFlow, String>, BrowsableEntityType<DataFlow, String>,
                                      MutableType<DataFlowUpdateInput, DataFlow> {
 
     private static final Set<String> ASPECTS_TO_RESOLVE = ImmutableSet.of(

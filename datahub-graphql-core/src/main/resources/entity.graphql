@@ -32,7 +32,7 @@ type Query {
     """
     Fetch a Dataset by primary key (urn)
     """
-    dataset(urn: String!): Dataset
+    dataset(urn: String!, versionStamp: String): Dataset
 
     """
     Fetch a Dashboard by primary key (urn)

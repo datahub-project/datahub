@@ -1,0 +1,5 @@
+namespace com.linkedin.common
+
+@java.class = "com.linkedin.util.Pair"
+@java.coercerClass = "com.linkedin.util.PairCoercer"
+typeref Pair = string

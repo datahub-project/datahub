@@ -54,7 +54,7 @@ import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.metadata.Constants.*;
 
 
-public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEntityType<DataJob>,
+public class DataJobType implements SearchableEntityType<DataJob, String>, BrowsableEntityType<DataJob, String>,
                                     MutableType<DataJobUpdateInput, DataJob> {
 
     private static final Set<String> ASPECTS_TO_RESOLVE = ImmutableSet.of(

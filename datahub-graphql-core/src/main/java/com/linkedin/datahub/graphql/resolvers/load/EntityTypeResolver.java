@@ -23,11 +23,11 @@ import java.util.stream.Collectors;
 public class EntityTypeResolver implements DataFetcher<CompletableFuture<Entity>> {
 
     private static final List<String> IDENTITY_FIELDS = ImmutableList.of("__typename", "urn", "type");
-    private final List<com.linkedin.datahub.graphql.types.EntityType<?>> _entityTypes;
+    private final List<com.linkedin.datahub.graphql.types.EntityType<?, ?>> _entityTypes;
     private final Function<DataFetchingEnvironment, Entity> _entityProvider;
 
     public EntityTypeResolver(
-        final List<com.linkedin.datahub.graphql.types.EntityType<?>> entityTypes,
+        final List<com.linkedin.datahub.graphql.types.EntityType<?, ?>> entityTypes,
         final Function<DataFetchingEnvironment, Entity> entity
     ) {
         _entityTypes = entityTypes;
@@ -58,7 +58,7 @@ public class EntityTypeResolver implements DataFetcher<CompletableFuture<Entity>
             return CompletableFuture.completedFuture(javaObject);
         }
 
-        final com.linkedin.datahub.graphql.types.EntityType<?> filteredEntity = Iterables.getOnlyElement(_entityTypes.stream()
+        final com.linkedin.datahub.graphql.types.EntityType<?, ?> filteredEntity = Iterables.getOnlyElement(_entityTypes.stream()
                 .filter(entity -> javaObject.getClass().isAssignableFrom(entity.objectClass()))
                 .collect(Collectors.toList()));
         final DataLoader<String, Entity> loader = environment.getDataLoaderRegistry().getDataLoader(filteredEntity.name());

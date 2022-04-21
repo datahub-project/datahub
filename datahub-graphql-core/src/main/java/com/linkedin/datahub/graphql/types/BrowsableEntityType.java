@@ -15,7 +15,7 @@ import java.util.List;
  *
  * @param <T>: The GraphQL object type corresponding to the entity, must extend the `Entity` interface.
  */
-public interface BrowsableEntityType<T extends Entity> extends EntityType<T> {
+public interface BrowsableEntityType<T extends Entity, K> extends EntityType<T, K> {
 
     /**
      * Retrieves {@link BrowseResults} corresponding to a given path, list of filters, start, & count.

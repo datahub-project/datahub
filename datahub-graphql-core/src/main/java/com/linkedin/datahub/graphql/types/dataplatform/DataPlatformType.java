@@ -18,7 +18,7 @@ import java.util.stream.Collectors;
 import static com.linkedin.metadata.Constants.*;
 
 
-public class DataPlatformType implements EntityType<DataPlatform> {
+public class DataPlatformType implements EntityType<DataPlatform, String> {
 
     private final EntityClient _entityClient;
 

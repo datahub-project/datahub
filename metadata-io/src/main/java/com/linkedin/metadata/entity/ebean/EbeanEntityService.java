@@ -20,6 +20,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.RollbackResult;
 import com.linkedin.metadata.entity.RollbackRunResult;
@@ -217,6 +218,33 @@ public class EbeanEntityService extends EntityService {
         .flatMap(List::stream)
         .collect(Collectors.toSet());
 
+    return getCorrespondingAspects(dbKeys, urns);
+  }
+
+  @Override
+  public Map<Urn, List<EnvelopedAspect>> getVersionedEnvelopedAspects(
+      @Nonnull Set<Pair<String, String>> versionedUrnStrs,
+      @Nonnull Set<String> aspectNames) throws URISyntaxException {
+
+    Map<String, Map<String, Long>> urnAspectVersionMap = versionedUrnStrs.stream()
+        .collect(Collectors.toMap(Pair::getFirst,
+            pair -> EntityUtils.convertVersionStamp(pair.getSecond())));
+
+    final Set<EbeanAspectV2.PrimaryKey> dbKeys = urnAspectVersionMap.entrySet().stream()
+        .map(entry -> aspectNames.stream()
+            .map(aspectName -> new EbeanAspectV2.PrimaryKey(entry.getKey(), aspectName, entry.getValue().get(aspectName)))
+            .collect(Collectors.toList()))
+        .flatMap(List::stream)
+        .collect(Collectors.toSet());
+
+    return getCorrespondingAspects(dbKeys, versionedUrnStrs.stream()
+        .map(Pair::getFirst)
+        .map(UrnUtils::getUrn).collect(Collectors.toSet()));
+  }
+
+  private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EbeanAspectV2.PrimaryKey> dbKeys, Set<Urn> urns)
+      throws URISyntaxException {
+
     final Map<EbeanAspectV2.PrimaryKey, EnvelopedAspect> envelopedAspectMap = getEnvelopedAspects(dbKeys);
 
     // Group result by Urn
@@ -225,7 +253,6 @@ public class EbeanEntityService extends EntityService {
         .collect(Collectors.groupingBy(entry -> entry.getKey().getUrn(),
             Collectors.mapping(Map.Entry::getValue, Collectors.toList())));
 
-    // For each input urn, get the aspects corresponding to the urn. If empty, return the key aspect
     final Map<Urn, List<EnvelopedAspect>> result = new HashMap<>();
     for (Urn urn : urns) {
       List<EnvelopedAspect> aspects = urnToAspects.getOrDefault(urn.toString(), Collections.emptyList());
