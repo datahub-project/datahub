@@ -23,7 +23,7 @@ class SnowflakeReport(BaseSnowflakeReport, SQLSourceReport):
     lineage_start_time: Optional[datetime] = None
     lineage_end_time: Optional[datetime] = None
 
-    cleaned_host_port: str = ""
+    cleaned_account_id: str = ""
     run_ingestion: bool = False
     provision_role_done: bool = False
     provision_role_success: bool = False
