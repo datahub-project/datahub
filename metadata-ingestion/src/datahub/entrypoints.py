@@ -21,6 +21,8 @@ from datahub.configuration import SensitiveError
 from datahub.telemetry import telemetry
 from datahub.utilities.server_config_util import get_gms_config
 
+from datahub.configuration.common import ConfigurationError
+
 logger = logging.getLogger(__name__)
 
 # Configure some loggers.
@@ -149,15 +151,19 @@ def main(**kwargs):
             kwargs = {"show_vals": None}
             exc = sensitive_cause
 
-        logger.error(
-            stackprinter.format(
-                exc,
-                line_wrap=MAX_CONTENT_WIDTH,
-                truncate_vals=10 * MAX_CONTENT_WIDTH,
-                suppressed_paths=[r"lib/python.*/site-packages/click/"],
-                **kwargs,
+        # suppress stack printing for configuration errors
+        if isinstance(exc, ConfigurationError):
+                logger.error(exc)
+        else:
+            logger.error(
+                stackprinter.format(
+                    exc,
+                    line_wrap=MAX_CONTENT_WIDTH,
+                    truncate_vals=10 * MAX_CONTENT_WIDTH,
+                    suppressed_paths=[r"lib/python.*/site-packages/click/"],
+                    **kwargs,
+                )
             )
-        )
         logger.info(
             f"DataHub CLI version: {datahub_package.__version__} at {datahub_package.__file__}"
         )
