@@ -562,17 +562,14 @@ class S3Source(Source):
             platformSchema=OtherSchemaClass(rawSchema=""),
         )
         dataset_snapshot.aspects.append(schema_metadata)
-        if self.source_config.use_s3_bucket_tags:
-            dataset_snapshot.aspects.append(
-                self.get_bucket_tags(
-                    get_bucket_name(table_data.table_path), dataset_urn
-                )
-            )
-        if self.source_config.use_s3_object_tags:
+        if (
+            self.source_config.use_s3_bucket_tags
+            or self.source_config.use_s3_object_tags
+        ):
             bucket = get_bucket_name(table_data.table_path)
             key_prefix = get_key_prefix(table_data.table_path)
             dataset_snapshot.aspects.append(
-                self.get_object_tags(bucket, key_prefix, dataset_urn)
+                self.get_s3_tags(bucket, key_prefix, dataset_urn)
             )
 
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
@@ -594,45 +591,33 @@ class S3Source(Source):
             bucket_name=name,
         )
 
-    def get_bucket_tags(self, name: str, dataset_urn: str) -> GlobalTagsClass:
-        if self.source_config.aws_config is None:
-            raise ValueError("aws_config not set. Cannot browse s3")
-        s3 = self.source_config.aws_config.get_s3_resource()
-        bucket = s3.Bucket(name)
-        tags_to_add = [
-            make_tag_urn(f"""{tag["Key"]}:{tag["Value"]}""")
-            for tag in bucket.Tagging().tag_set
-        ]
-        new_tags = GlobalTagsClass(
-            tags=[TagAssociationClass(tag_to_add) for tag_to_add in tags_to_add]
-        )
-        if self.ctx.graph is not None:
-            current_tags: Optional[GlobalTagsClass] = self.ctx.graph.get_aspect_v2(
-                entity_urn=dataset_urn,
-                aspect="globalTags",
-                aspect_type=GlobalTagsClass,
-            )
-            if current_tags:
-                for tag_to_add in current_tags.tags:
-                    if tag_to_add not in [x.tag for x in new_tags.tags]:
-                        # any current tag not in new tags
-                        new_tags.tags.append(tag_to_add)
-        return new_tags
-
-    def get_object_tags(
+    def get_s3_tags(
         self, bucket_name: str, key_name: str, dataset_urn: str
     ) -> GlobalTagsClass:
         if self.source_config.aws_config is None:
             raise ValueError("aws_config not set. Cannot browse s3")
-        s3 = self.source_config.aws_config.get_s3_client()
-        object_tagging = s3.get_object_tagging(Bucket=bucket_name, Key=key_name)
-        tags_to_add = [
-            make_tag_urn(f"""{tag["Key"]}:{tag["Value"]}""")
-            for tag in object_tagging["TagSet"]
-        ]
-        new_tags = GlobalTagsClass(
-            tags=[TagAssociationClass(tag_to_add) for tag_to_add in tags_to_add]
-        )
+        new_tags = GlobalTagsClass(tags=[])
+        tags_to_add = []
+        if self.source_config.use_s3_bucket_tags:
+            s3 = self.source_config.aws_config.get_s3_resource()
+            bucket = s3.Bucket(bucket_name)
+            tags_to_add.extend(
+                [
+                    make_tag_urn(f"""{tag["Key"]}:{tag["Value"]}""")
+                    for tag in bucket.Tagging().tag_set
+                ]
+            )
+        if self.source_config.use_s3_object_tags:
+            s3_client = self.source_config.aws_config.get_s3_client()
+            object_tagging = s3_client.get_object_tagging(
+                Bucket=bucket_name, Key=key_name
+            )
+            tags_to_add.extend(
+                [
+                    make_tag_urn(f"""{tag["Key"]}:{tag["Value"]}""")
+                    for tag in object_tagging["TagSet"]
+                ]
+            )
         if self.ctx.graph is not None:
             current_tags: Optional[GlobalTagsClass] = self.ctx.graph.get_aspect_v2(
                 entity_urn=dataset_urn,
@@ -640,10 +625,14 @@ class S3Source(Source):
                 aspect_type=GlobalTagsClass,
             )
             if current_tags:
-                for tag_to_add in current_tags.tags:
-                    if tag_to_add not in [x.tag for x in new_tags.tags]:
-                        # any current tag not in new tags
-                        new_tags.tags.append(tag_to_add)
+                tags_to_add.extend(
+                    [current_tag.tag for current_tag in current_tags.tags]
+                )
+        # Remove duplicate tags
+        tags_to_add = list(set(tags_to_add))
+        new_tags = GlobalTagsClass(
+            tags=[TagAssociationClass(tag_to_add) for tag_to_add in tags_to_add]
+        )
         return new_tags
 
     def gen_folder_key(self, abs_path):

@@ -273,13 +273,7 @@
           {
               "com.linkedin.pegasus2avro.common.GlobalTags": {
                   "tags": [
-                      {"tag": "urn:li:tag:foo:bar"}
-                  ]
-              }
-          },
-          {
-              "com.linkedin.pegasus2avro.common.GlobalTags": {
-                  "tags": [
+                      {"tag": "urn:li:tag:foo:bar"},
                       {"tag": "urn:li:tag:baz:bob"}
                   ]
               }
@@ -514,15 +508,7 @@
           {
               "com.linkedin.pegasus2avro.common.GlobalTags": {
                   "tags": [
-                      {
-                          "tag": "urn:li:tag:foo:bar"
-                      }
-                  ]
-              }
-          },
-          {
-              "com.linkedin.pegasus2avro.common.GlobalTags": {
-                  "tags": [
+                      {"tag": "urn:li:tag:foo:bar"},
                       {"tag": "urn:li:tag:baz:bob"}
                   ]
               }
@@ -729,18 +715,10 @@
           {
             "com.linkedin.pegasus2avro.common.GlobalTags": {
                 "tags": [
-                    {
-                        "tag": "urn:li:tag:foo:bar"
-                    }
+                    {"tag": "urn:li:tag:foo:bar"},
+                    {"tag": "urn:li:tag:baz:bob"}
                 ]
             }
-          },
-          {
-              "com.linkedin.pegasus2avro.common.GlobalTags": {
-                  "tags": [
-                      {"tag": "urn:li:tag:baz:bob"}
-                  ]
-              }
           }
         ]
       }

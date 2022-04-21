@@ -420,14 +420,8 @@
                 {
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
                         "tags": [
-                            {"tag": "foo:bar"}
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": [
-                            {"tag": "baz:bob"}
+                            {"tag": "urn:li:tag:foo:bar"},
+                            {"tag": "urn:li:tag:baz:bob"}
                         ]
                     }
                 }
