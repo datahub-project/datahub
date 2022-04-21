@@ -1,13 +1,14 @@
 package com.linkedin.metadata.utils;
 
+import com.linkedin.data.DataComplex;
 import com.linkedin.data.DataList;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.ArrayDataSchema;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.schema.RecordDataSchema;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
-import com.linkedin.metadata.models.AspectSpec;
 import java.util.List;
 import java.util.ListIterator;
 import lombok.extern.slf4j.Slf4j;
@@ -17,14 +18,19 @@ public class AspectProcessor {
 
   private AspectProcessor() { }
 
-  public static Aspect removeAspect(String aspectName, PathSpec aspectPath, Aspect aspect, AspectSpec aspectSpec) throws CloneNotSupportedException {
+  public static Aspect removeAspect(String value, RecordTemplate aspect, DataSchema schema, PathSpec aspectPath) throws CloneNotSupportedException {
     final DataMap copy =  aspect.copy().data();
-    final Object newValue = traversePath(aspectName, aspectSpec.getPegasusSchema(), copy,
-        aspectPath.getPathComponents(), 0);
-    return new Aspect((DataMap) newValue);
+    final DataComplex newValue = traversePath(value, schema, copy,
+        aspectPath.getPathComponents(), 0, null);
+    if (newValue == null) {
+      return new Aspect();
+    } else {
+      return new Aspect((DataMap) newValue);
+    }
   }
 
-  private static Object traversePath(String value, DataSchema schema, Object o, List<String> pathComponents, int index)
+  private static DataComplex traversePath(String value, DataSchema schema, Object o, List<String> pathComponents, int index,
+      Boolean optional)
       throws CloneNotSupportedException {
 
     final String subPath = pathComponents.get(index);
@@ -32,35 +38,46 @@ public class AspectProcessor {
     // Processing an array
     if (subPath.equals("*")) {
       // Process each entry
-      return processArray(value, (ArrayDataSchema) schema, (DataList) o, pathComponents, index);
+      return processArray(value, (ArrayDataSchema) schema, (DataList) o, pathComponents, index, optional);
     } else { // Processing a map
-      return processMap(value, (RecordDataSchema) schema, (DataMap) o, pathComponents, index);
+      return processMap(value, (RecordDataSchema) schema, (DataMap) o, pathComponents, index, optional);
     }
   }
 
-  private static Object processMap(String value, RecordDataSchema spec, DataMap record, List<String> pathComponents,
-      int index)
+  private static DataComplex processMap(String value, RecordDataSchema spec, DataMap record, List<String> pathComponents,
+      int index, Boolean isParentOptional)
       throws CloneNotSupportedException {
     // If in the last component of the path spec
     if (index == pathComponents.size() - 1) {
-      final DataMap clone = record.clone();
-      final Object found = clone.remove(pathComponents.get(index));
-      if (found == null) {
-        log.error(String.format("Unable to find value %s in aspect list %s at path %s", value, clone,
-            pathComponents.subList(0, index)));
-      } else if (clone.isEmpty()) {
-        return null;
+      // Can only remove if field is optional or if (parent is optional AND struct will be empty or just with optionals)
+      boolean canDelete = spec.getField(pathComponents.get(index)).getOptional() || Boolean.TRUE.equals(isParentOptional) && (
+          record.size() == 1 || spec.getFields()
+              .stream()
+              .filter(field -> !field.getName().equals(pathComponents.get(index)))
+              .noneMatch(RecordDataSchema.Field::getOptional));
+
+      if (canDelete) {
+        final DataMap clone = record.clone();
+        final Object found = clone.remove(pathComponents.get(index));
+        if (found == null) {
+          log.error(String.format("[DANGLING POINTER GC] Unable to find value %s in data map %s at path %s", value, clone,
+              pathComponents.subList(0, index)));
+        }
+        return clone;
+      } else {
+        log.warn(String.format("[DANGLING POINTER GC] Can not remove a field %s that is non-optional!", spec.getName()));
       }
-      return clone;
     } else {
       // else traverse further down the tree.
       final String key = pathComponents.get(index);
-      final boolean optional = spec.getField(key).getOptional();
+      final boolean optionalField = spec.getField(key).getOptional();
       // Check if key exists, this may not exist because you are in wrong branch of the tree (i.e: iterating for an array)
       if (record.containsKey(key)) {
-        final Object result = traversePath(value, spec.getField(key).getType(), record.get(key), pathComponents,
-            index + 1);
-        if (result != null) {
+        final boolean optional = Boolean.TRUE.equals(isParentOptional) || optionalField;
+        final DataComplex result = traversePath(value, spec.getField(key).getType(), record.get(key), pathComponents,
+            index + 1, optional);
+
+        if (!result.values().isEmpty()) {
           record.put(key, result);
         } else if (optional) {
           record.remove(key);
@@ -72,14 +89,11 @@ public class AspectProcessor {
       }
     }
 
-    if (record.isEmpty()) {
-      return null;
-    }
     return record;
   }
 
-  private static Object processArray(String value, ArrayDataSchema spec, DataList aspectList,
-      List<String> pathComponents, int index)
+  private static DataComplex processArray(String value, ArrayDataSchema spec, DataList aspectList,
+      List<String> pathComponents, int index, Boolean isParentOptional)
       throws CloneNotSupportedException {
     // If in the last component of the path spec
     if (index == pathComponents.size() - 1) {
@@ -88,25 +102,19 @@ public class AspectProcessor {
       if (!found) {
         log.error(String.format("Unable to find value %s in aspect list %s at path %s", value, aspectList,
             pathComponents.subList(0, index)));
-      } else if (clone.isEmpty()) {
-        return null;
       }
       return clone;
     } else { // else traverse further down the tree.
-      ListIterator<Object> it = aspectList.listIterator();
+      final ListIterator<Object> it = aspectList.listIterator();
       while (it.hasNext()) {
-        Object aspect = it.next();
-        final Object result = traversePath(value, spec.getItems(), aspect, pathComponents, index + 1);
-        if (result != null) {
+        final Object aspect = it.next();
+        final DataComplex result = traversePath(value, spec.getItems(), aspect, pathComponents, index + 1, isParentOptional);
+        if (!result.values().isEmpty()) {
           it.set(result);
         } else {
           it.remove();
         }
       }
-    }
-
-    if (aspectList.isEmpty()) {
-      return null;
     }
 
     return aspectList;

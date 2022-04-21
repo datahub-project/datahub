@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.schema.PathSpec;
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphService;
@@ -146,26 +145,16 @@ public class ElasticSearchGraphService implements GraphService {
         .map(hit -> {
           final String urnStr = ((HashMap<String, String>) hit.getSourceAsMap().getOrDefault(destinationNode, EMPTY_HASH)).getOrDefault("urn", null);
           final String relationshipType = (String) hit.getSourceAsMap().get("relationshipType");
-          final HashMap<String, String> metadata = ((HashMap<String, String>) hit.getSourceAsMap().getOrDefault("metadata", EMPTY_HASH));
-          final String aspectName = metadata.getOrDefault("aspectName", null);
-          final String pathSpecStr = metadata.getOrDefault("pathSpec", null);
 
-          if (urnStr == null || relationshipType == null || aspectName == null || pathSpecStr == null) {
+          if (urnStr == null || relationshipType == null) {
             log.error(String.format(
                 "Found null urn string, relationship type, aspect name or path spec in Elastic index. "
-                    + "urnStr: %s, relationshipType: %s, aspectName: %s, pathSpec: %s",
-                urnStr, relationshipType, aspectName, pathSpecStr));
+                    + "urnStr: %s, relationshipType: %s",g
+                urnStr, relationshipType));
             return null;
           }
 
-          if (!PathSpec.validatePathSpecString(pathSpecStr)) {
-            log.error(String.format("Path spec is invalid: %s", pathSpecStr));
-            return null;
-          }
-
-          final PathSpec pathSpec = new PathSpec(pathSpecStr.substring(1).split("/"));
-
-          return new RelatedEntity(relationshipType, urnStr, aspectName, pathSpec);
+          return new RelatedEntity(relationshipType, urnStr); //, aspectName, pathSpec);
         })
         .filter(Objects::nonNull)
         .collect(Collectors.toList());

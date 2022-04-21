@@ -121,32 +121,20 @@ abstract public class GraphServiceTestBase {
   /**
    * Some expected related entities.
    */
-  protected static RelatedEntity downstreamOfDatasetOneRelatedEntity = new RelatedEntity(downstreamOf, datasetOneUrnString,
-      Constants.DATASET_KEY_ASPECT_NAME, PathSpec.emptyPath());
-  protected static RelatedEntity downstreamOfDatasetTwoRelatedEntity = new RelatedEntity(downstreamOf, datasetTwoUrnString,
-      Constants.DATASET_KEY_ASPECT_NAME, PathSpec.emptyPath());
-  protected static RelatedEntity downstreamOfDatasetThreeRelatedEntity = new RelatedEntity(downstreamOf, datasetThreeUrnString,
-      Constants.DATASET_KEY_ASPECT_NAME, PathSpec.emptyPath());
-  protected static RelatedEntity downstreamOfDatasetFourRelatedEntity = new RelatedEntity(downstreamOf, datasetFourUrnString,
-      Constants.DATASET_KEY_ASPECT_NAME, PathSpec.emptyPath());
+  protected static RelatedEntity downstreamOfDatasetOneRelatedEntity = new RelatedEntity(downstreamOf, datasetOneUrnString);
+  protected static RelatedEntity downstreamOfDatasetTwoRelatedEntity = new RelatedEntity(downstreamOf, datasetTwoUrnString);
+  protected static RelatedEntity downstreamOfDatasetThreeRelatedEntity = new RelatedEntity(downstreamOf, datasetThreeUrnString);
+  protected static RelatedEntity downstreamOfDatasetFourRelatedEntity = new RelatedEntity(downstreamOf, datasetFourUrnString);
 
-  protected static RelatedEntity hasOwnerDatasetOneRelatedEntity = new RelatedEntity(hasOwner, datasetOneUrnString,
-      Constants.OWNERSHIP_ASPECT_NAME, new PathSpec("owners", "*", "owner"));
-  protected static RelatedEntity hasOwnerDatasetTwoRelatedEntity = new RelatedEntity(hasOwner, datasetTwoUrnString,
-      Constants.OWNERSHIP_ASPECT_NAME, new PathSpec("owners", "*", "owner"));
-  protected static RelatedEntity hasOwnerDatasetThreeRelatedEntity = new RelatedEntity(hasOwner, datasetThreeUrnString,
-      Constants.OWNERSHIP_ASPECT_NAME, new PathSpec("owners", "*", "owner"));
-  protected static RelatedEntity hasOwnerDatasetFourRelatedEntity = new RelatedEntity(hasOwner, datasetFourUrnString,
-      Constants.OWNERSHIP_ASPECT_NAME, new PathSpec("owners", "*", "owner"));
-  protected static RelatedEntity hasOwnerUserOneRelatedEntity = new RelatedEntity(hasOwner, userOneUrnString,
-      Constants.OWNERSHIP_ASPECT_NAME, new PathSpec("owners", "*", "owner"));
-  protected static RelatedEntity hasOwnerUserTwoRelatedEntity = new RelatedEntity(hasOwner, userTwoUrnString,
-      Constants.OWNERSHIP_ASPECT_NAME, new PathSpec("owners", "*", "owner"));
+  protected static RelatedEntity hasOwnerDatasetOneRelatedEntity = new RelatedEntity(hasOwner, datasetOneUrnString);
+  protected static RelatedEntity hasOwnerDatasetTwoRelatedEntity = new RelatedEntity(hasOwner, datasetTwoUrnString);
+  protected static RelatedEntity hasOwnerDatasetThreeRelatedEntity = new RelatedEntity(hasOwner, datasetThreeUrnString);
+  protected static RelatedEntity hasOwnerDatasetFourRelatedEntity = new RelatedEntity(hasOwner, datasetFourUrnString);
+  protected static RelatedEntity hasOwnerUserOneRelatedEntity = new RelatedEntity(hasOwner, userOneUrnString);
+  protected static RelatedEntity hasOwnerUserTwoRelatedEntity = new RelatedEntity(hasOwner, userTwoUrnString);
 
-  protected static RelatedEntity knowsUserOneRelatedEntity = new RelatedEntity(knowsUser, userOneUrnString,
-      Constants.OWNERSHIP_ASPECT_NAME, PathSpec.emptyPath());
-  protected static RelatedEntity knowsUserTwoRelatedEntity = new RelatedEntity(knowsUser, userTwoUrnString,
-      Constants.OWNERSHIP_ASPECT_NAME, PathSpec.emptyPath());
+  protected static RelatedEntity knowsUserOneRelatedEntity = new RelatedEntity(knowsUser, userOneUrnString);
+  protected static RelatedEntity knowsUserTwoRelatedEntity = new RelatedEntity(knowsUser, userTwoUrnString);
 
   /**
    * Some relationship filters.
@@ -933,8 +921,7 @@ abstract public class GraphServiceTestBase {
 
     Urn nullUrn = createFromString("urn:li:null:(urn:li:null:Null)");
     assertNotNull(nullUrn);
-    RelatedEntity nullRelatedEntity = new RelatedEntity(downstreamOf, nullUrn.toString(), Constants.UPSTREAM_LINEAGE_ASPECT_NAME,
-        new PathSpec("upstreams", "*", "dataset"));
+    RelatedEntity nullRelatedEntity = new RelatedEntity(downstreamOf, nullUrn.toString());
 
     doTestFindRelatedEntitiesEntityType(anyType, "null", downstreamOf, outgoingRelationships, service);
     doTestFindRelatedEntitiesEntityType(anyType, null, downstreamOf, outgoingRelationships, service);
@@ -956,8 +943,7 @@ abstract public class GraphServiceTestBase {
 
     Urn nullUrn = createFromString("urn:li:null:(urn:li:null:Null)");
     assertNotNull(nullUrn);
-    RelatedEntity nullRelatedEntity = new RelatedEntity(downstreamOf, nullUrn.toString(), Constants.UPSTREAM_LINEAGE_ASPECT_NAME,
-        new PathSpec("upstreams", "*", "dataset"));
+    RelatedEntity nullRelatedEntity = new RelatedEntity(downstreamOf, nullUrn.toString());
 
     doTestFindRelatedEntitiesEntityType(anyType, "null", downstreamOf, outgoingRelationships, service);
     doTestFindRelatedEntitiesEntityType(anyType, null, downstreamOf, outgoingRelationships, service);
@@ -1455,9 +1441,7 @@ abstract public class GraphServiceTestBase {
       );
 
       Set<RelatedEntity> expectedRelatedEntities = edges.stream()
-              .map(edge -> new RelatedEntity(edge.getRelationshipType(), edge.getDestination().toString(),
-                  edge.getMetadata().getAspectName(), edge.getMetadata()
-                  .getPathSpec()))
+              .map(edge -> new RelatedEntity(edge.getRelationshipType(), edge.getDestination().toString()))
               .collect(Collectors.toSet());
       assertEquals(new HashSet<>(relatedEntities.entities), expectedRelatedEntities);
   }

@@ -27,11 +27,6 @@ public interface GraphService {
   LineageRegistry getLineageRegistry();
 
   /**
-   * Return lineage registry to construct graph index
-   */
-  RelationshipRegistry getLineageRegistry();
-
-  /**
    * Adds an edge to the graph. This creates the source and destination nodes, if they do not exist.
    */
   void addEdge(final Edge edge);

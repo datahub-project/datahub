@@ -7,6 +7,7 @@ import com.linkedin.metadata.models.annotation.AspectAnnotation;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.Getter;
@@ -118,5 +119,12 @@ public class AspectSpec {
 
   public Class<RecordTemplate> getDataTemplateClass() {
     return _aspectClass;
+  }
+
+  public Optional<RelationshipFieldSpec> findRelationshipFor(final String relationshipName, final String relatedEntityName) {
+    return getRelationshipFieldSpecs().stream()
+        .filter(relationship -> relationship.getRelationshipName().equals(relationshipName)
+            && relationship.getValidDestinationTypes().contains(relatedEntityName))
+        .findFirst();
   }
 }

@@ -45,7 +45,7 @@ record CorpGroupInfo {
    */
   @Relationship = {
     "/*": {
-      "name": "IsPartOf",
+        "name": "IsPartOf",
       "entityTypes": [ "corpuser" ]
     }
   }

@@ -122,6 +122,8 @@ public class ConfigEntityRegistry implements EntityRegistry {
       entityNameToSpec.put(entity.getName().toLowerCase(), entitySpec);
     }
 
+    entitySpecBuilder.validateRelationships();
+
     // Build Event Specs
     eventNameToSpec = new HashMap<>();
     if (entities.getEvents() != null) {

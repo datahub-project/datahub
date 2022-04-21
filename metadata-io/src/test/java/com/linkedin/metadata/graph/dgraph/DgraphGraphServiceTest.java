@@ -687,7 +687,7 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
                             ));
                         }}
                 ),
-                Arrays.asList(new RelatedEntity("pred", "urn:ns:type:dest-key", null, null))
+                Arrays.asList(new RelatedEntity("pred", "urn:ns:type:dest-key"))
         );
 
         // multiple results and one relationship
@@ -718,8 +718,8 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
                         }}
                 ),
                 Arrays.asList(
-                        new RelatedEntity("pred", "urn:ns:type:dest-key-1", null, null),
-                        new RelatedEntity("pred", "urn:ns:type:dest-key-2", null, null)
+                        new RelatedEntity("pred", "urn:ns:type:dest-key-1"),
+                        new RelatedEntity("pred", "urn:ns:type:dest-key-2")
                 )
         );
 
@@ -775,10 +775,10 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
                         }}
                 ),
                 Arrays.asList(
-                        new RelatedEntity("pred1", "urn:ns:type:dest-key-1", null, null),
-                        new RelatedEntity("pred1", "urn:ns:type:dest-key-2", null, null),
-                        new RelatedEntity("pred1", "urn:ns:type:dest-key-3", null, null),
-                        new RelatedEntity("pred2", "urn:ns:type:dest-key-4", null, null)
+                        new RelatedEntity("pred1", "urn:ns:type:dest-key-1"),
+                        new RelatedEntity("pred1", "urn:ns:type:dest-key-2"),
+                        new RelatedEntity("pred1", "urn:ns:type:dest-key-3"),
+                        new RelatedEntity("pred2", "urn:ns:type:dest-key-4")
                 ),
                 RELATED_ENTITY_COMPARATOR
         );

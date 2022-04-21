@@ -73,7 +73,13 @@ public class EntitySpecBuilder {
       }
     }
 
-    // Now validate that all relationships point to valid entities.
+    validateRelationships();
+
+    return entitySpecs;
+  }
+
+  public void validateRelationships() {
+    //4. Validate that all relationships point to valid entities.
     for (final RelationshipFieldSpec spec : _relationshipFieldSpecs) {
       if (!_entityNames.containsAll(
           spec.getValidDestinationTypes().stream().map(String::toLowerCase).collect(Collectors.toList()))) {
@@ -82,8 +88,6 @@ public class EntitySpecBuilder {
                 spec.getRelationshipName(), spec.getPath()));
       }
     }
-
-    return entitySpecs;
   }
 
   public EntitySpec buildEntitySpec(@Nonnull final DataSchema entitySnapshotSchema) {
