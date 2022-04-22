@@ -24,6 +24,19 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 from datahub.utilities import config_clean
 from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_column
 
+
+from datahub.ingestion.api.decorators import (
+   SourceCapability,
+   SupportStatus,
+   capability,
+   config_class,
+   platform_name,
+   support_status,
+)
+
+
+from pydantic.fields import Field
+
 register_custom_type(HiveDate, DateTypeClass)
 register_custom_type(HiveTimestamp, TimeTypeClass)
 register_custom_type(HiveDecimal, NumberTypeClass)
@@ -31,19 +44,32 @@ register_custom_type(HiveDecimal, NumberTypeClass)
 
 class HiveConfig(BasicSQLAlchemyConfig):
     # defaults
-    scheme = "hive"
+    scheme = Field(default="hive",exclude=True)
 
     # Hive SQLAlchemy connector returns views as tables.
     # See https://github.com/dropbox/PyHive/blob/b21c507a24ed2f2b0cf15b0b6abb1c43f31d3ee0/pyhive/sqlalchemy_hive.py#L270-L273.
     # Disabling views helps us prevent this duplication.
-    include_views = False
+    include_views = Field(default=False,exclude=True,description="Hive SQLAlchemy connector returns views as tables. See https://github.com/dropbox/PyHive/blob/b21c507a24ed2f2b0cf15b0b6abb1c43f31d3ee0/pyhive/sqlalchemy_hive.py#L270-L273. Disabling views helps us prevent this duplication.")
 
     @validator("host_port")
     def clean_host_port(cls, v):
         return config_clean.remove_protocol(v)
 
-
+@platform_name("Hive")
+@config_class(HiveConfig)
+@support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 class HiveSource(SQLAlchemySource):
+    """
+    This plugin extracts the following:
+
+    - Metadata for databases, schemas, and tables
+    - Column types associated with each table
+    - Detailed table and storage information
+    - Table, row, and column statistics via optional [SQL profiling](../../../../metadata-ingestion/source_docs/sql_profiles.md)
+
+    """
 
     _COMPLEX_TYPE = re.compile("^(struct|map|array|uniontype)")
 
