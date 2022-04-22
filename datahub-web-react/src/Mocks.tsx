@@ -487,9 +487,7 @@ export const dataset3 = {
     relationships: null,
     health: null,
     assertions: null,
-    status: {
-        removed: false,
-    },
+    status: null,
     readRuns: null,
     writeRuns: null,
 } as Dataset;
@@ -1419,7 +1417,7 @@ export const recommendationModules = [
 ];
 
 /*
-    Define mock data to be returned by Apollo MockProvider.
+    Define mock data to be returned by Apollo MockProvider. 
 */
 export const mocks = [
     {
