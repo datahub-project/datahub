@@ -18,6 +18,14 @@ describe('features', () => {
       // feature & primary key sources are visible
       cy.contains('SampleCypressHdfsDataset');
       cy.contains('SampleCypressKafkaDataset');
+
+      // navigate to properties
+      cy.contains('Properties').click();
+
+      // custom properties are visible
+      cy.contains('status');
+      cy.contains('Created');
+
     });
 
     it('can visit feature page', () => {
