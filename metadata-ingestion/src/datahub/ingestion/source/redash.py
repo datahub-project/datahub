@@ -15,10 +15,8 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.decorators import (
-    # SourceCapability,
+from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
     SupportStatus,
-    # capability,
     config_class,
     platform_name,
     support_status,
@@ -282,7 +280,14 @@ class RedashSourceReport(SourceReport):
 @platform_name("Redash")
 @config_class(RedashConfig)
 @support_status(SupportStatus.CERTIFIED)
+@ca
 class RedashSource(Source):
+    """
+    This plugin extracts the following:
+
+    - Redash dashboards and queries/visualization
+    - Redash chart table lineages (disabled by default)
+    """
     config: RedashConfig
     report: RedashSourceReport
     platform = "redash"
