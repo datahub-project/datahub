@@ -162,6 +162,22 @@ You need to request a certificate in the AWS Certificate Manager by following th
 the ARN of the new certificate. You also need to replace host-name with the hostname of choice like
 demo.datahubproject.io.
 
+To have the metadata [authentication service](https://datahubproject.io/docs/introducing-metadata-service-authentication/#configuring-metadata-service-authentication) enable and use [API tokens](https://datahubproject.io/docs/introducing-metadata-service-authentication/#generating-personal-access-tokens) from the UI you will need to set the configuration in the values.yaml for the `gms` and the `frontend` deployments. For example, using extraEnvs:
+
+```
+datahub-gms:
+  extraEnvs:
+    - name: METADATA_SERVICE_AUTH_ENABLED
+      value: "true"
+
+datahub-frontend:
+  extraEnvs:
+    - name: METADATA_SERVICE_AUTH_ENABLED
+      value: "true"
+
+```
+
+
 After updating the yaml file, run the following to apply the updates.
 
 ```
@@ -178,7 +194,7 @@ datahub-datahub-frontend   <none>   demo.datahubproject.io   k8s-default-datahub
 
 Note down the elb address in the address column. Add the DNS CNAME record to the host domain pointing the host-name (
 from above) to the elb address. DNS updates generally take a few minutes to an hour. Once that is done, you should be
-able to access datahub-frontend through the host-name.
+able to access datahub-frontend through the host-name. In case the frontend is not loading well try setting a specific version in the field tag for the repository.
 
 ## Use AWS managed services for the storage layer
 
