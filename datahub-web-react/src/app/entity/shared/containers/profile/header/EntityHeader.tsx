@@ -146,7 +146,11 @@ const Divider = styled.div`
     padding-top: 5px;
 `;
 
-export const EntityHeader = () => {
+type Props = {
+    showDeprecateOption?: boolean;
+};
+
+export const EntityHeader = ({ showDeprecateOption }: Props) => {
     const { urn, entityType, entityData } = useEntityData();
     const [updateDeprecation] = useUpdateDeprecationMutation();
     const [showAddDeprecationDetailsModal, setShowAddDeprecationDetailsModal] = useState(false);
@@ -202,18 +206,6 @@ export const EntityHeader = () => {
         refetch?.();
     };
 
-    const menu = (
-        <Menu>
-            <Menu.Item key="0">
-                {!entityData?.deprecation?.deprecated ? (
-                    <MenuItem onClick={() => setShowAddDeprecationDetailsModal(true)}>Mark as deprecated</MenuItem>
-                ) : (
-                    <MenuItem onClick={() => handleUpdateDeprecation(false)}>Mark as un-deprecated</MenuItem>
-                )}
-            </Menu.Item>
-        </Menu>
-    );
-
     /**
      * Deprecation Decommission Timestamp
      */
@@ -232,6 +224,7 @@ export const EntityHeader = () => {
 
     const hasDetails = entityData?.deprecation?.note !== '' || entityData?.deprecation?.decommissionTime !== null;
     const isDividerNeeded = entityData?.deprecation?.note !== '' && entityData?.deprecation?.decommissionTime !== null;
+    const showAdditionalOptions = showDeprecateOption;
 
     return (
         <>
@@ -328,9 +321,28 @@ export const EntityHeader = () => {
                         }}
                     />
                 </Tooltip>
-                <Dropdown overlay={menu} trigger={['click']}>
-                    <MenuIcon />
-                </Dropdown>
+                {showAdditionalOptions && (
+                    <Dropdown
+                        overlay={
+                            <Menu>
+                                <Menu.Item key="0">
+                                    {!entityData?.deprecation?.deprecated ? (
+                                        <MenuItem onClick={() => setShowAddDeprecationDetailsModal(true)}>
+                                            Mark as deprecated
+                                        </MenuItem>
+                                    ) : (
+                                        <MenuItem onClick={() => handleUpdateDeprecation(false)}>
+                                            Mark as un-deprecated
+                                        </MenuItem>
+                                    )}
+                                </Menu.Item>
+                            </Menu>
+                        }
+                        trigger={['click']}
+                    >
+                        <MenuIcon />
+                    </Dropdown>
+                )}
             </HeaderContainer>
             <AddDeprecationDetailsModal
                 visible={showAddDeprecationDetailsModal}

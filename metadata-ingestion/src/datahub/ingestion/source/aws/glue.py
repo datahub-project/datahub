@@ -331,7 +331,7 @@ class GlueSource(Source):
                         flow_urn,
                         f"Unrecognized Glue data object type: {node_args}. Skipping.",
                     )
-
+                    return None
                 else:
 
                     raise ValueError(f"Unrecognized Glue data object type: {node_args}")
@@ -387,8 +387,19 @@ class GlueSource(Source):
         # traverse edges to fill in node properties
         for edge in dataflow_graph["DagEdges"]:
 
-            source_node = nodes[edge["Source"]]
-            target_node = nodes[edge["Target"]]
+            source_node = nodes.get(edge["Source"])
+            target_node = nodes.get(edge["Target"])
+
+            # Currently, in case of unsupported connectors,
+            # Source and Target for some edges is not available
+            # in nodes. this may lead to broken edge in lineage.
+            if source_node is None or target_node is None:
+                logger.warning(
+                    flow_urn,
+                    f"Unrecognized source or target node in edge: {edge}. Skipping.\
+                        This may lead to broken edge in lineage",
+                )
+                continue
 
             source_node_type = source_node["NodeType"]
             target_node_type = target_node["NodeType"]

@@ -7056,6 +7056,8 @@ description: String
     mlFeatures: [MLFeature]
 
     mlPrimaryKeys: [MLPrimaryKey]
+
+    customProperties: [StringMapEntry!]
 }
 
 type HyperParameterMap {
