@@ -79,6 +79,11 @@ type AppConfig {
   appVersion: String
 
   """
+  Auth-related configurations
+  """
+  authConfig: AuthConfig!
+
+  """
   Configurations related to the Analytics Feature
   """
   analyticsConfig: AnalyticsConfig!
@@ -138,6 +143,17 @@ type AnalyticsConfig {
   """
   enabled: Boolean!
 }
+
+"""
+Configurations related to auth
+"""
+type AuthConfig {
+  """
+  Whether token-based auth is enabled.
+  """
+  tokenAuthEnabled: Boolean!
+}
+
 
 """
 Configurations related to the Policies Feature
