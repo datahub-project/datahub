@@ -2766,7 +2766,6 @@
         "Relationship" : {
           "/*" : {
             "entityTypes" : [ "dataset" ],
-            "isLineage" : true,
             "name" : "DerivedFrom"
           }
         }
@@ -3190,14 +3189,7 @@
           "items" : "com.linkedin.common.MLFeatureUrn"
         },
         "doc" : "List of features used for MLModel training",
-        "optional" : true,
-        "Relationship" : {
-          "/*" : {
-            "entityTypes" : [ "mlFeature" ],
-            "isLineage" : true,
-            "name" : "Consumes"
-          }
-        }
+        "optional" : true
       }, {
         "name" : "tags",
         "type" : {
@@ -3438,7 +3430,6 @@
     }, {
       "name" : "aspect",
       "type" : "GenericAspect",
-      "doc" : "The value of the new aspect.",
       "optional" : true
     }, {
       "name" : "systemMetadata",
