@@ -18,10 +18,9 @@ from datahub.cli.put_cli import put
 from datahub.cli.telemetry import telemetry as telemetry_cli
 from datahub.cli.timeline_cli import timeline
 from datahub.configuration import SensitiveError
+from datahub.configuration.common import ConfigurationError
 from datahub.telemetry import telemetry
 from datahub.utilities.server_config_util import get_gms_config
-
-from datahub.configuration.common import ConfigurationError
 
 logger = logging.getLogger(__name__)
 
@@ -153,7 +152,7 @@ def main(**kwargs):
 
         # suppress stack printing for common configuration errors
         if isinstance(exc, (ConfigurationError, ValueError)):
-                logger.error(exc)
+            logger.error(exc)
         else:
             logger.error(
                 stackprinter.format(
