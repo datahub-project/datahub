@@ -163,6 +163,17 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "externalUrl": null,
+                        "name": "customer",
+                        "qualifiedName": null,
+                        "description": null,
+                        "uri": null,
+                        "tags": []
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "hotel.customer",
                         "platform": "urn:li:dataPlatform:hana",
@@ -313,6 +324,25 @@
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hana,hotel.customer,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"table\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "hana-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hana,hotel.customer,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
     "aspectName": "domains",
     "aspect": {
         "value": "{\"domains\": [\"urn:li:domain:sales\"]}",
@@ -354,6 +384,17 @@
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
                         "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "externalUrl": null,
+                        "name": "hotel",
+                        "qualifiedName": null,
+                        "description": null,
+                        "uri": null,
+                        "tags": []
                     }
                 },
                 {
@@ -507,6 +548,25 @@
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hana,hotel.hotel,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"table\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "hana-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hana,hotel.hotel,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
     "aspectName": "domains",
     "aspect": {
         "value": "{\"domains\": [\"urn:li:domain:sales\"]}",
@@ -548,6 +608,17 @@
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
                         "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "externalUrl": null,
+                        "name": "maintenance",
+                        "qualifiedName": null,
+                        "description": null,
+                        "uri": null,
+                        "tags": []
                     }
                 },
                 {
@@ -670,6 +741,25 @@
         }
     },
     "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "hana-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hana,hotel.maintenance,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"table\"]}",
+        "contentType": "application/json"
+    },
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "hana-test",
