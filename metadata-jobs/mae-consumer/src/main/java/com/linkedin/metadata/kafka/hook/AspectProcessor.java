@@ -1,4 +1,4 @@
-package com.linkedin.metadata.utils;
+package com.linkedin.metadata.kafka.hook;
 
 import com.linkedin.data.DataComplex;
 import com.linkedin.data.DataList;
@@ -13,6 +13,17 @@ import java.util.List;
 import java.util.ListIterator;
 import lombok.extern.slf4j.Slf4j;
 
+
+/**
+ * Utility class that provides utility methods to remove fields from a given aspect based on it's aspect spec that
+ * follows the following logic:
+ *
+ * 1. If field is optional and not part of an array → remove the field.
+ * 2. If is a field that is part of an array (has an `*` in the path spec)
+ *  → go up to the nearest array and remove the element.
+ *  Extra → If array only has 1 element which is being deleted→ optional rules (if optional set null, otherwise delete)
+ * 3. If field is non-optional and does not belong to an array delete if and only if aspect becomes empty.
+ */
 @Slf4j
 public class AspectProcessor {
 

@@ -1,4 +1,4 @@
-package com.linkedin.metadata.utils;
+package com.linkedin.metadata.kafka.hook;
 
 import com.datahub.util.RecordUtils;
 import com.linkedin.data.DataList;
@@ -29,7 +29,7 @@ public class AspectProcessorTest extends TestCase {
         + "}");
 
     final DataSchema schema = pdlSchemaParser.lookupName("simple_record");
-    final Aspect updatedAspect = AspectProcessor.removeAspect("hello", aspect, schema, 
+    final Aspect updatedAspect = AspectProcessor.removeAspect("hello", aspect, schema,
         new PathSpec("key_a"));
 
     assertFalse(updatedAspect.data().containsKey("key_a"));
