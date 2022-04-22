@@ -14,16 +14,19 @@ GEOMETRY = make_sqlalchemy_type("GEOMETRY")
 POINT = make_sqlalchemy_type("POINT")
 LINESTRING = make_sqlalchemy_type("LINESTRING")
 POLYGON = make_sqlalchemy_type("POLYGON")
+DECIMAL128 = make_sqlalchemy_type("DECIMAL128")
 
 register_custom_type(GEOMETRY)
 register_custom_type(POINT)
 register_custom_type(LINESTRING)
 register_custom_type(POLYGON)
+register_custom_type(DECIMAL128)
 
 base.ischema_names["geometry"] = GEOMETRY
 base.ischema_names["point"] = POINT
 base.ischema_names["linestring"] = LINESTRING
 base.ischema_names["polygon"] = POLYGON
+base.ischema_names["decimal128"] = DECIMAL128
 
 
 class MySQLConfig(BasicSQLAlchemyConfig):
