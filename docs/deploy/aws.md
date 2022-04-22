@@ -174,7 +174,6 @@ datahub-frontend:
   extraEnvs:
     - name: METADATA_SERVICE_AUTH_ENABLED
       value: "true"
-
 ```
 
 
