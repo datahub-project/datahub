@@ -156,6 +156,7 @@ workbook_graphql_query = """
             aggregation
             columns {
               table {
+                __typename
                 ... on CustomSQLTable {
                   id
                   name
@@ -226,6 +227,7 @@ custom_sql_graphql_query = """
             }
             ... on EmbeddedDatasource {
               workbook {
+                id
                 name
                 projectName
               }
@@ -287,6 +289,7 @@ published_datasource_graphql_query = """
             aggregation
             columns {
                 table {
+                  __typename
                     ... on CustomSQLTable {
                         id
                         name

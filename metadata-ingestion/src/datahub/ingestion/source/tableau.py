@@ -238,7 +238,7 @@ class TableauSource(Source):
 
     def _track_custom_sql_ids(self, field: dict) -> None:
         # Tableau shows custom sql datasource as a table in ColumnField.
-        if field.get("__typename", "") == "ColumnField":
+        if field.get("__typename") == "ColumnField":
             for column in field.get("columns", []):
                 table_id = (
                     column.get("table", {}).get("id") if column.get("table") else None
@@ -255,7 +255,7 @@ class TableauSource(Source):
         datasource: dict,
         project: str,
         is_custom_sql: bool = False,
-        is_embedded_ds=False,
+        is_embedded_ds: bool = False,
     ) -> List[UpstreamClass]:
         upstream_tables = []
 
@@ -326,8 +326,9 @@ class TableauSource(Source):
             upstream_tables.append(upstream_table)
 
             table_path = None
-            if project and datasource.get("name") and table.get("name"):
-                table_path = f"{project.replace('/', REPLACE_SLASH_CHAR)}/{datasource['name']}/{table['name']}"
+            if project and datasource.get("name"):
+                table_name = table.get("name") if table.get("name") else table["id"]
+                table_path = f"{project.replace('/', REPLACE_SLASH_CHAR)}/{datasource['name']}/{table_name}"
 
             self.upstream_tables[table_urn] = (
                 table.get("columns", []),
@@ -370,7 +371,7 @@ class TableauSource(Source):
                 custom_sql_connection.get("nodes", [])
             )
             for csql in unique_custom_sql:
-                csql_id: str = csql.get("id", "")
+                csql_id: str = csql["id"]
                 csql_urn = builder.make_dataset_urn(
                     self.platform, csql_id, self.config.env
                 )
@@ -379,10 +380,35 @@ class TableauSource(Source):
                     aspects=[],
                 )
 
-                # lineage from datasource -> custom sql source #
-                yield from self._create_lineage_from_csql_datasource(
-                    csql_urn, csql.get("datasources", [])
-                )
+                datasource_name = None
+                project = None
+                if len(csql["datasources"]) > 0:
+                    yield from self._create_lineage_from_csql_datasource(
+                        csql_urn, csql["datasources"]
+                    )
+
+                    # CustomSQLTable id owned by exactly one tableau data source
+                    logger.debug(
+                        f"Number of datasources referencing CustomSQLTable: {len(csql['datasources'])}"
+                    )
+
+                    datasource = csql["datasources"][0]
+                    datasource_name = datasource.get("name")
+                    if datasource.get(
+                        "__typename"
+                    ) == "EmbeddedDatasource" and datasource.get("workbook"):
+                        datasource_name = (
+                            f"{datasource.get('workbook').get('name')}/{datasource_name}"
+                            if datasource_name
+                            and datasource.get("workbook").get("name")
+                            else None
+                        )
+                        yield from add_entity_to_container(
+                            self.gen_workbook_key(datasource["workbook"]),
+                            "dataset",
+                            dataset_snapshot.urn,
+                        )
+                    project = self._get_project(datasource)
 
                 # lineage from custom sql -> datasets/tables #
                 columns = csql.get("columns", [])
@@ -394,12 +420,17 @@ class TableauSource(Source):
                     dataset_snapshot.aspects.append(schema_metadata)
 
                 # Browse path
-                browse_paths = BrowsePathsClass(
-                    paths=[
-                        f"/{self.config.env.lower()}/{self.platform}/Custom SQL/{csql.get('name', '')}/{csql_id}"
-                    ]
-                )
-                dataset_snapshot.aspects.append(browse_paths)
+                csql_name = csql.get("name") if csql.get("name") else csql_id
+
+                if project and datasource_name:
+                    browse_paths = BrowsePathsClass(
+                        paths=[
+                            f"/{self.config.env.lower()}/{self.platform}/{project}/{datasource['name']}/{csql_name}"
+                        ]
+                    )
+                    dataset_snapshot.aspects.append(browse_paths)
+                else:
+                    logger.debug(f"Browse path not set for Custom SQL table {csql_id}")
 
                 dataset_properties = DatasetPropertiesClass(
                     name=csql.get("name"), description=csql.get("description")
@@ -583,8 +614,7 @@ class TableauSource(Source):
             if datasource_info
             else ""
         )
-        datasource_id = datasource.get("id", "")
-        datasource_name = f"{datasource.get('name')}.{datasource_id}"
+        datasource_id = datasource["id"]
         datasource_urn = builder.make_dataset_urn(
             self.platform, datasource_id, self.config.env
         )
@@ -596,10 +626,15 @@ class TableauSource(Source):
             aspects=[],
         )
 
+        datasource_name = (
+            datasource.get("name") if datasource.get("name") else datasource_id
+        )
+        if is_embedded_ds and workbook and workbook.get("name"):
+            datasource_name = f"{workbook['name']}/{datasource_name}"
         # Browse path
         browse_paths = BrowsePathsClass(
             paths=[
-                f"/{self.config.env.lower()}/{self.platform}/{project}/{datasource.get('name', '')}/{datasource_name}"
+                f"/{self.config.env.lower()}/{self.platform}/{project}/{datasource_name}"
             ]
         )
         dataset_snapshot.aspects.append(browse_paths)
@@ -667,7 +702,7 @@ class TableauSource(Source):
             ),
         )
 
-        if datasource.get("__typename") == "EmbeddedDatasource":
+        if is_embedded_ds:
             yield from add_entity_to_container(
                 self.gen_workbook_key(workbook), "dataset", dataset_snapshot.urn
             )
@@ -728,7 +763,8 @@ class TableauSource(Source):
                     paths=[f"/{self.config.env.lower()}/{self.platform}/{path}"]
                 )
                 dataset_snapshot.aspects.append(browse_paths)
-
+            else:
+                logger.debug(f"Browse path not set for table {table_urn}")
             schema_metadata = None
             if columns:
                 fields = []
@@ -758,7 +794,7 @@ class TableauSource(Source):
 
             yield self.get_metadata_change_event(dataset_snapshot)
 
-    def get_sheetwise_upstream_datasources(self, sheet: dict) -> dict:
+    def get_sheetwise_upstream_datasources(self, sheet: dict) -> set:
         sheet_upstream_datasources = set()
 
         for field in sheet.get("datasourceFields", ""):
@@ -823,16 +859,19 @@ class TableauSource(Source):
             )
             chart_snapshot.aspects.append(chart_info)
 
-            # Browse path
-            browse_path = BrowsePathsClass(
-                paths=[
-                    f"/{self.platform}/{workbook.get('projectName', '').replace('/', REPLACE_SLASH_CHAR)}"
-                    f"/{workbook.get('name', '')}"
-                    f"/{sheet.get('name', '').replace('/', REPLACE_SLASH_CHAR)}"
-                ]
-            )
-            chart_snapshot.aspects.append(browse_path)
-
+            if workbook.get("projectName") and workbook.get("name"):
+                sheet_name = sheet.get("name") if sheet.get("name") else sheet["id"]
+                # Browse path
+                browse_path = BrowsePathsClass(
+                    paths=[
+                        f"/{self.platform}/{workbook['projectName'].replace('/', REPLACE_SLASH_CHAR)}"
+                        f"/{workbook['name']}"
+                        f"/{sheet_name.replace('/', REPLACE_SLASH_CHAR)}"
+                    ]
+                )
+                chart_snapshot.aspects.append(browse_path)
+            else:
+                logger.debug(f"Browse path not set for sheet {sheet['id']}")
             # Ownership
             owner = self._get_ownership(creator)
             if owner is not None:
@@ -907,7 +946,7 @@ class TableauSource(Source):
     def emit_dashboards(self, workbook: Dict) -> Iterable[MetadataWorkUnit]:
         for dashboard in workbook.get("dashboards", []):
             dashboard_snapshot = DashboardSnapshot(
-                urn=builder.make_dashboard_urn(self.platform, dashboard.get("id", "")),
+                urn=builder.make_dashboard_urn(self.platform, dashboard["id"]),
                 aspects=[],
             )
 
@@ -918,7 +957,11 @@ class TableauSource(Source):
 
             site_part = f"/site/{self.config.site}" if self.config.site else ""
             dashboard_external_url = f"{self.config.connect_uri}/#{site_part}/views/{dashboard.get('path', '')}"
-            title = dashboard.get("name", "").replace("/", REPLACE_SLASH_CHAR) or ""
+            title = (
+                dashboard["name"].replace("/", REPLACE_SLASH_CHAR)
+                if dashboard.get("name")
+                else ""
+            )
             chart_urns = [
                 builder.make_chart_urn(self.platform, sheet.get("id"))
                 for sheet in dashboard.get("sheets", [])
@@ -933,15 +976,19 @@ class TableauSource(Source):
             )
             dashboard_snapshot.aspects.append(dashboard_info_class)
 
-            # browse path
-            browse_paths = BrowsePathsClass(
-                paths=[
-                    f"/{self.platform}/{workbook.get('projectName', '').replace('/', REPLACE_SLASH_CHAR)}"
-                    f"/{workbook.get('name', '').replace('/', REPLACE_SLASH_CHAR)}"
-                    f"/{title}"
-                ]
-            )
-            dashboard_snapshot.aspects.append(browse_paths)
+            if workbook.get("projectName") and workbook.get("name"):
+                dashboard_name = title if title else dashboard["id"]
+                # browse path
+                browse_paths = BrowsePathsClass(
+                    paths=[
+                        f"/{self.platform}/{workbook['projectName'].replace('/', REPLACE_SLASH_CHAR)}"
+                        f"/{workbook['name'].replace('/', REPLACE_SLASH_CHAR)}"
+                        f"/{dashboard_name}"
+                    ]
+                )
+                dashboard_snapshot.aspects.append(browse_paths)
+            else:
+                logger.debug(f"Browse path not set for dashboard {dashboard['id']}")
 
             # Ownership
             owner = self._get_ownership(creator)
