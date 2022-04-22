@@ -5,7 +5,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EnvelopedAspect;
 import java.util.HashMap;
 import java.util.Map;
-import javax.annotation.Nullable;
+import java.util.SortedMap;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 
@@ -34,7 +34,7 @@ public class EntityUtils {
   }
 
   public static Map<String, Long> convertVersionStamp(String versionStamp) {
-    Map <String, Long> aspectVersionMap = new HashMap<>();
+    Map<String, Long> aspectVersionMap = new HashMap<>();
     if (StringUtils.isBlank(versionStamp)) {
       return aspectVersionMap;
     }
@@ -54,8 +54,12 @@ public class EntityUtils {
     return aspectVersionMap;
   }
 
-  public static String constructVersionStamp() {
-    //TODO: implement
-    return null;
+  public static String constructVersionStamp(SortedMap<String, Long> versionStampMap) {
+    StringBuilder versionStamp = versionStampMap.entrySet().stream()
+        .collect(StringBuilder::new, (builder, entry) -> builder.append(entry.getKey())
+            .append(":")
+            .append(entry.getValue()).append(";"), StringBuilder::append);
+    // trim off last ;
+    return versionStamp.substring(0, versionStamp.length() - 1);
   }
 }

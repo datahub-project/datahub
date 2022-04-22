@@ -33,6 +33,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -45,6 +46,7 @@ import org.apache.commons.collections.CollectionUtils;
 import org.apache.parquet.SemanticVersion;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.entity.EntityUtils.*;
 
 
 public class EbeanTimelineService implements TimelineService {
@@ -158,7 +160,7 @@ public class EbeanTimelineService implements TimelineService {
       startTimeMillis = endTimeMillis - DEFAULT_LOOKBACK_TIME_WINDOW_MILLIS;
     }
 
-    // TODO: We can pull full list of aspects here instead and pull each into version map for raw version stamp
+    // Pull full list of aspects for entity and filter timeseries aspects for range query
     EntitySpec entitySpec = _entityRegistry.getEntitySpec(urn.getEntityType());
     List<AspectSpec> aspectSpecs = entitySpec.getAspectSpecs();
     Set<String> fullAspectNames = aspectSpecs.stream()
@@ -166,7 +168,40 @@ public class EbeanTimelineService implements TimelineService {
         .map(AspectSpec::getName)
         .collect(Collectors.toSet());
     List<EbeanAspectV2> aspectsInRange = this._entityDao.getAspectsInRange(urn, fullAspectNames, startTimeMillis, endTimeMillis);
-    //TODO: Prepopulate with all versioned aspectNames -> ignore timeseries using registry
+
+    // Prepopulate with all versioned aspectNames -> ignore timeseries using registry
+    Map<String, TreeSet<EbeanAspectV2>> aspectRowSetMap = constructAspectRowSetMap(urn, fullAspectNames, aspectsInRange);
+
+    Map<Long, SortedMap<String, Long>> timestampVersionCache = constructTimestampVersionCache(aspectRowSetMap);
+
+    // TODO: There are some extra steps happening here, we need to clean up how transactions get combined across differs
+    SortedMap<Long, List<ChangeTransaction>> semanticDiffs = aspectRowSetMap.entrySet()
+        .stream()
+        .filter(entry -> aspectNames.contains(entry.getKey()))
+        .map(Map.Entry::getValue)
+        .map(value -> computeDiffs(value, urn.getEntityType(), elementNames, rawDiffRequested))
+        .collect(TreeMap::new, this::combineComputedDiffsPerTransactionId, this::combineComputedDiffsPerTransactionId);
+    // TODO:Move this down
+    assignSemanticVersions(semanticDiffs);
+    List<ChangeTransaction> changeTransactions =
+        semanticDiffs.values().stream().collect(ArrayList::new, ArrayList::addAll, ArrayList::addAll);
+    List<ChangeTransaction> combinedChangeTransactions = combineTransactionsByTimestamp(changeTransactions,
+        timestampVersionCache);
+    combinedChangeTransactions.sort(Comparator.comparing(ChangeTransaction::getTimestamp));
+    return combinedChangeTransactions;
+  }
+
+  /**
+   * Constructs a map from aspect name to a sorted set of DB aspects by created timestamp. Set includes all aspects
+   * relevant to an entity and does a lookback by 1 for all aspects, creating sentinel values for when the oldest aspect
+   * possible has been retrieved or no value exists in the DB for an aspect
+   * @param urn urn of the entity
+   * @param fullAspectNames full list of aspects relevant to the entity
+   * @param aspectsInRange aspects returned by the range query by timestampm
+   * @return map constructed as described
+   */
+  private Map<String, TreeSet<EbeanAspectV2>> constructAspectRowSetMap(Urn urn, Set<String> fullAspectNames,
+      List<EbeanAspectV2> aspectsInRange) {
     Map<String, TreeSet<EbeanAspectV2>> aspectRowSetMap = new HashMap<>();
     fullAspectNames.forEach(aspectName ->
         aspectRowSetMap.put(aspectName, new TreeSet<>(Comparator.comparing(EbeanAspectV2::getCreatedOn))));
@@ -203,23 +238,7 @@ public class EbeanTimelineService implements TimelineService {
         }
       }
     }
-
-    //TODO: Process aspectRowSetMap and parse out versionStamps based on timestamps
-
-    // TODO: There are some extra steps happening here, we need to clean up how transactions get combined across differs
-    SortedMap<Long, List<ChangeTransaction>> semanticDiffs = aspectRowSetMap.entrySet()
-        .stream()
-        .filter(entry -> aspectNames.contains(entry.getKey()))
-        .map(Map.Entry::getValue)
-        .map(value -> computeDiffs(value, urn.getEntityType(), elementNames, rawDiffRequested))
-        .collect(TreeMap::new, this::combineComputedDiffsPerTransactionId, this::combineComputedDiffsPerTransactionId);
-    // TODO:Move this down
-    assignSemanticVersions(semanticDiffs);
-    List<ChangeTransaction> changeTransactions =
-        semanticDiffs.values().stream().collect(ArrayList::new, ArrayList::addAll, ArrayList::addAll);
-    List<ChangeTransaction> combinedChangeTransactions = combineTransactionsByTimestamp(changeTransactions);
-    combinedChangeTransactions.sort(Comparator.comparing(ChangeTransaction::getTimestamp));
-    return combinedChangeTransactions;
+    return aspectRowSetMap;
   }
 
   private boolean isOldestPossible(EbeanAspectV2 oldestAspect, long nextVersion) {
@@ -234,6 +253,48 @@ public class EbeanTimelineService implements TimelineService {
     sentinel.setCreatedOn(new Timestamp(0L));
     sentinel.setVersion(-1);
     return sentinel;
+  }
+
+  /**
+   * Constructs a map from timestamp to a sorted map of aspect name -> version for use in constructing the version stamp
+   * @param aspectRowSetMap map constructed as described in {@link EbeanTimelineService#constructAspectRowSetMap}
+   * @return map as described
+   */
+  private Map<Long, SortedMap<String, Long>> constructTimestampVersionCache(Map<String, TreeSet<EbeanAspectV2>> aspectRowSetMap) {
+    Set<EbeanAspectV2> aspects = aspectRowSetMap.values().stream()
+        .flatMap(TreeSet::stream)
+        .filter(aspect -> aspect.getVersion() != -1L)
+        .collect(Collectors.toSet());
+    Map<Long, SortedMap<String, Long>> timestampVersionCache = new HashMap<>();
+    for (EbeanAspectV2 aspect : aspects) {
+      if (timestampVersionCache.containsKey(aspect.getCreatedOn().getTime())) {
+        continue;
+      }
+      SortedMap<String, Long> versionStampMap = new TreeMap<>(Comparator.naturalOrder());
+      for (TreeSet<EbeanAspectV2> aspectSet : aspectRowSetMap.values()) {
+        EbeanAspectV2 maybeMatch = null;
+        for  (EbeanAspectV2 aspect2 : aspectSet) {
+          if (aspect2 instanceof MissingEbeanAspectV2) {
+            continue;
+          }
+          if (aspect.getCreatedOn().getTime() < aspect2.getCreatedOn().getTime()) {
+            // Can't match a higher timestamp, fall back to maybeMatch or empty
+            break;
+          }
+          if (aspect.getCreatedOn().getTime() == aspect2.getCreatedOn().getTime()) {
+            versionStampMap.put(aspect2.getAspect(), aspect2.getVersion());
+            break;
+          } else {
+            maybeMatch = aspect2;
+          }
+        }
+        if (maybeMatch != null) {
+          versionStampMap.put(maybeMatch.getAspect(), maybeMatch.getVersion());
+        }
+      }
+      timestampVersionCache.put(aspect.getCreatedOn().getTime(), versionStampMap);
+    }
+    return timestampVersionCache;
   }
 
   private SortedMap<Long, List<ChangeTransaction>> computeDiffs(TreeSet<EbeanAspectV2> aspectTimeline,
@@ -347,7 +408,8 @@ public class EbeanTimelineService implements TimelineService {
     return previousVersion;
   }
 
-  private List<ChangeTransaction> combineTransactionsByTimestamp(List<ChangeTransaction> changeTransactions) {
+  private List<ChangeTransaction> combineTransactionsByTimestamp(List<ChangeTransaction> changeTransactions, Map<Long,
+      SortedMap<String, Long>> timestampVersionCache) {
     Map<Long, List<ChangeTransaction>> transactionsByTimestamp =
         changeTransactions.stream().collect(Collectors.groupingBy(ChangeTransaction::getTimestamp));
     List<ChangeTransaction> combinedChangeTransactions = new ArrayList<>();
@@ -366,6 +428,7 @@ public class EbeanTimelineService implements TimelineService {
         }
         result.setSemVerChange(maxSemanticChangeType);
         result.setSemanticVersion(maxSemVer);
+        result.setVersionStamp(constructVersionStamp(timestampVersionCache.get(result.getTimestamp())));
         combinedChangeTransactions.add(result);
       }
     }
