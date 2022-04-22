@@ -43,37 +43,30 @@ class IcebergProfiler:
 
     def _aggregate_counts(
         self,
-        aggregated_count: Dict[str, int],
-        field_paths: Dict[int, str],
+        aggregated_count: Dict[int, int],
         manifest_counts: Dict[int, int],
-    ) -> None:
-        for field_id, count in manifest_counts.items():
-            field_path = field_paths.get(field_id)
-            if not field_path:
-                raise RuntimeError(f"Failed to find fieldPath for field_id {field_id}")
-            agg = aggregated_count.get(field_path) or 0
-            aggregated_count[field_path] = agg + count
+    ) -> Dict[int, int]:
+        return {
+            k: aggregated_count.get(k, 0) + manifest_counts.get(k, 0)
+            for k in set(aggregated_count) | set(manifest_counts)
+        }
 
     def _aggregate_bounds(
         self,
         schema: Schema,
         aggregator: Callable,
-        aggregated_values: Dict[str, Any],
-        field_paths: Dict[int, str],
+        aggregated_values: Dict[int, Any],
         manifest_values: Dict[int, Any],
     ) -> None:
         for field_id, value_encoded in manifest_values.items():
             field = schema.find_field(field_id)
+            if not field:
+                raise RuntimeError(f"Cannot find field_id {field_id} in schema")
             value_decoded = Conversions.from_byte_buffer(field.type, value_encoded)
             if value_decoded:
-                field_path = field_paths.get(field_id)
-                if not field_path:
-                    raise RuntimeError(
-                        f"Failed to find fieldPath for field_id {field_id}"
-                    )
-                agg = aggregated_values.get(field_path)
-                aggregated_values[field_path] = (
-                    aggregator(agg, value_decoded) if agg else value_decoded
+                agg_value = aggregated_values.get(field_id)
+                aggregated_values[field_id] = (
+                    aggregator(agg_value, value_decoded) if agg_value else value_decoded
                 )
 
     def profile_table(
@@ -103,10 +96,10 @@ class IcebergProfiler:
         )  # dict[int, str] = {v: k for k, v in index_by_name(table.schema()).items()}
         current_snapshot: Snapshot = table.current_snapshot()
         total_count = 0
-        null_counts: Dict[str, int] = {}
+        null_counts: Dict[int, int] = {}
         # valueCounts = {}
-        min_bounds: Dict[str, Any] = {}
-        max_bounds: Dict[str, Any] = {}
+        min_bounds: Dict[int, Any] = {}
+        max_bounds: Dict[int, Any] = {}
         manifest: ManifestFile
         try:
             for manifest in current_snapshot.manifests:
@@ -117,8 +110,8 @@ class IcebergProfiler:
                 data_file: DataFile
                 for data_file in manifest_reader.iterator():
                     if self.config.include_field_null_count:
-                        self._aggregate_counts(
-                            null_counts, field_paths, data_file.null_value_counts()
+                        null_counts = self._aggregate_counts(
+                            null_counts, data_file.null_value_counts()
                         )
                     # self._aggregateCounts(
                     #     valueCounts, fieldPaths, dataFile.value_counts()
@@ -128,7 +121,6 @@ class IcebergProfiler:
                             table.schema(),
                             min,
                             min_bounds,
-                            field_paths,
                             data_file.lower_bounds(),
                         )
                     if self.config.include_field_max_value:
@@ -136,7 +128,6 @@ class IcebergProfiler:
                             table.schema(),
                             max,
                             max_bounds,
-                            field_paths,
                             data_file.upper_bounds(),
                         )
                     total_count += data_file.record_count()
@@ -149,7 +140,7 @@ class IcebergProfiler:
                 field: NestedField = table.schema().find_field(field_id)
                 column_profile = DatasetFieldProfileClass(fieldPath=field_path)
                 if self.config.include_field_null_count:
-                    column_profile.nullCount = null_counts.get(field_path, 0)
+                    column_profile.nullCount = null_counts.get(field_id, 0)
                     column_profile.nullProportion = (
                         column_profile.nullCount / row_count
                         if column_profile.nullCount
@@ -162,14 +153,18 @@ class IcebergProfiler:
 
                 if self.config.include_field_min_value:
                     column_profile.min = (
-                        self._renderValue(field.type, min_bounds.get(field_path))
-                        if field_path in min_bounds
+                        self._renderValue(
+                            dataset_name, field.type, min_bounds.get(field_id)
+                        )
+                        if field_id in min_bounds
                         else None
                     )
                 if self.config.include_field_max_value:
                     column_profile.max = (
-                        self._renderValue(field.type, max_bounds.get(field_path))
-                        if field_path in max_bounds
+                        self._renderValue(
+                            dataset_name, field.type, max_bounds.get(field_id)
+                        )
+                        if field_id in max_bounds
                         else None
                     )
                 dataset_profile.fieldProfiles.append(column_profile)
@@ -188,7 +183,9 @@ class IcebergProfiler:
         yield wu
 
     # The following will eventually be done by the Iceberg API (in the new Python refactored API).
-    def _renderValue(self, value_type: Type, value: Any) -> Union[str, None]:
+    def _renderValue(
+        self, dataset_name: str, value_type: Type, value: Any
+    ) -> Union[str, None]:
         try:
             if value_type.type_id == TypeID.TIMESTAMP:
                 if value_type.adjust_to_utc:
@@ -207,6 +204,6 @@ class IcebergProfiler:
         except Exception as e:
             self.report.report_warning(
                 "profiling",
-                f"Error when profiling a {value_type} field with value {value}: {e}",
+                f"Error in dataset {dataset_name} when profiling a {value_type} field with value {value}: {e}",
             )
             return None
