@@ -800,7 +800,7 @@ type Dataset implements EntityWithRelationships & Entity {
     """
     Schema metadata of the dataset
     """
-    schema: Schema @deprecated(reason: "Use `schemaMetadata`")
+    schema: Schema
 
     """
     Deprecated, use properties field instead
@@ -1733,6 +1733,16 @@ type Schema {
     Client provided list of fields that define primary keys to access record
     """
     primaryKeys: [String!]
+
+    """
+    Client provided list of foreign key constraints
+    """
+    foreignKeys: [ForeignKeyConstraint]
+
+    """
+    The time at which the schema metadata information was created
+    """
+    createdAt: Long
 }
 
 """
