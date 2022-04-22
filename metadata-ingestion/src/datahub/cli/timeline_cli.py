@@ -204,8 +204,8 @@ def timeline(
             if change_txn["changeEvents"] is not None:
                 for change_event in change_txn["changeEvents"]:
                     element_string = (
-                        f"({pretty_id(change_event.get('modifier'))})"
-                        if change_event.get("modifier")
+                        f"({pretty_id(change_event.get('elementId'))})"
+                        if change_event.get("elementId")
                         else ""
                     )
                     event_change_color: str = (
@@ -213,9 +213,9 @@ def timeline(
                         if change_event.get("semVerChange") == "MINOR"
                         else "red"
                     )
-                    target_string = pretty_id(change_event.get("entityUrn") or "")
+                    target_string = pretty_id(change_event.get("target") or "")
                     print(
-                        f"\t{colored(change_event['operation'],event_change_color)} {change_event.get('category')} {target_string} {element_string}: {change_event['description']}"
+                        f"\t{colored(change_event['changeType'],event_change_color)} {change_event.get('category')} {target_string} {element_string}: {change_event['description']}"
                     )
     else:
         click.echo(
