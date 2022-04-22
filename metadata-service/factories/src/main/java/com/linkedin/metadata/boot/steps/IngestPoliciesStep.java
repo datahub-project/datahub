@@ -1,16 +1,21 @@
 package com.linkedin.metadata.boot.steps;
 
+import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.BootstrapStep;
-import com.linkedin.events.metadata.ChangeType;
-import com.datahub.util.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.ListUrnsResult;
+import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
@@ -18,22 +23,24 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.policy.DataHubPolicyInfo;
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.util.Iterator;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Map;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
 
 
 @Slf4j
+@RequiredArgsConstructor
 public class IngestPoliciesStep implements BootstrapStep {
 
   private static final String POLICY_ENTITY_NAME = "dataHubPolicy";
   private static final String POLICY_INFO_ASPECT_NAME = "dataHubPolicyInfo";
 
+  private final EntityRegistry _entityRegistry;
   private final EntityService _entityService;
-
-  public IngestPoliciesStep(final EntityService entityService) {
-    _entityService = entityService;
-  }
+  private final EntitySearchService _entitySearchService;
 
   @Override
   public String name() {
@@ -48,19 +55,21 @@ public class IngestPoliciesStep implements BootstrapStep {
     // 0. Execute preflight check to see whether we need to ingest policies
     log.info("Ingesting default access policies...");
 
-    // Whether we are at clean boot or not.
-    final boolean hasDefaultPolicies = hasDefaultPolicies();
-
     // 1. Read from the file into JSON.
     final JsonNode policiesObj = mapper.readTree(new ClassPathResource("./boot/policies.json").getFile());
 
     if (!policiesObj.isArray()) {
-      throw new RuntimeException(String.format("Found malformed policies file, expected an Array but found %s", policiesObj.getNodeType()));
+      throw new RuntimeException(
+          String.format("Found malformed policies file, expected an Array but found %s", policiesObj.getNodeType()));
+    }
+
+    // If search index for policies is empty, send MCLs for all policies to ingest policies into the search index
+    if (_entitySearchService.docCount(Constants.POLICY_ENTITY_NAME) == 0) {
+      sendMCL();
     }
 
     // 2. For each JSON object, cast into a DataHub Policy Info object.
-    for (Iterator<JsonNode> it = policiesObj.iterator(); it.hasNext(); ) {
-      final JsonNode policyObj = it.next();
+    for (final JsonNode policyObj : policiesObj) {
       final Urn urn = Urn.createFromString(policyObj.get("urn").asText());
 
       // If the info is not there, it means that the policy was there before, but must now be removed
@@ -69,7 +78,8 @@ public class IngestPoliciesStep implements BootstrapStep {
         continue;
       }
 
-      final DataHubPolicyInfo info = RecordUtils.toRecordTemplate(DataHubPolicyInfo.class, policyObj.get("info").toString());
+      final DataHubPolicyInfo info =
+          RecordUtils.toRecordTemplate(DataHubPolicyInfo.class, policyObj.get("info").toString());
 
       if (!info.isEditable()) {
         // If the Policy is not editable, always re-ingest.
@@ -88,11 +98,45 @@ public class IngestPoliciesStep implements BootstrapStep {
     log.info("Successfully ingested default access policies.");
   }
 
+  /**
+   * Send MCLs for each policy to refill the policy search index
+   */
+  private void sendMCL() throws URISyntaxException {
+    log.info("Pushing MCLs for all policies");
+    AspectSpec policyInfoAspectSpec = _entityRegistry.getEntitySpec(Constants.POLICY_ENTITY_NAME)
+        .getAspectSpec(Constants.DATAHUB_POLICY_INFO_ASPECT_NAME);
+    int start = 0;
+    int count = 30;
+    int total = 100;
+    while (start < total) {
+      ListUrnsResult listUrnsResult = _entityService.listUrns(Constants.POLICY_ENTITY_NAME, start, count);
+      total = listUrnsResult.getTotal();
+      start = start + count;
+
+      final Map<Urn, EntityResponse> policyEntities =
+          _entityService.getEntitiesV2(POLICY_ENTITY_NAME, new HashSet<>(listUrnsResult.getEntities()),
+              Collections.singleton(Constants.DATAHUB_POLICY_INFO_ASPECT_NAME));
+      policyEntities.values().forEach(entityResponse -> sendMCL(entityResponse, policyInfoAspectSpec));
+    }
+    log.info("Successfully pushed MCLs for all policies");
+  }
+
+  private void sendMCL(EntityResponse entityResponse, AspectSpec aspectSpec) {
+    EnvelopedAspect aspect = entityResponse.getAspects().get(Constants.DATAHUB_POLICY_INFO_ASPECT_NAME);
+    if (aspect == null) {
+      throw new RuntimeException(String.format("Missing policy info aspect for urn %s", entityResponse.getUrn()));
+    }
+    _entityService.produceMetadataChangeLog(entityResponse.getUrn(), Constants.POLICY_ENTITY_NAME,
+        Constants.DATAHUB_POLICY_INFO_ASPECT_NAME, aspectSpec, null, new DataHubPolicyInfo(aspect.getValue().data()),
+        null, null, aspect.getCreated(), ChangeType.UPSERT);
+  }
+
   private void ingestPolicy(final Urn urn, final DataHubPolicyInfo info) throws URISyntaxException {
     // 3. Write key & aspect
     final MetadataChangeProposal keyAspectProposal = new MetadataChangeProposal();
     final AspectSpec keyAspectSpec = _entityService.getKeyAspectSpec(urn);
-    GenericAspect aspect = GenericRecordUtils.serializeAspect(EntityKeyUtils.convertUrnToEntityKey(urn, keyAspectSpec.getPegasusSchema()));
+    GenericAspect aspect =
+        GenericRecordUtils.serializeAspect(EntityKeyUtils.convertUrnToEntityKey(urn, keyAspectSpec.getPegasusSchema()));
     keyAspectProposal.setAspect(aspect);
     keyAspectProposal.setAspectName(keyAspectSpec.getName());
     keyAspectProposal.setEntityType(POLICY_ENTITY_NAME);
@@ -111,14 +155,6 @@ public class IngestPoliciesStep implements BootstrapStep {
 
     _entityService.ingestProposal(proposal,
         new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis()));
-  }
-
-  private boolean hasDefaultPolicies() throws URISyntaxException {
-    // If there are already default policies, denoted by presence of policy 0, don't ingest bootstrap policies.
-    // This will retain any changes made to policies after initial bootstrap.
-    final Urn defaultPolicyUrn = Urn.createFromString("urn:li:dataHubPolicy:0");
-    RecordTemplate aspect = _entityService.getAspect(defaultPolicyUrn, POLICY_INFO_ASPECT_NAME, 0);
-    return aspect != null;
   }
 
   private boolean hasPolicy(Urn policyUrn) {
