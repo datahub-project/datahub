@@ -52,6 +52,7 @@ import com.linkedin.datahub.graphql.generated.SearchAcrossLineageResult;
 import com.linkedin.datahub.graphql.generated.SearchResult;
 import com.linkedin.datahub.graphql.generated.UsageQueryResult;
 import com.linkedin.datahub.graphql.generated.UserUsageCounts;
+import com.linkedin.datahub.graphql.generated.VisualConfiguration;
 import com.linkedin.datahub.graphql.resolvers.AuthenticatedResolver;
 import com.linkedin.datahub.graphql.resolvers.MeResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.AssertionRunEventResolver;
@@ -221,6 +222,7 @@ public class GmsGraphQLEngine {
 
     private final IngestionConfiguration ingestionConfiguration;
     private final AuthorizationConfiguration authorizationConfiguration;
+    private final VisualConfiguration visualConfiguration;
 
     private final DatasetType datasetType;
     private final CorpUserType corpUserType;
@@ -286,7 +288,8 @@ public class GmsGraphQLEngine {
             null,
             null,
             null,
-            false);
+            false,
+            null);
     }
 
     public GmsGraphQLEngine(
@@ -303,7 +306,8 @@ public class GmsGraphQLEngine {
         final IngestionConfiguration ingestionConfiguration,
         final AuthorizationConfiguration authorizationConfiguration,
         final GitVersion gitVersion,
-        final boolean supportsImpactAnalysis
+        final boolean supportsImpactAnalysis,
+        final VisualConfiguration visualConfiguration
         ) {
 
         this.entityClient = entityClient;
@@ -322,6 +326,7 @@ public class GmsGraphQLEngine {
 
         this.ingestionConfiguration = Objects.requireNonNull(ingestionConfiguration);
         this.authorizationConfiguration = Objects.requireNonNull(authorizationConfiguration);
+        this.visualConfiguration = visualConfiguration;
 
         this.datasetType = new DatasetType(entityClient);
         this.corpUserType = new CorpUserType(entityClient);
@@ -558,7 +563,7 @@ public class GmsGraphQLEngine {
                 new AppConfigResolver(gitVersion, analyticsService != null,
                     this.ingestionConfiguration,
                     this.authorizationConfiguration,
-                    supportsImpactAnalysis))
+                    supportsImpactAnalysis, this.visualConfiguration))
             .dataFetcher("me", new AuthenticatedResolver<>(
                     new MeResolver(this.entityClient)))
             .dataFetcher("search", new AuthenticatedResolver<>(
@@ -1175,19 +1180,30 @@ public class GmsGraphQLEngine {
                         new LoadableTypeResolver<>(dataPlatformType,
                                 (env) -> ((MLFeatureTable) env.getSource()).getPlatform().getUrn()))
                 )
+                .dataFetcher("domain",
+                    new LoadableTypeResolver<>(
+                        domainType,
+                        (env) -> {
+                            final MLFeatureTable entity = env.getSource();
+                            return entity.getDomain() != null ? entity.getDomain().getUrn() : null;
+                        }))
             )
             .type("MLFeatureTableProperties", typeWiring -> typeWiring
                 .dataFetcher("mlFeatures", new AuthenticatedResolver<>(
                                 new LoadableTypeBatchResolver<>(mlFeatureType,
-                                        (env) -> ((MLFeatureTableProperties) env.getSource()).getMlFeatures().stream()
+                                        (env) ->
+                                            ((MLFeatureTableProperties) env.getSource()).getMlFeatures() != null
+                                                ? ((MLFeatureTableProperties) env.getSource()).getMlFeatures().stream()
                                         .map(MLFeature::getUrn)
-                                        .collect(Collectors.toList())))
+                                        .collect(Collectors.toList()) : ImmutableList.of()))
                 )
                 .dataFetcher("mlPrimaryKeys", new AuthenticatedResolver<>(
                                 new LoadableTypeBatchResolver<>(mlPrimaryKeyType,
-                                        (env) -> ((MLFeatureTableProperties) env.getSource()).getMlPrimaryKeys().stream()
+                                        (env) ->
+                                            ((MLFeatureTableProperties) env.getSource()).getMlPrimaryKeys() != null
+                                                ? ((MLFeatureTableProperties) env.getSource()).getMlPrimaryKeys().stream()
                                         .map(MLPrimaryKey::getUrn)
-                                        .collect(Collectors.toList())))
+                                        .collect(Collectors.toList()) : ImmutableList.of()))
                 )
             )
             .type("MLFeatureProperties", typeWiring -> typeWiring
@@ -1217,6 +1233,13 @@ public class GmsGraphQLEngine {
                         new LoadableTypeResolver<>(dataPlatformType,
                                 (env) -> ((MLModel) env.getSource()).getPlatform().getUrn()))
                 )
+                .dataFetcher("domain",
+                    new LoadableTypeResolver<>(
+                        domainType,
+                        (env) -> {
+                            final MLModel mlModel = env.getSource();
+                            return mlModel.getDomain() != null ? mlModel.getDomain().getUrn() : null;
+                        }))
             )
             .type("MLModelProperties", typeWiring -> typeWiring
                 .dataFetcher("groups", new AuthenticatedResolver<>(
@@ -1243,6 +1266,43 @@ public class GmsGraphQLEngine {
                         new LoadableTypeResolver<>(dataPlatformType,
                                 (env) -> ((MLModelGroup) env.getSource()).getPlatform().getUrn()))
                 )
+                .dataFetcher("domain",
+                    new LoadableTypeResolver<>(
+                        domainType,
+                        (env) -> {
+                            final MLModelGroup entity = env.getSource();
+                            return entity.getDomain() != null ? entity.getDomain().getUrn() : null;
+                        }))
+            )
+            .type("MLFeature", typeWiring -> typeWiring
+                .dataFetcher("relationships", new AuthenticatedResolver<>(
+                    new EntityRelationshipsResultResolver(graphClient)
+                ))
+                .dataFetcher("lineage", new AuthenticatedResolver<>(
+                    new EntityLineageResultResolver(graphClient)
+                ))
+                .dataFetcher("domain",
+                    new LoadableTypeResolver<>(
+                        domainType,
+                        (env) -> {
+                            final MLFeature entity = env.getSource();
+                            return entity.getDomain() != null ? entity.getDomain().getUrn() : null;
+                        }))
+            )
+            .type("MLPrimaryKey", typeWiring -> typeWiring
+                .dataFetcher("relationships", new AuthenticatedResolver<>(
+                    new EntityRelationshipsResultResolver(graphClient)
+                ))
+                .dataFetcher("lineage", new AuthenticatedResolver<>(
+                    new EntityLineageResultResolver(graphClient)
+                ))
+                .dataFetcher("domain",
+                    new LoadableTypeResolver<>(
+                        domainType,
+                        (env) -> {
+                            final MLPrimaryKey entity = env.getSource();
+                            return entity.getDomain() != null ? entity.getDomain().getUrn() : null;
+                        }))
             );
     }
 

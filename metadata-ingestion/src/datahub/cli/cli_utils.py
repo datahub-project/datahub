@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import os.path
 import sys
 import typing
@@ -66,6 +67,8 @@ ENV_SKIP_CONFIG = "DATAHUB_SKIP_CONFIG"
 ENV_METADATA_HOST = "DATAHUB_GMS_HOST"
 ENV_METADATA_TOKEN = "DATAHUB_GMS_TOKEN"
 
+config_override: Dict = {}
+
 
 class GmsConfig(BaseModel):
     server: str
@@ -74,6 +77,13 @@ class GmsConfig(BaseModel):
 
 class DatahubConfig(BaseModel):
     gms: GmsConfig
+
+
+def set_env_variables_override_config(host: str, token: Optional[str]) -> None:
+    """Should be used to override the config when using rest emitter"""
+    config_override[ENV_METADATA_HOST] = host
+    if token is not None:
+        config_override[ENV_METADATA_TOKEN] = token
 
 
 def write_datahub_config(host: str, token: Optional[str]) -> None:
@@ -137,22 +147,12 @@ def guess_entity_type(urn: str) -> str:
     return urn.split(":")[2]
 
 
-def get_token():
-    _, gms_token_env = get_details_from_env()
-    if should_skip_config():
-        gms_token = gms_token_env
-    else:
-        ensure_datahub_config()
-        _, gms_token_conf = get_details_from_config()
-        gms_token = first_non_null([gms_token_env, gms_token_conf])
-    return gms_token
-
-
-def get_session_and_host():
-    session = requests.Session()
-
+def get_host_and_token():
     gms_host_env, gms_token_env = get_details_from_env()
-    if should_skip_config():
+    if len(config_override.keys()) > 0:
+        gms_host = config_override.get(ENV_METADATA_HOST)
+        gms_token = config_override.get(ENV_METADATA_TOKEN)
+    elif should_skip_config():
         gms_host = gms_host_env
         gms_token = gms_token_env
     else:
@@ -160,6 +160,17 @@ def get_session_and_host():
         gms_host_conf, gms_token_conf = get_details_from_config()
         gms_host = first_non_null([gms_host_env, gms_host_conf])
         gms_token = first_non_null([gms_token_env, gms_token_conf])
+    return gms_host, gms_token
+
+
+def get_token():
+    return get_host_and_token()[1]
+
+
+def get_session_and_host():
+    session = requests.Session()
+
+    gms_host, gms_token = get_host_and_token()
 
     if gms_host is None or gms_host.strip() == "":
         log.error(

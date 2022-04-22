@@ -264,7 +264,7 @@ Then use the settings below.
       username: <<username>>
       password:
         secretRef: elasticsearch-secrets
-        secretName: elasticsearch-password
+        secretKey: elasticsearch-password
 ```
 
 Lastly, you **NEED** to set the following env variable for **elasticsearchSetupJob**. AWS Elasticsearch/Opensearch

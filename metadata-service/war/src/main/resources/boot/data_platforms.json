@@ -427,6 +427,46 @@
     }
   },
   {
+    "urn": "urn:li:dataPlatform:metabase",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "metabase",
+      "displayName": "Metabase",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/metabaselogo.svg"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:nifi",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "nifi",
+      "displayName": "Nifi",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/nifilogo.svg"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:superset",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "superset",
+      "displayName": "Superset",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/supersetlogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:trino",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "trino",
+      "displayName": "Trino",
+      "type": "QUERY_ENGINE",
+      "logoUrl": "/assets/platforms/trinologo.png"
+    }
+  },
+  {
     "urn": "urn:li:dataPlatform:unknown",
     "aspect": {
       "datasetNameDelimiter": ".",

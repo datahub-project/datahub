@@ -319,14 +319,16 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    *
    * @param input search query
    * @param filter search filters
+   * @param sortCriterion sort criterion
    * @param start start offset for search results
    * @param count max number of search results requested
    * @return Snapshot key
    * @throws RemoteInvocationException
    */
   @Nonnull
-  public SearchResult search(@Nonnull String entity, @Nonnull String input, @Nullable Filter filter, int start,
-      int count, @Nonnull final Authentication authentication) throws RemoteInvocationException {
+  public SearchResult search(@Nonnull String entity, @Nonnull String input, @Nullable Filter filter,
+      SortCriterion sortCriterion, int start, int count, @Nonnull final Authentication authentication)
+      throws RemoteInvocationException {
 
     final EntitiesDoSearchRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionSearch()
         .entityParam(entity)
@@ -336,6 +338,10 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
 
     if (filter != null) {
       requestBuilder.filterParam(filter);
+    }
+
+    if (sortCriterion != null) {
+      requestBuilder.sortParam(sortCriterion);
     }
 
     return sendClientRequest(requestBuilder, authentication).getEntity();

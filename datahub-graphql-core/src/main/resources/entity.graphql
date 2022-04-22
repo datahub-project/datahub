@@ -6442,6 +6442,21 @@ type MLModel implements EntityWithRelationships & Entity {
     Edges extending from this entity grouped by direction in the lineage graph
     """
     lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    The structured glossary terms associated with the entity
+    """
+    glossaryTerms: GlossaryTerms
+
+    """
+    The Domain associated with the entity
+    """
+    domain: Domain
+
+    """
+    An additional set of of read write properties
+    """
+    editableProperties: MLModelEditableProperties
 }
 
 """
@@ -6508,11 +6523,31 @@ type MLModelGroup implements EntityWithRelationships & Entity {
     Edges extending from this entity grouped by direction in the lineage graph
     """
     lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    Tags applied to entity
+    """
+    tags: GlobalTags
+
+    """
+    The structured glossary terms associated with the entity
+    """
+    glossaryTerms: GlossaryTerms
+
+    """
+    The Domain associated with the entity
+    """
+    domain: Domain
+
+    """
+    An additional set of of read write properties
+    """
+    editableProperties: MLModelGroupEditableProperties
 }
 
 type MLModelGroupProperties {
 
-    description: String
+description: String
 
     createdAt: Long
 
@@ -6522,7 +6557,7 @@ type MLModelGroupProperties {
 """
 An ML Feature Metadata Entity Note that this entity is incubating
 """
-type MLFeature implements Entity {
+type MLFeature implements EntityWithRelationships & Entity {
     """
     The primary key of the ML Feature
     """
@@ -6561,7 +6596,12 @@ type MLFeature implements Entity {
     """
     ModelProperties metadata of the MLFeature
     """
-    featureProperties: MLFeatureProperties
+    featureProperties: MLFeatureProperties @deprecated
+
+    """
+    ModelProperties metadata of the MLFeature
+    """
+    properties: MLFeatureProperties
 
     """
     References to internal resources related to the MLFeature
@@ -6587,12 +6627,32 @@ type MLFeature implements Entity {
     Edges extending from this entity grouped by direction in the lineage graph
     """
     lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    Tags applied to entity
+    """
+    tags: GlobalTags
+
+    """
+    The structured glossary terms associated with the entity
+    """
+    glossaryTerms: GlossaryTerms
+
+    """
+    The Domain associated with the entity
+    """
+    domain: Domain
+
+    """
+    An additional set of of read write properties
+    """
+    editableProperties: MLFeatureEditableProperties
 }
 
 type MLHyperParam {
-    name: String
+name: String
 
-    description: String
+description: String
 
     value: String
 
@@ -6648,7 +6708,7 @@ type MLFeatureProperties {
 """
 An ML Primary Key Entity Note that this entity is incubating
 """
-type MLPrimaryKey implements Entity {
+type MLPrimaryKey implements EntityWithRelationships & Entity {
     """
     The primary key of the ML Primary Key
     """
@@ -6719,11 +6779,31 @@ type MLPrimaryKey implements Entity {
     Edges extending from this entity grouped by direction in the lineage graph
     """
     lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    Tags applied to entity
+    """
+    tags: GlobalTags
+
+    """
+    The structured glossary terms associated with the entity
+    """
+    glossaryTerms: GlossaryTerms
+
+    """
+    The Domain associated with the entity
+    """
+    domain: Domain
+
+    """
+    An additional set of of read write properties
+    """
+    editableProperties: MLPrimaryKeyEditableProperties
 }
 
 type MLPrimaryKeyProperties {
 
-    description: String
+description: String
 
     dataType: MLFeatureDataType
 
@@ -6735,7 +6815,7 @@ type MLPrimaryKeyProperties {
 """
 An ML Feature Table Entity Note that this entity is incubating
 """
-type MLFeatureTable implements Entity {
+type MLFeatureTable implements EntityWithRelationships & Entity {
     """
     The primary key of the ML Feature Table
     """
@@ -6801,15 +6881,72 @@ type MLFeatureTable implements Entity {
     Edges extending from this entity grouped by direction in the lineage graph
     """
     lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    Tags applied to entity
+    """
+    tags: GlobalTags
+
+    """
+    The structured glossary terms associated with the entity
+    """
+    glossaryTerms: GlossaryTerms
+
+    """
+    The Domain associated with the entity
+    """
+    domain: Domain
+
+    """
+    An additional set of of read write properties
+    """
+    editableProperties: MLFeatureTableEditableProperties
+}
+
+type MLFeatureTableEditableProperties {
+    """
+    The edited description
+    """
+    description: String
+}
+
+type MLFeatureEditableProperties {
+    """
+    The edited description
+    """
+    description: String
+}
+
+type MLPrimaryKeyEditableProperties {
+    """
+    The edited description
+    """
+    description: String
+}
+
+type MLModelEditableProperties {
+    """
+    The edited description
+    """
+    description: String
+}
+
+type MLModelGroupEditableProperties {
+    """
+    The edited description
+    """
+    description: String
 }
 
 type MLFeatureTableProperties {
 
-    description: String
+description: String
 
     mlFeatures: [MLFeature]
 
     mlPrimaryKeys: [MLPrimaryKey]
+
+    customProperties: [StringMapEntry!]
 }
 
 type HyperParameterMap {

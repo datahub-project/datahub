@@ -93,6 +93,7 @@ looker_common = {
 bigquery_common = {
     # Google cloud logging library
     "google-cloud-logging",
+    "google-cloud-bigquery",
     "more-itertools>=8.12.0",
 }
 
@@ -201,7 +202,8 @@ plugins: Dict[str, Set[str]] = {
     "okta": {"okta~=1.7.0"},
     "oracle": sql_common | {"cx_Oracle"},
     "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
-    "presto-on-hive": sql_common | {"psycopg2-binary", "acryl-pyhive[hive]>=0.6.12", "pymysql>=1.0.2"},
+    "presto-on-hive": sql_common
+    | {"psycopg2-binary", "acryl-pyhive[hive]>=0.6.12", "pymysql>=1.0.2"},
     "redash": {"redash-toolbelt", "sql-metadata", "sqllineage==1.3.4"},
     "redshift": sql_common
     | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2", "sqllineage==1.3.4"},

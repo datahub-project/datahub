@@ -38,6 +38,7 @@ fragment searchResultFields on Entity {
         properties {
             name
             description
+            qualifiedName
             customProperties {
                 key
                 value
@@ -332,6 +333,12 @@ fragment searchResultFields on Entity {
         deprecation {
             ...deprecationFields
         }
+    }
+    ... on MLFeature {
+        ...nonRecursiveMLFeature
+    }
+    ... on MLPrimaryKey {
+        ...nonRecursiveMLPrimaryKey
     }
     ... on MLModel {
         name
