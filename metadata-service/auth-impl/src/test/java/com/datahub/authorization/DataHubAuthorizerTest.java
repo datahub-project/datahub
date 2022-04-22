@@ -19,9 +19,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.search.SearchEntity;
-import com.linkedin.metadata.search.SearchEntityArray;
-import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.DataHubResourceFilter;
@@ -38,7 +36,6 @@ import static com.linkedin.metadata.Constants.POLICY_ENTITY_NAME;
 import static com.linkedin.metadata.authorization.PoliciesConfig.ACTIVE_POLICY_STATE;
 import static com.linkedin.metadata.authorization.PoliciesConfig.INACTIVE_POLICY_STATE;
 import static com.linkedin.metadata.authorization.PoliciesConfig.METADATA_POLICY_TYPE;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.eq;
@@ -70,15 +67,18 @@ public class DataHubAuthorizerTest {
     final EnvelopedAspectMap inactiveAspectMap = new EnvelopedAspectMap();
     inactiveAspectMap.put(DATAHUB_POLICY_INFO_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(inactivePolicy.data())));
 
-    final SearchResult policySearchResult = new SearchResult();
-    policySearchResult.setNumEntities(2);
-    policySearchResult.setEntities(new SearchEntityArray(ImmutableList.of(new SearchEntity().setEntity(activePolicyUrn),
-        new SearchEntity().setEntity(inactivePolicyUrn))));
+    final ListUrnsResult listUrnsResult = new ListUrnsResult();
+    listUrnsResult.setStart(0);
+    listUrnsResult.setTotal(2);
+    listUrnsResult.setCount(2);
+    UrnArray policyUrns = new UrnArray(ImmutableList.of(
+        activePolicyUrn,
+        inactivePolicyUrn));
+    listUrnsResult.setEntities(policyUrns);
 
-    when(_entityClient.search(eq("dataHubPolicy"), eq("*"), isNull(), any(), anyInt(), anyInt(), any())).thenReturn(
-        policySearchResult);
+    when(_entityClient.listUrns(eq("dataHubPolicy"), eq(0), anyInt(), any())).thenReturn(listUrnsResult);
     when(_entityClient.batchGetV2(eq(POLICY_ENTITY_NAME),
-        eq(ImmutableSet.of(activePolicyUrn, inactivePolicyUrn)), eq(null), any())).thenReturn(
+        eq(new HashSet<>(listUrnsResult.getEntities())), eq(null), any())).thenReturn(
         ImmutableMap.of(
             activePolicyUrn, new EntityResponse().setUrn(activePolicyUrn).setAspects(activeAspectMap),
             inactivePolicyUrn, new EntityResponse().setUrn(inactivePolicyUrn).setAspects(inactiveAspectMap)
@@ -188,14 +188,17 @@ public class DataHubAuthorizerTest {
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
 
     // Now init the mocks to return 0 policies.
-    final SearchResult emptyResult = new SearchResult();
-    emptyResult.setNumEntities(0);
-    emptyResult.setEntities(new SearchEntityArray());
+    final ListUrnsResult emptyUrnsResult = new ListUrnsResult();
+    emptyUrnsResult.setStart(0);
+    emptyUrnsResult.setTotal(0);
+    emptyUrnsResult.setCount(0);
+    emptyUrnsResult.setEntities(new UrnArray(Collections.emptyList()));
 
-    when(_entityClient.search(eq("dataHubPolicy"), eq("*"), isNull(), any(), anyInt(), anyInt(), any())).thenReturn(
-        emptyResult);
-    when(_entityClient.batchGetV2(eq(POLICY_ENTITY_NAME), eq(Collections.emptySet()), eq(null), any())).thenReturn(
-        Collections.emptyMap());
+    when(_entityClient.listUrns(eq("dataHubPolicy"), eq(0), anyInt(), any())).thenReturn(emptyUrnsResult);
+    when(_entityClient.batchGetV2(eq(POLICY_ENTITY_NAME), eq(new HashSet<>(emptyUrnsResult.getEntities())),
+        eq(null), any())).thenReturn(
+        Collections.emptyMap()
+    );
 
     // Invalidate Cache.
     _dataHubAuthorizer.invalidateCache();

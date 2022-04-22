@@ -11,9 +11,6 @@ record DataHubPolicyInfo {
   /**
    * Display name of the Policy
    */
-  @Searchable = {
-    "fieldType": "KEYWORD"
-  }
   displayName: string
 
   /**
@@ -51,11 +48,4 @@ record DataHubPolicyInfo {
    */
   editable: boolean = true
 
-  /**
-   * Timestamp when the policy was last updated
-   */
-  @Searchable = {
-    "fieldType": "DATETIME"
-  }
-  lastUpdatedTimestamp: optional long
 }
