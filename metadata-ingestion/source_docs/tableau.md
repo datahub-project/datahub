@@ -16,8 +16,8 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 | Source Concept | DataHub Concept | Notes |
 | -- | -- | -- |
 | `"Tableau"` | [Data Platform](../../docs/generated/metamodel/entities/dataPlatform.md) | |
-| Embedded DataSource | [Dataset](../../docs/generated/metamodel/entities/dataset.md) | SubType `"Data Source"` |
-| Published DataSource | [Dataset](../../docs/generated/metamodel/entities/dataset.md) | SubType `"Data Source"` |
+| Embedded DataSource | [Dataset](../../docs/generated/metamodel/entities/dataset.md) | SubType `"Embedded Data Source"` |
+| Published DataSource | [Dataset](../../docs/generated/metamodel/entities/dataset.md) | SubType `"Published Data Source"` |
 | Custom SQL Table | [Dataset](../../docs/generated/metamodel/entities/dataset.md) | SubTypes `"View"`, `"Custom SQL"` |
 | Embedded or External Tables | [Dataset](../../docs/generated/metamodel/entities/dataset.md) | |
 | Sheet | [Chart](../../docs/generated/metamodel/entities/chart.md) | |
@@ -501,4 +501,6 @@ schema name to use when constructing a table URN.
 
 ### Why are only some workbooks/sheets/dashboards/datasources ingested and others are missing
 
-This may happen when the Tableau API returns NODE_LIMIT_EXCEEDED error in response to metadata query and returns partial results with message "Showing partial results. , The request exceeded the ‘n’ node limit. Use pagination, additional filtering, or both in the query to adjust results." To resolve this, consider increasing tableau configuration [metadata query node limit](https://help.tableau.com/current/server/en-us/cli_configuration-set_tsm.htm#metadata_nodelimit) to higher value. 
+This may happen when the Tableau API returns NODE_LIMIT_EXCEEDED error in response to metadata query and returns partial results with message "Showing partial results. , The request exceeded the ‘n’ node limit. Use pagination, additional filtering, or both in the query to adjust results." To resolve this, consider 
+- reducing the page size using the `workbooks_page_size` config param in datahub recipe (Defaults to 10).
+- increasing tableau configuration [metadata query node limit](https://help.tableau.com/current/server/en-us/cli_configuration-set_tsm.htm#metadata_nodelimit) to higher value. 
