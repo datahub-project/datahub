@@ -14,10 +14,8 @@ from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import make_group_urn, make_user_urn
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.decorators import (
-    # SourceCapability,
+from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
     SupportStatus,
-    # capability,
     config_class,
     platform_name,
     support_status,
