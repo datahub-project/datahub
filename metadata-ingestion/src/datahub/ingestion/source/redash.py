@@ -280,7 +280,6 @@ class RedashSourceReport(SourceReport):
 @platform_name("Redash")
 @config_class(RedashConfig)
 @support_status(SupportStatus.CERTIFIED)
-@ca
 class RedashSource(Source):
     """
     This plugin extracts the following:
