@@ -51,17 +51,18 @@ public class EntityTypeResolver implements DataFetcher<CompletableFuture<Entity>
             return CompletableFuture.completedFuture(null);
         }
 
-        final String urn = resolvedEntity.getUrn();
         final Object javaObject = _entityProvider.apply(environment);
 
         if (isOnlySelectingIdentityFields(environment)) {
             return CompletableFuture.completedFuture(javaObject);
         }
 
-        final com.linkedin.datahub.graphql.types.EntityType<?, ?> filteredEntity = Iterables.getOnlyElement(_entityTypes.stream()
+        final com.linkedin.datahub.graphql.types.EntityType filteredEntity = Iterables.getOnlyElement(_entityTypes.stream()
                 .filter(entity -> javaObject.getClass().isAssignableFrom(entity.objectClass()))
                 .collect(Collectors.toList()));
-        final DataLoader<String, Entity> loader = environment.getDataLoaderRegistry().getDataLoader(filteredEntity.name());
-        return loader.load(urn);
+        final DataLoader loader = environment.getDataLoaderRegistry().getDataLoader(filteredEntity.name());
+        final Object key = filteredEntity.getKeyProvider().apply(resolvedEntity);
+
+        return loader.load(key);
     }
 }

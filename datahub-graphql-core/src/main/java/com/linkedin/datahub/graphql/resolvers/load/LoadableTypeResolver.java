@@ -31,11 +31,11 @@ public class LoadableTypeResolver<T, K> implements DataFetcher<CompletableFuture
 
     @Override
     public CompletableFuture<T> get(DataFetchingEnvironment environment) {
-        final K urn = _keyProvider.apply(environment);
-        if (urn == null) {
+        final K key = _keyProvider.apply(environment);
+        if (key == null) {
             return null;
         }
         final DataLoader<K, T> loader = environment.getDataLoaderRegistry().getDataLoader(_loadableType.name());
-        return loader.load(urn);
+        return loader.load(key);
     }
 }

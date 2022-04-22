@@ -23,20 +23,20 @@ import java.util.function.Function;
 public class LoadableTypeBatchResolver<T, K> implements DataFetcher<CompletableFuture<List<T>>> {
 
     private final LoadableType<T, K> _loadableType;
-    private final Function<DataFetchingEnvironment, List<String>> _urnProvider;
+    private final Function<DataFetchingEnvironment, List<K>> _keyProvider;
 
-    public LoadableTypeBatchResolver(final LoadableType<T, K> loadableType, final Function<DataFetchingEnvironment, List<String>> urnProvider) {
+    public LoadableTypeBatchResolver(final LoadableType<T, K> loadableType, final Function<DataFetchingEnvironment, List<K>> keyProvider) {
         _loadableType = loadableType;
-        _urnProvider = urnProvider;
+        _keyProvider = keyProvider;
     }
 
     @Override
     public CompletableFuture<List<T>> get(DataFetchingEnvironment environment) {
-        final List<String> urns = _urnProvider.apply(environment);
-        if (urns == null) {
+        final List<K> keys = _keyProvider.apply(environment);
+        if (keys == null) {
             return null;
         }
-        final DataLoader<String, T> loader = environment.getDataLoaderRegistry().getDataLoader(_loadableType.name());
-        return loader.loadMany(urns);
+        final DataLoader<K, T> loader = environment.getDataLoaderRegistry().getDataLoader(_loadableType.name());
+        return loader.loadMany(keys);
     }
 }

@@ -571,43 +571,35 @@ public class GmsGraphQLEngine {
     private void configureGenericEntityResolvers(final RuntimeWiring.Builder builder) {
         builder
             .type("SearchResult", typeWiring -> typeWiring
-                .dataFetcher("entity", new EntityTypeResolver(
-                        entityTypes.stream().collect(Collectors.toList()),
+                .dataFetcher("entity", new EntityTypeResolver(entityTypes,
                         (env) -> ((SearchResult) env.getSource()).getEntity()))
                 )
             .type("SearchAcrossLineageResult", typeWiring -> typeWiring
-                .dataFetcher("entity", new EntityTypeResolver(
-                        entityTypes.stream().collect(Collectors.toList()),
+                .dataFetcher("entity", new EntityTypeResolver(entityTypes,
                         (env) -> ((SearchAcrossLineageResult) env.getSource()).getEntity()))
             )
             .type("AggregationMetadata", typeWiring -> typeWiring
-                .dataFetcher("entity", new EntityTypeResolver(
-                    entityTypes.stream().collect(Collectors.toList()),
+                .dataFetcher("entity", new EntityTypeResolver(entityTypes,
                     (env) -> ((AggregationMetadata) env.getSource()).getEntity()))
             )
             .type("RecommendationContent", typeWiring -> typeWiring
-                .dataFetcher("entity", new EntityTypeResolver(
-                    entityTypes.stream().collect(Collectors.toList()),
+                .dataFetcher("entity", new EntityTypeResolver(entityTypes,
                     (env) -> ((RecommendationContent) env.getSource()).getEntity()))
             )
             .type("BrowseResults", typeWiring -> typeWiring
-                .dataFetcher("entities", new EntityTypeBatchResolver(
-                        entityTypes.stream().collect(Collectors.toList()),
+                .dataFetcher("entities", new EntityTypeBatchResolver(entityTypes,
                         (env) -> ((BrowseResults) env.getSource()).getEntities()))
             )
             .type("EntityRelationshipLegacy", typeWiring -> typeWiring
-                .dataFetcher("entity", new EntityTypeResolver(
-                        new ArrayList<>(entityTypes),
+                .dataFetcher("entity", new EntityTypeResolver(entityTypes,
                         (env) -> ((EntityRelationshipLegacy) env.getSource()).getEntity()))
             )
             .type("EntityRelationship", typeWiring -> typeWiring
-                .dataFetcher("entity", new EntityTypeResolver(
-                        new ArrayList<>(entityTypes),
+                .dataFetcher("entity", new EntityTypeResolver(entityTypes,
                         (env) -> ((EntityRelationship) env.getSource()).getEntity()))
             )
             .type("LineageRelationship", typeWiring -> typeWiring
-                .dataFetcher("entity", new EntityTypeResolver(
-                        new ArrayList<>(entityTypes),
+                .dataFetcher("entity", new EntityTypeResolver(entityTypes,
                         (env) -> ((LineageRelationship) env.getSource()).getEntity()))
             )
             .type("ListDomainsResult", typeWiring -> typeWiring
@@ -618,18 +610,15 @@ public class GmsGraphQLEngine {
             )
             .type("AutoCompleteResults", typeWiring -> typeWiring
                 .dataFetcher("entities",
-                    new EntityTypeBatchResolver(
-                        new ArrayList<>(entityTypes),
+                    new EntityTypeBatchResolver(entityTypes,
                         (env) -> ((AutoCompleteResults) env.getSource()).getEntities()))
             )
             .type("AutoCompleteResultForEntity", typeWiring -> typeWiring
-                .dataFetcher("entities", new EntityTypeBatchResolver(
-                        new ArrayList<>(entityTypes),
+                .dataFetcher("entities", new EntityTypeBatchResolver(entityTypes,
                         (env) -> ((AutoCompleteResultForEntity) env.getSource()).getEntities()))
             )
             .type("PolicyMatchCriterionValue", typeWiring -> typeWiring
-                .dataFetcher("entity", new EntityTypeResolver(
-                        new ArrayList<>(entityTypes),
+                .dataFetcher("entity", new EntityTypeResolver(entityTypes,
                         (env) -> ((PolicyMatchCriterionValue) env.getSource()).getEntity()))
             );
     }
@@ -824,7 +813,7 @@ public class GmsGraphQLEngine {
         builder.type("ChartInfo", typeWiring -> typeWiring
             .dataFetcher("inputs", new LoadableTypeBatchResolver<>(datasetType,
                 (env) -> ((ChartInfo) env.getSource()).getInputs().stream()
-                    .map(Dataset::getUrn)
+                    .map(datasetType.getKeyProvider())
                     .collect(Collectors.toList())))
         );
     }
@@ -894,11 +883,11 @@ public class GmsGraphQLEngine {
             .type("DataJobInputOutput", typeWiring -> typeWiring
                 .dataFetcher("inputDatasets", new LoadableTypeBatchResolver<>(datasetType,
                     (env) -> ((DataJobInputOutput) env.getSource()).getInputDatasets().stream()
-                        .map(Dataset::getUrn)
+                        .map(datasetType.getKeyProvider())
                         .collect(Collectors.toList())))
                 .dataFetcher("outputDatasets", new LoadableTypeBatchResolver<>(datasetType,
                     (env) -> ((DataJobInputOutput) env.getSource()).getOutputDatasets().stream()
-                        .map(Dataset::getUrn)
+                        .map(datasetType.getKeyProvider())
                         .collect(Collectors.toList())))
                 .dataFetcher("inputDatajobs", new LoadableTypeBatchResolver<>(dataJobType,
                     (env) -> ((DataJobInputOutput) env.getSource()).getInputDatajobs().stream()
@@ -964,14 +953,14 @@ public class GmsGraphQLEngine {
             .type("MLFeatureProperties", typeWiring -> typeWiring
                 .dataFetcher("sources", new LoadableTypeBatchResolver<>(datasetType,
                                 (env) -> ((MLFeatureProperties) env.getSource()).getSources().stream()
-                                        .map(Dataset::getUrn)
+                                        .map(datasetType.getKeyProvider())
                                         .collect(Collectors.toList()))
                 )
             )
             .type("MLPrimaryKeyProperties", typeWiring -> typeWiring
                 .dataFetcher("sources", new LoadableTypeBatchResolver<>(datasetType,
                                 (env) -> ((MLPrimaryKeyProperties) env.getSource()).getSources().stream()
-                                        .map(Dataset::getUrn)
+                                        .map(datasetType.getKeyProvider())
                                         .collect(Collectors.toList()))
                 )
             )

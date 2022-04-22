@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Domain;
+import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
@@ -15,6 +16,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
@@ -36,6 +38,11 @@ public class DomainType implements com.linkedin.datahub.graphql.types.EntityType
   @Override
   public EntityType type() {
     return EntityType.DOMAIN;
+  }
+
+  @Override
+  public Function<Entity, String> getKeyProvider() {
+    return Entity::getUrn;
   }
 
   @Override

@@ -182,7 +182,6 @@ public abstract class EntityService {
    * Retrieves the aspects for the given set of urns and versions as dynamic aspect objects
    * (Without having to define union objects)
    *
-   * @param entityName name of the entity to fetch
    * @param versionedUrnStrs set of urns to fetch with versions of aspects specified in a specialized string
    * @param aspectNames set of aspects to fetch
    * @return a map of {@link Urn} to {@link Entity} object
@@ -212,7 +211,6 @@ public abstract class EntityService {
   /**
    * Retrieves the latest aspects for the given set of urns as a list of enveloped aspects
    *
-   * @param entityName name of the entity to fetch
    * @param versionedUrnStrs set of urns to fetch with versions of aspects specified in a specialized string
    * @param aspectNames set of aspects to fetch
    * @return a map of {@link Urn} to {@link EnvelopedAspect} object
