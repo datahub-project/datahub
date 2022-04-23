@@ -391,10 +391,188 @@ def test_with_keyword_data():
                 SELECT
                     *,
                     'foo' AS bar
-                FROM `project.example_dataset.another_example_table_vw`
+                FROM `project.example_dataset.example_table`
             )
             SELECT * FROM data
         """
     )
 
-    assert parser.get_tables() == ["project.example_dataset.another_example_table_vw"]
+    assert parser.get_tables() == ["project.example_dataset.example_table"]
+
+
+def test_with_keyword_admin():
+    parser = SqlLineageSQLParser(
+        sql_query="""
+            WITH admin AS (
+                SELECT *
+                FROM `project.example_dataset.example_table`
+            )
+            SELECT * FROM admin
+        """
+    )
+
+    assert parser.get_tables() == ["project.example_dataset.example_table"]
+
+
+def test_sqllineage_sql_parser_create_or_replace_table_name_not_wrapped_in_backticks():
+    parser = SqlLineageSQLParser(
+        sql_query="""
+            CREATE OR REPLACE TABLE project.dataset.test_table AS
+            WITH cte AS (
+                SELECT
+                    *,
+                    EXTRACT(MICROSECOND FROM time_field)    AS col_1,
+                    EXTRACT(MILLISECOND FROM time_field)    AS col_2,
+                    EXTRACT(SECOND FROM time_field)         AS col_3,
+                    EXTRACT(MINUTE FROM time_field)         AS col_4,
+                    EXTRACT(HOUR FROM time_field)           AS col_5,
+                    EXTRACT(DAYOFWEEK FROM time_field)      AS col_6,
+                    EXTRACT(DAY FROM time_field)            AS col_7,
+                    EXTRACT(DAYOFYEAR FROM time_field)      AS col_8,
+                    EXTRACT(WEEK FROM time_field)           AS col_9,
+                    EXTRACT(WEEK FROM time_field)           AS col_10,
+                    EXTRACT(ISOWEEK FROM time_field)        AS col_11,
+                    EXTRACT(MONTH FROM time_field)          AS col_12,
+                    EXTRACT(QUARTER FROM time_field)        AS col_13,
+                    EXTRACT(YEAR FROM time_field)           AS col_14,
+                    EXTRACT(ISOYEAR FROM time_field)        AS col_15,
+                    EXTRACT(DATE FROM time_field)           AS col_16,
+                    EXTRACT(TIME FROM time_field)           AS col_17
+                FROM project.dataset.src_table_a
+            )
+            SELECT * FROM cte
+            UNION
+            SELECT *
+            FROM project.dataset.src_table_b
+            UNION
+            SELECT * FROM `project.dataset.src_table_c`
+        """
+    )
+
+    assert parser.get_tables() == [
+        "project.dataset.src_table_a",
+        "project.dataset.src_table_b",
+        "project.dataset.src_table_c",
+    ]
+
+
+def test_sqllineage_sql_parser_create_or_replace_view_name_not_wrapped_in_backticks():
+    parser = SqlLineageSQLParser(
+        sql_query="""
+            CREATE OR REPLACE VIEW project.dataset.test_view AS
+            WITH cte AS (
+                SELECT
+                    *,
+                    'foo' AS bar
+                FROM project.dataset.src_table_a
+            )
+            SELECT * FROM cte
+            UNION
+            SELECT *
+            FROM project.dataset.src_table_b
+            UNION
+            SELECT * FROM `project.dataset.src_table_c`
+        """
+    )
+
+    assert parser.get_tables() == [
+        "project.dataset.src_table_a",
+        "project.dataset.src_table_b",
+        "project.dataset.src_table_c",
+    ]
+
+
+def test_sqllineage_sql_parser_create_table_name_not_wrapped_in_backticks():
+    parser = SqlLineageSQLParser(
+        sql_query="""
+            CREATE TABLE project.dataset.test_table AS
+            WITH cte AS (
+                SELECT
+                    *,
+                    'foo' AS bar
+                FROM project.dataset.src_table_a
+            )
+            SELECT * FROM cte
+            UNION
+            SELECT *
+            FROM project.dataset.src_table_b
+            UNION
+            SELECT * FROM `project.dataset.src_table_c`
+        """
+    )
+
+    assert parser.get_tables() == [
+        "project.dataset.src_table_a",
+        "project.dataset.src_table_b",
+        "project.dataset.src_table_c",
+    ]
+
+
+def test_sqllineage_sql_parser_create_view_name_not_wrapped_in_backticks():
+    parser = SqlLineageSQLParser(
+        sql_query="""
+            CREATE VIEW project.dataset.test_view AS
+            WITH cte AS (
+                SELECT
+                    *,
+                    'foo' AS bar
+                FROM project.dataset.src_table_a
+            )
+            SELECT * FROM cte
+            UNION
+            SELECT *
+            FROM project.dataset.src_table_b
+            UNION
+            SELECT * FROM `project.dataset.src_table_c`
+        """
+    )
+
+    assert parser.get_tables() == [
+        "project.dataset.src_table_a",
+        "project.dataset.src_table_b",
+        "project.dataset.src_table_c",
+    ]
+
+
+def test_sqllineage_sql_parser_from_as_column_name_is_escaped():
+    parser = SqlLineageSQLParser(
+        sql_query="""
+            CREATE TABLE project.dataset.test_table AS
+            SELECT x.from AS col
+            FROM project.dataset.src_table AS x
+        """
+    )
+
+    assert parser.get_tables() == [
+        "project.dataset.src_table",
+    ]
+
+
+def test_sqllineage_sql_parser_cte_alias_near_with_keyword_is_escaped():
+    parser = SqlLineageSQLParser(
+        sql_query="""
+            create or replace view `project.dataset.test_view` as
+            with map as (
+                    select col_1
+                        col_2
+                    from `project.dataset.src_table_a` a
+                    join `project.dataset.src_table_b` b
+                        on a.col_1 = b.col_2
+                ),
+                cte_2 as (
+                    select * from `project.dataset.src_table_c`
+                )
+            select * from map
+            union all
+            select * from cte_2
+        """
+    )
+
+    # results would (somehow) also contain "cte_2" which should be considered a subquery rather than a table
+    assert set(
+        [
+            "project.dataset.src_table_a",
+            "project.dataset.src_table_b",
+            "project.dataset.src_table_c",
+        ]
+    ).issubset(parser.get_tables())
