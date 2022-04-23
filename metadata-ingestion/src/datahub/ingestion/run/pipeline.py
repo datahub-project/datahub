@@ -53,8 +53,8 @@ class PipelineConfig(ConfigModel):
         cls, v: Optional[str], values: Dict[str, Any], **kwargs: Any
     ) -> str:
         if v == "__DEFAULT_RUN_ID":
-            if values["source"] is not None:
-                if values["source"].type is not None:
+            if "source" in values:
+                if "type" in values["source"]:
                     source_type = values["source"].type
                     current_time = datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
                     return f"{source_type}-{current_time}"
@@ -69,7 +69,7 @@ class PipelineConfig(ConfigModel):
         cls, v: Optional[DatahubClientConfig], values: Dict[str, Any], **kwargs: Any
     ) -> Optional[DatahubClientConfig]:
         if v is None:
-            if values["sink"].type is not None:
+            if "sink" in values and "type" in values["sink"]:
                 sink_type = values["sink"].type
                 if sink_type == "datahub-rest":
                     sink_config = values["sink"].config
@@ -123,7 +123,7 @@ class Pipeline:
 
         sink_type = self.config.sink.type
         sink_class = sink_registry.get(sink_type)
-        sink_config = self.config.sink.dict().get("config", {})
+        sink_config = self.config.sink.dict().get("config") or {}
         self.sink: Sink = sink_class.create(sink_config, self.ctx)
         logger.debug(f"Sink type:{self.config.sink.type},{sink_class} configured")
 

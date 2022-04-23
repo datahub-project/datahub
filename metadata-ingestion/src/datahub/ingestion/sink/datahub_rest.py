@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Union, cast
 
 from datahub.cli.cli_utils import set_env_variables_override_config
-from datahub.configuration.common import OperationalError
+from datahub.configuration.common import ConfigurationError, OperationalError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
@@ -52,7 +52,11 @@ class DatahubRestSink(Sink):
             extra_headers=self.config.extra_headers,
             ca_certificate_path=self.config.ca_certificate_path,
         )
-        gms_config = self.emitter.test_connection()
+        try:
+            gms_config = self.emitter.test_connection()
+        except Exception as exc:
+            raise ConfigurationError("💥 Failed to connect to Datahub over REST", exc)
+
         self.report.gms_version = (
             gms_config.get("versions", {})
             .get("linkedin/datahub", {})

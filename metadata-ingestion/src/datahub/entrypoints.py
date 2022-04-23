@@ -5,6 +5,7 @@ import sys
 
 import click
 import stackprinter
+from pydantic import ValidationError
 
 import datahub as datahub_package
 from datahub.cli.check_cli import check
@@ -151,7 +152,7 @@ def main(**kwargs):
             exc = sensitive_cause
 
         # suppress stack printing for common configuration errors
-        if isinstance(exc, (ConfigurationError, ValueError)):
+        if isinstance(exc, (ConfigurationError, ValueError, ValidationError)):
             logger.error(exc)
         else:
             logger.error(
