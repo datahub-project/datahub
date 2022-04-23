@@ -6,8 +6,9 @@ from math import log10
 from typing import Any, Dict, Iterable, List, Optional
 
 import click
-from pydantic import validator
+from pydantic import root_validator, validator
 
+from datahub.configuration import config_loader
 from datahub.configuration.common import (
     ConfigModel,
     DynamicTypedConfig,
@@ -63,6 +64,24 @@ class PipelineConfig(ConfigModel):
         else:
             assert v is not None
             return v
+
+    @root_validator(pre=True)
+    def default_sink_is_datahub_rest(cls, values: Dict[str, Any]) -> Any:
+        if "sink" not in values:
+            default_sink_config = {
+                "type": "datahub-rest",
+                "config": {
+                    "server": "${DATAHUB_SERVER:-http://localhost:8080}",
+                    "token": "${DATAHUB_TOKEN:-}",
+                },
+            }
+            # resolve env variables if present
+            default_sink_config = config_loader.resolve_env_variables(
+                default_sink_config
+            )
+            values["sink"] = default_sink_config
+
+        return values
 
     @validator("datahub_api", always=True)
     def datahub_api_should_use_rest_sink_as_default(

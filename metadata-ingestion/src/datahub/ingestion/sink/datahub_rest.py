@@ -55,7 +55,10 @@ class DatahubRestSink(Sink):
         try:
             gms_config = self.emitter.test_connection()
         except Exception as exc:
-            raise ConfigurationError("💥 Failed to connect to Datahub over REST", exc)
+            raise ConfigurationError(
+                f"💥 Failed to connect to DataHub@{self.config.server} (token:{'XXX-redacted' if self.config.token else 'empty'}) over REST",
+                exc,
+            )
 
         self.report.gms_version = (
             gms_config.get("versions", {})
