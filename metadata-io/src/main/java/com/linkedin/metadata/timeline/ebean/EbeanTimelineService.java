@@ -282,6 +282,7 @@ public class EbeanTimelineService implements TimelineService {
           }
           if (aspect.getCreatedOn().getTime() == aspect2.getCreatedOn().getTime()) {
             versionStampMap.put(aspect2.getAspect(), aspect2.getVersion());
+            maybeMatch = null;
             break;
           } else {
             maybeMatch = aspect2;
