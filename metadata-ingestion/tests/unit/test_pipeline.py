@@ -1,11 +1,10 @@
 from typing import Iterable, List, cast
 from unittest.mock import patch
-from datahub.configuration.common import DynamicTypedConfig
-from datahub.ingestion.sink.datahub_rest import DatahubRestSink
 
 import pytest
 from freezegun import freeze_time
 
+from datahub.configuration.common import DynamicTypedConfig
 from datahub.ingestion.api.committable import CommitPolicy, Committable
 from datahub.ingestion.api.common import RecordEnvelope, WorkUnit
 from datahub.ingestion.api.source import Source, SourceReport
@@ -58,8 +57,10 @@ class TestPipeline(object):
         # assert that the default sink config is for a DatahubRestSink
         assert isinstance(pipeline.config.sink, DynamicTypedConfig)
         assert pipeline.config.sink.type == "datahub-rest"
-        assert pipeline.config.sink.config == {"server": "http://localhost:8080", "token": ""}
-
+        assert pipeline.config.sink.config == {
+            "server": "http://localhost:8080",
+            "token": "",
+        }
 
     @freeze_time(FROZEN_TIME)
     def test_run_including_fake_transformation(self):
