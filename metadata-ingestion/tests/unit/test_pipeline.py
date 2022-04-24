@@ -44,8 +44,11 @@ class TestPipeline(object):
         mock_sink.assert_called_once()
 
     @freeze_time(FROZEN_TIME)
-    @patch("datahub.ingestion.sink.datahub_rest.DatahubRestSink.create", autospec=True)
-    def test_configure_without_sink(self, mock_sink):
+    @patch("datahub.emitter.rest_emitter.DatahubRestEmitter.test_connection")
+    @patch("datahub.ingestion.source.kafka.KafkaSource.get_workunits", autospec=True)
+    def test_configure_without_sink(self, mock_source, mock_test_connection):
+
+        mock_test_connection.return_value = {"noCode": True}
         pipeline = Pipeline.create(
             {
                 "source": {
