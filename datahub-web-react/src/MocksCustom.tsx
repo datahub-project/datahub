@@ -27,8 +27,9 @@ const user3 = {
 const user1 = {
     username: 'sdas',
     urn: 'urn:li:corpuser:1',
-    type: EntityType.CorpUser,
+    type: 'CORP_USER',
     info: {
+        __typename: 'CorpUserInfo',
         email: 'sdas@domain.com',
         active: true,
         displayName: 'sdas',
@@ -37,31 +38,28 @@ const user1 = {
         lastName: 'Das',
         fullName: 'Shirshanka Das',
     },
-    editableInfo: {
-        pictureLink: 'https://crunchconf.com/img/2019/speakers/1559291783-ShirshankaDas.png',
+    properties: {
+        __typename: 'CorpUserProperties',
+        email: 'sdas@domain.com',
+        active: true,
+        displayName: 'sdas',
+        title: 'Software Engineer',
+        firstName: 'Shirshanka',
+        lastName: 'Das',
+        fullName: 'Shirshanka Das',
     },
-    globalTags: {
-        tags: [
-            {
-                tag: {
-                    type: EntityType.Tag,
-                    urn: 'urn:li:tag:abc-sample-tag',
-                    name: 'abc-sample-tag',
-                    description: 'sample tag',
-                    properties: {
-                        name: 'abc-sample-tag',
-                        description: 'sample tag',
-                        colorHex: 'sample tag color',
-                    },
-                },
-            },
-        ],
-    },
+    editableProperties: {
+        __typename: 'CorpUserEditableProperties',
+        displayName: 'sdas',
+        title: 'Software Engineer',
+        pictureLink: 'something',
+        email: 'sdas@domain.com',
+    }
 };
 
 export const dataset3 = {
     __typename: 'Dataset',
-    urn: 'urn:li:dataset:11',
+    urn: 'urn:li:dataset:3',
     type: EntityType.Dataset,
     platform: {
         urn: 'urn:li:dataPlatform:kafka',
@@ -93,12 +91,15 @@ export const dataset3 = {
         time: 0,
     },
     ownership: {
+        __typename: 'Ownership',
         owners: [
             {
                 owner: {
+                    __typename: 'CorpUser',
                     ...user1,
                 },
-                type: 'DATAOWNER',
+                type: 'TECHNICAL_OWNER',
+                source: null,
             },
         ],
         lastModified: {
@@ -253,9 +254,7 @@ export const dataset3 = {
     relationships: null,
     health: null,
     assertions: null,
-    status: {
-        removed: false,
-    },
+    status: null,
     readRuns: null,
     writeRuns: null,
 } as Dataset;
@@ -268,7 +267,7 @@ export const editMocks = [
         request: {
             query: GetDatasetDocument,
             variables: {
-                urn: 'urn:li:dataset:11',
+                urn: 'urn:li:dataset:3',
             },
         },
         result: {
