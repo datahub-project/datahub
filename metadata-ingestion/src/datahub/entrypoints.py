@@ -152,7 +152,7 @@ def main(**kwargs):
             exc = sensitive_cause
 
         # suppress stack printing for common configuration errors
-        if isinstance(exc, (ConfigurationError, ValueError, ValidationError)):
+        if isinstance(exc, (ConfigurationError, ValidationError)):
             logger.error(exc)
         else:
             logger.error(

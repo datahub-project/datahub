@@ -42,7 +42,7 @@ The default sink that most of the ingestion systems and guides assume is the `da
 
 A recipe is the main configuration file that puts it all together. It tells our ingestion scripts where to pull data from (source) and where to put it (sink).
 
-The default sink is assumed to be a DataHub REST endpoint:
+Since `acryl-datahub` version `>=0.8.33.2`, the default sink is assumed to be a DataHub REST endpoint:
 - Hosted at "http://localhost:8080" or the environment variable `${DATAHUB_HOST}` if present
 - With an empty auth token or the environment variable `${DATAHUB_TOKEN}` if present. 
 
