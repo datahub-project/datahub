@@ -55,7 +55,7 @@ class PipelineConfig(ConfigModel):
     ) -> str:
         if v == "__DEFAULT_RUN_ID":
             if "source" in values:
-                if "type" in values["source"]:
+                if hasattr(values["source"], "type"):
                     source_type = values["source"].type
                     current_time = datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
                     return f"{source_type}-{current_time}"
