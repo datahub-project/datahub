@@ -327,6 +327,7 @@ entry_points = {
     "console_scripts": ["datahub = datahub.entrypoints:main"],
     "datahub.ingestion.source.plugins": [
         "file = datahub.ingestion.source.file:GenericFileSource",
+        "data-catalog = datahub.ingestion.source.data_catalog:DataCatalogSource",
         "sqlalchemy = datahub.ingestion.source.sql.sql_generic:SQLAlchemyGenericSource",
         "athena = datahub.ingestion.source.sql.athena:AthenaSource",
         "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",
