@@ -25,8 +25,8 @@ public class LocalCassandraSessionConfigFactory {
   @Value("${cassandra.port}")
   private String port;
 
-  @Value("${cassandra.dataCenter}")
-  private String dataCenter;
+  @Value("${cassandra.datacenter}")
+  private String datacenter;
 
   @Value("${cassandra.keyspace}")
   private String keyspace;
@@ -41,7 +41,7 @@ public class LocalCassandraSessionConfigFactory {
       put("password", datasourcePassword);
       put("hosts", hosts);
       put("port", port);
-      put("datacenter", dataCenter);
+      put("datacenter", datacenter);
       put("keyspace", keyspace);
       put("useSsl", useSsl);
     }};

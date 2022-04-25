@@ -104,7 +104,7 @@ cassandra:
   datasourcePassword: ${CASSANDRA_DATASOURCE_PASSWORD:cassandra}
   hosts: ${CASSANDRA_HOSTS:cassandra}
   port: ${CASSANDRA_PORT:9042}
-  dataCenter: ${CASSANDRA_DATACENTER:datacenter1}
+  datacenter: ${CASSANDRA_DATACENTER:datacenter1}
   keyspace: ${CASSANDRA_KEYSPACE:datahub}
   useSsl: ${CASSANDRA_USE_SSL:false}
 
