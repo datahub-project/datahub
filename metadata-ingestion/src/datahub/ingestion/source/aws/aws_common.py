@@ -109,7 +109,12 @@ class AwsSourceConfig(ConfigModel):
             endpoint_url=self.aws_endpoint_url,
             config=Config(proxies=self.aws_proxy),
         )
-        resource.meta.client.meta.events.unregister("before-sign.s3", fix_s3_host)
+        # according to: https://stackoverflow.com/questions/32618216/override-s3-endpoint-using-boto3-configuration-file
+        # boto3 only reads the signature version for s3 from that config file. boto3 automatically changes the endpoint to
+        # your_bucket_name.s3.amazonaws.com when it sees fit. If you'll be working with both your own host and s3, you may wish
+        # to override the functionality rather than removing it altogether.
+        if self.aws_endpoint_url is not None and self.aws_proxy is not None:
+            resource.meta.client.meta.events.unregister("before-sign.s3", fix_s3_host)
         return resource
 
     def get_glue_client(self) -> "GlueClient":
