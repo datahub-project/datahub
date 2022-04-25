@@ -1,27 +1,57 @@
+import sys
+from typing import List
+
 import pytest
 
-from datahub.ingestion.extractor.protobuf_util import (
-    ProtobufSchema,
-    protobuf_schema_to_mce_fields,
-)
-from datahub.metadata.schema_classes import ArrayTypeClass
+IS_PYTHON_37_OR_NEWER: bool = sys.version_info >= (3, 7)
+NEEDS_PYTHON_37_OR_NEWER = "Needs Python 3.7 or higher"
 
-SCHEMA_WITH_SINGLE_MESSAGE_EMPTY_MESSAGE = """
+if IS_PYTHON_37_OR_NEWER:
+    from datahub.ingestion.extractor.protobuf_util import (
+        ProtobufSchema,
+        protobuf_schema_to_mce_fields,
+    )
+    from datahub.metadata.schema_classes import ArrayTypeClass, SchemaFieldClass
+
+
+@pytest.mark.skipif(not IS_PYTHON_37_OR_NEWER, reason=NEEDS_PYTHON_37_OR_NEWER)
+def test_protobuf_schema_to_mce_fields_with_single_empty_message() -> None:
+    schema: str = """
 syntax = "proto3";
 
 message Test1 {
 }
 """
+    fields: List[SchemaFieldClass] = protobuf_schema_to_mce_fields(
+        ProtobufSchema("main_1.proto", schema)
+    )
 
-SCHEMA_WITH_SINGLE_MESSAGE_SINGLE_FIELD = """
+    assert 0 == len(fields)
+
+
+@pytest.mark.skipif(not IS_PYTHON_37_OR_NEWER, reason=NEEDS_PYTHON_37_OR_NEWER)
+def test_protobuf_schema_to_mce_fields_with_single_message_single_field_key_schema() -> None:
+    schema: str = """
 syntax = "proto3";
 
 message Test2 {
     string field_1 = 1;
 }
 """
+    fields: List[SchemaFieldClass] = protobuf_schema_to_mce_fields(
+        ProtobufSchema("main_2.proto", schema), is_key_schema=True
+    )
+    assert 1 == len(fields)
+    assert (
+        "[version=2.0].[key=True].[type=Test2].[type=string].field_1"
+        == fields[0].fieldPath
+    )
+    assert "string" == fields[0].nativeDataType
 
-SCHEMA_WITH_TWO_MESSAGES_ENUM = """
+
+@pytest.mark.skipif(not IS_PYTHON_37_OR_NEWER, reason=NEEDS_PYTHON_37_OR_NEWER)
+def test_protobuf_schema_to_mce_fields_with_two_messages_enum() -> None:
+    schema: str = """
 syntax = "proto3";
 
 message Test3 {
@@ -39,8 +69,25 @@ message Test4 {
     int64 anInteger = 1;
 }
 """
+    fields: List[SchemaFieldClass] = protobuf_schema_to_mce_fields(
+        ProtobufSchema("main_3.proto", schema)
+    )
 
-SCHEMA_NESTED = """
+    assert 5 == len(fields)
+    assert "[version=2.0].[type=Test3].Test3" == fields[0].fieldPath
+    assert "[version=2.0].[type=Test3].Test3.[type=enum].field_2" == fields[1].fieldPath
+    assert (
+        "[version=2.0].[type=Test3].Test3.[type=string].field_1" == fields[2].fieldPath
+    )
+    assert "[version=2.0].[type=Test4].Test4" == fields[3].fieldPath
+    assert (
+        "[version=2.0].[type=Test4].Test4.[type=long].anInteger" == fields[4].fieldPath
+    )
+
+
+@pytest.mark.skipif(not IS_PYTHON_37_OR_NEWER, reason=NEEDS_PYTHON_37_OR_NEWER)
+def test_protobuf_schema_to_mce_fields_nested():
+    schema: str = """
 syntax = "proto3";
 
 message Test5 {
@@ -57,114 +104,9 @@ message Test5 {
     }
 }
 """
-
-SCHEMA_REPEATED = """
-syntax = "proto3";
-
-message Test6 {
-    repeated int64 aList = 1;
-}
-"""
-
-SCHEMA_REPEATED_WITH_MESSAGE_NESTED_TYPE = """
-syntax = "proto3";
-
-message Test7 {
-    repeated Nested aList = 1;
-
-    message Nested {
-        string name = 1;
-    }
-}
-"""
-
-SCHEMA_MAP = """
-syntax = "proto3";
-
-message Test8 {
-    map<string, int64> map_1 = 1;
-    map<string, Nested> map_2 = 2;
-
-    message Nested {
-        string aString = 1;
-    }
-}
-"""
-
-SCHEMA_COMPLEX = """
-syntax = "proto3";
-
-message Test9 {
-    string string_field_1  = 1;
-    bool   boolean_field_1 = 2;
-    int64  int64_field_1   = 3;
-
-    EmptyNested emptyMsg = 4;
-
-    // an empty message
-    message EmptyNested {};
-
-    oneof payload {
-        string pl_1 = 5;
-        int64  pl_2 = 6;
-    }
-
-    enum anEnum {
-        idle = 0;
-        spinning = 1;
-    }
-}
-
-message Test10 {
-    int64 an_int_64_field = 1;
-}
-"""
-
-SCHEMA_WITH_RECURSIVE_MESSAGE = """
-syntax = "proto3";
-
-message Test11 {
-    string a_property = 1;
-    Test11 recursive = 2;
-}
-"""
-
-
-def test_protobuf_schema_to_mce_fields_with_single_empty_message():
-    schema = SCHEMA_WITH_SINGLE_MESSAGE_EMPTY_MESSAGE
-    fields = protobuf_schema_to_mce_fields(ProtobufSchema("main_1.proto", schema))
-
-    assert 0 == len(fields)
-
-
-def test_protobuf_schema_to_mce_fields_with_single_message_single_field():
-    schema = SCHEMA_WITH_SINGLE_MESSAGE_SINGLE_FIELD
-    fields = protobuf_schema_to_mce_fields(ProtobufSchema("main_2.proto", schema))
-
-    assert 1 == len(fields)
-    assert "[version=2.0].[type=Test2].[type=string].field_1" == fields[0].fieldPath
-    assert "string" == fields[0].nativeDataType
-
-
-def test_protobuf_schema_to_mce_fields_with_two_messages_enum():
-    schema = SCHEMA_WITH_TWO_MESSAGES_ENUM
-    fields = protobuf_schema_to_mce_fields(ProtobufSchema("main_3.proto", schema))
-
-    assert 5 == len(fields)
-    assert "[version=2.0].[type=Test3].Test3" == fields[0].fieldPath
-    assert "[version=2.0].[type=Test3].Test3.[type=enum].field_2" == fields[1].fieldPath
-    assert (
-        "[version=2.0].[type=Test3].Test3.[type=string].field_1" == fields[2].fieldPath
+    fields: List[SchemaFieldClass] = protobuf_schema_to_mce_fields(
+        ProtobufSchema("main_4.proto", schema)
     )
-    assert "[version=2.0].[type=Test4].Test4" == fields[3].fieldPath
-    assert (
-        "[version=2.0].[type=Test4].Test4.[type=long].anInteger" == fields[4].fieldPath
-    )
-
-
-def test_protobuf_schema_to_mce_fields_nested():
-    schema = SCHEMA_NESTED
-    fields = protobuf_schema_to_mce_fields(ProtobufSchema("main_4.proto", schema))
 
     assert 4 == len(fields)
     assert "[version=2.0].[type=Test5].[type=Test5_Nested1].f1" == fields[0].fieldPath
@@ -183,9 +125,18 @@ def test_protobuf_schema_to_mce_fields_nested():
     assert "Test5.Nested1.Nested2.Nested3.Nested4" == fields[3].nativeDataType
 
 
-def test_protobuf_schema_to_mce_fields_repeated():
-    schema = SCHEMA_REPEATED
-    fields = protobuf_schema_to_mce_fields(ProtobufSchema("main_5.proto", schema))
+@pytest.mark.skipif(not IS_PYTHON_37_OR_NEWER, reason=NEEDS_PYTHON_37_OR_NEWER)
+def test_protobuf_schema_to_mce_fields_repeated() -> None:
+    schema: str = """
+syntax = "proto3";
+
+message Test6 {
+    repeated int64 aList = 1;
+}
+"""
+    fields: List[SchemaFieldClass] = protobuf_schema_to_mce_fields(
+        ProtobufSchema("main_5.proto", schema)
+    )
 
     assert 1 == len(fields)
     assert (
@@ -198,9 +149,22 @@ def test_protobuf_schema_to_mce_fields_repeated():
     assert "int64" == fields[0].type.type.nestedType[0]
 
 
-def test_protobuf_schema_to_mce_fields_nestd_repeated():
-    schema = SCHEMA_REPEATED_WITH_MESSAGE_NESTED_TYPE
-    fields = protobuf_schema_to_mce_fields(ProtobufSchema("main_6.proto", schema))
+@pytest.mark.skipif(not IS_PYTHON_37_OR_NEWER, reason=NEEDS_PYTHON_37_OR_NEWER)
+def test_protobuf_schema_to_mce_fields_nestd_repeated() -> None:
+    schema: str = """
+syntax = "proto3";
+
+message Test7 {
+    repeated Nested aList = 1;
+
+    message Nested {
+        string name = 1;
+    }
+}
+"""
+    fields: List[SchemaFieldClass] = protobuf_schema_to_mce_fields(
+        ProtobufSchema("main_6.proto", schema)
+    )
 
     assert 2 == len(fields)
     assert (
@@ -220,9 +184,23 @@ def test_protobuf_schema_to_mce_fields_nestd_repeated():
 # This is not how maps should be encoded but we need to find a good way of detecting
 # maps in protobuf before we change it back
 #
-def test_protobuf_schema_to_mce_fields_map():
-    schema = SCHEMA_MAP
-    fields = protobuf_schema_to_mce_fields(ProtobufSchema("main_7.proto", schema))
+@pytest.mark.skipif(not IS_PYTHON_37_OR_NEWER, reason=NEEDS_PYTHON_37_OR_NEWER)
+def test_protobuf_schema_to_mce_fields_map() -> None:
+    schema: str = """
+syntax = "proto3";
+
+message Test8 {
+    map<string, int64> map_1 = 1;
+    map<string, Nested> map_2 = 2;
+
+    message Nested {
+        string aString = 1;
+    }
+}
+"""
+    fields: List[SchemaFieldClass] = protobuf_schema_to_mce_fields(
+        ProtobufSchema("main_7.proto", schema)
+    )
 
     assert 7 == len(fields)
     assert (
@@ -255,9 +233,39 @@ def test_protobuf_schema_to_mce_fields_map():
     )
 
 
-def test_protobuf_schema_to_mce_fields_with_complex_schema():
-    schema = SCHEMA_COMPLEX
-    fields = protobuf_schema_to_mce_fields(ProtobufSchema("main_8.proto", schema))
+@pytest.mark.skipif(not IS_PYTHON_37_OR_NEWER, reason=NEEDS_PYTHON_37_OR_NEWER)
+def test_protobuf_schema_to_mce_fields_with_complex_schema() -> None:
+    schema: str = """
+syntax = "proto3";
+
+message Test9 {
+    string string_field_1  = 1;
+    bool   boolean_field_1 = 2;
+    int64  int64_field_1   = 3;
+
+    EmptyNested emptyMsg = 4;
+
+    // an empty message
+    message EmptyNested {};
+
+    oneof payload {
+        string pl_1 = 5;
+        int64  pl_2 = 6;
+    }
+
+    enum anEnum {
+        idle = 0;
+        spinning = 1;
+    }
+}
+
+message Test10 {
+    int64 an_int_64_field = 1;
+}
+"""
+    fields: List[SchemaFieldClass] = protobuf_schema_to_mce_fields(
+        ProtobufSchema("main_8.proto", schema)
+    )
 
     assert 10 == len(fields)
     assert "[version=2.0].[type=Test10].Test10" == fields[0].fieldPath
@@ -295,8 +303,16 @@ def test_protobuf_schema_to_mce_fields_with_complex_schema():
     )
 
 
-def test_protobuf_schema_with_recursive_type():
-    schema = SCHEMA_WITH_RECURSIVE_MESSAGE
+@pytest.mark.skipif(not IS_PYTHON_37_OR_NEWER, reason=NEEDS_PYTHON_37_OR_NEWER)
+def test_protobuf_schema_with_recursive_type() -> None:
+    schema: str = """
+syntax = "proto3";
+
+message Test11 {
+    string a_property = 1;
+    Test11 recursive = 2;
+}
+"""
     with pytest.raises(Exception) as e_info:
         protobuf_schema_to_mce_fields(ProtobufSchema("main_9.proto", schema))
 

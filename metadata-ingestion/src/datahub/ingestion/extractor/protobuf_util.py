@@ -1,13 +1,44 @@
 import contextlib
-import grpc
-import grpc.experimental
 import logging
-import networkx as nx
-import os, re, sys
-
-
+import os
+import re
+import sys
 from copy import deepcopy
 from dataclasses import dataclass
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from typing import (
+    Any,
+    Dict,
+    Generator,
+    Iterator,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    cast,
+)
+
+try:
+    import grpc
+    import grpc.experimental
+    import networkx as nx
+except ImportError:
+    raise ModuleNotFoundError(
+        "The protobuf_util module requires Python 3.7 or newer because of the"
+        " networkx.algorithms.dag.topological_generations dependency."
+    )
+
+from google.protobuf.descriptor import (
+    Descriptor,
+    DescriptorBase,
+    EnumDescriptor,
+    FieldDescriptor,
+    FileDescriptor,
+    OneofDescriptor,
+)
+
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayTypeClass,
     BooleanTypeClass,
@@ -22,19 +53,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     StringTypeClass,
     UnionTypeClass,
 )
-from google.protobuf.descriptor import (
-    Descriptor,
-    DescriptorBase,
-    EnumDescriptor,
-    FieldDescriptor,
-    FileDescriptor,
-    OneofDescriptor,
-)
-from networkx import DiGraph
-from networkx.algorithms import dag
-from pathlib import Path
-from tempfile import TemporaryDirectory
-from typing import Generator, Iterator, List, Optional, Set, Tuple
 
 """A helper file for Protobuf schema -> MCE schema transformations"""
 
@@ -52,7 +70,7 @@ class ProtobufSchema:
 
 def protobuf_schema_to_mce_fields(
     main_schema: ProtobufSchema,
-    imported_schemas: List[ProtobufSchema] = None,
+    imported_schemas: Optional[List[ProtobufSchema]] = None,
     is_key_schema: bool = False,
 ) -> List[SchemaField]:
     """
@@ -61,9 +79,10 @@ def protobuf_schema_to_mce_fields(
     :param is_key_schema: True if it is a key-schema. Default is False (value-schema).
     :return: The list of MCE compatible SchemaFields.
     """
-    descriptor = _from_protobuf_schema_to_descriptors(main_schema, imported_schemas)
-
-    graph = _populate_graph(descriptor)
+    descriptor: FileDescriptor = _from_protobuf_schema_to_descriptors(
+        main_schema, imported_schemas
+    )
+    graph: nx.DiGraph = _populate_graph(descriptor)
 
     if nx.is_directed_acyclic_graph(graph):
         return _schema_fields_from_dag(graph, is_key_schema)
@@ -74,7 +93,7 @@ def protobuf_schema_to_mce_fields(
 #
 # ------------------------------------------------------------------------------
 
-_native_type_to_typeclass = {
+_native_type_to_typeclass: Dict[str, Type] = {
     "bool": BooleanTypeClass,
     "bytes": BytesTypeClass,
     "double": NumberTypeClass,
@@ -98,7 +117,7 @@ _native_type_to_typeclass = {
     "uint64": NumberTypeClass,
 }
 
-_protobuf_type_to_native_type = {
+_protobuf_type_to_native_type: Dict[int, str] = {
     FieldDescriptor.TYPE_BOOL: "bool",
     FieldDescriptor.TYPE_BYTES: "bytes",
     FieldDescriptor.TYPE_DOUBLE: "double",
@@ -117,7 +136,7 @@ _protobuf_type_to_native_type = {
     FieldDescriptor.TYPE_UINT64: "uint64",
 }
 
-_protobuf_type_to_schema_type = {
+_protobuf_type_to_schema_type: Dict[int, str] = {
     FieldDescriptor.TYPE_BOOL: "bool",
     FieldDescriptor.TYPE_BYTES: "bytes",
     FieldDescriptor.TYPE_DOUBLE: "double",
@@ -143,9 +162,9 @@ class _PathAndField:
     field: SchemaField
 
 
-def _add_field(graph, parent_node: str, field: FieldDescriptor) -> None:
-    field_node = _get_node_name(field)
-    field_type = _get_type_ascription(field)
+def _add_field(graph: nx.DiGraph, parent_node: str, field: FieldDescriptor) -> None:
+    field_node: str = _get_node_name(field)
+    field_type: str = _get_type_ascription(field)
     if graph.nodes.get(field_node) is None:
         graph.add_node(field_node, node_type=field_type)
     if graph.get_edge_data(parent_node, field_node) is None:
@@ -154,13 +173,13 @@ def _add_field(graph, parent_node: str, field: FieldDescriptor) -> None:
 
 
 def _add_fields(
-    graph,
+    graph: nx.DiGraph,
     fields: List[FieldDescriptor],
     parent_name: str,
     parent_type: str = "message",
     visited: Optional[Set[str]] = None,
 ) -> None:
-    if not visited:
+    if visited is None:
         visited = set()
 
     for field in fields:
@@ -170,11 +189,11 @@ def _add_fields(
             _add_field(graph, parent_name, field)
 
 
-def _add_message(graph: DiGraph, message: Descriptor, visited: Set[str]) -> None:
-    node_name = _get_node_name(message)
+def _add_message(graph: nx.DiGraph, message: Descriptor, visited: Set[str]) -> None:
+    node_name: str = _get_node_name(message)
     if node_name not in visited:
         visited.add(node_name)
-        node_type = _get_type_ascription(message)
+        node_type: str = _get_type_ascription(message)
         graph.add_node(node_name, node_type=node_type)
 
         for nested in message.nested_types_by_name.values():
@@ -187,10 +206,10 @@ def _add_message(graph: DiGraph, message: Descriptor, visited: Set[str]) -> None
 
 
 def _add_oneof(
-    graph: DiGraph, parent_node: str, oneof: OneofDescriptor, visited: Set[str]
+    graph: nx.DiGraph, parent_node: str, oneof: OneofDescriptor, visited: Set[str]
 ) -> None:
-    node_name = _get_node_name(oneof)
-    node_type = _get_type_ascription(oneof)
+    node_name: str = _get_node_name(cast(DescriptorBase, oneof))
+    node_type: str = _get_type_ascription(cast(DescriptorBase, oneof))
     graph.add_node(node_name, node_type=node_type)
     graph.add_edge(parent_node, node_name, fields=[oneof])
 
@@ -221,13 +240,13 @@ def _create_schema_field(path: List[str], field: FieldDescriptor) -> _PathAndFie
 
 
 def _from_protobuf_schema_to_descriptors(
-    main_schema: ProtobufSchema, imported_schemas: List[ProtobufSchema] = None
+    main_schema: ProtobufSchema, imported_schemas: Optional[List[ProtobufSchema]] = None
 ) -> FileDescriptor:
-    if not imported_schemas:
+    if imported_schemas is None:
         imported_schemas = []
     imported_schemas.insert(0, main_schema)
     with TemporaryDirectory() as tmpdir, _add_sys_path(tmpdir):
-        for schema in imported_schemas:
+        for schema in imported_schemas:  # type: ProtobufSchema
             #
             # Ignore any google/protobuf modules
             #
@@ -245,13 +264,11 @@ def _from_protobuf_schema_to_descriptors(
 
 
 def _get_column_type(descriptor: DescriptorBase) -> SchemaFieldDataType:
-    native_type = _get_simple_native_type(descriptor)
-    if (
-        hasattr(descriptor, "label")
-        and descriptor.label == FieldDescriptor.LABEL_REPEATED
-    ):
+    native_type: str = _get_simple_native_type(descriptor)
+    type_class: Any
+    if getattr(descriptor, "label", None) == FieldDescriptor.LABEL_REPEATED:
         type_class = ArrayTypeClass(nestedType=[native_type])
-    elif hasattr(descriptor, "type") and descriptor.type == FieldDescriptor.TYPE_ENUM:
+    elif getattr(descriptor, "type", None) == FieldDescriptor.TYPE_ENUM:
         type_class = EnumTypeClass()
     #
     # TODO: Find a better way to detect maps
@@ -279,6 +296,8 @@ def _get_field_path_type(descriptor: DescriptorBase) -> str:
             return _protobuf_type_to_schema_type[descriptor.type]
     elif isinstance(descriptor, OneofDescriptor):
         return "union"
+    else:
+        raise ValueError(f"Unknown descriptor type: {type(descriptor)}")
 
 
 def _get_node_name(descriptor: DescriptorBase) -> str:
@@ -287,8 +306,10 @@ def _get_node_name(descriptor: DescriptorBase) -> str:
             return descriptor.message_type.full_name
         else:
             return _protobuf_type_to_schema_type[descriptor.type]
-    else:
+    elif isinstance(descriptor, (Descriptor, EnumDescriptor, OneofDescriptor)):
         return descriptor.full_name
+    else:
+        raise ValueError(f"Unknown descriptor type: {type(descriptor)}")
 
 
 def _get_simple_native_type(descriptor: DescriptorBase) -> str:
@@ -301,12 +322,14 @@ def _get_simple_native_type(descriptor: DescriptorBase) -> str:
             return _protobuf_type_to_native_type[descriptor.type]
     elif isinstance(descriptor, OneofDescriptor):
         return "oneof"
-    else:
+    elif isinstance(descriptor, (Descriptor, EnumDescriptor)):
         return descriptor.full_name
+    else:
+        raise ValueError(f"Unknown descriptor type: {type(descriptor)}")
 
 
 def _get_type_ascription(descriptor: DescriptorBase) -> str:
-    return_list = []
+    return_list: List[str] = []
 
     if (
         isinstance(descriptor, FieldDescriptor)
@@ -319,9 +342,9 @@ def _get_type_ascription(descriptor: DescriptorBase) -> str:
     return ".".join(return_list)
 
 
-def _populate_graph(descriptor: FileDescriptor) -> DiGraph:
-    graph = DiGraph()
-    visited = set()
+def _populate_graph(descriptor: FileDescriptor) -> nx.DiGraph:
+    graph = nx.DiGraph()
+    visited: Set[str] = set()
 
     for message in descriptor.message_types_by_name.values():
         _add_message(graph, message, visited)
@@ -330,30 +353,32 @@ def _populate_graph(descriptor: FileDescriptor) -> DiGraph:
 
 
 def _sanitise_type(name: str) -> str:
-    sanitised = name if name[0] != "." else name[1:]
+    sanitised: str = name if name[0] != "." else name[1:]
     return sanitised.replace(".", "_")
 
 
-def _schema_fields_from_dag(graph: DiGraph, is_key_schema: bool) -> List[SchemaField]:
-    generations = list(dag.topological_generations(graph))
+def _schema_fields_from_dag(
+    graph: nx.DiGraph, is_key_schema: bool
+) -> List[SchemaField]:
+    generations: List = list(nx.algorithms.dag.topological_generations(graph))
+    fields: Dict = {}
 
     if generations and generations[0]:
         roots = generations[0]
-        leafs = []
+        leafs: List = []
         for node in graph:
             if graph.out_degree(node) == 0:
                 leafs.append(node)
 
-        type_of_nodes = nx.get_node_attributes(graph, "node_type")
+        type_of_nodes: Dict = nx.get_node_attributes(graph, "node_type")
 
-        fields = dict()
         for root in roots:
             root_type = type_of_nodes[root]
             for leaf in leafs:
                 paths = list(nx.all_simple_edge_paths(graph, root, leaf))
                 if paths:
                     for path in paths:
-                        stack = ["[version=2.0]"]
+                        stack: List[str] = ["[version=2.0]"]
                         if is_key_schema:
                             stack.append("[key=True]")
                         stack.append(root_type)
@@ -368,19 +393,17 @@ def _schema_fields_from_dag(graph: DiGraph, is_key_schema: bool) -> List[SchemaF
                         for field in _traverse_path(graph, path, stack):
                             fields[field.path] = field.field
 
-        return sorted(fields.values(), key=lambda sf: sf.fieldPath)
-    else:
-        return []
+    return sorted(fields.values(), key=lambda sf: sf.fieldPath)
 
 
 def _traverse_path(
-    graph: DiGraph, path: List[Tuple[str, str]], stack: List[str]
+    graph: nx.DiGraph, path: List[Tuple[str, str]], stack: List[str]
 ) -> Generator[_PathAndField, None, None]:
     if path:
         src, dst = path[0]
         for field in graph[src][dst]["fields"]:
-            copy_of_stack = deepcopy(stack)
-            type_ascription = _get_type_ascription(field)
+            copy_of_stack: List[str] = deepcopy(stack)
+            type_ascription: str = _get_type_ascription(field)
             copy_of_stack.append(f"{type_ascription}.{field.name}")
             yield _create_schema_field(copy_of_stack, field)
             yield from _traverse_path(graph, path[1:], copy_of_stack)
