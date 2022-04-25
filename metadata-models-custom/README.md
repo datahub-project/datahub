@@ -129,6 +129,15 @@ results in
 Update succeeded with status 200
 ```
 
+The `scripts/insert_custom_aspect.py` script shows you how to accomplish the same using the Python SDK. Note that we are just using a raw dictionary here to represent the `dq_rule` aspect and not a strongly-typed class.
+```console
+cd scripts
+python3 insert_custom_aspect.py
+```
+results in
+```console
+Successfully wrote to DataHub
+```
 
 ## Advanced Guide
 

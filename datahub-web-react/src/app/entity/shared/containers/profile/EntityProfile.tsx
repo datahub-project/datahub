@@ -43,6 +43,7 @@ type Props<T, U> = {
     getOverrideProperties: (T) => GenericEntityProperties;
     tabs: EntityTab[];
     sidebarSections: EntitySidebarSection[];
+    showDeprecateOption?: boolean;
 };
 
 const ContentContainer = styled.div`
@@ -114,6 +115,7 @@ export const EntityProfile = <T, U>({
     getOverrideProperties,
     tabs,
     sidebarSections,
+    showDeprecateOption,
 }: Props<T, U>): JSX.Element => {
     const isLineageMode = useIsLineageMode();
     const entityRegistry = useEntityRegistry();
@@ -202,7 +204,7 @@ export const EntityProfile = <T, U>({
                     )}
                     {!loading && (
                         <>
-                            <EntityHeader />
+                            <EntityHeader showDeprecateOption={showDeprecateOption} />
                             <Divider />
                             <EntitySidebar sidebarSections={sideBarSectionsWithDefaults} />
                         </>
@@ -260,7 +262,7 @@ export const EntityProfile = <T, U>({
                             <HeaderAndTabs>
                                 <HeaderAndTabsFlex>
                                     <Header>
-                                        <EntityHeader />
+                                        <EntityHeader showDeprecateOption={showDeprecateOption} />
                                         <EntityTabs
                                             tabs={[...tabsWithDefaults, ...autoRenderTabs]}
                                             selectedTab={routedTab}

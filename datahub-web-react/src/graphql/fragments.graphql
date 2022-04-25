@@ -498,6 +498,10 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
         mlPrimaryKeys {
             ...nonRecursiveMLPrimaryKey
         }
+        customProperties {
+            key
+            value
+        }
     }
     ownership {
         ...ownershipFields

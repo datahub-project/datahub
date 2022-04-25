@@ -1,3 +1,4 @@
+import atexit
 import collections
 import datetime
 import functools
@@ -248,6 +249,15 @@ class BigQueryPartitionColumn:
     partition_id: str
 
 
+# We can't use close as it is not called if the ingestion is not successful
+def cleanup(config: BigQueryConfig) -> None:
+    if config._credentials_path is not None:
+        logger.debug(
+            f"Deleting temporary credential file at {config._credentials_path}"
+        )
+        os.unlink(config._credentials_path)
+
+
 @config_class(BigQueryConfig)
 @platform_name("BigQuery")
 @support_status(SupportStatus.CERTIFIED)
@@ -282,6 +292,7 @@ class BigQuerySource(SQLAlchemySource):
         self.report: BigQueryReport = BigQueryReport()
         self.lineage_metadata: Optional[Dict[str, Set[str]]] = None
         self.maximum_shard_ids: Dict[str, str] = dict()
+        atexit.register(cleanup, config)
 
     def get_db_name(self, inspector: Inspector = None) -> str:
         if self.config.project_id:
@@ -940,11 +951,3 @@ WHERE
         for wu in container_workunits:
             self.report.report_workunit(wu)
             yield wu
-
-    # We can't use close as it is not called if the ingestion is not successful
-    def __del__(self):
-        if self.config._credentials_path is not None:
-            logger.debug(
-                f"Deleting temporary credential file at {self.config._credentials_path}"
-            )
-            os.unlink(self.config._credentials_path)
