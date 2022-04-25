@@ -97,19 +97,21 @@ class TestPulsarSource(unittest.TestCase):
         #    config=self.token_config)
         assert pulsar_source.get_access_token() == "jwt_token"
 
+    @patch("datahub.ingestion.source.pulsar.requests.get", autospec=True)
     @patch("datahub.ingestion.source.pulsar.requests.post", autospec=True)
-    def test_pulsar_source_get_token_oauth(self, mock_post):
+    def test_pulsar_source_get_token_oauth(self, mock_post, mock_get):
 
         ctx = PipelineContext(run_id="test")
+        mock_get.return_value.json.return_value = {
+            "token_endpoint": "http://127.0.0.1:8083/realms/pulsar/protocol/openid-connect/token"
+        }
+
         pulsar_source = PulsarSource.create(
             {
                 "web_service_url": "http://localhost:8080",
                 "issuer_url": "http://localhost:8083/realms/pulsar",
                 "client_id": "client_id",
                 "client_secret": "client_secret",
-                "oid_config": {
-                    "token_endpoint": "http://127.0.0.1:8083/realms/pulsar/protocol/openid-connect/token",
-                },
             },
             ctx,
         )

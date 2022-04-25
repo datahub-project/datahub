@@ -37,7 +37,7 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 |----------------|--------------------------------------------------------------------|---------------------------------------------------------------------------|
 | `pulsar`       | [Data Platform](docs/generated/metamodel/entities/dataPlatform.md) |                                                                           |
 | Pulsar Topic   | [Dataset](docs/generated/metamodel/entities/dataset.md)            | _subType_: `topic`                                                        |
-| Pulsar Schema  | [SchemaField](docs/generated/metamodel/entities/schemafield.md)    | Maps to the fields defined within the `Avro` or `JSON` schema definition. | 
+| Pulsar Schema  | [SchemaField](docs/generated/metamodel/entities/schemaField.md)    | Maps to the fields defined within the `Avro` or `JSON` schema definition. | 
 
 
 ### Supported Capabilities
