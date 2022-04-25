@@ -103,7 +103,7 @@ public class IngestPoliciesStep implements BootstrapStep {
   }
 
   /**
-   * Send MCLs for each policy to refill the policy search index
+   * Update policy index and push in the relevant search documents into the search index
    */
   private void updatePolicyIndex() throws URISyntaxException {
     log.info("Pushing documents to the policy index");
