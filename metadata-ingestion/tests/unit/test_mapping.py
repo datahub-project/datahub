@@ -50,7 +50,7 @@ def get_operation_defs() -> Dict[str, Any]:
         "tag": {
             "match": ".*",
             "operation": "add_tag",
-            "config": {"tag": "{{ match }}"},
+            "config": {"tag": "{{ $match }}"},
         },
     }
 
