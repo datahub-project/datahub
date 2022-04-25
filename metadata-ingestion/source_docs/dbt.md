@@ -121,9 +121,30 @@ We support the below actions -
 2. add_term - Requires ```term``` property in config.
 3. add_owner - Requires ```owner_type``` property in config which can be either user or group.
 
+For string meta keys it is possible to use the `{{ $match }} ` template to use dbt meta key's value instead of setting a static text. 
+
 Note:
 1. Currently, dbt meta mapping is only supported for meta configs defined at the top most level or a node in manifest file. If that is not preset we will look for meta in the config section of the node.
 2. For string based meta properties we support regex matching.
+
+### dbt query_tag automated mappings
+This works similarly as the dbt meta mapping but for the query tags 
+
+We support the below actions -
+1. add_tag - Requires ```tag``` property in config.
+
+The below example set as global tag the query tag `tag` key's value. 
+```json
+"query_tag_mapping":
+{
+   "tag":
+      "match": ".*"
+      "operation": "add_tag"
+      "config":
+        "tag": "{{ $match }}"
+}
+```
+
 ## Compatibility
 
 Coming soon!
