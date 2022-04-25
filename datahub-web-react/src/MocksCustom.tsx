@@ -54,7 +54,7 @@ const user1 = {
         title: 'Software Engineer',
         pictureLink: 'something',
         email: 'sdas@domain.com',
-    }
+    },
 };
 
 export const dataset3 = {

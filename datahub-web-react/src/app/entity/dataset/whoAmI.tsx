@@ -44,7 +44,7 @@ export function FindMyGroups() {
 export function checkOwnership(data: GetDatasetQuery): boolean {
     const currUserUrn = FindMyUrn();
     // console.log(`I am ${currUserUrn}`);
-    const temp = data?.dataset?.ownership?.owners;
+    // const temp = data?.dataset?.ownership?.owners;
     const ownership = data?.dataset?.ownership?.owners;
     const individualOwnersArray =
         ownership?.map((x) => (x?.owner?.type === EntityType.CorpUser ? x?.owner?.urn : null)) || [];
