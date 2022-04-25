@@ -1,8 +1,28 @@
 # Introduction to Metadata Ingestion
 
-![Python version 3.6+](https://img.shields.io/badge/python-3.6%2B-blue)
+## Integration Options
 
-### Metadata Ingestion Source Status
+DataHub supports both **push-based** and **pull-based** metadata integration. 
+
+Push-based integrations allow you to emit metadata directly from your data systems when metadata changes, while pull-based integrations allow you to "crawl" or "ingest" metadata from the data systems by connecting to them and extracting metadata in a batch or incremental-batch manner. Supporting both mechanisms means that you can integrate with all your systems in the most flexible way possible. 
+
+Examples of push-based integrations include [Airflow](../docs/lineage/airflow.md), [Spark](../metadata-integration/java/spark-lineage/README.md), [Great Expectations](./integration_docs/great-expectations.md) and [Protobuf Schemas](../metadata-integration/java/datahub-protobuf/README.md). This allows you to get low-latency metadata integration from the "active" agents in your data ecosystem. Examples of pull-based integrations include BigQuery, Snowflake, Looker, Tableau and many others.
+
+This document describes the pull-based metadata ingestion system that is built into DataHub for easy integration with a wide variety of sources in your data stack.
+
+## Getting Started
+
+### Prerequisites
+
+Before running any metadata ingestion job, you should make sure that DataHub backend services are all running. You can either run ingestion via the [UI](../docs/ui-ingestion.md) or via the [CLI](../docs/cli.md). You can reference the CLI usage guide given there as you go through this page.
+
+## Core Concepts
+
+### Sources
+
+Data systems that we are extracting metadata from are referred to as **Sources**. The `Sources` tab on the left in the sidebar shows you all the sources that are available for you to ingest metadata from. For example, we have sources for [BigQuery](./source_docs/bigquery.md), [Looker](./source_docs/looker.md), [Tableau](./source_docs/tableau.md) and many others.
+
+#### Metadata Ingestion Source Status
 
 We apply a Support Status to each Metadata Source to help you understand the integration reliability at a glance.
 
@@ -12,23 +32,24 @@ We apply a Support Status to each Metadata Source to help you understand the int
 
 ![Testing](https://img.shields.io/badge/support%20status-testing-lightgrey): Testing Sources are available for experiementation by DataHub Community members, but may change without notice. 
 
-## Getting Started
+### Sinks
 
-### Prerequisites
+Sinks are destinations for metadata. When configuring ingestion for DataHub, you're likely to be sending the metadata to DataHub over either the [REST (datahub-sink)](./sink_docs/datahub.md#datahub-rest) or the [Kafka (datahub-kafka)](./sink_docs/datahub.md#datahub-kafka) sink. In some cases, the [File](./sink_docs/file.md) sink is also helpful to store a persistent offline copy of the metadata during debugging.
 
-Before running any metadata ingestion job, you should make sure that DataHub backend services are all running. If you are trying this out locally check out the [CLI](../docs/cli.md) to install the CLI and understand the options available in the CLI. You can reference the CLI usage guide given there as you go through this page.
+The default sink that most of the ingestion systems and guides assume is the `datahub-rest` sink, but you should be able to adapt all of them for the other sinks as well!
 
-### Core Concepts
+### Recipes
 
-## Recipes
+A recipe is the main configuration file that puts it all together. It tells our ingestion scripts where to pull data from (source) and where to put it (sink).
 
-A recipe is a configuration file that tells our ingestion scripts where to pull data from (source) and where to put it (sink).
-Here's a simple example that pulls metadata from MSSQL (source) and puts it into datahub rest (sink).
+Since `acryl-datahub` version `>=0.8.33.2`, the default sink is assumed to be a DataHub REST endpoint:
+- Hosted at "http://localhost:8080" or the environment variable `${DATAHUB_HOST}` if present
+- With an empty auth token or the environment variable `${DATAHUB_TOKEN}` if present. 
 
-> Note that one recipe file can only have 1 source and 1 sink. If you want multiple sources then you will need multiple recipe files.
+Here's a simple recipe that pulls metadata from MSSQL (source) and puts it into the default sink (datahub rest).
 
 ```yaml
-# A sample recipe that pulls metadata from MSSQL and puts it into DataHub
+# The simplest recipe that pulls metadata from MSSQL and puts it into DataHub
 # using the Rest API.
 source:
   type: mssql
@@ -37,19 +58,22 @@ source:
     password: ${MSSQL_PASSWORD}
     database: DemoData
 
-transformers:
-  - type: "fully-qualified-class-name-of-transformer"
-    config:
-      some_property: "some.value"
+# sink section omitted as we want to use the default datahub-rest sink
+```
 
+Running this recipe is as simple as:
+```shell
+datahub ingest -c recipe.yaml
+```
 
-sink:
-  type: "datahub-rest"
-  config:
-    server: "http://localhost:8080"
+or if you want to override the default endpoints, you can provide the environment variables as part of the command like below:
+```shell
+DATAHUB_SERVER="https://my-datahub-server:8080" DATAHUB_TOKEN="my-datahub-token" datahub ingest -c recipe.yaml
 ```
 
 A number of recipes are included in the [examples/recipes](./examples/recipes) directory. For full info and context on each source and sink, see the pages described in the [table of plugins](../docs/cli.md#installing-plugins).
+
+> Note that one recipe file can only have 1 source and 1 sink. If you want multiple sources then you will need multiple recipe files.
 
 ### Handling sensitive information in recipes
 
@@ -64,8 +88,8 @@ pip install 'acryl-datahub[datahub-rest]'  # install the required plugin
 datahub ingest -c ./examples/recipes/mssql_to_datahub.yml
 ```
 
-The `--dry-run` option of the `ingest` command performs all of the ingestion steps, except writing to the sink. This is useful to ensure that the
-ingestion recipe is producing the desired workunits before ingesting them into datahub.
+The `--dry-run` option of the `ingest` command performs all of the ingestion steps, except writing to the sink. This is useful to validate that the
+ingestion recipe is producing the desired metadata events before ingesting them into datahub.
 
 ```shell
 # Dry run
@@ -100,18 +124,36 @@ datahub ingest -c ./examples/recipes/example_to_datahub_rest.yml --suppress-erro
 
 ## Transformations
 
-If you'd like to modify data before it reaches the ingestion sinks – for instance, adding additional owners or tags – you can use a transformer to write your own module and integrate it with DataHub.
+If you'd like to modify data before it reaches the ingestion sinks – for instance, adding additional owners or tags – you can use a transformer to write your own module and integrate it with DataHub. Transformers require extending the recipe with a new section to describe the transformers that you want to run.
 
-Check out the [transformers guide](./transformers.md) for more info!
+For example, a pipeline that ingests metadata from MSSQL and applies a default "important" tag to all datasets is described below:
+```yaml
+# A recipe to ingest metadata from MSSQL and apply default tags to all tables
+source:
+  type: mssql
+  config:
+    username: sa
+    password: ${MSSQL_PASSWORD}
+    database: DemoData
 
-## Using as a library
+transformers: # an array of transformers applied sequentially
+  - type: simple_add_dataset_tags
+    config:
+      tag_urns:
+        - "urn:li:tag:Important"
+
+# default sink, no config needed
+```
+
+Check out the [transformers guide](./transformers.md) to learn more about how you can create really flexible pipelines for processing metadata using Transformers!
+
+## Using as a library (SDK)
 
 In some cases, you might want to construct Metadata events directly and use programmatic ways to emit that metadata to DataHub. In this case, take a look at the [Python emitter](./as-a-library.md) and the [Java emitter](../metadata-integration/java/as-a-library.md) libraries which can be called from your own code. 
 
 ### Programmatic Pipeline
-In some cases, you might want to configure and run a pipeline entirely from within your custom python script. Here is an example of how to do it.
+In some cases, you might want to configure and run a pipeline entirely from within your custom Python script. Here is an example of how to do it.
  - [programmatic_pipeline.py](./examples/library/programatic_pipeline.py) - a basic mysql to REST programmatic pipeline.
-
 
 ## Developing
 

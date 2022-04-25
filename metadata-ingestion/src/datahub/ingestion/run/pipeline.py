@@ -6,8 +6,9 @@ from math import log10
 from typing import Any, Dict, Iterable, List, Optional
 
 import click
-from pydantic import validator
+from pydantic import root_validator, validator
 
+from datahub.configuration import config_loader
 from datahub.configuration.common import (
     ConfigModel,
     DynamicTypedConfig,
@@ -53,8 +54,8 @@ class PipelineConfig(ConfigModel):
         cls, v: Optional[str], values: Dict[str, Any], **kwargs: Any
     ) -> str:
         if v == "__DEFAULT_RUN_ID":
-            if values["source"] is not None:
-                if values["source"].type is not None:
+            if "source" in values:
+                if hasattr(values["source"], "type"):
                     source_type = values["source"].type
                     current_time = datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
                     return f"{source_type}-{current_time}"
@@ -64,12 +65,30 @@ class PipelineConfig(ConfigModel):
             assert v is not None
             return v
 
+    @root_validator(pre=True)
+    def default_sink_is_datahub_rest(cls, values: Dict[str, Any]) -> Any:
+        if "sink" not in values:
+            default_sink_config = {
+                "type": "datahub-rest",
+                "config": {
+                    "server": "${DATAHUB_SERVER:-http://localhost:8080}",
+                    "token": "${DATAHUB_TOKEN:-}",
+                },
+            }
+            # resolve env variables if present
+            default_sink_config = config_loader.resolve_env_variables(
+                default_sink_config
+            )
+            values["sink"] = default_sink_config
+
+        return values
+
     @validator("datahub_api", always=True)
     def datahub_api_should_use_rest_sink_as_default(
         cls, v: Optional[DatahubClientConfig], values: Dict[str, Any], **kwargs: Any
     ) -> Optional[DatahubClientConfig]:
         if v is None:
-            if values["sink"].type is not None:
+            if "sink" in values and "type" in values["sink"]:
                 sink_type = values["sink"].type
                 if sink_type == "datahub-rest":
                     sink_config = values["sink"].config
@@ -123,7 +142,7 @@ class Pipeline:
 
         sink_type = self.config.sink.type
         sink_class = sink_registry.get(sink_type)
-        sink_config = self.config.sink.dict().get("config", {})
+        sink_config = self.config.sink.dict().get("config") or {}
         self.sink: Sink = sink_class.create(sink_config, self.ctx)
         logger.debug(f"Sink type:{self.config.sink.type},{sink_class} configured")
 
