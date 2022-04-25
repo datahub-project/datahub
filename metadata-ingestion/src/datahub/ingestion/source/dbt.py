@@ -803,14 +803,7 @@ class DBTSource(StatefulIngestionSourceBase):
                 meta_aspects = action_processor.process(node.meta)
 
             if self.config.enable_query_tag_mapping and node.query_tag:
-                query_tag_aspects = action_processor_tag.process(node.query_tag)
-                if "add_tag" in query_tag_aspects:
-                    if "add_tag" in meta_aspects:
-                        meta_aspects["add_tag"].tags.extend(
-                            query_tag_aspects["add_tag"].tags
-                        )
-                    else:
-                        meta_aspects["add_tag"] = query_tag_aspects["add_tag"]
+                self.extract_query_tag_aspects(action_processor_tag, meta_aspects, node)
 
             aspects = self._generate_base_aspects(
                 node, additional_custom_props_filtered, mce_platform, meta_aspects
@@ -886,6 +879,19 @@ class DBTSource(StatefulIngestionSourceBase):
             #     )
             #     yield meta_wu
             #     self.report.report_workunit(meta_wu)
+
+    def extract_query_tag_aspects(
+        self,
+        action_processor_tag: OperationProcessor,
+        meta_aspects: Dict[str, Any],
+        node: DBTNode,
+    ) -> None:
+        query_tag_aspects = action_processor_tag.process(node.query_tag)
+        if "add_tag" in query_tag_aspects:
+            if "add_tag" in meta_aspects:
+                meta_aspects["add_tag"].tags.extend(query_tag_aspects["add_tag"].tags)
+            else:
+                meta_aspects["add_tag"] = query_tag_aspects["add_tag"]
 
     def get_aspect_from_dataset(
         self, dataset_snapshot: DatasetSnapshot, aspect_type: type
