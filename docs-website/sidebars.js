@@ -78,14 +78,6 @@ module.exports = {
         Sinks: list_ids_in_directory("metadata-ingestion/sink_docs"),
       },
       {
-        "Custom Integrations": [
-          "metadata-ingestion/as-a-library",
-          "metadata-integration/java/as-a-library",
-          "metadata-ingestion/integration_docs/great-expectations",
-          "metadata-integration/java/datahub-protobuf/README",
-        ],
-      },
-      {
         Scheduling: [
           "metadata-ingestion/schedule_docs/intro",
           "metadata-ingestion/schedule_docs/cron",
@@ -94,13 +86,19 @@ module.exports = {
         ],
       },
       {
-        Lineage: [
-          "docs/lineage/intro",
-          "docs/lineage/airflow",
-          "docker/airflow/local_airflow",
-          "docs/lineage/sample_code",
+        "Push-Based Integrations": [
+          {
+            Airflow: ["docs/lineage/airflow", "docker/airflow/local_airflow"],
+          },
           "metadata-integration/java/spark-lineage/README",
+          "metadata-ingestion/integration_docs/great-expectations",
+          "metadata-integration/java/datahub-protobuf/README",
+          "metadata-ingestion/as-a-library",
+          "metadata-integration/java/as-a-library",
         ],
+      },
+      {
+        Lineage: ["docs/lineage/intro", "docs/lineage/sample_code"],
       },
       {
         Guides: [
