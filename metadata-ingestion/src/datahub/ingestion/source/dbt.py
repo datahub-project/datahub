@@ -108,6 +108,8 @@ class DBTConfig(StatefulIngestionConfigBase):
     disable_dbt_node_creation = False
     meta_mapping: Dict = {}
     enable_meta_mapping = True
+    query_tag_mapping: Dict = {}
+    enable_query_tag_mapping = True
     write_semantics: str = "PATCH"
     strip_user_ids_from_email: bool = False
     owner_extraction_pattern: Optional[str]
@@ -173,6 +175,7 @@ class DBTNode:
     upstream_nodes: List[str] = field(default_factory=list)
 
     meta: Dict[str, Any] = field(default_factory=dict)
+    query_tag: Dict[str, Any] = field(default_factory=dict)
 
     tags: List[str] = field(default_factory=list)
 
@@ -266,6 +269,8 @@ def extract_dbt_entities(
         else:
             catalog_type = all_catalog_entities[key]["metadata"]["type"]
 
+        query_tag_props = manifest_node.get("query_tag", {})
+
         meta = manifest_node.get("meta", {})
 
         owner = meta.get("owner")
@@ -293,6 +298,7 @@ def extract_dbt_entities(
             catalog_type=catalog_type,
             columns=[],
             meta=meta_props,
+            query_tag=query_tag_props,
             tags=tags,
             owner=owner,
         )
@@ -765,6 +771,13 @@ class DBTSource(StatefulIngestionSourceBase):
             self.config.strip_user_ids_from_email,
         )
 
+        action_processor_tag = OperationProcessor(
+            self.config.query_tag_mapping,
+            self.config.tag_prefix,
+            "SOURCE_CONTROL",
+            self.config.strip_user_ids_from_email,
+        )
+
         for node in dbt_nodes:
             node_datahub_urn = get_urn_from_dbtNode(
                 node.database,
@@ -773,21 +786,14 @@ class DBTSource(StatefulIngestionSourceBase):
                 mce_platform,
                 self.config.env,
             )
-            if self.is_stateful_ingestion_configured():
-                cur_checkpoint = self.get_current_checkpoint(
-                    self.get_default_ingestion_job_id()
-                )
-
-                if cur_checkpoint is not None:
-                    # Utilizing BaseSQLAlchemyCheckpointState class to save state
-                    checkpoint_state = cast(
-                        BaseSQLAlchemyCheckpointState, cur_checkpoint.state
-                    )
-                    checkpoint_state.add_table_urn(node_datahub_urn)
+            self.save_checkpoint(node_datahub_urn)
 
             meta_aspects: Dict[str, Any] = {}
             if self.config.enable_meta_mapping and node.meta:
                 meta_aspects = action_processor.process(node.meta)
+
+            if self.config.enable_query_tag_mapping and node.query_tag:
+                self.extract_query_tag_aspects(action_processor_tag, meta_aspects, node)
 
             aspects = self._generate_base_aspects(
                 node, additional_custom_props_filtered, mce_platform, meta_aspects
@@ -855,14 +861,31 @@ class DBTSource(StatefulIngestionSourceBase):
             self.report.report_workunit(wu)
             yield wu
 
-            # TODO: Remove. keeping this till PR review
-            # for meta_mcpw in meta_mcpw_list:
-            #     meta_wu = MetadataWorkUnit(
-            #         id=f"{self.platform}-{meta_mcpw.entityUrn}-{meta_mcpw.aspectName}",
-            #         mcp=meta_mcpw,
-            #     )
-            #     yield meta_wu
-            #     self.report.report_workunit(meta_wu)
+    def save_checkpoint(self, node_datahub_urn: str) -> None:
+        if self.is_stateful_ingestion_configured():
+            cur_checkpoint = self.get_current_checkpoint(
+                self.get_default_ingestion_job_id()
+            )
+
+            if cur_checkpoint is not None:
+                # Utilizing BaseSQLAlchemyCheckpointState class to save state
+                checkpoint_state = cast(
+                    BaseSQLAlchemyCheckpointState, cur_checkpoint.state
+                )
+                checkpoint_state.add_table_urn(node_datahub_urn)
+
+    def extract_query_tag_aspects(
+        self,
+        action_processor_tag: OperationProcessor,
+        meta_aspects: Dict[str, Any],
+        node: DBTNode,
+    ) -> None:
+        query_tag_aspects = action_processor_tag.process(node.query_tag)
+        if "add_tag" in query_tag_aspects:
+            if "add_tag" in meta_aspects:
+                meta_aspects["add_tag"].tags.extend(query_tag_aspects["add_tag"].tags)
+            else:
+                meta_aspects["add_tag"] = query_tag_aspects["add_tag"]
 
     def get_aspect_from_dataset(
         self, dataset_snapshot: DatasetSnapshot, aspect_type: type

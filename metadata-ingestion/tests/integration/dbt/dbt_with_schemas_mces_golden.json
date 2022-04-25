@@ -70,6 +70,9 @@
                                 "tag": "urn:li:tag:dbt:int_meta_property"
                             },
                             {
+                                "tag": "urn:li:tag:dbt:my_query_tag"
+                            },
+                            {
                                 "tag": "urn:li:tag:dbt:test_tag"
                             }
                         ]
