@@ -124,7 +124,9 @@ class Telemetry:
             try:
                 with open(CONFIG_FILE, "w") as f:
                     json.dump(
-                        {"client_id": self.client_id, "enabled": self.enabled}, f, indent=2
+                        {"client_id": self.client_id, "enabled": self.enabled},
+                        f,
+                        indent=2,
                     )
                 return True
             except IOError as x:
@@ -142,7 +144,8 @@ class Telemetry:
                     )
         except Exception as e:
             logger.debug(f"Failed to update config file at {CONFIG_FILE} due to {e}")
-            return False
+
+        return False
 
     def enable(self) -> None:
         """
@@ -187,7 +190,8 @@ class Telemetry:
                 )
         except Exception as e:
             logger.debug(f"Failed to load {CONFIG_FILE} due to {e}")
-            return False
+
+        return False
 
     def init_tracking(self) -> None:
         if not self.enabled or self.mp is None or self.tracking_init is True:
