@@ -13,37 +13,37 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class LocalCassandraSessionConfigFactory {
 
-  @Value("${CASSANDRA_DATASOURCE_USERNAME:cassandra}")
-  private String cassandraDatasourceUsername;
+  @Value("${cassandra.datasourceUsername}")
+  private String datasourceUsername;
 
-  @Value("${CASSANDRA_DATASOURCE_PASSWORD:cassandra}")
-  private String cassandraDatasourcePassword;
+  @Value("${cassandra.datasourcePassword}")
+  private String datasourcePassword;
 
-  @Value("${CASSANDRA_HOSTS:cassandra}")
-  private String cassandraHosts;
+  @Value("${cassandra.hosts}")
+  private String hosts;
 
-  @Value("${CASSANDRA_PORT:9042}")
-  private String cassandraPort;
+  @Value("${cassandra.port}")
+  private String port;
 
-  @Value("${CASSANDRA_DATACENTER:datacenter1}")
-  private String cassandraDataCenter;
+  @Value("${cassandra.datacenter}")
+  private String datacenter;
 
-  @Value("${CASSANDRA_KEYSPACE:datahub}")
-  private String cassandraKeyspace;
+  @Value("${cassandra.keyspace}")
+  private String keyspace;
 
-  @Value("${CASSANDRA_USE_SSL:false}")
-  private String cassandraUseSsl;
+  @Value("${cassandra.useSsl}")
+  private String useSsl;
 
   @Bean(name = "gmsCassandraServiceConfig")
   protected Map<String, String> createInstance() {
     return new HashMap<String, String>() {{
-      put("username", cassandraDatasourceUsername);
-      put("password", cassandraDatasourcePassword);
-      put("hosts", cassandraHosts);
-      put("port", cassandraPort);
-      put("datacenter", cassandraDataCenter);
-      put("keyspace", cassandraKeyspace);
-      put("useSsl", cassandraUseSsl);
+      put("username", datasourceUsername);
+      put("password", datasourcePassword);
+      put("hosts", hosts);
+      put("port", port);
+      put("datacenter", datacenter);
+      put("keyspace", keyspace);
+      put("useSsl", useSsl);
     }};
   }
 }

@@ -21,7 +21,7 @@ public class EbeanServerFactory {
 
   @Bean(name = "ebeanServer")
   @DependsOn({"gmsEbeanServiceConfig"})
-  @ConditionalOnProperty(name = "ENTITY_SERVICE_IMPL", havingValue = "ebean", matchIfMissing = true)
+  @ConditionalOnProperty(name = "entityService.impl", havingValue = "ebean", matchIfMissing = true)
   @Nonnull
   protected EbeanServer createServer() {
     ServerConfig serverConfig = applicationContext.getBean(ServerConfig.class);
