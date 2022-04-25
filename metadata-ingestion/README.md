@@ -68,7 +68,7 @@ datahub ingest -c recipe.yaml
 
 or if you want to override the default endpoints, you can provide the environment variables as part of the command like below:
 ```shell
-DATAHUB_SERVER="https://my-datahub-server:8080" DATAHUB_TOKEN="my-datahub-token" datahub ingest -c recipe.yaml
+DATAHUB_GMS_HOST="https://my-datahub-server:8080" DATAHUB_GMS_TOKEN="my-datahub-token" datahub ingest -c recipe.yaml
 ```
 
 A number of recipes are included in the [examples/recipes](./examples/recipes) directory. For full info and context on each source and sink, see the pages described in the [table of plugins](../docs/cli.md#installing-plugins).
