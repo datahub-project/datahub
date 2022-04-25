@@ -24,7 +24,7 @@ public class EntityServiceFactory {
 
   @Bean(name = "entityService")
   @DependsOn({"cassandraAspectDao", "kafkaEventProducer", TopicConventionFactory.TOPIC_CONVENTION_BEAN, "entityRegistry"})
-  @ConditionalOnProperty(name = "ENTITY_SERVICE_IMPL", havingValue = "cassandra")
+  @ConditionalOnProperty(name = "entityService.impl", havingValue = "cassandra")
   @Nonnull
   protected EntityService createCassandraInstance(
       Producer<String, ? extends IndexedRecord> producer,
@@ -38,7 +38,7 @@ public class EntityServiceFactory {
 
   @Bean(name = "entityService")
   @DependsOn({"ebeanAspectDao", "kafkaEventProducer", TopicConventionFactory.TOPIC_CONVENTION_BEAN, "entityRegistry"})
-  @ConditionalOnProperty(name = "ENTITY_SERVICE_IMPL", havingValue = "ebean", matchIfMissing = true)
+  @ConditionalOnProperty(name = "entityService.impl", havingValue = "ebean", matchIfMissing = true)
   @Nonnull
   protected EntityService createEbeanInstance(
       Producer<String, ? extends IndexedRecord> producer,

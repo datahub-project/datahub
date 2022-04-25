@@ -26,7 +26,7 @@ public class CassandraSessionFactory {
 
   @Bean(name = "cassandraSession")
   @DependsOn({"gmsCassandraServiceConfig"})
-  @ConditionalOnProperty(name = "ENTITY_SERVICE_IMPL", havingValue = "cassandra")
+  @ConditionalOnProperty(name = "entityService.impl", havingValue = "cassandra")
   @Nonnull
   protected CqlSession createSession() {
     int port = Integer.parseInt(sessionConfig.get("port"));

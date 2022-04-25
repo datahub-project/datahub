@@ -15,7 +15,7 @@ public class EbeanAspectDaoFactory {
 
   @Bean(name = "ebeanAspectDao")
   @DependsOn({"gmsEbeanServiceConfig"})
-  @ConditionalOnProperty(name = "ENTITY_SERVICE_IMPL", havingValue = "ebean", matchIfMissing = true)
+  @ConditionalOnProperty(name = "entityService.impl", havingValue = "ebean", matchIfMissing = true)
   @Nonnull
   protected EbeanAspectDao createInstance(EbeanServer server) {
     return new EbeanAspectDao(server);

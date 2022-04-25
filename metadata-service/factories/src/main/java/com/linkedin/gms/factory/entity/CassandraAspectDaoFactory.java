@@ -15,7 +15,7 @@ public class CassandraAspectDaoFactory {
 
 
   @Bean(name = "cassandraAspectDao")
-  @ConditionalOnProperty(name = "ENTITY_SERVICE_IMPL", havingValue = "cassandra")
+  @ConditionalOnProperty(name = "entityService.impl", havingValue = "cassandra")
   @DependsOn({"cassandraSession"})
   @Nonnull
   protected CassandraAspectDao createInstance(CqlSession session) {
