@@ -786,17 +786,7 @@ class DBTSource(StatefulIngestionSourceBase):
                 mce_platform,
                 self.config.env,
             )
-            if self.is_stateful_ingestion_configured():
-                cur_checkpoint = self.get_current_checkpoint(
-                    self.get_default_ingestion_job_id()
-                )
-
-                if cur_checkpoint is not None:
-                    # Utilizing BaseSQLAlchemyCheckpointState class to save state
-                    checkpoint_state = cast(
-                        BaseSQLAlchemyCheckpointState, cur_checkpoint.state
-                    )
-                    checkpoint_state.add_table_urn(node_datahub_urn)
+            self.save_checkpoint(node_datahub_urn)
 
             meta_aspects: Dict[str, Any] = {}
             if self.config.enable_meta_mapping and node.meta:
@@ -871,14 +861,18 @@ class DBTSource(StatefulIngestionSourceBase):
             self.report.report_workunit(wu)
             yield wu
 
-            # TODO: Remove. keeping this till PR review
-            # for meta_mcpw in meta_mcpw_list:
-            #     meta_wu = MetadataWorkUnit(
-            #         id=f"{self.platform}-{meta_mcpw.entityUrn}-{meta_mcpw.aspectName}",
-            #         mcp=meta_mcpw,
-            #     )
-            #     yield meta_wu
-            #     self.report.report_workunit(meta_wu)
+    def save_checkpoint(self, node_datahub_urn: str) -> None:
+        if self.is_stateful_ingestion_configured():
+            cur_checkpoint = self.get_current_checkpoint(
+                self.get_default_ingestion_job_id()
+            )
+
+            if cur_checkpoint is not None:
+                # Utilizing BaseSQLAlchemyCheckpointState class to save state
+                checkpoint_state = cast(
+                    BaseSQLAlchemyCheckpointState, cur_checkpoint.state
+                )
+                checkpoint_state.add_table_urn(node_datahub_urn)
 
     def extract_query_tag_aspects(
         self,
