@@ -101,7 +101,11 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `domain.domain_key.allow`       |          |              | List of regex patterns for tables to set domain_key domain key (domain_key can be any string like `sales`. There can be multiple domain key specified. |
 | `domain.domain_key.deny`        |          |              | List of regex patterns for tables to not assign domain_key. There can be multiple domain key specified.                                               |
 | `domain.domain_key.ignoreCase`  |          | `True`       | Whether to ignore case sensitivity during pattern matching.There can be multiple domain key specified.                                                       |
-| `catalog_id`  |          |              | The aws account id where the target glue catalog lives. If None, datahub will ingest glue in aws caller's account.                                                       |
+| `catalog_id`                    |          | None         | The aws account id where the target glue catalog lives. If None, datahub will ingest glue catalog in aws caller's account.                                         |
+
+### Cross-account ingestion
+
+To ingest glue catalog from another aws account, use the `catalog_id` field. Note that glue job is not affected by this field and it only ingests from aws caller's account. So if you are ingestion glue catalog from another aws account, you may set `extract_transforms` as `False` to avoid the discrepancy between glue catalog and glue jobs.
 
 ## Compatibility
 

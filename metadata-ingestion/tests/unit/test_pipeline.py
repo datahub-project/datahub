@@ -4,6 +4,7 @@ from unittest.mock import patch
 import pytest
 from freezegun import freeze_time
 
+from datahub.configuration.common import DynamicTypedConfig
 from datahub.ingestion.api.committable import CommitPolicy, Committable
 from datahub.ingestion.api.common import RecordEnvelope, WorkUnit
 from datahub.ingestion.api.source import Source, SourceReport
@@ -41,6 +42,28 @@ class TestPipeline(object):
         pipeline.pretty_print_summary()
         mock_source.assert_called_once()
         mock_sink.assert_called_once()
+
+    @freeze_time(FROZEN_TIME)
+    @patch("datahub.emitter.rest_emitter.DatahubRestEmitter.test_connection")
+    @patch("datahub.ingestion.source.kafka.KafkaSource.get_workunits", autospec=True)
+    def test_configure_without_sink(self, mock_source, mock_test_connection):
+
+        mock_test_connection.return_value = {"noCode": True}
+        pipeline = Pipeline.create(
+            {
+                "source": {
+                    "type": "kafka",
+                    "config": {"connection": {"bootstrap": "localhost:9092"}},
+                },
+            }
+        )
+        # assert that the default sink config is for a DatahubRestSink
+        assert isinstance(pipeline.config.sink, DynamicTypedConfig)
+        assert pipeline.config.sink.type == "datahub-rest"
+        assert pipeline.config.sink.config == {
+            "server": "http://localhost:8080",
+            "token": "",
+        }
 
     @freeze_time(FROZEN_TIME)
     def test_run_including_fake_transformation(self):

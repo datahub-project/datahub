@@ -1,6 +1,8 @@
-import { Button, Divider, Select, Typography } from 'antd';
+import { InfoCircleOutlined } from '@ant-design/icons';
+import { Alert, Button, Divider, Select, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
+import { useAppConfigQuery } from '../../graphql/app.generated';
 import { useGetAccessTokenLazyQuery } from '../../graphql/auth.generated';
 import { AccessTokenDuration, AccessTokenType } from '../../types.generated';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
@@ -32,6 +34,16 @@ const ExpirationSelectConainer = styled.div`
     padding-bottom: 12px;
 `;
 
+const StyledAlert = styled(Alert)`
+    padding-top: 12px;
+    padding-bottom: 12px;
+    margin-bottom: 20px;
+`;
+
+const StyledInfoCircleOutlined = styled(InfoCircleOutlined)`
+    margin-right: 8px;
+`;
+
 const ExpirationDurationSelect = styled(Select)`
     && {
         width: 120px;
@@ -51,7 +63,9 @@ export const AccessTokens = () => {
     const [showModal, setShowModal] = useState(false);
     const [selectedTokenDuration, setSelectedTokenDuration] = useState(ACCESS_TOKEN_DURATIONS[0].duration);
     const authenticatedUser = useGetAuthenticatedUser();
-    const canGeneratePersonalAccessTokens = authenticatedUser?.platformPrivileges.generatePersonalAccessTokens;
+    const isTokenAuthEnabled = useAppConfigQuery().data?.appConfig?.authConfig?.tokenAuthEnabled;
+    const canGeneratePersonalAccessTokens =
+        isTokenAuthEnabled && authenticatedUser?.platformPrivileges.generatePersonalAccessTokens;
     const currentUserUrn = authenticatedUser?.corpUser.urn;
 
     const [getAccessToken, { data, error }] = useGetAccessTokenLazyQuery({
@@ -94,6 +108,18 @@ export const AccessTokens = () => {
                 Manage Access Tokens for use with DataHub APIs.
             </Typography.Paragraph>
             <Divider />
+            {isTokenAuthEnabled === false && (
+                <StyledAlert
+                    type="error"
+                    message={
+                        <span>
+                            <StyledInfoCircleOutlined />
+                            Token based authentication is currently disabled. Contact your DataHub administrator to
+                            enable this feature.
+                        </span>
+                    }
+                />
+            )}
             <Typography.Title level={5}>Personal Access Tokens</Typography.Title>
             <PersonTokenDescriptionText type="secondary">
                 Personal Access Tokens allow you to make programmatic requests to DataHub&apos;s APIs. They inherit your
