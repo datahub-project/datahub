@@ -67,7 +67,7 @@ public class RestHighLevelClientFactory {
       restClientBuilder = loadRestHttpsClient(host, port, pathPrefix, threadCount, connectionRequestTimeout, sslContext, username,
           password);
     } else {
-      restClientBuilder = loadRestHttpClient(host, port, pathPrefix, threadCount, connectionRequestTimeout);
+      restClientBuilder = loadRestHttpClient(host, port, pathPrefix, threadCount, connectionRequestTimeout, username, password);
     }
 
     return new RestHighLevelClient(restClientBuilder);
@@ -75,10 +75,20 @@ public class RestHighLevelClientFactory {
 
   @Nonnull
   private static RestClientBuilder loadRestHttpClient(@Nonnull String host, int port, String pathPrefix, int threadCount,
-      int connectionRequestTimeout) {
+                                                      int connectionRequestTimeout, String username, String password) {
+
     RestClientBuilder builder = RestClient.builder(new HttpHost(host, port, "http"))
-        .setHttpClientConfigCallback(httpAsyncClientBuilder -> httpAsyncClientBuilder
-            .setDefaultIOReactorConfig(IOReactorConfig.custom().setIoThreadCount(threadCount).build()));
+            .setHttpClientConfigCallback(new RestClientBuilder.HttpClientConfigCallback(){
+              public HttpAsyncClientBuilder customizeHttpClient(HttpAsyncClientBuilder httpAsyncClientBuilder) {
+                httpAsyncClientBuilder.setDefaultIOReactorConfig(IOReactorConfig.custom().setIoThreadCount(threadCount).build());
+                if (username != null && password != null) {
+                  final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+                  credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(username, password));
+                  httpAsyncClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
+                }
+                return httpAsyncClientBuilder;
+              }
+    });
 
     if (!StringUtils.isEmpty(pathPrefix)) {
       builder.setPathPrefix(pathPrefix);
