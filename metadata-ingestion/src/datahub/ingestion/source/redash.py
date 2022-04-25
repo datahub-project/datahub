@@ -287,6 +287,7 @@ class RedashSource(Source):
     - Redash dashboards and queries/visualization
     - Redash chart table lineages (disabled by default)
     """
+
     config: RedashConfig
     report: RedashSourceReport
     platform = "redash"

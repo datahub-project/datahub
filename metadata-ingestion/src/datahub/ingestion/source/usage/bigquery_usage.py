@@ -604,6 +604,7 @@ class QueryEvent:
 
         return query_event
 
+
 # We can't use close as it is not called if the ingestion is not successful
 def cleanup(config: BigQueryUsageConfig) -> None:
     if config._credentials_path is not None:

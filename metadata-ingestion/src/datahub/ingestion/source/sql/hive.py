@@ -3,11 +3,20 @@ import re
 from typing import Any, Dict, List, Optional
 
 from pydantic.class_validators import validator
+from pydantic.fields import Field
 
 # This import verifies that the dependencies are available.
 from pyhive import hive  # noqa: F401
 from pyhive.sqlalchemy_hive import HiveDate, HiveDecimal, HiveTimestamp
 
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.extractor import schema_util
 from datahub.ingestion.source.sql.sql_common import (
     BasicSQLAlchemyConfig,
@@ -24,19 +33,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 from datahub.utilities import config_clean
 from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_column
 
-
-from datahub.ingestion.api.decorators import (
-   SourceCapability,
-   SupportStatus,
-   capability,
-   config_class,
-   platform_name,
-   support_status,
-)
-
-
-from pydantic.fields import Field
-
 register_custom_type(HiveDate, DateTypeClass)
 register_custom_type(HiveTimestamp, TimeTypeClass)
 register_custom_type(HiveDecimal, NumberTypeClass)
@@ -44,16 +40,21 @@ register_custom_type(HiveDecimal, NumberTypeClass)
 
 class HiveConfig(BasicSQLAlchemyConfig):
     # defaults
-    scheme = Field(default="hive",exclude=True)
+    scheme = Field(default="hive", exclude=True)
 
     # Hive SQLAlchemy connector returns views as tables.
     # See https://github.com/dropbox/PyHive/blob/b21c507a24ed2f2b0cf15b0b6abb1c43f31d3ee0/pyhive/sqlalchemy_hive.py#L270-L273.
     # Disabling views helps us prevent this duplication.
-    include_views = Field(default=False,exclude=True,description="Hive SQLAlchemy connector returns views as tables. See https://github.com/dropbox/PyHive/blob/b21c507a24ed2f2b0cf15b0b6abb1c43f31d3ee0/pyhive/sqlalchemy_hive.py#L270-L273. Disabling views helps us prevent this duplication.")
+    include_views = Field(
+        default=False,
+        exclude=True,
+        description="Hive SQLAlchemy connector returns views as tables. See https://github.com/dropbox/PyHive/blob/b21c507a24ed2f2b0cf15b0b6abb1c43f31d3ee0/pyhive/sqlalchemy_hive.py#L270-L273. Disabling views helps us prevent this duplication.",
+    )
 
     @validator("host_port")
     def clean_host_port(cls, v):
         return config_clean.remove_protocol(v)
+
 
 @platform_name("Hive")
 @config_class(HiveConfig)
