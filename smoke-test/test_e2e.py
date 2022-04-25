@@ -764,7 +764,7 @@ def test_frontend_create_policy(frontend_session):
     new_urn = res_data["data"]["createPolicy"]
 
     # Sleep for eventual consistency
-    time.sleep(3)
+    time.sleep(1)
 
     # Now verify the policy has been added.
     json = {

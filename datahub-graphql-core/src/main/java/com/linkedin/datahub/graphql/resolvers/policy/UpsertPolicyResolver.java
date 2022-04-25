@@ -60,8 +60,6 @@ public class UpsertPolicyResolver implements DataFetcher<CompletableFuture<Strin
 
       // Create the policy info.
       final DataHubPolicyInfo info = PolicyUpdateInputInfoMapper.map(input);
-      info.setLastUpdatedTimestamp(System.currentTimeMillis());
-
       proposal.setEntityType(POLICY_ENTITY_NAME);
       proposal.setAspectName(POLICY_INFO_ASPECT_NAME);
       proposal.setAspect(GenericRecordUtils.serializeAspect(info));

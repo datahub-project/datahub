@@ -163,18 +163,25 @@ export const PoliciesPage = () => {
         loading: policiesLoading,
         error: policiesError,
         data: policiesData,
-        refetch: policiesRefetch,
     } = useListPoliciesQuery({
         fetchPolicy: 'no-cache',
         variables: { input: { start, count: pageSize } },
     });
 
+    const listPoliciesQuery = 'listPolicies';
+
     // Any time a policy is removed, edited, or created, refetch the list.
-    const [createPolicy, { error: createPolicyError }] = useCreatePolicyMutation();
+    const [createPolicy, { error: createPolicyError }] = useCreatePolicyMutation({
+        refetchQueries: () => [listPoliciesQuery],
+    });
 
-    const [updatePolicy, { error: updatePolicyError }] = useUpdatePolicyMutation();
+    const [updatePolicy, { error: updatePolicyError }] = useUpdatePolicyMutation({
+        refetchQueries: () => [listPoliciesQuery],
+    });
 
-    const [deletePolicy, { error: deletePolicyError }] = useDeletePolicyMutation();
+    const [deletePolicy, { error: deletePolicyError }] = useDeletePolicyMutation({
+        refetchQueries: () => [listPoliciesQuery],
+    });
 
     const updateError = createPolicyError || updatePolicyError || deletePolicyError;
 
@@ -237,9 +244,6 @@ export const PoliciesPage = () => {
             content: `Are you sure you want to remove policy?`,
             onOk() {
                 deletePolicy({ variables: { urn: policy?.urn as string } }); // There must be a focus policy urn.
-                setTimeout(function () {
-                    policiesRefetch();
-                }, 2000);
                 onCancelViewPolicy();
             },
             onCancel() {},
@@ -278,9 +282,6 @@ export const PoliciesPage = () => {
             createPolicy({ variables: { input: toPolicyInput(savePolicy) } });
         }
         message.success('Successfully saved policy.');
-        setTimeout(function () {
-            policiesRefetch();
-        }, 2000);
         onClosePolicyBuilder();
     };
 

@@ -3359,14 +3359,7 @@
                       "items" : "com.linkedin.common.MLFeatureUrn"
                     },
                     "doc" : "List of features used for MLModel training",
-                    "optional" : true,
-                    "Relationship" : {
-                      "/*" : {
-                        "entityTypes" : [ "mlFeature" ],
-                        "isLineage" : true,
-                        "name" : "Consumes"
-                      }
-                    }
+                    "optional" : true
                   }, {
                     "name" : "tags",
                     "type" : {
@@ -3844,7 +3837,6 @@
                     "Relationship" : {
                       "/*" : {
                         "entityTypes" : [ "dataset" ],
-                        "isLineage" : true,
                         "name" : "DerivedFrom"
                       }
                     }
@@ -3933,7 +3925,6 @@
                     "Relationship" : {
                       "/*" : {
                         "entityTypes" : [ "dataset" ],
-                        "isLineage" : true,
                         "name" : "DerivedFrom"
                       }
                     }
@@ -4014,6 +4005,7 @@
                     "Relationship" : {
                       "/*" : {
                         "entityTypes" : [ "mlFeature" ],
+                        "isLineage" : true,
                         "name" : "Contains"
                       }
                     },
@@ -4712,14 +4704,6 @@
                     "type" : "boolean",
                     "doc" : "Whether the policy should be editable via the UI",
                     "default" : true
-                  }, {
-                    "name" : "lastUpdatedTimestamp",
-                    "type" : "long",
-                    "doc" : "Timestamp when the policy was last updated",
-                    "optional" : true,
-                    "Searchable" : {
-                      "fieldType" : "DATETIME"
-                    }
                   } ],
                   "Aspect" : {
                     "name" : "dataHubPolicyInfo"
@@ -4903,7 +4887,7 @@
     }, {
       "name" : "name",
       "type" : "string",
-      "doc" : "The name of the event, e.g. the type of event. For example, 'notificationRequestEvent', 'entityChangeEvent'"
+      "doc" : "The name of the event, e.g. the type of event. For example, 'notificationRequestEvent'."
     }, {
       "name" : "payload",
       "type" : "GenericPayload",
