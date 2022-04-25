@@ -98,7 +98,7 @@
         "start:mock": "yarn run generate && BROWSER=none REACT_APP_MOCK=true craco start",
         "start:e2e": "REACT_APP_MOCK=cy BROWSER=none PORT=3010 craco start",
         "ec2-dev": "yarn run generate && CI=true;export CI;BROWSER=none craco start",
-        "build": "yarn run generate && CI=false REACT_APP_MOCK=false craco build && rm -rf dist/ && cp -r build/ dist/ && rm -r build/",
+        "build": "export NODE_OPTIONS=--max_old_space_size=4096 && yarn run generate && CI=false REACT_APP_MOCK=false craco build && rm -rf dist/ && cp -r build/ dist/ && rm -r build/",
         "test": "craco test",
         "cy:run:ci": "cypress run",
         "pretest:e2e:ci": "yarn generate",
