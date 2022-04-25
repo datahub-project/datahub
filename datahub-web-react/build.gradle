@@ -64,7 +64,7 @@ task yarnLintFix(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
 }
 
 task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnTest, yarnLint]) {
-  args = ['run', 'build']
+  args = ['run', 'build', 'NODE_OPTIONS=--max_old_space_size=8192']
 }
 
 clean {
