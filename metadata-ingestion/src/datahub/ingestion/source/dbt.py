@@ -804,11 +804,13 @@ class DBTSource(StatefulIngestionSourceBase):
 
             if self.config.enable_query_tag_mapping and node.query_tag:
                 query_tag_aspects = action_processor_tag.process(node.query_tag)
-                if 'add_tag' in query_tag_aspects:
-                    if 'add_tag' in meta_aspects:
-                        meta_aspects['add_tag'].tags.extend(query_tag_aspects['add_tag'].tags)
+                if "add_tag" in query_tag_aspects:
+                    if "add_tag" in meta_aspects:
+                        meta_aspects["add_tag"].tags.extend(
+                            query_tag_aspects["add_tag"].tags
+                        )
                     else:
-                        meta_aspects['add_tag'] = query_tag_aspects['add_tag']
+                        meta_aspects["add_tag"] = query_tag_aspects["add_tag"]
 
             aspects = self._generate_base_aspects(
                 node, additional_custom_props_filtered, mce_platform, meta_aspects
