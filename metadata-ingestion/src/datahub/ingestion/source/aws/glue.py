@@ -142,7 +142,9 @@ class GlueSource(Source):
         self.s3_client = config.s3_client
         self.extract_transforms = config.extract_transforms
         self.env = config.env
-        if (config.use_s3_bucket_tags or config.use_s3_object_tags) and self.ctx.graph is None:
+        if (
+            config.use_s3_bucket_tags or config.use_s3_object_tags
+        ) and self.ctx.graph is None:
             raise ConfigurationError(
                 """With use_s3_bucket_tags/use_s3_object_tags, GlueSource requires a datahub api to connect to.  This is enforced in order to maintain the current tags on the dataset object."""
             )

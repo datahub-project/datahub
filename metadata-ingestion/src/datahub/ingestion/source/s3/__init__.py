@@ -196,7 +196,9 @@ class S3Source(Source):
         self.report = DataLakeSourceReport()
         self.profiling_times_taken = []
 
-        if (config.use_s3_bucket_tags or config.use_s3_object_tags) and self.ctx.graph is None:
+        if (
+            config.use_s3_bucket_tags or config.use_s3_object_tags
+        ) and self.ctx.graph is None:
             raise ConfigurationError(
                 """With use_s3_bucket_tags/use_s3_object_tags, GlueSource requires a datahub api to connect to.  This is enforced in order to maintain the current tags on the dataset object."""
             )
@@ -585,9 +587,7 @@ class S3Source(Source):
             key_prefix = get_key_prefix(table_data.table_path)
             s3_tags = self.get_s3_tags(bucket, key_prefix, dataset_urn)
             if s3_tags is not None:
-                dataset_snapshot.aspects.append(
-                s3_tags
-                )
+                dataset_snapshot.aspects.append(s3_tags)
 
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         wu = MetadataWorkUnit(id=table_data.table_path, mce=mce)
