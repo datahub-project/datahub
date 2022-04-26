@@ -142,12 +142,6 @@ class GlueSource(Source):
         self.s3_client = config.s3_client
         self.extract_transforms = config.extract_transforms
         self.env = config.env
-        if (
-            config.use_s3_bucket_tags or config.use_s3_object_tags
-        ) and self.ctx.graph is None:
-            raise ConfigurationError(
-                """With use_s3_bucket_tags/use_s3_object_tags, GlueSource requires a datahub api to connect to.  This is enforced in order to maintain the current tags on the dataset object."""
-            )
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -833,6 +827,9 @@ class GlueSource(Source):
             if len(tags_to_add) == 0:
                 return None
             if self.ctx.graph is not None:
+                logger.debug(
+                    "Connected to DatahubApi, grabbing current tags to maintain."
+                )
                 current_tags: Optional[GlobalTagsClass] = self.ctx.graph.get_aspect_v2(
                     entity_urn=dataset_urn,
                     aspect="globalTags",
@@ -842,6 +839,11 @@ class GlueSource(Source):
                     tags_to_add.extend(
                         [current_tag.tag for current_tag in current_tags.tags]
                     )
+            else:
+                logger.debug(
+                    "Could not connect to DatahubApi. No current tags to maintain"
+                )
+
             # Remove duplicate tags
             tags_to_add = list(set(tags_to_add))
             new_tags = GlobalTagsClass(
