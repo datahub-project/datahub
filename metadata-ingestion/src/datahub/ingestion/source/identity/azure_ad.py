@@ -227,9 +227,8 @@ class AzureADSource(Source):
                         user_urn_to_group_membership,
                     )
                 else:
-                    raise ValueError(
-                        f"Unsupported @odata.type '{odata_type}' found in Azure group member"
-                    )
+                    # Unless told otherwise, we only care about users and groups.  Silently skip other object types.
+                    pass
 
     def _add_user_to_group_membership(
         self,
