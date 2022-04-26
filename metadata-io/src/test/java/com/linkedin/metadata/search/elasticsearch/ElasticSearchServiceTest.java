@@ -64,7 +64,7 @@ public class ElasticSearchServiceTest {
     _elasticSearchService.configure();
   }
 
-  @BeforeTest
+  @BeforeClass
   public void disableAssert() {
     PathSpecBasedSchemaAnnotationVisitor.class.getClassLoader()
         .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
