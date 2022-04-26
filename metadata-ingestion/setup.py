@@ -148,7 +148,7 @@ plugins: Dict[str, Set[str]] = {
     # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
     "elasticsearch": {"elasticsearch==7.13.4"},
     "feast-legacy": {"docker"},
-    "feast": {"feast==0.18.0"},
+    "feast": {"feast==0.18.0", "flask-openid>=1.3.0"},
     "glue": aws_common,
     "hive": sql_common
     | {
