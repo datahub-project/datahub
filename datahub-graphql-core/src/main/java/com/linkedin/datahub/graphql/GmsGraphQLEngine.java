@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql;
 
+import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authentication.token.TokenService;
 import com.datahub.authorization.AuthorizationConfiguration;
 import com.google.common.collect.ImmutableList;
@@ -231,6 +232,7 @@ public class GmsGraphQLEngine {
     private final TimeseriesAspectService timeseriesAspectService;
 
     private final IngestionConfiguration ingestionConfiguration;
+    private final AuthenticationConfiguration authenticationConfiguration;
     private final AuthorizationConfiguration authorizationConfiguration;
     private final VisualConfiguration visualConfiguration;
 
@@ -298,6 +300,7 @@ public class GmsGraphQLEngine {
             null,
             null,
             null,
+            null,
             false,
             null);
     }
@@ -314,6 +317,7 @@ public class GmsGraphQLEngine {
         final EntityRegistry entityRegistry,
         final SecretService secretService,
         final IngestionConfiguration ingestionConfiguration,
+        final AuthenticationConfiguration authenticationConfiguration,
         final AuthorizationConfiguration authorizationConfiguration,
         final GitVersion gitVersion,
         final boolean supportsImpactAnalysis,
@@ -335,6 +339,7 @@ public class GmsGraphQLEngine {
         this.timeseriesAspectService = timeseriesAspectService;
 
         this.ingestionConfiguration = Objects.requireNonNull(ingestionConfiguration);
+        this.authenticationConfiguration = Objects.requireNonNull(authenticationConfiguration);
         this.authorizationConfiguration = Objects.requireNonNull(authorizationConfiguration);
         this.visualConfiguration = visualConfiguration;
 
@@ -623,6 +628,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("appConfig",
                 new AppConfigResolver(gitVersion, analyticsService != null,
                     this.ingestionConfiguration,
+                    this.authenticationConfiguration,
                     this.authorizationConfiguration,
                     supportsImpactAnalysis, this.visualConfiguration))
             .dataFetcher("me", new AuthenticatedResolver<>(
