@@ -17,9 +17,7 @@ if sys.version_info >= (3, 7):
     )
     from feast.data_source import DataSource, RequestDataSource
 else:
-    raise ModuleNotFoundError(
-        "The feast-018 plugin requires Python 3.7 or newer."
-    )
+    raise ModuleNotFoundError("The feast-018 plugin requires Python 3.7 or newer.")
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
@@ -200,7 +198,6 @@ class FeastRepositorySource(Source):
         """
         Generate an MLFeature work unit for a Feast feature.
         """
-        #breakpoint()
         feature_view_name = f"{self.feature_store.project}.{feature_view.name}"
 
         feature_snapshot = MLFeatureSnapshot(
@@ -342,7 +339,6 @@ class FeastRepositorySource(Source):
                 yield work_unit
 
             for feature in feature_view.features:
-                #breakpoint()
                 work_unit = self._get_feature_workunit(feature_view, feature)
                 self.report.report_workunit(work_unit)
 
