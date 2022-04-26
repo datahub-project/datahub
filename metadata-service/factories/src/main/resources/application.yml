@@ -64,6 +64,7 @@ datahub:
       path: ${RETENTION_PLUGIN_PATH:/etc/datahub/plugins/retention}
 
 entityService:
+  impl: ${ENTITY_SERVICE_IMPL:ebean}
   retention:
     enabled: ${ENTITY_SERVICE_ENABLE_RETENTION:false}
 
@@ -97,6 +98,15 @@ ebean:
   maxAgeMinutes: ${EBEAN_MAX_AGE_MINUTES:120}
   leakTimeMinutes: ${EBEAN_LEAK_TIME_MINUTES:15}
   autoCreateDdl: ${EBEAN_AUTOCREATE:false}
+
+cassandra:
+  datasourceUsername: ${CASSANDRA_DATASOURCE_USERNAME:cassandra}
+  datasourcePassword: ${CASSANDRA_DATASOURCE_PASSWORD:cassandra}
+  hosts: ${CASSANDRA_HOSTS:cassandra}
+  port: ${CASSANDRA_PORT:9042}
+  datacenter: ${CASSANDRA_DATACENTER:datacenter1}
+  keyspace: ${CASSANDRA_KEYSPACE:datahub}
+  useSsl: ${CASSANDRA_USE_SSL:false}
 
 elasticsearch:
   host: ${ELASTICSEARCH_HOST:localhost}

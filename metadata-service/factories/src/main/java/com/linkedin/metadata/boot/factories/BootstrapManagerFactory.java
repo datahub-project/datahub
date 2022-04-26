@@ -46,7 +46,7 @@ public class BootstrapManagerFactory {
   @Qualifier("searchDocumentTransformer")
   private SearchDocumentTransformer _searchDocumentTransformer;
 
-  @Autowired
+  @Autowired(required = false)
   @Qualifier("ebeanServer")
   private EbeanServer _server;
 
