@@ -22,6 +22,7 @@ import com.linkedin.metadata.resources.entity.AspectUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.util.Pair;
 import io.datahubproject.openapi.dto.RollbackRunResultDto;
 import io.datahubproject.openapi.dto.UpsertAspectRequest;
 import io.datahubproject.openapi.generated.AspectRowSummary;
@@ -219,7 +220,7 @@ public class MappingUtil {
     }
   }
 
-  public static String ingestProposal(MetadataChangeProposal metadataChangeProposal, EntityService entityService,
+  public static Pair<String, Boolean> ingestProposal(MetadataChangeProposal metadataChangeProposal, EntityService entityService,
       ObjectMapper objectMapper) {
     // TODO: Use the actor present in the IC.
     Timer.Context context = MetricUtils.timer("postEntity").time();
@@ -280,9 +281,10 @@ public class MappingUtil {
     log.info("Proposal: {}", serviceProposal);
     Throwable exceptionally = null;
     try {
-      Urn urn = entityService.ingestProposal(serviceProposal, auditStamp).getUrn();
+      EntityService.IngestProposalResult proposalResult = entityService.ingestProposal(serviceProposal, auditStamp);
+      Urn urn = proposalResult.getUrn();
       additionalChanges.forEach(proposal -> entityService.ingestProposal(proposal, auditStamp));
-      return urn.toString();
+      return new Pair<>(urn.toString(), proposalResult.isDidUpdate());
     } catch (ValidationException ve) {
       exceptionally = ve;
       throw HttpClientErrorException.create(HttpStatus.UNPROCESSABLE_ENTITY, ve.getMessage(), null, null, null);

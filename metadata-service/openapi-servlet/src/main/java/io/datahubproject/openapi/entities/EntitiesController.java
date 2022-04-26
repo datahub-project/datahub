@@ -7,6 +7,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.util.Pair;
 import io.datahubproject.openapi.dto.RollbackRunResultDto;
 import io.datahubproject.openapi.dto.UpsertAspectRequest;
 import io.datahubproject.openapi.dto.UrnResponseMap;
@@ -26,6 +27,7 @@ import javax.annotation.Nullable;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.propertyeditors.StringArrayPropertyEditor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.WebDataBinder;
@@ -102,10 +104,16 @@ public class EntitiesController {
       @RequestBody @Nonnull List<UpsertAspectRequest> aspectRequests) {
     log.info("INGEST PROPOSAL proposal: {}", aspectRequests);
 
-    return ResponseEntity.ok(aspectRequests.stream()
+    List<Pair<String, Boolean>> responses = aspectRequests.stream()
         .map(MappingUtil::mapToProposal)
         .map(proposal -> MappingUtil.ingestProposal(proposal, _entityService, _objectMapper))
-        .collect(Collectors.toList()));
+        .collect(Collectors.toList());
+    if (responses.stream().anyMatch(Pair::getSecond)) {
+      return ResponseEntity.status(HttpStatus.CREATED)
+          .body(responses.stream().filter(Pair::getSecond).map(Pair::getFirst).collect(Collectors.toList()));
+    } else {
+      return ResponseEntity.ok(Collections.emptyList());
+    }
   }
 
   @DeleteMapping(value = "/", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -136,6 +144,8 @@ public class EntitiesController {
             .rowsRolledBack(deleteRequests.stream()
                 .map(MappingUtil::mapToProposal)
                 .map(proposal -> MappingUtil.ingestProposal(proposal, _entityService, _objectMapper))
+                .filter(Pair::getSecond)
+                .map(Pair::getFirst)
                 .map(urnString -> new AspectRowSummary().urn(urnString))
                 .collect(Collectors.toList()))
             .rowsDeletedFromEntityDeletion(deleteRequests.size())
