@@ -121,8 +121,7 @@ data_lake_profiling = {
 
 iceberg_common = {
     # Iceberg Python SDK
-    # TODO: Local dependency for now, to be fixed
-    "iceberg@file://./metadata-ingestion/iceberg-0.0.0.tar.gz"
+    "acryl-iceberg-legacy==0.0.2"
 }
 
 # Note: for all of these, framework_common will be added.
@@ -257,6 +256,7 @@ base_dev_requirements = {
             "clickhouse",
             "clickhouse-usage",
             "elasticsearch",
+            "iceberg",
             "looker",
             "glue",
             "mariadb",
