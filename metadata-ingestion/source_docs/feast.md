@@ -2,30 +2,30 @@
 
 For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
 
-This source is designed for Feast 0.9 core services.
+This source is designed for Feast 10+ repositories.
 
 As of version 0.10+, Feast has changed the architecture from a stack of services to SDK/CLI centric application. Please refer to [Feast 0.9 vs Feast 0.10+](https://docs.feast.dev/project/feast-0.9-vs-feast-0.10+) for further details.
 
-See also [Feast Repository](feast_repository.md) source.
+For compatibility with pre-0.10 Feast, see [Feast Legacy](feast_legacy.md) source.
+
+:::note
+
+This source is only compatible with Feast 0.18.0
+:::
 
 ## Setup
-
-**Note: Feast ingestion requires Docker to be installed.**
 
 To install this plugin, run `pip install 'acryl-datahub[feast]'`.
 
 ## Capabilities
 
-This plugin extracts the following:
+This plugin extracts:
 
 - Entities as [`MLPrimaryKey`](https://datahubproject.io/docs/graphql/objects#mlprimarykey)
 - Features as [`MLFeature`](https://datahubproject.io/docs/graphql/objects#mlfeature)
-- Feature tables as [`MLFeatureTable`](https://datahubproject.io/docs/graphql/objects#mlfeaturetable)
+- Feature views and on-demand feature views as [`MLFeatureTable`](https://datahubproject.io/docs/graphql/objects#mlfeaturetable)
 - Batch and stream source details as [`Dataset`](https://datahubproject.io/docs/graphql/objects#dataset)
 - Column types associated with each entity and feature
-
-Note: this uses a separate Docker container to extract Feast's metadata into a JSON file, which is then
-parsed to DataHub's native objects. This separation was performed because of a dependency conflict in the `feast` module.
 
 ## Quickstart recipe
 
@@ -33,12 +33,14 @@ Check out the following recipe to get started with ingestion! See [below](#confi
 
 For general pointers on writing and running a recipe, see our [main recipe guide](../README.md#recipes).
 
-```yml
+```yaml
 source:
-  type: feast
+  type: "feast"
   config:
     # Coordinates
-    core_url: "localhost:6565"
+    path: "/path/to/repository/"
+    # Options
+    environment: "PROD"
 
 sink:
   # sink configs
@@ -48,15 +50,14 @@ sink:
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field             | Required | Default            | Description                                             |
-| ----------------- | -------- | ------------------ | ------------------------------------------------------- |
-| `core_url`        |          | `"localhost:6565"` | URL of Feast Core instance.                             |
-| `env`             |          | `"PROD"`           | Environment to use in namespace when constructing URNs. |
-| `use_local_build` |          | `False`            | Whether to build Feast ingestion Docker image locally.  |
+| Field         | Required | Default | Description                                |
+| ------------- | -------- | ------- | ------------------------------------------ |
+| `path`        | ✅       |         | Path to Feast repository.                  |
+| `environment` |          | `PROD`  | Environment to use when constructing URNs. |
 
 ## Compatibility
 
-This source is compatible with [Feast (0.10.5)](https://github.com/feast-dev/feast/releases/tag/v0.10.5).
+This source is compatible with [Feast (==0.18.0)](https://github.com/feast-dev/feast/releases/tag/v0.18.0).
 
 ## Questions
 

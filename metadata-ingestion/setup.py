@@ -147,8 +147,8 @@ plugins: Dict[str, Set[str]] = {
     # https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/release-notes.html#rn-7-14-0
     # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
     "elasticsearch": {"elasticsearch==7.13.4"},
-    "feast": {"docker"},
-    "feast-repository": {"feast>=0.18.0"},
+    "feast-legacy": {"docker"},
+    "feast": {"feast==0.18.0"},
     "glue": aws_common,
     "hive": sql_common
     | {
@@ -283,7 +283,7 @@ if is_py37_or_newer:
         {
             dependency
             for plugin in [
-                "feast-repository",
+                "feast",
                 "lookml",
             ]
             for dependency in plugins[plugin]
@@ -323,7 +323,7 @@ full_test_dev_requirements = {
         for plugin in [
             "clickhouse",
             "druid",
-            "feast",
+            "feast-legacy",
             "hive",
             "ldap",
             "mongodb",
@@ -345,7 +345,7 @@ if is_py37_or_newer:
             dependency
             for plugin in [
                 "athena",
-                "feast-repository",
+                "feast",
             ]
             for dependency in plugins[plugin]
         }
@@ -366,8 +366,8 @@ entry_points = {
         "dbt = datahub.ingestion.source.dbt:DBTSource",
         "druid = datahub.ingestion.source.sql.druid:DruidSource",
         "elasticsearch = datahub.ingestion.source.elastic_search:ElasticsearchSource",
-        "feast = datahub.ingestion.source.feast:FeastSource",
-        "feast-repository = datahub.ingestion.source.feast_repository:FeastRepositorySource",
+        "feast-legacy = datahub.ingestion.source.feast_legacy:FeastSource",
+        "feast = datahub.ingestion.source.feast:FeastRepositorySource",
         "glue = datahub.ingestion.source.aws.glue:GlueSource",
         "sagemaker = datahub.ingestion.source.aws.sagemaker:SagemakerSource",
         "hive = datahub.ingestion.source.sql.hive:HiveSource",
