@@ -166,7 +166,7 @@ class RedshiftUsageSourceReport(SourceReport):
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 class RedshiftUsageSource(Source):
     """
-    This plugin extracts usage statistics for datasets in Amazon Redshift. For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
+    This plugin extracts usage statistics for datasets in Amazon Redshift.
 
     Note: Usage information is computed by querying the following system tables -
     1. stl_scan
