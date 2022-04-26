@@ -4981,11 +4981,36 @@
     } ]
   }, "com.linkedin.metadata.browse.BrowseResultEntity", "com.linkedin.metadata.browse.BrowseResultGroup", "com.linkedin.metadata.browse.BrowseResultMetadata", {
     "type" : "record",
+    "name" : "RelatedAspect",
+    "namespace" : "com.linkedin.metadata.graph",
+    "doc" : "Metadata about how an aspect is related to some urn",
+    "fields" : [ {
+      "name" : "entity",
+      "type" : "com.linkedin.common.Urn",
+      "doc" : " Urn of the entity containing a related aspect"
+    }, {
+      "name" : "aspect",
+      "type" : "string"
+    }, {
+      "name" : "relationship",
+      "type" : "string"
+    }, {
+      "name" : "field",
+      "type" : "string"
+    } ]
+  }, {
+    "type" : "record",
     "name" : "RelationshipResult",
     "namespace" : "com.linkedin.metadata.graph",
     "doc" : "The model for the result of a relationship query.\nUsed to get the relationships of a given entity run.",
     "fields" : [ {
-      "name" : "count",
+      "name" : "relatedAspects",
+      "type" : {
+        "type" : "array",
+        "items" : "RelatedAspect"
+      }
+    }, {
+      "name" : "total",
       "type" : "int",
       "doc" : "Total number of relationships that an entity urn has."
     } ]
@@ -5555,10 +5580,6 @@
         "parameters" : [ {
           "name" : "urn",
           "type" : "string"
-        }, {
-          "name" : "includeDangling",
-          "type" : "boolean",
-          "optional" : true
         } ],
         "returns" : "com.linkedin.metadata.run.DeleteEntityResponse"
       }, {
@@ -5573,6 +5594,17 @@
           "optional" : true
         } ],
         "returns" : "com.linkedin.metadata.run.RollbackResponse"
+      }, {
+        "name" : "deleteReferences",
+        "parameters" : [ {
+          "name" : "urn",
+          "type" : "string"
+        }, {
+          "name" : "dryRun",
+          "type" : "boolean",
+          "optional" : true
+        } ],
+        "returns" : "com.linkedin.metadata.graph.RelationshipResult"
       }, {
         "name" : "filter",
         "parameters" : [ {
@@ -5600,13 +5632,6 @@
           "type" : "com.linkedin.common.Urn"
         } ],
         "returns" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
-      }, {
-        "name" : "getReferencesTo",
-        "parameters" : [ {
-          "name" : "urn",
-          "type" : "string"
-        } ],
-        "returns" : "com.linkedin.metadata.graph.RelationshipResult"
       }, {
         "name" : "getTotalEntityCount",
         "parameters" : [ {

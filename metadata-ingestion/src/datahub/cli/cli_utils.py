@@ -289,7 +289,7 @@ def post_rollback_endpoint(
     )
 
 
-def post_get_references_endpoint(
+def post_delete_references_endpoint(
     payload_obj: dict,
     path: str,
     cached_session_host: Optional[Tuple[Session, str]] = None,
@@ -303,7 +303,8 @@ def post_get_references_endpoint(
     payload = json.dumps(payload_obj)
     response = session.post(url, payload)
     summary = parse_run_restli_response(response)
-    reference_count = summary.get("count", 0)
+    print(summary)
+    reference_count = summary.get("total", 0)
     return reference_count
 
 

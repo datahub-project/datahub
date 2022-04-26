@@ -89,10 +89,6 @@
       "parameters" : [ {
         "name" : "urn",
         "type" : "string"
-      }, {
-        "name" : "includeDangling",
-        "type" : "boolean",
-        "optional" : true
       } ],
       "returns" : "com.linkedin.metadata.run.DeleteEntityResponse"
     }, {
@@ -107,6 +103,17 @@
         "optional" : true
       } ],
       "returns" : "com.linkedin.metadata.run.RollbackResponse"
+    }, {
+      "name" : "deleteReferences",
+      "parameters" : [ {
+        "name" : "urn",
+        "type" : "string"
+      }, {
+        "name" : "dryRun",
+        "type" : "boolean",
+        "optional" : true
+      } ],
+      "returns" : "com.linkedin.metadata.graph.RelationshipResult"
     }, {
       "name" : "filter",
       "parameters" : [ {
@@ -134,13 +141,6 @@
         "type" : "com.linkedin.common.Urn"
       } ],
       "returns" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
-    }, {
-      "name" : "getReferencesTo",
-      "parameters" : [ {
-        "name" : "urn",
-        "type" : "string"
-      } ],
-      "returns" : "com.linkedin.metadata.graph.RelationshipResult"
     }, {
       "name" : "getTotalEntityCount",
       "parameters" : [ {

@@ -7,8 +7,12 @@ namespace com.linkedin.metadata.graph
 record RelationshipResult {
 
   /**
+   *
+   */
+  relatedAspects: array[RelatedAspect]
+
+  /**
    * Total number of relationships that an entity urn has.
    */
-  count: int
-
+  total: int
 }

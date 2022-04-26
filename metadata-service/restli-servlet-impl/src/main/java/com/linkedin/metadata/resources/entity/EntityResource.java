@@ -22,6 +22,8 @@ import com.linkedin.metadata.entity.ValidationException;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.LineageDirection;
+import com.linkedin.metadata.graph.RelatedAspect;
+import com.linkedin.metadata.graph.RelatedAspectArray;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.graph.RelatedEntity;
 import com.linkedin.metadata.graph.RelationshipResult;
@@ -409,15 +411,11 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Action(name = "delete")
   @Nonnull
   @WithSpan
-  public Task<DeleteEntityResponse> deleteEntity(@ActionParam(PARAM_URN) @Nonnull String urnStr,
-      @ActionParam("includeDangling") @Optional Boolean includeDangling)
+  public Task<DeleteEntityResponse> deleteEntity(@ActionParam(PARAM_URN) @Nonnull String urnStr)
       throws URISyntaxException {
     Urn urn = Urn.createFromString(urnStr);
     return RestliUtil.toTask(() -> {
       DeleteEntityResponse response = new DeleteEntityResponse();
-      if (includeDangling) {
-        deleteReferencesTo(urn);
-      }
       RollbackRunResult result = _entityService.deleteUrn(urn);
 
       response.setUrn(urnStr);
@@ -427,96 +425,124 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     }, MetricRegistry.name(this.getClass(), "delete"));
   }
 
-  @Action(name = "getReferencesTo")
+  @Action(name = "deleteReferences")
   @Nonnull
   @WithSpan
-  public Task<RelationshipResult> getReferencesTo(@ActionParam(PARAM_URN) @Nonnull String urnStr)
+  public Task<RelationshipResult> deleteReferencesTo(@ActionParam(PARAM_URN) @Nonnull String urnStr,
+      @ActionParam("dryRun") @Optional Boolean dryRun)
       throws URISyntaxException {
     Urn urn = Urn.createFromString(urnStr);
     return RestliUtil.toTask(() -> {
+
       final RelationshipResult result = new RelationshipResult();
-      int count = _graphService.findRelatedEntities(null, newFilter("urn", urn.toString()),
-          null, EMPTY_FILTER, ImmutableList.of(),
-          newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING), 0, 10000).getTotal();
-      result.setCount(count);
-      return result;
-    }, MetricRegistry.name(this.getClass(), "getReferencesTo"));
-  }
-
-  private void deleteReferencesTo(final Urn urn) {
-    // Process all related entities affected by the urn being deleted, in a paginated fashion.
-    int count;
-    do {
-
-      final RelatedEntitiesResult relatedEntities =
+      RelatedEntitiesResult relatedEntities =
           _graphService.findRelatedEntities(null, newFilter("urn", urn.toString()), null,
               EMPTY_FILTER,
               ImmutableList.of(),
               newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING), 0, 10000);
 
-      for (RelatedEntity relatedEntity : relatedEntities.getEntities()) {
+      final List<RelatedAspect> relatedAspects = relatedEntities.getEntities().stream().map(relatedEntity -> {
+        final Urn relatedUrn = UrnUtils.getUrn(relatedEntity.getUrn());
+        final String relationType = relatedEntity.getRelationshipType();
+        final String relatedEntityName = relatedUrn.getEntityType();
+        final EntitySpec relatedEntitySpec = _entityService.getEntityRegistry().getEntitySpec(relatedEntityName);
 
-        try {
+        return findAspectDetails(urn, relatedUrn, relationType, relatedEntitySpec).map(pair -> {
+          final RelatedAspect relatedAspect = new RelatedAspect();
+          relatedAspect.setEntity(urn);
+          relatedAspect.setRelationship(relationType);
+          relatedAspect.setAspect(pair.getSecond().getName());
+          return relatedAspect;
+        });
+      }).filter(java.util.Optional::isPresent)
+          .map(java.util.Optional::get)
+          .limit(10).collect(Collectors.toList());
 
-          final Urn relatedUrn = UrnUtils.getUrn(relatedEntity.getUrn());
-          final String relationType = relatedEntity.getRelationshipType();
-          final String relatedEntityName = relatedUrn.getEntityType();
+      result.setRelatedAspects(new RelatedAspectArray(relatedAspects));
+      result.setTotal(relatedEntities.getTotal());
 
-          log.info(String.format("Processing related entity %s with relationship %s", relatedEntityName,
-              relationType));
-
-          final EntitySpec relatedEntitySpec = _entityService.getEntityRegistry().getEntitySpec(relatedEntityName);
-
-          final java.util.Optional<Pair<EnvelopedAspect, AspectSpec>> optionalAspectInfo =
-              findAspectDetails(urn, relatedUrn, relationType, relatedEntitySpec);
-
-          if (!optionalAspectInfo.isPresent()) {
-            log.error(String.format("Unable to find aspect information that relates %s %s via relationship %s",
-                urn, relatedUrn, relationType));
-            continue;
-          }
-
-          final String aspectName = optionalAspectInfo.get().getKey().getName();
-          final Aspect aspect = optionalAspectInfo.get().getKey().getValue();
-          final AspectSpec aspectSpec = optionalAspectInfo.get().getValue();
-          final java.util.Optional<RelationshipFieldSpec> optionalRelationshipFieldSpec =
-              aspectSpec.findRelationshipFor(relationType, urn.getEntityType());
-
-          if (!optionalRelationshipFieldSpec.isPresent()) {
-            log.error(String.format("Unable to find relationship spec information in %s that connects to %s via %s",
-                aspectName, urn.getEntityType(), relationType));
-            continue;
-          }
-
-          final PathSpec path = optionalRelationshipFieldSpec.get().getPath();
-          final Aspect updatedAspect = AspectProcessor.removeAspect(urn.toString(), aspect,
-              aspectSpec.getPegasusSchema(), path);
-
-          final MetadataChangeProposal gmce = new MetadataChangeProposal();
-          gmce.setEntityUrn(relatedUrn);
-          gmce.setChangeType(ChangeType.UPSERT);
-          gmce.setEntityType(relatedEntityName);
-          gmce.setAspectName(aspectName);
-          gmce.setAspect(GenericRecordUtils.serializeAspect(updatedAspect));
-
-          final AuditStamp auditStamp = new AuditStamp().setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
-          final EntityService.IngestProposalResult ingestProposalResult = _entityService.ingestProposal(gmce, auditStamp);
-
-          if (!ingestProposalResult.isDidUpdate()) {
-            log.warn(String.format("Aspect update did not update metadata graph. Before %s, after: %s",
-                aspect, updatedAspect));
-          }
-        } catch (CloneNotSupportedException e) {
-          log.error(String.format("Failed to clone aspect from entity %s", relatedEntity), e);
-        } catch (URISyntaxException e) {
-          log.error(String.format("Failed to process related entity %s", relatedEntity), e);
-        }
+      if (dryRun) {
+        return result;
       }
-      // Wait for 5 seconds for all generated MCPs to have been deleted.
-      // If we can't 10k MCPs in 5 seconds then we may generate too much load.
-      sleep(ELASTIC_BATCH_DELETE_SLEEP_SEC);
-      count = relatedEntities.getEntities().size();
-    } while (count > 0);
+
+      // Delete first 10k
+      relatedEntities.getEntities().forEach(entity -> deleteRelatedEntities(urn, entity));
+
+      // Delete until less than 10k are left
+      while (relatedEntities.getCount() > 10000) {
+        sleep(5);
+        relatedEntities = _graphService.findRelatedEntities(null, newFilter("urn", urn.toString()),
+            null, EMPTY_FILTER, ImmutableList.of(),
+            newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING), 0, 10000);
+        relatedEntities.getEntities().forEach(entity -> deleteRelatedEntities(urn, entity));
+      }
+
+      // Delete the <10k that remain from the loop
+      relatedEntities.getEntities().forEach(entity -> deleteRelatedEntities(urn, entity));
+
+      return result;
+    }, MetricRegistry.name(this.getClass(), "getReferencesTo"));
+  }
+
+  /**
+   * Utility method that finds all aspects of in a given {@link RelatedEntity} instance that reference a given {@link Urn}
+   * removes said urn from the aspects and submits an MCP with the updated aspects.
+   * @param urn           The urn to be found.
+   * @param relatedEntity The entity to be modified.
+   */
+  private void deleteRelatedEntities(Urn urn, RelatedEntity relatedEntity) {
+      try {
+        final Urn relatedUrn = UrnUtils.getUrn(relatedEntity.getUrn());
+        final String relationType = relatedEntity.getRelationshipType();
+        final String relatedEntityName = relatedUrn.getEntityType();
+
+        log.info(String.format("Processing related entity %s with relationship %s", relatedEntityName,
+            relationType));
+
+        final EntitySpec relatedEntitySpec = _entityService.getEntityRegistry().getEntitySpec(relatedEntityName);
+
+        final java.util.Optional<Pair<EnvelopedAspect, AspectSpec>> optionalAspectInfo =
+            findAspectDetails(urn, relatedUrn, relationType, relatedEntitySpec);
+
+        if (!optionalAspectInfo.isPresent()) {
+          log.error(String.format("Unable to find aspect information that relates %s %s via relationship %s",
+              urn, relatedUrn, relationType));
+          return;
+        }
+
+        final String aspectName = optionalAspectInfo.get().getKey().getName();
+        final Aspect aspect = optionalAspectInfo.get().getKey().getValue();
+        final AspectSpec aspectSpec = optionalAspectInfo.get().getValue();
+        final java.util.Optional<RelationshipFieldSpec> optionalRelationshipFieldSpec =
+            aspectSpec.findRelationshipFor(relationType, urn.getEntityType());
+
+        if (!optionalRelationshipFieldSpec.isPresent()) {
+          log.error(String.format("Unable to find relationship spec information in %s that connects to %s via %s",
+              aspectName, urn.getEntityType(), relationType));
+          return;
+        }
+
+        final PathSpec path = optionalRelationshipFieldSpec.get().getPath();
+        final Aspect updatedAspect = AspectProcessor.removeAspect(urn.toString(), aspect,
+            aspectSpec.getPegasusSchema(), path);
+
+        final MetadataChangeProposal gmce = new MetadataChangeProposal();
+        gmce.setEntityUrn(relatedUrn);
+        gmce.setChangeType(ChangeType.UPSERT);
+        gmce.setEntityType(relatedEntityName);
+        gmce.setAspectName(aspectName);
+        gmce.setAspect(GenericRecordUtils.serializeAspect(updatedAspect));
+
+        final AuditStamp auditStamp = new AuditStamp().setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
+        final EntityService.IngestProposalResult ingestProposalResult = _entityService.ingestProposal(gmce, auditStamp);
+
+        if (!ingestProposalResult.isDidUpdate()) {
+          log.warn(String.format("Aspect update did not update metadata graph. Before %s, after: %s",
+              aspect, updatedAspect));
+        }
+      } catch (CloneNotSupportedException e) {
+        log.error(String.format("Failed to clone aspect from entity %s", relatedEntity), e);
+      }
   }
 
   private void sleep(Integer seconds) {
@@ -541,7 +567,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
    * @throws URISyntaxException
    */
   private java.util.Optional<Pair<EnvelopedAspect, AspectSpec>> findAspectDetails(Urn urn, Urn relatedUrn,
-      String relationType, EntitySpec relatedEntitySpec) throws URISyntaxException {
+      String relationType, EntitySpec relatedEntitySpec) {
 
     // Find which aspects are the candidates for the relationship we are looking for
     final Map<String, AspectSpec> aspectSpecs = Objects.requireNonNull(relatedEntitySpec).getAspectSpecMap()
@@ -559,12 +585,18 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     }
 
     // FIXME: Can we not depend on entity service?
-    final EntityResponse entityResponse = _entityService.getEntityV2(relatedUrn.getEntityType(),
-        relatedUrn,
-        aspectSpecs.keySet());
+    final EntityResponse entityResponse;
+    try {
+      entityResponse = _entityService.getEntityV2(relatedUrn.getEntityType(),
+          relatedUrn,
+          aspectSpecs.keySet());
+    } catch (URISyntaxException e) {
+      log.error("Unable to retrieve entity data for relatedUrn " + relatedUrn, e);
+      return java.util.Optional.empty();
+    }
 
     // Find aspect which contains the relationship with the value we are looking for
-    return Objects.requireNonNull(entityResponse)
+    return entityResponse
         .getAspects().values()
         .stream()
         .filter(aspect -> aspect.getValue().toString().contains(urn.getEntityType()))

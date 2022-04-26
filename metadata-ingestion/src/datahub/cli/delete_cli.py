@@ -131,12 +131,10 @@ def delete(
         entity_type = guess_entity_type(urn=urn)
         logger.info(f"DataHub configured with {host}")
 
-        references_count: int = _get_references_for(
-            urn, cached_session_host=(session, host)
+        references_count: int = _delete_references(
+            urn, dry_run=True, cached_session_host=(session, host)
         )
         remove_dangling: bool = False
-
-
 
         if references_count > 0:
             remove_dangling = click.confirm(
@@ -146,11 +144,13 @@ def delete(
         deletion_result: DeletionResult = delete_one_urn_cmd(
             urn,
             soft=soft,
-            remove_dangling=remove_dangling,
             dry_run=dry_run,
             entity_type=entity_type,
             cached_session_host=(session, host),
         )
+
+        if remove_dangling:
+            _delete_references(urn, dry_run=True, cached_session_host=(session, host))
 
         if not dry_run:
             if deletion_result.num_records == 0:
@@ -339,12 +339,14 @@ def delete_one_urn_cmd(
     )
 
 
-def _get_references_for(
-    urn: str, cached_session_host: Optional[Tuple[sessions.Session, str]] = None
+def _delete_references(
+    urn: str,
+    dry_run: bool = False,
+    cached_session_host: Optional[Tuple[sessions.Session, str]] = None,
 ) -> int:
-    payload_obj = {"urn": urn}
-    return cli_utils.post_get_references_endpoint(
+    payload_obj = {"urn": urn, "dry_run": dry_run}
+    return cli_utils.post_delete_references_endpoint(
         payload_obj,
-        "/entities?action=getReferencesTo",
+        "/entities?action=deleteReferences",
         cached_session_host=cached_session_host,
     )
