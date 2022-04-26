@@ -91,6 +91,7 @@ ebean:
   username: ${EBEAN_DATASOURCE_USERNAME:datahub}
   password: ${EBEAN_DATASOURCE_PASSWORD:datahub}
   url: ${EBEAN_DATASOURCE_URL:jdbc:mysql://localhost:3306/datahub} # JDBC URL
+  readOnlyUrl: ${EBEAN_READ_ONLY_DATASOURCE_URL:}
   driver: ${EBEAN_DATASOURCE_DRIVER:com.mysql.jdbc.Driver} # JDBC Driver
   minConnections: ${EBEAN_MIN_CONNECTIONS:2}
   maxConnections: ${EBEAN_MAX_CONNECTIONS:50}
