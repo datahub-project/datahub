@@ -125,12 +125,12 @@ class AwsSourceConfig(ConfigModel):
                 "aws_session_token": credentials["SessionToken"],
             }
         else:
-            credentials = self.get_session().get_credentials()
-            if credentials is not None:
+            profile_credentials = self.get_session().get_credentials()
+            if profile_credentials is not None:
                 return {
-                    "aws_access_key_id": credentials.access_key,
-                    "aws_secret_access_key": credentials.secret_key,
-                    "aws_session_token": credentials.token,
+                    "aws_access_key_id": profile_credentials.access_key,
+                    "aws_secret_access_key": profile_credentials.secret_key,
+                    "aws_session_token": profile_credentials.token,
                 }
         return {}
 
