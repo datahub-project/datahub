@@ -208,7 +208,7 @@ module.exports = {
           label: "Usage Guide",
           type: "doc",
           id: "docs/api/openapi/openapi-usage-guide",
-        }
+        },
     ],
     "Usage Guides": [
       "docs/policies",
