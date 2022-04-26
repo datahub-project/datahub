@@ -755,4 +755,33 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     assertEquals(resultTable.getRows(),
         new StringArrayArray(new StringArray("col1", "3264"), new StringArray("col2", "3288")));
   }
+
+  @Test(groups = {"deleteAspectValues1"}, dependsOnGroups = {"getAggregatedStats", "getAspectValues"})
+  public void testDeleteAspectValuesByUrnAndTimeRangeDay1() {
+    Criterion hasUrnCriterion =
+        new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
+    Criterion startTimeCriterion = new Criterion().setField(ES_FILED_TIMESTAMP)
+        .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
+        .setValue(_startTime.toString());
+    Criterion endTimeCriterion = new Criterion().setField(ES_FILED_TIMESTAMP)
+        .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
+        .setValue(String.valueOf(_startTime + 23 * TIME_INCREMENT));
+
+    Filter filter =
+        QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
+    Long numRecordsDeleted = _elasticSearchTimeseriesAspectService.deleteAspectValues(ENTITY_NAME, ASPECT_NAME, filter);
+    // For day1, we expect 24 (number of hours) * 3 (each testEntityProfile aspect expands 3 elastic docs:
+    //  1 original + 2 for componentProfiles) = 72 total.
+    assertEquals(numRecordsDeleted, Long.valueOf(72L));
+  }
+
+  @Test(groups = {"deleteAspectValues2"}, dependsOnGroups = {"deleteAspectValues1"})
+  public void testDeleteAspectValuesByUrn() {
+    Criterion hasUrnCriterion =
+        new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
+    Filter filter = QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion));
+    Long numRecordsDeleted = _elasticSearchTimeseriesAspectService.deleteAspectValues(ENTITY_NAME, ASPECT_NAME, filter);
+    // Of the 300 elastic docs upserted for TEST_URN, 72 got deleted by deleteAspectValues1 test group leaving 228.
+    assertEquals(numRecordsDeleted, Long.valueOf(228L));
+  }
 }

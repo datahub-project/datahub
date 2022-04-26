@@ -29,4 +29,14 @@ public interface TimeseriesAspectService {
   @Nonnull
   GenericTable getAggregatedStats(@Nonnull String entityName, @Nonnull String aspectName,
       @Nonnull AggregationSpec[] aggregationSpecs, @Nullable Filter filter, @Nullable GroupingBucket[] groupingBuckets);
+
+  /**
+   * Generic filter based deletion for timseries aspects.
+   * @param entityName - The name of the entity.
+   * @param aspectName  - The name of the aspect.
+   * @param filter - The filter to be used for deletion of the documents on the index.
+   * @return - number of documents deleted.
+   */
+  @Nonnull
+  Long deleteAspectValues(@Nonnull String entityName, @Nonnull String aspectName, @Nonnull Filter filter);
 }

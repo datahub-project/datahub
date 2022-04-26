@@ -25,6 +25,7 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.timeseries.AggregationSpec;
 import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
@@ -43,6 +44,8 @@ import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.reindex.BulkByScrollResponse;
+import org.elasticsearch.index.reindex.DeleteByQueryRequest;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
@@ -174,5 +177,31 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
       @Nonnull AggregationSpec[] aggregationSpecs, @Nullable Filter filter,
       @Nullable GroupingBucket[] groupingBuckets) {
     return _esAggregatedStatsDAO.getAggregatedStats(entityName, aspectName, aggregationSpecs, filter, groupingBuckets);
+  }
+
+  /**
+   * A generic delete by filter API which uses elasticsearch's deleteByQuery.
+   * NOTE: There is no need for the client to explicitly walk each scroll page with this approach. Elastic will synchronously
+   * delete all of the documents matching the query that is specified by the filter, and internally handles the batching logic
+   * by the scroll page size specified(i.e. the DEFAULT_LIMIT value of 10,000).
+   * @param entityName the name of the entity.
+   * @param aspectName the name of the aspect.
+   * @param filter the filter to be used for deletion of the documents on the index.
+   * @return the numer of documents returned.
+   */
+  @Nonnull
+  @Override
+  public Long deleteAspectValues(@Nonnull String entityName, @Nonnull String aspectName, @Nonnull Filter filter) {
+    final String indexName = _indexConvention.getTimeseriesAspectIndexName(entityName, aspectName);
+    final BoolQueryBuilder filterQueryBuilder = QueryBuilders.boolQuery().must(ESUtils.buildFilterQuery(filter));
+    final DeleteByQueryRequest deleteByQueryRequest =
+        new DeleteByQueryRequest(indexName).setQuery(filterQueryBuilder).setBatchSize(DEFAULT_LIMIT);
+    try {
+      final BulkByScrollResponse response = _searchClient.deleteByQuery(deleteByQueryRequest, RequestOptions.DEFAULT);
+      return response.getDeleted();
+    } catch (IOException e) {
+      log.error("Delete query failed:" + e.getMessage());
+      throw new ESQueryException("Delete query failed:", e);
+    }
   }
 }
