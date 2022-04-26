@@ -50,7 +50,6 @@ type SelectedActor = {
 };
 
 export const AddOwnerModal = ({ urn, type, visible, hideOwnerType, defaultOwnerType, onClose, refetch }: Props) => {
-    console.log('defaultOwnerType', defaultOwnerType);
     const entityRegistry = useEntityRegistry();
     const [selectedActor, setSelectedActor] = useState<SelectedActor | undefined>(undefined);
     const [selectedOwnerType, setSelectedOwnerType] = useState<OwnershipType>(defaultOwnerType || OwnershipType.None);
