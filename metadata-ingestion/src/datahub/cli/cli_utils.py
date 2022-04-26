@@ -289,6 +289,24 @@ def post_rollback_endpoint(
     )
 
 
+def post_get_references_endpoint(
+    payload_obj: dict,
+    path: str,
+    cached_session_host: Optional[Tuple[Session, str]] = None,
+) -> int:
+    if not cached_session_host:
+        session, gms_host = get_session_and_host()
+    else:
+        session, gms_host = cached_session_host
+    url = gms_host + path
+
+    payload = json.dumps(payload_obj)
+    response = session.post(url, payload)
+    summary = parse_run_restli_response(response)
+    reference_count = summary.get("count", 0)
+    return reference_count
+
+
 def post_delete_endpoint(
     payload_obj: dict,
     path: str,

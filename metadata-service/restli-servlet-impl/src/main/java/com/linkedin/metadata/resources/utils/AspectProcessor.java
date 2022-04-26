@@ -1,4 +1,4 @@
-package com.linkedin.metadata.kafka.hook;
+package com.linkedin.metadata.resources.utils;
 
 import com.linkedin.data.DataComplex;
 import com.linkedin.data.DataList;
@@ -92,6 +92,9 @@ public class AspectProcessor {
           record.put(key, result);
         } else if (optional) {
           record.remove(key);
+        } else if (result instanceof DataList) {
+          // Only non-optional lists can be placed as default values
+          record.put(key, result);
         } else { // if we modified the value but can not set it because the field is not optional, simply log the message.
           log.warn(String.format("[DANGLING POINTER GC] Can not remove a field that is non-optional "
               + "and not part of an array %s", spec.getField(key).getName()));

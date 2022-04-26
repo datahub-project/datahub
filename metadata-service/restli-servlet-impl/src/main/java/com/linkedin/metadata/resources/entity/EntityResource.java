@@ -1,12 +1,19 @@
 package com.linkedin.metadata.resources.entity;
 
 import com.codahale.metrics.MetricRegistry;
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.entity.Aspect;
 import com.linkedin.entity.Entity;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.entity.EntityService;
@@ -15,11 +22,19 @@ import com.linkedin.metadata.entity.ValidationException;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.LineageDirection;
+import com.linkedin.metadata.graph.RelatedEntitiesResult;
+import com.linkedin.metadata.graph.RelatedEntity;
+import com.linkedin.metadata.graph.RelationshipResult;
+import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.resources.utils.AspectProcessor;
 import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.AspectRowSummaryArray;
@@ -32,6 +47,8 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
+import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
@@ -44,6 +61,7 @@ import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.annotations.RestMethod;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
+import com.linkedin.util.Pair;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.time.Clock;
@@ -53,7 +71,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -64,6 +84,7 @@ import org.apache.maven.artifact.versioning.ComparableVersion;
 
 import static com.linkedin.metadata.entity.ValidationUtils.*;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
+import static com.linkedin.metadata.search.utils.QueryUtils.*;
 import static com.linkedin.metadata.utils.PegasusUtils.*;
 
 
@@ -86,6 +107,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private static final String PARAM_COUNT = "count";
   private static final String PARAM_VALUE = "value";
   private static final String SYSTEM_METADATA = "systemMetadata";
+  private static final Integer ELASTIC_BATCH_DELETE_SLEEP_SEC = 5;
 
   private final Clock _clock = Clock.systemUTC();
 
@@ -387,12 +409,15 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Action(name = "delete")
   @Nonnull
   @WithSpan
-  public Task<DeleteEntityResponse> deleteEntity(@ActionParam(PARAM_URN) @Nonnull String urnStr)
+  public Task<DeleteEntityResponse> deleteEntity(@ActionParam(PARAM_URN) @Nonnull String urnStr,
+      @ActionParam("includeDangling") @Optional Boolean includeDangling)
       throws URISyntaxException {
     Urn urn = Urn.createFromString(urnStr);
     return RestliUtil.toTask(() -> {
       DeleteEntityResponse response = new DeleteEntityResponse();
-
+      if (includeDangling) {
+        deleteReferencesTo(urn);
+      }
       RollbackRunResult result = _entityService.deleteUrn(urn);
 
       response.setUrn(urnStr);
@@ -401,6 +426,152 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       return response;
     }, MetricRegistry.name(this.getClass(), "delete"));
   }
+
+  @Action(name = "getReferencesTo")
+  @Nonnull
+  @WithSpan
+  public Task<RelationshipResult> getReferencesTo(@ActionParam(PARAM_URN) @Nonnull String urnStr)
+      throws URISyntaxException {
+    Urn urn = Urn.createFromString(urnStr);
+    return RestliUtil.toTask(() -> {
+      final RelationshipResult result = new RelationshipResult();
+      int count = _graphService.findRelatedEntities(null, newFilter("urn", urn.toString()),
+          null, EMPTY_FILTER, ImmutableList.of(),
+          newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING), 0, 10000).getTotal();
+      result.setCount(count);
+      return result;
+    }, MetricRegistry.name(this.getClass(), "getReferencesTo"));
+  }
+
+  private void deleteReferencesTo(final Urn urn) {
+    // Process all related entities affected by the urn being deleted, in a paginated fashion.
+    int count;
+    do {
+
+      final RelatedEntitiesResult relatedEntities =
+          _graphService.findRelatedEntities(null, newFilter("urn", urn.toString()), null,
+              EMPTY_FILTER,
+              ImmutableList.of(),
+              newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING), 0, 10000);
+
+      for (RelatedEntity relatedEntity : relatedEntities.getEntities()) {
+
+        try {
+
+          final Urn relatedUrn = UrnUtils.getUrn(relatedEntity.getUrn());
+          final String relationType = relatedEntity.getRelationshipType();
+          final String relatedEntityName = relatedUrn.getEntityType();
+
+          log.info(String.format("Processing related entity %s with relationship %s", relatedEntityName,
+              relationType));
+
+          final EntitySpec relatedEntitySpec = _entityService.getEntityRegistry().getEntitySpec(relatedEntityName);
+
+          final java.util.Optional<Pair<EnvelopedAspect, AspectSpec>> optionalAspectInfo =
+              findAspectDetails(urn, relatedUrn, relationType, relatedEntitySpec);
+
+          if (!optionalAspectInfo.isPresent()) {
+            log.error(String.format("Unable to find aspect information that relates %s %s via relationship %s",
+                urn, relatedUrn, relationType));
+            continue;
+          }
+
+          final String aspectName = optionalAspectInfo.get().getKey().getName();
+          final Aspect aspect = optionalAspectInfo.get().getKey().getValue();
+          final AspectSpec aspectSpec = optionalAspectInfo.get().getValue();
+          final java.util.Optional<RelationshipFieldSpec> optionalRelationshipFieldSpec =
+              aspectSpec.findRelationshipFor(relationType, urn.getEntityType());
+
+          if (!optionalRelationshipFieldSpec.isPresent()) {
+            log.error(String.format("Unable to find relationship spec information in %s that connects to %s via %s",
+                aspectName, urn.getEntityType(), relationType));
+            continue;
+          }
+
+          final PathSpec path = optionalRelationshipFieldSpec.get().getPath();
+          final Aspect updatedAspect = AspectProcessor.removeAspect(urn.toString(), aspect,
+              aspectSpec.getPegasusSchema(), path);
+
+          final MetadataChangeProposal gmce = new MetadataChangeProposal();
+          gmce.setEntityUrn(relatedUrn);
+          gmce.setChangeType(ChangeType.UPSERT);
+          gmce.setEntityType(relatedEntityName);
+          gmce.setAspectName(aspectName);
+          gmce.setAspect(GenericRecordUtils.serializeAspect(updatedAspect));
+
+          final AuditStamp auditStamp = new AuditStamp().setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
+          final EntityService.IngestProposalResult ingestProposalResult = _entityService.ingestProposal(gmce, auditStamp);
+
+          if (!ingestProposalResult.isDidUpdate()) {
+            log.warn(String.format("Aspect update did not update metadata graph. Before %s, after: %s",
+                aspect, updatedAspect));
+          }
+        } catch (CloneNotSupportedException e) {
+          log.error(String.format("Failed to clone aspect from entity %s", relatedEntity), e);
+        } catch (URISyntaxException e) {
+          log.error(String.format("Failed to process related entity %s", relatedEntity), e);
+        }
+      }
+      // Wait for 5 seconds for all generated MCPs to have been deleted.
+      // If we can't 10k MCPs in 5 seconds then we may generate too much load.
+      sleep(ELASTIC_BATCH_DELETE_SLEEP_SEC);
+      count = relatedEntities.getEntities().size();
+    } while (count > 0);
+  }
+
+  private void sleep(Integer seconds) {
+    try {
+      TimeUnit.SECONDS.sleep(seconds);
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    }
+  }
+
+  /**
+   * Utility method that attempts to find Aspect information as well as the associated path spec for a given urn that
+   * has a relationship of type `relationType` to another urn
+   * @param urn               The urn of the entity for which we want to find the aspect that relates the urn to
+   *                          `relatedUrn`.
+   * @param relatedUrn        The urn of the related entity in which we want to find the aspect that has a relationship
+   *                          to `urn`.
+   * @param relationType      The relationship type that details how the `urn` entity is related to `relatedUrn` entity.
+   * @param relatedEntitySpec The entity spec of the related entity.
+   * @return An {@link java.util.Optional} object containing the aspect content & respective spec that contains the
+   * relationship between `urn` & `relatedUrn`.
+   * @throws URISyntaxException
+   */
+  private java.util.Optional<Pair<EnvelopedAspect, AspectSpec>> findAspectDetails(Urn urn, Urn relatedUrn,
+      String relationType, EntitySpec relatedEntitySpec) throws URISyntaxException {
+
+    // Find which aspects are the candidates for the relationship we are looking for
+    final Map<String, AspectSpec> aspectSpecs = Objects.requireNonNull(relatedEntitySpec).getAspectSpecMap()
+        .entrySet()
+        .stream()
+        .filter(aspectSpec -> aspectSpec.getValue().getRelationshipFieldSpecs()
+            .stream()
+            .anyMatch(spec -> spec.getRelationshipName().equals(relationType)
+                && spec.getValidDestinationTypes().contains(urn.getEntityType())))
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+    if (aspectSpecs.size() > 1) {
+      log.warn(String.format("More than 1 relationship of type %s expected for destination entity: %s", relationType,
+          urn.getEntityType()));
+    }
+
+    // FIXME: Can we not depend on entity service?
+    final EntityResponse entityResponse = _entityService.getEntityV2(relatedUrn.getEntityType(),
+        relatedUrn,
+        aspectSpecs.keySet());
+
+    // Find aspect which contains the relationship with the value we are looking for
+    return Objects.requireNonNull(entityResponse)
+        .getAspects().values()
+        .stream()
+        .filter(aspect -> aspect.getValue().toString().contains(urn.getEntityType()))
+        .map(aspect -> Pair.of(aspect, aspectSpecs.get(aspect.getName())))
+        .findFirst();
+  }
+
 
   /*
   Used to enable writes in GMS after data migration is complete

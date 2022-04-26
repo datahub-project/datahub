@@ -1,0 +1,14 @@
+namespace com.linkedin.metadata.graph
+
+/**
+ * The model for the result of a relationship query.
+ * Used to get the relationships of a given entity run.
+ */
+record RelationshipResult {
+
+  /**
+   * Total number of relationships that an entity urn has.
+   */
+  count: int
+
+}

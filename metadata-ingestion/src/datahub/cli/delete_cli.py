@@ -130,9 +130,23 @@ def delete(
         session, host = cli_utils.get_session_and_host()
         entity_type = guess_entity_type(urn=urn)
         logger.info(f"DataHub configured with {host}")
+
+        references_count: int = _get_references_for(
+            urn, cached_session_host=(session, host)
+        )
+        remove_dangling: bool = False
+
+
+
+        if references_count > 0:
+            remove_dangling = click.confirm(
+                f"This urn is referenced in {references_count} other aspects across your metadata graph. Do you want to delete these references?"
+            )
+
         deletion_result: DeletionResult = delete_one_urn_cmd(
             urn,
             soft=soft,
+            remove_dangling=remove_dangling,
             dry_run=dry_run,
             entity_type=entity_type,
             cached_session_host=(session, host),
@@ -245,6 +259,7 @@ def delete_with_filters(
 def _delete_one_urn(
     urn: str,
     soft: bool = False,
+    remove_dangling: bool = False,
     dry_run: bool = False,
     entity_type: str = "dataset",
     cached_session_host: Optional[Tuple[sessions.Session, str]] = None,
@@ -282,7 +297,7 @@ def _delete_one_urn(
             logger.info(f"[Dry-run] Would soft-delete {urn}")
     else:
         if not dry_run:
-            payload_obj = {"urn": urn}
+            payload_obj = {"urn": urn, "includeDangling": remove_dangling}
             urn, rows_affected = cli_utils.post_delete_endpoint(
                 payload_obj,
                 "/entities?action=delete",
@@ -301,6 +316,7 @@ def _delete_one_urn(
 def delete_one_urn_cmd(
     urn: str,
     soft: bool = False,
+    remove_dangling: bool = False,
     dry_run: bool = False,
     entity_type: str = "dataset",
     cached_session_host: Optional[Tuple[sessions.Session, str]] = None,
@@ -315,8 +331,20 @@ def delete_one_urn_cmd(
     return _delete_one_urn(
         urn,
         soft,
+        remove_dangling,
         dry_run,
         entity_type,
         cached_session_host,
         cached_emitter,
+    )
+
+
+def _get_references_for(
+    urn: str, cached_session_host: Optional[Tuple[sessions.Session, str]] = None
+) -> int:
+    payload_obj = {"urn": urn}
+    return cli_utils.post_get_references_endpoint(
+        payload_obj,
+        "/entities?action=getReferencesTo",
+        cached_session_host=cached_session_host,
     )

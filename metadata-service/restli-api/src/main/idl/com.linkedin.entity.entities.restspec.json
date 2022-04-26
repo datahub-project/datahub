@@ -89,6 +89,10 @@
       "parameters" : [ {
         "name" : "urn",
         "type" : "string"
+      }, {
+        "name" : "includeDangling",
+        "type" : "boolean",
+        "optional" : true
       } ],
       "returns" : "com.linkedin.metadata.run.DeleteEntityResponse"
     }, {
@@ -130,6 +134,13 @@
         "type" : "com.linkedin.common.Urn"
       } ],
       "returns" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
+    }, {
+      "name" : "getReferencesTo",
+      "parameters" : [ {
+        "name" : "urn",
+        "type" : "string"
+      } ],
+      "returns" : "com.linkedin.metadata.graph.RelationshipResult"
     }, {
       "name" : "getTotalEntityCount",
       "parameters" : [ {

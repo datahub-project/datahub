@@ -18,9 +18,7 @@ import java.util.List;
 import java.util.Map;
 import org.testng.annotations.Test;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertThrows;
-import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.*;
 
 
 /**
@@ -198,5 +196,19 @@ public class EntitySpecBuilderTest {
         .getSearchScoreAnnotation()
         .getFieldName());
   }
+
+ /* @BeforeTest
+  public void disableAssert() {
+    PathSpecBasedSchemaAnnotationVisitor.class.getClassLoader()
+        .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
+  }
+
+  @Test
+  public void testRegistry() throws EntityRegistryException, IOException {
+    final EntityRegistry entityRegistry = new ConfigEntityRegistry(
+        "/Users/pedro/dev/oss/personal/datahub/metadata-models/src/main/resources/entity-registry.yml");
+    //entityRegistry;
+    entityRegistry.getEntitySpecs();
+  }*/
 
 }

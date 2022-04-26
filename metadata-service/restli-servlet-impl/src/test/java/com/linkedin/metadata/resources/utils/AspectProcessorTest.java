@@ -1,4 +1,4 @@
-package com.linkedin.metadata.kafka.hook;
+package com.linkedin.metadata.resources.utils;
 
 import com.datahub.util.RecordUtils;
 import com.linkedin.data.DataList;
@@ -11,7 +11,6 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.schema.SchemaMetadata;
 import junit.framework.TestCase;
 import org.testng.annotations.Test;
-
 
 public class AspectProcessorTest extends TestCase {
 
@@ -165,11 +164,52 @@ public class AspectProcessorTest extends TestCase {
     assertFalse(updatedAspect.data().containsKey("key_c"));
   }
 
+  @Test
+  public void testRemovalFromSingleArray() throws CloneNotSupportedException {
+    final String value = "{\"key_a\": [\"hello\"]}";
+    final Aspect aspect = RecordUtils.toRecordTemplate(Aspect.class, value);
+
+    final PdlSchemaParser pdlSchemaParser = new PdlSchemaParser(new DefaultDataSchemaResolver());
+    pdlSchemaParser.parse("record simple_record {\n"
+        + "key_a: array[string]\n"
+        + "}");
+
+    assertEquals(1, ((DataList) aspect.data().get("key_a")).size());
+
+    final DataSchema schema = pdlSchemaParser.lookupName("simple_record");
+    final Aspect updatedAspect = AspectProcessor.removeAspect("hello", aspect, schema,
+        new PathSpec("key_a", "*"));
+
+    assertTrue(updatedAspect.data().containsKey("key_a"));
+    assertTrue(((DataList) updatedAspect.data().get("key_a")).isEmpty());
+  }
+
+  @Test
+  public void testRemovalFromMultipleArray() throws CloneNotSupportedException {
+    final String value = "{\"key_a\": [\"hello\", \"world\"]}";
+    final Aspect aspect = RecordUtils.toRecordTemplate(Aspect.class, value);
+
+    final PdlSchemaParser pdlSchemaParser = new PdlSchemaParser(new DefaultDataSchemaResolver());
+    pdlSchemaParser.parse("record simple_record {\n"
+        + "key_a: array[string]\n"
+        + "}");
+
+    assertEquals(2, ((DataList) aspect.data().get("key_a")).size());
+
+    final DataSchema schema = pdlSchemaParser.lookupName("simple_record");
+    final Aspect updatedAspect = AspectProcessor.removeAspect("hello", aspect, schema,
+        new PathSpec("key_a", "*"));
+
+    assertTrue(updatedAspect.data().containsKey("key_a"));
+    assertEquals(1, ((DataList) updatedAspect.data().get("key_a")).size());
+    assertEquals("world", ((DataList) updatedAspect.data().get("key_a")).get(0));
+  }
+
   /**
    * Tests that Aspect Processor is able to remove sub-field from array field while preserving nested structs.
    */
   @Test
-  public void testRemovalFromArray() throws CloneNotSupportedException {
+  public void testRemovalNestedFieldFromArray() throws CloneNotSupportedException {
     final String value = "{\"key_c\": [{\"key_a\": \"hello\", \"key_b\": \"world\"}, {\"key_b\": \"extra info\"}]}";
     final Aspect aspect = RecordUtils.toRecordTemplate(Aspect.class, value);
 
