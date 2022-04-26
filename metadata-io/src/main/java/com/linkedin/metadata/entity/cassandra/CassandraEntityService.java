@@ -1,4 +1,4 @@
-package com.linkedin.metadata.entity.ebean;
+package com.linkedin.metadata.entity.cassandra;
 
 import com.datahub.util.RecordUtils;
 import com.google.common.base.Preconditions;
@@ -9,9 +9,9 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.DataTemplateUtil;
-import com.linkedin.data.template.JacksonDataTemplateCodec;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
@@ -58,77 +58,26 @@ import java.util.stream.Collectors;
 import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
 import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
 
-
-/**
- * Ebean-based implementation of {@link EntityService}, serving entity and aspect {@link RecordTemplate}s
- * based on data stored in a relational table supported by Ebean ORM.
- */
 @Slf4j
-public class EbeanEntityService extends EntityService {
+public class CassandraEntityService extends EntityService {
 
   private static final int DEFAULT_MAX_TRANSACTION_RETRY = 3;
 
-  private final EbeanAspectDao _aspectDao;
-  private final JacksonDataTemplateCodec _dataTemplateCodec = new JacksonDataTemplateCodec();
+  private final CassandraAspectDao _aspectDao;
 
-  public EbeanEntityService(@Nonnull final EbeanAspectDao aspectDao, @Nonnull final EventProducer eventProducer,
+  public CassandraEntityService(
+      @Nonnull final CassandraAspectDao aspectDao,
+      @Nonnull final EventProducer eventProducer,
       @Nonnull final EntityRegistry entityRegistry) {
     super(eventProducer, entityRegistry);
     _aspectDao = aspectDao;
   }
 
-  @Nonnull
-  private Map<String, EbeanAspectV2> getLatestAspectForUrn(@Nonnull final Urn urn, @Nonnull final Set<String> aspectNames) {
-      Set<Urn> urns = new HashSet<>();
-      urns.add(urn);
-
-      Map<String, EbeanAspectV2> result = new HashMap<>();
-      getLatestAspect(urns, aspectNames).forEach((key, aspectEntry) -> {
-        final String aspectName = key.getAspect();
-        result.put(aspectName, aspectEntry);
-      });
-      return result;
-  }
-
-  @Nonnull
-  private Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> getLatestAspect(@Nonnull final Set<Urn> urns, @Nonnull final Set<String> aspectNames) {
-
-    log.debug("Invoked getLatestAspects with urns: {}, aspectNames: {}", urns, aspectNames);
-
-    // Create DB keys
-    final Set<EbeanAspectV2.PrimaryKey> dbKeys = urns.stream().map(urn -> {
-      final Set<String> aspectsToFetch = aspectNames.isEmpty() ? getEntityAspectNames(urn) : aspectNames;
-      return aspectsToFetch.stream()
-          .map(aspectName -> new EbeanAspectV2.PrimaryKey(urn.toString(), aspectName, ASPECT_LATEST_VERSION))
-          .collect(Collectors.toList());
-    }).flatMap(List::stream).collect(Collectors.toSet());
-
-    Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> batchGetResults = new HashMap<>();
-    Iterators.partition(dbKeys.iterator(), MAX_KEYS_PER_QUERY)
-        .forEachRemaining(batch -> batchGetResults.putAll(_aspectDao.batchGet(ImmutableSet.copyOf(batch))));
-    return batchGetResults;
-  }
-
   @Override
   @Nonnull
-  public Map<String, RecordTemplate> getLatestAspectsForUrn(@Nonnull final Urn urn, @Nonnull final Set<String> aspectNames) {
-    Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> batchGetResults = getLatestAspect(new HashSet<>(Arrays.asList(urn)), aspectNames);
+  public Map<Urn, List<RecordTemplate>> getLatestAspects(@Nonnull Set<Urn> urns, @Nonnull Set<String> aspectNames) {
 
-    final Map<String, RecordTemplate> result = new HashMap<>();
-    batchGetResults.forEach((key, aspectEntry) -> {
-      final String aspectName = key.getAspect();
-      final RecordTemplate aspectRecord = EntityUtils.toAspectRecord(urn, aspectName, aspectEntry.getMetadata(), getEntityRegistry());
-      result.put(aspectName, aspectRecord);
-    });
-    return result;
-  }
-
-  @Override
-  @Nonnull
-  public Map<Urn, List<RecordTemplate>> getLatestAspects(@Nonnull final Set<Urn> urns,
-      @Nonnull final Set<String> aspectNames) {
-
-    Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> batchGetResults = getLatestAspect(urns, aspectNames);
+    Map<CassandraAspect.PrimaryKey, CassandraAspect> batchGetResults = getLatestAspect(urns, aspectNames);
 
     // Fetch from db and populate urn -> aspect map.
     final Map<Urn, List<RecordTemplate>> urnToAspects = new HashMap<>();
@@ -161,27 +110,29 @@ public class EbeanEntityService extends EntityService {
     return urnToAspects;
   }
 
-  /*
-   * When a user tries to fetch a negative version, we want to index most recent to least recent snapshots.
-   * To do this, we want to fetch the maximum version and subtract the negative version from that. Since -1 represents
-   * the maximum version, we need to add 1 to the final result.
-   */
-  private long calculateVersionNumber(@Nonnull final Urn urn, @Nonnull final String aspectName, @Nonnull long version) {
-    if (version < 0) {
-      return _aspectDao.getMaxVersion(urn.toString(), aspectName) + version + 1;
-    }
-    return version;
+  @Override
+  @Nonnull
+  public Map<String, RecordTemplate> getLatestAspectsForUrn(@Nonnull final Urn urn, @Nonnull final Set<String> aspectNames) {
+    Map<CassandraAspect.PrimaryKey, CassandraAspect> batchGetResults = getLatestAspect(new HashSet<>(Arrays.asList(urn)), aspectNames);
+
+    final Map<String, RecordTemplate> result = new HashMap<>();
+    batchGetResults.forEach((key, aspectEntry) -> {
+      final String aspectName = key.getAspect();
+      final RecordTemplate aspectRecord = EntityUtils.toAspectRecord(urn, aspectName, aspectEntry.getMetadata(), getEntityRegistry());
+      result.put(aspectName, aspectRecord);
+    });
+    return result;
   }
 
   @Override
   @Nullable
-  public RecordTemplate getAspect(@Nonnull final Urn urn, @Nonnull final String aspectName, @Nonnull long version) {
+  public RecordTemplate getAspect(@Nonnull final Urn urn, @Nonnull final String aspectName, long version) {
 
     log.debug("Invoked getAspect with urn: {}, aspectName: {}, version: {}", urn, aspectName, version);
 
     version = calculateVersionNumber(urn, aspectName, version);
-    final EbeanAspectV2.PrimaryKey primaryKey = new EbeanAspectV2.PrimaryKey(urn.toString(), aspectName, version);
-    final Optional<EbeanAspectV2> maybeAspect = Optional.ofNullable(_aspectDao.getAspect(primaryKey));
+    final CassandraAspect.PrimaryKey primaryKey = new CassandraAspect.PrimaryKey(urn.toString(), aspectName, version);
+    final Optional<CassandraAspect> maybeAspect = Optional.ofNullable(_aspectDao.getAspect(primaryKey));
     return maybeAspect.map(
         aspect -> EntityUtils.toAspectRecord(urn, aspectName, aspect.getMetadata(), getEntityRegistry())).orElse(null);
   }
@@ -193,19 +144,19 @@ public class EbeanEntityService extends EntityService {
       @Nonnull Set<Urn> urns,
       @Nonnull Set<String> aspectNames) throws URISyntaxException {
 
-    final Set<EbeanAspectV2.PrimaryKey> dbKeys = urns.stream()
+    final Set<CassandraAspect.PrimaryKey> dbKeys = urns.stream()
         .map(urn -> aspectNames.stream()
-            .map(aspectName -> new EbeanAspectV2.PrimaryKey(urn.toString(), aspectName, ASPECT_LATEST_VERSION))
+            .map(aspectName -> new CassandraAspect.PrimaryKey(urn.toString(), aspectName, ASPECT_LATEST_VERSION))
             .collect(Collectors.toList()))
         .flatMap(List::stream)
         .collect(Collectors.toSet());
 
-    final Map<EbeanAspectV2.PrimaryKey, EnvelopedAspect> envelopedAspectMap = getEnvelopedAspects(dbKeys);
+    final Map<CassandraAspect.PrimaryKey, EnvelopedAspect> envelopedAspectMap = getEnvelopedAspects(dbKeys);
 
     // Group result by Urn
     final Map<String, List<EnvelopedAspect>> urnToAspects = envelopedAspectMap.entrySet()
         .stream()
-        .collect(Collectors.groupingBy(entry -> entry.getKey().getUrn(),
+        .collect(Collectors.groupingBy(kvp -> kvp.getKey().getUrn(),
             Collectors.mapping(Map.Entry::getValue, Collectors.toList())));
 
     // For each input urn, get the aspects corresponding to the urn. If empty, return the key aspect
@@ -230,15 +181,12 @@ public class EbeanEntityService extends EntityService {
       @Nonnull Urn urn,
       @Nonnull String aspectName,
       long version) throws Exception {
-    log.debug(String.format("Invoked getEnvelopedAspect with entityName: %s, urn: %s, aspectName: %s, version: %s",
-        entityName,
-        urn,
-        aspectName,
-        version));
+    log.debug("Invoked getEnvelopedAspect with entityName: {}, urn: {}, aspectName: {}, version: {}",
+        entityName, urn, aspectName, version);
 
     version = calculateVersionNumber(urn, aspectName, version);
 
-    final EbeanAspectV2.PrimaryKey primaryKey = new EbeanAspectV2.PrimaryKey(urn.toString(), aspectName, version);
+    final CassandraAspect.PrimaryKey primaryKey = new CassandraAspect.PrimaryKey(urn.toString(), aspectName, version);
     return getEnvelopedAspects(ImmutableSet.of(primaryKey)).get(primaryKey);
   }
 
@@ -251,8 +199,8 @@ public class EbeanEntityService extends EntityService {
 
     version = calculateVersionNumber(urn, aspectName, version);
 
-    final EbeanAspectV2.PrimaryKey primaryKey = new EbeanAspectV2.PrimaryKey(urn.toString(), aspectName, version);
-    final Optional<EbeanAspectV2> maybeAspect = Optional.ofNullable(_aspectDao.getAspect(primaryKey));
+    final CassandraAspect.PrimaryKey primaryKey = new CassandraAspect.PrimaryKey(urn.toString(), aspectName, version);
+    final Optional<CassandraAspect> maybeAspect = Optional.ofNullable(_aspectDao.getAspect(primaryKey));
     RecordTemplate aspectRecord =
         maybeAspect.map(aspect -> EntityUtils.toAspectRecord(urn, aspectName, aspect.getMetadata(), getEntityRegistry()))
             .orElse(null);
@@ -272,11 +220,14 @@ public class EbeanEntityService extends EntityService {
 
   @Override
   @Nonnull
-  public ListResult<RecordTemplate> listLatestAspects(@Nonnull final String entityName,
-      @Nonnull final String aspectName, final int start, final int count) {
+  public ListResult<RecordTemplate> listLatestAspects(
+      @Nonnull final String entityName,
+      @Nonnull final String aspectName,
+      final int start,
+      final int count) {
 
     log.debug("Invoked listLatestAspects with entityName: {}, aspectName: {}, start: {}, count: {}", entityName,
-            aspectName, start, count);
+        aspectName, start, count);
 
     final ListResult<String> aspectMetadataList =
         _aspectDao.listLatestAspectMetadata(entityName, aspectName, start, count);
@@ -294,14 +245,16 @@ public class EbeanEntityService extends EntityService {
 
   @Override
   @Nonnull
-  protected UpdateAspectResult ingestAspectToLocalDB(@Nonnull final Urn urn, @Nonnull final String aspectName,
+  protected UpdateAspectResult ingestAspectToLocalDB(
+      @Nonnull final Urn urn,
+      @Nonnull final String aspectName,
       @Nonnull final Function<Optional<RecordTemplate>, RecordTemplate> updateLambda,
-      @Nonnull final AuditStamp auditStamp, @Nonnull final SystemMetadata providedSystemMetadata) {
+      @Nonnull final AuditStamp auditStamp,
+      @Nonnull final SystemMetadata providedSystemMetadata) {
 
     return _aspectDao.runInTransactionWithRetry(() -> {
-      final String urnStr = urn.toString();
-      final EbeanAspectV2 latest = _aspectDao.getLatestAspect(urnStr, aspectName);
-      long nextVersion = _aspectDao.getNextVersion(urnStr, aspectName);
+      final CassandraAspect latest = _aspectDao.getLatestAspect(urn.toString(), aspectName);
+      long nextVersion = _aspectDao.getNextVersion(urn.toString(), aspectName);
 
       return ingestAspectToLocalDBNoTransaction(urn, aspectName, updateLambda, auditStamp, providedSystemMetadata, latest, nextVersion);
     }, DEFAULT_MAX_TRANSACTION_RETRY);
@@ -318,88 +271,59 @@ public class EbeanEntityService extends EntityService {
     return _aspectDao.runInTransactionWithRetry(() -> {
 
       final Set<String> aspectNames = aspectRecordsToIngest
-        .stream()
-        .map(Pair::getFirst)
-        .collect(Collectors.toSet());
+          .stream()
+          .map(Pair::getFirst)
+          .collect(Collectors.toSet());
 
-      Map<String, EbeanAspectV2> latestAspects = getLatestAspectForUrn(urn, aspectNames);
+      Map<String, CassandraAspect> latestAspects = getLatestAspectForUrn(urn, aspectNames);
       Map<String, Long> nextVersions = _aspectDao.getNextVersions(urn.toString(), aspectNames);
 
       List<Pair<String, UpdateAspectResult>> result = new ArrayList<>();
       for (Pair<String, RecordTemplate> aspectRecord: aspectRecordsToIngest) {
         String aspectName = aspectRecord.getFirst();
         RecordTemplate newValue = aspectRecord.getSecond();
-        EbeanAspectV2 latest = latestAspects.get(aspectName);
+        CassandraAspect latest = latestAspects.get(aspectName);
         long nextVersion = nextVersions.get(aspectName);
         UpdateAspectResult updateResult = ingestAspectToLocalDBNoTransaction(urn, aspectName, ignored -> newValue, auditStamp, systemMetadata,
-          latest, nextVersion);
+            latest, nextVersion);
         result.add(new Pair<>(aspectName, updateResult));
       }
       return result;
     }, DEFAULT_MAX_TRANSACTION_RETRY);
   }
 
-  @Nonnull
-  private UpdateAspectResult ingestAspectToLocalDBNoTransaction(@Nonnull final Urn urn,
-     @Nonnull final String aspectName, @Nonnull final Function<Optional<RecordTemplate>, RecordTemplate> updateLambda,
-     @Nonnull final AuditStamp auditStamp, @Nonnull final SystemMetadata providedSystemMetadata, @Nullable final EbeanAspectV2 latest,
-     @Nonnull final Long nextVersion) {
-
-    // 2. Compare the latest existing and new.
-    final RecordTemplate oldValue =
-            latest == null ? null : EntityUtils.toAspectRecord(urn, aspectName, latest.getMetadata(), getEntityRegistry());
-    final RecordTemplate newValue = updateLambda.apply(Optional.ofNullable(oldValue));
-
-    // 3. If there is no difference between existing and new, we just update
-    // the lastObserved in system metadata. RunId should stay as the original runId
-    if (oldValue != null && DataTemplateUtil.areEqual(oldValue, newValue)) {
-      SystemMetadata latestSystemMetadata = EntityUtils.parseSystemMetadata(latest.getSystemMetadata());
-      latestSystemMetadata.setLastObserved(providedSystemMetadata.getLastObserved());
-
-      latest.setSystemMetadata(RecordUtils.toJsonString(latestSystemMetadata));
-
-      _aspectDao.saveAspect(latest, false);
-
-      return new UpdateAspectResult(urn, oldValue, oldValue,
-              EntityUtils.parseSystemMetadata(latest.getSystemMetadata()), latestSystemMetadata,
-              MetadataAuditOperation.UPDATE, auditStamp, 0);
-    }
-
-    // 4. Save the newValue as the latest version
-    log.debug("Ingesting aspect with name {}, urn {}", aspectName, urn);
-    long versionOfOld = _aspectDao.saveLatestAspect(urn.toString(), aspectName, latest == null ? null : EntityUtils.toJsonAspect(oldValue),
-            latest == null ? null : latest.getCreatedBy(), latest == null ? null : latest.getCreatedFor(),
-            latest == null ? null : latest.getCreatedOn(), latest == null ? null : latest.getSystemMetadata(),
-            EntityUtils.toJsonAspect(newValue), auditStamp.getActor().toString(),
-            auditStamp.hasImpersonator() ? auditStamp.getImpersonator().toString() : null,
-            new Timestamp(auditStamp.getTime()), EntityUtils.toJsonAspect(providedSystemMetadata), nextVersion);
-
-    return new UpdateAspectResult(urn, oldValue, newValue,
-            latest == null ? null : EntityUtils.parseSystemMetadata(latest.getSystemMetadata()), providedSystemMetadata,
-            MetadataAuditOperation.UPDATE, auditStamp, versionOfOld);
-  }
-
   @Override
   @Nonnull
-  public RecordTemplate updateAspect(@Nonnull final Urn urn, @Nonnull final String entityName,
-      @Nonnull final String aspectName, @Nonnull final AspectSpec aspectSpec, @Nonnull final RecordTemplate newValue,
-      @Nonnull final AuditStamp auditStamp, @Nonnull final long version, @Nonnull final boolean emitMae) {
+  public RecordTemplate updateAspect(
+      @Nonnull final Urn urn,
+      @Nonnull final String entityName,
+      @Nonnull final String aspectName,
+      @Nonnull final AspectSpec aspectSpec,
+      @Nonnull final RecordTemplate newValue,
+      @Nonnull final AuditStamp auditStamp,
+      @Nonnull final long version,
+      @Nonnull final boolean emitMae) {
     log.debug(
         "Invoked updateAspect with urn: {}, aspectName: {}, newValue: {}, version: {}, emitMae: {}", urn,
-            aspectName, newValue, version, emitMae);
+        aspectName, newValue, version, emitMae);
     return updateAspect(urn, entityName, aspectName, aspectSpec, newValue, auditStamp, version, emitMae,
         DEFAULT_MAX_TRANSACTION_RETRY);
   }
 
   @Nonnull
-  private RecordTemplate updateAspect(@Nonnull final Urn urn, @Nonnull final String entityName,
-      @Nonnull final String aspectName, @Nonnull final AspectSpec aspectSpec, @Nonnull final RecordTemplate value,
-      @Nonnull final AuditStamp auditStamp, @Nonnull final long version, @Nonnull final boolean emitMae,
+  private RecordTemplate updateAspect(
+      @Nonnull final Urn urn,
+      @Nonnull final String entityName,
+      @Nonnull final String aspectName,
+      @Nonnull final AspectSpec aspectSpec,
+      @Nonnull final RecordTemplate value,
+      @Nonnull final AuditStamp auditStamp,
+      @Nonnull final long version,
+      @Nonnull final boolean emitMae,
       final int maxTransactionRetry) {
-
     final UpdateAspectResult result = _aspectDao.runInTransactionWithRetry(() -> {
 
-      final EbeanAspectV2 oldAspect = _aspectDao.getAspect(urn.toString(), aspectName, version);
+      final CassandraAspect oldAspect = _aspectDao.getAspect(urn.toString(), aspectName, version);
       final RecordTemplate oldValue =
           oldAspect == null ? null : EntityUtils.toAspectRecord(urn, aspectName, oldAspect.getMetadata(), getEntityRegistry());
 
@@ -434,132 +358,37 @@ public class EbeanEntityService extends EntityService {
     return newValue;
   }
 
+  @Override
+  @Nonnull
+  public ListUrnsResult listUrns(@Nonnull final String entityName, final int start, final int count) {
+    log.debug("Invoked listUrns with entityName: {}, start: {}, count: {}", entityName, start, count);
+
+    // If a keyAspect exists, the entity exists.
+    final String keyAspectName = getEntityRegistry().getEntitySpec(entityName).getKeyAspectSpec().getName();
+    final ListResult<String> keyAspectList = _aspectDao.listUrns(keyAspectName, start, count);
+
+    final ListUrnsResult result = new ListUrnsResult();
+    result.setStart(start);
+    result.setCount(keyAspectList.getValues().size());
+    result.setTotal(keyAspectList.getTotalCount());
+
+    // Extract urns
+    final UrnArray entityUrns = new UrnArray();
+    for (String urn : keyAspectList.getValues()) {
+      try {
+        entityUrns.add(Urn.createFromString(urn));
+      } catch (URISyntaxException e) {
+        throw new IllegalArgumentException(String.format("Failed to convert urn %s found in db to Urn object.", urn), e);
+      }
+    }
+    result.setEntities(entityUrns);
+    return result;
+  }
+
+  @Override
   public void setWritable(boolean canWrite) {
     log.debug("Setting writable to {}", canWrite);
     _aspectDao.setWritable(canWrite);
-  }
-
-  @Nullable
-  public RollbackResult deleteAspect(String urn, String aspectName, Map<String, String> conditions, boolean hardDelete) {
-    // Validate pre-conditions before running queries
-    Urn entityUrn;
-    EntitySpec entitySpec;
-    try {
-      entityUrn = Urn.createFromString(urn);
-      String entityName = PegasusUtils.urnToEntityName(entityUrn);
-      entitySpec = getEntityRegistry().getEntitySpec(entityName);
-      Preconditions.checkState(entitySpec != null, String.format("Could not find entity definition for %s", entityName));
-      Preconditions.checkState(entitySpec.hasAspect(aspectName), String.format("Could not find aspect %s in definition for %s", aspectName, entityName));
-    } catch (URISyntaxException uriSyntaxException) {
-      // don't expect this to happen, so raising RuntimeException here
-      throw new RuntimeException(String.format("Failed to extract urn from %s", urn));
-    }
-
-    final RollbackResult result = _aspectDao.runInTransactionWithRetry(() -> {
-      Integer additionalRowsDeleted = 0;
-
-      // 1. Fetch the latest existing version of the aspect.
-      final EbeanAspectV2 latest = _aspectDao.getLatestAspect(urn, aspectName);
-
-      // 1.1 If no latest exists, skip this aspect
-      if (latest == null) {
-        return null;
-      }
-
-      // 2. Compare the match conditions, if they don't match, ignore.
-      SystemMetadata latestSystemMetadata = EntityUtils.parseSystemMetadata(latest.getSystemMetadata());
-      if (!filterMatch(latestSystemMetadata, conditions)) {
-        return null;
-      }
-      String latestMetadata = latest.getMetadata();
-
-      // 3. Check if this is a key aspect
-      Boolean isKeyAspect = false;
-      try {
-        isKeyAspect = getKeyAspectName(Urn.createFromString(urn)).equals(aspectName);
-      } catch (URISyntaxException e) {
-        e.printStackTrace();
-      }
-
-      // 4. Fetch all preceding aspects, that match
-      List<EbeanAspectV2> aspectsToDelete = new ArrayList<>();
-      long maxVersion = _aspectDao.getMaxVersion(urn, aspectName);
-      EbeanAspectV2 survivingAspect = null;
-      String previousMetadata = null;
-      boolean filterMatch = true;
-      while (maxVersion > 0 && filterMatch)  {
-        EbeanAspectV2 candidateAspect = _aspectDao.getAspect(urn, aspectName, maxVersion);
-        SystemMetadata previousSysMetadata = EntityUtils.parseSystemMetadata(candidateAspect.getSystemMetadata());
-        filterMatch = filterMatch(previousSysMetadata, conditions);
-        if (filterMatch) {
-          aspectsToDelete.add(candidateAspect);
-          maxVersion = maxVersion - 1;
-        } else {
-          survivingAspect = candidateAspect;
-          previousMetadata = survivingAspect.getMetadata();
-        }
-      }
-
-      // 5. Apply deletes and fix up latest row
-
-      aspectsToDelete.forEach(aspect -> _aspectDao.deleteAspect(aspect));
-
-      if (survivingAspect != null) {
-        // if there was a surviving aspect, copy its information into the latest row
-        // eBean does not like us updating a pkey column (version) for the surviving aspect
-        // as a result we copy information from survivingAspect to latest and delete survivingAspect
-        latest.setMetadata(survivingAspect.getMetadata());
-        latest.setSystemMetadata(survivingAspect.getSystemMetadata());
-        latest.setCreatedOn(survivingAspect.getCreatedOn());
-        latest.setCreatedBy(survivingAspect.getCreatedBy());
-        latest.setCreatedFor(survivingAspect.getCreatedFor());
-        _aspectDao.saveAspect(latest, false);
-        _aspectDao.deleteAspect(survivingAspect);
-      } else {
-        if (isKeyAspect) {
-          if (hardDelete) {
-            // If this is the key aspect, delete the entity entirely.
-            additionalRowsDeleted = _aspectDao.deleteUrn(urn);
-          } else if (entitySpec.hasAspect(Constants.STATUS_ASPECT_NAME)) {
-            // soft delete by setting status.removed=true (if applicable)
-            final Status statusAspect = new Status();
-            statusAspect.setRemoved(true);
-            final SystemMetadata systemMetadata = SystemMetadataUtils.createDefaultSystemMetadata();
-            final AuditStamp auditStamp = AuditStampUtils.createDefaultAuditStamp();
-
-            this.ingestAspect(entityUrn, Constants.STATUS_ASPECT_NAME, statusAspect, auditStamp, systemMetadata);
-          }
-        } else {
-          // Else, only delete the specific aspect.
-          _aspectDao.deleteAspect(latest);
-        }
-      }
-
-      // 6. Emit the Update
-      try {
-        final RecordTemplate latestValue = latest == null ? null
-            : EntityUtils.toAspectRecord(Urn.createFromString(latest.getKey().getUrn()), latest.getKey().getAspect(),
-                latestMetadata, getEntityRegistry());
-
-        final RecordTemplate previousValue = survivingAspect == null ? null
-            : EntityUtils.toAspectRecord(Urn.createFromString(survivingAspect.getKey().getUrn()),
-                survivingAspect.getKey().getAspect(), previousMetadata, getEntityRegistry());
-
-        final Urn urnObj = Urn.createFromString(urn);
-        // We are not deleting key aspect if hardDelete has not been set so do not return a rollback result
-        if (isKeyAspect && !hardDelete) {
-          return null;
-        }
-        return new RollbackResult(urnObj, urnObj.getEntityType(), latest.getAspect(), latestValue,
-            previousValue, latestSystemMetadata,
-            previousValue == null ? null : EntityUtils.parseSystemMetadata(survivingAspect.getSystemMetadata()),
-            survivingAspect == null ? ChangeType.DELETE : ChangeType.UPSERT, isKeyAspect, additionalRowsDeleted);
-      } catch (URISyntaxException e) {
-        throw new RuntimeException(String.format("Failed to emit the update for urn %s", urn));
-      }
-    }, DEFAULT_MAX_TRANSACTION_RETRY);
-
-    return result;
   }
 
   @Override
@@ -569,8 +398,7 @@ public class EbeanEntityService extends EntityService {
 
     aspectRows.forEach(aspectToRemove -> {
 
-      RollbackResult result = deleteAspect(aspectToRemove.getUrn(), aspectToRemove.getAspectName(),
-          conditions, hardDelete);
+      RollbackResult result = deleteAspect(aspectToRemove.getUrn(), aspectToRemove.getAspectName(), conditions, hardDelete);
       if (result != null) {
         Optional<AspectSpec> aspectSpec = getAspectSpec(result.entityName, result.aspectName);
         if (!aspectSpec.isPresent()) {
@@ -600,7 +428,7 @@ public class EbeanEntityService extends EntityService {
     final AspectSpec keySpec = spec.getKeyAspectSpec();
     String keyAspectName = getKeyAspectName(urn);
 
-    EbeanAspectV2 latestKey = _aspectDao.getLatestAspect(urn.toString(), keyAspectName);
+    CassandraAspect latestKey = _aspectDao.getLatestAspect(urn.toString(), keyAspectName);
     if (latestKey == null || latestKey.getSystemMetadata() == null) {
       return new RollbackRunResult(removedAspects, rowsDeletedFromEntityDeletion);
     }
@@ -631,49 +459,170 @@ public class EbeanEntityService extends EntityService {
   @Override
   public Boolean exists(Urn urn) {
     final Set<String> aspectsToFetch = getEntityAspectNames(urn);
-    final List<EbeanAspectV2.PrimaryKey> dbKeys = aspectsToFetch.stream()
-        .map(aspectName -> new EbeanAspectV2.PrimaryKey(urn.toString(), aspectName, ASPECT_LATEST_VERSION))
+    final List<CassandraAspect.PrimaryKey> dbKeys = aspectsToFetch.stream()
+        .map(aspectName -> new CassandraAspect.PrimaryKey(urn.toString(), aspectName, ASPECT_LATEST_VERSION))
         .collect(Collectors.toList());
 
-    Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> aspects = _aspectDao.batchGet(new HashSet(dbKeys));
+    Map<CassandraAspect.PrimaryKey, CassandraAspect> aspects = _aspectDao.batchGet(new HashSet(dbKeys));
     return aspects.values().stream().anyMatch(aspect -> aspect != null);
   }
 
-  @Override
-  @Nonnull
-  public ListUrnsResult listUrns(@Nonnull final String entityName, final int start, final int count) {
-    log.debug("Invoked listUrns with entityName: {}, start: {}, count: {}", entityName, start, count);
-
-    // If a keyAspect exists, the entity exists.
-    final String keyAspectName = getEntityRegistry().getEntitySpec(entityName).getKeyAspectSpec().getName();
-    final ListResult<String> keyAspectList = _aspectDao.listUrns(entityName, keyAspectName, start, count);
-
-    final ListUrnsResult result = new ListUrnsResult();
-    result.setStart(start);
-    result.setCount(keyAspectList.getValues().size());
-    result.setTotal(keyAspectList.getTotalCount());
-
-    // Extract urns
-    final UrnArray entityUrns = new UrnArray();
-    for (String urn : keyAspectList.getValues()) {
-      try {
-        entityUrns.add(Urn.createFromString(urn));
-      } catch (URISyntaxException e) {
-        throw new IllegalArgumentException(String.format("Failed to convert urn %s found in db to Urn object.", urn),
-            e);
-      }
+  @Nullable
+  public RollbackResult deleteAspect(String urn, String aspectName, Map<String, String> conditions, boolean hardDelete) {
+    // Validate pre-conditions before running queries
+    Urn entityUrn;
+    EntitySpec entitySpec;
+    try {
+      entityUrn = Urn.createFromString(urn);
+      String entityName = PegasusUtils.urnToEntityName(entityUrn);
+      entitySpec = getEntityRegistry().getEntitySpec(entityName);
+      Preconditions.checkState(entitySpec != null, String.format("Could not find entity definition for %s", entityName));
+      Preconditions.checkState(entitySpec.hasAspect(aspectName), String.format("Could not find aspect %s in definition for %s", aspectName, entityName));
+    } catch (URISyntaxException uriSyntaxException) {
+      // don't expect this to happen, so raising RuntimeException here
+      throw new RuntimeException(String.format("Failed to extract urn from %s", urn));
     }
-    result.setEntities(entityUrns);
+
+    final RollbackResult result = _aspectDao.runInTransactionWithRetry(() -> {
+      Integer additionalRowsDeleted = 0;
+
+      // 1. Fetch the latest existing version of the aspect.
+      final CassandraAspect latest = _aspectDao.getLatestAspect(urn, aspectName);
+
+      // 1.1 If no latest exists, skip this aspect
+      if (latest == null) {
+        return null;
+      }
+
+      // 2. Compare the match conditions, if they don't match, ignore.
+      SystemMetadata latestSystemMetadata = EntityUtils.parseSystemMetadata(latest.getSystemMetadata());
+      if (!filterMatch(latestSystemMetadata, conditions)) {
+        return null;
+      }
+      String latestMetadata = latest.getMetadata();
+
+      // 3. Check if this is a key aspect
+      Boolean isKeyAspect = getKeyAspectName(UrnUtils.getUrn(urn)).equals(aspectName);
+
+      // 4. Fetch all preceding aspects, that match
+      List<CassandraAspect> aspectsToDelete = new ArrayList<>();
+      long maxVersion = _aspectDao.getMaxVersion(urn, aspectName);
+      CassandraAspect survivingAspect = null;
+      String previousMetadata = null;
+      boolean filterMatch = true;
+      while (maxVersion > 0 && filterMatch)  {
+        CassandraAspect candidateAspect = _aspectDao.getAspect(urn, aspectName, maxVersion);
+        SystemMetadata previousSysMetadata = EntityUtils.parseSystemMetadata(candidateAspect.getSystemMetadata());
+        filterMatch = filterMatch(previousSysMetadata, conditions);
+        if (filterMatch) {
+          aspectsToDelete.add(candidateAspect);
+          maxVersion = maxVersion - 1;
+        } else {
+          survivingAspect = candidateAspect;
+          previousMetadata = survivingAspect.getMetadata();
+        }
+      }
+
+      // 5. Apply deletes and fix up latest row
+
+      aspectsToDelete.forEach(aspect -> _aspectDao.deleteAspect(aspect));
+
+      if (survivingAspect != null) {
+        // if there was a surviving aspect, copy its information into the latest row
+        latest.setMetadata(survivingAspect.getMetadata());
+        latest.setSystemMetadata(survivingAspect.getSystemMetadata());
+        latest.setCreatedOn(survivingAspect.getCreatedOn());
+        latest.setCreatedBy(survivingAspect.getCreatedBy());
+        latest.setCreatedFor(survivingAspect.getCreatedFor());
+        _aspectDao.saveAspect(latest, false);
+        _aspectDao.deleteAspect(survivingAspect);
+      } else {
+        if (isKeyAspect) {
+          if (hardDelete) {
+            // If this is the key aspect, delete the entity entirely.
+            additionalRowsDeleted = _aspectDao.deleteUrn(urn);
+          } else if (entitySpec.hasAspect(Constants.STATUS_ASPECT_NAME)) {
+            // soft delete by setting status.removed=true (if applicable)
+            final Status statusAspect = new Status();
+            statusAspect.setRemoved(true);
+            final SystemMetadata systemMetadata = SystemMetadataUtils.createDefaultSystemMetadata();
+            final AuditStamp auditStamp = AuditStampUtils.createDefaultAuditStamp();
+
+            this.ingestAspect(entityUrn, Constants.STATUS_ASPECT_NAME, statusAspect, auditStamp, systemMetadata);
+          }
+        } else {
+          // Else, only delete the specific aspect.
+          _aspectDao.deleteAspect(latest);
+        }
+      }
+
+      // 6. Emit the Update
+      try {
+        final RecordTemplate latestValue = latest == null ? null
+            : EntityUtils.toAspectRecord(Urn.createFromString(latest.getUrn()), latest.getAspect(),
+            latestMetadata, getEntityRegistry());
+
+        final RecordTemplate previousValue = survivingAspect == null ? null
+            : EntityUtils.toAspectRecord(Urn.createFromString(survivingAspect.getUrn()),
+            survivingAspect.getAspect(), previousMetadata, getEntityRegistry());
+
+        final Urn urnObj = Urn.createFromString(urn);
+        // We are not deleting key aspect if hardDelete has not been set so do not return a rollback result
+        if (isKeyAspect && !hardDelete) {
+          return null;
+        }
+        return new RollbackResult(urnObj, urnObj.getEntityType(), latest.getAspect(), latestValue,
+            previousValue == null ? latestValue : previousValue, latestSystemMetadata,
+            previousValue == null ? null : EntityUtils.parseSystemMetadata(survivingAspect.getSystemMetadata()),
+            survivingAspect == null ? ChangeType.DELETE : ChangeType.UPSERT, isKeyAspect, additionalRowsDeleted);
+      } catch (URISyntaxException e) {
+        throw new RuntimeException(String.format("Failed to emit the update for urn %s", urn));
+      }
+    }, DEFAULT_MAX_TRANSACTION_RETRY);
+
     return result;
   }
 
-  private Map<EbeanAspectV2.PrimaryKey, EnvelopedAspect> getEnvelopedAspects(final Set<EbeanAspectV2.PrimaryKey> dbKeys) throws URISyntaxException {
-    final Map<EbeanAspectV2.PrimaryKey, EnvelopedAspect> result = new HashMap<>();
-    final Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> dbEntries = _aspectDao.batchGet(dbKeys);
+  @Nonnull
+  private Map<CassandraAspect.PrimaryKey, CassandraAspect> getLatestAspect(
+      @Nonnull final Set<Urn> urns,
+      @Nonnull final Set<String> aspectNames) {
 
-    for (EbeanAspectV2.PrimaryKey currKey : dbKeys) {
+    log.debug("Invoked getLatestAspects with urns: {}, aspectNames: {}", urns, aspectNames);
 
-      final EbeanAspectV2 currAspectEntry = dbEntries.get(currKey);
+    // Create DB keys
+    final Set<CassandraAspect.PrimaryKey> dbKeys = urns.stream().map(urn -> {
+      final Set<String> aspectsToFetch = aspectNames.isEmpty() ? getEntityAspectNames(urn) : aspectNames;
+      return aspectsToFetch.stream()
+          .map(aspectName -> new CassandraAspect.PrimaryKey(urn.toString(), aspectName, ASPECT_LATEST_VERSION))
+          .collect(Collectors.toList());
+    }).flatMap(List::stream).collect(Collectors.toSet());
+
+    Map<CassandraAspect.PrimaryKey, CassandraAspect> batchGetResults = new HashMap<>();
+    Iterators.partition(dbKeys.iterator(), MAX_KEYS_PER_QUERY)
+        .forEachRemaining(batch -> batchGetResults.putAll(_aspectDao.batchGet(ImmutableSet.copyOf(batch))));
+    return batchGetResults;
+  }
+
+  /*
+   * When a user tries to fetch a negative version, we want to index most recent to least recent snapshots.
+   * To do this, we want to fetch the maximum version and subtract the negative version from that. Since -1 represents
+   * the maximum version, we need to add 1 to the final result.
+   */
+  private long calculateVersionNumber(@Nonnull final Urn urn, @Nonnull final String aspectName, @Nonnull long version) {
+    if (version < 0L) {
+      return _aspectDao.getMaxVersion(urn.toString(), aspectName) + version + 1L;
+    }
+    return version;
+  }
+
+  private Map<CassandraAspect.PrimaryKey, EnvelopedAspect> getEnvelopedAspects(final Set<CassandraAspect.PrimaryKey> dbKeys) throws URISyntaxException {
+    final Map<CassandraAspect.PrimaryKey, EnvelopedAspect> result = new HashMap<>();
+    final Map<CassandraAspect.PrimaryKey, CassandraAspect> dbEntries = _aspectDao.batchGet(dbKeys);
+
+    for (CassandraAspect.PrimaryKey currKey : dbKeys) {
+
+      final CassandraAspect currAspectEntry = dbEntries.get(currKey);
 
       if (currAspectEntry == null) {
         // No aspect found.
@@ -684,8 +633,8 @@ public class EbeanEntityService extends EntityService {
       final com.linkedin.entity.Aspect aspect = RecordUtils.toRecordTemplate(com.linkedin.entity.Aspect.class, currAspectEntry
           .getMetadata());
       final EnvelopedAspect envelopedAspect = new EnvelopedAspect();
-      envelopedAspect.setName(currAspectEntry.getKey().getAspect());
-      envelopedAspect.setVersion(currAspectEntry.getKey().getVersion());
+      envelopedAspect.setName(currAspectEntry.getAspect());
+      envelopedAspect.setVersion(currAspectEntry.getVersion());
       envelopedAspect.setValue(aspect);
       envelopedAspect.setCreated(new AuditStamp()
           .setActor(Urn.createFromString(currAspectEntry.getCreatedBy()))
@@ -711,5 +660,70 @@ public class EbeanEntityService extends EntityService {
         new AuditStamp().setActor(Urn.createFromString(SYSTEM_ACTOR)).setTime(System.currentTimeMillis()));
 
     return envelopedAspect;
+  }
+
+  @Nonnull
+  private UpdateAspectResult ingestAspectToLocalDBNoTransaction(
+      @Nonnull final Urn urn,
+      @Nonnull final String aspectName,
+      @Nonnull final Function<Optional<RecordTemplate>, RecordTemplate> updateLambda,
+      @Nonnull final AuditStamp auditStamp,
+      @Nonnull final SystemMetadata providedSystemMetadata,
+      @Nullable final CassandraAspect latest,
+      @Nonnull final Long nextVersion) {
+
+    // 2. Compare the latest existing and new.
+    final RecordTemplate oldValue =
+        latest == null ? null : EntityUtils.toAspectRecord(urn, aspectName, latest.getMetadata(), getEntityRegistry());
+    final RecordTemplate newValue = updateLambda.apply(Optional.ofNullable(oldValue));
+
+    // 3. If there is no difference between existing and new, we just update
+    // the lastObserved in system metadata. RunId should stay as the original runId
+    if (oldValue != null && DataTemplateUtil.areEqual(oldValue, newValue)) {
+      SystemMetadata latestSystemMetadata = EntityUtils.parseSystemMetadata(latest.getSystemMetadata());
+      latestSystemMetadata.setLastObserved(providedSystemMetadata.getLastObserved());
+
+      latest.setSystemMetadata(RecordUtils.toJsonString(latestSystemMetadata));
+
+      _aspectDao.saveAspect(latest, false);
+
+      return new UpdateAspectResult(urn, oldValue, oldValue,
+          EntityUtils.parseSystemMetadata(latest.getSystemMetadata()), latestSystemMetadata,
+          MetadataAuditOperation.UPDATE, auditStamp, 0);
+    }
+
+    // 4. Save the newValue as the latest version
+    log.debug("Ingesting aspect with name {}, urn {}", aspectName, urn);
+    long versionOfOld = _aspectDao.saveLatestAspect(
+        urn.toString(),
+        aspectName,
+        latest == null ? null : EntityUtils.toJsonAspect(oldValue),
+        latest == null ? null : latest.getCreatedBy(),
+        latest == null ? null : latest.getCreatedFor(),
+        latest == null ? null : latest.getCreatedOn(),
+        latest == null ? null : latest.getSystemMetadata(),
+        EntityUtils.toJsonAspect(newValue),
+        auditStamp.getActor().toString(),
+        auditStamp.hasImpersonator() ? auditStamp.getImpersonator().toString() : null,
+        new Timestamp(auditStamp.getTime()),
+        EntityUtils.toJsonAspect(providedSystemMetadata),
+        nextVersion);
+
+    return new UpdateAspectResult(urn, oldValue, newValue,
+        latest == null ? null : EntityUtils.parseSystemMetadata(latest.getSystemMetadata()), providedSystemMetadata,
+        MetadataAuditOperation.UPDATE, auditStamp, versionOfOld);
+  }
+
+  @Nonnull
+  private Map<String, CassandraAspect> getLatestAspectForUrn(@Nonnull final Urn urn, @Nonnull final Set<String> aspectNames) {
+    Set<Urn> urns = new HashSet<>();
+    urns.add(urn);
+
+    Map<String, CassandraAspect> result = new HashMap<>();
+    getLatestAspect(urns, aspectNames).forEach((key, aspectEntry) -> {
+      final String aspectName = key.getAspect();
+      result.put(aspectName, aspectEntry);
+    });
+    return result;
   }
 }

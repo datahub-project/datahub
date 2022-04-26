@@ -71,8 +71,8 @@ class PipelineConfig(ConfigModel):
             default_sink_config = {
                 "type": "datahub-rest",
                 "config": {
-                    "server": "${DATAHUB_SERVER:-http://localhost:8080}",
-                    "token": "${DATAHUB_TOKEN:-}",
+                    "server": "${DATAHUB_GMS_HOST:-http://localhost:8080}",
+                    "token": "${DATAHUB_GMS_TOKEN:-}",
                 },
             }
             # resolve env variables if present

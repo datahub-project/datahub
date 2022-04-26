@@ -27,7 +27,7 @@ public class BootstrapManagerFactory {
   @Qualifier("entityService")
   private EntityService _entityService;
 
-  @Autowired
+  @Autowired(required = false)
   @Qualifier("ebeanServer")
   private EbeanServer _server;
 
