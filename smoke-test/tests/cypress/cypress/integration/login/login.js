@@ -3,6 +3,7 @@ describe('login', () => {
     cy.visit('/');
     cy.get('input[placeholder=Username]').type('datahub');
     cy.get('input[placeholder=Password]').type('datahub');
+    cy.wait(5000);
     cy.contains('Log in').should('be.visible').click();
     cy.contains('Welcome back, datahub');
     // cy.contains('Log in').click();
