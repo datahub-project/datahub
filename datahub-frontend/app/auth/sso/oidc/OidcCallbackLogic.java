@@ -2,6 +2,9 @@ package auth.sso.oidc;
 
 import client.AuthServiceClient;
 import com.datahub.authentication.Authentication;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.CorpGroupUrnArray;
 import com.linkedin.common.CorpuserUrnArray;
@@ -45,7 +48,10 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+
 import lombok.extern.slf4j.Slf4j;
+import org.pac4j.core.authorization.generator.AuthorizationGenerator;
 import org.pac4j.core.config.Config;
 import org.pac4j.core.engine.DefaultCallbackLogic;
 import org.pac4j.core.http.adapter.HttpActionAdapter;
@@ -77,10 +83,10 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
   private final AuthServiceClient _authClient;
 
   public OidcCallbackLogic(
-      final SsoManager ssoManager,
-      final Authentication systemAuthentication,
-      final EntityClient entityClient,
-      final AuthServiceClient authClient) {
+          final SsoManager ssoManager,
+          final Authentication systemAuthentication,
+          final EntityClient entityClient,
+          final AuthServiceClient authClient) {
     _ssoManager = ssoManager;
     _systemAuthentication = systemAuthentication;
     _entityClient = entityClient;
@@ -89,8 +95,8 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
 
   @Override
   public Result perform(PlayWebContext context, Config config,
-      HttpActionAdapter<Result, PlayWebContext> httpActionAdapter, String defaultUrl, Boolean saveInSession,
-      Boolean multiProfile, Boolean renewSession, String defaultClient) {
+                        HttpActionAdapter<Result, PlayWebContext> httpActionAdapter, String defaultUrl, Boolean saveInSession,
+                        Boolean multiProfile, Boolean renewSession, String defaultClient) {
     final Result result = super.perform(context, config, httpActionAdapter, defaultUrl, saveInSession, multiProfile, renewSession, defaultClient);
 
     // Handle OIDC authentication errors.
@@ -104,17 +110,18 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
   }
 
   private Result handleOidcCallback(
-      final OidcConfigs oidcConfigs,
-      final Result result,
-      final PlayWebContext context,
-      final ProfileManager<CommonProfile> profileManager) {
+          final OidcConfigs oidcConfigs,
+          final Result result,
+          final PlayWebContext context,
+          final ProfileManager<CommonProfile> profileManager) {
 
     log.debug("Beginning OIDC Callback Handling...");
 
     if (profileManager.isAuthenticated()) {
+
       // If authenticated, the user should have a profile.
       final CommonProfile profile = profileManager.get(true).get();
-      log.debug(String.format("Found authenticated user with profile %s", profile.getAttributes().toString()));
+      log.debug(String.format("Checking the attributes of the profile: %s", profile.getAttributes().toString()));
 
       // Extract the User name required to log into DataHub.
       final String userName = extractUserNameOrThrow(oidcConfigs, profile);
@@ -140,13 +147,32 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
           log.debug("Pre Provisioning is required. Beginning validation of extracted user...");
           verifyPreProvisionedUser(corpUserUrn);
         }
+
+        // determine if we want to extract client roles through customParamResource
+        // using client-id and client_role "access"
+        if (oidcConfigs.getResourceClientRole().isPresent()){
+          Optional<List<String>> roleLists = extractClientRoles(oidcConfigs, profile);
+          // check if it is populated
+          if(roleLists.isPresent()){
+            // check for access role
+            if(!roleLists.get().equals(oidcConfigs.getResourceClientRole().get()))
+              return internalServerError(String.format("Failed to pass authorization-with-keycloak step. " +
+                      "Please ensure that you have the required role to access this app: %s:%s",
+                      oidcConfigs.getClientId(),oidcConfigs.getResourceClientRole().get()));
+          } else {
+            return internalServerError(String.format("Failed to pass authorization-with-keycloak step. " +
+                            "Please ensure that you have the required role to access this app: %s:%s",
+                    oidcConfigs.getClientId(),oidcConfigs.getResourceClientRole().get()));
+          }
+        }
+
         // Update user status to active on login.
         // If we want to prevent certain users from logging in, here's where we'll want to do it.
         setUserStatus(corpUserUrn, new CorpUserStatus()
-            .setStatus(Constants.CORP_USER_STATUS_ACTIVE)
-            .setLastModified(new AuditStamp()
-                .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
-                .setTime(System.currentTimeMillis()))
+                .setStatus(Constants.CORP_USER_STATUS_ACTIVE)
+                .setLastModified(new AuditStamp()
+                        .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
+                        .setTime(System.currentTimeMillis()))
         );
       } catch (Exception e) {
         log.error("Failed to perform post authentication steps. Redirecting to error page.", e);
@@ -162,29 +188,51 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     return internalServerError("Failed to authenticate current user. Cannot find valid identity provider profile in session.");
   }
 
+  private Optional<List<String>> extractClientRoles(final OidcConfigs oidcConfigs, final CommonProfile profile) {
+    // Ensure that the attribute exists (was returned by keycloak)
+    if (profile.containsAttribute("resource_access")) {
+      final String resourceAccessJsonStr = profile.getAttribute("resource_access").toString();
+      log.debug(String.format("Examining resource_access attribute: %s", resourceAccessJsonStr));
+      ObjectMapper objectMapper = new ObjectMapper();
+      try {
+        JsonNode jsonNode = objectMapper.readTree(resourceAccessJsonStr);
+        JsonNode roleArray = jsonNode.get(oidcConfigs.getClientId()).get("roles");
+        //iterate through the roles for this client
+        return Optional.of(StreamSupport.stream(roleArray.spliterator(), true)
+                .map(sObj -> sObj.asText())
+                .collect(Collectors.toList()));
+
+      } catch (JsonProcessingException e) {
+        log.error("Failed to extract roles.", e);
+      }
+    }
+
+    return Optional.empty();
+  }
+
   private String extractUserNameOrThrow(final OidcConfigs oidcConfigs, final CommonProfile profile) {
     // Ensure that the attribute exists (was returned by IdP)
     if (!profile.containsAttribute(oidcConfigs.getUserNameClaim())) {
       throw new RuntimeException(
-          String.format(
-              "Failed to resolve user name claim from profile provided by Identity Provider. Missing attribute. Attribute: '%s', Regex: '%s', Profile: %s",
-              oidcConfigs.getUserNameClaim(),
-              oidcConfigs.getUserNameClaimRegex(),
-              profile.getAttributes().toString()
-          ));
+              String.format(
+                      "Failed to resolve user name claim from profile provided by Identity Provider. Missing attribute. Attribute: '%s', Regex: '%s', Profile: %s",
+                      oidcConfigs.getUserNameClaim(),
+                      oidcConfigs.getUserNameClaimRegex(),
+                      profile.getAttributes().toString()
+              ));
     }
 
     final String userNameClaim = (String) profile.getAttribute(oidcConfigs.getUserNameClaim());
 
     final Optional<String> mappedUserName = extractRegexGroup(
-        oidcConfigs.getUserNameClaimRegex(),
-        userNameClaim);
+            oidcConfigs.getUserNameClaimRegex(),
+            userNameClaim);
 
     return mappedUserName.orElseThrow(() ->
-        new RuntimeException(String.format("Failed to extract DataHub username from username claim %s using regex %s. Profile: %s",
-            userNameClaim,
-            oidcConfigs.getUserNameClaimRegex(),
-            profile.getAttributes().toString())));
+            new RuntimeException(String.format("Failed to extract DataHub username from username claim %s using regex %s. Profile: %s",
+                    userNameClaim,
+                    oidcConfigs.getUserNameClaimRegex(),
+                    profile.getAttributes().toString())));
   }
 
   /**
@@ -275,9 +323,9 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
         return groupSnapshots;
       } catch (Exception e) {
         log.error(String.format(
-            "Failed to extract groups: Expected to find a list of strings for attribute with name %s, found %s",
-            groupsClaimName,
-            profile.getAttribute(groupsClaimName).getClass()));
+                "Failed to extract groups: Expected to find a list of strings for attribute with name %s, found %s",
+                groupsClaimName,
+                profile.getAttribute(groupsClaimName).getClass()));
       }
     }
     log.warn(String.format("Failed to extract groups: No OIDC claim with name %s found", groupsClaimName));
@@ -287,7 +335,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
   private GroupMembership createGroupMembership(final List<CorpGroupSnapshot> extractedGroups) {
     final GroupMembership groupMembershipAspect = new GroupMembership();
     groupMembershipAspect.setGroups(new UrnArray(extractedGroups.stream().map(CorpGroupSnapshot::getUrn).collect(
-        Collectors.toList())));
+            Collectors.toList())));
     return groupMembershipAspect;
   }
 
@@ -322,8 +370,8 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
   private void tryProvisionGroups(List<CorpGroupSnapshot> corpGroups) {
 
     log.debug(String.format("Attempting to provision groups with urns %s", corpGroups
-        .stream()
-        .map(CorpGroupSnapshot::getUrn).collect(Collectors.toList())));
+            .stream()
+            .map(CorpGroupSnapshot::getUrn).collect(Collectors.toList())));
 
     // 1. Check if this user already exists.
     try {
@@ -353,14 +401,14 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
       }
 
       List<Urn> groupsToCreateUrns = groupsToCreate
-          .stream()
-          .map(CorpGroupSnapshot::getUrn).collect(Collectors.toList());
+              .stream()
+              .map(CorpGroupSnapshot::getUrn).collect(Collectors.toList());
 
       log.debug(String.format("Provisioning groups with urns %s", groupsToCreateUrns));
 
       // Now batch create all entities identified to create.
       _entityClient.batchUpdate(groupsToCreate.stream().map(groupSnapshot ->
-          new Entity().setValue(Snapshot.create(groupSnapshot))
+              new Entity().setValue(Snapshot.create(groupSnapshot))
       ).collect(Collectors.toSet()), _systemAuthentication);
 
       log.debug(String.format("Successfully provisioned groups with urns %s", groupsToCreateUrns));
@@ -368,7 +416,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     } catch (RemoteInvocationException e) {
       // Failing provisioning is something worth throwing about.
       throw new RuntimeException(String.format("Failed to provision groups with urns %s.",
-          corpGroups.stream().map(CorpGroupSnapshot::getUrn).collect(Collectors.toList())), e);
+              corpGroups.stream().map(CorpGroupSnapshot::getUrn).collect(Collectors.toList())), e);
     }
   }
 
@@ -383,8 +431,8 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
       if (corpUser.getValue().getCorpUserSnapshot().getAspects().size() <= 1) {
         log.debug(String.format("Found user that does not yet exist %s. Invalid login attempt. Throwing...", urn));
         throw new RuntimeException(
-            String.format("User with urn %s has not yet been provisioned in DataHub. "
-                + "Please contact your DataHub admin to provision an account.", urn));
+                String.format("User with urn %s has not yet been provisioned in DataHub. "
+                        + "Please contact your DataHub admin to provision an account.", urn));
       }
       // Otherwise, the user exists.
     } catch (RemoteInvocationException e) {
