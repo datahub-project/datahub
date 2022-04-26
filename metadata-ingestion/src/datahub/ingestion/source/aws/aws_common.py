@@ -93,45 +93,13 @@ class AwsSourceConfig(ConfigModel):
             return Session(region_name=self.aws_region, profile_name=self.aws_profile)
 
     def get_credentials(self) -> dict[str, str]:
-        if (
-            self.aws_access_key_id
-            and self.aws_secret_access_key
-            and self.aws_session_token
-        ):
+        credentials = self.get_session().get_credentials()
+        if credentials is not None:
             return {
-                "aws_access_key_id": self.aws_access_key_id,
-                "aws_secret_access_key": self.aws_secret_access_key,
-                "aws_session_token": self.aws_session_token,
+                "aws_access_key_id": credentials.access_key,
+                "aws_secret_access_key": credentials.secret_key,
+                "aws_session_token": credentials.token,
             }
-        elif self.aws_access_key_id and self.aws_secret_access_key:
-            return {
-                "aws_access_key_id": self.aws_access_key_id,
-                "aws_secret_access_key": self.aws_secret_access_key,
-            }
-        elif self.aws_role:
-            if isinstance(self.aws_role, str):
-                credentials = assume_role(self.aws_role, self.aws_region)
-            else:
-                credentials = reduce(
-                    lambda new_credentials, role_arn: assume_role(
-                        role_arn, self.aws_region, new_credentials
-                    ),
-                    self.aws_role,
-                    {},
-                )
-            return {
-                "aws_access_key_id": credentials["AccessKeyId"],
-                "aws_secret_access_key": credentials["SecretAccessKey"],
-                "aws_session_token": credentials["SessionToken"],
-            }
-        else:
-            profile_credentials = self.get_session().get_credentials()
-            if profile_credentials is not None:
-                return {
-                    "aws_access_key_id": profile_credentials.access_key,
-                    "aws_secret_access_key": profile_credentials.secret_key,
-                    "aws_session_token": profile_credentials.token,
-                }
         return {}
 
     def get_s3_client(self) -> "S3Client":
