@@ -195,14 +195,6 @@ class S3Source(Source):
         self.source_config = config
         self.report = DataLakeSourceReport()
         self.profiling_times_taken = []
-
-        if (
-            config.use_s3_bucket_tags or config.use_s3_object_tags
-        ) and self.ctx.graph is None:
-            raise ConfigurationError(
-                """With use_s3_bucket_tags/use_s3_object_tags, GlueSource requires a datahub api to connect to.  This is enforced in order to maintain the current tags on the dataset object."""
-            )
-
         config_report = {
             config_option: config.dict().get(config_option)
             for config_option in config_options_to_report
@@ -244,15 +236,6 @@ class S3Source(Source):
             aws_access_key_id = self.source_config.aws_config.aws_access_key_id
             aws_secret_access_key = self.source_config.aws_config.aws_secret_access_key
             aws_session_token = self.source_config.aws_config.aws_session_token
-
-            # If we are using an aws_profile, set the temporary credentials
-            aws_profile = self.source_config.aws_config.aws_profile
-            if aws_profile is not None:
-                session = self.source_config.aws_config.get_session()
-                session_credentials = session.get_credentials()
-                aws_access_key_id = session_credentials.access_key
-                aws_secret_access_key = session_credentials.secret_key
-                aws_session_token = session_credentials.token
 
             aws_provided_credentials = [
                 aws_access_key_id,
@@ -638,6 +621,7 @@ class S3Source(Source):
         if len(tags_to_add) == 0:
             return None
         if self.ctx.graph is not None:
+            logger.debug("Connected to DatahubApi, grabbing current tags to maintain.")
             current_tags: Optional[GlobalTagsClass] = self.ctx.graph.get_aspect_v2(
                 entity_urn=dataset_urn,
                 aspect="globalTags",
@@ -647,6 +631,8 @@ class S3Source(Source):
                 tags_to_add.extend(
                     [current_tag.tag for current_tag in current_tags.tags]
                 )
+        else:
+            logger.debug("Could not connect to DatahubApi. No current tags to maintain")
         # Remove duplicate tags
         tags_to_add = list(set(tags_to_add))
         new_tags = GlobalTagsClass(
