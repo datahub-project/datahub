@@ -5,7 +5,6 @@ import boto3
 from boto3.session import Session
 from pydantic.fields import Field
 
-from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import EnvBasedSourceConfigBase
 
@@ -34,7 +33,7 @@ def assume_role(
     return assumed_role_object["Credentials"]
 
 
-class AwsSourceConfig(ConfigModel, EnvBasedSourceConfigBase):
+class AwsSourceConfig(EnvBasedSourceConfigBase):
     """
     Common AWS credentials config.
 

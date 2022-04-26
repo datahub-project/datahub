@@ -71,7 +71,7 @@ class GenericFileSource(Source):
     @classmethod
     def create(cls, config_dict, ctx):
         config = FileSourceConfig.parse_obj(config_dict)
-        return cls(config, ctx)
+        return cls(ctx, config)
 
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, UsageStatsWorkUnit]]:
         for i, obj in enumerate(iterate_generic_file(self.config.filename)):
