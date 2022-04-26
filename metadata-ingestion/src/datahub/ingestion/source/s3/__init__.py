@@ -34,6 +34,7 @@ from pyspark.sql.types import (
 from pyspark.sql.utils import AnalysisException
 from smart_open import open as smart_open
 
+from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
@@ -195,6 +196,11 @@ class S3Source(Source):
         self.report = DataLakeSourceReport()
         self.profiling_times_taken = []
 
+        if (config.use_s3_bucket_tags or config.use_s3_object_tags) and self.ctx.graph is None:
+            raise ConfigurationError(
+                """With use_s3_bucket_tags/use_s3_object_tags, GlueSource requires a datahub api to connect to.  This is enforced in order to maintain the current tags on the dataset object."""
+            )
+
         config_report = {
             config_option: config.dict().get(config_option)
             for config_option in config_options_to_report
@@ -236,6 +242,15 @@ class S3Source(Source):
             aws_access_key_id = self.source_config.aws_config.aws_access_key_id
             aws_secret_access_key = self.source_config.aws_config.aws_secret_access_key
             aws_session_token = self.source_config.aws_config.aws_session_token
+
+            # If we are using an aws_profile, set the temporary credentials
+            aws_profile = self.source_config.aws_config.aws_profile
+            if aws_profile is not None:
+                session = self.source_config.aws_config.get_session()
+                session_credentials = session.get_credentials()
+                aws_access_key_id = session_credentials.access_key
+                aws_secret_access_key = session_credentials.secret_key
+                aws_session_token = session_credentials.token
 
             aws_provided_credentials = [
                 aws_access_key_id,
@@ -568,9 +583,11 @@ class S3Source(Source):
         ):
             bucket = get_bucket_name(table_data.table_path)
             key_prefix = get_key_prefix(table_data.table_path)
-            dataset_snapshot.aspects.append(
-                self.get_s3_tags(bucket, key_prefix, dataset_urn)
-            )
+            s3_tags = self.get_s3_tags(bucket, key_prefix, dataset_urn)
+            if s3_tags is not None:
+                dataset_snapshot.aspects.append(
+                s3_tags
+                )
 
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         wu = MetadataWorkUnit(id=table_data.table_path, mce=mce)
@@ -593,7 +610,7 @@ class S3Source(Source):
 
     def get_s3_tags(
         self, bucket_name: str, key_name: str, dataset_urn: str
-    ) -> GlobalTagsClass:
+    ) -> Optional[GlobalTagsClass]:
         if self.source_config.aws_config is None:
             raise ValueError("aws_config not set. Cannot browse s3")
         new_tags = GlobalTagsClass(tags=[])
@@ -618,6 +635,8 @@ class S3Source(Source):
                     for tag in object_tagging["TagSet"]
                 ]
             )
+        if len(tags_to_add) == 0:
+            return None
         if self.ctx.graph is not None:
             current_tags: Optional[GlobalTagsClass] = self.ctx.graph.get_aspect_v2(
                 entity_urn=dataset_urn,

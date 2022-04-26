@@ -142,6 +142,10 @@ class GlueSource(Source):
         self.s3_client = config.s3_client
         self.extract_transforms = config.extract_transforms
         self.env = config.env
+        if (config.use_s3_bucket_tags or config.use_s3_object_tags) and self.ctx.graph is None:
+            raise ConfigurationError(
+                """With use_s3_bucket_tags/use_s3_object_tags, GlueSource requires a datahub api to connect to.  This is enforced in order to maintain the current tags on the dataset object."""
+            )
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -798,7 +802,7 @@ class GlueSource(Source):
                 tags=[],
             )
 
-        def get_s3_tags() -> GlobalTagsClass:
+        def get_s3_tags() -> Optional[GlobalTagsClass]:
             bucket_name = s3_util.get_bucket_name(
                 table["StorageDescriptor"]["Location"]
             )
@@ -824,6 +828,8 @@ class GlueSource(Source):
                         for tag in object_tagging["TagSet"]
                     ]
                 )
+            if len(tags_to_add) == 0:
+                return None
             if self.ctx.graph is not None:
                 current_tags: Optional[GlobalTagsClass] = self.ctx.graph.get_aspect_v2(
                     entity_urn=dataset_urn,
@@ -908,7 +914,9 @@ class GlueSource(Source):
             self.source_config.use_s3_bucket_tags
             or self.source_config.use_s3_object_tags
         ):
-            dataset_snapshot.aspects.append(get_s3_tags())
+            s3_tags = get_s3_tags()
+            if s3_tags is not None:
+                dataset_snapshot.aspects.append(s3_tags)
 
         metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         return metadata_record
