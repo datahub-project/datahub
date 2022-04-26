@@ -150,7 +150,9 @@ class PathSpec(ConfigModel):
 class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
     path_spec: PathSpec = Field(description="")
     platform: str = "The platform that this source connects to"
-    platform_instance = "The instance of the platform that all assets produced by this recipe belong to"
+    platform_instance = (
+        "The instance of the platform that all assets produced by this recipe belong to"
+    )
     aws_config: Optional[AwsSourceConfig] = Field(
         default=None, description="AWS configuration"
     )
