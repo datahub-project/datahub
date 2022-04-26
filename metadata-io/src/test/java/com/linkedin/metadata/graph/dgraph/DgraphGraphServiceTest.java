@@ -2,8 +2,8 @@ package com.linkedin.metadata.graph.dgraph;
 
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.GraphServiceTestBase;
-import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.graph.RelatedEntity;
+import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import io.dgraph.DgraphClient;
@@ -17,10 +17,10 @@ import io.grpc.ManagedChannelBuilder;
 import io.grpc.MethodDescriptor;
 import lombok.extern.slf4j.Slf4j;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
-import org.testng.annotations.AfterTest;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 import javax.annotation.Nonnull;
@@ -52,7 +52,7 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
         return Duration.ofMinutes(5);
     }
 
-    @BeforeTest
+    @BeforeClass
     public void setup() {
         _container = new DgraphContainer(DgraphContainer.DEFAULT_IMAGE_NAME.withTag("v21.03.0"))
                 .withTmpFs(Collections.singletonMap("/dgraph", "rw,noexec,nosuid,size=1g"))
@@ -96,7 +96,7 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
         }
     }
 
-    @AfterTest
+    @AfterClass
     public void tearDown() {
         _container.stop();
     }
