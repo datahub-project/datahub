@@ -145,7 +145,7 @@ public class MockEntityService extends EntityService {
       @Nonnull Function<Optional<RecordTemplate>, RecordTemplate> updateLambda, @Nonnull AuditStamp auditStamp,
       @Nonnull SystemMetadata systemMetadata) {
     return new UpdateAspectResult(UrnUtils.getUrn(DATASET_URN), null,
-        null, null, null, null, 0L);
+        null, null, null, null,  null,0L);
   }
 
   @Nonnull
