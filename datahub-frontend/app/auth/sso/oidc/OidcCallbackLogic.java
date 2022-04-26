@@ -2,6 +2,9 @@ package auth.sso.oidc;
 
 import client.AuthServiceClient;
 import com.datahub.authentication.Authentication;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.CorpGroupUrnArray;
 import com.linkedin.common.CorpuserUrnArray;
@@ -46,7 +49,10 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+
 import lombok.extern.slf4j.Slf4j;
+import org.pac4j.core.authorization.generator.AuthorizationGenerator;
 import org.pac4j.core.config.Config;
 import org.pac4j.core.engine.DefaultCallbackLogic;
 import org.pac4j.core.http.adapter.HttpActionAdapter;
@@ -110,9 +116,10 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     log.debug("Beginning OIDC Callback Handling...");
 
     if (profileManager.isAuthenticated()) {
+
       // If authenticated, the user should have a profile.
       final CommonProfile profile = profileManager.get(true).get();
-      log.debug(String.format("Found authenticated user with profile %s", profile.getAttributes().toString()));
+      log.debug(String.format("Checking the attributes of the profile: %s", profile.getAttributes().toString()));
 
       // Extract the User name required to log into DataHub.
       final String userName = extractUserNameOrThrow(oidcConfigs, profile);
@@ -136,6 +143,25 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
           log.debug("Pre Provisioning is required. Beginning validation of extracted user...");
           verifyPreProvisionedUser(corpUserUrn);
         }
+
+        // determine if we want to extract client roles through customParamResource
+        // using client-id and client_role "access"
+        if (oidcConfigs.getResourceClientRole().isPresent()){
+          Optional<List<String>> roleLists = extractClientRoles(oidcConfigs, profile);
+          // check if it is populated
+          if(roleLists.isPresent()){
+            // check for access role
+            if(!roleLists.get().equals(oidcConfigs.getResourceClientRole().get()))
+              return internalServerError(String.format("Failed to pass authorization-with-keycloak step. " +
+                      "Please ensure that you have the required role to access this app: %s:%s",
+                      oidcConfigs.getClientId(),oidcConfigs.getResourceClientRole().get()));
+          } else {
+            return internalServerError(String.format("Failed to pass authorization-with-keycloak step. " +
+                            "Please ensure that you have the required role to access this app: %s:%s",
+                    oidcConfigs.getClientId(),oidcConfigs.getResourceClientRole().get()));
+          }
+        }
+
         // Update user status to active on login.
         // If we want to prevent certain users from logging in, here's where we'll want to do it.
         setUserStatus(corpUserUrn, new CorpUserStatus().setStatus(Constants.CORP_USER_STATUS_ACTIVE)
@@ -155,6 +181,28 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     }
     return internalServerError(
         "Failed to authenticate current user. Cannot find valid identity provider profile in session.");
+  }
+
+  private Optional<List<String>> extractClientRoles(final OidcConfigs oidcConfigs, final CommonProfile profile) {
+    // Ensure that the attribute exists (was returned by keycloak)
+    if (profile.containsAttribute("resource_access")) {
+      final String resourceAccessJsonStr = profile.getAttribute("resource_access").toString();
+      log.debug(String.format("Examining resource_access attribute: %s", resourceAccessJsonStr));
+      ObjectMapper objectMapper = new ObjectMapper();
+      try {
+        JsonNode jsonNode = objectMapper.readTree(resourceAccessJsonStr);
+        JsonNode roleArray = jsonNode.get(oidcConfigs.getClientId()).get("roles");
+        //iterate through the roles for this client
+        return Optional.of(StreamSupport.stream(roleArray.spliterator(), true)
+                .map(sObj -> sObj.asText())
+                .collect(Collectors.toList()));
+
+      } catch (JsonProcessingException e) {
+        log.error("Failed to extract roles.", e);
+      }
+    }
+
+    return Optional.empty();
   }
 
   private String extractUserNameOrThrow(final OidcConfigs oidcConfigs, final CommonProfile profile) {
@@ -379,7 +427,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     } catch (RemoteInvocationException e) {
       // Failing provisioning is something worth throwing about.
       throw new RuntimeException(String.format("Failed to provision groups with urns %s.",
-          corpGroups.stream().map(CorpGroupSnapshot::getUrn).collect(Collectors.toList())), e);
+              corpGroups.stream().map(CorpGroupSnapshot::getUrn).collect(Collectors.toList())), e);
     }
   }
 

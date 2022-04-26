@@ -37,6 +37,8 @@ public class OidcConfigs extends SsoConfigs {
     public static final String OIDC_USE_NONCE = "auth.oidc.useNonce";
     public static final String OIDC_CUSTOM_PARAM_RESOURCE = "auth.oidc.customParam.resource";
 
+    public static final String OIDC_RESOURCE_CLIENT_ROLE = "auth.oidc.resource.clientRole";
+
     /**
      * Default values
      */
@@ -67,6 +69,8 @@ public class OidcConfigs extends SsoConfigs {
     private Optional<Boolean> useNonce;
     private Optional<String> customParamResource;
 
+    private Optional<String> resourceClientRole;
+
     public OidcConfigs(final com.typesafe.config.Config configs) {
         super(configs);
         clientId = getRequired(configs, OIDC_CLIENT_ID_CONFIG_PATH);
@@ -90,5 +94,7 @@ public class OidcConfigs extends SsoConfigs {
         responseMode = getOptional(configs, OIDC_RESPONSE_MODE);
         useNonce = getOptional(configs, OIDC_USE_NONCE).map(Boolean::parseBoolean);
         customParamResource = getOptional(configs, OIDC_CUSTOM_PARAM_RESOURCE);
+        resourceClientRole = getOptional(configs, OIDC_RESOURCE_CLIENT_ROLE);
+
     }
 }

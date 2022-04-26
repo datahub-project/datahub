@@ -594,6 +594,3 @@ async def delete_item(item: dataset_status_params) -> None:
             (update_schema) from {user}"
         )
         return JSONResponse(content={"message": "Authentication Failed"}, status_code=401)
-
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=api_emitting_port)
