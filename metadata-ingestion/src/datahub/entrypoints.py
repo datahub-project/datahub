@@ -132,6 +132,15 @@ datahub.add_command(put)
 datahub.add_command(telemetry_cli)
 datahub.add_command(migrate)
 datahub.add_command(timeline)
+try:
+    import datahub_actions
+
+    datahub.add_command(datahub_actions.cli.actions)
+except ImportError:
+    # TODO: Increase the log level once this approach has been validated.
+    logger.debug(
+        "Failed to load datahub actions framework. Please confirm that the acryl-datahub-actions package has been installed from PyPi."
+    )
 
 
 def main(**kwargs):
