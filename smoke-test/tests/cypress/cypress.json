@@ -1,3 +1,11 @@
 {
-	"baseUrl": "http://localhost:9002"
+  "baseUrl": "http://localhost:9002/",
+  "chromeWebSecurity": false,
+  "viewportHeight": 960,
+  "viewportWidth": 1536,
+  "projectId": "hkrxk5",
+  "retries": {
+    "runMode": 2,
+    "openMode": 0
+  }
 }

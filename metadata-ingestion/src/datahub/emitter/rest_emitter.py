@@ -114,12 +114,21 @@ class DatahubRestEmitter:
         if retry_max_times:
             self._retry_max_times = retry_max_times
 
-        retry_strategy = Retry(
-            total=self._retry_max_times,
-            status_forcelist=self._retry_status_codes,
-            backoff_factor=2,
-            allowed_methods=self._retry_methods,
-        )
+        try:
+            retry_strategy = Retry(
+                total=self._retry_max_times,
+                status_forcelist=self._retry_status_codes,
+                backoff_factor=2,
+                allowed_methods=self._retry_methods,
+            )
+        except TypeError:
+            # Prior to urllib3 1.26, the Retry class used `method_whitelist` instead of `allowed_methods`.
+            retry_strategy = Retry(
+                total=self._retry_max_times,
+                status_forcelist=self._retry_status_codes,
+                backoff_factor=2,
+                method_whitelist=self._retry_methods,
+            )
 
         adapter = HTTPAdapter(
             pool_connections=100, pool_maxsize=100, max_retries=retry_strategy
@@ -127,12 +136,13 @@ class DatahubRestEmitter:
         self._session.mount("http://", adapter)
         self._session.mount("https://", adapter)
 
-    def test_connection(self) -> None:
+    def test_connection(self) -> dict:
         response = self._session.get(f"{self._gms_server}/config")
         if response.status_code == 200:
             config: dict = response.json()
             if config.get("noCode") == "true":
-                return
+                return config
+
             else:
                 # Looks like we either connected to an old GMS or to some other service. Let's see if we can determine which before raising an error
                 # A common misconfiguration is connecting to datahub-frontend so we special-case this check

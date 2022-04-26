@@ -5,7 +5,7 @@ import com.linkedin.common.CorpuserUrn
 import com.linkedin.common.EmailAddress
 
 /**
- * group of corpUser, it may contains nested group
+ * Information about a Corp Group ingested from a third party source
  */
 @Aspect = {
   "name": "corpGroupInfo"
@@ -14,7 +14,7 @@ import com.linkedin.common.EmailAddress
 record CorpGroupInfo {
 
   /**
-   * The name to use when displaying the group.
+   * The name of the group.
    */
   @Searchable = {
     "fieldType": "TEXT_PARTIAL"
@@ -28,28 +28,33 @@ record CorpGroupInfo {
 
   /**
    * owners of this group
+   * Deprecated! Replaced by Ownership aspect.
    */
   @Relationship = {
     "/*": {
       "name": "OwnedBy",
-      "entityTypes": [ "corpUser" ]
+      "entityTypes": [ "corpuser" ]
     }
   }
+  @deprecated
   admins: array[CorpuserUrn]
 
   /**
    * List of ldap urn in this group.
+   * Deprecated! Replaced by GroupMembership aspect.
    */
   @Relationship = {
     "/*": {
       "name": "IsPartOf",
-      "entityTypes": [ "corpUser" ]
+      "entityTypes": [ "corpuser" ]
     }
   }
+  @deprecated
   members: array[CorpuserUrn]
 
   /**
    * List of groups in this group.
+   * Deprecated! This field is unused.
    */
    @Relationship = {
      "/*": {
@@ -57,6 +62,7 @@ record CorpGroupInfo {
        "entityTypes": [ "corpGroup" ]
      }
    }
+  @deprecated
   groups: array[CorpGroupUrn]
 
   /**

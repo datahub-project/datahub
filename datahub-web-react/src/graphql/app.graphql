@@ -25,8 +25,14 @@ query appConfig {
         identityManagementConfig {
             enabled
         }
+        lineageConfig {
+            supportsImpactAnalysis
+        }
         managedIngestionConfig {
             enabled
+        }
+        visualConfig {
+            logoUrl
         }
     }
 }

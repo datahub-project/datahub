@@ -38,143 +38,30 @@
         ]
       },
       "privileges":[
-        "EDIT_ENTITY"
+        "EDIT_ENTITY",
+        "VIEW_ENTITY_PAGE"
       ],
-      "displayName":"Root User - Edit All Datasets",
-      "resources":{
-        "type":"dataset",
-        "allResources":true
-      },
-      "description":"Grants full edit privileges for Datasets to root 'datahub' root user.",
+      "displayName":"Root User - Edit and View All Resources",
+      "description":"Grants full edit and view privileges for all resources to root 'datahub' root user.",
       "state":"ACTIVE",
       "type":"METADATA",
       "editable":false
     }
   },
   {
-    "urn": "urn:li:dataHubPolicy:2",
-    "info": {
-      "actors":{
-        "resourceOwners":false,
-        "allUsers":false,
-        "allGroups":false,
-        "users":[
-          "urn:li:corpuser:datahub"
-        ]
-      },
-      "privileges":[
-        "EDIT_ENTITY"
-      ],
-      "displayName":"Root User - Edit All Dashboards",
-      "resources":{
-        "type":"dashboard",
-        "allResources":true
-      },
-      "description":"Grants full edit privileges for Dashboards to root datahub super user.",
-      "state":"ACTIVE",
-      "type":"METADATA",
-      "editable":false
-    }
+    "urn": "urn:li:dataHubPolicy:2"
   },
   {
-    "urn": "urn:li:dataHubPolicy:3",
-    "info": {
-      "actors":{
-        "resourceOwners":false,
-        "allUsers":false,
-        "allGroups":false,
-        "users":[
-          "urn:li:corpuser:datahub"
-        ]
-      },
-      "privileges":[
-        "EDIT_ENTITY"
-      ],
-      "displayName":"Root User - Edit All Charts",
-      "resources":{
-        "type":"chart",
-        "allResources":true
-      },
-      "description":"Grants full edit privileges for Charts to root datahub super user.",
-      "state":"ACTIVE",
-      "type":"METADATA",
-      "editable":false
-    }
+    "urn": "urn:li:dataHubPolicy:3"
   },
   {
-    "urn": "urn:li:dataHubPolicy:4",
-    "info": {
-      "actors":{
-        "resourceOwners":false,
-        "allUsers":false,
-        "allGroups":false,
-        "users":[
-          "urn:li:corpuser:datahub"
-        ]
-      },
-      "privileges":[
-        "EDIT_ENTITY"
-      ],
-      "displayName":"Root User - Edit All Tags",
-      "resources":{
-        "type":"tag",
-        "allResources":true
-      },
-      "description":"Grants full edit privileges for Tags to root datahub super user.",
-      "state":"ACTIVE",
-      "type":"METADATA",
-      "editable":false
-    }
+    "urn": "urn:li:dataHubPolicy:4"
   },
   {
-    "urn": "urn:li:dataHubPolicy:5",
-    "info": {
-      "actors":{
-        "resourceOwners":false,
-        "allUsers":false,
-        "allGroups":false,
-        "users":[
-          "urn:li:corpuser:datahub"
-        ]
-      },
-      "privileges":[
-        "EDIT_ENTITY"
-      ],
-      "displayName":"Root User - Edit All Data Pipelines",
-      "resources":{
-        "type":"dataFlow",
-        "allResources":true
-      },
-      "description":"Grants full edit privileges for Data Pipelines to root datahub super user.",
-      "state":"ACTIVE",
-      "type":"METADATA",
-      "editable":false
-    }
+    "urn": "urn:li:dataHubPolicy:5"
   },
   {
-    "urn": "urn:li:dataHubPolicy:6",
-    "info": {
-      "actors":{
-        "resourceOwners":false,
-        "allUsers":false,
-        "allGroups":false,
-        "users":[
-          "urn:li:corpuser:datahub"
-        ]
-      },
-      "privileges":[
-        "EDIT_ENTITY"
-      ],
-      "displayName":"Root User - Edit All Data Tasks",
-      "resources":{
-        "type":"dataJob",
-        "allResources":true
-      },
-      "description":"Grants full edit privileges for Data Tasks to root datahub super user.",
-      "state":"ACTIVE",
-      "type":"METADATA",
-      "editable":false
-    }
+    "urn": "urn:li:dataHubPolicy:6"
   },
   {
     "urn": "urn:li:dataHubPolicy:7",
@@ -185,10 +72,13 @@
         "allGroups":false
       },
       "privileges":[
-        "VIEW_ANALYTICS",
         "MANAGE_POLICIES",
+        "MANAGE_INGESTION",
+        "MANAGE_SECRETS",
         "MANAGE_USERS_AND_GROUPS",
-        "GENERATE_PERSONAL_ACCESS_TOKENS"
+        "VIEW_ANALYTICS",
+        "GENERATE_PERSONAL_ACCESS_TOKENS",
+        "MANAGE_DOMAINS"
       ],
       "displayName":"All Users - All Platform Privileges",
       "description":"Grants full platform privileges to ALL users of DataHub. Change this policy to alter that behavior.",
@@ -198,28 +88,51 @@
     }
   },
   {
-    "urn": "urn:li:dataHubPolicy:8",
+    "urn": "urn:li:dataHubPolicy:8"
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:9"
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:10"
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:view-entity-page-all",
     "info": {
       "actors":{
         "resourceOwners":false,
-        "allUsers":false,
+        "allUsers":true,
         "allGroups":false,
-        "users":[
-          "urn:li:corpuser:datahub"
-        ]
+        "users":[]
       },
       "privileges":[
-        "EDIT_ENTITY"
+        "VIEW_ENTITY_PAGE"
       ],
-      "displayName":"Root User - Edit All Containers",
-      "resources":{
-        "type":"container",
-        "allResources":true
-      },
-      "description":"Grants full edit privileges for Containers to root 'datahub' root user.",
+      "displayName":"All Users - View Entity Page",
+      "description":"Grants entity view to all users",
       "state":"ACTIVE",
       "type":"METADATA",
-      "editable":false
+      "editable":true
+    }
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:view-dataset-sensitive",
+    "info": {
+      "actors":{
+        "resourceOwners":false,
+        "allUsers":true,
+        "allGroups":false,
+        "users":[]
+      },
+      "privileges":[
+        "VIEW_DATASET_USAGE",
+        "VIEW_DATASET_PROFILE"
+      ],
+      "displayName":"All Users - View Dataset Sensitive Information",
+      "description":"Grants viewing privileges of usage and profile information of all datasets for all users",
+      "state":"ACTIVE",
+      "type":"METADATA",
+      "editable":true
     }
   }
 ]

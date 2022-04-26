@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import * as QueryString from 'query-string';
 import { useHistory, useLocation, useParams } from 'react-router';
 import { message } from 'antd';
+import styled from 'styled-components';
 import { ApolloError } from '@apollo/client';
 
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { EntityType, FacetFilterInput, FacetMetadata, Maybe, Scalars } from '../../../../../../types.generated';
+import { EntityType, FacetFilterInput } from '../../../../../../types.generated';
 import useFilters from '../../../../../search/utils/useFilters';
 import { ENTITY_FILTER_NAME } from '../../../../../search/utils/constants';
 import { SearchCfg } from '../../../../../../conf';
@@ -13,45 +14,60 @@ import { navigateToEntitySearchUrl } from './navigateToEntitySearchUrl';
 import { EmbeddedListSearchResults } from './EmbeddedListSearchResults';
 import EmbeddedListSearchHeader from './EmbeddedListSearchHeader';
 import { useGetSearchResultsForMultipleQuery } from '../../../../../../graphql/search.generated';
-import { GetSearchResultsParams, SearchResultInterface } from './types';
+import { GetSearchResultsParams, SearchResultsInterface } from './types';
+
+const Container = styled.div`
+    overflow: scroll;
+    height: 120;
+`;
 
 // this extracts the response from useGetSearchResultsForMultipleQuery into a common interface other search endpoints can also produce
 function useWrappedSearchResults(params: GetSearchResultsParams) {
-    const { data, loading, error } = useGetSearchResultsForMultipleQuery(params);
-    return { data: data?.searchAcrossEntities, loading, error };
+    const { data, loading, error, refetch } = useGetSearchResultsForMultipleQuery(params);
+    return {
+        data: data?.searchAcrossEntities,
+        loading,
+        error,
+        refetch: (refetchParams: GetSearchResultsParams['variables']) =>
+            refetch(refetchParams).then((res) => res.data.searchAcrossEntities),
+    };
 }
+// the addFixedQuery checks and generate the query as per params pass to embeddedListSearch
+export const addFixedQuery = (baseQuery: string, fixedQuery: string, emptyQuery: string) => {
+    let finalQuery = ``;
+    if (baseQuery && fixedQuery) {
+        finalQuery = baseQuery.includes(fixedQuery) ? `${baseQuery}` : `(*${baseQuery}*) AND (${fixedQuery})`;
+    } else if (baseQuery) {
+        finalQuery = `${baseQuery}`;
+    } else if (fixedQuery) {
+        finalQuery = `${fixedQuery}`;
+    } else {
+        return emptyQuery || '';
+    }
+    return finalQuery;
+};
 
 type SearchPageParams = {
     type?: string;
 };
 
-type SearchResultsInterface = {
-    /** The offset of the result set */
-    start: Scalars['Int'];
-    /** The number of entities included in the result set */
-    count: Scalars['Int'];
-    /** The total number of search results matching the query and filters */
-    total: Scalars['Int'];
-    /** The search result entities */
-    searchResults: Array<SearchResultInterface>;
-    /** Candidate facet aggregations used for search filtering */
-    facets?: Maybe<Array<FacetMetadata>>;
-};
-
 type Props = {
     emptySearchQuery?: string | null;
     fixedFilter?: FacetFilterInput | null;
+    fixedQuery?: string | null;
     placeholderText?: string | null;
     useGetSearchResults?: (params: GetSearchResultsParams) => {
         data: SearchResultsInterface | undefined | null;
         loading: boolean;
         error: ApolloError | undefined;
+        refetch: (variables: GetSearchResultsParams['variables']) => Promise<SearchResultsInterface | undefined | null>;
     };
 };
 
 export const EmbeddedListSearch = ({
     emptySearchQuery,
     fixedFilter,
+    fixedQuery,
     placeholderText,
     useGetSearchResults = useWrappedSearchResults,
 }: Props) => {
@@ -60,7 +76,7 @@ export const EmbeddedListSearch = ({
     const entityRegistry = useEntityRegistry();
 
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
-    const query: string = params.query ? (params.query as string) : '';
+    const query: string = addFixedQuery(params?.query as string, fixedQuery as string, emptySearchQuery as string);
     const activeType = entityRegistry.getTypeOrDefaultFromPathName(useParams<SearchPageParams>().type || '', undefined);
     const page: number = params.page && Number(params.page as string) > 0 ? Number(params.page as string) : 1;
     const filters: Array<FacetFilterInput> = useFilters(params);
@@ -73,6 +89,23 @@ export const EmbeddedListSearch = ({
         .map((filter) => filter.value.toUpperCase() as EntityType);
 
     const [showFilters, setShowFilters] = useState(false);
+
+    const { refetch } = useGetSearchResults({
+        variables: {
+            input: {
+                types: entityFilters,
+                query,
+                start: (page - 1) * SearchCfg.RESULTS_PER_PAGE,
+                count: SearchCfg.RESULTS_PER_PAGE,
+                filters: finalFilters,
+            },
+        },
+        skip: true,
+    });
+
+    const callSearchOnVariables = (variables: GetSearchResultsParams['variables']) => {
+        return refetch(variables);
+    };
 
     const { data, loading, error } = useGetSearchResults({
         variables: {
@@ -87,14 +120,7 @@ export const EmbeddedListSearch = ({
     });
 
     const onSearch = (q: string) => {
-        let finalQuery = q;
-        if (q.trim().length === 0) {
-            if (emptySearchQuery) {
-                finalQuery = emptySearchQuery;
-            } else {
-                return;
-            }
-        }
+        const finalQuery = addFixedQuery(q as string, fixedQuery as string, emptySearchQuery as string);
         navigateToEntitySearchUrl({
             baseUrl: location.pathname,
             type: activeType,
@@ -134,12 +160,17 @@ export const EmbeddedListSearch = ({
     const filteredFilters = data?.facets?.filter((facet) => facet.field !== fixedFilter?.field) || [];
 
     return (
-        <>
+        <Container>
             {error && message.error(`Failed to complete search: ${error && error.message}`)}
             <EmbeddedListSearchHeader
                 onSearch={onSearch}
                 placeholderText={placeholderText}
                 onToggleFilters={toggleFilters}
+                showDownloadCsvButton
+                callSearchOnVariables={callSearchOnVariables}
+                entityFilters={entityFilters}
+                filters={finalFilters}
+                query={query}
             />
             <EmbeddedListSearchResults
                 loading={loading}
@@ -151,6 +182,6 @@ export const EmbeddedListSearch = ({
                 page={page}
                 showFilters={showFilters}
             />
-        </>
+        </Container>
     );
 };

@@ -24,9 +24,27 @@ authentication:
   # The max duration of a UI session in milliseconds. Defaults to 1 day.
   sessionTokenDurationMs: ${SESSION_TOKEN_DURATION_MS:86400000}
 
+# Authorization-related configurations.
+authorization:
+
+  # Configurations for the default DataHub policies-based authorizer.
+  defaultAuthorizer:
+    enabled: ${AUTH_POLICIES_ENABLED:true}
+    cacheRefreshIntervalSecs: ${POLICY_CACHE_REFRESH_INTERVAL_SECONDS:120}
+
+  # Optional: A set of custom authorizers, serving in addition to the default DataHub policies-based authorizer.
+  authorizers:
+  # - type: com.datahub.authorization.authorizer.CustomAuthorizer
+  #   configs:
+  #     config1: value1
+
 ingestion:
   enabled: ${UI_INGESTION_ENABLED:true}
-  defaultCliVersion: '${UI_INGESTION_DEFAULT_CLI_VERSION:0.8.23.1}'
+  defaultCliVersion: '${UI_INGESTION_DEFAULT_CLI_VERSION:0.8.32.1}'
+
+telemetry:
+  enabledCli: ${CLI_TELEMETRY_ENABLED:true}
+  enabledIngestion: ${INGESTION_REPORTING_ENABLED:false}
 
 secretService:
   encryptionKey: ${SECRET_SERVICE_ENCRYPTION_KEY:ENCRYPTION_KEY}
@@ -54,17 +72,18 @@ graphService:
 
 searchService:
   resultBatchSize: ${SEARCH_SERVICE_BATCH_SIZE:100}
+  enableCache: ${SEARCH_SERVICE_ENABLE_CACHE:false}
 
 configEntityRegistry:
   # TODO: Change to read from resources on classpath.
   path: ${ENTITY_REGISTRY_CONFIG_PATH:../../metadata-models/src/main/resources/entity-registry.yml}
 
-authorizationManager:
-  enabled: ${AUTH_POLICIES_ENABLED:true}
-  cacheRefreshIntervalSecs: ${POLICY_CACHE_REFRESH_INTERVAL_SECONDS:120}
-
 platformAnalytics:
   enabled: ${ANALYTICS_ENABLED:true}
+
+visualConfig:
+  assets:
+    logoUrl: ${REACT_APP_LOGO_URL:#{null}}
 
 # Storage Layer
 ebean:
@@ -109,9 +128,12 @@ elasticsearch:
     numReplicas: ${ELASTICSEARCH_NUM_REPLICAS_PER_INDEX:1}
     numRetries: ${ELASTICSEARCH_INDEX_BUILDER_NUM_RETRIES :3}
     maxArrayLength: ${SEARCH_DOCUMENT_MAX_ARRAY_LENGTH:1000}
+    mainTokenizer: ${ELASTICSEARCH_MAIN_TOKENIZER:#{null}}
 
 # TODO: Kafka topic convention
 kafka:
+  listener:
+    concurrency: ${KAFKA_LISTENER_CONCURRENCY:1}
   bootstrapServers: ${KAFKA_BOOTSTRAP_SERVER:http://localhost:9092}
   schemaRegistry:
     type: ${SCHEMA_REGISTRY_TYPE:KAFKA} # KAFKA or AWS_GLUE
@@ -130,3 +152,8 @@ neo4j:
   maxConnectionLifetimeInSeconds: ${NEO4j_MAX_CONNECTION_LIFETIME_IN_SECONDS:3600}
   maxTransactionRetryTime: ${NEO4J_MAX_TRANSACTION_RETRY_TIME_IN_SECONDS:30}
   connectionLivenessCheckTimeout: ${NEO4J_CONNECTION_LIVENESS_CHECK_TIMEOUT_IN_SECONDS:-1}
+
+spring:
+  mvc:
+    servlet:
+      path: /openapi

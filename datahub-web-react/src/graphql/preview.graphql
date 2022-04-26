@@ -13,6 +13,7 @@ fragment entityPreview on Entity {
         }
         platformNativeType
         properties {
+            name
             description
             customProperties {
                 key
@@ -34,6 +35,9 @@ fragment entityPreview on Entity {
         domain {
             ...entityDomain
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
     ... on CorpUser {
         username
@@ -45,7 +49,9 @@ fragment entityPreview on Entity {
             lastName
             fullName
         }
-        editableInfo {
+        editableProperties {
+            displayName
+            title
             pictureLink
         }
     }
@@ -91,6 +97,9 @@ fragment entityPreview on Entity {
         domain {
             ...entityDomain
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
     ... on Chart {
         urn
@@ -125,6 +134,9 @@ fragment entityPreview on Entity {
         domain {
             ...entityDomain
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
     ... on DataFlow {
         urn
@@ -155,6 +167,9 @@ fragment entityPreview on Entity {
         domain {
             ...entityDomain
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
     ... on DataJob {
         urn
@@ -182,18 +197,27 @@ fragment entityPreview on Entity {
         domain {
             ...entityDomain
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
     ... on GlossaryTerm {
         name
-        glossaryTermInfo {
-            definition
+        hierarchicalName
+        properties {
+            name
+            description
             termSource
             sourceRef
             sourceUrl
+            rawSchema
             customProperties {
                 key
                 value
             }
+        }
+        deprecation {
+            ...deprecationFields
         }
     }
     ... on MLFeatureTable {
@@ -216,6 +240,9 @@ fragment entityPreview on Entity {
         platform {
             ...platformFields
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
     ... on MLModel {
         name
@@ -226,6 +253,9 @@ fragment entityPreview on Entity {
         }
         platform {
             ...platformFields
+        }
+        deprecation {
+            ...deprecationFields
         }
     }
     ... on MLModelGroup {
@@ -238,10 +268,18 @@ fragment entityPreview on Entity {
         platform {
             ...platformFields
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
     ... on Tag {
         name
         description
+        properties {
+            name
+            description
+            colorHex
+        }
     }
     ... on DataPlatform {
         ...nonConflictingPlatformFields

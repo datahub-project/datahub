@@ -4,10 +4,12 @@ import pathlib
 
 import fastavro
 import pytest
+from avrogen import avrojson
 from freezegun import freeze_time
 
 import datahub.metadata.schema_classes as models
 from datahub.cli.json_file import check_mce_file
+from datahub.emitter import mce_builder
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.file import iterate_mce_file
 from datahub.metadata.schema_classes import MetadataChangeEventClass
@@ -145,3 +147,23 @@ def test_field_discriminator() -> None:
     )
 
     assert cost_object.validate()
+
+
+def test_type_error() -> None:
+    dataflow = models.DataFlowSnapshotClass(
+        urn=mce_builder.make_data_flow_urn(
+            orchestrator="argo", flow_id="42", cluster="DEV"
+        ),
+        aspects=[
+            models.DataFlowInfoClass(
+                name="hello_datahub",
+                description="Hello Datahub",
+                externalUrl="http://example.com",
+                # This is a type error - custom properties should be a Dict[str, str].
+                customProperties={"x": 1},  # type: ignore
+            )
+        ],
+    )
+
+    with pytest.raises(avrojson.AvroTypeException):
+        dataflow.to_obj()

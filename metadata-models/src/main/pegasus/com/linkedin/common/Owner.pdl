@@ -11,13 +11,15 @@ record Owner {
    */
   @Relationship = {
     "name": "OwnedBy",
-    "entityTypes": [ "corpUser", "corpGroup" ]
+    "entityTypes": [ "corpuser", "corpGroup" ]
   }
   @Searchable = {
     "fieldName": "owners",
     "fieldType": "URN",
+    "addToFilters": true,
     "hasValuesFieldName": "hasOwners",
-    "queryByDefault": false
+    "queryByDefault": false,
+    "filterNameOverride": "Owned By"
   }
   owner: Urn
 

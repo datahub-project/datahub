@@ -3,35 +3,57 @@ import { Dataset, EntityType, PlatformType, SchemaFieldDataType } from './types.
 import { GetMeDocument } from './graphql/me.generated';
 
 const user3 = {
-    username: 'john',
-    urn: 'urn:li:corpuser:3',
+    username: 'sdas',
+    urn: 'urn:li:corpuser:1',
     type: EntityType.CorpUser,
     info: {
-        __typename: 'CorpUserInfo',
-        email: 'john@domain.com',
+        email: 'sdas@domain.com',
         active: true,
-        displayName: 'john',
-        title: 'Eng',
-        firstName: 'John',
-        lastName: 'Joyce',
-        fullName: 'John Joyce',
+        displayName: 'sdas',
+        title: 'Software Engineer',
+        firstName: 'Shirshanka',
+        lastName: 'Das',
+        fullName: 'Shirshanka Das',
     },
-    editableInfo: {
-        pictureLink: null,
-        teams: null,
-        skills: null,
+    editableProperties: {
+        displayName: 'ShirshankaDas',
+        title: 'https://crunchconf.com/img/2019/speakers/1559291783-ShirshankaDas.png',
+        pictureLink: 'https://crunchconf.com/img/2019/speakers/1559291783-ShirshankaDas.png',
+        teams: 'https://crunchconf.com/img/2019/speakers/1559291783-ShirshankaDas.png',
+        skills: 'https://crunchconf.com/img/2019/speakers/1559291783-ShirshankaDas.png',
     },
-    globalTags: {
-        tags: [
-            {
-                tag: {
-                    type: EntityType.Tag,
-                    urn: 'urn:li:tag:abc-sample-tag',
-                    name: 'abc-sample-tag',
-                    description: 'sample tag',
-                },
-            },
-        ],
+};
+
+const user1 = {
+    username: 'sdas',
+    urn: 'urn:li:corpuser:1',
+    type: 'CORP_USER',
+    info: {
+        __typename: 'CorpUserInfo',
+        email: 'sdas@domain.com',
+        active: true,
+        displayName: 'sdas',
+        title: 'Software Engineer',
+        firstName: 'Shirshanka',
+        lastName: 'Das',
+        fullName: 'Shirshanka Das',
+    },
+    properties: {
+        __typename: 'CorpUserProperties',
+        email: 'sdas@domain.com',
+        active: true,
+        displayName: 'sdas',
+        title: 'Software Engineer',
+        firstName: 'Shirshanka',
+        lastName: 'Das',
+        fullName: 'Shirshanka Das',
+    },
+    editableProperties: {
+        __typename: 'CorpUserEditableProperties',
+        displayName: 'sdas',
+        title: 'Software Engineer',
+        pictureLink: 'something',
+        email: 'sdas@domain.com',
     },
 };
 
@@ -55,6 +77,7 @@ export const dataset3 = {
     origin: 'PROD',
     uri: 'www.google.com',
     properties: {
+        name: 'Yet Another Dataset',
         description: 'This and here we have yet another Dataset (YAN). Are there more?',
         origin: 'PROD',
         customProperties: [{ key: 'propertyAKey', value: 'propertyAValue' }],
@@ -68,19 +91,20 @@ export const dataset3 = {
         time: 0,
     },
     ownership: {
+        __typename: 'Ownership',
         owners: [
             {
                 owner: {
-                    ...user3,
                     __typename: 'CorpUser',
+                    ...user1,
                 },
-                type: 'DATAOWNER',
+                type: 'TECHNICAL_OWNER',
+                source: null,
             },
         ],
         lastModified: {
             time: 0,
         },
-        __typename: 'Ownership',
     },
     globalTags: {
         __typename: 'GlobalTags',
@@ -91,6 +115,11 @@ export const dataset3 = {
                     urn: 'urn:li:tag:abc-sample-tag',
                     name: 'abc-sample-tag',
                     description: 'sample tag',
+                    properties: {
+                        name: 'abc-sample-tag',
+                        description: 'sample tag',
+                        colorHex: 'sample tag color',
+                    },
                 },
             },
         ],
@@ -103,7 +132,9 @@ export const dataset3 = {
                     urn: 'urn:li:glossaryTerm:sample-glossary-term',
                     name: 'sample-glossary-term',
                     hierarchicalName: 'example.sample-glossary-term',
-                    glossaryTermInfo: {
+                    properties: {
+                        name: 'sample-glossary-term',
+                        description: 'sample definition',
                         definition: 'sample definition',
                         termSource: 'sample term source',
                     },
@@ -113,6 +144,8 @@ export const dataset3 = {
     },
     incoming: null,
     outgoing: null,
+    upstream: null,
+    downstream: null,
     institutionalMemory: {
         elements: [
             {
@@ -217,9 +250,13 @@ export const dataset3 = {
     ],
     domain: null,
     container: null,
-    status: {
-        removed: false,
-    },
+    lineage: null,
+    relationships: null,
+    health: null,
+    assertions: null,
+    status: null,
+    readRuns: null,
+    writeRuns: null,
 } as Dataset;
 
 /*
@@ -248,7 +285,9 @@ export const editMocks = [
         },
         result: {
             data: {
+                __typename: 'Query',
                 me: {
+                    __typename: 'AuthenticatedUser',
                     corpUser: { ...user3 },
                     platformPrivileges: {
                         viewAnalytics: true,

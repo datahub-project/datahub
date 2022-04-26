@@ -62,6 +62,7 @@ def null_str(value: Any) -> Optional[str]:
 class DataLakeProfilerConfig(ConfigModel):
     enabled: bool = False
 
+    spark_cluster_manager: Optional[str] = None
     # These settings will override the ones below.
     profile_table_level_only: bool = False
 
@@ -142,7 +143,7 @@ class _SingleTableProfiler:
         self,
         dataframe: DataFrame,
         spark: SparkSession,
-        source_config: DataLakeProfilerConfig,
+        profiling_config: DataLakeProfilerConfig,
         report: DataLakeSourceReport,
         file_path: str,
     ):
@@ -151,7 +152,7 @@ class _SingleTableProfiler:
         self.analyzer = AnalysisRunner(spark).onData(dataframe)
         self.column_specs = []
         self.row_count = dataframe.count()
-        self.profiling_config = source_config
+        self.profiling_config = profiling_config
         self.file_path = file_path
         self.columns_to_profile = []
         self.ignored_columns = []
@@ -315,11 +316,9 @@ class _SingleTableProfiler:
         row_count = self.row_count
 
         telemetry.telemetry_instance.ping(
-            "data_lake_profiling",
-            "rows_profiled",
+            "profile_data_lake_table",
             # bucket by taking floor of log of the number of rows scanned
-            # report the bucket as a label so the count is not collapsed
-            str(10 ** int(log10(row_count + 1))),
+            {"rows_profiled": 10 ** int(log10(row_count + 1))},
         )
 
         # loop through the columns and add the analyzers

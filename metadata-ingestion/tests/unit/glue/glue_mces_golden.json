@@ -1,6 +1,45 @@
 [
   {
     "auditHeader": null,
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0b9f1f731ecf6743be6207fec3dc9cba",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+      "value": "{\"customProperties\": {\"platform\": \"glue\", \"instance\": \"PROD\", \"database\": \"flights-database\"}, \"name\": \"flights-database\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0b9f1f731ecf6743be6207fec3dc9cba",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "value": "{\"platform\": \"urn:li:dataPlatform:glue\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0b9f1f731ecf6743be6207fec3dc9cba",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "value": "{\"typeNames\": [\"Database\"]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database.avro,PROD)",
@@ -51,6 +90,8 @@
                 "StoredAsSubDirectories": "False"
               },
               "externalUrl": null,
+              "name": null,
+              "qualifiedName": null,
               "description": null,
               "uri": null,
               "tags": []
@@ -222,11 +263,69 @@
               "foreignKeysSpecs": null,
               "foreignKeys": null
             }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+              "platform": "urn:li:dataPlatform:glue",
+              "instance": null
+            }
           }
         ]
       }
     },
     "proposedDelta": null,
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database.avro,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+      "value": "{\"container\": \"urn:li:container:0b9f1f731ecf6743be6207fec3dc9cba\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "container",
+    "entityUrn": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+      "value": "{\"customProperties\": {\"platform\": \"glue\", \"instance\": \"PROD\", \"database\": \"test-database\"}, \"name\": \"test-database\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "container",
+    "entityUrn": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "value": "{\"platform\": \"urn:li:dataPlatform:glue\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "container",
+    "entityUrn": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "value": "{\"typeNames\": [\"Database\"]}",
+      "contentType": "application/json"
+    },
     "systemMetadata": null
   },
   {
@@ -280,6 +379,8 @@
                 "StoredAsSubDirectories": "False"
               },
               "externalUrl": null,
+              "name": null,
+              "qualifiedName": null,
               "description": null,
               "uri": null,
               "tags": []
@@ -389,11 +490,30 @@
               "foreignKeysSpecs": null,
               "foreignKeys": null
             }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+              "platform": "urn:li:dataPlatform:glue",
+              "instance": null
+            }
           }
         ]
       }
     },
     "proposedDelta": null,
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,test-database.test_jsons_markers,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+      "value": "{\"container\": \"urn:li:container:bdf4342ea6899d162eae685bfe9074a7\"}",
+      "contentType": "application/json"
+    },
     "systemMetadata": null
   },
   {
@@ -447,6 +567,8 @@
                 "StoredAsSubDirectories": "False"
               },
               "externalUrl": null,
+              "name": null,
+              "qualifiedName": null,
               "description": null,
               "uri": null,
               "tags": []
@@ -567,11 +689,30 @@
               "foreignKeysSpecs": null,
               "foreignKeys": null
             }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+              "platform": "urn:li:dataPlatform:glue",
+              "instance": null
+            }
           }
         ]
       }
     },
     "proposedDelta": null,
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,test-database.test_parquet,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+      "value": "{\"container\": \"urn:li:container:bdf4342ea6899d162eae685bfe9074a7\"}",
+      "contentType": "application/json"
+    },
     "systemMetadata": null
   },
   {
@@ -656,7 +797,10 @@
               "outputDatasets": [],
               "inputDatajobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform2_job1)"
-              ]
+              ],
+              "inputDatasetFields": null,
+              "outputDatasetFields": null,
+              "fineGrainedLineages": null
             }
           }
         ]
@@ -695,7 +839,10 @@
               "outputDatasets": [],
               "inputDatajobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),Filter-Transform0_job1)"
-              ]
+              ],
+              "inputDatasetFields": null,
+              "outputDatasetFields": null,
+              "fineGrainedLineages": null
             }
           }
         ]
@@ -734,7 +881,10 @@
                 "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database.avro,PROD)"
               ],
               "outputDatasets": [],
-              "inputDatajobs": []
+              "inputDatajobs": [],
+              "inputDatasetFields": null,
+              "outputDatasetFields": null,
+              "fineGrainedLineages": null
             }
           }
         ]
@@ -774,7 +924,10 @@
               "outputDatasets": [],
               "inputDatajobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform4_job1)"
-              ]
+              ],
+              "inputDatasetFields": null,
+              "outputDatasetFields": null,
+              "fineGrainedLineages": null
             }
           }
         ]
@@ -811,7 +964,10 @@
             "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
               "inputDatasets": [],
               "outputDatasets": [],
-              "inputDatajobs": []
+              "inputDatajobs": [],
+              "inputDatasetFields": null,
+              "outputDatasetFields": null,
+              "fineGrainedLineages": null
             }
           }
         ]
@@ -848,7 +1004,10 @@
             "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
               "inputDatasets": [],
               "outputDatasets": [],
-              "inputDatajobs": []
+              "inputDatajobs": [],
+              "inputDatasetFields": null,
+              "outputDatasetFields": null,
+              "fineGrainedLineages": null
             }
           }
         ]
@@ -877,6 +1036,8 @@
                 "transformation_ctx": "DataSink1"
               },
               "externalUrl": null,
+              "name": null,
+              "qualifiedName": null,
               "description": null,
               "uri": null,
               "tags": []
@@ -920,7 +1081,10 @@
               "outputDatasets": [],
               "inputDatajobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),ApplyMapping-Transform1_job2)"
-              ]
+              ],
+              "inputDatasetFields": null,
+              "outputDatasetFields": null,
+              "fineGrainedLineages": null
             }
           }
         ]
@@ -959,7 +1123,10 @@
                 "urn:li:dataset:(urn:li:dataPlatform:glue,test-database.test_parquet,PROD)"
               ],
               "outputDatasets": [],
-              "inputDatajobs": []
+              "inputDatajobs": [],
+              "inputDatasetFields": null,
+              "outputDatasetFields": null,
+              "fineGrainedLineages": null
             }
           }
         ]
@@ -998,7 +1165,10 @@
               "outputDatasets": [],
               "inputDatajobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),ApplyMapping-Transform1_job2)"
-              ]
+              ],
+              "inputDatasetFields": null,
+              "outputDatasetFields": null,
+              "fineGrainedLineages": null
             }
           }
         ]
@@ -1039,7 +1209,10 @@
               ],
               "inputDatajobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),FillMissingValues-Transform2_job2)"
-              ]
+              ],
+              "inputDatasetFields": null,
+              "outputDatasetFields": null,
+              "fineGrainedLineages": null
             }
           }
         ]
@@ -1068,6 +1241,8 @@
                 "transformation_ctx": "DataSink0"
               },
               "externalUrl": null,
+              "name": null,
+              "qualifiedName": null,
               "description": null,
               "uri": null,
               "tags": []

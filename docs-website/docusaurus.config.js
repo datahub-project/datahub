@@ -77,7 +77,7 @@ module.exports = {
           className: "item__icon item__slack",
         },
         {
-          href: "https://github.com/linkedin/datahub",
+          href: "https://github.com/datahub-project/datahub",
           "aria-label": "GitHub",
           position: "right",
           className: "item__icon item__github",
@@ -108,10 +108,6 @@ module.exports = {
             {
               label: "Features",
               to: "docs/features",
-            },
-            {
-              label: "FAQs",
-              to: "docs/faq",
             },
           ],
         },
@@ -157,7 +153,7 @@ module.exports = {
             },
             {
               label: "GitHub",
-              href: "https://github.com/linkedin/datahub",
+              href: "https://github.com/datahub-project/datahub",
             },
             {
               label: "Feature Requests",
@@ -188,7 +184,8 @@ module.exports = {
         docs: {
           path: "genDocs",
           sidebarPath: require.resolve("./sidebars.js"),
-          editUrl: "https://github.com/linkedin/datahub/blob/master/",
+          editUrl: "https://github.com/datahub-project/datahub/blob/master/",
+          numberPrefixParser: false,
           // TODO: make these work correctly with the doc generation
           showLastUpdateAuthor: true,
           showLastUpdateTime: true,

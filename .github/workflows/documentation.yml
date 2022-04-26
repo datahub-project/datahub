@@ -19,11 +19,16 @@ jobs:
         uses: actions/setup-java@v1
         with:
           java-version: 1.8
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.9.9
+      - name: Install Python dependencies
+        run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Build Docs
         run: |
           ./gradlew --info docs-website:build
       - name: Deploy
-        if: github.event_name == 'push' && github.repository == 'linkedin/datahub'
+        if: github.event_name == 'push' && github.repository == 'datahub-project/datahub'
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}

@@ -15,6 +15,7 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringArrayArray;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.data.template.StringMapArray;
+import com.linkedin.metadata.ElasticTestUtils;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.DataSchemaFactory;
@@ -29,7 +30,7 @@ import com.linkedin.metadata.search.elasticsearch.ElasticSearchServiceTest;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.TimeseriesAspectIndexBuilders;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.timeseries.AggregationSpec;
@@ -46,10 +47,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
-import org.apache.http.HttpHost;
-import org.apache.http.impl.nio.reactor.IOReactorConfig;
-import org.elasticsearch.client.RestClient;
-import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
 import org.testng.annotations.AfterTest;
@@ -64,8 +61,6 @@ import static org.testng.Assert.*;
 public class ElasticSearchTimeseriesAspectServiceTest {
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-  private static final String IMAGE_NAME = "docker.elastic.co/elasticsearch/elasticsearch:7.9.3";
-  private static final int HTTP_PORT = 9200;
   private static final String ENTITY_NAME = "testEntity";
   private static final String ASPECT_NAME = "testEntityProfile";
   private static final Urn TEST_URN = new TestEntityUrn("acryl", "testElasticSearchTimeseriesAspectService", "table1");
@@ -95,26 +90,14 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     _entityRegistry = new ConfigEntityRegistry(new DataSchemaFactory("com.datahub.test"),
         TestEntityProfile.class.getClassLoader().getResourceAsStream("test-entity-registry.yml"));
     _indexConvention = new IndexConventionImpl(null);
-    _elasticsearchContainer = new ElasticsearchContainer(IMAGE_NAME);
+    _elasticsearchContainer = ElasticTestUtils.getNewElasticsearchContainer();
     checkContainerEngine(_elasticsearchContainer.getDockerClient());
     _elasticsearchContainer.start();
-    _searchClient = buildRestClient();
+    _searchClient = ElasticTestUtils.buildRestClient(_elasticsearchContainer);
     _elasticSearchTimeseriesAspectService = buildService();
     _elasticSearchTimeseriesAspectService.configure();
     EntitySpec entitySpec = _entityRegistry.getEntitySpec(ENTITY_NAME);
     _aspectSpec = entitySpec.getAspectSpec(ASPECT_NAME);
-  }
-
-  @Nonnull
-  private RestHighLevelClient buildRestClient() {
-    final RestClientBuilder builder =
-        RestClient.builder(new HttpHost("localhost", _elasticsearchContainer.getMappedPort(HTTP_PORT), "http"))
-            .setHttpClientConfigCallback(httpAsyncClientBuilder -> httpAsyncClientBuilder.setDefaultIOReactorConfig(
-                IOReactorConfig.custom().setIoThreadCount(1).build()));
-
-    builder.setRequestConfigCallback(requestConfigBuilder -> requestConfigBuilder.setConnectionRequestTimeout(3000));
-
-    return new RestHighLevelClient(builder);
   }
 
   @Nonnull
@@ -238,7 +221,7 @@ public class ElasticSearchTimeseriesAspectServiceTest {
 
   private void validateAspectValue(EnvelopedAspect envelopedAspectResult) {
     TestEntityProfile actualProfile =
-        (TestEntityProfile) GenericAspectUtils.deserializeAspect(envelopedAspectResult.getAspect().getValue(),
+        (TestEntityProfile) GenericRecordUtils.deserializeAspect(envelopedAspectResult.getAspect().getValue(),
             CONTENT_TYPE, _aspectSpec);
     TestEntityProfile expectedProfile = _testEntityProfiles.get(actualProfile.getTimestampMillis());
     assertNotNull(expectedProfile);

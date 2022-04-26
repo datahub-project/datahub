@@ -2,9 +2,10 @@ import { Button } from 'antd';
 import React from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
-import { RecommendationContent, Tag } from '../../../../types.generated';
+import { EntityType, RecommendationContent, Tag } from '../../../../types.generated';
 import { StyledTag } from '../../../entity/shared/components/styled/StyledTag';
 import { navigateToSearchUrl } from '../../../search/utils/navigateToSearchUrl';
+import { useEntityRegistry } from '../../../useEntityRegistry';
 
 const TagSearchListContainer = styled.div`
     display: flex;
@@ -30,6 +31,7 @@ type Props = {
 
 export const TagSearchList = ({ content, onClick }: Props) => {
     const history = useHistory();
+    const entityRegistry = useEntityRegistry();
 
     const tags: Array<Tag> = content
         .map((cnt) => cnt.entity)
@@ -54,8 +56,8 @@ export const TagSearchList = ({ content, onClick }: Props) => {
             {tags.map((tag, index) => (
                 <TagContainer>
                     <TagButton type="link" key={tag.urn} onClick={() => onClickTag(tag, index)}>
-                        <StyledTag $colorHash={tag.urn} closable={false}>
-                            {tag.name}
+                        <StyledTag $colorHash={tag?.urn} $color={tag?.properties?.colorHex} closable={false}>
+                            {entityRegistry.getDisplayName(EntityType.Tag, tag)}
                         </StyledTag>
                     </TagButton>
                 </TagContainer>

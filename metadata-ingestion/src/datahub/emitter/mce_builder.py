@@ -1,8 +1,10 @@
 """Convenience functions for creating MCEs"""
 import json
 import logging
+import os
 import re
 import time
+from distutils.util import strtobool
 from enum import Enum
 from hashlib import md5
 from typing import Any, List, Optional, Type, TypeVar, Union, cast, get_type_hints
@@ -27,17 +29,26 @@ from datahub.metadata.schema_classes import (
     OwnershipSourceClass,
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
+    SchemaFieldKeyClass,
     TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
 
+logger = logging.getLogger(__name__)
+
 DEFAULT_ENV = DEFAULT_ENV_CONFIGURATION
 DEFAULT_FLOW_CLUSTER = "prod"
 UNKNOWN_USER = "urn:li:corpuser:unknown"
+DATASET_URN_TO_LOWER: bool = strtobool(
+    os.getenv("DATAHUB_DATASET_URN_TO_LOWER", "false")
+)
 
 
-logger = logging.getLogger(__name__)
+# TODO: Delete this once lower-casing is the standard.
+def set_dataset_urn_to_lower(value: bool) -> None:
+    global DATASET_URN_TO_LOWER
+    DATASET_URN_TO_LOWER = value
 
 
 class OwnerType(Enum):
@@ -57,6 +68,8 @@ def make_data_platform_urn(platform: str) -> str:
 
 
 def make_dataset_urn(platform: str, name: str, env: str = DEFAULT_ENV) -> str:
+    if DATASET_URN_TO_LOWER:
+        name = name.lower()
     return f"urn:li:dataset:({make_data_platform_urn(platform)},{name},{env})"
 
 
@@ -71,6 +84,8 @@ def make_dataset_urn_with_platform_instance(
     platform: str, name: str, platform_instance: Optional[str], env: str = DEFAULT_ENV
 ) -> str:
     if platform_instance:
+        if DATASET_URN_TO_LOWER:
+            name = name.lower()
         return f"urn:li:dataset:({make_data_platform_urn(platform)},{platform_instance}.{name},{env})"
     else:
         return make_dataset_urn(platform=platform, name=name, env=env)
@@ -79,6 +94,16 @@ def make_dataset_urn_with_platform_instance(
 def make_schema_field_urn(parent_urn: str, field_path: str) -> str:
     assert parent_urn.startswith("urn:li:"), "Schema field's parent must be an urn"
     return f"urn:li:schemaField:({parent_urn},{field_path})"
+
+
+def schema_field_urn_to_key(schema_field_urn: str) -> Optional[SchemaFieldKeyClass]:
+    pattern = r"urn:li:schemaField:\((.*),(.*)\)"
+    results = re.search(pattern, schema_field_urn)
+    if results is not None:
+        dataset_urn: str = results.group(1)
+        field_path: str = results.group(2)
+        return SchemaFieldKeyClass(parent=dataset_urn, fieldPath=field_path)
+    return None
 
 
 def dataset_urn_to_key(dataset_urn: str) -> Optional[DatasetKeyClass]:
@@ -163,6 +188,10 @@ def make_data_flow_urn(
 
 def make_data_job_urn_with_flow(flow_urn: str, job_id: str) -> str:
     return f"urn:li:dataJob:({flow_urn},{job_id})"
+
+
+def make_data_process_instance_urn(dataProcessInstanceId: str) -> str:
+    return f"urn:li:dataProcessInstance:{dataProcessInstanceId}"
 
 
 def make_data_job_urn(

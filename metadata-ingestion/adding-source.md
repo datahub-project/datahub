@@ -51,8 +51,9 @@ Tests go in the `tests` directory. We use the [pytest framework](https://pytest.
 
 ### 7. Write docs
 
-Add the plugin to the table at the top of the README file, and add the source's documentation underneath the sources
-header.
+Create a copy of [`source-docs-template.md`](./source-docs-template.md) and edit all relevant components. 
+
+Add the plugin to the table under [CLI Sources List](../docs/cli.md#sources), and add the source's documentation underneath the [sources folder](https://github.com/datahub-project/datahub/tree/master/metadata-ingestion/source_docs).
 
 ### 8. Add SQL Alchemy mapping (if applicable)
 

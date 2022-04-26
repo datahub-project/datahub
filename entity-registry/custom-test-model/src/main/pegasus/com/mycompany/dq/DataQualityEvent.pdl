@@ -1,0 +1,11 @@
+namespace com.mycompany.dq
+
+@Event = {
+  "name": "dataQualityEvent",
+}
+record DataQualityEvent {
+  type: enum DataQualityEventType {
+    ASSERTION
+    PROFILE
+  }
+}

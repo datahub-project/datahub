@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.dataset.mappers;
 
+import com.linkedin.common.Deprecation;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
@@ -13,10 +14,12 @@ import com.linkedin.datahub.graphql.generated.DatasetEditableProperties;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FabricType;
+import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
@@ -26,6 +29,7 @@ import com.linkedin.dataset.EditableDatasetProperties;
 import com.linkedin.dataset.ViewProperties;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaMetadata;
@@ -54,80 +58,108 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         Dataset result = new Dataset();
         result.setUrn(entityResponse.getUrn().toString());
         result.setType(EntityType.DATASET);
-        entityResponse.getAspects().forEach((name, aspect) -> {
-            DataMap data = aspect.getValue().data();
-            if (DATASET_KEY_ASPECT_NAME.equals(name)) {
-                final DatasetKey gmsKey = new DatasetKey(data);
-                result.setName(gmsKey.getName());
-                result.setOrigin(FabricType.valueOf(gmsKey.getOrigin().toString()));
-                result.setPlatform(DataPlatform.builder()
-                    .setType(EntityType.DATA_PLATFORM)
-                    .setUrn(gmsKey.getPlatform().toString()).build());
-            } else if (DATASET_PROPERTIES_ASPECT_NAME.equals(name)) {
-                final DatasetProperties gmsProperties = new DatasetProperties(data);
-                final com.linkedin.datahub.graphql.generated.DatasetProperties properties = new com.linkedin.datahub.graphql.generated.DatasetProperties();
-                properties.setDescription(gmsProperties.getDescription());
-                result.setDescription(gmsProperties.getDescription());
-                //properties.setOrigin(FabricType.valueOf(entityResponse.getUrn().getOriginEntity().toString()));
-                if (gmsProperties.getExternalUrl() != null) {
-                    properties.setExternalUrl(gmsProperties.getExternalUrl().toString());
-                }
-                properties.setCustomProperties(StringMapMapper.map(gmsProperties.getCustomProperties()));
-                //properties.setName(entityResponse.getUrn().getDatasetNameEntity()); // TODO: Move to using a display name produced by ingestion soures
-                result.setProperties(properties);
-                result.setDescription(properties.getDescription());
-                if (gmsProperties.getUri() != null) {
-                    // Deprecated field.
-                    result.setUri(gmsProperties.getUri().toString());
-                }
-            } else if (DATASET_DEPRECATION_ASPECT_NAME.equals(name)) {
-                result.setDeprecation(DatasetDeprecationMapper.map(new DatasetDeprecation(data)));
-            } else if (SCHEMA_METADATA_ASPECT_NAME.equals(name)) {
-                result.setSchema(SchemaMapper.map(new SchemaMetadata(data)));
-            } else if (EDITABLE_DATASET_PROPERTIES_ASPECT_NAME.equals(name)) {
-                final EditableDatasetProperties editableDatasetProperties = new EditableDatasetProperties(data);
-                final DatasetEditableProperties editableProperties = new DatasetEditableProperties();
-                editableProperties.setDescription(editableDatasetProperties.getDescription());
-                result.setEditableProperties(editableProperties);
-            } else if (VIEW_PROPERTIES_ASPECT_NAME.equals(name)) {
-                final ViewProperties properties = new ViewProperties(data);
-                final com.linkedin.datahub.graphql.generated.ViewProperties graphqlProperties =
-                    new com.linkedin.datahub.graphql.generated.ViewProperties();
-                graphqlProperties.setMaterialized(properties.isMaterialized());
-                graphqlProperties.setLanguage(properties.getViewLanguage());
-                graphqlProperties.setLogic(properties.getViewLogic());
-                result.setViewProperties(graphqlProperties);
-            } else if (INSTITUTIONAL_MEMORY_ASPECT_NAME.equals(name)) {
-                result.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(data)));
-            } else if (OWNERSHIP_ASPECT_NAME.equals(name)) {
-                result.setOwnership(OwnershipMapper.map(new Ownership(data)));
-            } else if (STATUS_ASPECT_NAME.equals(name)) {
-                result.setStatus(StatusMapper.map(new Status(data)));
-            } else if (GLOBAL_TAGS_ASPECT_NAME.equals(name)) {
-                com.linkedin.datahub.graphql.generated.GlobalTags globalTags = GlobalTagsMapper.map(new GlobalTags(data));
-                result.setGlobalTags(globalTags);
-                result.setTags(globalTags);
-            } else if (EDITABLE_SCHEMA_METADATA_ASPECT_NAME.equals(name)) {
-                result.setEditableSchemaMetadata(EditableSchemaMetadataMapper.map(new EditableSchemaMetadata(data)));
-            } else if (GLOSSARY_TERMS_ASPECT_NAME.equals(name)) {
-                result.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(data)));
-            } else if (CONTAINER_ASPECT_NAME.equals(name)) {
-                final com.linkedin.container.Container gmsContainer = new com.linkedin.container.Container(data);
-                result.setContainer(Container
-                    .builder()
-                    .setType(EntityType.CONTAINER)
-                    .setUrn(gmsContainer.getContainer().toString())
-                    .build());
-            } else if (DOMAINS_ASPECT_NAME.equals(name)) {
-                final Domains domains = new Domains(data);
-                // Currently we only take the first domain if it exists.
-                if (domains.getDomains().size() > 0) {
-                    result.setDomain(Domain.builder()
-                        .setType(EntityType.DOMAIN)
-                        .setUrn(domains.getDomains().get(0).toString()).build());
-                }
-            }
-        });
-        return result;
+
+        EnvelopedAspectMap aspectMap = entityResponse.getAspects();
+        MappingHelper<Dataset> mappingHelper = new MappingHelper<>(aspectMap, result);
+        mappingHelper.mapToResult(DATASET_KEY_ASPECT_NAME, this::mapDatasetKey);
+        mappingHelper.mapToResult(DATASET_PROPERTIES_ASPECT_NAME, this::mapDatasetProperties);
+        mappingHelper.mapToResult(DATASET_DEPRECATION_ASPECT_NAME, (dataset, dataMap) ->
+            dataset.setDeprecation(DatasetDeprecationMapper.map(new DatasetDeprecation(dataMap))));
+        mappingHelper.mapToResult(SCHEMA_METADATA_ASPECT_NAME, (dataset, dataMap) ->
+            dataset.setSchema(SchemaMapper.map(new SchemaMetadata(dataMap))));
+        mappingHelper.mapToResult(EDITABLE_DATASET_PROPERTIES_ASPECT_NAME, this::mapEditableDatasetProperties);
+        mappingHelper.mapToResult(VIEW_PROPERTIES_ASPECT_NAME, this::mapViewProperties);
+        mappingHelper.mapToResult(INSTITUTIONAL_MEMORY_ASPECT_NAME, (dataset, dataMap) ->
+            dataset.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap))));
+        mappingHelper.mapToResult(OWNERSHIP_ASPECT_NAME, (dataset, dataMap) ->
+            dataset.setOwnership(OwnershipMapper.map(new Ownership(dataMap))));
+        mappingHelper.mapToResult(STATUS_ASPECT_NAME, (dataset, dataMap) ->
+            dataset.setStatus(StatusMapper.map(new Status(dataMap))));
+        mappingHelper.mapToResult(GLOBAL_TAGS_ASPECT_NAME, this::mapGlobalTags);
+        mappingHelper.mapToResult(EDITABLE_SCHEMA_METADATA_ASPECT_NAME, (dataset, dataMap) ->
+            dataset.setEditableSchemaMetadata(EditableSchemaMetadataMapper.map(new EditableSchemaMetadata(dataMap))));
+        mappingHelper.mapToResult(GLOSSARY_TERMS_ASPECT_NAME, (dataset, dataMap) ->
+            dataset.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(dataMap))));
+        mappingHelper.mapToResult(CONTAINER_ASPECT_NAME, this::mapContainers);
+        mappingHelper.mapToResult(DOMAINS_ASPECT_NAME, this::mapDomains);
+        mappingHelper.mapToResult(DEPRECATION_ASPECT_NAME, (dataset, dataMap) ->
+            dataset.setDeprecation(DeprecationMapper.map(new Deprecation(dataMap))));
+
+        return mappingHelper.getResult();
+    }
+
+    private void mapDatasetKey(@Nonnull Dataset dataset, @Nonnull DataMap dataMap) {
+        final DatasetKey gmsKey = new DatasetKey(dataMap);
+        dataset.setName(gmsKey.getName());
+        dataset.setOrigin(FabricType.valueOf(gmsKey.getOrigin().toString()));
+        dataset.setPlatform(DataPlatform.builder()
+            .setType(EntityType.DATA_PLATFORM)
+            .setUrn(gmsKey.getPlatform().toString()).build());
+    }
+
+    private void mapDatasetProperties(@Nonnull Dataset dataset, @Nonnull DataMap dataMap) {
+        final DatasetProperties gmsProperties = new DatasetProperties(dataMap);
+        final com.linkedin.datahub.graphql.generated.DatasetProperties properties =
+            new com.linkedin.datahub.graphql.generated.DatasetProperties();
+        properties.setDescription(gmsProperties.getDescription());
+        dataset.setDescription(gmsProperties.getDescription());
+        properties.setOrigin(dataset.getOrigin());
+        if (gmsProperties.getExternalUrl() != null) {
+            properties.setExternalUrl(gmsProperties.getExternalUrl().toString());
+        }
+        properties.setCustomProperties(StringMapMapper.map(gmsProperties.getCustomProperties()));
+        if (gmsProperties.getName() != null) {
+            properties.setName(gmsProperties.getName());
+        } else {
+            properties.setName(dataset.getName());
+        }
+        properties.setQualifiedName(gmsProperties.getQualifiedName());
+        dataset.setProperties(properties);
+        dataset.setDescription(properties.getDescription());
+        if (gmsProperties.getUri() != null) {
+            dataset.setUri(gmsProperties.getUri().toString());
+        }
+    }
+
+    private void mapEditableDatasetProperties(@Nonnull Dataset dataset, @Nonnull DataMap dataMap) {
+        final EditableDatasetProperties editableDatasetProperties = new EditableDatasetProperties(dataMap);
+        final DatasetEditableProperties editableProperties = new DatasetEditableProperties();
+        editableProperties.setDescription(editableDatasetProperties.getDescription());
+        dataset.setEditableProperties(editableProperties);
+    }
+
+    private void mapViewProperties(@Nonnull Dataset dataset, @Nonnull DataMap dataMap) {
+        final ViewProperties properties = new ViewProperties(dataMap);
+        final com.linkedin.datahub.graphql.generated.ViewProperties graphqlProperties =
+            new com.linkedin.datahub.graphql.generated.ViewProperties();
+        graphqlProperties.setMaterialized(properties.isMaterialized());
+        graphqlProperties.setLanguage(properties.getViewLanguage());
+        graphqlProperties.setLogic(properties.getViewLogic());
+        dataset.setViewProperties(graphqlProperties);
+    }
+
+    private void mapGlobalTags(@Nonnull Dataset dataset, @Nonnull DataMap dataMap) {
+        com.linkedin.datahub.graphql.generated.GlobalTags globalTags = GlobalTagsMapper.map(new GlobalTags(dataMap));
+        dataset.setGlobalTags(globalTags);
+        dataset.setTags(globalTags);
+    }
+
+    private void mapContainers(@Nonnull Dataset dataset, @Nonnull DataMap dataMap) {
+        final com.linkedin.container.Container gmsContainer = new com.linkedin.container.Container(dataMap);
+        dataset.setContainer(Container
+            .builder()
+            .setType(EntityType.CONTAINER)
+            .setUrn(gmsContainer.getContainer().toString())
+            .build());
+    }
+
+    private void mapDomains(@Nonnull Dataset dataset, @Nonnull DataMap dataMap) {
+        final Domains domains = new Domains(dataMap);
+        // Currently we only take the first domain if it exists.
+        if (domains.getDomains().size() > 0) {
+            dataset.setDomain(Domain.builder()
+                .setType(EntityType.DOMAIN)
+                .setUrn(domains.getDomains().get(0).toString()).build());
+        }
     }
 }

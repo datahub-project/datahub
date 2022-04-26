@@ -41,3 +41,11 @@ mutation setDomain($entityUrn: String!, $domainUrn: String!) {
 mutation unsetDomain($entityUrn: String!) {
     unsetDomain(entityUrn: $entityUrn)
 }
+
+mutation setTagColor($urn: String!, $colorHex: String!) {
+    setTagColor(urn: $urn, colorHex: $colorHex)
+}
+
+mutation updateDeprecation($input: UpdateDeprecationInput!) {
+    updateDeprecation(input: $input)
+}

@@ -43,8 +43,13 @@ source:
     # https://github.com/dropbox/PyHive#passing-session-configuration.
     # LDAP, Kerberos, etc. are supported using connect_args, which can be
     # added under the `options` config parameter.
+    #options:
+    #  connect_args:
+    #    auth: KERBEROS
+    #    kerberos_service_name: hive
     #scheme: 'hive+http' # set this if Thrift should use the HTTP transport
     #scheme: 'hive+https' # set this if Thrift should use the HTTP with SSL transport
+    #scheme: 'sparksql' # set this for Spark Thrift Server
 
 sink:
   # sink configs

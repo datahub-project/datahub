@@ -5,6 +5,7 @@ from enum import Enum
 from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 from looker_sdk.error import SDKError
+from looker_sdk.rtl.transport import TransportOptions
 from looker_sdk.sdk.api31.methods import Looker31SDK
 from pydantic.class_validators import validator
 
@@ -309,10 +310,9 @@ class LookerUtil:
             # attempt Postgres modified type
             type_class = resolve_postgres_modified_type(native_type)
 
-        # if still not found, report a warning
+        # if still not found, log and continue
         if type_class is None:
-            reporter.report_warning(
-                native_type,
+            logger.info(
                 f"The type '{native_type}' is not recognized for field type, setting as NullTypeClass.",
             )
             type_class = NullTypeClass
@@ -500,18 +500,26 @@ class LookerExplore:
         explore_name: str,
         client: Looker31SDK,
         reporter: SourceReport,
+        transport_options: Optional[TransportOptions],
     ) -> Optional["LookerExplore"]:  # noqa: C901
         try:
-            explore = client.lookml_model_explore(model, explore_name)
+            explore = client.lookml_model_explore(
+                model, explore_name, transport_options=transport_options
+            )
             views = set()
-            if explore.joins is not None and explore.joins != []:
-                if explore.view_name is not None and explore.view_name != explore.name:
-                    # explore is renaming the view name, we will need to swap references to explore.name with explore.view_name
-                    aliased_explore = True
-                    views.add(explore.view_name)
-                else:
-                    aliased_explore = False
 
+            if explore.view_name is not None and explore.view_name != explore.name:
+                # explore is not named after a view and is instead using a from field, which is modeled as view_name.
+                aliased_explore = True
+                views.add(explore.view_name)
+            else:
+                # otherwise, the explore name is a view, so add it to the set.
+                aliased_explore = False
+                if explore.name is not None:
+                    views.add(explore.name)
+
+            if explore.joins is not None and explore.joins != []:
+                potential_views = [e.name for e in explore.joins if e.name is not None]
                 for e_join in [
                     e for e in explore.joins if e.dependent_fields is not None
                 ]:
@@ -519,19 +527,21 @@ class LookerExplore:
                     for field_name in e_join.dependent_fields:
                         try:
                             view_name = LookerUtil._extract_view_from_field(field_name)
-                            if (view_name == explore.name) and aliased_explore:
-                                assert explore.view_name is not None
-                                view_name = explore.view_name
-                            views.add(view_name)
+                            potential_views.append(view_name)
                         except AssertionError:
                             reporter.report_warning(
                                 key=f"chart-field-{field_name}",
                                 reason="The field was not prefixed by a view name. This can happen when the field references another dynamic field.",
                             )
                             continue
-            else:
-                assert explore.view_name is not None
-                views.add(explore.view_name)
+
+                for view_name in potential_views:
+                    if (view_name == explore.name) and aliased_explore:
+                        # if the explore is aliased, then the joins could be referring to views using the aliased name.
+                        # this needs to be corrected by switching to the actual view name of the explore
+                        assert explore.view_name is not None
+                        view_name = explore.view_name
+                    views.add(view_name)
 
             view_fields: List[ViewField] = []
             if explore.fields is not None:
@@ -672,6 +682,7 @@ class LookerExplore:
         if self.source_file is not None:
             custom_properties["looker.explore.file"] = str(self.source_file)
         dataset_props = DatasetPropertiesClass(
+            name=self.name,
             description=self.description,
             customProperties=custom_properties,
         )

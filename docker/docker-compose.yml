@@ -59,6 +59,9 @@ services:
     hostname: elasticsearch
     ports:
       - "9200:9200"
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
     volumes:
       - esdata:/usr/share/elasticsearch/data
     healthcheck:
@@ -116,11 +119,14 @@ services:
       - "9002:9002"
     depends_on:
       - datahub-gms
+    volumes:
+      - ${HOME}/.datahub/plugins:/etc/datahub/plugins
 
   datahub-actions:
-    image: public.ecr.aws/datahub/acryl-datahub-actions:${ACTIONS_VERSION:-head}
+    image: acryldata/acryl-datahub-actions:${ACTIONS_VERSION:-head}
     hostname: actions
     env_file: datahub-actions/env/docker.env
+    restart: on-failure:5
     depends_on:
       - datahub-gms
 

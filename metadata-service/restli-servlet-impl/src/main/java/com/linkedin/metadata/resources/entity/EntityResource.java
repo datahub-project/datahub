@@ -12,6 +12,8 @@ import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.entity.ValidationException;
+import com.linkedin.metadata.event.EventProducer;
+import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
@@ -23,6 +25,8 @@ import com.linkedin.metadata.run.AspectRowSummaryArray;
 import com.linkedin.metadata.run.DeleteEntityResponse;
 import com.linkedin.metadata.run.RollbackResponse;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.LineageSearchResult;
+import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
@@ -49,7 +53,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -58,9 +61,23 @@ import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.maven.artifact.versioning.ComparableVersion;
 
-import static com.linkedin.metadata.entity.ValidationUtils.*;
-import static com.linkedin.metadata.resources.restli.RestliConstants.*;
-import static com.linkedin.metadata.utils.PegasusUtils.*;
+import static com.linkedin.metadata.entity.ValidationUtils.validateOrThrow;
+import static com.linkedin.metadata.resources.restli.RestliConstants.ACTION_AUTOCOMPLETE;
+import static com.linkedin.metadata.resources.restli.RestliConstants.ACTION_BROWSE;
+import static com.linkedin.metadata.resources.restli.RestliConstants.ACTION_GET_BROWSE_PATHS;
+import static com.linkedin.metadata.resources.restli.RestliConstants.ACTION_INGEST;
+import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_ASPECTS;
+import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_DIRECTION;
+import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_FIELD;
+import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_FILTER;
+import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_INPUT;
+import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_LIMIT;
+import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_PATH;
+import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_QUERY;
+import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_SORT;
+import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_START;
+import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_URN;
+import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 
 
 /**
@@ -73,6 +90,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private static final String ACTION_SEARCH = "search";
   private static final String ACTION_LIST = "list";
   private static final String ACTION_SEARCH_ACROSS_ENTITIES = "searchAcrossEntities";
+  private static final String ACTION_SEARCH_ACROSS_LINEAGE = "searchAcrossLineage";
   private static final String ACTION_BATCH_INGEST = "batchIngest";
   private static final String ACTION_LIST_URNS = "listUrns";
   private static final String ACTION_FILTER = "filter";
@@ -99,6 +117,14 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Inject
   @Named("systemMetadataService")
   private SystemMetadataService _systemMetadataService;
+
+  @Inject
+  @Named("relationshipSearchService")
+  private LineageSearchService _lineageSearchService;
+
+  @Inject
+  @Named("kafkaEventProducer")
+  private EventProducer _eventProducer;
 
   /**
    * Retrieves the value for an entity that is made up of latest versions of specified aspects.
@@ -240,8 +266,26 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     List<String> entityList = entities == null ? Collections.emptyList() : Arrays.asList(entities);
     log.info("GET SEARCH RESULTS ACROSS ENTITIES for {} with query {}", entityList, input);
     return RestliUtil.toTask(
-        () -> _searchService.searchAcrossEntities(entityList, input, filter, sortCriterion, start, count),
+        () -> _searchService.searchAcrossEntities(entityList, input, filter, sortCriterion, start, count, null),
         "searchAcrossEntities");
+  }
+
+  @Action(name = ACTION_SEARCH_ACROSS_LINEAGE)
+  @Nonnull
+  @WithSpan
+  public Task<LineageSearchResult> searchAcrossLineage(@ActionParam(PARAM_URN) @Nonnull String urnStr,
+      @ActionParam(PARAM_DIRECTION) String direction,
+      @ActionParam(PARAM_ENTITIES) @Optional @Nullable String[] entities,
+      @ActionParam(PARAM_INPUT) @Optional @Nullable String input, @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
+      @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion, @ActionParam(PARAM_START) int start,
+      @ActionParam(PARAM_COUNT) int count) throws URISyntaxException {
+    Urn urn = Urn.createFromString(urnStr);
+    List<String> entityList = entities == null ? Collections.emptyList() : Arrays.asList(entities);
+    log.info("GET SEARCH RESULTS ACROSS RELATIONSHIPS for source urn {}, direction {}, entities {} with query {}",
+        urnStr, direction, entityList, input);
+    return RestliUtil.toTask(
+        () -> _lineageSearchService.searchAcrossLineage(urn, LineageDirection.valueOf(direction), entityList,
+            input, filter, sortCriterion, start, count), "searchAcrossRelationships");
   }
 
   @Action(name = ACTION_LIST)
@@ -328,7 +372,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     return RestliUtil.toTask(() -> {
       RollbackResponse response = new RollbackResponse();
       List<AspectRowSummary> aspectRowsToDelete =
-          _systemMetadataService.findByRegistry(finalRegistryName, finalRegistryVersion.toString());
+          _systemMetadataService.findByRegistry(finalRegistryName, finalRegistryVersion.toString(), false);
       log.info("found {} rows to delete...", stringifyRowCount(aspectRowsToDelete.size()));
       response.setAspectsAffected(aspectRowsToDelete.size());
       response.setEntitiesAffected(
@@ -340,7 +384,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         Map<String, String> conditions = new HashMap();
         conditions.put("registryName", finalRegistryName1);
         conditions.put("registryVersion", finalRegistryVersion1.toString());
-        _entityService.rollbackWithConditions(aspectRowsToDelete, conditions);
+        _entityService.rollbackWithConditions(aspectRowsToDelete, conditions, false);
       }
       return response;
     }, MetricRegistry.name(this.getClass(), "deleteAll"));
@@ -385,15 +429,14 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Nonnull
   @WithSpan
   public Task<Long> getTotalEntityCount(@ActionParam(PARAM_ENTITY) @Nonnull String entityName) {
-    return RestliUtil.toTask(() -> _searchService.docCount(entityName));
+    return RestliUtil.toTask(() -> _entitySearchService.docCount(entityName));
   }
 
   @Action(name = "batchGetTotalEntityCount")
   @Nonnull
   @WithSpan
   public Task<LongMap> batchGetTotalEntityCount(@ActionParam(PARAM_ENTITIES) @Nonnull String[] entityNames) {
-    return RestliUtil.toTask(() -> new LongMap(
-        Arrays.stream(entityNames).collect(Collectors.toMap(Function.identity(), _searchService::docCount))));
+    return RestliUtil.toTask(() -> new LongMap(_searchService.docCountPerEntity(Arrays.asList(entityNames))));
   }
 
   @Action(name = ACTION_LIST_URNS)

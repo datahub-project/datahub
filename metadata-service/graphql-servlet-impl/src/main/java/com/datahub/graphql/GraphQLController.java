@@ -2,7 +2,7 @@ package com.datahub.graphql;
 
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authentication.Authentication;
-import com.datahub.authorization.AuthorizationManager;
+import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -29,7 +29,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class GraphQLController {
 
   public GraphQLController() {
-    log.error("I created graphqlcontroller");
 
   }
 
@@ -37,7 +36,7 @@ public class GraphQLController {
   GraphQLEngine _engine;
 
   @Inject
-  AuthorizationManager _authManager;
+  AuthorizerChain _authorizerChain;
 
   @PostMapping(value = "/graphql", produces = "application/json;charset=utf-8")
   CompletableFuture<ResponseEntity<String>> postGraphQL(HttpEntity<String> httpEntity) {
@@ -81,7 +80,7 @@ public class GraphQLController {
     SpringQueryContext context = new SpringQueryContext(
         true,
         authentication,
-        _authManager);
+        _authorizerChain);
 
     return CompletableFuture.supplyAsync(() -> {
       /*

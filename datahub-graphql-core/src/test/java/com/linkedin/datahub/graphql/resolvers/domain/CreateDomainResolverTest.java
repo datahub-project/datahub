@@ -8,7 +8,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.DomainKey;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
@@ -16,7 +16,7 @@ import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-import static com.linkedin.datahub.graphql.resolvers.domain.DomainTestUtils.*;
+import static com.linkedin.datahub.graphql.TestUtils.*;
 import static org.testng.Assert.*;
 
 
@@ -45,13 +45,13 @@ public class CreateDomainResolverTest {
     final DomainKey key = new DomainKey();
     key.setId("test-id");
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
-    proposal.setEntityKeyAspect(GenericAspectUtils.serializeAspect(key));
+    proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(key));
     proposal.setEntityType(Constants.DOMAIN_ENTITY_NAME);
     DomainProperties props = new DomainProperties();
     props.setDescription("test-description");
     props.setName("test-name");
     proposal.setAspectName(Constants.DOMAIN_PROPERTIES_ASPECT_NAME);
-    proposal.setAspect(GenericAspectUtils.serializeAspect(props));
+    proposal.setAspect(GenericRecordUtils.serializeAspect(props));
     proposal.setChangeType(ChangeType.UPSERT);
 
     // Not ideal to match against "any", but we don't know the auto-generated execution request id

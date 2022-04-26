@@ -263,7 +263,7 @@ SNOWFLAKE_TYPES_MAP: Dict[str, Any] = {
     "GEOGRAPHY": None,
 }
 
-# see https://github.com/googleapis/python-bigquery-sqlalchemy/blob/master/pybigquery/sqlalchemy_bigquery.py#L111
+# see https://github.com/googleapis/python-bigquery-sqlalchemy/blob/main/sqlalchemy_bigquery/_types.py#L32
 BIGQUERY_TYPES_MAP: Dict[str, Any] = {
     "STRING": StringType,
     "BOOL": BooleanType,

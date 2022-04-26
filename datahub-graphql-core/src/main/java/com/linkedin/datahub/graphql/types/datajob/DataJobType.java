@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.types.datajob;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.DataJobUrn;
 import com.linkedin.common.urn.Urn;
@@ -12,37 +11,37 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
-import com.linkedin.datahub.graphql.types.datajob.mappers.DataJobMapper;
-import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.BrowsePath;
 import com.linkedin.datahub.graphql.generated.BrowseResults;
 import com.linkedin.datahub.graphql.generated.DataJob;
+import com.linkedin.datahub.graphql.generated.DataJobUpdateInput;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
-import com.linkedin.datahub.graphql.types.SearchableEntityType;
-import com.linkedin.datahub.graphql.types.datajob.mappers.DataJobUpdateInputSnapshotMapper;
-import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
-import com.linkedin.datahub.graphql.generated.DataJobUpdateInput;
 import com.linkedin.datahub.graphql.types.MutableType;
+import com.linkedin.datahub.graphql.types.SearchableEntityType;
+import com.linkedin.datahub.graphql.types.datajob.mappers.DataJobMapper;
+import com.linkedin.datahub.graphql.types.datajob.mappers.DataJobUpdateInputMapper;
+import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
-import com.linkedin.entity.Entity;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.metadata.snapshot.DataJobSnapshot;
-import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.r2.RemoteInvocationException;
 import graphql.execution.DataFetcherResult;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -51,13 +50,12 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-import com.linkedin.r2.RemoteInvocationException;
-
-import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
+import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.metadata.Constants.*;
 
 
-public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEntityType<DataJob>, MutableType<DataJobUpdateInput> {
+public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEntityType<DataJob>,
+                                    MutableType<DataJobUpdateInput, DataJob> {
 
     private static final Set<String> ASPECTS_TO_RESOLVE = ImmutableSet.of(
         DATA_JOB_KEY_ASPECT_NAME,
@@ -69,7 +67,8 @@ public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEnti
         GLOBAL_TAGS_ASPECT_NAME,
         GLOSSARY_TERMS_ASPECT_NAME,
         STATUS_ASPECT_NAME,
-        DOMAINS_ASPECT_NAME
+        DOMAINS_ASPECT_NAME,
+        DEPRECATION_ASPECT_NAME
     );
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("flow");
     private final EntityClient _entityClient;
@@ -94,7 +93,8 @@ public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEnti
     }
 
     @Override
-    public List<DataFetcherResult<DataJob>> batchLoad(final List<String> urnStrs, final QueryContext context) throws Exception {
+    public List<DataFetcherResult<DataJob>> batchLoad(final List<String> urnStrs, @Nonnull final QueryContext context)
+        throws Exception {
         final List<Urn> urns = urnStrs.stream()
             .map(UrnUtils::getUrn)
             .collect(Collectors.toList());
@@ -167,15 +167,11 @@ public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEnti
     public DataJob update(@Nonnull String urn, @Nonnull DataJobUpdateInput input, @Nonnull QueryContext context) throws Exception {
         if (isAuthorized(urn, input, context)) {
             final CorpuserUrn actor = CorpuserUrn.createFromString(context.getAuthentication().getActor().toUrnStr());
-            final DataJobSnapshot dataJobSnapshot = DataJobUpdateInputSnapshotMapper.map(input, actor);
-            dataJobSnapshot.setUrn(DataJobUrn.createFromString(urn));
-
-            final Snapshot snapshot = Snapshot.create(dataJobSnapshot);
+            final Collection<MetadataChangeProposal> proposals = DataJobUpdateInputMapper.map(input, actor);
+            proposals.forEach(proposal -> proposal.setEntityUrn(UrnUtils.getUrn(urn)));
 
             try {
-                Entity entity = new Entity();
-                entity.setValue(snapshot);
-                _entityClient.update(entity, context.getAuthentication());
+                _entityClient.batchIngestProposals(proposals, context.getAuthentication());
             } catch (RemoteInvocationException e) {
                 throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
             }

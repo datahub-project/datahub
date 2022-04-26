@@ -2,6 +2,8 @@ package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.apache.commons.lang3.StringUtils;
+
 import java.util.List;
 import java.util.Map;
 
@@ -12,21 +14,21 @@ import java.util.Map;
 public class SettingsBuilder {
   private final Map<String, Object> settings;
 
-  public SettingsBuilder(List<String> urnStopWords) {
-    settings = buildSettings(urnStopWords);
+  public SettingsBuilder(List<String> urnStopWords, String mainTokenizer) {
+    settings = buildSettings(urnStopWords, mainTokenizer);
   }
 
   public Map<String, Object> getSettings() {
     return settings;
   }
 
-  private static Map<String, Object> buildSettings(List<String> urnStopWords) {
+  private static Map<String, Object> buildSettings(List<String> urnStopWords, String mainTokenizer) {
     ImmutableMap.Builder<String, Object> settings = ImmutableMap.builder();
     settings.put("max_ngram_diff", 17);
     settings.put("analysis", ImmutableMap.<String, Object>builder().put("filter", buildFilters(urnStopWords))
         .put("tokenizer", buildTokenizers())
         .put("normalizer", buildNormalizers())
-        .put("analyzer", buildAnalyzers())
+        .put("analyzer", buildAnalyzers(mainTokenizer))
         .build());
     return settings.build();
   }
@@ -79,15 +81,18 @@ public class SettingsBuilder {
   }
 
   // Analyzers turn fields into multiple tokens
-  private static Map<String, Object> buildAnalyzers() {
+  private static Map<String, Object> buildAnalyzers(String mainTokenizer) {
     ImmutableMap.Builder<String, Object> analyzers = ImmutableMap.builder();
+    // For special analysis, the substitution can be read from the configuration (chinese tokenizer: ik_smart / smartCN)
     // Analyzer for partial matching (i.e. autocomplete) - Prefix matching of each token
-    analyzers.put("partial", ImmutableMap.<String, Object>builder().put("tokenizer", "main_tokenizer")
+    analyzers.put("partial", ImmutableMap.<String, Object>builder()
+        .put("tokenizer", StringUtils.isNotBlank(mainTokenizer) ? mainTokenizer : "main_tokenizer")
         .put("filter", ImmutableList.of("custom_delimiter", "lowercase", "partial_filter"))
         .build());
 
     // Analyzer for text tokenized into words (split by spaces, periods, and slashes)
-    analyzers.put("word_delimited", ImmutableMap.<String, Object>builder().put("tokenizer", "main_tokenizer")
+    analyzers.put("word_delimited", ImmutableMap.<String, Object>builder()
+        .put("tokenizer", StringUtils.isNotBlank(mainTokenizer) ? mainTokenizer : "main_tokenizer")
         .put("filter", ImmutableList.of("custom_delimiter", "lowercase", "stop"))
         .build());
 
@@ -107,12 +112,12 @@ public class SettingsBuilder {
 
     // Analyzer for getting urn components
     analyzers.put("urn_component", ImmutableMap.<String, Object>builder().put("tokenizer", "urn_char_group")
-        .put("filter", ImmutableList.of("lowercase", "urn_stop_filter"))
+        .put("filter", ImmutableList.of("lowercase", "urn_stop_filter", "custom_delimiter"))
         .build());
 
     // Analyzer for partial matching urn components
     analyzers.put("partial_urn_component", ImmutableMap.<String, Object>builder().put("tokenizer", "urn_char_group")
-        .put("filter", ImmutableList.of("lowercase", "urn_stop_filter", "partial_filter"))
+        .put("filter", ImmutableList.of("lowercase", "urn_stop_filter", "custom_delimiter", "partial_filter"))
         .build());
 
     return analyzers.build();

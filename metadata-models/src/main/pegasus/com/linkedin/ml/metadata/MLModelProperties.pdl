@@ -67,6 +67,13 @@ record MLModelProperties includes CustomProperties, ExternalReference {
   /**
    * List of features used for MLModel training
    */
+  @Relationship = {
+    "/*": {
+      "name": "Consumes",
+      "entityTypes": [ "mlFeature" ],
+      "isLineage": true
+    }
+  }
   mlFeatures: optional array[MLFeatureUrn]
 
   /**
@@ -91,7 +98,8 @@ record MLModelProperties includes CustomProperties, ExternalReference {
   @Relationship = {
     "/*": {
       "name": "TrainedBy",
-      "entityTypes": [ "dataJob" ]
+      "entityTypes": [ "dataJob" ],
+      "isLineage": true
     }
   }
   trainingJobs: optional array[Urn]
@@ -113,7 +121,9 @@ record MLModelProperties includes CustomProperties, ExternalReference {
   @Relationship = {
     "/*": {
       "name": "MemberOf",
-      "entityTypes": [ "mlModelGroup" ]
+      "entityTypes": [ "mlModelGroup" ],
+      "isUpstream": false,
+      "isLineage": true
     }
   }
   groups: optional array[Urn]

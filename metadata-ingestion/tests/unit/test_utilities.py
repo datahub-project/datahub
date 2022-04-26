@@ -3,7 +3,6 @@ import sys
 import pytest
 
 from datahub.utilities.delayed_iter import delayed_iter
-from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.sql_parser import MetadataSQLSQLParser, SqlLineageSQLParser
 
 
@@ -41,17 +40,6 @@ def test_delayed_iter():
     ]
 
 
-def test_groupby_unsorted():
-    grouped = groupby_unsorted("ABCAC", key=lambda x: x)
-
-    assert list(grouped) == [
-        ("A", ["A", "A"]),
-        ("B", ["B"]),
-        ("C", ["C", "C"]),
-    ]
-
-
-@pytest.mark.integration
 @pytest.mark.skipif(
     sys.version_info < (3, 7), reason="The LookML source requires Python 3.7+"
 )
@@ -63,7 +51,6 @@ def test_metadatasql_sql_parser_get_tables_from_simple_query():
     assert tables_list == ["bar", "foo"]
 
 
-@pytest.mark.integration
 @pytest.mark.skipif(
     sys.version_info < (3, 7), reason="The LookML source requires Python 3.7+"
 )
@@ -75,7 +62,6 @@ def test_sqllineage_sql_parser_get_tables_from_simple_query():
     assert tables_list == ["bar", "foo"]
 
 
-@pytest.mark.integration
 @pytest.mark.skipif(
     sys.version_info < (3, 7), reason="The LookML source requires Python 3.7+"
 )
@@ -132,7 +118,6 @@ date :: date) <= 7
     assert tables_list == ["schema1.foo", "schema2.bar"]
 
 
-@pytest.mark.integration
 @pytest.mark.skipif(
     sys.version_info < (3, 7), reason="The LookML source requires Python 3.7+"
 )
@@ -152,7 +137,6 @@ def test_sqllineage_sql_parser_get_columns_from_simple_query():
     assert columns_list == ["a", "b"]
 
 
-@pytest.mark.integration
 @pytest.mark.skipif(
     sys.version_info < (3, 7), reason="The LookML source requires Python 3.7+"
 )
@@ -164,7 +148,6 @@ def test_metadatasql_sql_parser_get_columns_with_alias_and_count_star():
     assert columns_list == ["a", "b", "count", "test"]
 
 
-@pytest.mark.integration
 @pytest.mark.skipif(
     sys.version_info < (3, 7), reason="The LookML source requires Python 3.7+"
 )
@@ -192,7 +175,6 @@ WHERE
     assert columns_list == ["bs", "pi", "pt", "pu", "v"]
 
 
-@pytest.mark.integration
 @pytest.mark.skipif(
     sys.version_info < (3, 7), reason="The LookML source requires Python 3.7+"
 )
@@ -249,7 +231,6 @@ date :: date) <= 7
     assert columns_list == ["c", "date", "e", "u", "x"]
 
 
-@pytest.mark.integration
 @pytest.mark.skipif(
     sys.version_info < (3, 7), reason="The LookML source requires Python 3.7+"
 )
@@ -268,7 +249,6 @@ def test_metadatasql_sql_parser_get_tables_from_templated_query():
     assert tables_list == ["my_view.SQL_TABLE_NAME"]
 
 
-@pytest.mark.integration
 @pytest.mark.skipif(
     sys.version_info < (3, 7), reason="The LookML source requires Python 3.7+"
 )
@@ -287,7 +267,6 @@ def test_sqllineage_sql_parser_get_tables_from_templated_query():
     assert tables_list == ["my_view.SQL_TABLE_NAME"]
 
 
-@pytest.mark.integration
 @pytest.mark.skipif(
     sys.version_info < (3, 7), reason="The LookML source requires Python 3.7+"
 )
@@ -306,7 +285,6 @@ def test_metadatasql_sql_parser_get_columns_from_templated_query():
     assert columns_list == ["city", "country", "measurement", "timestamp"]
 
 
-@pytest.mark.integration
 @pytest.mark.skipif(
     sys.version_info < (3, 7), reason="The LookML source requires Python 3.7+"
 )
@@ -325,7 +303,6 @@ def test_sqllineage_sql_parser_get_columns_from_templated_query():
     assert columns_list == ["city", "country", "measurement", "timestamp"]
 
 
-@pytest.mark.integration
 @pytest.mark.skipif(
     sys.version_info < (3, 7), reason="The LookML source requires Python 3.7+"
 )
@@ -340,7 +317,6 @@ def test_sqllineage_sql_parser_with_weird_lookml_query():
     assert columns_list == ["aliased_platform", "country", "date"]
 
 
-@pytest.mark.integration
 @pytest.mark.skipif(
     sys.version_info < (3, 7), reason="The LookML source requires Python 3.7+"
 )
@@ -387,3 +363,22 @@ year(order_date)"""
     table_list = SqlLineageSQLParser(sql_query).get_tables()
     table_list.sort()
     assert table_list == ["order_items", "orders", "staffs"]
+
+
+def test_hash_in_sql_query_with_no_space():
+    parser = SqlLineageSQLParser(
+        sql_query="""
+/*
+HERE IS A STANDARD COMMENT BLOCK
+THIS WILL NOT BREAK sqllineage
+*/
+CREATE OR REPLACE TABLE `foo.bar.trg_tbl`AS
+#This, comment will not break sqllineage
+SELECT foo
+-- this comment will not break sqllineage either
+# this comment will not break sqllineage either
+FROM `foo.bar.src_tbl`
+        """
+    )
+
+    assert parser.get_tables() == ["foo.bar.src_tbl"]

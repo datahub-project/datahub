@@ -1,0 +1,35 @@
+namespace com.linkedin.identity
+
+import com.linkedin.common.Url
+
+/**
+ * Group information that can be edited from UI
+ */
+@Aspect = {
+  "name": "corpGroupEditableInfo"
+}
+record CorpGroupEditableInfo {
+  /**
+   * A description of the group
+   */
+   @Searchable = {
+     "fieldType": "TEXT",
+     "fieldName": "editedDescription",
+   }
+  description: optional string
+
+  /**
+   * A URL which points to a picture which user wants to set as the photo for the group
+   */
+  pictureLink: Url = "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/default_avatar.png"
+
+  /**
+   * Slack channel for the group
+   */
+  slack: optional string
+
+  /**
+   * Email address to contact the group
+   */
+  email: optional string
+}

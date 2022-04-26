@@ -19,6 +19,7 @@ import io.ebean.Query;
 import io.ebean.RawSql;
 import io.ebean.RawSqlBuilder;
 import io.ebean.Transaction;
+import io.ebean.TxScope;
 import io.ebean.annotation.TxIsolation;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
@@ -348,14 +349,17 @@ public class EbeanAspectDao {
 
   @Nonnull
   public ListResult<String> listUrns(
+      @Nonnull final String entityName,
       @Nonnull final String aspectName,
       final int start,
       final int pageSize) {
     validateConnection();
 
+    final String urnPrefixMatcher = "urn:li:" + entityName + ":%";
     final PagedList<EbeanAspectV2> pagedList = _server.find(EbeanAspectV2.class)
         .select(EbeanAspectV2.KEY_ID)
         .where()
+        .like(EbeanAspectV2.URN_COLUMN, urnPrefixMatcher)
         .eq(EbeanAspectV2.ASPECT_COLUMN, aspectName)
         .eq(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION)
         .setFirstRow(start)
@@ -443,7 +447,7 @@ public class EbeanAspectDao {
 
     T result = null;
     do {
-      try (Transaction transaction = _server.beginTransaction(TxIsolation.REPEATABLE_READ)) {
+      try (Transaction transaction = _server.beginTransaction(TxScope.requiresNew().setIsolation(TxIsolation.REPEATABLE_READ))) {
         transaction.setBatchMode(true);
         result = block.get();
         transaction.commit();
@@ -564,5 +568,16 @@ public class EbeanAspectDao {
     final ListResultMetadata listResultMetadata = new ListResultMetadata();
     listResultMetadata.setExtraInfos(new ExtraInfoArray(extraInfos));
     return listResultMetadata;
+  }
+
+  public List<EbeanAspectV2> getAspectsInRange(Urn urn, Set<String> aspectNames, long startTimeMillis, long endTimeMillis) {
+    List<EbeanAspectV2> aspectV2s = _server.find(EbeanAspectV2.class)
+        .select("*")
+        .where()
+        .eq(EbeanAspectV2.URN_COLUMN, urn.toString())
+        .in(EbeanAspectV2.ASPECT_COLUMN, aspectNames)
+        .inRange("createdOn", new Timestamp(startTimeMillis), new Timestamp(endTimeMillis))
+        .findList();
+    return aspectV2s;
   }
 }

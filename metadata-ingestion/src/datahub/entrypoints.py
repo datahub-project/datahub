@@ -1,5 +1,6 @@
 import logging
 import os
+import platform
 import sys
 
 import click
@@ -15,8 +16,10 @@ from datahub.cli.ingest_cli import ingest
 from datahub.cli.migrate import migrate
 from datahub.cli.put_cli import put
 from datahub.cli.telemetry import telemetry as telemetry_cli
+from datahub.cli.timeline_cli import timeline
 from datahub.configuration import SensitiveError
 from datahub.telemetry import telemetry
+from datahub.utilities.server_config_util import get_gms_config
 
 logger = logging.getLogger(__name__)
 
@@ -47,15 +50,44 @@ MAX_CONTENT_WIDTH = 120
     version=datahub_package.nice_version_name(),
     prog_name=datahub_package.__package_name__,
 )
-def datahub(debug: bool) -> None:
+@click.option(
+    "-dl",
+    "--detect-memory-leaks",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Run memory leak detection.",
+)
+@click.pass_context
+def datahub(ctx: click.Context, debug: bool, detect_memory_leaks: bool) -> None:
+    # Insulate 'datahub' and all child loggers from inadvertent changes to the
+    # root logger by the external site packages that we import.
+    # (Eg: https://github.com/reata/sqllineage/commit/2df027c77ea0a8ea4909e471dcd1ecbf4b8aeb2f#diff-30685ea717322cd1e79c33ed8d37903eea388e1750aa00833c33c0c5b89448b3R11
+    #  changes the root logger's handler level to WARNING, causing any message below
+    #  WARNING level to be dropped  after this module is imported, irrespective
+    #  of the logger's logging level! The lookml source was affected by this).
+
+    # 1. Create 'datahub' parent logger.
+    datahub_logger = logging.getLogger("datahub")
+    # 2. Setup the stream handler with formatter.
+    stream_handler = logging.StreamHandler()
+    formatter = logging.Formatter(BASE_LOGGING_FORMAT)
+    stream_handler.setFormatter(formatter)
+    datahub_logger.addHandler(stream_handler)
+    # 3. Turn off propagation to the root handler.
+    datahub_logger.propagate = False
+    # 4. Adjust log-levels.
     if debug or os.getenv("DATAHUB_DEBUG", False):
         logging.getLogger().setLevel(logging.INFO)
-        logging.getLogger("datahub").setLevel(logging.DEBUG)
+        datahub_logger.setLevel(logging.DEBUG)
     else:
         logging.getLogger().setLevel(logging.WARNING)
-        logging.getLogger("datahub").setLevel(logging.INFO)
+        datahub_logger.setLevel(logging.INFO)
     # loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
     # print(loggers)
+    # Setup the context for the memory_leak_detector decorator.
+    ctx.ensure_object(dict)
+    ctx.obj["detect_memory_leaks"] = detect_memory_leaks
 
 
 @datahub.command()
@@ -97,6 +129,7 @@ datahub.add_command(get)
 datahub.add_command(put)
 datahub.add_command(telemetry_cli)
 datahub.add_command(migrate)
+datahub.add_command(timeline)
 
 
 def main(**kwargs):
@@ -125,4 +158,11 @@ def main(**kwargs):
                 **kwargs,
             )
         )
+        logger.info(
+            f"DataHub CLI version: {datahub_package.__version__} at {datahub_package.__file__}"
+        )
+        logger.info(
+            f"Python version: {sys.version} at {sys.executable} on {platform.platform()}"
+        )
+        logger.info(f"GMS config {get_gms_config()}")
         sys.exit(1)
