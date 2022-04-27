@@ -1,5 +1,5 @@
 import re
-from typing import Dict, Optional, Union, List
+from typing import Dict, List, Optional, Union
 from urllib.parse import urlparse
 
 from pydantic import Field, validator

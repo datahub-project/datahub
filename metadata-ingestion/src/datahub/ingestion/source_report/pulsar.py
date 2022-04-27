@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Optional
 
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionReport,
@@ -8,7 +8,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 
 @dataclass
 class PulsarSourceReport(StatefulIngestionReport):
-    pulsar_version: str = ""
+    pulsar_version: Optional[str] = None
     tenants_scanned: int = 0
     namespaces_scanned: int = 0
     topics_scanned: int = 0

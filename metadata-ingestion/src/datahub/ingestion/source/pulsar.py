@@ -27,7 +27,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.ingestion.source_config.pulsar import PulsarSourceConfig
 from datahub.ingestion.source_report.pulsar import PulsarSourceReport
-
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     KafkaSchema,
@@ -89,6 +88,14 @@ class PulsarSource(StatefulIngestionSourceBase):
         self.base_url: str = self.config.web_service_url + "/admin/v2"
         self.tenants: List[str] = config.tenants
 
+        if (
+            self.is_stateful_ingestion_configured()
+            and not self.config.platform_instance
+        ):
+            raise ConfigurationError(
+                "Enabling Pulsar stateful ingestion requires to specify a platform instance."
+            )
+
         self.session = requests.Session()
         self.session.verify = self.config.verify_ssl
         self.session.headers.update(
@@ -128,14 +135,6 @@ class PulsarSource(StatefulIngestionSourceBase):
             # Update session header with Bearer token
             self.session.headers.update(
                 {"Authorization": f"Bearer {self.get_access_token()}"}
-            )
-
-        if (
-            self.is_stateful_ingestion_configured()
-            and not self.config.platform_instance
-        ):
-            raise ConfigurationError(
-                "Enabling Pulsar stateful ingestion requires to specify a platform instance."
             )
 
     def get_access_token(self) -> str:
