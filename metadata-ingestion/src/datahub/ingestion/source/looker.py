@@ -63,11 +63,19 @@ from datahub.metadata.schema_classes import (
 logger = logging.getLogger(__name__)
 
 
+class TransportOptionsConfig(ConfigModel):
+    timeout: int
+    headers: MutableMapping[str, str]
+
+    def get_transport_options(self) -> TransportOptions:
+        return TransportOptions(timeout=self.timeout, headers=self.headers)
+
+
 class LookerAPIConfig(ConfigModel):
     client_id: str
     client_secret: str
     base_url: str
-    transport_options: Optional[TransportOptions]
+    transport_options: Optional[TransportOptionsConfig]
 
 
 class LookerAPI:
@@ -84,7 +92,11 @@ class LookerAPI:
         # try authenticating current user to check connectivity
         # (since it's possible to initialize an invalid client without any complaints)
         try:
-            self.client.me(transport_options=config.transport_options)
+            self.client.me(
+                transport_options=config.transport_options.get_transport_options()
+                if config.transport_options is not None
+                else None
+            )
         except SDKError as e:
             raise ConfigurationError(
                 "Failed to initialize Looker client. Please check your configuration."
@@ -217,13 +229,19 @@ class LookerUserRegistry:
         self.client = client
         self.user_map = {}
 
-    def get_by_id(self, id: int) -> Optional[LookerUser]:
+    def get_by_id(
+        self, id: int, transport_options: Optional[TransportOptions]
+    ) -> Optional[LookerUser]:
         logger.debug("Will get user {}".format(id))
         if id in self.user_map:
             return self.user_map[id]
         else:
             try:
-                raw_user: User = self.client.user(id, fields=self.fields)
+                raw_user: User = self.client.user(
+                    id,
+                    fields=self.fields,
+                    transport_options=transport_options,
+                )
                 looker_user = LookerUser._from_user(raw_user)
                 self.user_map[id] = looker_user
                 return looker_user
@@ -599,7 +617,9 @@ class LookerDashboardSource(Source):
             explore,
             self.client,
             self.reporter,
-            self.source_config.transport_options,
+            transport_options=self.source_config.transport_options.get_transport_options()
+            if self.source_config.transport_options is not None
+            else None,
         )
         if looker_explore is not None:
             events = (
@@ -679,7 +699,13 @@ class LookerDashboardSource(Source):
         if not self.folder_path_cache.get(folder.id):
             ancestors = [
                 ancestor.name
-                for ancestor in client.folder_ancestors(folder.id, fields="name")
+                for ancestor in client.folder_ancestors(
+                    folder.id,
+                    fields="name",
+                    transport_options=self.source_config.transport_options.get_transport_options()
+                    if self.source_config.transport_options is not None
+                    else None,
+                )
             ]
             self.folder_path_cache[folder.id] = "/".join(ancestors + [folder.name])
         return self.folder_path_cache[folder.id]
@@ -715,7 +741,12 @@ class LookerDashboardSource(Source):
             raise ValueError("Both dashboard ID and title are None")
 
         dashboard_owner = (
-            self.user_registry.get_by_id(dashboard.user_id)
+            self.user_registry.get_by_id(
+                dashboard.user_id,
+                self.source_config.transport_options.get_transport_options()
+                if self.source_config.transport_options is not None
+                else None,
+            )
             if self.source_config.extract_owners and dashboard.user_id is not None
             else None
         )
@@ -763,7 +794,9 @@ class LookerDashboardSource(Source):
             dashboard_object = self.client.dashboard(
                 dashboard_id=dashboard_id,
                 fields=",".join(fields),
-                transport_options=self.source_config.transport_options,
+                transport_options=self.source_config.transport_options.get_transport_options()
+                if self.source_config.transport_options is not None
+                else None,
             )
         except SDKError:
             # A looker dashboard could be deleted in between the list and the get
@@ -795,13 +828,18 @@ class LookerDashboardSource(Source):
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         dashboards = self.client.all_dashboards(
-            fields="id", transport_options=self.source_config.transport_options
+            fields="id",
+            transport_options=self.source_config.transport_options.get_transport_options()
+            if self.source_config.transport_options is not None
+            else None,
         )
         deleted_dashboards = (
             self.client.search_dashboards(
                 fields="id",
                 deleted="true",
-                transport_options=self.source_config.transport_options,
+                transport_options=self.source_config.transport_options.get_transport_options()
+                if self.source_config.transport_options is not None
+                else None,
             )
             if self.source_config.include_deleted
             else []

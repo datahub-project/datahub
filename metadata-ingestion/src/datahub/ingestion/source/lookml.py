@@ -2,6 +2,7 @@ import glob
 import importlib
 import itertools
 import logging
+import os
 import pathlib
 import re
 import sys
@@ -12,7 +13,6 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type
 
 import pydantic
 from looker_sdk.error import SDKError
-from looker_sdk.rtl.transport import TransportOptions
 from looker_sdk.sdk.api31.methods import Looker31SDK
 from looker_sdk.sdk.api31.models import DBConnection
 from pydantic import root_validator, validator
@@ -45,7 +45,11 @@ from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.looker import LookerAPI, LookerAPIConfig
+from datahub.ingestion.source.looker import (
+    LookerAPI,
+    LookerAPIConfig,
+    TransportOptionsConfig,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.common import BrowsePaths, Status
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageTypeClass,
@@ -144,7 +148,7 @@ class LookMLSourceConfig(LookerCommonConfig):
     sql_parser: str = "datahub.utilities.sql_parser.DefaultSQLParser"
     api: Optional[LookerAPIConfig]
     project_name: Optional[str]
-    transport_options: Optional[TransportOptions]
+    transport_options: Optional[TransportOptionsConfig]
 
     @validator("platform_instance")
     def platform_instance_not_supported(cls, v: str) -> str:
@@ -922,8 +926,10 @@ class LookMLSource(Source):
             return None
 
     def _get_custom_properties(self, looker_view: LookerView) -> DatasetPropertiesClass:
-        file_path = str(pathlib.Path(looker_view.absolute_file_path).resolve()).replace(
-            str(self.source_config.base_folder.resolve()), ""
+        file_path = (
+            str(pathlib.Path(looker_view.absolute_file_path).resolve())
+            .replace(str(self.source_config.base_folder.resolve()), "")
+            .lstrip(os.sep)
         )
 
         custom_properties = {
@@ -932,7 +938,9 @@ class LookMLSource(Source):
             ],  # grab a limited slice of characters from the file
             "looker.file.path": file_path,
         }
-        dataset_props = DatasetPropertiesClass(customProperties=custom_properties)
+        dataset_props = DatasetPropertiesClass(
+            name=looker_view.id.view_name, customProperties=custom_properties
+        )
 
         if self.source_config.github_info is not None:
             github_file_url = self.source_config.github_info.get_url_for_file_path(
@@ -1009,7 +1017,9 @@ class LookMLSource(Source):
             model = self.looker_client.lookml_model(
                 model_name,
                 "project_name",
-                transport_options=self.source_config.transport_options,
+                transport_options=self.source_config.transport_options.get_transport_options()
+                if self.source_config.transport_options is not None
+                else None,
             )
             assert (
                 model.project_name is not None

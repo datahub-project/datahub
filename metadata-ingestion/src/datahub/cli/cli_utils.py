@@ -1,9 +1,9 @@
 import json
 import logging
+import os
 import os.path
 import sys
 import typing
-import urllib.parse
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, Union
 
@@ -55,6 +55,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
+from datahub.utilities.urns.urn import Urn
 
 log = logging.getLogger(__name__)
 
@@ -66,6 +67,8 @@ ENV_SKIP_CONFIG = "DATAHUB_SKIP_CONFIG"
 ENV_METADATA_HOST = "DATAHUB_GMS_HOST"
 ENV_METADATA_TOKEN = "DATAHUB_GMS_TOKEN"
 
+config_override: Dict = {}
+
 
 class GmsConfig(BaseModel):
     server: str
@@ -74,6 +77,13 @@ class GmsConfig(BaseModel):
 
 class DatahubConfig(BaseModel):
     gms: GmsConfig
+
+
+def set_env_variables_override_config(host: str, token: Optional[str]) -> None:
+    """Should be used to override the config when using rest emitter"""
+    config_override[ENV_METADATA_HOST] = host
+    if token is not None:
+        config_override[ENV_METADATA_TOKEN] = token
 
 
 def write_datahub_config(host: str, token: Optional[str]) -> None:
@@ -137,22 +147,12 @@ def guess_entity_type(urn: str) -> str:
     return urn.split(":")[2]
 
 
-def get_token():
-    _, gms_token_env = get_details_from_env()
-    if should_skip_config():
-        gms_token = gms_token_env
-    else:
-        ensure_datahub_config()
-        _, gms_token_conf = get_details_from_config()
-        gms_token = first_non_null([gms_token_env, gms_token_conf])
-    return gms_token
-
-
-def get_session_and_host():
-    session = requests.Session()
-
+def get_host_and_token():
     gms_host_env, gms_token_env = get_details_from_env()
-    if should_skip_config():
+    if len(config_override.keys()) > 0:
+        gms_host = config_override.get(ENV_METADATA_HOST)
+        gms_token = config_override.get(ENV_METADATA_TOKEN)
+    elif should_skip_config():
         gms_host = gms_host_env
         gms_token = gms_token_env
     else:
@@ -160,6 +160,17 @@ def get_session_and_host():
         gms_host_conf, gms_token_conf = get_details_from_config()
         gms_host = first_non_null([gms_host_env, gms_host_conf])
         gms_token = first_non_null([gms_token_env, gms_token_conf])
+    return gms_host, gms_token
+
+
+def get_token():
+    return get_host_and_token()[1]
+
+
+def get_session_and_host():
+    session = requests.Session()
+
+    gms_host, gms_token = get_host_and_token()
 
     if gms_host is None or gms_host.strip() == "":
         log.error(
@@ -234,24 +245,29 @@ def parse_run_restli_response(response: requests.Response) -> dict:
 def post_rollback_endpoint(
     payload_obj: dict,
     path: str,
-) -> typing.Tuple[typing.List[typing.List[str]], int, int]:
+) -> typing.Tuple[typing.List[typing.List[str]], int, int, int, int, typing.List[dict]]:
     session, gms_host = get_session_and_host()
     url = gms_host + path
 
     payload = json.dumps(payload_obj)
-
     response = session.post(url, payload)
 
     summary = parse_run_restli_response(response)
     rows = summary.get("aspectRowSummaries", [])
     entities_affected = summary.get("entitiesAffected", 0)
+    aspects_reverted = summary.get("aspectsReverted", 0)
     aspects_affected = summary.get("aspectsAffected", 0)
+    unsafe_entity_count = summary.get("unsafeEntitiesCount", 0)
+    unsafe_entities = summary.get("unsafeEntities", [])
+    rolled_back_aspects = list(
+        filter(lambda row: row["runId"] == payload_obj["runId"], rows)
+    )
 
     if len(rows) == 0:
         click.secho(f"No entities found. Payload used: {payload}", fg="yellow")
 
     local_timezone = datetime.now().astimezone().tzinfo
-    structured_rows = [
+    structured_rolled_back_results = [
         [
             row.get("urn"),
             row.get("aspectName"),
@@ -260,10 +276,17 @@ def post_rollback_endpoint(
             )
             + f" ({local_timezone})",
         ]
-        for row in rows
+        for row in rolled_back_aspects
     ]
 
-    return structured_rows, entities_affected, aspects_affected
+    return (
+        structured_rolled_back_results,
+        entities_affected,
+        aspects_reverted,
+        aspects_affected,
+        unsafe_entity_count,
+        unsafe_entities,
+    )
 
 
 def post_delete_endpoint(
@@ -309,13 +332,13 @@ def get_urns_by_filter(
     filter_criteria = []
     if env:
         filter_criteria.append({"field": "origin", "value": env, "condition": "EQUAL"})
-
+    entity_type_lower = entity_type.lower()
     if (
         platform is not None
-        and entity_type == "dataset"
-        or entity_type == "dataflow"
-        or entity_type == "datajob"
-        or entity_type == "container"
+        and entity_type_lower == "dataset"
+        or entity_type_lower == "dataflow"
+        or entity_type_lower == "datajob"
+        or entity_type_lower == "container"
     ):
         filter_criteria.append(
             {
@@ -325,7 +348,7 @@ def get_urns_by_filter(
             }
         )
     if platform is not None and (
-        entity_type.lower() == "chart" or entity_type.lower() == "dashboard"
+        entity_type_lower == "chart" or entity_type_lower == "dashboard"
     ):
         filter_criteria.append(
             {
@@ -436,7 +459,7 @@ def batch_get_ids(
     url = gms_host + endpoint
     ids_to_get = []
     for id in ids:
-        ids_to_get.append(urllib.parse.quote(id))
+        ids_to_get.append(Urn.url_encode(id))
 
     response = session.get(
         f"{url}?ids=List({','.join(ids_to_get)})",
@@ -470,7 +493,7 @@ def get_outgoing_relationships(urn: str, types: List[str]) -> Iterable[Dict]:
 
 def get_relationships(urn: str, types: List[str], direction: str) -> Iterable[Dict]:
     session, gms_host = get_session_and_host()
-    encoded_urn = urllib.parse.quote(urn, safe="")
+    encoded_urn: str = Urn.url_encode(urn)
     types_param_string = "List(" + ",".join(types) + ")"
     endpoint: str = f"{gms_host}/relationships?urn={encoded_urn}&direction={direction}&types={types_param_string}"
     response: Response = session.get(endpoint)
@@ -503,7 +526,7 @@ def get_entity(
         # we assume the urn is already encoded
         encoded_urn: str = urn
     elif urn.startswith("urn:"):
-        encoded_urn = urllib.parse.quote(urn)
+        encoded_urn = Urn.url_encode(urn)
     else:
         raise Exception(
             f"urn {urn} does not seem to be a valid raw (starts with urn:) or encoded urn (starts with urn%3A)"
@@ -707,4 +730,7 @@ def get_aspects_for_entity(
             except Exception as e:
                 log.error(f"Error on {json.dumps(aspect_dict)}", e)
 
-    return {k: v for (k, v) in aspect_map.items() if k in aspects}
+    if aspects:
+        return {k: v for (k, v) in aspect_map.items() if k in aspects}
+    else:
+        return {k: v for (k, v) in aspect_map.items()}

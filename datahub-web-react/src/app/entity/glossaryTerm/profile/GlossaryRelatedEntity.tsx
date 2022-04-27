@@ -1,38 +1,29 @@
+import { Col, Row } from 'antd';
 import * as React from 'react';
-import { useMemo } from 'react';
-import { EntityType, SearchResult } from '../../../../types.generated';
-import { useGetEntitySearchResults } from '../../../../utils/customGraphQL/useGetEntitySearchResults';
-import RelatedEntityResults from '../../../shared/entitySearch/RelatedEntityResults';
-import { useEntityRegistry } from '../../../useEntityRegistry';
+import styled from 'styled-components';
+import { EmbeddedListSearch } from '../../shared/components/styled/search/EmbeddedListSearch';
+
 import { useEntityData } from '../../shared/EntityContext';
+
+const GroupAssetsWrapper = styled(Row)`
+    height: calc(100vh - 245px);
+    overflow: auto;
+`;
 
 export default function GlossaryRelatedEntity() {
     const { entityData }: any = useEntityData();
-    const entityRegistry = useEntityRegistry();
-    const searchTypes = entityRegistry.getSearchEntityTypes();
-    searchTypes.splice(searchTypes.indexOf(EntityType.GlossaryTerm), 1);
     const glossaryTermHierarchicalName = entityData?.hierarchicalName;
-    const entitySearchResult = useGetEntitySearchResults(
-        {
-            query: `glossaryTerms:"${glossaryTermHierarchicalName}" OR fieldGlossaryTerms:"${glossaryTermHierarchicalName}" OR editedFieldGlossaryTerms:"${glossaryTermHierarchicalName}"`,
-        },
-        searchTypes,
+    const fixedQueryString = `glossaryTerms:"${glossaryTermHierarchicalName}" OR fieldGlossaryTerms:"${glossaryTermHierarchicalName}" OR editedFieldGlossaryTerms:"${glossaryTermHierarchicalName}"`;
+
+    return (
+        <GroupAssetsWrapper>
+            <Col md={24} lg={24} xl={24}>
+                <EmbeddedListSearch
+                    fixedQuery={fixedQueryString}
+                    emptySearchQuery="*"
+                    placeholderText="Filter entities..."
+                />
+            </Col>
+        </GroupAssetsWrapper>
     );
-
-    const entitySearchForDetails = useMemo(() => {
-        const filteredSearchResult: {
-            [key in EntityType]?: Array<SearchResult>;
-        } = {};
-
-        Object.keys(entitySearchResult).forEach((type) => {
-            const entities = entitySearchResult[type].data?.search?.searchResults;
-            if (entities && entities.length > 0) {
-                filteredSearchResult[type] = entities;
-            }
-        });
-
-        return filteredSearchResult;
-    }, [entitySearchResult]);
-
-    return <RelatedEntityResults searchResult={entitySearchForDetails} />;
 }

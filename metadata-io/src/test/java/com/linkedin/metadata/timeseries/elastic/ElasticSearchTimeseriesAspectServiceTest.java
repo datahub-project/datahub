@@ -30,7 +30,7 @@ import com.linkedin.metadata.search.elasticsearch.ElasticSearchServiceTest;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.TimeseriesAspectIndexBuilders;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.timeseries.AggregationSpec;
@@ -40,22 +40,25 @@ import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
 import com.linkedin.timeseries.GroupingBucketType;
 import com.linkedin.timeseries.TimeWindowSize;
+import org.elasticsearch.client.RestHighLevelClient;
+import org.testcontainers.elasticsearch.ElasticsearchContainer;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Test;
+
+import javax.annotation.Nonnull;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javax.annotation.Nonnull;
-import org.elasticsearch.client.RestHighLevelClient;
-import org.testcontainers.elasticsearch.ElasticsearchContainer;
-import org.testng.annotations.AfterTest;
-import org.testng.annotations.BeforeTest;
-import org.testng.annotations.Test;
 
-import static com.linkedin.metadata.DockerTestUtils.*;
-import static com.linkedin.metadata.ElasticSearchTestUtils.*;
-import static org.testng.Assert.*;
+import static com.linkedin.metadata.DockerTestUtils.checkContainerEngine;
+import static com.linkedin.metadata.ElasticSearchTestUtils.syncAfterWrite;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.fail;
 
 
 public class ElasticSearchTimeseriesAspectServiceTest {
@@ -85,7 +88,7 @@ public class ElasticSearchTimeseriesAspectServiceTest {
    * Basic setup and teardown
    */
 
-  @BeforeTest
+  @BeforeClass
   public void setup() {
     _entityRegistry = new ConfigEntityRegistry(new DataSchemaFactory("com.datahub.test"),
         TestEntityProfile.class.getClassLoader().getResourceAsStream("test-entity-registry.yml"));
@@ -107,7 +110,7 @@ public class ElasticSearchTimeseriesAspectServiceTest {
             _indexConvention), _entityRegistry, ElasticSearchServiceTest.getBulkProcessor(_searchClient));
   }
 
-  @AfterTest
+  @AfterClass
   public void tearDown() {
     _elasticsearchContainer.stop();
   }
@@ -221,7 +224,7 @@ public class ElasticSearchTimeseriesAspectServiceTest {
 
   private void validateAspectValue(EnvelopedAspect envelopedAspectResult) {
     TestEntityProfile actualProfile =
-        (TestEntityProfile) GenericAspectUtils.deserializeAspect(envelopedAspectResult.getAspect().getValue(),
+        (TestEntityProfile) GenericRecordUtils.deserializeAspect(envelopedAspectResult.getAspect().getValue(),
             CONTENT_TYPE, _aspectSpec);
     TestEntityProfile expectedProfile = _testEntityProfiles.get(actualProfile.getTimestampMillis());
     assertNotNull(expectedProfile);

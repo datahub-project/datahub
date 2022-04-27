@@ -1,18 +1,21 @@
 package com.datahub.authorization;
 
-public interface Authorizer {
+import java.util.Map;
+import java.util.Optional;
+import javax.annotation.Nonnull;
 
-  enum AuthorizationMode {
-    /**
-     * Default mode simply means that authorization is enforced, with a DENY result returned
-     */
-    DEFAULT,
-    /**
-     * Allow all means that the AuthorizationManager will allow all actions. This is used as an override to disable the
-     * policies feature.
-     */
-    ALLOW_ALL
-  }
+
+/**
+ * An Authorizer is responsible for determining whether an actor should be granted a specific privilege.
+ */
+public interface Authorizer {
+  /**
+   * Initialize the Authorizer. Invoked once at boot time.
+   *
+   * @param authorizerConfig config provided to the authenticator derived from the Metadata Service YAML config. This
+   *                         config comes from the "authorization.authorizers.config" configuration.
+   */
+  void init(@Nonnull final Map<String, Object> authorizerConfig);
 
   /**
    * Authorizes an action based on the actor, the resource, & required privileges.
@@ -20,7 +23,10 @@ public interface Authorizer {
   AuthorizationResult authorize(AuthorizationRequest request);
 
   /**
-   * Returns the mode the Authorizer is operating in.
+   * Retrieves the current list of actors authorized to for a particular privilege against
+   * an optional resource
    */
-  AuthorizationMode mode();
+  AuthorizedActors authorizedActors(
+      final String privilege,
+      final Optional<ResourceSpec> resourceSpec);
 }

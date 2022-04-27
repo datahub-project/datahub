@@ -1,6 +1,7 @@
 package com.linkedin.gms.factory.config;
 
 import com.datahub.authentication.AuthenticationConfiguration;
+import com.datahub.authorization.AuthorizationConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import lombok.Data;
@@ -18,6 +19,10 @@ public class ConfigurationProvider {
    * Authentication related configs
    */
   private AuthenticationConfiguration authentication;
+  /**
+   * Authentication related configs
+   */
+  private AuthorizationConfiguration authorization;
   /**
    * Ingestion related configs
    */

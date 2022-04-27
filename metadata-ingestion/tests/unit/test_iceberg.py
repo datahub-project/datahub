@@ -103,7 +103,7 @@ def test_iceberg_primitive_type_to_schema_field(
 def test_iceberg_list_to_schema_field():
     """
     This test is failing because avro does not keep the nestedType.
-    Here is a link to a Slack post that tries to describe the issue: 
+    Here is a link to a Slack post that tries to describe the issue:
     https://datahubspace.slack.com/archives/C02SRNN11EG/p1648687685930859?thread_ts=1647388015.115169&cid=C02SRNN11EG
     """
     list_column: NestedField = NestedField.required(
@@ -126,7 +126,7 @@ def test_iceberg_list_to_schema_field():
 def test_iceberg_map_to_schema_field():
     """
     This test is failing because avro does not keep the nestedType.
-    Here is a link to a Slack post that tries to describe the issue: 
+    Here is a link to a Slack post that tries to describe the issue:
     https://datahubspace.slack.com/archives/C02SRNN11EG/p1648687685930859?thread_ts=1647388015.115169&cid=C02SRNN11EG
     """
     map_column: NestedField = NestedField.required(
@@ -199,7 +199,7 @@ def test_iceberg_struct_to_schema_field(iceberg_type, expected_schema_field_type
 def test_avro_decimal_bytes_nullable():
     """
     The following test exposes a problem with decimal (bytes) not preserving extra attributes like _nullable.  Decimal (fixed) and Boolean for example do.
-    NOTE: This bug was by-passed by mapping the Decimal type to fixed instead of bytes.  
+    NOTE: This bug was by-passed by mapping the Decimal type to fixed instead of bytes.
     """
     import avro.schema
 

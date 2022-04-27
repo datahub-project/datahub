@@ -19,7 +19,6 @@ import com.linkedin.entity.EntitiesDoBrowseRequestBuilder;
 import com.linkedin.entity.EntitiesDoDeleteRequestBuilder;
 import com.linkedin.entity.EntitiesDoFilterRequestBuilder;
 import com.linkedin.entity.EntitiesDoGetBrowsePathsRequestBuilder;
-import com.linkedin.entity.EntitiesDoGetTotalEntityCountRequestBuilder;
 import com.linkedin.entity.EntitiesDoIngestRequestBuilder;
 import com.linkedin.entity.EntitiesDoListRequestBuilder;
 import com.linkedin.entity.EntitiesDoListUrnsRequestBuilder;
@@ -29,6 +28,7 @@ import com.linkedin.entity.EntitiesDoSearchRequestBuilder;
 import com.linkedin.entity.EntitiesDoSetWritableRequestBuilder;
 import com.linkedin.entity.EntitiesRequestBuilders;
 import com.linkedin.entity.EntitiesV2BatchGetRequestBuilder;
+import com.linkedin.entity.EntitiesV2GetRequestBuilder;
 import com.linkedin.entity.EntitiesV2RequestBuilders;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityArray;
@@ -45,7 +45,10 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.platform.PlatformDoProducePlatformEventRequestBuilder;
+import com.linkedin.platform.PlatformRequestBuilders;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.Client;
 import com.linkedin.restli.client.RestLiResponseException;
@@ -65,7 +68,7 @@ import javax.mail.MethodNotSupportedException;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.search.utils.QueryUtils.*;
+import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
 
 
 @Slf4j
@@ -74,9 +77,20 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   private static final EntitiesRequestBuilders ENTITIES_REQUEST_BUILDERS = new EntitiesRequestBuilders();
   private static final EntitiesV2RequestBuilders ENTITIES_V2_REQUEST_BUILDERS = new EntitiesV2RequestBuilders();
   private static final AspectsRequestBuilders ASPECTS_REQUEST_BUILDERS = new AspectsRequestBuilders();
+  private static final PlatformRequestBuilders PLATFORM_REQUEST_BUILDERS = new PlatformRequestBuilders();
 
   public RestliEntityClient(@Nonnull final Client restliClient) {
     super(restliClient);
+  }
+
+  @Nullable
+  public EntityResponse getV2(@Nonnull String entityName, @Nonnull final Urn urn,
+      @Nullable final Set<String> aspectNames, @Nonnull final Authentication authentication)
+      throws RemoteInvocationException, URISyntaxException {
+    final EntitiesV2GetRequestBuilder requestBuilder = ENTITIES_V2_REQUEST_BUILDERS.get()
+        .aspectsParam(aspectNames)
+        .id(urn.toString());
+    return sendClientRequest(requestBuilder, authentication).getEntity();
   }
 
   @Nonnull
@@ -305,14 +319,16 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    *
    * @param input search query
    * @param filter search filters
+   * @param sortCriterion sort criterion
    * @param start start offset for search results
    * @param count max number of search results requested
    * @return Snapshot key
    * @throws RemoteInvocationException
    */
   @Nonnull
-  public SearchResult search(@Nonnull String entity, @Nonnull String input, @Nullable Filter filter, int start,
-      int count, @Nonnull final Authentication authentication) throws RemoteInvocationException {
+  public SearchResult search(@Nonnull String entity, @Nonnull String input, @Nullable Filter filter,
+      SortCriterion sortCriterion, int start, int count, @Nonnull final Authentication authentication)
+      throws RemoteInvocationException {
 
     final EntitiesDoSearchRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionSearch()
         .entityParam(entity)
@@ -322,6 +338,10 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
 
     if (filter != null) {
       requestBuilder.filterParam(filter);
+    }
+
+    if (sortCriterion != null) {
+      requestBuilder.sortParam(sortCriterion);
     }
 
     return sendClientRequest(requestBuilder, authentication).getEntity();
@@ -401,14 +421,6 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     EntitiesDoSetWritableRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS.actionSetWritable().valueParam(canWrite);
     sendClientRequest(requestBuilder, authentication);
-  }
-
-  @Nonnull
-  public long getTotalEntityCount(@Nonnull String entityName, @Nonnull final Authentication authentication)
-      throws RemoteInvocationException {
-    EntitiesDoGetTotalEntityCountRequestBuilder requestBuilder =
-        ENTITIES_REQUEST_BUILDERS.actionGetTotalEntityCount().entityParam(entityName);
-    return sendClientRequest(requestBuilder, authentication).getEntity();
   }
 
   @Nonnull
@@ -588,5 +600,18 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   public DataMap getRawAspect(@Nonnull String urn, @Nonnull String aspect, @Nonnull Long version,
       @Nonnull Authentication authentication) throws RemoteInvocationException {
     throw new MethodNotSupportedException();
+  }
+
+  @Override
+  public void producePlatformEvent(@Nonnull String name, @Nullable String key, @Nonnull PlatformEvent event, @Nonnull final Authentication authentication)
+      throws Exception {
+    final PlatformDoProducePlatformEventRequestBuilder requestBuilder =
+        PLATFORM_REQUEST_BUILDERS.actionProducePlatformEvent()
+          .nameParam(name)
+          .eventParam(event);
+    if (key != null) {
+      requestBuilder.keyParam(key);
+    }
+    sendClientRequest(requestBuilder, authentication);
   }
 }

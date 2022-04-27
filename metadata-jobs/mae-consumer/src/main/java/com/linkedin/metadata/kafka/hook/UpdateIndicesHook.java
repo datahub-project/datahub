@@ -25,11 +25,12 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
+import com.linkedin.metadata.search.utils.SearchUtils;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
 import com.linkedin.metadata.utils.EntityKeyUtils;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
@@ -108,7 +109,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
       }
 
       RecordTemplate aspect =
-          GenericAspectUtils.deserializeAspect(event.getAspect().getValue(), event.getAspect().getContentType(),
+          GenericRecordUtils.deserializeAspect(event.getAspect().getValue(), event.getAspect().getContentType(),
               aspectSpec);
       if (aspectSpec.isTimeseries()) {
         updateTimeseriesFields(event.getEntityType(), event.getAspectName(), urn, aspect, aspectSpec,
@@ -131,7 +132,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
       }
 
       RecordTemplate aspect =
-          GenericAspectUtils.deserializeAspect(event.getAspect().getValue(), event.getAspect().getContentType(),
+          GenericRecordUtils.deserializeAspect(event.getAspect().getValue(), event.getAspect().getContentType(),
               aspectSpec);
       Boolean isDeletingKey = event.getAspectName().equals(entitySpec.getKeyAspectName());
 
@@ -157,7 +158,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
           edgesToAdd.add(
               new Edge(urn, Urn.createFromString(fieldValue.toString()), entry.getKey().getRelationshipName()));
         } catch (URISyntaxException e) {
-          log.info("Invalid destination urn: {}", e.getLocalizedMessage());
+          log.error("Invalid destination urn: {}", fieldValue.toString(), e);
         }
       }
     }
@@ -174,7 +175,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
     final List<Edge> edgesToAdd = edgeAndRelationTypes.getFirst();
     final Set<String> relationshipTypesBeingAdded = edgeAndRelationTypes.getSecond();
 
-    log.info(String.format("Here's the relationship types found %s", relationshipTypesBeingAdded));
+    log.debug("Here's the relationship types found {}", relationshipTypesBeingAdded);
     if (relationshipTypesBeingAdded.size() > 0) {
       _graphService.removeEdgesFromNode(urn, new ArrayList<>(relationshipTypesBeingAdded),
           newRelationshipFilter(new Filter().setOr(new ConjunctiveCriterionArray()), RelationshipDirection.OUTGOING));
@@ -198,15 +199,13 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
       return;
     }
 
-    String docId;
-    try {
-      docId = URLEncoder.encode(urn.toString(), "UTF-8");
-    } catch (UnsupportedEncodingException e) {
-      log.error("Failed to encode the urn with error: {}", e.toString());
+    Optional<String> docId = SearchUtils.getDocId(urn);
+
+    if (!docId.isPresent()) {
       return;
     }
 
-    _entitySearchService.upsertDocument(entityName, searchDocument.get(), docId);
+    _entitySearchService.upsertDocument(entityName, searchDocument.get(), docId.get());
   }
 
   /**

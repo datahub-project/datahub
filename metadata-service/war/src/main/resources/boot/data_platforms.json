@@ -45,7 +45,7 @@
       "name": "clickhouse",
       "displayName": "ClickHouse",
       "type": "RELATIONAL_DB",
-      "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/clickhouselogo.png"
+      "logoUrl": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/clickhouselogo.png"
     }
   },
   {
@@ -414,6 +414,56 @@
       "displayName": "Power BI",
       "type": "OTHERS",
       "logoUrl": "/assets/platforms/powerbilogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:presto_on_hive",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "presto-on-hive",
+      "displayName": "Presto on Hive",
+      "type": "FILE_SYSTEM",
+      "logoUrl": "/assets/platforms/prestoonhivelogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:metabase",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "metabase",
+      "displayName": "Metabase",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/metabaselogo.svg"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:nifi",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "nifi",
+      "displayName": "Nifi",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/nifilogo.svg"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:superset",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "superset",
+      "displayName": "Superset",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/supersetlogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:trino",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "trino",
+      "displayName": "Trino",
+      "type": "QUERY_ENGINE",
+      "logoUrl": "/assets/platforms/trinologo.png"
     }
   },
   {

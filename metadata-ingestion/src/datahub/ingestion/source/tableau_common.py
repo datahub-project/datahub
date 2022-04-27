@@ -133,6 +133,9 @@ workbook_graphql_query = """
         upstreamTables {
           id
           name
+          database {
+            name
+          }
           schema
           fullName
           connectionType
@@ -176,6 +179,10 @@ workbook_graphql_query = """
             dataType
           }
         }
+        upstreamDatasources {
+          id
+          name
+        }
         workbook {
           name
           projectName
@@ -214,7 +221,11 @@ custom_sql_graphql_query = """
             upstreamTables {
               id
               name
+              database {
+                name
+              }
               schema
+              fullName
               connectionType
             }
             ... on PublishedDatasource {
@@ -232,6 +243,10 @@ custom_sql_graphql_query = """
       tables {
         name
         schema
+        fullName
+        database {
+          name
+        }
         connectionType
       }
 }
@@ -255,6 +270,9 @@ published_datasource_graphql_query = """
     upstreamTables {
       id
       name
+      database {
+        name
+      }
       schema
       fullName
       connectionType
@@ -380,7 +398,7 @@ def make_table_urn(
     # connection_type taken from
     # https://help.tableau.com/current/api/rest_api/en-us/REST/rest_api_concepts_connectiontype.htm
     #  datahub platform mapping is found here
-    # https://github.com/linkedin/datahub/blob/master/metadata-service/war/src/main/resources/boot/data_platforms.json
+    # https://github.com/datahub-project/datahub/blob/master/metadata-service/war/src/main/resources/boot/data_platforms.json
 
     final_name = full_name.replace("[", "").replace("]", "")
     if connection_type in ("textscan", "textclean", "excel-direct", "excel", "csv"):
@@ -407,9 +425,19 @@ def make_table_urn(
     database_name = f"{upstream_db}." if upstream_db else ""
     schema_name = f"{schema}." if schema else ""
 
-    urn = builder.make_dataset_urn(
-        platform, f"{database_name}{schema_name}{final_name}", env
+    fully_qualified_table_name = f"{database_name}{schema_name}{final_name}"
+
+    # do some final adjustments on the fully qualified table name to help them line up with source systems:
+    # lowercase it
+    fully_qualified_table_name = fully_qualified_table_name.lower()
+    # strip double quotes and escaped double quotes
+    fully_qualified_table_name = (
+        fully_qualified_table_name.replace('\\"', "").replace('"', "").replace("\\", "")
     )
+    # if there are more than 3 tokens, just take the final 3
+    fully_qualified_table_name = ".".join(fully_qualified_table_name.split(".")[-3:])
+
+    urn = builder.make_dataset_urn(platform, fully_qualified_table_name, env)
     return urn
 
 
@@ -447,7 +475,7 @@ def get_unique_custom_sql(custom_sql_list: List[dict]) -> List[dict]:
         for column in custom_sql.get("columns", []):
             for field in column.get("referencedByFields", []):
                 datasource = field.get("datasource")
-                if datasource not in datasource_for_csql:
+                if datasource not in datasource_for_csql and datasource is not None:
                     datasource_for_csql.append(datasource)
 
         unique_csql["datasources"] = datasource_for_csql

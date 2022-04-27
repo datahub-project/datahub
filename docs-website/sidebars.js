@@ -78,32 +78,32 @@ module.exports = {
         Sinks: list_ids_in_directory("metadata-ingestion/sink_docs"),
       },
       {
-        "Custom Integrations": [
-          "metadata-ingestion/as-a-library",
-          "metadata-integration/java/as-a-library",
-          "metadata-ingestion/integration_docs/great-expectations",
-          "metadata-integration/java/datahub-protobuf/README",
-        ],
-      },
-      {
         Scheduling: [
           "metadata-ingestion/schedule_docs/intro",
           "metadata-ingestion/schedule_docs/cron",
           "metadata-ingestion/schedule_docs/airflow",
+          "metadata-ingestion/schedule_docs/datahub",
         ],
       },
       {
-        Lineage: [
-          "docs/lineage/intro",
-          "docs/lineage/airflow",
-          "docker/airflow/local_airflow",
-          "docs/lineage/sample_code",
+        "Push-Based Integrations": [
+          {
+            Airflow: ["docs/lineage/airflow", "docker/airflow/local_airflow"],
+          },
           "metadata-integration/java/spark-lineage/README",
+          "metadata-ingestion/integration_docs/great-expectations",
+          "metadata-integration/java/datahub-protobuf/README",
+          "metadata-ingestion/as-a-library",
+          "metadata-integration/java/as-a-library",
         ],
+      },
+      {
+        Lineage: ["docs/lineage/intro", "docs/lineage/sample_code"],
       },
       {
         Guides: [
           "metadata-ingestion/adding-source",
+          //"metadata-ingestion/source-docs-template",
           "docs/how/add-custom-ingestion-source",
           "docs/how/add-custom-data-platform",
           "docs/platform-instances",
@@ -201,14 +201,17 @@ module.exports = {
       "docs/policies",
       "docs/domains",
       "docs/ui-ingestion",
+      "docs/tags",
       "docs/how/search",
       "docs/how/auth/add-users",
+      "docs/how/ui-tabs-guide",
     ],
     "Developer Guides": [
       // TODO: the titles of these should not be in question form in the sidebar
       "docs/developers",
       "docs/docker/development",
       "docs/how/backup-datahub",
+      "docs/how/updating-datahub",
       {
         type: "doc",
         label: "Ingesting files from S3",

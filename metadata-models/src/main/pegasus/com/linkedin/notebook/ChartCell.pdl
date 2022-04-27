@@ -1,0 +1,8 @@
+namespace com.linkedin.notebook
+
+/**
+ * Chart cell in a notebook, which will present content in chart format
+ */
+record ChartCell includes CommonCellAttributes {
+
+}

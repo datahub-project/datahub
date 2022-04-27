@@ -10,8 +10,14 @@ import yaml
 from pydantic import validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.source_common import PlatformSourceConfigBase
 from datahub.emitter import mce_builder
-from datahub.emitter.mce_builder import make_dataset_urn, make_domain_urn
+from datahub.emitter.mce_builder import (
+    make_data_platform_urn,
+    make_dataplatform_instance_urn,
+    make_dataset_urn_with_platform_instance,
+    make_domain_urn,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
     DatabaseKey,
@@ -39,6 +45,7 @@ from datahub.metadata.schema_classes import (
     DataJobInfoClass,
     DataJobInputOutputClass,
     DataJobSnapshotClass,
+    DataPlatformInstanceClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     MetadataChangeEventClass,
@@ -53,7 +60,11 @@ from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_col
 logger = logging.getLogger(__name__)
 
 
-class GlueSourceConfig(AwsSourceConfig):
+DEFAULT_PLATFORM = "glue"
+VALID_PLATFORMS = [DEFAULT_PLATFORM, "athena"]
+
+
+class GlueSourceConfig(AwsSourceConfig, PlatformSourceConfigBase):
 
     extract_owners: Optional[bool] = True
     extract_transforms: Optional[bool] = True
@@ -62,6 +73,7 @@ class GlueSourceConfig(AwsSourceConfig):
     emit_s3_lineage: bool = False
     glue_s3_lineage_direction: str = "upstream"
     domain: Dict[str, AllowDenyPattern] = dict()
+    catalog_id: Optional[str] = None
 
     @property
     def glue_client(self):
@@ -78,6 +90,24 @@ class GlueSourceConfig(AwsSourceConfig):
                 "glue_s3_lineage_direction must be either upstream or downstream"
             )
         return v.lower()
+
+    @validator("underlying_platform")
+    def underlying_platform_validator(cls, v: str) -> str:
+        if not v or v in VALID_PLATFORMS:
+            return v
+        else:
+            raise ConfigurationError(
+                f"'underlying_platform' can only take following values: {VALID_PLATFORMS}"
+            )
+
+    @validator("platform")
+    def platform_validator(cls, v: str) -> str:
+        if not v or v in VALID_PLATFORMS:
+            return v
+        else:
+            raise ConfigurationError(
+                f"'platform' can only take following values: {VALID_PLATFORMS}"
+            )
 
 
 @dataclass
@@ -104,7 +134,6 @@ class GlueSource(Source):
         self.glue_client = config.glue_client
         self.s3_client = config.s3_client
         self.extract_transforms = config.extract_transforms
-        self.underlying_platform = config.underlying_platform
         self.env = config.env
 
     @classmethod
@@ -112,14 +141,22 @@ class GlueSource(Source):
         config = GlueSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def get_underlying_platform(self):
-        if self.underlying_platform in ["athena"]:
-            return self.underlying_platform
-        return "glue"
+    @property
+    def platform(self) -> str:
+        """
+        This deprecates "underlying_platform" field in favour of the standard "platform" one, which has
+        more priority when both are defined.
+        :return: platform, otherwise underlying_platform, otherwise "glue"
+        """
+        return (
+            self.source_config.platform
+            or self.source_config.underlying_platform
+            or DEFAULT_PLATFORM
+        )
 
     def get_all_jobs(self):
         """
-        List all jobs in Glue.
+        List all jobs in Glue. boto3 get_jobs api call doesn't support cross account access.
         """
 
         jobs = []
@@ -239,7 +276,12 @@ class GlueSource(Source):
                 full_table_name = f"{node_args['database']}.{node_args['table_name']}"
 
                 # we know that the table will already be covered when ingesting Glue tables
-                node_urn = f"urn:li:dataset:(urn:li:dataPlatform:{self.get_underlying_platform()},{full_table_name},{self.env})"
+                node_urn = make_dataset_urn_with_platform_instance(
+                    platform=self.platform,
+                    name=full_table_name,
+                    env=self.env,
+                    platform_instance=self.source_config.platform_instance,
+                )
 
             # if data object is S3 bucket
             elif node_args.get("connection_type") == "s3":
@@ -289,7 +331,7 @@ class GlueSource(Source):
                         flow_urn,
                         f"Unrecognized Glue data object type: {node_args}. Skipping.",
                     )
-
+                    return None
                 else:
 
                     raise ValueError(f"Unrecognized Glue data object type: {node_args}")
@@ -345,8 +387,19 @@ class GlueSource(Source):
         # traverse edges to fill in node properties
         for edge in dataflow_graph["DagEdges"]:
 
-            source_node = nodes[edge["Source"]]
-            target_node = nodes[edge["Target"]]
+            source_node = nodes.get(edge["Source"])
+            target_node = nodes.get(edge["Target"])
+
+            # Currently, in case of unsupported connectors,
+            # Source and Target for some edges is not available
+            # in nodes. this may lead to broken edge in lineage.
+            if source_node is None or target_node is None:
+                logger.warning(
+                    flow_urn,
+                    f"Unrecognized source or target node in edge: {edge}. Skipping.\
+                        This may lead to broken edge in lineage",
+                )
+                continue
 
             source_node_type = source_node["NodeType"]
             target_node_type = target_node["NodeType"]
@@ -454,7 +507,15 @@ class GlueSource(Source):
 
             # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue.html#Glue.Client.get_tables
             paginator = self.glue_client.get_paginator("get_tables")
-            for page in paginator.paginate(DatabaseName=database_name):
+
+            if self.source_config.catalog_id:
+                paginator_response = paginator.paginate(
+                    DatabaseName=database_name, CatalogId=self.source_config.catalog_id
+                )
+            else:
+                paginator_response = paginator.paginate(DatabaseName=database_name)
+
+            for page in paginator_response:
                 new_tables += page["TableList"]
 
             return new_tables
@@ -464,7 +525,15 @@ class GlueSource(Source):
 
             # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue.html#Glue.Client.get_databases
             paginator = self.glue_client.get_paginator("get_databases")
-            for page in paginator.paginate():
+
+            if self.source_config.catalog_id:
+                paginator_response = paginator.paginate(
+                    CatalogId=self.source_config.catalog_id
+                )
+            else:
+                paginator_response = paginator.paginate()
+
+            for page in paginator_response:
                 for db in page["DatabaseList"]:
                     if self.source_config.database_pattern.allowed(db["Name"]):
                         database_names.append(db["Name"])
@@ -533,8 +602,11 @@ class GlueSource(Source):
     def gen_database_key(self, database: str) -> DatabaseKey:
         return DatabaseKey(
             database=database,
-            platform=self.get_underlying_platform(),
-            instance=self.env,
+            platform=self.platform,
+            instance=self.source_config.platform_instance
+            # keeps backward compatibility when platform instance is missed
+            if self.source_config.platform_instance is not None
+            else self.source_config.env,
         )
 
     def gen_database_containers(self, database: str) -> Iterable[MetadataWorkUnit]:
@@ -608,8 +680,11 @@ class GlueSource(Source):
             self.report.report_workunit(workunit)
             yield workunit
 
-            dataset_urn: str = make_dataset_urn(
-                self.get_underlying_platform(), full_table_name, self.env
+            dataset_urn: str = make_dataset_urn_with_platform_instance(
+                platform=self.platform,
+                name=full_table_name,
+                env=self.env,
+                platform_instance=self.source_config.platform_instance,
             )
             yield from self._get_domain_wu(
                 dataset_name=full_table_name,
@@ -636,7 +711,7 @@ class GlueSource(Source):
         for job in self.get_all_jobs():
 
             flow_urn = mce_builder.make_data_flow_urn(
-                self.get_underlying_platform(), job["Name"], self.env
+                self.platform, job["Name"], self.env
             )
 
             flow_wu = self.get_dataflow_wu(flow_urn, job)
@@ -742,13 +817,28 @@ class GlueSource(Source):
                 schemaName=table_name,
                 version=0,
                 fields=fields,
-                platform=f"urn:li:dataPlatform:{self.get_underlying_platform()}",
+                platform=f"urn:li:dataPlatform:{self.platform}",
                 hash="",
                 platformSchema=MySqlDDL(tableSchema=""),
             )
 
+        def get_data_platform_instance() -> DataPlatformInstanceClass:
+            return DataPlatformInstanceClass(
+                platform=make_data_platform_urn(self.platform),
+                instance=make_dataplatform_instance_urn(
+                    self.platform, self.source_config.platform_instance
+                )
+                if self.source_config.platform_instance
+                else None,
+            )
+
         dataset_snapshot = DatasetSnapshot(
-            urn=make_dataset_urn(self.get_underlying_platform(), table_name, self.env),
+            urn=make_dataset_urn_with_platform_instance(
+                platform=self.platform,
+                name=table_name,
+                env=self.env,
+                platform_instance=self.source_config.platform_instance,
+            ),
             aspects=[],
         )
 
@@ -761,6 +851,7 @@ class GlueSource(Source):
 
         dataset_snapshot.aspects.append(get_dataset_properties())
         dataset_snapshot.aspects.append(get_schema_metadata(self))
+        dataset_snapshot.aspects.append(get_data_platform_instance())
 
         metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         return metadata_record

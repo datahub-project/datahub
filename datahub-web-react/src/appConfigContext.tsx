@@ -19,6 +19,12 @@ export const DEFAULT_APP_CONFIG = {
     lineageConfig: {
         supportsImpactAnalysis: false,
     },
+    visualConfig: {
+        logoUrl: undefined,
+    },
+    authConfig: {
+        tokenAuthEnabled: false,
+    },
 };
 
 export const AppConfigContext = React.createContext<{

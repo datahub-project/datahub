@@ -109,7 +109,7 @@ class TableauSource(Source):
     config: TableauConfig
     report: SourceReport
     platform = "tableau"
-    server: Server
+    server: Optional[Server]
     upstream_tables: Dict[str, Tuple[Any, str]] = {}
 
     def __hash__(self):
@@ -120,6 +120,7 @@ class TableauSource(Source):
 
         self.config = config
         self.report = SourceReport()
+        self.server = None
         # This list keeps track of datasource being actively used by workbooks so that we only retrieve those
         # when emitting published data sources.
         self.datasource_ids_being_used: List[str] = []
@@ -130,11 +131,12 @@ class TableauSource(Source):
         self._authenticate()
 
     def close(self) -> None:
-        self.server.auth.sign_out()
+        if self.server is not None:
+            self.server.auth.sign_out()
 
     def _authenticate(self):
         # https://tableau.github.io/server-client-python/docs/api-ref#authentication
-        authentication = None
+        authentication: Optional[Union[TableauAuth, PersonalAccessTokenAuth]] = None
         if self.config.username and self.config.password:
             authentication = TableauAuth(
                 username=self.config.username,
@@ -154,11 +156,13 @@ class TableauSource(Source):
             self.server = Server(self.config.connect_uri, use_server_version=True)
             self.server.auth.sign_in(authentication)
         except ServerResponseError as e:
+            logger.error(e)
             self.report.report_failure(
                 key="tableau-login",
                 reason=f"Unable to Login with credentials provided" f"Reason: {str(e)}",
             )
         except Exception as e:
+            logger.error(e)
             self.report.report_failure(
                 key="tableau-login", reason=f"Unable to Login" f"Reason: {str(e)}"
             )
@@ -181,7 +185,12 @@ class TableauSource(Source):
                 reason=f"Connection: {connection_type} Error: {query_data['errors']}",
             )
 
-        connection_object = query_data.get("data", {}).get(connection_type, {})
+        connection_object = (
+            query_data.get("data").get(connection_type, {})
+            if query_data.get("data")
+            else {}
+        )
+
         total_count = connection_object.get("totalCount", 0)
         has_next_page = connection_object.get("pageInfo", {}).get("hasNextPage", False)
         return connection_object, total_count, has_next_page
@@ -230,7 +239,9 @@ class TableauSource(Source):
         # Tableau shows custom sql datasource as a table in ColumnField.
         if field.get("__typename", "") == "ColumnField":
             for column in field.get("columns", []):
-                table_id = column.get("table", {}).get("id")
+                table_id = (
+                    column.get("table", {}).get("id") if column.get("table") else None
+                )
 
                 if (
                     table_id is not None
@@ -242,22 +253,41 @@ class TableauSource(Source):
         self, datasource: dict, project: str, is_custom_sql: bool = False
     ) -> List[UpstreamClass]:
         upstream_tables = []
-        upstream_dbs = datasource.get("upstreamDatabases", [])
-        upstream_db = upstream_dbs[0].get("name", "") if upstream_dbs else ""
 
         for table in datasource.get("upstreamTables", []):
             # skip upstream tables when there is no column info when retrieving embedded datasource
+            # and when table name is None
             # Schema details for these will be taken care in self.emit_custom_sql_ds()
             if not is_custom_sql and not table.get("columns"):
                 continue
+            elif table["name"] is None:
+                continue
 
-            schema = self._get_schema(table.get("schema", ""), upstream_db)
+            schema = table.get("schema", "")
+            table_name = table.get("name", "")
+            full_name = table.get("fullName", "")
+            upstream_db = table.get("database", {}).get("name", "")
+            logger.debug(
+                "Processing Table with Connection Type: {0} and id {1}".format(
+                    table.get("connectionType", ""), table.get("id", "")
+                )
+            )
+            schema = self._get_schema(schema, upstream_db, full_name)
+            # if the schema is included within the table name we omit it
+            if (
+                schema
+                and table_name
+                and full_name
+                and table_name == full_name
+                and schema in table_name
+            ):
+                schema = ""
             table_urn = make_table_urn(
                 self.config.env,
                 upstream_db,
                 table.get("connectionType", ""),
                 schema,
-                table.get("name", ""),
+                table_name,
             )
 
             upstream_table = UpstreamClass(
@@ -265,11 +295,22 @@ class TableauSource(Source):
                 type=DatasetLineageTypeClass.TRANSFORMED,
             )
             upstream_tables.append(upstream_table)
-            table_path = f"{project.replace('/', REPLACE_SLASH_CHAR)}/{datasource.get('name', '')}/{table.get('name', '')}"
+            table_path = f"{project.replace('/', REPLACE_SLASH_CHAR)}/{datasource.get('name', '')}/{table_name}"
             self.upstream_tables[table_urn] = (
                 table.get("columns", []),
                 table_path,
             )
+
+        for datasource in datasource.get("upstreamDatasources", []):
+            datasource_urn = builder.make_dataset_urn(
+                self.platform, datasource["id"], self.config.env
+            )
+            upstream_table = UpstreamClass(
+                dataset=datasource_urn,
+                type=DatasetLineageTypeClass.TRANSFORMED,
+            )
+            upstream_tables.append(upstream_table)
+
         return upstream_tables
 
     def emit_custom_sql_datasources(self) -> Iterable[MetadataWorkUnit]:
@@ -882,12 +923,34 @@ class TableauSource(Source):
             yield from self.emit_datasource(datasource, workbook)
 
     @lru_cache(maxsize=None)
-    def _get_schema(self, schema_provided: str, database: str) -> str:
-        schema = schema_provided
-        if not schema_provided and database in self.config.default_schema_map:
+    def _get_schema(self, schema_provided: str, database: str, fullName: str) -> str:
+
+        # For some databases, the schema attribute in tableau api does not return
+        # correct schema name for the table. For more information, see
+        # https://help.tableau.com/current/api/metadata_api/en-us/docs/meta_api_model.html#schema_attribute.
+        # Hence we extract schema from fullName whenever fullName is available
+        schema = self._extract_schema_from_fullName(fullName) if fullName else ""
+        if not schema:
+            schema = schema_provided
+        elif schema != schema_provided:
+            logger.debug(
+                "Correcting schema, provided {0}, corrected {1}".format(
+                    schema_provided, schema
+                )
+            )
+
+        if not schema and database in self.config.default_schema_map:
             schema = self.config.default_schema_map[database]
 
         return schema
+
+    @lru_cache(maxsize=None)
+    def _extract_schema_from_fullName(self, fullName: str) -> str:
+        # fullName is observed to be in format [schemaName].[tableName]
+        # OR simply tableName OR [tableName]
+        if fullName.startswith("[") and fullName.find("].[") >= 0:
+            return fullName[1 : fullName.index("]")]
+        return ""
 
     @lru_cache(maxsize=None)
     def get_last_modified(
@@ -926,6 +989,8 @@ class TableauSource(Source):
         return cls(ctx, config)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        if self.server is None or not self.server.is_signed_in():
+            return
         try:
             yield from self.emit_workbooks(self.config.workbooks_page_size)
             if self.datasource_ids_being_used:

@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Dict, Optional
 
 import pydantic
 from cryptography.hazmat.backends import default_backend
@@ -10,7 +10,11 @@ from snowflake.connector.network import (
     KEY_PAIR_AUTHENTICATOR,
 )
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    ConfigurationError,
+)
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemyConfig,
@@ -22,9 +26,15 @@ from datahub.utilities.config_clean import (
     remove_trailing_slashes,
 )
 
-APPLICATION_NAME = "acryl_datahub"
-
 logger: logging.Logger = logging.getLogger(__name__)
+
+APPLICATION_NAME: str = "acryl_datahub"
+
+VALID_AUTH_TYPES: Dict[str, str] = {
+    "DEFAULT_AUTHENTICATOR": DEFAULT_AUTHENTICATOR,
+    "EXTERNAL_BROWSER_AUTHENTICATOR": EXTERNAL_BROWSER_AUTHENTICATOR,
+    "KEY_PAIR_AUTHENTICATOR": KEY_PAIR_AUTHENTICATOR,
+}
 
 
 class SnowflakeProvisionRoleConfig(ConfigModel):
@@ -61,42 +71,53 @@ class SnowflakeProvisionRoleConfig(ConfigModel):
 class BaseSnowflakeConfig(BaseTimeWindowConfig):
     # Note: this config model is also used by the snowflake-usage source.
 
-    scheme = "snowflake"
-
+    scheme: str = "snowflake"
     username: Optional[str] = None
     password: Optional[pydantic.SecretStr] = pydantic.Field(default=None, exclude=True)
     private_key_path: Optional[str]
     private_key_password: Optional[pydantic.SecretStr] = pydantic.Field(
         default=None, exclude=True
     )
-    authentication_type: Optional[str] = "DEFAULT_AUTHENTICATOR"
-    host_port: str
+    authentication_type: str = "DEFAULT_AUTHENTICATOR"
+    host_port: Optional[str]  # Deprecated
+    account_id: Optional[str]  # Once host_port is removed this will be made mandatory
     warehouse: Optional[str]
     role: Optional[str]
-    include_table_lineage: Optional[bool] = True
-    include_view_lineage: Optional[bool] = True
+    include_table_lineage: bool = True
+    include_view_lineage: bool = True
+    connect_args: Optional[Dict] = pydantic.Field(default=None, exclude=True)
 
-    connect_args: Optional[dict]
+    def get_account(self) -> str:
+        assert self.account_id
+        return self.account_id
 
-    @pydantic.validator("host_port", always=True)
-    def host_port_is_valid(cls, v, values, **kwargs):
-        v = remove_protocol(v)
-        v = remove_trailing_slashes(v)
-        v = remove_suffix(v, ".snowflakecomputing.com")
-        logger.info(f"Cleaned Host port is {v}")
-        return v
+    @pydantic.root_validator
+    def one_of_host_port_or_account_id_is_required(cls, values):
+        host_port = values.get("host_port")
+        if host_port is not None:
+            logger.warning(
+                "snowflake's `host_port` option has been deprecated; use account_id instead"
+            )
+            host_port = remove_protocol(host_port)
+            host_port = remove_trailing_slashes(host_port)
+            host_port = remove_suffix(host_port, ".snowflakecomputing.com")
+            values["host_port"] = host_port
+        account_id = values.get("account_id")
+        if account_id is None:
+            if host_port is None:
+                raise ConfigurationError(
+                    "One of account_id (recommended) or host_port (deprecated) is required"
+                )
+            else:
+                values["account_id"] = host_port
+        return values
 
     @pydantic.validator("authentication_type", always=True)
     def authenticator_type_is_valid(cls, v, values, **kwargs):
-        valid_auth_types = {
-            "DEFAULT_AUTHENTICATOR": DEFAULT_AUTHENTICATOR,
-            "EXTERNAL_BROWSER_AUTHENTICATOR": EXTERNAL_BROWSER_AUTHENTICATOR,
-            "KEY_PAIR_AUTHENTICATOR": KEY_PAIR_AUTHENTICATOR,
-        }
-        if v not in valid_auth_types.keys():
+        if v not in VALID_AUTH_TYPES.keys():
             raise ValueError(
                 f"unsupported authenticator type '{v}' was provided,"
-                f" use one of {list(valid_auth_types.keys())}"
+                f" use one of {list(VALID_AUTH_TYPES.keys())}"
             )
         else:
             if v == "KEY_PAIR_AUTHENTICATOR":
@@ -106,13 +127,8 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
                         f"'private_key_path' was none "
                         f"but should be set when using {v} authentication"
                     )
-                if values.get("private_key_password") is None:
-                    raise ValueError(
-                        f"'private_key_password' was none "
-                        f"but should be set when using {v} authentication"
-                    )
             logger.info(f"using authenticator type '{v}'")
-        return valid_auth_types.get(v)
+        return v
 
     @pydantic.validator("include_view_lineage")
     def validate_include_view_lineage(cls, v, values):
@@ -139,13 +155,13 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
             self.scheme,
             username,
             password.get_secret_value() if password else None,
-            self.host_port,
+            self.account_id,
             f'"{database}"' if database is not None else database,
             uri_opts={
                 # Drop the options if value is None.
                 key: value
                 for (key, value) in {
-                    "authenticator": self.authentication_type,
+                    "authenticator": VALID_AUTH_TYPES.get(self.authentication_type),
                     "warehouse": self.warehouse,
                     "role": role,
                     "application": APPLICATION_NAME,
@@ -155,7 +171,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
         )
 
     def get_sql_alchemy_connect_args(self) -> dict:
-        if self.authentication_type != KEY_PAIR_AUTHENTICATOR:
+        if self.authentication_type != "KEY_PAIR_AUTHENTICATOR":
             return {}
         if self.connect_args is None:
             if self.private_key_path is None:
@@ -183,17 +199,9 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
         deny=[r"^UTIL_DB$", r"^SNOWFLAKE$", r"^SNOWFLAKE_SAMPLE_DATA$"]
     )
 
-    database: Optional[str]  # deprecated
-
     provision_role: Optional[SnowflakeProvisionRoleConfig] = None
-
-    @pydantic.validator("database")
-    def note_database_opt_deprecation(cls, v, values, **kwargs):
-        logger.warning(
-            "snowflake's `database` option has been deprecated; use database_pattern instead"
-        )
-        values["database_pattern"].allow = f"^{v}$"
-        return None
+    ignore_start_time_lineage: bool = False
+    upstream_lineage_in_report: bool = False
 
     def get_sql_alchemy_url(
         self,

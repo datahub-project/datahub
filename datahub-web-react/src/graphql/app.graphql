@@ -22,6 +22,9 @@ query appConfig {
         analyticsConfig {
             enabled
         }
+        authConfig {
+            tokenAuthEnabled
+        }
         identityManagementConfig {
             enabled
         }
@@ -30,6 +33,9 @@ query appConfig {
         }
         managedIngestionConfig {
             enabled
+        }
+        visualConfig {
+            logoUrl
         }
     }
 }

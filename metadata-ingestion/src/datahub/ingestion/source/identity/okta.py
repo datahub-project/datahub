@@ -4,13 +4,15 @@ import re
 import urllib
 from dataclasses import dataclass, field
 from time import sleep
-from typing import Dict, Iterable, List, Union
+from typing import Dict, Iterable, List, Optional, Union
 
 from okta.client import Client as OktaClient
 from okta.exceptions import OktaAPIException
 from okta.models import Group, GroupProfile, User, UserProfile, UserStatus
+from pydantic import validator
 
 from datahub.configuration import ConfigModel
+from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -60,6 +62,34 @@ class OktaConfig(ConfigModel):
     # Optional: Set the delay for fetching batches of entities from Okta. Okta has rate limiting in place.
     delay_seconds = 0.01
 
+    # Optional: Filter and search expression for ingesting a subset of users. Only one can be specified at a time.
+    okta_users_filter: Optional[str] = None
+    okta_users_search: Optional[str] = None
+
+    # Optional: Filter and search expression for ingesting a subset of groups. Only one can be specified at a time.
+    okta_groups_filter: Optional[str] = None
+    okta_groups_search: Optional[str] = None
+
+    # Optional: Whether to mask sensitive information from workunit ID's. On by default.
+    mask_group_id: bool = True
+    mask_user_id: bool = True
+
+    @validator("okta_users_search")
+    def okta_users_one_of_filter_or_search(cls, v, values):
+        if v and values["okta_users_filter"]:
+            raise ConfigurationError(
+                "Only one of okta_users_filter or okta_users_search can be set"
+            )
+        return v
+
+    @validator("okta_groups_search")
+    def okta_groups_one_of_filter_or_search(cls, v, values):
+        if v and values["okta_groups_filter"]:
+            raise ConfigurationError(
+                "Only one of okta_groups_filter or okta_groups_search can be set"
+            )
+        return v
+
 
 @dataclass
 class OktaSourceReport(SourceReport):
@@ -104,9 +134,16 @@ class OktaSource(Source):
         if self.config.ingest_groups:
             okta_groups = list(self._get_okta_groups(event_loop))
             datahub_corp_group_snapshots = self._map_okta_groups(okta_groups)
-            for datahub_corp_group_snapshot in datahub_corp_group_snapshots:
+            for group_count, datahub_corp_group_snapshot in enumerate(
+                datahub_corp_group_snapshots
+            ):
                 mce = MetadataChangeEvent(proposedSnapshot=datahub_corp_group_snapshot)
-                wu = MetadataWorkUnit(id=datahub_corp_group_snapshot.urn, mce=mce)
+                wu_id = (
+                    f"group-{group_count + 1}"
+                    if self.config.mask_group_id
+                    else datahub_corp_group_snapshot.urn
+                )
+                wu = MetadataWorkUnit(id=wu_id, mce=mce)
                 self.report.report_workunit(wu)
                 yield wu
 
@@ -157,7 +194,9 @@ class OktaSource(Source):
             okta_users = self._get_okta_users(event_loop)
             filtered_okta_users = filter(self._filter_okta_user, okta_users)
             datahub_corp_user_snapshots = self._map_okta_users(filtered_okta_users)
-            for datahub_corp_user_snapshot in datahub_corp_user_snapshots:
+            for user_count, datahub_corp_user_snapshot in enumerate(
+                datahub_corp_user_snapshots
+            ):
 
                 # Add GroupMembership aspect populated in Step 2 if applicable.
                 if (
@@ -172,7 +211,12 @@ class OktaSource(Source):
                     assert datahub_group_membership is not None
                     datahub_corp_user_snapshot.aspects.append(datahub_group_membership)
                 mce = MetadataChangeEvent(proposedSnapshot=datahub_corp_user_snapshot)
-                wu = MetadataWorkUnit(id=datahub_corp_user_snapshot.urn, mce=mce)
+                wu_id = (
+                    f"user-{user_count + 1}"
+                    if self.config.mask_user_id
+                    else datahub_corp_user_snapshot.urn
+                )
+                wu = MetadataWorkUnit(id=wu_id, mce=mce)
                 self.report.report_workunit(wu)
                 yield wu
 
@@ -201,7 +245,12 @@ class OktaSource(Source):
         logger.debug("Extracting all Okta groups")
 
         # Note that this is not taking full advantage of Python AsyncIO, as we are blocking on calls.
-        query_parameters = {"limit": self.config.page_size}
+        query_parameters: Dict[str, Union[str, int]] = {"limit": self.config.page_size}
+        if self.config.okta_groups_filter:
+            query_parameters.update({"filter": self.config.okta_groups_filter})
+        if self.config.okta_groups_search:
+            query_parameters.update({"search": self.config.okta_groups_search})
+        groups = resp = err = None
         try:
             groups, resp, err = event_loop.run_until_complete(
                 self.okta_client.list_groups(query_parameters)
@@ -238,6 +287,7 @@ class OktaSource(Source):
 
         # Note that this is not taking full advantage of Python AsyncIO; we are blocking on calls.
         query_parameters = {"limit": self.config.page_size}
+        users = resp = err = None
         try:
             users, resp, err = event_loop.run_until_complete(
                 self.okta_client.list_group_users(group.id, query_parameters)
@@ -272,7 +322,12 @@ class OktaSource(Source):
     def _get_okta_users(self, event_loop: asyncio.AbstractEventLoop) -> Iterable[User]:
         logger.debug("Extracting all Okta users")
 
-        query_parameters = {"limit": self.config.page_size}
+        query_parameters: Dict[str, Union[str, int]] = {"limit": self.config.page_size}
+        if self.config.okta_users_filter:
+            query_parameters.update({"filter": self.config.okta_users_filter})
+        if self.config.okta_users_search:
+            query_parameters.update({"search": self.config.okta_users_search})
+        users = resp = err = None
         try:
             users, resp, err = event_loop.run_until_complete(
                 self.okta_client.list_users(query_parameters)

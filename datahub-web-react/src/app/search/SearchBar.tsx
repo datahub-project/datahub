@@ -111,7 +111,10 @@ const renderEntitySuggestion = (query: string, entity: Entity, registry: EntityR
     const genericEntityProps = registry.getGenericEntityProperties(entity.type, entity);
     const platformName = genericEntityProps?.platform?.properties?.displayName || genericEntityProps?.platform?.name;
     const platformLogoUrl = genericEntityProps?.platform?.properties?.logoUrl;
-    const displayName = registry.getDisplayName(entity.type, entity);
+    const displayName =
+        genericEntityProps?.properties?.qualifiedName ||
+        genericEntityProps?.name ||
+        registry.getDisplayName(entity.type, entity);
     const icon =
         (platformLogoUrl && <PreviewImage preview={false} src={platformLogoUrl} alt={platformName || ''} />) ||
         registry.getIcon(entity.type, 12, IconStyleType.ACCENT);
@@ -278,8 +281,8 @@ export const SearchBar = ({
             >
                 <StyledSearchBar
                     placeholder={placeholderText}
-                    onPressEnter={(e) => {
-                        e.stopPropagation();
+                    onPressEnter={() => {
+                        // e.stopPropagation();
                         onSearch(filterSearchQuery(searchQuery || ''));
                     }}
                     style={inputStyle}

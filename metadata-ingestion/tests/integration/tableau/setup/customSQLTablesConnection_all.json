@@ -27,14 +27,22 @@
                                         "upstreamTables": [
                                             {
                                                 "id": "39657832-0769-6372-60c3-687a51e2a772",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
                                                 "name": "customer",
                                                 "schema": "",
+                                                "fullName": "customer",
                                                 "connectionType": "postgres"
                                             },
                                             {
                                                 "id": "3cdd0522-44ef-62eb-ba52-71545c258344",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
                                                 "name": "payment",
                                                 "schema": "",
+                                                "fullName": "payment",
                                                 "connectionType": "postgres"
                                             }
                                         ],
@@ -66,14 +74,22 @@
                                         "upstreamTables": [
                                             {
                                                 "id": "39657832-0769-6372-60c3-687a51e2a772",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
                                                 "name": "customer",
                                                 "schema": "",
+                                                "fullName": "customer",
                                                 "connectionType": "postgres"
                                             },
                                             {
                                                 "id": "3cdd0522-44ef-62eb-ba52-71545c258344",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
                                                 "name": "payment",
                                                 "schema": "",
+                                                "fullName": "payment",
                                                 "connectionType": "postgres"
                                             }
                                         ],
@@ -105,14 +121,22 @@
                                         "upstreamTables": [
                                             {
                                                 "id": "39657832-0769-6372-60c3-687a51e2a772",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
                                                 "name": "customer",
                                                 "schema": "",
+                                                "fullName": "customer",
                                                 "connectionType": "postgres"
                                             },
                                             {
                                                 "id": "3cdd0522-44ef-62eb-ba52-71545c258344",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
                                                 "name": "payment",
                                                 "schema": "",
+                                                "fullName": "payment",
                                                 "connectionType": "postgres"
                                             }
                                         ],
@@ -144,14 +168,22 @@
                                         "upstreamTables": [
                                             {
                                                 "id": "39657832-0769-6372-60c3-687a51e2a772",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
                                                 "name": "customer",
                                                 "schema": "",
+                                                "fullName": "customer",
                                                 "connectionType": "postgres"
                                             },
                                             {
                                                 "id": "3cdd0522-44ef-62eb-ba52-71545c258344",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
                                                 "name": "payment",
                                                 "schema": "",
+                                                "fullName": "payment",
                                                 "connectionType": "postgres"
                                             }
                                         ],
@@ -183,14 +215,22 @@
                                         "upstreamTables": [
                                             {
                                                 "id": "39657832-0769-6372-60c3-687a51e2a772",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
                                                 "name": "customer",
                                                 "schema": "",
+                                                "fullName": "customer",
                                                 "connectionType": "postgres"
                                             },
                                             {
                                                 "id": "3cdd0522-44ef-62eb-ba52-71545c258344",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
                                                 "name": "payment",
                                                 "schema": "",
+                                                "fullName": "payment",
                                                 "connectionType": "postgres"
                                             }
                                         ],
@@ -222,14 +262,22 @@
                                         "upstreamTables": [
                                             {
                                                 "id": "39657832-0769-6372-60c3-687a51e2a772",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
                                                 "name": "customer",
                                                 "schema": "",
+                                                "fullName": "customer",
                                                 "connectionType": "postgres"
                                             },
                                             {
                                                 "id": "3cdd0522-44ef-62eb-ba52-71545c258344",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
                                                 "name": "payment",
                                                 "schema": "",
+                                                "fullName": "payment",
                                                 "connectionType": "postgres"
                                             }
                                         ],
@@ -246,11 +294,19 @@
                         {
                             "name": "customer",
                             "schema": "",
+                            "fullName": "customer",
+                            "database":{
+                                "name":"dvdrental"
+                            },
                             "connectionType": "postgres"
                         },
                         {
                             "name": "payment",
                             "schema": "",
+                            "fullName": "payment",
+                            "database":{
+                                "name":"dvdrental"
+                            },
                             "connectionType": "postgres"
                         }
                     ]
@@ -280,20 +336,32 @@
                                         "upstreamTables": [
                                             {
                                                 "id": "39657832-0769-6372-60c3-687a51e2a772",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
                                                 "name": "customer",
                                                 "schema": "",
+                                                "fullName": "customer",
                                                 "connectionType": "postgres"
                                             },
                                             {
                                                 "id": "3cdd0522-44ef-62eb-ba52-71545c258344",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
                                                 "name": "payment",
                                                 "schema": "",
+                                                "fullName": "payment",
                                                 "connectionType": "postgres"
                                             },
                                             {
                                                 "id": "7df39af9-6767-4c9c-4120-155a024de062",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
                                                 "name": "staff",
                                                 "schema": "",
+                                                "fullName": "staff",
                                                 "connectionType": "postgres"
                                             }
                                         ],
@@ -322,20 +390,32 @@
                                         "upstreamTables": [
                                             {
                                                 "id": "39657832-0769-6372-60c3-687a51e2a772",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
                                                 "name": "customer",
                                                 "schema": "",
+                                                "fullName": "customer",
                                                 "connectionType": "postgres"
                                             },
                                             {
                                                 "id": "3cdd0522-44ef-62eb-ba52-71545c258344",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
                                                 "name": "payment",
                                                 "schema": "",
+                                                "fullName": "payment",
                                                 "connectionType": "postgres"
                                             },
                                             {
                                                 "id": "7df39af9-6767-4c9c-4120-155a024de062",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
                                                 "name": "staff",
                                                 "schema": "",
+                                                "fullName": "staff",
                                                 "connectionType": "postgres"
                                             }
                                         ],
@@ -364,20 +444,32 @@
                                         "upstreamTables": [
                                             {
                                                 "id": "39657832-0769-6372-60c3-687a51e2a772",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
                                                 "name": "customer",
                                                 "schema": "",
+                                                "fullName": "customer",
                                                 "connectionType": "postgres"
                                             },
                                             {
                                                 "id": "3cdd0522-44ef-62eb-ba52-71545c258344",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
                                                 "name": "payment",
                                                 "schema": "",
+                                                "fullName": "payment",
                                                 "connectionType": "postgres"
                                             },
                                             {
                                                 "id": "7df39af9-6767-4c9c-4120-155a024de062",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
                                                 "name": "staff",
                                                 "schema": "",
+                                                "fullName": "staff",
                                                 "connectionType": "postgres"
                                             }
                                         ],
@@ -406,20 +498,32 @@
                                         "upstreamTables": [
                                             {
                                                 "id": "39657832-0769-6372-60c3-687a51e2a772",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
                                                 "name": "customer",
                                                 "schema": "",
+                                                "fullName": "customer",
                                                 "connectionType": "postgres"
                                             },
                                             {
                                                 "id": "3cdd0522-44ef-62eb-ba52-71545c258344",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
                                                 "name": "payment",
                                                 "schema": "",
+                                                "fullName": "payment",
                                                 "connectionType": "postgres"
                                             },
                                             {
                                                 "id": "7df39af9-6767-4c9c-4120-155a024de062",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
                                                 "name": "staff",
                                                 "schema": "",
+                                                "fullName": "staff",
                                                 "connectionType": "postgres"
                                             }
                                         ],
@@ -448,20 +552,32 @@
                                         "upstreamTables": [
                                             {
                                                 "id": "39657832-0769-6372-60c3-687a51e2a772",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
                                                 "name": "customer",
                                                 "schema": "",
+                                                "fullName": "customer",
                                                 "connectionType": "postgres"
                                             },
                                             {
                                                 "id": "3cdd0522-44ef-62eb-ba52-71545c258344",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
                                                 "name": "payment",
                                                 "schema": "",
+                                                "fullName": "payment",
                                                 "connectionType": "postgres"
                                             },
                                             {
                                                 "id": "7df39af9-6767-4c9c-4120-155a024de062",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
                                                 "name": "staff",
                                                 "schema": "",
+                                                "fullName": "staff",
                                                 "connectionType": "postgres"
                                             }
                                         ],
@@ -490,20 +606,32 @@
                                         "upstreamTables": [
                                             {
                                                 "id": "39657832-0769-6372-60c3-687a51e2a772",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
                                                 "name": "customer",
                                                 "schema": "",
+                                                "fullName": "customer",
                                                 "connectionType": "postgres"
                                             },
                                             {
                                                 "id": "3cdd0522-44ef-62eb-ba52-71545c258344",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
                                                 "name": "payment",
                                                 "schema": "",
+                                                "fullName": "payment",
                                                 "connectionType": "postgres"
                                             },
                                             {
                                                 "id": "7df39af9-6767-4c9c-4120-155a024de062",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
                                                 "name": "staff",
                                                 "schema": "",
+                                                "fullName": "staff",
                                                 "connectionType": "postgres"
                                             }
                                         ],
@@ -532,20 +660,32 @@
                                         "upstreamTables": [
                                             {
                                                 "id": "39657832-0769-6372-60c3-687a51e2a772",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
                                                 "name": "customer",
                                                 "schema": "",
+                                                "fullName": "customer",
                                                 "connectionType": "postgres"
                                             },
                                             {
                                                 "id": "3cdd0522-44ef-62eb-ba52-71545c258344",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
                                                 "name": "payment",
                                                 "schema": "",
+                                                "fullName": "payment",
                                                 "connectionType": "postgres"
                                             },
                                             {
                                                 "id": "7df39af9-6767-4c9c-4120-155a024de062",
+                                                "database": {
+                                                    "name": "dvdrental"
+                                                },
                                                 "name": "staff",
                                                 "schema": "",
+                                                "fullName": "staff",
                                                 "connectionType": "postgres"
                                             }
                                         ],
@@ -559,16 +699,28 @@
                         {
                             "name": "customer",
                             "schema": "",
+                            "fullName": "customer",
+                            "database":{
+                                "name":"dvdrental"
+                            },
                             "connectionType": "postgres"
                         },
                         {
                             "name": "payment",
                             "schema": "",
+                            "fullName": "payment",
+                            "database":{
+                                "name":"dvdrental"
+                            },
                             "connectionType": "postgres"
                         },
                         {
                             "name": "staff",
                             "schema": "",
+                            "fullName": "staff",
+                            "database":{
+                                "name":"dvdrental"
+                            },
                             "connectionType": "postgres"
                         }
                     ]

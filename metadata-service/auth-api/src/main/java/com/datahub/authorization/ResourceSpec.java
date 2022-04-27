@@ -1,25 +1,23 @@
 package com.datahub.authorization;
 
 import javax.annotation.Nonnull;
+import lombok.Value;
 
+
+/**
+ * Details about a specific resource being acted upon. Resource types currently supported
+ * can be found inside of {@link PoliciesConfig}.
+ */
+@Value
 public class ResourceSpec {
-
-  private final String _type;
-  private final String _resource;
-
-  public ResourceSpec(
-      @Nonnull final String type,
-      @Nonnull final String resource // urn:li:dataset:(123)
-  ) {
-    _type = type;
-    _resource = resource;
-  }
-
-  public String getType() {
-    return _type;
-  }
-
-  public String getResource() {
-    return _resource;
-  }
+  /**
+   * The resource type. Most often, this corresponds to the entity type. (dataset, chart, dashboard, corpGroup, etc).
+   */
+  @Nonnull
+  String type;
+  /**
+   * The resource identity. Most often, this corresponds to the raw entity urn. (urn:li:corpGroup:groupId)
+   */
+  @Nonnull
+  String resource;
 }
