@@ -68,6 +68,8 @@ public class MappingUtil {
 
   private static final Map<String, Class<? extends OneOfEnvelopedAspectValue>> ENVELOPED_ASPECT_TYPE_MAP =
       new HashMap<>();
+  private static final Map<Class<? extends OneOfEnvelopedAspectValue>, String> ASPECT_NAME_MAP =
+      new HashMap<>();
   private static final Map<String, Class> PEGASUS_TYPE_MAP = new HashMap<>();
   private static final Pattern CLASS_NAME_PATTERN =
       Pattern.compile("(\"com\\.linkedin\\.)([a-z]+?\\.)+?(?<className>[A-Z]\\w+?)(\":\\{)(?<content>.*?)(}})");
@@ -178,6 +180,7 @@ public class MappingUtil {
       c[0] = Character.toLowerCase(c[0]);
       String aspectName = new String(c);
       ENVELOPED_ASPECT_TYPE_MAP.put(aspectName, cls);
+      ASPECT_NAME_MAP.put(cls, aspectName);
     } catch (ClassNotFoundException e) {
       throw new RuntimeException(e);
     }
@@ -315,7 +318,7 @@ public class MappingUtil {
     }
     metadataChangeProposal.aspect(genericAspect)
         .changeType(io.datahubproject.openapi.generated.ChangeType.UPSERT)
-        .aspectName(aspectRequest.getAspectName())
+        .aspectName(ASPECT_NAME_MAP.get(aspectRequest.getAspect()))
         .entityKeyAspect(keyAspect)
         .entityUrn(aspectRequest.getEntityUrn())
         .entityType(aspectRequest.getEntityType());
@@ -338,7 +341,6 @@ public class MappingUtil {
     }
     return UpsertAspectRequest.builder()
         .aspect(new Status().removed(true))
-        .aspectName(STATUS_ASPECT_NAME)
         .entityUrn(urn.toString())
         .entityType(urn.getEntityType())
         .build();

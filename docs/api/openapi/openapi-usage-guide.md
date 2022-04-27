@@ -53,13 +53,11 @@ public class Main {
         .entityType("dataset")
         .entityUrn("urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my-other-dataset.user-table,PROD)")
         .aspect(new DatasetProperties().description("This is the canonical User profile dataset"))
-        .aspectName("datasetProperties")
         .build();
     UpsertAspectRequest upsertAspectRequest2 = UpsertAspectRequest.builder()
         .entityType("dataset")
         .entityUrn("urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.another-dataset.user-table,PROD)")
         .aspect(new DatasetProperties().description("This is the canonical User profile dataset 2"))
-        .aspectName("datasetProperties")
         .build();
     requests.add(upsertAspectRequest);
     requests.add(upsertAspectRequest2);

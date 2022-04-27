@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
-import io.datahubproject.openapi.generated.OneOfGenericAspectValue;
+import io.datahubproject.openapi.generated.OneOfEnvelopedAspectValue;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Value;
@@ -24,20 +24,17 @@ public class UpsertAspectRequest {
   @Schema(description = "Urn of the entity to be updated with the corresponding aspect, required if entityKey is null")
   String entityUrn;
 
-  @JsonProperty("aspectName")
-  @Schema(required = true, description = "Name of the aspect matching its definition in the entity registry")
-  String aspectName;
-
   @JsonProperty("entityKeyAspect")
   @Schema(description = "A key aspect referencing the entity to be updated, required if entityUrn is null")
-  OneOfGenericAspectValue entityKeyAspect;
+  OneOfEnvelopedAspectValue entityKeyAspect;
 
   @JsonProperty("aspect")
   @Schema(required = true, description = "Aspect value to be upserted")
-  OneOfGenericAspectValue aspect;
+  OneOfEnvelopedAspectValue aspect;
 
   @JsonPOJOBuilder(withPrefix = "")
   public static class UpsertAspectRequestBuilder {
 
   }
 }
+
