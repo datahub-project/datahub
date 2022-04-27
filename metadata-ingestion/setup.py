@@ -129,7 +129,7 @@ data_lake_profiling = {
 
 iceberg_common = {
     # Iceberg Python SDK
-    "acryl-iceberg-legacy==0.0.2"
+    "acryl-iceberg-legacy==0.0.3"
 }
 
 s3_base = {
