@@ -3,6 +3,8 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 import boto3
 from boto3.session import Session
+from botocore.config import Config
+from botocore.utils import fix_s3_host
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
@@ -53,6 +55,8 @@ class AwsSourceConfig(ConfigModel):
     aws_role: Optional[Union[str, List[str]]] = None
     aws_profile: Optional[str] = None
     aws_region: str
+    aws_endpoint_url: Optional[str] = None
+    aws_proxy: Optional[Dict[str, str]] = None
 
     def get_session(self) -> Session:
         if (
@@ -103,10 +107,25 @@ class AwsSourceConfig(ConfigModel):
         return {}
 
     def get_s3_client(self) -> "S3Client":
-        return self.get_session().client("s3")
+        return self.get_session().client(
+            "s3",
+            endpoint_url=self.aws_endpoint_url,
+            config=Config(proxies=self.aws_proxy),
+        )
 
     def get_s3_resource(self) -> "S3ServiceResource":
-        return self.get_session().resource("s3")
+        resource = self.get_session().resource(
+            "s3",
+            endpoint_url=self.aws_endpoint_url,
+            config=Config(proxies=self.aws_proxy),
+        )
+        # according to: https://stackoverflow.com/questions/32618216/override-s3-endpoint-using-boto3-configuration-file
+        # boto3 only reads the signature version for s3 from that config file. boto3 automatically changes the endpoint to
+        # your_bucket_name.s3.amazonaws.com when it sees fit. If you'll be working with both your own host and s3, you may wish
+        # to override the functionality rather than removing it altogether.
+        if self.aws_endpoint_url is not None and self.aws_proxy is not None:
+            resource.meta.client.meta.events.unregister("before-sign.s3", fix_s3_host)
+        return resource
 
     def get_glue_client(self) -> "GlueClient":
         return self.get_session().client("glue")
