@@ -1,4 +1,4 @@
-namespace com.linkedin.metadata.graph
+namespace com.linkedin.metadata.run
 
 import com.linkedin.common.Urn
 

@@ -151,8 +151,7 @@ public class Neo4jGraphService implements GraphService {
     final List<RelatedEntity> relatedEntities = runQuery(resultStatement).list(record ->
         new RelatedEntity(
             record.values().get(1).asString(), // Relationship Type
-            record.values().get(0).asNode().get("urn").asString() // Urn TODO: Validate this works against Neo4j.
-        ));
+            record.values().get(0).asNode().get("urn").asString())); // Urn TODO: Validate this works against Neo4j.
     final int totalCount = runQuery(countStatement).single().get(0).asInt();
     return new RelatedEntitiesResult(offset, relatedEntities.size(), totalCount, relatedEntities);
   }

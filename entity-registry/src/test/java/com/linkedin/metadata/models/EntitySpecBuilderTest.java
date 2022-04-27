@@ -22,6 +22,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
+
 /**
  * Tests the capabilities of {@link EntitySpecBuilder}
  */

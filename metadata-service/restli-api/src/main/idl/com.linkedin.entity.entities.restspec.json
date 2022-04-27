@@ -113,7 +113,7 @@
         "type" : "boolean",
         "optional" : true
       } ],
-      "returns" : "com.linkedin.metadata.graph.RelationshipResult"
+      "returns" : "com.linkedin.metadata.run.DeleteReferencesResponse"
     }, {
       "name" : "filter",
       "parameters" : [ {

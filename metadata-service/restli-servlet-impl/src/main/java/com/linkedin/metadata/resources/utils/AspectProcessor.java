@@ -14,34 +14,41 @@ import java.util.ListIterator;
 import lombok.extern.slf4j.Slf4j;
 
 
-/**
- * Utility class that provides utility methods to remove fields from a given aspect based on it's aspect spec that
- * follows the following logic:
- *
- * 1. If field is optional and not part of an array → remove the field.
- * 2. If is a field that is part of an array (has an `*` in the path spec)
- *  → go up to the nearest array and remove the element.
- *  Extra → If array only has 1 element which is being deleted→ optional rules (if optional set null, otherwise delete)
- * 3. If field is non-optional and does not belong to an array delete if and only if aspect becomes empty.
- */
 @Slf4j
 public class AspectProcessor {
 
   private AspectProcessor() { }
 
-  public static Aspect removeAspect(String value, RecordTemplate aspect, DataSchema schema, PathSpec aspectPath) throws CloneNotSupportedException {
-    final DataMap copy =  aspect.copy().data();
-    final DataComplex newValue = traversePath(value, schema, copy,
-        aspectPath.getPathComponents(), 0, null);
-    if (newValue == null) {
-      return new Aspect();
-    } else {
+  /**
+   *
+   * Utility method that provides utility methods to remove fields from a given aspect based on it's aspect spec that
+   * follows the following logic:
+   *
+   * 1. If field is optional and not part of an array → remove the field.
+   * 2. If is a field that is part of an array (has an `*` in the path spec)
+   *  → go up to the nearest array and remove the element.
+   *  Extra → If array only has 1 element which is being deleted→ optional rules (if optional set null, otherwise delete)
+   * 3. If field is non-optional and does not belong to an array delete if and only if aspect becomes empty.
+   *
+   * @param value       Value to be removed from Aspect
+   * @param aspect      Aspect in which the value property exists
+   * @param schema      {@link DataSchema} of the aspect being processed
+   * @param aspectPath  Path within the aspect to where the value can be found.
+   * @return  An updated version of the provided aspect without the provided value.
+   */
+  public static Aspect getAspectWithReferenceRemoved(String value, RecordTemplate aspect, DataSchema schema, PathSpec aspectPath) {
+    try {
+      final DataMap copy = aspect.copy().data();
+      final DataComplex newValue = traversePath(value, schema, copy,
+          aspectPath.getPathComponents(), 0, null);
       return new Aspect((DataMap) newValue);
+    } catch (CloneNotSupportedException e) {
+      return new Aspect();
     }
   }
 
-  private static DataComplex traversePath(String value, DataSchema schema, Object o, List<String> pathComponents, int index,
-      Boolean optional)
+  private static DataComplex traversePath(String value, DataSchema schema, DataComplex o, List<String> pathComponents,
+      int index, Boolean optional)
       throws CloneNotSupportedException {
 
     final String subPath = pathComponents.get(index);
@@ -61,11 +68,8 @@ public class AspectProcessor {
     // If in the last component of the path spec
     if (index == pathComponents.size() - 1) {
       // Can only remove if field is optional or if (parent is optional AND struct will be empty or just with optionals)
-      boolean canDelete = spec.getField(pathComponents.get(index)).getOptional() || Boolean.TRUE.equals(isParentOptional) && (
-          record.size() == 1 || spec.getFields()
-              .stream()
-              .filter(field -> !field.getName().equals(pathComponents.get(index)))
-              .noneMatch(RecordDataSchema.Field::getOptional));
+      boolean canDelete = fieldIsOptional(spec, pathComponents, index) || Boolean.TRUE.equals(isParentOptional) &&
+          recordWillBeEmpty(record);
 
       if (canDelete) {
         final DataMap clone = record.clone();
@@ -85,7 +89,7 @@ public class AspectProcessor {
       // Check if key exists, this may not exist because you are in wrong branch of the tree (i.e: iterating for an array)
       if (record.containsKey(key)) {
         final boolean optional = Boolean.TRUE.equals(isParentOptional) || optionalField;
-        final DataComplex result = traversePath(value, spec.getField(key).getType(), record.get(key), pathComponents,
+        final DataComplex result = traversePath(value, spec.getField(key).getType(), (DataComplex) record.get(key), pathComponents,
             index + 1, optional);
 
         if (!result.values().isEmpty()) {
@@ -106,6 +110,14 @@ public class AspectProcessor {
     return record;
   }
 
+  private static boolean recordWillBeEmpty(DataMap record) {
+    return record.size() == 1;
+  }
+
+  private static boolean fieldIsOptional(RecordDataSchema spec, List<String> pathComponents, int index) {
+    return spec.getField(pathComponents.get(index)).getOptional();
+  }
+
   private static DataComplex processArray(String value, ArrayDataSchema spec, DataList aspectList,
       List<String> pathComponents, int index, Boolean isParentOptional)
       throws CloneNotSupportedException {
@@ -122,7 +134,8 @@ public class AspectProcessor {
       final ListIterator<Object> it = aspectList.listIterator();
       while (it.hasNext()) {
         final Object aspect = it.next();
-        final DataComplex result = traversePath(value, spec.getItems(), aspect, pathComponents, index + 1, isParentOptional);
+        final DataComplex result = traversePath(value, spec.getItems(), (DataComplex) aspect, pathComponents,
+            index + 1, isParentOptional);
         if (!result.values().isEmpty()) {
           it.set(result);
         } else {

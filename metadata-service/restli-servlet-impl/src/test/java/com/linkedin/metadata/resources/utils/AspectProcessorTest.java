@@ -18,7 +18,7 @@ public class AspectProcessorTest extends TestCase {
    * Tests that Aspect Processor deletes the entire struct if it no longer has any fields
    */
   @Test
-  public void testEmptyStructRemoval() throws CloneNotSupportedException {
+  public void testEmptyStructRemoval() {
     final String value = "{\"key_a\": \"hello\"}";
     final Aspect aspect = RecordUtils.toRecordTemplate(Aspect.class, value);
 
@@ -28,7 +28,7 @@ public class AspectProcessorTest extends TestCase {
         + "}");
 
     final DataSchema schema = pdlSchemaParser.lookupName("simple_record");
-    final Aspect updatedAspect = AspectProcessor.removeAspect("hello", aspect, schema,
+    final Aspect updatedAspect = AspectProcessor.getAspectWithReferenceRemoved("hello", aspect, schema,
         new PathSpec("key_a"));
 
     assertFalse(updatedAspect.data().containsKey("key_a"));
@@ -39,7 +39,7 @@ public class AspectProcessorTest extends TestCase {
    * Tests that Aspect Processor deletes & removes optional values from a struct.
    */
   @Test
-  public void testOptionalFieldRemoval() throws CloneNotSupportedException {
+  public void testOptionalFieldRemoval() {
     final String value = "{\"key_a\": \"hello\", \"key_b\": \"world\"}";
     final Aspect aspect = RecordUtils.toRecordTemplate(Aspect.class, value);
 
@@ -50,7 +50,7 @@ public class AspectProcessorTest extends TestCase {
         + "}");
 
     final DataSchema schema = pdlSchemaParser.lookupName("simple_record");
-    final Aspect updatedAspect = AspectProcessor.removeAspect("hello", aspect, schema,
+    final Aspect updatedAspect = AspectProcessor.getAspectWithReferenceRemoved("hello", aspect, schema,
         new PathSpec("key_a"));
 
     assertFalse(updatedAspect.data().containsKey("key_a"));
@@ -62,7 +62,7 @@ public class AspectProcessorTest extends TestCase {
    * Tests that Aspect Processor does not delete a non-optional value from a struct.
    */
   @Test
-  public void testNonOptionalFieldRemoval() throws CloneNotSupportedException {
+  public void testNonOptionalFieldRemoval() {
     final String value = "{\"key_a\": \"hello\", \"key_b\": \"world\"}";
     final Aspect aspect = RecordUtils.toRecordTemplate(Aspect.class, value);
 
@@ -73,7 +73,7 @@ public class AspectProcessorTest extends TestCase {
         + "}");
 
     final DataSchema schema = pdlSchemaParser.lookupName("simple_record");
-    final Aspect updatedAspect = AspectProcessor.removeAspect("hello", aspect, schema,
+    final Aspect updatedAspect = AspectProcessor.getAspectWithReferenceRemoved("hello", aspect, schema,
         new PathSpec("key_a"));
 
     assertTrue(updatedAspect.data().containsKey("key_a"));
@@ -86,7 +86,7 @@ public class AspectProcessorTest extends TestCase {
    * Tests that Aspect Processor does not delete a non-optional value from a record referenced by another record.
    */
   @Test
-  public void testNestedFieldRemoval() throws CloneNotSupportedException {
+  public void testNestedFieldRemoval() {
     final String value = "{\"key_c\": {\"key_a\": \"hello\", \"key_b\": \"world\"}}";
     final Aspect aspect = RecordUtils.toRecordTemplate(Aspect.class, value);
 
@@ -101,7 +101,7 @@ public class AspectProcessorTest extends TestCase {
         + "}");
 
     final DataSchema schema = pdlSchemaParser.lookupName("complex_record");
-    final Aspect updatedAspect = AspectProcessor.removeAspect("hello", aspect, schema,
+    final Aspect updatedAspect = AspectProcessor.getAspectWithReferenceRemoved("hello", aspect, schema,
         new PathSpec("key_c", "key_a"));
 
     assertTrue(updatedAspect.data().containsKey("key_c"));
@@ -112,7 +112,7 @@ public class AspectProcessorTest extends TestCase {
    * Tests that Aspect Processor is able to delete an optional sub-field while preserving nested structs.
    */
   @Test
-  public void testOptionalNestedFieldRemoval() throws CloneNotSupportedException {
+  public void testOptionalNestedFieldRemoval() {
     final String value = "{\"key_c\": {\"key_a\": \"hello\", \"key_b\": \"world\"}}";
     final Aspect aspect = RecordUtils.toRecordTemplate(Aspect.class, value);
 
@@ -127,7 +127,7 @@ public class AspectProcessorTest extends TestCase {
         + "}");
 
     final DataSchema schema = pdlSchemaParser.lookupName("complex_record");
-    final Aspect updatedAspect = AspectProcessor.removeAspect("hello", aspect, schema,
+    final Aspect updatedAspect = AspectProcessor.getAspectWithReferenceRemoved("hello", aspect, schema,
         new PathSpec("key_c", "key_a"));
 
     assertTrue(updatedAspect.data().containsKey("key_c"));
@@ -143,7 +143,7 @@ public class AspectProcessorTest extends TestCase {
    * is optional at some higher level.
    */
   @Test
-  public void testRemovalOptionalFieldWithNonOptionalSubfield() throws CloneNotSupportedException {
+  public void testRemovalOptionalFieldWithNonOptionalSubfield() {
     final String value = "{\"key_c\": {\"key_b\": \"world\"}}";
     final Aspect aspect = RecordUtils.toRecordTemplate(Aspect.class, value);
 
@@ -158,14 +158,14 @@ public class AspectProcessorTest extends TestCase {
         + "}");
 
     final DataSchema schema = pdlSchemaParser.lookupName("complex_record");
-    final Aspect updatedAspect = AspectProcessor.removeAspect("hello", aspect, schema,
+    final Aspect updatedAspect = AspectProcessor.getAspectWithReferenceRemoved("hello", aspect, schema,
         new PathSpec("key_c", "key_b"));
 
     assertFalse(updatedAspect.data().containsKey("key_c"));
   }
 
   @Test
-  public void testRemovalFromSingleArray() throws CloneNotSupportedException {
+  public void testRemovalFromSingleArray() {
     final String value = "{\"key_a\": [\"hello\"]}";
     final Aspect aspect = RecordUtils.toRecordTemplate(Aspect.class, value);
 
@@ -177,7 +177,7 @@ public class AspectProcessorTest extends TestCase {
     assertEquals(1, ((DataList) aspect.data().get("key_a")).size());
 
     final DataSchema schema = pdlSchemaParser.lookupName("simple_record");
-    final Aspect updatedAspect = AspectProcessor.removeAspect("hello", aspect, schema,
+    final Aspect updatedAspect = AspectProcessor.getAspectWithReferenceRemoved("hello", aspect, schema,
         new PathSpec("key_a", "*"));
 
     assertTrue(updatedAspect.data().containsKey("key_a"));
@@ -185,7 +185,7 @@ public class AspectProcessorTest extends TestCase {
   }
 
   @Test
-  public void testRemovalFromMultipleArray() throws CloneNotSupportedException {
+  public void testRemovalFromMultipleArray() {
     final String value = "{\"key_a\": [\"hello\", \"world\"]}";
     final Aspect aspect = RecordUtils.toRecordTemplate(Aspect.class, value);
 
@@ -197,7 +197,7 @@ public class AspectProcessorTest extends TestCase {
     assertEquals(2, ((DataList) aspect.data().get("key_a")).size());
 
     final DataSchema schema = pdlSchemaParser.lookupName("simple_record");
-    final Aspect updatedAspect = AspectProcessor.removeAspect("hello", aspect, schema,
+    final Aspect updatedAspect = AspectProcessor.getAspectWithReferenceRemoved("hello", aspect, schema,
         new PathSpec("key_a", "*"));
 
     assertTrue(updatedAspect.data().containsKey("key_a"));
@@ -209,7 +209,7 @@ public class AspectProcessorTest extends TestCase {
    * Tests that Aspect Processor is able to remove sub-field from array field while preserving nested structs.
    */
   @Test
-  public void testRemovalNestedFieldFromArray() throws CloneNotSupportedException {
+  public void testRemovalNestedFieldFromArray() {
     final String value = "{\"key_c\": [{\"key_a\": \"hello\", \"key_b\": \"world\"}, {\"key_b\": \"extra info\"}]}";
     final Aspect aspect = RecordUtils.toRecordTemplate(Aspect.class, value);
 
@@ -226,7 +226,7 @@ public class AspectProcessorTest extends TestCase {
     assertEquals(2, ((DataList) aspect.data().get("key_c")).size());
 
     final DataSchema schema = pdlSchemaParser.lookupName("complex_record");
-    final Aspect updatedAspect = AspectProcessor.removeAspect("hello", aspect, schema,
+    final Aspect updatedAspect = AspectProcessor.getAspectWithReferenceRemoved("hello", aspect, schema,
         new PathSpec("key_c", "*", "key_a"));
 
     assertTrue(updatedAspect.data().containsKey("key_c"));
@@ -246,7 +246,7 @@ public class AspectProcessorTest extends TestCase {
    * Tests that Aspect Processor is able to remove element from array field.
    */
   @Test
-  public void testRemovalElementFromArray() throws CloneNotSupportedException {
+  public void testRemovalElementFromArray() {
     final String value = "{\"key_c\": [{\"key_a\": \"hello\"}, {\"key_b\": \"extra info\"}]}";
     final Aspect aspect = RecordUtils.toRecordTemplate(Aspect.class, value);
 
@@ -263,7 +263,7 @@ public class AspectProcessorTest extends TestCase {
     assertEquals(2, ((DataList) aspect.data().get("key_c")).size());
 
     final DataSchema schema = pdlSchemaParser.lookupName("complex_record");
-    final Aspect updatedAspect = AspectProcessor.removeAspect("hello", aspect, schema,
+    final Aspect updatedAspect = AspectProcessor.getAspectWithReferenceRemoved("hello", aspect, schema,
         new PathSpec("key_c", "*", "key_a"));
 
     assertTrue(updatedAspect.data().containsKey("key_c"));
@@ -281,7 +281,7 @@ public class AspectProcessorTest extends TestCase {
    * Tests that Aspect Processor removes array if empty when removing underlying structs
    */
   @Test
-  public void testRemovalEmptyArray() throws CloneNotSupportedException {
+  public void testRemovalEmptyArray() {
     final String value = "{\"key_c\": [{\"key_a\": \"hello\"}]}";
     final Aspect aspect = RecordUtils.toRecordTemplate(Aspect.class, value);
 
@@ -298,7 +298,7 @@ public class AspectProcessorTest extends TestCase {
     assertEquals(1, ((DataList) aspect.data().get("key_c")).size());
 
     final DataSchema schema = pdlSchemaParser.lookupName("complex_record");
-    final Aspect updatedAspect = AspectProcessor.removeAspect("hello", aspect, schema,
+    final Aspect updatedAspect = AspectProcessor.getAspectWithReferenceRemoved("hello", aspect, schema,
         new PathSpec("key_c", "*", "key_a"));
 
     assertTrue(updatedAspect.data().containsKey("key_c"));
@@ -309,7 +309,7 @@ public class AspectProcessorTest extends TestCase {
    * Tests that Aspect Processor removes optional array field from struct when it is empty
    */
   @Test
-  public void testRemovalOptionalEmptyArray() throws CloneNotSupportedException {
+  public void testRemovalOptionalEmptyArray() {
     final String value = "{\"key_c\": [{\"key_a\": \"hello\"}]}";
     final Aspect aspect = RecordUtils.toRecordTemplate(Aspect.class, value);
 
@@ -326,7 +326,7 @@ public class AspectProcessorTest extends TestCase {
     assertEquals(1, ((DataList) aspect.data().get("key_c")).size());
 
     final DataSchema schema = pdlSchemaParser.lookupName("complex_record");
-    final Aspect updatedAspect = AspectProcessor.removeAspect("hello", aspect, schema,
+    final Aspect updatedAspect = AspectProcessor.getAspectWithReferenceRemoved("hello", aspect, schema,
         new PathSpec("key_c", "*", "key_a"));
 
     assertFalse(updatedAspect.data().containsKey("key_c"));
@@ -336,7 +336,7 @@ public class AspectProcessorTest extends TestCase {
    * Tests that Aspect Processor removes nested structs more than 1 level deep from an optional field.
    */
   @Test
-  public void testNestedNonOptionalSubFieldsOnOptionalField() throws CloneNotSupportedException {
+  public void testNestedNonOptionalSubFieldsOnOptionalField() {
     final String value = "{\"key_c\": {\"key_b\": {\"key_a\": \"hello\"}}}";
     final Aspect aspect = RecordUtils.toRecordTemplate(Aspect.class, value);
 
@@ -356,7 +356,7 @@ public class AspectProcessorTest extends TestCase {
     assertTrue(aspect.data().containsKey("key_c"));
 
     final DataSchema schema = pdlSchemaParser.lookupName("complex_record");
-    final Aspect updatedAspect = AspectProcessor.removeAspect("hello", aspect, schema,
+    final Aspect updatedAspect = AspectProcessor.getAspectWithReferenceRemoved("hello", aspect, schema,
         new PathSpec("key_c", "key_b", "key_a"));
 
     assertFalse(updatedAspect.data().containsKey("key_c"));
@@ -368,12 +368,12 @@ public class AspectProcessorTest extends TestCase {
    * This example is based on the SchemaMetadata object.
    */
   @Test
-  public void testRealCase() throws CloneNotSupportedException {
+  public void testRealCase() {
     final String value = "{\"fields\": [{\"globalTags\": {\"tags\": [{\"tag\": \"urn:li:tag:Dimension\"}]}}]}";
     final Aspect aspect = RecordUtils.toRecordTemplate(Aspect.class, value);
 
     final Aspect updatedAspect =
-        AspectProcessor.removeAspect("urn:li:tag:Dimension", aspect, SchemaMetadata.dataSchema(),
+        AspectProcessor.getAspectWithReferenceRemoved("urn:li:tag:Dimension", aspect, SchemaMetadata.dataSchema(),
             new PathSpec("fields", "*", "globalTags", "tags", "*", "tag"));
 
     assertFalse(updatedAspect.data().toString().contains("urn:li:tag:Dimension"));

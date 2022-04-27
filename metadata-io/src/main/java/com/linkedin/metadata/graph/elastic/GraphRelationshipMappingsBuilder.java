@@ -16,6 +16,7 @@ public class GraphRelationshipMappingsBuilder {
     mappings.put("source", getMappingsForEntity());
     mappings.put("destination", getMappingsForEntity());
     mappings.put("relationshipType", getMappingsForKeyword());
+
     return ImmutableMap.of("properties", mappings);
   }
 

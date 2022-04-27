@@ -1,10 +1,10 @@
-namespace com.linkedin.metadata.graph
+namespace com.linkedin.metadata.run
 
 /**
  * The model for the result of a relationship query.
  * Used to get the relationships of a given entity run.
  */
-record RelationshipResult {
+record DeleteReferencesResponse {
 
   /**
    *

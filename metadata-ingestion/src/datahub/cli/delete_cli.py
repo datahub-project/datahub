@@ -166,8 +166,8 @@ def delete(
             remove_dangling = click.confirm("Do you want to delete these references?")
 
         if remove_dangling:
-                    _delete_references(urn, dry_run=False, cached_session_host=(session, host))
-    elif registry_id:
+            _delete_references(urn, dry_run=False, cached_session_host=(session, host))    elif registry_id:
+
         # Registry-id based delete
         if soft and not dry_run:
             raise click.UsageError(
