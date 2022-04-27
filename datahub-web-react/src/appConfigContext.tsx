@@ -22,6 +22,9 @@ export const DEFAULT_APP_CONFIG = {
     visualConfig: {
         logoUrl: undefined,
     },
+    authConfig: {
+        tokenAuthEnabled: false,
+    },
 };
 
 export const AppConfigContext = React.createContext<{
