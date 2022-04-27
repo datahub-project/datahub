@@ -230,13 +230,25 @@ public class EbeanEntityService extends EntityService {
         .collect(Collectors.toMap(Pair::getFirst,
             pair -> EntityUtils.convertVersionStamp(pair.getSecond())));
 
+    // Cover full/partial versionStamp
     final Set<EbeanAspectV2.PrimaryKey> dbKeys = urnAspectVersionMap.entrySet().stream()
+        .filter(entry -> !entry.getValue().isEmpty())
         .map(entry -> aspectNames.stream()
+            .filter(aspectName -> entry.getValue().containsKey(aspectName))
             .map(aspectName -> new EbeanAspectV2.PrimaryKey(entry.getKey(), aspectName,
-                entry.getValue().getOrDefault(aspectName, 0L)))
+                entry.getValue().get(aspectName)))
             .collect(Collectors.toList()))
         .flatMap(List::stream)
         .collect(Collectors.toSet());
+
+    // Cover empty versionStamp
+    dbKeys.addAll(urnAspectVersionMap.entrySet().stream()
+        .filter(entry -> entry.getValue().isEmpty())
+        .map(entry -> aspectNames.stream()
+            .map(aspectName -> new EbeanAspectV2.PrimaryKey(entry.getKey(), aspectName, 0L))
+            .collect(Collectors.toList()))
+        .flatMap(List::stream)
+        .collect(Collectors.toSet()));
 
     return getCorrespondingAspects(dbKeys, versionedUrnStrs.stream()
         .map(Pair::getFirst)
