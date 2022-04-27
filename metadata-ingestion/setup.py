@@ -146,7 +146,7 @@ plugins: Dict[str, Set[str]] = {
     "airflow": {
         "apache-airflow >= 1.10.2",
     },
-    "great-expectations": sql_common | {"sqllineage==1.3.4"},
+    "great-expectations": sql_common | {"sqllineage==1.3.4", "simplejson"},
     # Source plugins
     # PyAthena is pinned with exact version because we use private method in PyAthena
     "athena": sql_common | {"PyAthena[SQLAlchemy]==2.4.1"},
@@ -260,6 +260,7 @@ mypy_stubs = {
     "types-tabulate",
     # avrogen package requires this
     "types-pytz",
+    "types-simplejson",
 }
 
 base_dev_requirements = {
@@ -337,7 +338,7 @@ if is_py37_or_newer:
             for dependency in plugins[plugin]
         }
     )
-    
+
     # These plugins are compatible with Airflow 1.
     base_dev_requirements_airflow_1 = base_dev_requirements_airflow_1.union(
         {

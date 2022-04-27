@@ -1,10 +1,10 @@
-import json
 import logging
 import time
 from dataclasses import dataclass
 from datetime import timezone
 from typing import Any, Dict, List, Optional, Union
 
+import simplejson as json
 from great_expectations.checkpoint.actions import ValidationAction
 from great_expectations.core.batch import Batch
 from great_expectations.core.batch_spec import (
@@ -260,6 +260,7 @@ class DataHubValidationAction(ValidationAction):
                 {
                     k: convert_to_string(v)
                     for k, v in validation_result_suite.evaluation_parameters.items()
+                    if k and v
                 }
                 if validation_result_suite.evaluation_parameters
                 else None
@@ -742,8 +743,13 @@ class DataHubStdAssertion:
     parameters: Optional[AssertionStdParameters] = None
 
 
-def convert_to_string(var):
-    return str(var) if isinstance(var, (str, int, float)) else json.dumps(var)
+def convert_to_string(var: Any) -> str:
+    try:
+        tmp = str(var) if isinstance(var, (str, int, float)) else json.dumps(var)
+    except TypeError as e:
+        logger.debug(e)
+        tmp = str(var)
+    return tmp
 
 
 def warn(msg):
