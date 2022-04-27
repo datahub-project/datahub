@@ -97,6 +97,7 @@ ebean:
   maxInactiveTimeSeconds: ${EBEAN_MAX_INACTIVE_TIME_IN_SECS:120}
   maxAgeMinutes: ${EBEAN_MAX_AGE_MINUTES:120}
   leakTimeMinutes: ${EBEAN_LEAK_TIME_MINUTES:15}
+  waitTimeoutMillis: ${EBEAN_WAIT_TIMEOUT_MILLIS:1000}
   autoCreateDdl: ${EBEAN_AUTOCREATE:false}
 
 cassandra:
