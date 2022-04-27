@@ -46,6 +46,9 @@ public class LocalEbeanServerConfigFactory {
   @Value("${ebean.leakTimeMinutes:15}")
   private Integer ebeanLeakTimeMinutes;
 
+  @Value("${ebean.waitTimeoutMillis:1000}")
+  private Integer ebeanWaitTimeoutMillis;
+
   @Value("${ebean.autoCreateDdl:false}")
   private Boolean ebeanAutoCreate;
 
@@ -75,6 +78,7 @@ public class LocalEbeanServerConfigFactory {
     dataSourceConfig.setMaxInactiveTimeSecs(ebeanMaxInactiveTimeSecs);
     dataSourceConfig.setMaxAgeMinutes(ebeanMaxAgeMinutes);
     dataSourceConfig.setLeakTimeMinutes(ebeanLeakTimeMinutes);
+    dataSourceConfig.setWaitTimeoutMillis(ebeanWaitTimeoutMillis);
     dataSourceConfig.setListener(getListenerToTrackCounts(dataSourceType));
     return dataSourceConfig;
   }
