@@ -1,0 +1,321 @@
+[
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLPrimaryKeySnapshot": {
+            "urn": "urn:li:mlPrimaryKey:(feature_store.driver_hourly_stats,driver_id)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.ml.metadata.MLPrimaryKeyProperties": {
+                        "description": "Driver ID",
+                        "dataType": "ORDINAL",
+                        "version": null,
+                        "sources": [
+                            "urn:li:dataset:(urn:li:dataPlatform:file,data.driver_stats_with_string.parquet,PROD)"
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "feast-repository-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+            "urn": "urn:li:mlFeature:(feature_store.driver_hourly_stats,conv_rate)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+                        "description": "Conv rate",
+                        "dataType": "CONTINUOUS",
+                        "version": null,
+                        "sources": [
+                            "urn:li:dataset:(urn:li:dataPlatform:file,data.driver_stats_with_string.parquet,PROD)"
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "feast-repository-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+            "urn": "urn:li:mlFeature:(feature_store.driver_hourly_stats,acc_rate)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+                        "description": "Acc rate",
+                        "dataType": "CONTINUOUS",
+                        "version": null,
+                        "sources": [
+                            "urn:li:dataset:(urn:li:dataPlatform:file,data.driver_stats_with_string.parquet,PROD)"
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "feast-repository-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+            "urn": "urn:li:mlFeature:(feature_store.driver_hourly_stats,avg_daily_trips)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+                        "description": "Avg daily trips",
+                        "dataType": "ORDINAL",
+                        "version": null,
+                        "sources": [
+                            "urn:li:dataset:(urn:li:dataPlatform:file,data.driver_stats_with_string.parquet,PROD)"
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "feast-repository-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+            "urn": "urn:li:mlFeature:(feature_store.driver_hourly_stats,string_feature)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+                        "description": "String feature",
+                        "dataType": "TEXT",
+                        "version": null,
+                        "sources": [
+                            "urn:li:dataset:(urn:li:dataPlatform:file,data.driver_stats_with_string.parquet,PROD)"
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "feast-repository-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureTableSnapshot": {
+            "urn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,feature_store.driver_hourly_stats)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/feast/feature_store/feature_store.driver_hourly_stats"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties": {
+                        "customProperties": {},
+                        "description": null,
+                        "mlFeatures": [
+                            "urn:li:mlFeature:(feature_store.driver_hourly_stats,conv_rate)",
+                            "urn:li:mlFeature:(feature_store.driver_hourly_stats,acc_rate)",
+                            "urn:li:mlFeature:(feature_store.driver_hourly_stats,avg_daily_trips)",
+                            "urn:li:mlFeature:(feature_store.driver_hourly_stats,string_feature)"
+                        ],
+                        "mlPrimaryKeys": [
+                            "urn:li:mlPrimaryKey:(feature_store.driver_hourly_stats,driver_id)"
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "feast-repository-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+            "urn": "urn:li:mlFeature:(feature_store.transformed_conv_rate,conv_rate_plus_val1)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+                        "description": null,
+                        "dataType": "CONTINUOUS",
+                        "version": null,
+                        "sources": [
+                            "urn:li:dataset:(urn:li:dataPlatform:request,vals_to_add,PROD)",
+                            "urn:li:dataset:(urn:li:dataPlatform:file,data.driver_stats_with_string.parquet,PROD)"
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "feast-repository-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+            "urn": "urn:li:mlFeature:(feature_store.transformed_conv_rate,conv_rate_plus_val2)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+                        "description": null,
+                        "dataType": "CONTINUOUS",
+                        "version": null,
+                        "sources": [
+                            "urn:li:dataset:(urn:li:dataPlatform:request,vals_to_add,PROD)",
+                            "urn:li:dataset:(urn:li:dataPlatform:file,data.driver_stats_with_string.parquet,PROD)"
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "feast-repository-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureTableSnapshot": {
+            "urn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,feature_store.transformed_conv_rate)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/feast/feature_store/feature_store.transformed_conv_rate"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties": {
+                        "customProperties": {},
+                        "description": null,
+                        "mlFeatures": [
+                            "urn:li:mlFeature:(feature_store.transformed_conv_rate,conv_rate_plus_val1)",
+                            "urn:li:mlFeature:(feature_store.transformed_conv_rate,conv_rate_plus_val2)"
+                        ],
+                        "mlPrimaryKeys": []
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "feast-repository-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+}
+]
