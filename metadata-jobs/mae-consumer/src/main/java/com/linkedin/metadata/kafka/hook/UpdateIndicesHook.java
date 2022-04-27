@@ -25,6 +25,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
+import com.linkedin.metadata.search.utils.SearchUtils;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
@@ -198,15 +199,13 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
       return;
     }
 
-    String docId;
-    try {
-      docId = URLEncoder.encode(urn.toString(), "UTF-8");
-    } catch (UnsupportedEncodingException e) {
-      log.error("Failed to encode the urn with error: {}", e.toString());
+    Optional<String> docId = SearchUtils.getDocId(urn);
+
+    if (!docId.isPresent()) {
       return;
     }
 
-    _entitySearchService.upsertDocument(entityName, searchDocument.get(), docId);
+    _entitySearchService.upsertDocument(entityName, searchDocument.get(), docId.get());
   }
 
   /**

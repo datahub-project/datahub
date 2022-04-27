@@ -16,6 +16,8 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
+import com.linkedin.metadata.search.utils.SearchUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
@@ -26,6 +28,7 @@ import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
@@ -41,6 +44,7 @@ public class IngestPoliciesStep implements BootstrapStep {
   private final EntityRegistry _entityRegistry;
   private final EntityService _entityService;
   private final EntitySearchService _entitySearchService;
+  private final SearchDocumentTransformer _searchDocumentTransformer;
 
   @Override
   public String name() {
@@ -65,7 +69,7 @@ public class IngestPoliciesStep implements BootstrapStep {
 
     // If search index for policies is empty, send MCLs for all policies to ingest policies into the search index
     if (_entitySearchService.docCount(Constants.POLICY_ENTITY_NAME) == 0) {
-      sendMCL();
+      updatePolicyIndex();
     }
 
     // 2. For each JSON object, cast into a DataHub Policy Info object.
@@ -99,10 +103,10 @@ public class IngestPoliciesStep implements BootstrapStep {
   }
 
   /**
-   * Send MCLs for each policy to refill the policy search index
+   * Update policy index and push in the relevant search documents into the search index
    */
-  private void sendMCL() throws URISyntaxException {
-    log.info("Pushing MCLs for all policies");
+  private void updatePolicyIndex() throws URISyntaxException {
+    log.info("Pushing documents to the policy index");
     AspectSpec policyInfoAspectSpec = _entityRegistry.getEntitySpec(Constants.POLICY_ENTITY_NAME)
         .getAspectSpec(Constants.DATAHUB_POLICY_INFO_ASPECT_NAME);
     int start = 0;
@@ -116,19 +120,37 @@ public class IngestPoliciesStep implements BootstrapStep {
       final Map<Urn, EntityResponse> policyEntities =
           _entityService.getEntitiesV2(POLICY_ENTITY_NAME, new HashSet<>(listUrnsResult.getEntities()),
               Collections.singleton(Constants.DATAHUB_POLICY_INFO_ASPECT_NAME));
-      policyEntities.values().forEach(entityResponse -> sendMCL(entityResponse, policyInfoAspectSpec));
+      policyEntities.values().forEach(entityResponse -> insertPolicyDocument(entityResponse, policyInfoAspectSpec));
     }
-    log.info("Successfully pushed MCLs for all policies");
+    log.info("Successfully updated the policy index");
   }
 
-  private void sendMCL(EntityResponse entityResponse, AspectSpec aspectSpec) {
+  private void insertPolicyDocument(EntityResponse entityResponse, AspectSpec aspectSpec) {
     EnvelopedAspect aspect = entityResponse.getAspects().get(Constants.DATAHUB_POLICY_INFO_ASPECT_NAME);
     if (aspect == null) {
       throw new RuntimeException(String.format("Missing policy info aspect for urn %s", entityResponse.getUrn()));
     }
-    _entityService.produceMetadataChangeLog(entityResponse.getUrn(), Constants.POLICY_ENTITY_NAME,
-        Constants.DATAHUB_POLICY_INFO_ASPECT_NAME, aspectSpec, null, new DataHubPolicyInfo(aspect.getValue().data()),
-        null, null, aspect.getCreated(), ChangeType.UPSERT);
+
+    Optional<String> searchDocument;
+    try {
+      searchDocument = _searchDocumentTransformer.transformAspect(entityResponse.getUrn(),
+          new DataHubPolicyInfo(aspect.getValue().data()), aspectSpec, false);
+    } catch (Exception e) {
+      log.error("Error in getting documents from aspect: {} for aspect {}", e, aspectSpec.getName());
+      return;
+    }
+
+    if (!searchDocument.isPresent()) {
+      return;
+    }
+
+    Optional<String> docId = SearchUtils.getDocId(entityResponse.getUrn());
+
+    if (!docId.isPresent()) {
+      return;
+    }
+
+    _entitySearchService.upsertDocument(Constants.POLICY_ENTITY_NAME, searchDocument.get(), docId.get());
   }
 
   private void ingestPolicy(final Urn urn, final DataHubPolicyInfo info) throws URISyntaxException {
