@@ -1,5 +1,5 @@
 from functools import reduce
-from typing import TYPE_CHECKING, List, Optional, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 import boto3
 from boto3.session import Session
@@ -91,6 +91,16 @@ class AwsSourceConfig(ConfigModel):
             )
         else:
             return Session(region_name=self.aws_region, profile_name=self.aws_profile)
+
+    def get_credentials(self) -> Dict[str, str]:
+        credentials = self.get_session().get_credentials()
+        if credentials is not None:
+            return {
+                "aws_access_key_id": credentials.access_key,
+                "aws_secret_access_key": credentials.secret_key,
+                "aws_session_token": credentials.token,
+            }
+        return {}
 
     def get_s3_client(self) -> "S3Client":
         return self.get_session().client("s3")
