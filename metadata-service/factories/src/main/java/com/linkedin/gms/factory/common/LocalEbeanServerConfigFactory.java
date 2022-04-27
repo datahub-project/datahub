@@ -49,9 +49,6 @@ public class LocalEbeanServerConfigFactory {
   @Value("${ebean.autoCreateDdl:false}")
   private Boolean ebeanAutoCreate;
 
-  @Value("${ebean.readOnlyUrl:}")
-  private String ebeanReadOnlyDatasourceUrl;
-
   private DataSourcePoolListener getListenerToTrackCounts(String metricName) {
     final String counterName = "ebeans_connection_pool_size_" + metricName;
     return new DataSourcePoolListener() {
@@ -87,12 +84,6 @@ public class LocalEbeanServerConfigFactory {
     ServerConfig serverConfig = new ServerConfig();
     serverConfig.setName("gmsEbeanServiceConfig");
     serverConfig.setDataSourceConfig(buildDataSourceConfig(ebeanDatasourceUrl, "main"));
-
-    if (!StringUtils.isEmpty(ebeanReadOnlyDatasourceUrl)) {
-      serverConfig.setReadOnlyDataSourceConfig(buildDataSourceConfig(ebeanReadOnlyDatasourceUrl, "read_only"));
-      serverConfig.setAutoReadOnlyDataSource(true);
-    }
-
     serverConfig.setDdlGenerate(ebeanAutoCreate);
     serverConfig.setDdlRun(ebeanAutoCreate);
     return serverConfig;
