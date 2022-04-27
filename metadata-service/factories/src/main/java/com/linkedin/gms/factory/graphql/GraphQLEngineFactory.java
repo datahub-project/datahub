@@ -120,7 +120,8 @@ public class GraphQLEngineFactory {
           _configProvider.getAuthorization(),
           _gitVersion,
           _graphService.supportsMultiHop(),
-          _visualConfiguration
+          _visualConfiguration,
+          _configProvider.getTelemetry()
           ).builder().build();
     }
     return new GmsGraphQLEngine(
@@ -139,7 +140,8 @@ public class GraphQLEngineFactory {
         _configProvider.getAuthorization(),
         _gitVersion,
         _graphService.supportsMultiHop(),
-        _visualConfiguration
+        _visualConfiguration,
+        _configProvider.getTelemetry()
     ).builder().build();
   }
 }
