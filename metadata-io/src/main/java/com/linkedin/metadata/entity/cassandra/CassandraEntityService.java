@@ -142,7 +142,7 @@ public class CassandraEntityService extends EntityService {
       // TODO: entityName is unused, can we remove this as a param?
       @Nonnull String entityName,
       @Nonnull Set<Urn> urns,
-      @Nonnull Set<String> aspectNames) throws URISyntaxException {
+      @Nonnull Set<String> aspectNames) {
 
     final Set<CassandraAspect.PrimaryKey> dbKeys = urns.stream()
         .map(urn -> aspectNames.stream()
@@ -151,6 +151,10 @@ public class CassandraEntityService extends EntityService {
         .flatMap(List::stream)
         .collect(Collectors.toSet());
 
+    return getCorrespondingAspects(dbKeys, urns);
+  }
+
+  private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<CassandraAspect.PrimaryKey> dbKeys, Set<Urn> urns) {
     final Map<CassandraAspect.PrimaryKey, EnvelopedAspect> envelopedAspectMap = getEnvelopedAspects(dbKeys);
 
     // Group result by Urn
@@ -172,6 +176,39 @@ public class CassandraEntityService extends EntityService {
       }
     }
     return result;
+  }
+
+  @Override
+  public Map<Urn, List<EnvelopedAspect>> getVersionedEnvelopedAspects(
+      @Nonnull Set<Pair<String, String>> versionedUrnStrs, @Nonnull Set<String> aspectNames) throws URISyntaxException {
+
+    Map<String, Map<String, Long>> urnAspectVersionMap = versionedUrnStrs.stream()
+        .collect(Collectors.toMap(Pair::getFirst,
+            pair -> EntityUtils.convertVersionStamp(pair.getSecond())));
+
+    // Cover full/partial versionStamp
+    final Set<CassandraAspect.PrimaryKey> dbKeys = urnAspectVersionMap.entrySet().stream()
+        .filter(entry -> !entry.getValue().isEmpty())
+        .map(entry -> aspectNames.stream()
+            .filter(aspectName -> entry.getValue().containsKey(aspectName))
+            .map(aspectName -> new CassandraAspect.PrimaryKey(entry.getKey(), aspectName,
+                entry.getValue().get(aspectName)))
+            .collect(Collectors.toList()))
+        .flatMap(List::stream)
+        .collect(Collectors.toSet());
+
+    // Cover empty versionStamp
+    dbKeys.addAll(urnAspectVersionMap.entrySet().stream()
+        .filter(entry -> entry.getValue().isEmpty())
+        .map(entry -> aspectNames.stream()
+            .map(aspectName -> new CassandraAspect.PrimaryKey(entry.getKey(), aspectName, 0L))
+            .collect(Collectors.toList()))
+        .flatMap(List::stream)
+        .collect(Collectors.toSet()));
+
+    return getCorrespondingAspects(dbKeys, versionedUrnStrs.stream()
+        .map(Pair::getFirst)
+        .map(UrnUtils::getUrn).collect(Collectors.toSet()));
   }
 
   @Override
@@ -616,7 +653,7 @@ public class CassandraEntityService extends EntityService {
     return version;
   }
 
-  private Map<CassandraAspect.PrimaryKey, EnvelopedAspect> getEnvelopedAspects(final Set<CassandraAspect.PrimaryKey> dbKeys) throws URISyntaxException {
+  private Map<CassandraAspect.PrimaryKey, EnvelopedAspect> getEnvelopedAspects(final Set<CassandraAspect.PrimaryKey> dbKeys) {
     final Map<CassandraAspect.PrimaryKey, EnvelopedAspect> result = new HashMap<>();
     final Map<CassandraAspect.PrimaryKey, CassandraAspect> dbEntries = _aspectDao.batchGet(dbKeys);
 
@@ -637,7 +674,7 @@ public class CassandraEntityService extends EntityService {
       envelopedAspect.setVersion(currAspectEntry.getVersion());
       envelopedAspect.setValue(aspect);
       envelopedAspect.setCreated(new AuditStamp()
-          .setActor(Urn.createFromString(currAspectEntry.getCreatedBy()))
+          .setActor(UrnUtils.getUrn(currAspectEntry.getCreatedBy()))
           .setTime(currAspectEntry.getCreatedOn().getTime())
       );
       result.put(currKey, envelopedAspect);
@@ -645,7 +682,7 @@ public class CassandraEntityService extends EntityService {
     return result;
   }
 
-  private EnvelopedAspect getKeyEnvelopedAspect(final Urn urn) throws URISyntaxException {
+  private EnvelopedAspect getKeyEnvelopedAspect(final Urn urn) {
     final EntitySpec spec = getEntityRegistry().getEntitySpec(PegasusUtils.urnToEntityName(urn));
     final AspectSpec keySpec = spec.getKeyAspectSpec();
     final RecordDataSchema keySchema = keySpec.getPegasusSchema();
@@ -657,7 +694,7 @@ public class CassandraEntityService extends EntityService {
     envelopedAspect.setVersion(ASPECT_LATEST_VERSION);
     envelopedAspect.setValue(aspect);
     envelopedAspect.setCreated(
-        new AuditStamp().setActor(Urn.createFromString(SYSTEM_ACTOR)).setTime(System.currentTimeMillis()));
+        new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(System.currentTimeMillis()));
 
     return envelopedAspect;
   }
