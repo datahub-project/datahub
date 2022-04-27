@@ -569,7 +569,11 @@ class S3Source(Source):
             or self.source_config.use_s3_object_tags
         ):
             bucket = get_bucket_name(table_data.table_path)
-            key_prefix = get_key_prefix(table_data.table_path) if table_data.full_path == table_data.table_path else None
+            key_prefix = (
+                get_key_prefix(table_data.table_path)
+                if table_data.full_path == table_data.table_path
+                else None
+            )
             s3_tags = self.get_s3_tags(bucket, key_prefix, dataset_urn)
             if s3_tags is not None:
                 dataset_snapshot.aspects.append(s3_tags)
