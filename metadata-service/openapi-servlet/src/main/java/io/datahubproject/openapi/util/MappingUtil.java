@@ -18,6 +18,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.entity.ValidationException;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.resources.entity.AspectUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.GenericAspect;
@@ -32,6 +33,7 @@ import io.datahubproject.openapi.generated.EntityResponse;
 import io.datahubproject.openapi.generated.EnvelopedAspect;
 import io.datahubproject.openapi.generated.MetadataChangeProposal;
 import io.datahubproject.openapi.generated.OneOfEnvelopedAspectValue;
+import io.datahubproject.openapi.generated.OneOfGenericAspectValue;
 import io.datahubproject.openapi.generated.Status;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -68,9 +70,9 @@ public class MappingUtil {
 
   private static final Map<String, Class<? extends OneOfEnvelopedAspectValue>> ENVELOPED_ASPECT_TYPE_MAP =
       new HashMap<>();
-  private static final Map<Class<? extends OneOfEnvelopedAspectValue>, String> ASPECT_NAME_MAP =
+  private static final Map<Class<? extends OneOfGenericAspectValue>, String> ASPECT_NAME_MAP =
       new HashMap<>();
-  private static final Map<String, Class> PEGASUS_TYPE_MAP = new HashMap<>();
+  private static final Map<String, Class<? extends RecordTemplate>> PEGASUS_TYPE_MAP = new HashMap<>();
   private static final Pattern CLASS_NAME_PATTERN =
       Pattern.compile("(\"com\\.linkedin\\.)([a-z]+?\\.)+?(?<className>[A-Z]\\w+?)(\":\\{)(?<content>.*?)(}})");
   private static final Pattern GLOBAL_TAGS_PATTERN =
@@ -91,6 +93,11 @@ public class MappingUtil {
     provider.addIncludeFilter(new AssignableTypeFilter(OneOfEnvelopedAspectValue.class));
     Set<BeanDefinition> components = provider.findCandidateComponents("io/datahubproject/openapi/generated");
     components.forEach(MappingUtil::putEnvelopedAspectEntry);
+
+    provider = new ClassPathScanningCandidateComponentProvider(false);
+    provider.addIncludeFilter(new AssignableTypeFilter(OneOfGenericAspectValue.class));
+    components = provider.findCandidateComponents("io/datahubproject/openapi/generated");
+    components.forEach(MappingUtil::putGenericAspectEntry);
 
     List<ClassLoader> classLoadersList = new ArrayList<>();
     classLoadersList.add(ClasspathHelper.contextClassLoader());
@@ -172,18 +179,34 @@ public class MappingUtil {
     }
   }
 
+  @SuppressWarnings("unchecked")
   private static void putEnvelopedAspectEntry(BeanDefinition beanDefinition) {
     try {
       Class<? extends OneOfEnvelopedAspectValue> cls =
           (Class<? extends OneOfEnvelopedAspectValue>) Class.forName(beanDefinition.getBeanClassName());
-      char[] c = cls.getSimpleName().toCharArray();
-      c[0] = Character.toLowerCase(c[0]);
-      String aspectName = new String(c);
+      String aspectName = getAspectName(cls);
       ENVELOPED_ASPECT_TYPE_MAP.put(aspectName, cls);
+    } catch (ClassNotFoundException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  @SuppressWarnings("unchecked")
+  private static void putGenericAspectEntry(BeanDefinition beanDefinition) {
+    try {
+      Class<? extends OneOfGenericAspectValue> cls =
+          (Class<? extends OneOfGenericAspectValue>) Class.forName(beanDefinition.getBeanClassName());
+      String aspectName = getAspectName(cls);
       ASPECT_NAME_MAP.put(cls, aspectName);
     } catch (ClassNotFoundException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  private static String getAspectName(Class<?> cls) {
+    char[] c = cls.getSimpleName().toCharArray();
+    c[0] = Character.toLowerCase(c[0]);
+    return new String(c);
   }
 
 
@@ -318,7 +341,7 @@ public class MappingUtil {
     }
     metadataChangeProposal.aspect(genericAspect)
         .changeType(io.datahubproject.openapi.generated.ChangeType.UPSERT)
-        .aspectName(ASPECT_NAME_MAP.get(aspectRequest.getAspect()))
+        .aspectName(ASPECT_NAME_MAP.get(aspectRequest.getAspect().getClass()))
         .entityKeyAspect(keyAspect)
         .entityUrn(aspectRequest.getEntityUrn())
         .entityType(aspectRequest.getEntityType());
@@ -336,7 +359,8 @@ public class MappingUtil {
   }
 
   public static UpsertAspectRequest createStatusRemoval(Urn urn, EntityService entityService) {
-    if (!entityService.getEntityRegistry().getEntitySpec(urn.getEntityType()).getAspectSpecMap().containsKey(STATUS_ASPECT_NAME)) {
+    EntitySpec entitySpec = entityService.getEntityRegistry().getEntitySpec(urn.getEntityType());
+    if (entitySpec == null || !entitySpec.getAspectSpecMap().containsKey(STATUS_ASPECT_NAME)) {
       throw new IllegalArgumentException("Entity type is not valid for soft deletes: " + urn.getEntityType());
     }
     return UpsertAspectRequest.builder()
