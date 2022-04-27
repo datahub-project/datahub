@@ -88,3 +88,5 @@ def test_snowflake_uri_key_pair_authentication():
         == "snowflake://user@acctname/?authenticator=SNOWFLAKE_JWT&warehouse=COMPUTE_WH&role"
         "=sysadmin&application=acryl_datahub"
     )
+    connect_args = config.get_options().get("connect_args")
+    assert connect_args is not None
