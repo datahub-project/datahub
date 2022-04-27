@@ -104,7 +104,7 @@ class SnowflakeSource(SQLAlchemySource):
 
         self.report.role = cur_role
         logger.info(f"Current role is {cur_role}")
-        if cur_role.lower() == "accountadmin":
+        if cur_role.lower() == "accountadmin" or not self.config.check_role_grants:
             return
 
         logger.info(f"Checking grants for role {cur_role}")
@@ -509,7 +509,7 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
         if not self.report.ignore_start_time_lineage:
             self.report.lineage_start_time = self.config.start_time
         self.report.lineage_end_time = self.config.end_time
-
+        self.report.check_role_grants = self.config.check_role_grants
         if self.config.provision_role is not None:
             self.report.run_ingestion = self.config.provision_role.run_ingestion
 
