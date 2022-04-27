@@ -89,6 +89,15 @@
       "parameters" : [ {
         "name" : "urn",
         "type" : "string"
+      }, {
+        "name" : "aspectName",
+        "type" : "string"
+      }, {
+        "name" : "startTimeMillis",
+        "type" : "long"
+      }, {
+        "name" : "endTimeMillis",
+        "type" : "long"
       } ],
       "returns" : "com.linkedin.metadata.run.DeleteEntityResponse"
     }, {
