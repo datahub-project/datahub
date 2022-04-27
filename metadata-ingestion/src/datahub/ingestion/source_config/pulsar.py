@@ -1,5 +1,5 @@
 import re
-from typing import Dict, Optional, Union
+from typing import Dict, Optional, Union, List
 from urllib.parse import urlparse
 
 from pydantic import Field, validator
@@ -62,7 +62,7 @@ class PulsarSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigBase):
     exclude_individual_partitions: bool = True
     # Listing all tenants requires superUser role, alternative you can set tenants you want to scrape
     # using the tenant admin role
-    tenants: list[str] = []
+    tenants: List[str] = []
 
     domain: Dict[str, AllowDenyPattern] = dict()
     # Custom Stateful Ingestion settings

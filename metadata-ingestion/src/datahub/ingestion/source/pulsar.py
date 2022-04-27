@@ -28,7 +28,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source_config.pulsar import PulsarSourceConfig
 from datahub.ingestion.source_report.pulsar import PulsarSourceReport
 
-# from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     KafkaSchema,
@@ -88,7 +87,7 @@ class PulsarSource(StatefulIngestionSourceBase):
         self.config: PulsarSourceConfig = config
         self.report: PulsarSourceReport = PulsarSourceReport()
         self.base_url: str = self.config.web_service_url + "/admin/v2"
-        self.tenants: list[str] = config.tenants
+        self.tenants: List[str] = config.tenants
 
         self.session = requests.Session()
         self.session.verify = self.config.verify_ssl

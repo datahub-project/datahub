@@ -8,7 +8,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 
 @dataclass
 class PulsarSourceReport(StatefulIngestionReport):
-    pulsar_version: str = None
+    pulsar_version: str = ""
     tenants_scanned: int = 0
     namespaces_scanned: int = 0
     topics_scanned: int = 0
